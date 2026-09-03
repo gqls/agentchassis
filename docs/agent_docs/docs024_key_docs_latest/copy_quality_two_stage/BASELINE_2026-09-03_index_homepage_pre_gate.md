@@ -61,3 +61,42 @@ treatment (truncate, keep the first half) already produces exactly his ruling.
   > We also set up the agent frameworks underneath, so your team can run these systems in production rather than just look at a demo."}, {"icon": "compass", "name": "Strategy, Sites & Implementation", "subtitle": "From first conversation to working system", "description": "Most companies don't need a lecture on AI.
 - **`hero`** · `x_not_y`
   > We pick whichever model actually does the job, not whichever vendor we're tied to.
+
+> **CORRECTED 2026-09-03 ~10:25Z, before either rebuild ran — I overstated the repair above.**
+> The line "the register's `x_not_y` treatment (truncate, keep the first half) already produces
+> exactly his ruling" is wrong in a way that matters for reading the after-pass. **"Truncate" is
+> the register's TREATMENT STRING, not the implementation.** `rewrite_negations_action.go` asks
+> the model **once** to rewrite the offending sentences directly, then judges each proposed
+> rewrite with `AcceptNegationRewrite`, which **fails closed** — a rejected rewrite leaves the
+> ORIGINAL sentence in place. So the gate is not guaranteed to reproduce his cut-at-the-comma
+> ruling; it may rephrase instead, and it may keep the sentence untouched. Whether his sentence
+> comes out as he ruled is **empirical, and the after-pass is the measurement** — do not record
+> it as expected-and-confirmed.
+
+## What a PASSING after-pass looks like (settled from the code, before the run)
+
+Verified in the live config, so the 2026-08-21 silent no-op does **not** apply here:
+`rewrite_negations.output_field = copy_gate` and **`render_section.content_from =
+copy_gate.result`** (not `generated_content.result`). The repair genuinely reaches the render.
+⚠ Reading that wiring needs the path `steps.process_sections_loop.config.sub_workflow.steps.*` —
+querying `steps.process_sections_loop.steps.*` returns `(unset)` for every key and reads exactly
+like "the repair is unwired", which is how a false alarm starts.
+
+**The budget is inert, so residue is not automatically a failure.** `page_budget: 2` is only
+spendable by MILD shapes (`rewrite_negations_action.go:263-270`: *"A sharp shape now never
+consumes the budget and is always repaired; a mild one is tolerated up to `page_budget`"*), and
+`mildNegationShapes` has been EMPTY since Decision A. So every non-exempt, non-headline hit is
+repaired, and the known per-section-vs-per-page counter bug is moot while the set is empty.
+
+That leaves exactly **two legitimate reasons for a surviving hit**, and both are recorded rather
+than silent:
+1. **Exempt** — brief-supplied (the seven `defaultBriefFields` paths) or regulatory/capability
+   negations. These are counted and reported, never rewritten; fixing them means fixing the
+   brief, which is the site lane's call.
+2. **Rejected rewrite** — `AcceptNegationRewrite` failed the model's proposal closed, keeping the
+   original. Every rejection carries its reason, and the header calls that log *"the instrument:
+   it is how we find out whether the repair is fixing the copy or teaching the model a new tic"*.
+
+**So the after-pass must read the rejection reasons, not just re-count shapes.** A count alone
+cannot tell an exemption from a rejection from a repair that never ran, and those three want
+three different responses.
