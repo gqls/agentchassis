@@ -60613,3 +60613,51 @@ a-report-is-not-a-measurement.
 - **Cost.** A wrong planning figure sent to two lanes for ~25 minutes; one correction round each;
   and the 725 window's redesign to claim-gating — which turned out to be the better shape anyway,
   so the only lasting cost is this row.
+
+## 2026-09-03 — a zero in `orchestration_states` blamed on retention, when "nothing refused" was equally sufficient (session bugsweep 2, `bugs_open/442` §2)
+
+- **The claim.** Written into `bugs_open/442` §2 on 2026-09-02 and repeated in §6 as an
+  instruction: *"`orchestration_states` returns **zero rows** carrying a `save_result.reason`
+  fleet-wide — the rows age out, so even the field that does exist is not readable after the
+  fact"*, therefore *"do not verify at `orchestration_states`"*.
+- **Why it was false.** The zero was real and the *reason* was invented. Measured 2026-09-03:
+  the table retains ~26 hours (oldest row of 9,277 was `2026-09-02 09:41`), five backfiller runs
+  survive in that window, and **all five carry a `save_result`** — 5 of 5 `updated:true`, 0 of 5
+  carrying a `reason`. The action only writes `reason` when it refuses, so a window containing
+  no refusal returns zero rows whether or not anything ages out. Two sufficient causes; one was
+  measured, the other assumed, and the assumed one was written down as the finding.
+- **What caught it.** Running the same query one day later while looking for something else
+  (offered-vs-written counts), and noticing the rows were there.
+- **The mistake, precisely.** A zero has as many explanations as it has sufficient causes, and
+  "the record is unreadable" and "the event did not happen" are the two that look identical in
+  every query that filters on the event. Filtering on `save_result.reason` cannot separate them
+  **by construction** — the predicate names the event.
+- **The cheap check that would have.** One column, and it is the demand control: ask whether
+  `save_result` is present **at all**, not whether it carries a `reason`. `collected_data ?
+  'pages_missing_meta'` plus `jsonb_pretty(collected_data->'saved')` answers both halves in the
+  same row. If the container is there, retention is not your explanation.
+- **Cost.** §6 told the next session not to look in the one place the evidence actually is, for
+  a day. Corrected in `442` §9b (commit `a3e092368`), which retires the §6 instruction.
+
+## 2026-09-03 — a mutation that "should have failed" passed, because it landed outside the scope the control claims (session bugsweep 2, migration 728)
+
+- **The claim.** Mid-rehearsal of migration `728`: I made the `UPDATE` also write
+  `task_workflow`, expected the positive control to abort, and it committed cleanly. My first
+  reading was that the control was broken.
+- **Why it was false.** The control compares `default_config` against a pre-image with only the
+  `result_message` path replaced. `task_workflow` is a **different column** — and the only column
+  the migration's `UPDATE` writes is `default_config`. The control was doing exactly what it
+  claims, and the mutation was testing something nothing had promised.
+- **What caught it.** Re-reading what the control asserts before editing it. The corrected
+  mutation — a second `jsonb_set` *inside* `default_config` — aborted immediately:
+  *"the update changed more than the result_message (0 of 1 rows match the pre-image)"*.
+- **The mistake, precisely.** "Mutate the code to prove the guard" is not satisfied by any
+  mutation. A mutation only grades a guard if it falls **inside the guard's stated scope**; one
+  that lands outside produces a pass that means nothing, and the natural next move — widening the
+  guard until the mutation fails — makes the migration assert things its own `UPDATE` cannot
+  cause. That is how a control grows past its evidence.
+- **The cheap check that would have.** Before running a mutation, say in one line which assertion
+  it is supposed to trip and which statement of yours it corrupts. If the mutation touches
+  something your change never writes, it is not a mutation of your change.
+- **Cost.** One extra rehearsal round, ~2 minutes, and no wrong claim escaped — logged because
+  the near-miss (widening a control to chase an out-of-scope mutation) is the expensive half.

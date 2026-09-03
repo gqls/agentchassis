@@ -20133,3 +20133,40 @@ code change owed at the next roll, tracked in RFC_015 §5.
   2026-08-31 `content-quality-audit` verdict row; caught on the read-back of `jsonb_object_keys(spec)`
   and rewritten in place under `claimed_by IS NULL` before the trigger's next tick. Recipe with the
   guard: `finetuning_uk_service/RUNBOOK_finetuning_uk_service.md` ("Rebuild an ALREADY-DEPLOYED page")
+
+### Querying `orchestration_states` for a step's FAILURE field returns zero rows when nothing failed — and zero is also what a 26-hour retention window looks like, so the query cannot tell you which
+
+- **footprint:** `orchestration_states`, `collected_data`, `save_result`, `__step_error`,
+  `save_page_meta_description`, `meta-description-backfiller`, any
+  `collected_data->'<output_field>'->>'reason'` predicate
+- **fires when:** you ask "did this step ever refuse / fail?" by filtering on the field the step
+  writes **only when it refuses** — `…->'save_result'->>'reason'`, `…->>'__step_error'`, an
+  `error`/`skipped`/`fallback` key. The filter names the event, so a run in which the event did not
+  happen is indistinguishable from a run that is no longer in the table
+- **the tell:** there is none. Both answers are `(0 rows)`, and the retention story is the more
+  interesting one, so it is the one that gets written down. `bugs_open/442` §2 recorded *"the rows
+  age out, so even the field that does exist is not readable after the fact"* and §6 turned that
+  into an instruction — *"do not verify at `orchestration_states`"* — sending the next session away
+  from the one place the evidence actually was. `[MEASURED 2026-09-03]` the table held 9,277 rows
+  over a **~26-hour** window, five backfiller runs survived in it, and **all five carried a
+  `save_result`**: 5 of 5 `updated:true`, **0** of 5 carrying a `reason`. The zero meant *nothing
+  refused*, not *the record is gone*
+- **the check:** ask for the **container**, never the failure key, and read the retention window in
+  the same breath. If the container is present, retention is not your explanation:
+  ```sql
+  -- demand control FIRST: does this table still hold runs of the kind you mean, and how far back?
+  SELECT count(*) AS all_rows, min(created_at) AS oldest FROM orchestration_states;
+  -- then the container, not the reason: presence answers "readable", contents answer "happened"
+  SELECT created_at, jsonb_pretty(collected_data->'saved') AS saved   -- the loop's output_field
+    FROM orchestration_states
+   WHERE collected_data ? 'pages_missing_meta'                        -- names the RUN, not the failure
+   ORDER BY created_at;
+  ```
+  ⚠ The `?` operator on a large `collected_data` is a sequential scan and takes minutes here — run
+  it in the background with `SET statement_timeout` raised rather than concluding "the query hangs,
+  so the rows must be gone", which is the same mistake wearing a third hat. And if you conclude the
+  window is too short, say so as *"a refusal is readable for ~26 hours by someone who knows to
+  look"* — that is a different defect from *"a refusal is not recorded"*, and it takes a different
+  fix
+- **source:** `bugs_open/442` §9b (correction to its own §2, commit `a3e092368`); the wrong call and
+  the one-column check in `WRONG_CALLS.md`, 2026-09-03
