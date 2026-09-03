@@ -64293,3 +64293,30 @@ forbids an amend, so it stands. This is a **documented landmine already in MEMOR
 while writing about a different trap. The tally is the point: knowing a trap and being
 mid-flow on something else are independent. The cheap check is to use a heredoc
 (`git commit -F -`) for any message containing backticks, or single-quote the word.
+
+## 2026-09-03 — "ten pages are live on the customer's domain", told to the owner, from a page-level flag on a site that had never been published (`portfolio_positioning`)
+
+- **The claim.** Reporting that copyonline.co.uk was being built to the wrong shape, I wrote to the
+  owner that ten pages were "built, deployed and live", and costed one remediation option as putting
+  "a wrong-shaped site briefly in front of anyone who looks".
+- **What was true.** Nothing was public. The recorded `pages.url` for every page returns **404**, the
+  root still serves the owner's **previous Drupal 7 site**, and `sites.publish_target`,
+  `publish_project`, `published_at` and `last_deployed_at` are all **NULL** with `build_status`
+  `pending`. The site has never been published anywhere.
+- **What misled me.** `pages.deployed_at` was populated on all ten, and `pages.status='active'`. That
+  is a **page-level** flag about rendering. It makes no claim about the **site** having a publication
+  target, and I read it as though it did — then put the word "live", which the system never said, into
+  a message to the owner.
+- **Why it mattered.** It inflated the cost of one option by an order of magnitude and added a false
+  urgency (public exposure) to a decision I was already pressing him on. The correction goes the good
+  way this time, which is exactly why it was easy to publish without checking: a scary number invites
+  action, not scrutiny.
+- **What caught it.** Curling the site — after writing three documents that did not. The estate's own
+  standing rule, *trust the rendered artefact, not the status*, which I had applied that same morning
+  to the tool components and then dropped in the afternoon on the pages.
+- **The cheap check that would have.** Before any sentence containing "live", "deployed" or "public",
+  fetch the recorded `pages.url` **with an invented-URL control in the same loop** (a parked domain
+  200s every path, so a bare 404 proves nothing on its own), and read the **site-level** columns, not
+  the page-level ones. Three seconds, and it is the difference between a retraction and a report.
+- **Cost.** One wrong owner-facing message and two documents needing visible correction. No action was
+  taken on the false premise, because the owner had not answered.
