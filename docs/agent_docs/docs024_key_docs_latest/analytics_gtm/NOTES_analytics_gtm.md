@@ -549,3 +549,16 @@ Positions verified in all three templates: gate → consent → loader. No conve
 drain observable via `check_gtm_state.sh --sites` (new `consent=` column). Registered **STY-060**.
 **OWED next: per-site cookie/privacy policy pages** (the information half; banner text is the
 interim notice) — through the framework, not hand-written.
+
+## 2026-09-03 — the consent wave verified in production; seeder next
+
+**29.** `[~09:30 BST]` Drain: **22 of 38 tagged heads carry the consent block** (apis.uk converged —
+its page items COMPLETED, closing the corrected expectation). **Live behavioural test on
+noted.co.uk PASSED 5/5**: no `_ga` pre-consent → banner (title intact) → Accept → `_ga` +
+`_ga_Y26N29T4KH` set → withdrawal wipes both. The whole chain — template → render → deploy →
+browser — is now proven at a production page, not just locally. ⚠ Contamination: the accept-path
+test fired ~2 real GA4 hits with hostname noted.co.uk. Two wave-adjacent failures, NOT consent's:
+dartsonline `page_rerender …_section_data_resolved` ×2 (index, guides-index), `result={}` (099
+pattern) — their pages serve yesterday's bytes (tag yes, banner not yet) until their machinery
+rerenders; noted in case their lane reads this. Estate now 39 deployed sites with heads / 38
+tagged; the two 09-02 newborns were already keyed by c2#2; D=0 held.
