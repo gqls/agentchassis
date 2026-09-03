@@ -86,3 +86,40 @@ BEGIN
   IF n <> 1 THEN RAISE EXCEPTION 'VERIFY: the original object was not preserved'; END IF;
 END $v$;
 COMMIT;
+
+-- ============================================================================
+-- ⚠ ADDENDUM 2026-09-03 ~17:35Z — THIS FILE IS STEP 1 OF 2, NOT THE WHOLE FIX.
+--
+-- I told the owner earlier that the repair was "one well-evidenced change". That was true when the
+-- consumers had not yet run. They have now, and a blind read is PERSISTED, so restoring visibility
+-- does not undo it. Correcting the record here rather than leaving the file to imply otherwise.
+--
+-- MEASURED SEQUENCE on copyonline.co.uk (site 3d965325-519a-4515-b79f-50c886954a80), from
+-- site_work_items created_at/updated_at, all times UTC 2026-09-03:
+--   15:55:06 → 15:56:45  needs_composition   completed NOT READY: missing identity+classification;
+--                                            it queued a backfill classifier and closed itself.
+--   15:56:41 → 16:58:07  needs_domain_research (backfill) — the classifier ran BLIND here.
+--   16:54:55 → (claimed) needs_vertical_research — reading the blind classification NOW.
+--   no resolved_composition spec has EVER been written; no plan exists.
+--
+-- SO THE DAMAGE IS UPSTREAM OF THE PLANNER AND STILL SPREADING. Applying step 1 alone hands the
+-- planner a correct brief AND the wrong classification side by side, because plan_site's
+-- input_fields include site_specs, which carries `classification`. It would be an improvement and
+-- not a repair.
+--
+-- STEP 2 — RE-RUN THE CLASSIFIER once the brief is visible, and check the artefact, not the status:
+--   the current classification says category=hub, tags marketplace/community-platform/tool-portal,
+--   inferred (its own `reasoning` says so) from the old Drupal 7 rules page. A correct re-run should
+--   not say "no mission brief was supplied" — that sentence is the pass/fail test, and it is written
+--   by the agent itself into site_specs.classification.data->>'reasoning'.
+--   Do NOT hand-edit the classification to match the brief. That would put this lane's opinion where
+--   the pipeline's output belongs, and the estate's rule is that the framework writes the content.
+--
+-- STEP 3, only if the owner wants the tool set corrected: the tools spec (16:01:52Z) was written by
+--   the same blind path — its own reasoning says "Without existing pages loaded, I'm inferring from
+--   the domain" — and produced six suggestions, five of them now built and deployed, none of them
+--   among the brief's four. Retiring those pages is a separate, owner-level decision, not part of
+--   this fix, and three of the five are the seotools duplicates already awaiting his ruling.
+--
+-- STILL NOT APPLIED. Nothing above changes the permission position.
+-- ============================================================================
