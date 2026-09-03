@@ -249,13 +249,21 @@ fix works" from "the fix is not running and the feed happened to be clean today"
 instrument is the pod's own testimony, but **their suggested form has two defects, both
 verified here 2026-09-03, and both make a zero unreadable:**
 
-1. **The needle is too loose.** `grep 'stripped literal markdown'` matches **five** call
-   sites, only ONE of which is the feed projection: `rerender_page_sections_action.go`
-   :312 and :1632, `section_editor_actions.go` :1151 and :1330, and the real one,
+1. **The needle is too loose.** `grep 'stripped literal markdown'` matches **SEVEN** call
+   sites `[MEASURED 2026-09-03]`, only ONE of which is the feed projection:
+   `section_editor_actions.go` :1151 and :1330, **`v3_site_actions.go` :2298 and :2363**,
+   `rerender_page_sections_action.go` :312 and :1632, and the real one,
    `queryresolve/news_items.go:443`. A non-zero therefore proves *some* strip ran, not
-   that the feed projection did — a rerender or a section edit satisfies it. Same family
-   as the `build provenance` trap this lane hit the same morning: a needle that matches
-   another mechanism's line.
+   that the feed projection did. **The two in `v3_site_actions.go` are
+   `RenderComponentAction`'s, which fires on every component render — so they are the
+   most frequent of the seven and the likeliest thing a non-zero was actually showing
+   you.** Same family as the `build provenance` trap this lane hit the same morning: a
+   needle that matches another mechanism's line.
+   > ⚠ **This list said FIVE until the 332 lane corrected it, and the reason is worth
+   > more than the number: I ran `| head -5` on my own census and reported its length as
+   > the answer.** An unmarked truncation, committed in the very paragraph arguing that a
+   > loose needle makes a count unreadable. Census with `wc -l`, never with `head`.
+   > `WRONG_CALLS.md` 2026-09-03.
 2. **`logs deploy/agent-chassis` reads ONE POD OF N**, and there are **2** chassis pods
    `[MEASURED 2026-09-03]`. A zero can simply mean the other pod served the request.
 

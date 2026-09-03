@@ -64557,3 +64557,44 @@ misses were in the register under **what I was fixing it WITH**. The tool, not t
 place to be wrong. No code shipped with either defect: the `updated_at` refusal never reached a
 release, and the blast-radius claim was re-measured before anything depended on it. `bugs_open/466`
 records both; the third round was APPROVED.
+
+---
+
+## 2026-09-03 — `news_feed_ingestion`: I truncated my own census with `head -5` and reported its length as the answer — while writing a correction about counts being unreadable
+
+**The claim.** Correcting a peer's proposed ship-check instrument, I wrote that
+`grep 'stripped literal markdown'` matches **five** call sites, listed them, and argued
+their instrument's non-zero was therefore unreadable. Committed to a RUNBOOK and sent to
+the peer.
+
+**It is SEVEN.** I missed `v3_site_actions.go:2298` and `:2363` —
+`RenderComponentAction`'s two strips. My command ended `| grep -v _test | head -5`. The
+`head -5` was there to keep the output tidy, and I read its length as the population.
+
+**Why it is the instructive kind of wrong.** The number was wrong in the direction that
+*weakened my own argument*: the two I missed fire on **every component render**, making
+them by far the most frequent of the seven and the likeliest explanation for any non-zero
+the peer had seen. So the truncation cost the strongest evidence for the point I was
+making. And it happened **inside the paragraph arguing that a loose needle makes a count
+unreadable** — I diagnosed the peer's instrument correctly and ran a defective one to do
+it.
+
+**What caught it.** The peer, who re-ran the grep without a cap. Not me, and my own
+RUNBOOK entry would have stood as a `[MEASURED]` figure indefinitely.
+
+**The cheap check that would have prevented it:** **never `head` a census.** If the
+output is long, that is information about the population, which is the thing you are
+measuring. Get the count from `wc -l` and only then look at a sample —
+`grep -rn <needle> --include=*.go <paths> | grep -v _test | wc -l`, then read the list in
+full. `head` on an enumeration is an unmarked truncation and it presents as a complete
+answer, because every line you can see is real. Related and already in `LANDMINES`:
+"`| head -N` on a table/file listing is an UNMARKED TRUNCATION" — I had read that file
+twice the same day and still did it.
+
+**Third instance today of one shape:** I hit `grep -m1 'build provenance'` matching a
+~5 MB payload in the morning, told the 332 lane their needle matched 5 other mechanisms
+in the afternoon, and truncated my own census establishing it. All three are "the command
+returned something, so I have an answer".
+
+Family: measurement-discipline-index, a-measured-marker-proves-a-measurement-was-claimed,
+comm-and-sort-disagree-on-collation, grep-silent-on-non-utf8.
