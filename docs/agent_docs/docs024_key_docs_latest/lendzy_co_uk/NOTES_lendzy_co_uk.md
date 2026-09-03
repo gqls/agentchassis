@@ -584,3 +584,18 @@ and is (r)'s finding — with the stamps unaffected (assemble also reaches the d
 measured at (m)) and now superseded by the real render above.
 
 **Day-one ledger closes: every owner ask delivered, every claim at artefact strength.**
+
+## 2026-09-03 (a) — overnight tails: sitemap CLOSED at 30; the 47's non-drain is a 44-second race, not a defect
+
+`[MEASURED 2026-09-03 08:24Z]` **Sitemap: 30 `<loc>`, all nine tool URLs present** — the rotation
+followed the deploy exactly as SEO-007 designs. Tail closed.
+
+**The 47 still stand, and the reason is a clock, not a mechanism:** the daily
+`review-queue-revalidate-daily` task (enabled, 86400s) last triggered **2026-09-02 16:05:47Z** —
+44 seconds BEFORE the first of 693's stamps (16:06:31/16:07:00/16:07:31). Yesterday's sweep judged
+the pages against the pre-stamp record and was right to leave the items; today's ~16:05Z tick
+re-judges them against stamped pages. Expect the count to fall then; if it does not, THEN
+investigate the verifier's scope — not before.
+
+Remaining: the first `evidence-freshness` pass over the register (~09:08Z today) — read lendzy's
+outcome, per the RUNBOOK's standing instruction, rather than assuming silence is cleanliness.
