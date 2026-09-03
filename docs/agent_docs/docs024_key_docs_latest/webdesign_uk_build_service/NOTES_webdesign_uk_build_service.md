@@ -8142,3 +8142,12 @@ lane's per the ownership ruling.
   fixed pipeline** (their reading: attempt 1 refused border_keyed 0.000 — the guard working;
   attempt 2 border_keyed 0.9993; served PNG colour type 6, 92.21% fully transparent, 99.92% of
   the border ring transparent, 0.085% magenta fringe). First real-world calibration point.
+- **PRE-REGISTERED PREDICTION (boxingonline session, stated ~09:55Z, banked here 09:56Z, before
+  `2d1f9c51` was claimed):** a BUILD-path rebuild must ALSO fix the cards on /index.html — six
+  decks under six headlines (currently 6/6 empty), headlines and alt text without " | Boxing
+  Online" (currently 6/6 suffixed), category/date/read-time collapsed. **If a SUCCESSFUL build
+  leaves the cards unchanged, the components lane's path-split model is wrong** and they need to
+  know before they finish hunting the rerender path. Either outcome is information. They take the
+  regenerated-copy read (seven per-class checks from OWNER_REVIEW + SITE_DEFECT_CATEGORIES,
+  sharpest first: a control-labelled field must read like a control — shorter is necessary, not
+  sufficient); this lane supplies the row read, the floor-after and the window count.
