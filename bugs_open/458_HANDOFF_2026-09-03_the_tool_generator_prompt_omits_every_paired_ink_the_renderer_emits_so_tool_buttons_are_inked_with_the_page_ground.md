@@ -194,12 +194,69 @@ not read a still-failing page as evidence that 1 and 2 did not land.
 - **At the artefact, never at the stylesheet:** `getComputedStyle`, per the aiao lane's R2 — the
   served site stylesheet is routinely not the winning declaration.
 
-## 10. Diagnosis loop
+## 10. Diagnosis loop — NOT CONFIRMED, and what that did and did not settle
 
 Filed to `090` before this file asserted its root cause, per CLAUDE.md's "always file when
-cross-cutting" rule. Intake correlation `e4194dc2-effc-4706-9744-4239c99e9010`, run correlation
-`6a317110-e9b7-4682-bbaf-8f2852e93e98`. **Verdict not yet returned at filing time** — this section
-must be updated with it, including if it REFUTES the above.
+cross-cutting" rule. Intake `e4194dc2-effc-4706-9744-4239c99e9010`, run
+`6a317110-e9b7-4682-bbaf-8f2852e93e98`.
+
+**Verdict: `UNVERIFIABLE` — "NOT CONFIRMED (stopped: scope-not-narrowing)". Not REFUTED, and not a
+confirmation either. Recorded here as returned.**
+
+Two of its three stated gaps are artefacts of its own retrieval, and are answered by first-hand
+reads it did not have:
+
+- *"the full body of `buildLegibleInkDefaults` … only comment fragments were returned by the index
+  … not that the property is actually emitted with a value."* — Answered at the **served artefact**,
+  which outranks any read of the source: `https://ai-agent-orchestration.com/assets/css/styles.css`
+  carries `--color-primary-ink: #768eb2;` and `--color-primary-text: #ffffff;` (§5). The tokens are
+  emitted, with values, on the motivating site.
+- *"every prompt/config sample returned in this bundle was cut off before the point where an ink
+  mention would appear, so 'the prompts don't name the ink companions' cannot be asserted."* —
+  Answered by reading the **whole** `default_config` out of `agent_definitions` rather than an
+  indexed sample (§1, §2). The tool-generator `prompt_template` is 5,115 chars and was read
+  end-to-end; `--color-primary-ink` does not occur in it, nor in any of the ten live agent
+  definitions that mention `--color-`.
+
+**Its third point was a REAL objection and it changed what I measured.** It observed that its sample
+of live components was mixed — `tool-list`, `tool-agent-complexity-estimator`, `tool-guide-intro`
+and `tool-ai-agent-roi-estimator` already use `var(--color-primary-ink, var(--color-primary))` —
+and concluded: *"it's not established that the naive (no-ink) pattern is what's currently being
+generated versus already-legacy content."*
+
+That is the right question and it would sink §3 if the answer went the other way: a defect shape
+found only in old rows says the prompt was fixed long ago and I am repairing history. So I ran it
+`[MEASURED 2026-09-03]`, over active unforked tool components by `created_at`:
+
+| month | defect shape | uses a paired ink | total |
+|---|---|---|---|
+| 2026-02 | 0 | 2 | 6 |
+| 2026-03 | 0 | 3 | 3 |
+| 2026-04 | 2 | 8 | 11 |
+| 2026-05 | 0 | 12 | 13 |
+| 2026-07 | 7 | 5 | 30 |
+| 2026-08 | **123** | 1 | 158 |
+| 2026-09 (3 days) | **17** | **0** | 41 |
+
+**The result is the inverse of the loop's hypothesis.** The paired form is the LEGACY one — it
+dominated to May (25 paired against 2 defective) and has since gone to **zero**. The defect shape is
+the CURRENT output: 123 in August, 17 in the first three days of September, against no paired ink at
+all in that window. The components the loop found using ink are old rows, which is exactly why they
+were in its sample and exactly why they do not license its conclusion.
+
+So the objection is answered, and answering it made the case stronger than it was: this is not a
+slow legacy tail, it is the live steady state of the generator.
+
+⚠ **It also opens a question this file does NOT answer: what changed around July.** The paired form
+did not decay gradually, it stopped. That could be a prompt edit that dropped guidance, a change of
+producer, or simply that August's volume (158 components against 30 in July) came from a path that
+never had the rule. **Nobody should quote a cause for the July inflection from this file** — it is
+measured here and unexplained here.
+
+⚠ **`created_at` is row birth.** A component regenerated in place would keep its original date, so
+these buckets describe when rows were CREATED, not when their markup was last written. That
+weakens the month attribution slightly; it does not weaken the September column, where 41 rows are
+new and 0 carry a paired ink.
 
 ---
 
