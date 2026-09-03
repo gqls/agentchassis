@@ -22092,6 +22092,24 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   ```
   `cache_held` is benign. `authority_won` and `third_list` are **not verdicts** —
   they say which list won, never whether what it won *with* was equivalent.
+- **⚠ THE RESOLUTION VOCABULARY IS NOT UNIFORM, so query BOTH tables and BOTH shapes.**
+  A machine close (2026-09-03 onward) writes `result->>'reason'` plus
+  `result->'resolution_evidence'->>'direction'`. The only *human* closes of this type
+  live in **`site_work_items_archive`** and use a different vocabulary entirely —
+  `resolution`, `evidence`, `intended_component`, `verified_<date>` — e.g.
+  `"stale - drift self-resolved by the 2026-07-18 rebuild"`, whose evidence names what
+  the rebuilt page CONTAINS ("no fabrications resurrected"), not merely that the lists
+  agree. Neither shape is wrong and no third alias should be minted; a reader asking
+  "how was this resolved?" must look for both, in `site_work_items` **UNION** its archive.
+  (The live table is a rolling window — a closed row leaves it.)
+- **⚠ MERGE, NEVER REPLACE, when stamping one of these rows.** `SET result =
+  jsonb_build_object(...)` destroys whatever a human put there, and flag-only
+  `needs_human_review` items normally DO carry a result — `[MEASURED 2026-09-03]`
+  171/171 `owned_page_review`, 107/107 `cta_names_unknown_destination`, 77/77
+  `image_source_unsatisfiable`. Use `result = COALESCE(result,'{}'::jsonb) ||
+  jsonb_build_object(...)`, which is what `resolveWorkItems` does. Contributed by the
+  `427` lane after migrations `750`/`753` replaced on six rows it had not read —
+  near-certainly NULL, and unprovable because the overwrite came before the look.
 - **⚠ AND `direction` IS NOT THE SAFETY TEST — `lost_sections` is.** Two real
   cases carry the SAME direction and opposite meanings: on `oufe.com/contact` the
   authority **restored** a section the cache had dropped (`authority_won`, nothing
