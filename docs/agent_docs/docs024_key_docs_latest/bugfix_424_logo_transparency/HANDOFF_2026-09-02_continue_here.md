@@ -1,10 +1,10 @@
 # HANDOFF — bugfix_424_logo_transparency, continue here
 
-Rewritten 2026-09-03 ~10:25 BST (supersedes the ~21:30 version from the day before — the roll
-landed and the three broken sites were reset since then). Read this file first — it's "what to do
-next", not "how we got here". For history: `NOTES_logo_transparency.md` (full chronology, every
-correction), the bug file's own tail (a peer lane's CONTRIB, verbatim, with the production evidence
-tables), `PLAN_2026-09-02_logo_background_transparency.md` (the design).
+Updated 2026-09-03 ~10:40 BST (supersedes the ~10:25 version — one of the three resets is now
+confirmed fixed at the served bytes). Read this file first — it's "what to do next", not "how we
+got here". For history: `NOTES_logo_transparency.md` (full chronology, every correction), the bug
+file's own tail (a peer lane's CONTRIB, verbatim, with the production evidence tables),
+`PLAN_2026-09-02_logo_background_transparency.md` (the design).
 
 ## One-paragraph state
 
@@ -30,24 +30,42 @@ WHERE w.id IN ('24dff15c-1989-4332-aeaa-62b0929a8a88', -- designblog.co.uk
                '2a4408aa-800b-443d-aa2e-32e919978ecb'); -- gamedesign.uk
 ```
 
-As of the last check in this session (shortly after the reset): all three back to `triaged`,
-`attempt_count=1` (unchanged — this is honestly each site's second attempt, not reset to zero). A
-background watch was running for completion; if this session ended before it reported a result,
-the next thing to do is exactly the query above, then read what actually happened:
+**As of the last check in this session (~09:40 UTC, ~35 min after the reset): one confirmed
+success, two still retrying.**
 
-- **If a site is `complete` with `border_keyed` (adapter log) or a chunk-scanned high transparency
-  %: verify at the served bytes** — `https://<domain>/assets/images/logo.png`, chunk-scan for
-  colour type 6 or `tRNS` (RUNBOOK has the snippet), sample corner alpha. Send
-  `site_delivery_and_editor` the reading — they asked for it explicitly, it feeds the owner's
-  boxingonline decision.
-- **If a site is `failed`**: read `error` and `result` on the row. The guard refusing IS the
-  correct, designed behaviour for a bad generation now — a refusal is not itself a new problem,
-  it's the mechanism working. Check `attempt_count` vs `max_attempts=3`; if it's about to exhaust,
-  that's the guardian's LOW council objection from round 1 becoming concrete — see "Decisions"
-  below.
-- **If still `triaged` or `claimed` after a while**: the dispatch lane may just be busy (this queue
-  has no stable drain rate — seen throughout this incident, runs landed anywhere from minutes to
-  under an hour after triaging). Not itself a problem.
+- **`seotools.co.uk`: SUCCESS, verified at the served bytes, not just the log.** Attempt 1 refused
+  (09:28:17Z, `border_keyed=0.000`, correctly nothing stored); attempt 2 succeeded (09:30:13Z,
+  `border_keyed=0.9993`). Fetched `https://seotools.co.uk/assets/images/logo.png` directly (200,
+  26,975 bytes, fresh key `20260903/fe09592e-...`): PNG colour type 6 (RGBA — the exact chunk-scan
+  signal absent when this bug was found), 92.21% of all pixels fully transparent, 99.92% of the
+  border ring transparent, 0.085% residual magenta-fringe pixels (smaller than the earlier
+  known-good example). This is the first end-to-end artefact-verified confirmation the fixed
+  pipeline works on a real, unplanned, fleet-triggered generation — not a synthetic test, not a
+  replay against old bytes.
+- **`designblog.co.uk` and `gamedesign.uk`: both refused on their first retry attempt** (same
+  `border_keyed=0.000` shape as seotools' own first try), **now on attempt 2 of 3, waiting out an
+  approximately ONE-HOUR cooldown** before the queue will try again (`retry_after` ~10:28 and
+  ~10:35 UTC respectively, checked at 09:39 UTC — this is longer than expected; not investigated
+  further this session, just observed and worth knowing before assuming a "stuck" item needs
+  intervention). A background watch (Monitor) was re-armed for up to an hour to catch the next
+  attempt; if this session ended before it reported, the query above plus the read-outs below tell
+  you what to do next:
+
+- **If a site is `complete`**: don't trust the DB status alone — verify at the served bytes
+  (`https://<domain>/assets/images/logo.png`, chunk-scan for colour type 6 or `tRNS`, RUNBOOK has
+  the snippet; sample corner alpha; check `substring(storage_path from '.../([0-9]{8})/')` is
+  TODAY's date, not a stale key — `assets.updated_at` can be bumped with no regeneration behind it,
+  caught live this session on `gamedesign.uk`'s own row). Send `site_delivery_and_editor` the
+  reading in the same shape as the seotools message above — they asked for it explicitly, it feeds
+  the owner's boxingonline decision.
+- **If a site is `failed`** (exhausted `max_attempts=3`): the guard refusing IS correct, designed
+  behaviour — not itself a new problem. But three refusals with nothing ever stored means the
+  guardian's LOW council objection from round 1 (the retry ladder can exhaust before landing a good
+  result) has become a concrete, real outcome for that site, not just a theoretical risk — see
+  "Decisions" below, item 3.
+- **If still `triaged` after its `retry_after` has passed**: the dispatch lane may just be busy
+  (no stable drain rate, observed throughout this incident — runs have landed anywhere from
+  minutes to under an hour after becoming eligible). Not itself a problem.
 
 ## What's actually live — verified 2026-09-03 ~10:00 BST, not assumed
 
@@ -66,18 +84,20 @@ methods agree.
 ## Decisions for the owner — most are now answered; two remain live
 
 1. ~~When to roll~~ — **DONE.** v1.0.1356 carries everything.
-2. ~~What to do about the three broken sites~~ — **IN PROGRESS.** Reset executed 09:23:49 UTC with
-   explicit authorisation; results were still landing as this was written (see "Live status").
-3. **If any of the three exhausts its retry budget (max_attempts=3) without a good result**, does
+2. ~~What to do about the three broken sites~~ — **IN PROGRESS, ONE CONFIRMED FIXED.**
+   `seotools.co.uk` verified good at the served bytes. `designblog.co.uk` and `gamedesign.uk` each
+   had a first retry correctly refused and are waiting out a ~1hr cooldown for attempt 2 (see "Live
+   status" for the exact `retry_after` times and what to check).
+3. **If any of the three exhausts its retry budget (`max_attempts=3`) without a good result**, does
    logo generation need a longer leash, or is "fail loud, go wherever the retry ladder's terminal
-   state already goes" the right outcome? Still open — was a council LOW objection in round 1,
-   became concrete once real failure-rate data existed (roughly 1 good of 4 stored, across the
-   original incident's five runs).
-4. **Whether boxingonline.com is the next deliberate test**, now that the three portfolio resets
-   serve as the lower-stakes calibration `site_delivery_and_editor` recommended. Their own position
-   (relayed 2026-09-02/03): boxingonline keeps its interim solid-colour mark until (a) the roll —
-   now done — and (b) the three resets are read at the bytes. That second condition is what "Live
-   status" above is for.
+   state already goes" the right outcome? Still open — was a council LOW objection in round 1;
+   seotools needing 2 of 3 attempts to land a good result is a live data point toward it being a
+   real, not merely theoretical, constraint.
+4. ~~Whether boxingonline.com is the next deliberate test~~ — **OVERTAKEN.** The owner separately
+   authorised it (via `site_delivery_and_editor`) before the three portfolio resets had even
+   finished — `needs_imagery` item `d71b7877-b42a-4019-9ede-74be363209ff`, fired 09:24:42 UTC, base
+   prompt only, no interim ground clause. Its own result (not read by this session — not this
+   lane's item) is `site_delivery_and_editor`'s to report.
 
 ## What's left before this lane can close
 
