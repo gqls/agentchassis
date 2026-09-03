@@ -897,3 +897,53 @@ PROMPT. Stage B is exactly 641 and nothing else."* **641's applier is the
 - **`bugs_open/114`'s §5 risk did not bite here, and that is one observation, not a clearance.** A
   newly-declared `site_assets.*` field DID get written on this page's sections path. Their
   discriminating test (batch 690) still owns the question.
+
+### 18. The rerender arm: PRE-REGISTERED rather than fired, and why I chose not to fire it
+
+The one arm the grip-styles proof did not cover is the **re-render** path. It matters because it
+feeds `sectionOrderAgrees` a **different list** — `storedSlotNames`, built from
+`loadStoredSections` (`rerender_page_sections_action.go:470-475`), i.e. every `page_components`
+row's `slot_name` in position order — where the build path hands over the filtered `pages.sections`
+list. Two independently maintained orderings is precisely the shape round 2's drift guard exists
+for, so "it worked on the build path" transfers nothing.
+
+**I ran the pre-flight and then deliberately did NOT fire a re-render.** `[MEASURED 2026-09-03
+15:1xZ]` the plan's 11 names (site-level filtered — none match `header`/`footer`/`head`) and the
+stored 11 `slot_name`s in position order **agree at every one of the 11 positions**, normalised the
+way `InstanceCounter` normalises, and the page carries **0** locked slots. So both stand-down arms
+are clear and the binding will engage.
+
+> **PREDICTION, recorded before the event:** the next re-resolving re-render of `grip-styles` —
+> reason in {`image_landed`, `section_data_resolved`, `cta_links_stale`, `template_changed`,
+> `literal_markdown`} — **binds per-section**; the five figures stay distinct and in place.
+> **The disconfirming result is all five sections showing ONE image**, which is what page-wide
+> resolution looks like and which renders and deploys looking entirely plausible.
+
+**Why not just fire one, given the pre-flight is clean.** Four reasons, in order of weight:
+
+1. **It is another lane's live artefact, freshly finished.** `dartsonline_traffic` completed a
+   careful recompose ninety minutes earlier. Acting on their page to satisfy my own verification is
+   the thing `who-owns.py` exists to discourage, one level along — the page is not a bug number, so
+   no tool would have warned me.
+2. **The decisive test has already passed.** The register's own grading rule is that *"a re-render
+   shows only that nothing broke; the decisive test is a `content_rewrite`"* — and run 2 was a full
+   regeneration. Firing a re-render to add a weaker result is not worth a live write.
+3. **That page already carries 12 `unresolved` `cta_links_stale` rerender items**, going back to
+   2026-08-25, each *"unresolved after 2 attempts"*. Adding a thirteenth item to a page with a
+   documented rerender-failure history buys a muddy result. (⚠ Those twelve all **predate the
+   11:39Z replan** — newest 07:54Z — so they describe the old three-section page and its old CTAs.
+   Not mine to close; flagged to that lane.)
+4. **A dedup collision was a live mechanical risk.** The `image_landed` item used
+   `item_key='page_rerender:grip-styles'`; `idx_swi_dedup` plus the Go terminal-status list is a
+   contract another lane keeps in lockstep, and a 42P10 from my verification item would have been
+   my error, not a finding.
+
+**A pre-registration is the stronger instrument here anyway.** A re-render will arrive on that page
+naturally the next time anything changes, and now it will be graded against a claim made in advance
+with a named disconfirming result — rather than against a hypothesis formed after seeing the
+answer. ⚠ **And it must not be graded on the served bytes**: an assemble-only re-render produces
+identical bytes whether the binding engaged or did nothing, so on a page whose figures are already
+in `content_data` that reads as a pass. Read the run's `resolved_data` (RUNBOOK).
+
+**Told:** `dartsonline_traffic` (CONTRIB_2026-09-03 — their page, their seed, and the copy on it is
+wrong), `bugs_open/443` (CONTRIB — the stakes upgrade and the canary offer).

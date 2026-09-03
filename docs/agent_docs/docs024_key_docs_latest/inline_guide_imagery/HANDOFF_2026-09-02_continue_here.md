@@ -211,10 +211,17 @@ fills the cache and leaves the authority empty, so the ordinal still has nothing
 ## 7. What I would do next, in order
 
 1. **Re-probe the current build** (§2). Everything else assumes it.
-2. **Exercise the RE-RENDER path on grip-styles** — the one arm the proof did not cover (§4). File a
-   `section_data_resolved` item (or wait for one) and read `resolved_data` on the rerender run, not
-   the served bytes: an assemble-only re-render produces identical bytes whether the binding
-   engaged or did nothing.
+2. **The RE-RENDER arm is PRE-REGISTERED, not fired — grade the next natural re-render against the
+   prediction, do not fire your own.** `[MEASURED 2026-09-03 15:1xZ]` pre-flight on grip-styles: the
+   plan's 11 site-level-filtered names and the 11 stored `slot_name`s **agree at every position**,
+   0 locked slots, so **the prediction on record is that it BINDS per-section**; the disconfirming
+   result is **all five sections showing ONE image**. Reasons I did not fire one, and they still
+   hold: it is `dartsonline_traffic`'s freshly-finished page, the decisive save-path test has
+   already passed, that page carries **12** `unresolved` `cta_links_stale` rerender items (all
+   predating the 11:39Z replan), and `item_key='page_rerender:grip-styles'` was a live
+   `idx_swi_dedup` collision risk. **NOTES §18** has the full reasoning. ⚠ Grade on the run's
+   `resolved_data`, never the served bytes — an assemble-only re-render produces identical bytes
+   whether the binding engaged or did nothing.
 3. **Offer grip-styles to the 443/641 lane as Stage B's canary.** Five same-component instances,
    distinct subjects, distinct **correct** images — the images are independent ground truth for
    whether each heading is right, which no other page in the estate provides. Offer made in the
