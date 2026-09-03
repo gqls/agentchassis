@@ -468,3 +468,65 @@ FROM governor_state gs, governor_config gc WHERE gs.id=1 AND gc.id=1;
 **What this canNOT prove** — the Go loader and the claim backstop reading a non-zero level on
 live traffic. Only a real shed (at the current burn, ~11 September) or an INDUCED one (lower
 the budget briefly, watch L1 fire, restore) does that, and that is option C's gate.
+
+### The induced shed — how today's was run, and the two numbers it produced (added 2026-09-03)
+
+Owner-authorised only: it throttles the live fleet, briefly. Set the budget so MTD crosses a
+threshold, poll for the level, hold, restore. **The restore must be on an EXIT trap AND a hard
+deadline**, so the window cannot outlive the process that opened it.
+
+- **Size the budget against a read taken MINUTES before, not the daily average.** MTD moved
+  $388 → $398.61 in the 20 minutes between sizing and starting (~$35/hour against a daily
+  average implying ~$5/hour). A band chosen from a stale MTD can drift into the next band
+  mid-window.
+- **Pick the level from the DEMAND CONTROL, not from politeness.** Claims by class in the
+  preceding hour decide whether an absence can mean anything: at L1 only ~11 claims/hour would
+  be silenced, so a zero proves nothing. L2 silenced ~27% of claims and left the llm-free
+  `page_rerender` stream running as the positive control that dispatch is alive.
+- **⚠ THE GOVERNOR IS ~2× SLOWER THAN ITS INTERVAL, BOTH WAYS.** Measured: onset 156 s, release
+  **249 s**, task cadence ~250 s against a stated 120 s (interval 120 + 30 s scheduler tick,
+  under load). **The release lag is the surprising half** — the budget was correct again at
+  11:29:25Z and 115 items stayed withheld until 11:33:34Z. Do not read "restored" off the
+  config row; read it off `shed_level` and `governor_withheld_now`.
+- **The measurement that discriminates is the per-loop LOAD census, not claim counts.**
+  llm-bearing claims run ~2 per 12 minutes fleet-wide, so before/after claim totals are too thin
+  to carry an argument. Every loop in the window is a trial:
+
+```sql
+-- What did each dispatch loop actually handle during the window? Expect llm-free ONLY.
+WITH l AS (SELECT orchestration_id FROM orchestration_states WHERE owner_agent_type='build-dispatch-loop'
+           AND created_at >= timestamptz '<shed_start>' AND created_at < timestamptz '<shed_end>')
+SELECT COALESCE(m.class,'(unmapped)')||CASE WHEN COALESCE(m.llm_bearing,true) THEN '/llm' ELSE '/free' END class,
+       count(*) items_handled, count(DISTINCT l.orchestration_id) loops
+FROM l JOIN orchestration_states h ON h.parent_orchestration_id = l.orchestration_id
+JOIN site_work_items wi ON wi.id = (h.collected_data->'input_data'->>'work_item_id')::uuid
+LEFT JOIN governor_work_class_map m ON m.item_type = wi.item_type GROUP BY 1 ORDER BY 2 DESC;
+```
+
+- **⚠ AN llm-BEARING CLAIM DURING A SHED IS NOT NECESSARILY A DEFECT — check WHO claimed it.**
+  Only `build-dispatch-loop` carries `honour_spend_governor`. `diagnose-dispatch-loop`,
+  `report-dispatch-loop` and `zip-deliverable-dispatch` do not, by design, so their claims
+  continue at every level. One `needs_diagnosis` claim inside today's L2 window was this, not a
+  leak. The census that answers it in one line:
+```sql
+SELECT type, (default_config::text LIKE '%honour_spend_governor%') has_flag FROM agent_definitions
+WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL AND type LIKE '%dispatch%' ORDER BY type;
+```
+
+### ⚠ The level-change ALARM does not fire — `bugs_open/459`, open as of 2026-09-03
+
+Do not wait for a `doc_notes` row to tell you the governor moved; there will not be one. Read
+`governor_state.shed_level` and `governor_withheld_now`. The A/B that reproduces it in two
+minutes (both arms inside `BEGIN … ROLLBACK`, nothing persisted):
+
+```sql
+BEGIN;
+UPDATE governor_state SET shed_level = 3 WHERE id=1;   -- force old <> new
+-- ARM A: paste the LIVE pre_query verbatim        -> level_changed = 0, no note
+-- ARM B: the same text with `FOR UPDATE` deleted  -> level_changed = 1, note lands
+SELECT count(*) FROM doc_notes WHERE subject_key='spend-governor' AND created_at > now()-interval '2 minutes';
+ROLLBACK;
+```
+Third arm, and it is load-bearing: run the `old` CTE ALONE (no `upd` in the statement) and check
+it returns a row whose `shed_level` really does differ from `new.lvl` — otherwise a zero has two
+sufficient causes and the A/B cannot tell them apart.

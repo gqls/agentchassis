@@ -1562,3 +1562,76 @@ gate ("one real or induced shed observed") therefore still stands.
 closes the console-cap dependency that had been flagged three times: the account wall now
 sits $1,000 above the budget and $1,100 above L3, so the governor's staged brake always
 arrives first. Every precondition D4 was waiting on is now met.
+
+### 2026-09-03 11:14–11:34Z — THE INDUCED SHED (owner-authorised): the whole chain fires, and the alarm that announces it does not
+
+Owner, in chat: **"induce it today"**. Window run and restored; everything below
+`[all MEASURED 2026-09-03]`, log at `scratchpad/induced_shed.log`, markers inline.
+
+**Design, and why NOT L1.** The demand control decided it: claims in the hour before, by class
+— maintenance/**llm-free** 47 (page_rerender ×44), maintenance/llm 8, build/llm 6, unmapped/llm
+3. At L1 only ~11 claims/hour would be silenced (~2 in a short window), so a zero would have
+been indistinguishable from ordinary quiet — an absence argument with no power. **L2 sheds L1's
+class plus builds (~17/hour, 27% of claims), and the llm-free `page_rerender` stream continuing
+throughout is the positive control that dispatch is alive rather than stalled.** Budget dropped
+to make MTD cross 85%.
+
+**⚠ My own sizing was stale within 20 minutes.** I computed budget 430 against MTD $388,
+measured ~20 min earlier; at window start MTD was **$398.61** — 92.7% of 430, close enough to
+the 95% L3 line to drift across mid-window. Nudged to 450 (88.6%) before the level moved. The
+burn between those two reads was ~$35/hour, far above the $124/day (~$5/hour) figure the daily
+average implies — **MTD is lumpy, so size a threshold experiment against a read taken minutes
+before, not the day's average.**
+
+**Timings — the governor is about TWICE as slow as its stated 120 s, in both directions.**
+Onset: budget set 11:14:33 → level 2 at 11:17:09 (**156 s**, caught mid-cycle). Release: budget
+restored 11:29:25 → level 0 at 11:33:34 (**249 s**, a full cycle). Heartbeat ages across the
+poll log climb 129→151→173→196→217→239 then reset: the state task's real cadence is **~250 s**,
+not 120 s — interval 120 + the scheduler's 30 s tick, running ~2× under load. So a budget
+crossing takes up to ~4 minutes to bite AND up to ~4 minutes to release. **The release lag is
+the one nobody would predict**: the budget was correct again at 11:29:25 while 115 items stayed
+withheld for a further 4 minutes.
+
+**What fired, all of it:**
+- **Withheld view**: 114–115 rows for the whole 12m16s, classed `build/llm 60–61` +
+  `maintenance/llm 54`. Correct ladder, correct classes, stable.
+- **The loader half — the discriminating measurement.** Per-loop census over the shed window:
+  3 dispatch loops handled **24 items, every one of them llm-FREE maintenance**, while 100+
+  llm-bearing items sat eligible and withheld. Zero llm-bearing items loaded.
+- **The Go claim backstop fired**: **1** `spend_governor_shed` refusal in the window — the
+  load→claim race the backstop exists for, observed live rather than argued.
+- **Dispatch never stalled**: 24 items handled in the shed window vs 13 in the control window
+  before it. The fleet worked *harder* on llm-free work while the llm-bearing half was held.
+- Restore clean: level 0, withheld 0, budget 2000, enabled true.
+
+**⚠ The one llm-bearing claim inside the window, and what it means.** A `needs_diagnosis` item
+was claimed at 11:27:09 — during L2, by `diagnose-dispatch-loop`. Not a defect: **only
+`build-dispatch-loop` carries `honour_spend_governor`.** Live census: `build-dispatch-loop` t,
+`diagnose-dispatch-loop` f, `report-dispatch-loop` f, `zip-deliverable-dispatch` f. So **the
+governor governs one of four dispatch loops** — by design (opt-in default off, and a second
+consumer is the STANDING ARCHITECTURE GATE), but it must be said plainly rather than left for
+someone to discover at L3. By count it is small (3 of 268 claims over 3 hours, ~1%); **by SPEND
+it is unmeasured and plausibly not small**, since `needs_diagnosis` drives whole diagnosis runs.
+That is an open question for D4's next round, not a claim.
+
+**THE FIND — the alarm is dead: `bugs_open/459`.** Two real level changes, **zero** `doc_notes`
+rows. Root cause reproduced by A/B on the live stored text inside `BEGIN … ROLLBACK`: with
+`FOR UPDATE` on the `old` CTE (migration **673**) the note's `INSERT … FROM old, new` selects
+nothing; delete that one token and `level_changed` goes 0 → 1 and the row lands. A control arm
+(the `old` CTE alone) returns `shed_level=3` against `new.lvl=0`, ruling out "the inputs did not
+differ". **672 installed the alarm AND proved it** (verify drives 0→3→0, asserts exactly 2
+notes); **673 hardened the statement and its verify checked only that its token was present and
+that the text still ran** — blind by construction to the sole behaviour that token could break.
+Pattern filed to 016b §9. Fix candidates ordered in the bug file; an appliable migration is
+council scope, so the fix is NOT hand-rolled here.
+
+**Honest limit on today's evidence.** The before/shed/after claim comparison is weak on its own:
+llm-bearing claims run ~2 per 12 minutes, so the counts (2 before, 1 in-window from the
+ungoverned loop, 0 after by 11:39) cannot carry the argument. **The per-loop LOAD census is the
+measurement that discriminates**, because every loop in the window is a trial and the withheld
+pool proves demand existed throughout. Quote that one.
+
+**Cross-lane datum received** (the `bugs_open/329` lane, unprompted, on our own meter): a fresh
+24 h double-handle census — **3,044 handlers, 2,911 distinct items, 71 with ≥2 handlers, 0
+overlapping pairs**. The 71 are sequential retries; no stale-reap shapes needed the
+discriminator. Independent re-run of the RUNBOOK census by a lane with no stake in its result.

@@ -495,3 +495,38 @@ or to induce one deliberately: drop the budget for about five minutes, watch the
 fire and the held-work list fill up, then put it back. Nothing is lost either way; the held
 jobs simply wait and resume. Say the word if you want that done today rather than waiting a
 week, and I will do it in a controlled window and write up what happened.
+
+2026-09-03 midday — I induced the slow-down you asked for, and it works. Between 11:17 and
+11:29 I dropped the budget so the governor thought you were 90% spent, watched it hold work
+back, then put the budget straight. Everything behaved: 115 jobs were held (61 new page
+builds, 54 routine AI maintenance), the AI-free work carried on the whole time — the machine
+actually did MORE of that work while the AI half was held — and when I restored the budget
+everything released and resumed. Nothing was lost, nothing failed, and no job burned a retry.
+The staged brake you ruled in August is now a thing we have seen happen rather than a thing we
+believe about the design.
+
+Two numbers worth having. The governor is about twice as slow to react as its design says —
+roughly four minutes to start holding after a crossing, and about four minutes to let go again
+after the budget is put right. That is the scheduler's pace, not a fault, but it means the
+brake is gentle at both ends. And your spend is lumpier than the daily average suggests: it
+moved about $35 in the hour I was working, against a daily average implying $5. September
+stands at $404.
+
+Then the useful part of doing a rehearsal: I found something broken. **The governor sheds
+correctly but never announces it.** It is supposed to write a line saying "shedding level
+changed" each time it moves. Two changes happened today and it wrote nothing. I have traced it
+precisely — a small database change made on 31 August, for a good reason, silently killed the
+announcement, and the test that had proved the announcement worked belonged to the previous
+change and was never re-run. It is a one-token cause and I can show it failing and working on
+demand. I have written it up as bug 459 with three ways to fix it.
+
+I have deliberately not fixed it today. The fix edits the live task that recomputes your
+spend every couple of minutes — the one thing in this system I least want to break in a hurry
+— and that class of change goes through review first. It is the obvious next job.
+
+One thing to know either way, which the rehearsal made visible: the governor only holds back
+work on the main build queue. There are three other, much smaller work queues (diagnosis,
+reports, deliverables) which were deliberately left outside it, so they keep spending at every
+level. That is about 1% of jobs by count, but diagnosis jobs are individually expensive, so I
+would not assume it is 1% of the money. Worth measuring before the real crossing around the
+11th.

@@ -15368,3 +15368,37 @@ sections across 838 pages declare a non-`llm` source — while reporting success
 
 Case detail, population census, and the reason a `090` diagnosis run was substituted for rather
 than skipped: `bugs_open/454`.
+
+### A hardening change's verify tests the TOKEN it added and proves the statement still RUNS — it cannot see the one behaviour that token silently killed, and the assertion that WOULD have seen it belongs to the earlier migration nobody re-ran (2026-09-03, `bugs_open/459`)
+
+The D4 spend governor's level-change alarm has never fired since the day it was hardened. The
+task's single statement holds `old AS (SELECT shed_level FROM governor_state WHERE id=1 FOR
+UPDATE)` beside `upd AS (UPDATE governor_state … WHERE s.id=1)`, and the note is
+`INSERT … FROM old, new WHERE old.shed_level <> new.lvl`. One statement cannot both row-lock
+and update the same row this way: `noted` selects zero rows however much the level moved.
+
+- **The migration that INSTALLED the alarm proved it.** 672's verify drove the level 0→3→0 and
+  asserted `after_notes - before_notes = 2`. It passed. The alarm was real.
+- **The migration that BROKE it verified itself perfectly.** 673 added `FOR UPDATE` for a
+  genuine reason (a fire blocking on the advisory lock keeps its pre-block snapshot, so `old`
+  could read a stale level) and asserted: the token is in the stored text; the text still
+  `EXECUTE`s; the level is 0 on a NULL budget. **All three pass in a world where the note can
+  never be written**, because none of them drives a level change.
+- **The transferable rule.** When you change a statement, the verify you owe is the one
+  belonging to the BEHAVIOUR your change could break — which is usually an EARLIER migration's
+  assertion, not a new one about your own edit. "Does my token appear, and does the statement
+  still run?" is a syntax check wearing a verify's clothes. Ask instead: *what did the last
+  person prove about this statement, and does my change let that proof still pass for the right
+  reason?* Then re-run THAT.
+- **The tell, and why there wasn't one.** A dead alarm has no failure mode: no error, no row, no
+  log line, and every neighbouring signal (`computed_at` heartbeat, `governor_state.shed_level`,
+  the withheld view) stayed correct and reassuring throughout. It surfaced only because a
+  deliberate induced level change was being watched by someone expecting a note.
+- **The A/B that settles this class in two minutes.** Force the precondition, run the LIVE
+  stored text verbatim inside `BEGIN … ROLLBACK`, then run it again with the single suspect
+  token removed. Here: `level_changed` 0 → 1, note row absent → present, post-rollback control
+  clean. Add a third arm that isolates the suspect CTE alone, to rule out "the inputs did not
+  actually differ" — without it, a zero has two sufficient causes and you cannot tell which.
+
+Case detail, the fix candidates ordered by what makes the bad state unrepresentable, and the
+stated substitution for a `090` run: `bugs_open/459`.
