@@ -271,3 +271,47 @@ look; the imagery and the wrong-hero problem should both be genuinely fixed.
 
 Your five open questions from last night are all still open. Nothing today needed a decision from
 you, and none of them is blocking.
+
+## 2026-09-03, midday — the articles cause is fixed at the source, and I need one decision from you
+
+Two good things and one thing I need you to settle.
+
+**The first good thing: the cause I found this morning is already fixed for the whole estate.**
+The designblog lane took the evidence and changed the planner's own instructions — it is now told,
+in the prompt, that no later editorial pass will write the articles for it and that it must plan
+real launch pieces itself. That went live around midday. Our site's plan was written about twenty
+minutes before that, so it does not benefit yet; a re-plan picks it up, and when it does the
+articles half of your complaint should come free rather than needing another argument.
+
+**A correction I owe you, because I got something wrong and it travelled.** I said this morning
+that the system had no machinery at all for writing articles later. That was too strong, and
+another thread caught it within the hour. There *is* such a mechanism, properly built and wired —
+it simply has not run since April. So the planner was not inventing something; it was pointing at
+something real that stopped working four months ago and nobody noticed. That is a more useful
+thing to know, and it is now written into the fix so the wording stays true. My overstatement had
+already been quoted into a live change before it was caught, which is my fault for stating an
+absence more confidently than I had checked; I have logged it against myself and told the lanes
+concerned. Nobody has yet asked why that mechanism went quiet in April — I think someone should,
+but it is not this site's job.
+
+**The second good thing: your checks caught a real contradiction, and refused to build.** The
+homepage build stopped rather than shipping. The writer had written a line pointing readers to the
+contact page, and the rules you set yesterday say this site has no contact page. So it blocked.
+That is the machinery doing exactly what you asked it to.
+
+**And that is the decision I need.** Three of your own instructions are now pulling against each
+other. Your brief says the site has no contact page, no form and no email. But the contact page
+was already built, and the framework deliberately preserves pages that already exist, so it is
+still there in the menu. And the rule against mentioning it means any copy that refers to it stops
+the build. Nothing can resolve that except you, and until it is resolved the homepage will not
+build.
+
+So it is no longer the smaller question I asked last night about whether to keep that
+placeholder-looking email address. It is: **do you want the contact page gone, or do you want to
+keep it and let the site refer to it?** Either is easy to do. I just should not pick for you,
+because both are live and permanent choices about how the site talks to readers.
+
+One smaller thing worth knowing, no action needed. Because the site has no articles yet, the
+homepage's "featured article" panel had every one of its six pieces of information come back empty
+— picture, summary, category, author, reading time, date. It does not break the page; it just
+quietly leaves the panel hollow. A re-plan that creates real articles fills it.
