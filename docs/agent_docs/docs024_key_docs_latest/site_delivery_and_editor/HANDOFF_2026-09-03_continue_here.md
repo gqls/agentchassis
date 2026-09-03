@@ -54,9 +54,30 @@ make these work properly."* Chassis and adapter both on **v1.0.1359**.
    admin.apis.uk → `zip-deliverable-dispatch` → `zip-deliverer` → `delivery-email-sender`, and
    **not one of the four has ever run** (zero orchestrations all time, zero `customer_access_tokens`
    fleet-wide, zero zips on this site). Four unexercised agents, a token type never minted and an
-   **unverified links host** (`links.webdesign.uk` answers 404 at root and at an invented path,
-   which is NOT proof it is broken but is proof it is unverified, and it cannot be tested until a
-   token exists) is a lot to meet for the first time on a paying customer's delivery.
+   ~~**unverified links host**~~ is a lot to meet for the first time on a paying customer's delivery.
+
+   > **CORRECTED 2026-09-03 evening — the links host IS verified, and the earlier reading was mine.**
+   > I probed `/` and an invented path, both 404, and concluded "unverified". That was the wrong two
+   > URLs: **the routes are `/c/:token` and `/d/:token`, and neither was among them.** Probed with a
+   > deliberately invented token, both answer **200 with route-specific HTML**, against an invented
+   > top-level path that returns nginx's own 404 — so the control discriminates and this is not a
+   > catch-all. `/d/` says *"That download link is no longer active"*, which is the correct refusal
+   > for an unknown token. `/c/` serves the button page, and that is **deliberate and owner-ruled
+   > (2026-08-25)**: `HandleConfirmPage` performs **no database access at all**
+   > (`internal/core-manager/handlers/delivery.go:145-188`, which states it as a property), because a
+   > read-only lookup would hand anyone holding a guessed token a free validity oracle. The customer
+   > learns on pressing. Do not file this as a bug — I nearly did, off the probe alone, before
+   > reading the handler.
+   > **So the host is one fewer first-time risk, and "it cannot be tested until a token exists" was
+   > also wrong: the refusal path is exactly what an invented token tests.** Recipe in the RUNBOOK.
+   > Also re-checked the same evening: migration **650 applied** (`stored_url`,
+   > `stored_url_expires_at` both present), **`DELIVERY_SMTP_*` env present on `agent-chassis`** with
+   > `DELIVERY_SMTP_PASS` resolving to secret `delivery-smtp-secrets` (which **exists**, 16 bytes —
+   > note the ref is `optional: true`, so a missing secret would be silently empty, not a start
+   > failure), and all four agents **exist and are active** (`zip-deliverable-dispatch` and
+   > `zip-deliverer` carry status `experimental`). What genuinely remains first-time: the four agents
+   > have never run, no token has ever been minted, and DKIM/DMARC at the mail host (absent as of
+   > 2026-08-26, and not checkable from here).
 5. **Carry `bugs_open/420` §C to the owner WITH the next delivery ask** — a commitment with a
    trigger, agreed with the `bugfix_417_420` lane, in the exact form: **"what CONSENT STATE may a
    classifier write on a contact row?"** Not "may it write one" (it plainly may; 24 of 57 sites

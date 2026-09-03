@@ -276,3 +276,36 @@ decision the owner is being asked for:
 that is cheap to honour precisely because nothing currently inherits it and the action refuses an
 empty value. The choice is the owner's; this measurement only says the plumbing will not quietly
 make it for him.
+
+## Verifying the links host WITHOUT a real token (added 2026-09-03)
+
+The delivery email's two links are `https://links.webdesign.uk/c/<token>` (confirm the transfer) and
+`/d/<token>` (download the zip). A previous reading of this lane's own handoff called the host
+"unverified, and untestable until a token exists". **Both halves were wrong**, and the reason is
+worth more than the recipe: the probe used `/` and an invented top-level path, **neither of which is
+one of the routes.**
+
+```bash
+# Probe the ROUTES, with a deliberately invented token, plus a control that must 404.
+for p in "/c/definitely-not-a-real-token-xyz123" \
+         "/d/definitely-not-a-real-token-xyz123" \
+         "/zzz-invented-control-path"; do
+  printf "%-42s " "$p"
+  curl -s -o /dev/null -w "http=%{http_code} size=%{size_download}\n" --max-time 15 \
+       "https://links.webdesign.uk$p"
+done
+```
+
+Expected, and what it means:
+
+| path | expect | why |
+|---|---|---|
+| `/d/<invented>` | **200**, "That download link is no longer active" | the correct refusal for an unknown token — one message for unknown/expired/revoked/spent, deliberately |
+| `/c/<invented>` | **200**, the confirm button page | **by design, owner-ruled 2026-08-25.** `HandleConfirmPage` does NO database access (`internal/core-manager/handlers/delivery.go:145`); a read-only lookup would be a free validity oracle for a guessed token. The customer learns on pressing |
+| `/zzz-invented-control-path` | **404** (nginx's own) | the control. Without it, two 200s prove nothing — a catch-all would give the same |
+
+⚠ **`/c/` serving a live-looking button for a dead token is NOT a bug.** It reads like one from the
+probe alone, and the handler's own comment block says why it is not. Read the handler before filing.
+
+⚠ **Use GET, not `curl -I`.** HEAD on `/c/` is refused (`renderSpeculativeRefusal`) and answers 404 —
+so a HEAD probe reports the route as missing when it is live.
