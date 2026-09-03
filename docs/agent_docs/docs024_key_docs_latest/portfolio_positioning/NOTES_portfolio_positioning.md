@@ -4464,4 +4464,29 @@ questions, and the classifier mostly emits shape words.**
 - **Our composition read gains a fifth field** at their request: the site's own
   `classification.industry_tags`, which decides whether a future archetype would rescue copyonline
   or leave it at ~7%.
+- **(dd) answered by 437, and advertise is SAFE — do not panic when the re-mint fails.** `e75f5880`
+  carries its own key `needs_content_page:288baf25-…` (page UUID), while the two terminal rows are
+  `needs_page:uk-advertising-regulation-map` and `page_rerender:…`. The two-strike arm counts
+  terminal siblings on the SAME key in a rolling 7-day window, so it sees zero and starts fresh
+  (attempt 0/3). It will fail on the unfixed writer; **one failure on a fresh key does not brand
+  it.** advertise is at 0 keys with ≥2 terminal siblings. **Expected and harmless — it is the
+  second and third failure on the same key that matter.**
+- **Three other sites are NOT safe** [MEASURED by them 2026-09-03 ~11:00Z]: farmerinsurance.uk
+  **21 of 24** keys, remortgagecalculator.uk 6 of 24, loanzy.uk 3 of 15 — 30 keys where the next
+  automatic re-mint is born branded and stuck. Not ours; recorded because our sites share the
+  producer. ⚠ **Their own caveat, and it is the important part for anyone quoting it: the
+  threshold counts a ROLLING 7-day window, so it DECAYS.** A key at 3 siblings today falls below 2
+  as they age out and becomes re-mintable with nobody doing anything, and climbs again on every
+  sweep. **It is a snapshot of a moving quantity, not a backlog — re-run 437's §Verify query rather
+  than citing the number.** What does NOT decay is an `unresolved` row once written.
+- **Two corrections of theirs, one caught by our report:** (1) `reconcile_site_plan` did NOT re-mint
+  our page — `fileBuildAskForEmptyPage` did (`rerender_single_page_action.go:1276`), a different
+  producer, item type and key shape. **"Which producer re-mints this page" is not something to
+  reason about; several can, and they do not share a key.** (2) Their "born via a raw INSERT subject
+  to neither ladder nor two-strike" described `reconcile_site_plan` only; our item goes through the
+  shared `writeWorkItem` door and IS subject to both. They also declined to hold the item type
+  themselves — a hold on a shared seam is a config change wanting its own review — and surfaced the
+  release urgency to their owner instead, which is the right division.
+- **Deliverable state 11:06Z, unchanged for 90 min:** 7 rerenders `triaged`, **0 of 7 published**,
+  8th build still `triaged` since 09:05Z. Queue advancing (we moved 8 and 6 places), not starving.
 
