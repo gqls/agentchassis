@@ -220,3 +220,8 @@ mortgagecalculator CONTRIB (ordering) stays parked against the no-reorder ruling
   at the next tick. If a future verify deletes that row, restore EVERY column and assert it.
 - **NEXT:** (1) canary + proof → docs · (2) 83186fd9 verdict · (3) option C (gate met) · (4) the
   4-step template before any second agent type is mapped · (5) standing queue.
+
+## UPDATE 2026-09-03 ~21:5xZ — owner: a fresh chassis rolls within the hour; post-roll checks ARMED
+`scratchpad/post_roll_checks.sh` armed against ReplicaSet `75b987cbd7` (the pods since 08:57Z).
+The induced-L1 proof is HELD until the checks are green; round `83186fd9` may be killed by the
+roll — resubmit from `scratchpad/council_753.json` if its row stops progressing.

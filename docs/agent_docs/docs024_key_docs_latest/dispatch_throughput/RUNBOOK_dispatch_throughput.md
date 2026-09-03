@@ -599,3 +599,21 @@ echo '{}' | python3 scripts/governor-session-start.py
 ```
 ⚠ A verify that DELETES a live row to prove fail-open must restore the WHOLE row and assert it — a rolled-back rehearsal cannot exercise a restore (752 committed a half-row; self-healed at the next tick).
 ⚠ In any verify that EXECUTEs the state task's text: take `pg_advisory_xact_lock(hashtext('spend-governor-state'))` FIRST, or a real tick deadlocks you.
+
+### AFTER EVERY CHASSIS RELEASE — the governor estate's checklist (added 2026-09-03, the night 752/753 went live)
+
+A release rewrites every live `agent_definitions` row ~70 s before the pods start (measured
+08:56:53Z 2026-09-03), kills in-flight councils, and silently drops dispatch for ~300 s after a
+chassis restart. Six checks, scripted as `scratchpad/post_roll_checks.sh <log> <old-RS-hash>`
+(waits for the new pods, then +300 s, then runs them all):
+1. **Go halves on BOTH new pods** — present-probes `governor_admits(` / `spend_governor_shed` /
+   `honour_spend_governor` = 1, absent-control `governor_forbids(` = 0 (run it separately).
+2. **674 wiring** — selector md5 `fcbe8821a2a56512911955735796460e` + `gov=t`; flags `true/true`.
+3. **752 VERIFY** — council-gate's gate step is still its start step (a re-seeded row would
+   silently UNGOVERN the council and read as healthy).
+4. **753 marker** in `scheduled_tasks.pre_query` (`-- 753:`) — if the release re-seeds tasks,
+   the alarm is dead again — plus heartbeat, level, enabled, council class.
+5. The seeding stamp: how many agent rows were rewritten (expect ~all, one microsecond).
+6. Governor posture line.
+Then: **resubmit any council round the roll killed** (find it by payload; a row stuck in a
+non-terminal status with no progress is the tell), and do NOT submit anything for ~5 min.
