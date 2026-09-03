@@ -751,6 +751,23 @@ exact expectation; 6 sites, unchanged from the 2026-09-02 census). Two findings:
   safety", passes on retry) — both happened today and they need opposite responses:
   retry the second, hand over the first.
 
+**The same-file passenger trap fired BOTH WAYS on `LANDMINES.md` today, and the second
+direction is the one I owe an account of.** My commit `276d65655` (my own duplicate
+cross-reference) also carried, unmentioned in its message, the **vigilant designer +
+offer/benefit analyser lane's** in-flight correction of an unrelated entry — the
+`static`-source `input_schema` one, which they were half-retracting as stale since
+`8f899cc8d`. The `pre-commit` pattern check caught it and said the right thing:
+*"3 line(s) removed from LANDMINES.md, a fleet-wide append-only ledger"*. It was **not**
+a deletion — those three lines are their old header/footprint/fires-when, replaced by
+their own `~~struck-through~~ HALF-CORRECTED 2026-09-03` rewrite. Verified intact and
+coherent at HEAD before writing this. Nothing is lost and forward-only holds, but the
+cost is real and is exactly what CLAUDE.md names: their correction is now in the history
+under **my** message, so `git log` on that entry attributes it to the wrong lane.
+**The check I should have run:** on a shared append-only ledger, read the diff you are
+about to commit (`git diff --numstat` then `git diff <file> | grep '^-' | grep -v '^---'`)
+*before* committing, not after the hook tells you — a `| tail -N` on the commit output
+also cuts the hook's advisory, because the hook prints FIRST and git's summary LAST.
+
 **My three LANDMINES entries were swept into ANOTHER session's commit before I could
 commit them — and nothing is lost.** `git status` reported `LANDMINES.md` **clean**
 while my edits were plainly on disk, which is the tell. They are at HEAD inside
