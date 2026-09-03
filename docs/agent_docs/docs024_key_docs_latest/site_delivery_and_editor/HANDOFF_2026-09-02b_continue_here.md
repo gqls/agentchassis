@@ -526,3 +526,41 @@ back EMPTY, so `grep -Fc ""` reported a clean 0 while measuring nothing — the 
 SIGPIPEs the upstream `cat` and the pipeline reports failure **even though it matched** — so the
 guard inverted and warned on every token. **A detector's first run is not evidence; its findings
 are candidates.**
+
+---
+
+## OWNER RULINGS — 2026-09-03 15:06Z (in his own words, and what each one binds)
+
+1. **Items 1, 2, 3 and 4: "carry on fixing the tools that make these work properly."** So the
+   remaining review items are NOT waived and delivery is NOT unblocked: the instruction is to fix
+   the MECHANISMS, not to patch this site. Owners unchanged — `bugs_open/427` (no dated fact
+   corpus: the root of the newsless articles, the dataless comparator and the empty calendar) and
+   `bugs_open/114` (article/landing components cannot hold an image, which is why **12 generated
+   images on this site are referenced on ZERO pages**: 6 content-heroes, hero-about, hero-contact,
+   hero-calendar, 3 icons — measured 15:06Z). This lane's job on all four is to verify at the
+   artefact when their fixes land, not to fix them here.
+2. **The call-to-action line: "cut it."** Applied to the pending review row `1cb907ee` as
+   `subheadline = ""`. Safe by construction: `input_schema` says `required=false`,
+   `on_missing=skip_field`, and the template guards `{{if .subheadline}}`, so an empty value
+   renders NO element (not a checklist-5.1 empty `<p>`). `refuse_absent_required_fields` is armed
+   on `section-editor.apply_edit` but bites only on REQUIRED fields. The row still needs his
+   approve click; approval spawns `section_edit` → `section-editor`.
+   Line 1 is his verbatim text: **"News, previews and results from across the sport."**
+3. **"Guides should be a type of their own."** Fleet scope: 20 sites / 167 guide pages currently
+   carry guides as their ONLY blog-post-typed pages (OWNER_REVIEW item 5's measurement).
+   ⚠ **The additive half and the re-typing half are not the same change.** Adding a `guide`
+   page_type to the vocabulary is additive and inert. RE-TYPING the existing 167 pages changes what
+   every blog/guide LISTING resolves on 20 sites — that is a change to what a shared mechanism
+   guarantees, i.e. architecture-scope under the 2026-07-29 ruling §1, not a config edit. Routed to
+   the site-planner/page-type owners with that split stated; this lane is a consumer, not the owner.
+4. **Form endpoint: he has opened his own thread.** Nothing owed by this lane beyond the D1 review
+   already delivered (`REVIEW_2026-09-02_form_endpoint_preplan_D1_vs_publish_seam.md`).
+5. **Palette / visual designer: "should respond soon, if not please let me know."** Asked the
+   visual-designer lane directly 15:06Z; if there is no answer this lane reports back rather than
+   waiting silently. Pinned to it: whether the site name shows beside the logo (OWNER_REVIEW item 2).
+6. **RFC_058: he asked what decisions he needs to make.** Answered in chat and summarised here —
+   ONE primary (which identity set: A two / B three / C four; the raising lane recommends B with
+   the subject derived), plus two that fall out of it (what an absent operating party means, since
+   "fall back to the orderer" makes B pointless; and which identity becomes the delivery address,
+   which must be NAMED in the 651 recipe rather than inherited). Owner of the RFC: the
+   `bugfix_417_420` lane. This lane is a named consumer via the delivery chain.
