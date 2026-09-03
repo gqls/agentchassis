@@ -43,7 +43,13 @@
 //     "is_scheme_mismatch":  false,     // true if we had to cross schemes
 //     "site_tags":           ["interactive", "tool-portal", "founder-tools"],
 //     "review_item_queued":  null | "uuid-string",
+//     "source":              "library_match" | "library_fallback" | "theme_kit_default",
 //   }
+//
+// On the `theme_kit_default` arm `candidates` is EMPTY and `review_item_queued`
+// is nil: the kit named the layout, so nothing was scored and no library-growth
+// signal is raised. Do not read an empty `candidates` as "the matcher found
+// nothing" — read `source`.
 //
 // Registration (registry.go) unchanged:
 //
@@ -168,11 +174,21 @@ func ResolveCompositionLayoutAction(ctx context.Context, params ActionParams) (i
 					zap.String("kit_layout_scheme", kitLayoutScheme),
 				)
 			}
+			// NO candidate was scored: the kit named this layout and the
+			// tag matcher never ran. A one-element list reads as "one
+			// candidate was considered and won", which is the same
+			// false-structured-fact class as recording a kit layout under
+			// layout_source 'library_match' — fixed one field over in the
+			// same edit. `source: "theme_kit_default"` carries the story.
+			// install_site_composition_action.go guards on len(cands) > 0,
+			// so an empty slice OMITS lineage.layout_candidates entirely,
+			// which is the honest record. bugs_open/445's fit evidence is
+			// designed against this being empty/absent, not one element.
 			return map[string]interface{}{
 				"layout_id":          kit.LayoutID.UUID.String(),
 				"layout_name":        kitLayoutName,
 				"reason":             fmt.Sprintf("theme_kit default: %s", kit.ThemeKitName),
-				"candidates":         []string{kitLayoutName},
+				"candidates":         []string{},
 				"is_fallback":        false,
 				"scheme":             kitLayoutScheme,
 				"is_scheme_mismatch": kitSchemeMismatch,
