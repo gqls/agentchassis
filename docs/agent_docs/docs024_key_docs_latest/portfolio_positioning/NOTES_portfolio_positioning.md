@@ -4200,4 +4200,18 @@ a layout bypass the tag matcher?* Measured instead.
   classifier is naming the layout, the match is STRONG and their detector would stay silent on the
   exact three sites that motivated the bug. Told them before they build it (message + this entry).
   This is the "a detector tuned to the wrong mechanism is silent on its own motivating case" class.
+- **(z) follow-on — the owner's seotools critique reached us via the designblog lane, and it is the
+  450 class already in repair.** Owner: "many seotools tools are description pages … a major error".
+  Verified by them at the served bytes on `/tools/serp-snippet-previewer/` (0 inputs). Answered with
+  the sequence: shells built by the phantom-link repair BEFORE any tool existed → rotation landed
+  21:48Z but built 8 tools under DIFFERENT names (0/7 matched) → owner ruled build them → all 7
+  completed 09:30–09:54Z. Their example's new component carries **2 inputs + 1 textarea + 1 script**
+  [MEASURED 09:5xZ at `page_components.rendered_html`]; invisible only because 7 rerenders sit
+  `triaged`. **Their sharper point, taken: the shell's promising COPY is a defect in itself and the
+  repair does not remove it** — `generic-text-block` stays, and the tool lands at the same
+  position 2, so each repaired page will serve both. Decide per page at the body.
+- **Three owner rulings taken into the direction template** (runbook §6): page_archetypes APPLY
+  (supersedes the theme-kits CONTRIB line); glossary/inspiration held in briefs until 444's producer
+  lives, with a prose `guide` as the compliant form; feed-shaped pages stay section-index filling
+  from child pages.
 

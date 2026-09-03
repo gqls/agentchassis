@@ -218,6 +218,14 @@ name into `industry_tags` — which it demonstrably does (12 sites carry a layou
 estate neighbour's actual served values · grep the plan for `contact-hero` ·
 **444 pre-enablement, per the fixing thread's recipe (2026-09-02)** — fire direction needs NO
 new field; instead, BEFORE firing a brief that wants listing pages:
+- ⚠ **THREE OWNER RULINGS relayed by the designblog lane, 2026-09-03** — they change this list:
+  (1) **`page_archetypes` APPLY** — the theme-kits gate is lifted, so the CONTRIB's "do NOT size on
+  page_archetypes" is superseded; sequence the next briefs behind the theme-kits roll if it is
+  close. (2) **GLOSSARY / INSPIRATION: hold them in briefs AND build a producer** — 444's candidate
+  3 is owner-sanctioned and being built, and until it lives a direction must stop promising a
+  glossary or inspiration SURFACE. A prose `guide` that writes its definitions inline is the
+  compliant form (copyonline's brief does this; flagged to that lane). (3) **Feed-shaped pages stay
+  SECTION-INDEX and fill from child pages** — no replan; say so in the direction.
 - FEEDS: author `content_features.news_feed` in the classification spec (idea.uk 2026-08-25 is
   the worked example — the 6-hourly trigger then seeds `content_sources` itself), or seed
   sources directly.
