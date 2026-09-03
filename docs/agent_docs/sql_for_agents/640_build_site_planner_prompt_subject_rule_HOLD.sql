@@ -42,6 +42,15 @@
 --    record is THIS FILE — append one line directly below this block and commit
 --    it (pathspec):  -- APPLIED <date> by <session>; roll verified at <stamp sha>
 
+-- ⚠ THE ANCHOR HAS EXTERNAL READERS (2026-09-03): migration 729 (bugs_open/450)
+--   pins the literal   may also carry a "subject"   in its own verify block as a
+--   neighbour-check (three lanes edit this prompt row; 729 refuses to apply if
+--   rule 17 has gone missing). Verified 2026-09-03: count exactly 1 on the live
+--   row. ANY future re-derivation of rule 17 must keep that literal verbatim, or
+--   tell the 450 lane AND update this note. The 443 lane's live detector
+--   REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT is also only interpretable while
+--   the rule exists — losing the sentence makes its fire-rate read as planner
+--   non-compliance.
 -- APPLIED 2026-09-02 by the apis.uk session (SECOND attempt; the first was correctly REFUSED by the anchor guard against bugs_open/380's drift and the seed was re-derived, see header). Same pod verification as 639. Live post-check: subject rule + 380 sentence + example all present.
 
 SELECT snapshot_agent('build-site-planner', '640_build_site_planner_prompt_subject_rule_HOLD.sql: pre-update');
