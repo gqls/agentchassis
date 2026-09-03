@@ -65055,3 +65055,39 @@ where confidence is highest and scrutiny lowest.
 - **Cost.** None. Recorded because the tally is the point, and because this one will recur: PRC-003
   ships on the next roll, after which any `<no value>` census taken at `llm_call_log.prompt_rendered`
   reads clean for the wrong reason.
+
+## 2026-09-03 — my closer would have re-raised two settled questions, because I carried across a precedent whose stated COST no longer applied (`bugs_open/469` lane)
+
+- **The claim.** `check_empty_sections`' retraction helper carries no `status NOT IN (...)`
+  filter, on an explicitly argued ground: this package already holds two hand-rolled copies
+  of that list and they disagree, so *"resolveWorkItems owns the predicate; this function
+  owns the observation. Reading a few already-closed rows costs a **no-op UPDATE and nothing
+  else**."* I followed that precedent deliberately and cited it in the code and in the
+  council submission.
+- **What was true.** It is correct for a retraction with **no side effect**. My retraction
+  has one: a lossy resolution files a `section_composition_lost` receipt, and
+  `resolveWorkItems` writes that receipt **before** the UPDATE. So reading a closed row costs
+  a no-op UPDATE **plus a durable new work item**. `[MEASURED 2026-09-03]` all six
+  `section_source_drift` items on the estate are already `complete`, and **two carry a
+  non-empty loss** — `idea.uk/guides-index`, which its owning lane had **already adjudicated
+  a benign rename**, and `robot-hands.com/gripper-catalog`, already documented in the bug and
+  routed to its lane. The first discovery pass after the next roll would have re-raised both
+  as fresh `needs_human_review` items, while the retraction they belong to matched no row at
+  all: **the receipt without its retraction.**
+- **Why it mattered.** Not caught by any test — every test I wrote passed, including eleven
+  mutations. It is not a logic error; it is a **precedent whose licence had expired for my
+  case**, and the precedent's own text told me why in a clause I read as reassurance rather
+  than as a condition.
+- **What caught it.** Asking a blast-radius question I had not been asked: *what does this do
+  to rows that are already closed?* One SQL query answered it, and the answer named two real
+  sites. Nothing prompted the question — which is the uncomfortable part, because nothing
+  would have prompted it later either, until two lanes each received a work item re-opening
+  something they had settled.
+- **The cheap check that would have.** **When you cite a precedent, quote its stated COST and
+  test that cost against YOUR change.** Here the sentence was "costs a no-op UPDATE and
+  nothing else" — nine words, and my change falsified them. The general form: a precedent's
+  reasoning is scoped by the properties of the thing it was reasoning about, and the most
+  dangerous borrowings are the ones where the *conclusion* still fits and the *premise* has
+  quietly stopped applying.
+- **Cost.** None shipped — caught between the commit and the roll, fixed in a follow-up with
+  an open-item pre-check gating the whole block, plus two mutations proving it fires.

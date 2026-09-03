@@ -22,6 +22,7 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -629,6 +630,49 @@ func resolveWorkItems(
 	// finding OPEN, never the loss unrecorded. Postgres gives that for free
 	// inside one tx; writing the receipt second would not.
 	if r.Receipt != nil {
+		// ── THE RECEIPT ONLY FIRES IF THERE IS ACTUALLY SOMETHING TO CLOSE. ──
+		//
+		// A receipt is the record of what a RETRACTION destroyed. Writing one
+		// when the UPDATE below will match no row files a finding about a
+		// question that is already settled, while the "coupling" it belongs to
+		// does nothing — the receipt without its retraction.
+		//
+		// It is not hypothetical, and I nearly shipped it. [MEASURED
+		// 2026-09-03] all six section_source_drift items on the estate are
+		// already `complete`, and two of them carry a non-empty loss:
+		// idea.uk/guides-index (which its owning lane had ALREADY adjudicated
+		// as a benign rename) and robot-hands.com/gripper-catalog (already
+		// documented in bugs_open/469 and routed to its lane). Both would have
+		// been re-raised as fresh needs_human_review items by the first
+		// discovery pass after the roll.
+		//
+		// ⚠ AND THIS IS WHY check_empty_sections' PRECEDENT DOES NOT TRANSFER.
+		// findResolvedEmptySections carries no status vocabulary on the explicit
+		// ground that "reading a few already-closed rows costs a no-op UPDATE
+		// and nothing else". True for a retraction with no side effect; FALSE
+		// the moment one carries a receipt. The check still carries no status
+		// list — this function already owns that predicate, so the guard goes
+		// here and there is still exactly one copy.
+		var open int
+		if qErr := tx.QueryRowContext(ctx, fmt.Sprintf(`
+			SELECT 1 FROM site_work_items
+			 WHERE site_id = $1 AND item_type = $2
+			   AND ($3::text = '' OR item_key = $3::text)
+			   AND status NOT IN (%s)
+			   AND batch_id IS DISTINCT FROM $4::uuid
+			 LIMIT 1`, sqlInList(workItemClosedStatuses)),
+			siteID, r.ItemType, r.ItemKey, batchID).Scan(&open); qErr != nil {
+			if errors.Is(qErr, sql.ErrNoRows) {
+				logger.Info("Retraction has no open item to close — receipt NOT filed (it would record a settled question with nothing to retract)",
+					zap.String("check", checkName),
+					zap.String("item_type", r.ItemType),
+					zap.String("item_key", r.ItemKey))
+				return 0, nil
+			}
+			return 0, fmt.Errorf("resolve %s/%s: could not establish whether an open item exists — retraction WITHHELD rather than filing a receipt blind: %w",
+				r.ItemType, r.ItemKey, qErr)
+		}
+
 		rc := workItemFromSpec(*r.Receipt)
 		if rc.itemKey == "" {
 			return 0, fmt.Errorf("resolve %s/%s: receipt has no item_key — it could never be found again; retraction WITHHELD",
@@ -640,10 +684,17 @@ func resolveWorkItems(
 				r.ItemType, r.ItemKey, rc.itemKey, rErr)
 		}
 		if !inserted {
-			// insertWorkItem reports FALSE for several different reasons — an
-			// open row already holds the key (ON CONFLICT DO NOTHING), the
-			// anti-churn brake held it back, the two-strike rule dropped it. Only
-			// the first means "a durable record already describes this loss".
+			// insertWorkItem reports FALSE for several different reasons, and
+			// only ONE of them means "a durable record already describes this
+			// loss". Verified at source rather than asserted (council 009fabca,
+			// prior_art_librarian seat, medium): `writeWorkItem` returns
+			// `workItemWrite{}, nil` at load_work_item_actions.go:2104 (the
+			// anti-churn suppression under DISABLE_ANTI_CHURN_DEFERRAL), :2406
+			// (refreshOpenWorkItem with no item key) and :2425 ("an item already
+			// holds this key and could not be updated — it went terminal between
+			// the two statements, or a handler is holding it"), on top of the
+			// ON CONFLICT DO NOTHING path. Three of those four leave NO usable
+			// record, which is why this confirms rather than assumes.
 			// CONFIRM it; never assume, because assuming turns a dropped receipt
 			// into a silent close, which is the exact failure this guard exists
 			// to prevent.
@@ -676,6 +727,23 @@ func resolveWorkItems(
 	// six-argument statement below is byte-identical to the one every existing
 	// caller's test asserts, so a check that sets no Evidence cannot be broken by
 	// this field existing.
+	//
+	// ── IT NESTS UNDER ONE KEY, IT DOES NOT MERGE FREE-FORM AT THE TOP LEVEL ──
+	// (council 009fabca, reuse_agent seat, medium — and the seat was right).
+	// `result` is a shared namespace with live conventions, and merging
+	// check-authored keys into its top level invites a silent collision.
+	// [MEASURED 2026-09-03] the live table carries `revalidation` on 1,822 rows,
+	// `commit_sha` on 12,909, `response`/`retry_payload`/`agent_type` on ~15,400,
+	// plus this function's own `resolved_by`/`resolved_at`/`reason`.
+	//
+	// The seat proposed nesting under `revalidation` or `_verification`. Neither
+	// fits, and saying why matters more than picking one: `_verification` means
+	// "a COMPLETION gate ran and here is its verdict", `revalidation` means "the
+	// revalidator arm re-asked". This is neither — it is what a RETRACTION
+	// observed. And `retraction` is unavailable: write_audit_findings_retraction
+	// already owns it for silent-run tracking, on 531 rows, 258 of which also
+	// carry `resolved_by`. So: one new key, `resolution_evidence`, 0 rows before
+	// this change.
 	evidenceSQL, args := "", []interface{}{checkName, r.Reason, siteID, r.ItemType, r.ItemKey, batchID}
 	if len(r.Evidence) > 0 {
 		blob, mErr := json.Marshal(r.Evidence)
@@ -683,7 +751,7 @@ func resolveWorkItems(
 			return 0, fmt.Errorf("resolve %s/%s: evidence is not marshalable — retraction WITHHELD rather than closed without it: %w",
 				r.ItemType, r.ItemKey, mErr)
 		}
-		evidenceSQL = " || $7::jsonb"
+		evidenceSQL = " || jsonb_build_object('resolution_evidence', $7::jsonb)"
 		args = append(args, string(blob))
 	}
 

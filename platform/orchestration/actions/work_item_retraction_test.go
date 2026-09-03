@@ -214,7 +214,10 @@ func TestClosedStatusesNeverReachAnOnConflictClause(t *testing.T) {
 //	drop the `return 0, err` on a receipt insert error   TestReceiptFailureWithholdsTheRetraction
 //	skip the presence SELECT when !inserted             TestDedupedReceiptMustBeConfirmedPresent
 //	write the receipt AFTER the UPDATE                  TestReceiptIsWrittenBeforeTheClose
-//	append the evidence arg unconditionally             TestResolveWorkItemsClosesTheRightRows
+//	append the evidence arg unconditionally             TestEvidenceIsAppendedOnlyWhenSet
+//	drop the open-item pre-check before the receipt     TestNoOpenItemFilesNoReceipt
+//	treat a pre-check ERROR as 'nothing to close'       TestOpenItemPrecheckFailureWithholdsEverything
+//	swap \$6/\$7 or drop a positional arg                 TestReceiptAndEvidenceTogetherSendExactArgs
 //
 // All four were applied and observed to fail on 2026-09-03 — but only after the
 // FIRST one was caught surviving. Deleting the insert-error return left
@@ -263,6 +266,8 @@ func TestReceiptIsWrittenBeforeTheClose(t *testing.T) {
 
 	site, batch := uuid.New(), uuid.New()
 	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT 1 FROM site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1)) // an open item exists
 	mock.ExpectExec("INSERT INTO site_work_items").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
 	tx, _ := db.Begin()
@@ -291,6 +296,8 @@ func TestReceiptFailureWithholdsTheRetraction(t *testing.T) {
 
 	site, batch := uuid.New(), uuid.New()
 	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT 1 FROM site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
 	mock.ExpectExec("INSERT INTO site_work_items").WillReturnError(errors.New("disk on fire"))
 	// DELIBERATELY NO ExpectExec for the UPDATE. sqlmock fails an unexpected
 	// call, so this is what makes "the close did not happen" assertable rather
@@ -334,9 +341,11 @@ func TestDedupedReceiptMustBeConfirmedPresent(t *testing.T) {
 		defer db.Close()
 		site, batch := uuid.New(), uuid.New()
 		mock.ExpectBegin()
+		mock.ExpectQuery("SELECT 1 FROM site_work_items").
+			WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1)) // the open-item pre-check
 		mock.ExpectExec("INSERT INTO site_work_items").WillReturnResult(sqlmock.NewResult(0, 0))
 		mock.ExpectQuery("SELECT 1 FROM site_work_items").
-			WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
+			WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1)) // the receipt-presence confirm
 		mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
 		tx, _ := db.Begin()
 
@@ -353,6 +362,8 @@ func TestDedupedReceiptMustBeConfirmedPresent(t *testing.T) {
 		defer db.Close()
 		site, batch := uuid.New(), uuid.New()
 		mock.ExpectBegin()
+		mock.ExpectQuery("SELECT 1 FROM site_work_items").
+			WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1)) // the open-item pre-check
 		mock.ExpectExec("INSERT INTO site_work_items").WillReturnResult(sqlmock.NewResult(0, 0))
 		mock.ExpectQuery("SELECT 1 FROM site_work_items").WillReturnError(sql.ErrNoRows)
 		// No UPDATE expectation: the close must not happen.
@@ -377,6 +388,8 @@ func TestReceiptWithoutAnItemKeyIsRefused(t *testing.T) {
 	mock.ExpectBegin()
 	tx, _ := db.Begin()
 
+	mock.ExpectQuery("SELECT 1 FROM site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
 	f := receiptFinding()
 	f.Receipt.ItemKey = ""
 	if _, err := resolveWorkItems(context.Background(), tx, site, "section_source_drift", batch, f, zap.NewNop()); err == nil {
@@ -418,7 +431,7 @@ func TestEvidenceLandsInResultWhenSet(t *testing.T) {
 	defer db.Close()
 	site, batch := uuid.New(), uuid.New()
 	mock.ExpectBegin()
-	mock.ExpectExec(`(?s)UPDATE site_work_items.*\|\| \$7::jsonb`).
+	mock.ExpectExec(`(?s)UPDATE site_work_items.*jsonb_build_object\('resolution_evidence', \$7::jsonb\)`).
 		WithArgs("chk", "reason", site, "empty_section", "empty_section:x", batch,
 			sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -433,5 +446,122 @@ func TestEvidenceLandsInResultWhenSet(t *testing.T) {
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("evidence did not reach the result jsonb: %v", err)
+	}
+}
+
+// TestNoOpenItemFilesNoReceipt — the defect I nearly shipped, and the reason
+// check_empty_sections' "reading closed rows costs a no-op UPDATE and nothing
+// else" precedent does NOT transfer to a retraction that carries a receipt.
+//
+// [MEASURED 2026-09-03] all six section_source_drift items on the estate are
+// already `complete`, and two carry a non-empty loss — idea.uk/guides-index,
+// whose owning lane had ALREADY adjudicated it a benign rename, and
+// robot-hands.com/gripper-catalog, already documented in bugs_open/469. Without
+// this guard the first discovery pass after the roll would re-raise both as
+// fresh needs_human_review items while the retraction they belong to matched no
+// row at all: the receipt without its retraction.
+func TestNoOpenItemFilesNoReceipt(t *testing.T) {
+	db, mock, _ := sqlmock.New()
+	defer db.Close()
+	site, batch := uuid.New(), uuid.New()
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT 1 FROM site_work_items").WillReturnError(sql.ErrNoRows)
+	// NEITHER an INSERT nor an UPDATE may follow. sqlmock fails an unexpected
+	// call, which is what makes "no receipt was filed" assertable rather than
+	// merely unobserved.
+	tx, _ := db.Begin()
+
+	n, err := resolveWorkItems(context.Background(), tx, site, "section_source_drift", batch, receiptFinding(), zap.NewNop())
+	if err != nil {
+		t.Fatalf("nothing to close is not an error — it is a quiet no-op: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("resolved %d, want 0", n)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("a receipt was filed for an item that was already closed: %v", err)
+	}
+}
+
+// TestOpenItemPrecheckFailureWithholdsEverything — an ERROR establishing whether
+// an open item exists is not the same as "there is none", and must not be
+// silently treated as one.
+func TestOpenItemPrecheckFailureWithholdsEverything(t *testing.T) {
+	db, mock, _ := sqlmock.New()
+	defer db.Close()
+	site, batch := uuid.New(), uuid.New()
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT 1 FROM site_work_items").WillReturnError(errors.New("connection reset"))
+	tx, _ := db.Begin()
+
+	if _, err := resolveWorkItems(context.Background(), tx, site, "section_source_drift", batch, receiptFinding(), zap.NewNop()); err == nil {
+		t.Fatal("a failed pre-check was treated as 'nothing to close'; an unreadable table is not an empty one")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("expectations: %v", err)
+	}
+}
+
+// TestReceiptAndEvidenceTogetherSendExactArgs — the guardian seat's objection
+// (council 009fabca, medium), and it was the right one to raise.
+//
+// resolveWorkItems is the ONE implementation behind both the discovery runner's
+// 19 retracting checks and work_item_retraction.go's separate pipeline. This
+// change gave its UPDATE two dynamic `%s` slots and positionally-appended args.
+// Each flag was tested independently; a formatting or arg-count mistake on the
+// COMBINED path would have fleet-wide blast radius and no test would have seen
+// it, because the combined path is exactly the one the only live consumer uses.
+func TestReceiptAndEvidenceTogetherSendExactArgs(t *testing.T) {
+	db, mock, _ := sqlmock.New()
+	defer db.Close()
+	site, batch := uuid.New(), uuid.New()
+	f := receiptFinding() // carries BOTH a Receipt and an Evidence map
+
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT 1 FROM site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
+	mock.ExpectExec("INSERT INTO site_work_items").WillReturnResult(sqlmock.NewResult(1, 1))
+	// Seven arguments, in this order, with the evidence LAST and nested under one
+	// key. Asserting the SQL text as well as the args is what pins the $7
+	// placeholder to the seventh argument — an off-by-one here would still
+	// "work" against a mock that only counted.
+	mock.ExpectExec(`(?s)UPDATE site_work_items.*jsonb_build_object\('resolution_evidence', \$7::jsonb\).*status NOT IN.*batch_id IS DISTINCT FROM \$6::uuid`).
+		WithArgs("section_source_drift", f.Reason, site, f.ItemType, f.ItemKey, batch, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	tx, _ := db.Begin()
+
+	n, err := resolveWorkItems(context.Background(), tx, site, "section_source_drift", batch, f, zap.NewNop())
+	if err != nil {
+		t.Fatalf("the combined receipt+evidence path failed: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("resolved %d, want 1", n)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("combined path sent the wrong SQL or arguments: %v", err)
+	}
+}
+
+// TestSecondCallerNeverSetsAReceipt records what the guardian seat asked to see
+// checked rather than assumed: work_item_retraction.go, the OTHER caller of
+// resolveWorkItems, constructs its ResolvedFinding with ItemType/ItemKey/Reason
+// only — so the nested INSERT is unreachable from that pipeline today. It passes
+// the same *sql.Tx the runner does, so a future caller that DID set a Receipt
+// would get identical semantics rather than a surprise.
+//
+// A source pin, because the property is "this call site does not do X" and no
+// runtime test can observe an absence.
+func TestSecondCallerNeverSetsAReceipt(t *testing.T) {
+	src, err := os.ReadFile("work_item_retraction.go")
+	if err != nil {
+		t.Fatalf("read source: %v", err)
+	}
+	body := string(src)
+	for _, forbidden := range []string{"Receipt:", "Evidence:"} {
+		if strings.Contains(body, forbidden) {
+			t.Errorf("work_item_retraction.go now sets %s — the second pipeline has started using the "+
+				"receipt seam. That is allowed, but it is no longer covered by 'unreachable from here':\n"+
+				"check its transaction and ordering semantics and update this test's reasoning.", forbidden)
+		}
 	}
 }
