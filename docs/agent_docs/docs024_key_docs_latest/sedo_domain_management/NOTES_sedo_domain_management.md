@@ -428,3 +428,47 @@ stated the convention explicitly in their own RUNBOOK — file dates are
 production dates, never intended-use dates) and confirmed their earlier
 verification of draft5 still stands unchanged (byte-identical rename,
 zero re-run needed). No further action here; recorded for completeness.
+
+## 2026-09-03 (urgent) — copyonline.co.uk withdrawn: owner told a peer it's a keeper, not stock; draft6 = 2,878
+
+copy_quality_two_stage relayed a direct, time-sensitive owner statement:
+"copyonline is my site but could become my wife's if she chooses to do
+more copywriting" — a keeper with prospective personal use, must not
+carry a for-sale listing anywhere. Acted immediately, before checking
+whether their diagnosis of HOW it slipped through was right.
+
+**Measured the actual cause, and it is NOT what they proposed.** They
+reasoned the live-site fence's `status IN ('deployed','test')` filter
+should have caught it (copyonline is `status=test`) and hypothesised a
+definitional gap — "build_status is not ownership intent." Checked
+directly: `sites.created_at` for copyonline.co.uk = **09:27:25 UTC**;
+`EXCLUDED_live_2026-09-03.txt`'s first commit (`ea3b63b53`) = **08:57:16
+UTC**. **The row did not exist when the fence was built — this is
+staleness, not a filter gap.** My own RUNBOOK already says "regenerate
+the whole union with each sheet"; the actual defect is that I built the
+fence once and reused the SAME file across three later regenerations
+(draft4, draft5, draft6-before-this-fix) spanning hours, rather than
+re-querying each time. Confirmed by re-running the exact same query fresh
+just now: it returned copyonline.co.uk PLUS the 41 originals, nothing
+else new — so the query and its status filter were always correct; only
+the cadence of re-running it was wrong.
+
+Their broader point still stands independently, though: a domain that
+has NEVER had a `sites` row created for it (the owner mentions intent,
+nobody has typed a command yet) would defeat even a perfectly fresh
+re-query, because there is no signal to find. That is a real, harder gap
+their message correctly named, distinct from the staleness bug that
+actually fired here.
+
+**Fixed**: re-ran the live-site query fresh, diffed against the 09:03
+snapshot (exactly the one new row, confirming nothing else was missed),
+rebuilt `EXCLUDED_live_2026-09-03.txt` in place (50→51), regenerated as
+draft6. Verified at the artefact: 2,879 `<row` = header + 2,878; zero
+copyonline hits in the output CSV; diffed whole-file against draft5 —
+exactly one row removed, nothing else changed. Files:
+`outbound/SEDO_IMPORT_2026-09-03_draft6.{xlsx,csv}` + `_provenance.csv`.
+
+**Process fix, not just this one domain**: regenerating from a REUSED
+fence file across multiple same-day drafts is the actual defect class —
+added to RUNBOOK §7 as a standing instruction to re-query fresh before
+EVERY regenerate, not just the first one of a session.

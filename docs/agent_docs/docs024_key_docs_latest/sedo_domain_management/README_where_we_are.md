@@ -175,3 +175,23 @@ disk are named with today's date:
 current one to upload — 2,879 domains, unchanged). If you already
 downloaded or looked for a file with "09-04" in the name, that's why it
 wasn't there.
+
+## 2026-09-03 (urgent) — copyonline.co.uk pulled from the sheet, one more check tightened
+
+You told another thread just now that copyonline.co.uk is your site but
+might become your wife's — a keeper, not something for sale — so I've
+pulled it out straight away.
+
+Worth explaining honestly how it got in, because the real reason is
+different from what it looked like at first: it wasn't a hole in the
+logic, it was timing. copyonline.co.uk was only just set up in our system
+— 30 minutes after I'd last checked which domains are live sites, and I
+reused that same check across a few sheet regenerations instead of
+re-running it each time. I've now made re-checking mandatory before every
+future sheet, so a newly-started site can't slip through the same way
+again. I also checked whether anything else new had appeared in the same
+window — nothing had; copyonline.co.uk was the only one.
+
+**Current sheet**: `outbound/SEDO_IMPORT_2026-09-03_draft6.xlsx` —
+**2,878 domains**, everything else unchanged from before, this one domain
+removed. This is now the one to upload.

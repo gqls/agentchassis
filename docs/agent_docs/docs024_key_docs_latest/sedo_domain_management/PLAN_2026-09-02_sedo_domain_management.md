@@ -70,8 +70,15 @@ parking) by Claude sessions, via Sedo's API.
   reason-file). One open item from the valuation lane's own question,
   unresolved: 4 other person-name domains (ianstirling.com, kapoor.uk,
   keeler.uk, anne-marie.co.uk) — owner did not answer, left IN the sheet.
-  `outbound/SEDO_IMPORT_2026-09-03_draft5.{xlsx,csv}`. Sheet-generation
-  work is effectively done pending only the priced re-import.
+  `outbound/SEDO_IMPORT_2026-09-03_draft5.{xlsx,csv}`. **Superseded same
+  day by draft6: 2,878 domains** — copyonline.co.uk withdrawn on a direct,
+  time-sensitive owner statement (keeper, not stock) relayed via
+  copy_quality_two_stage; its `sites` row postdated the live-site fence's
+  one-time build by 30 minutes and was never re-caught because the fence
+  file was reused across drafts 4–5 instead of re-queried (RUNBOOK §7 now
+  states: re-query fresh before EVERY draft). `outbound/SEDO_IMPORT_2026-09-03_draft6.{xlsx,csv}`.
+  Sheet-generation work is effectively done pending only the priced
+  re-import.
 - **P3 — first credentialed calls.** `--check-secret`, then
   `DomainList 'results=100'`: inventory what (if anything) the account
   holds, and reconcile against the estate's domains. First writing call

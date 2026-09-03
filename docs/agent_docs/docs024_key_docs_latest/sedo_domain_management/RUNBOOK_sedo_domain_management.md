@@ -216,8 +216,22 @@ Gotchas, each earned:
   found 19; the union found **50** — 31 were invisible to the NS check,
   including `adversecreditmortgage.co.uk` (sits on MARKETPLACE nameservers
   despite being `status='deployed'` — a known cross-lane case, improvement-
-  loop D2; the DB is what catches it, NS cannot). Regenerate the whole
-  union with each sheet — the live set changes as sites launch.
+  loop D2; the DB is what catches it, NS cannot). **Regenerate the whole
+  union — meaning RE-QUERY `sites`, not reuse yesterday's file — before
+  EVERY draft, not just the first one of a session** (this was written as
+  general guidance 2026-09-03 morning and not followed to the letter the
+  same afternoon: `EXCLUDED_live_2026-09-03.txt` was built once at 08:57
+  UTC and reused across three later regenerations; a `sites` row created
+  at 09:27 UTC — `copyonline.co.uk`, real, `status=test` — sat un-fenced
+  in the sheet for hours until an owner statement to a different session
+  caught it. The query and its status filter were correct throughout;
+  only the cadence of re-running it was wrong. One-line command each
+  time, no excuse to skip it: `SELECT domain FROM sites WHERE status IN
+  ('deployed','test') AND domain NOT LIKE '%.internal' ORDER BY domain;`).
+  Note also: a domain that has NEVER had a `sites` row at all (owner
+  states an intent, nobody has run a command yet) defeats even a fresh
+  re-query — no DB signal exists to find. No mechanical fix for that one;
+  it is why an owner statement can still override a clean automated check.
 - **An owner-requested withdrawal (e.g. "take out the X family of
   domains") is a SEPARATE fence, not an addition to the live-site one**
   (added 2026-09-03, `--exclude-file` accepts multiple and unions them —
