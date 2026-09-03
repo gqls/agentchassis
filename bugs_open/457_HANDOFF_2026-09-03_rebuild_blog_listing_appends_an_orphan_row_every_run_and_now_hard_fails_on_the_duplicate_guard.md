@@ -242,3 +242,57 @@ page is `457`.
 **Not fixed by me and not touched:** the six rows stay. The site is paid, the fix is a code fix,
 and deleting rows by hand on someone else's live page is the wrong instrument — the `457` fix plus
 one rebuild is the right one. Flagged to the owning lane rather than actioned.
+
+## ⚠ TWO PRODUCERS WEAR ONE SYMPTOM — a NULL `component_id` row is usually NOT this bug, and this bug has appended nothing since 09-02 16:28:02
+
+`[MEASURED 2026-09-03 15:31:36Z]` **15** rows with `component_id IS NULL` on **8** pages. Two peer
+lanes and I each censused that predicate today and all three of us initially read the growth as
+*"457's orphan append is running continuously."* **It is not.** Checked at the code, not inferred
+from the shape:
+
+| | **this bug** (`rebuild_blog_listing_action.go:402-407`) | **the ordinary save path** (`save_page_sections_action.go:1124-1127`) |
+|---|---|---|
+| position | **hard-coded `3`** | `i+1` — the section index |
+| `component_id` | **not in the INSERT's column list at all** | written from `componentIDPtr`, NULL when the metadata carries none |
+| fires when | a blog-index page's `findBlogListingSlot` misses | any page build where a section's metadata lacks a resolved id |
+| arrives | appended alone to an existing page | in the same second as its resolved sibling rows |
+| rows today | **6, all on boxingonline `/articles-index`**, newest **09-02 16:28:02** | the rest, including the newest row on the estate |
+
+**This bug's own rows have not grown in 23 hours**, which is exactly what §"Why it only started
+failing now" predicts: the action hard-fails on migration 316's duplicate guard *before* reaching
+the insert. So a growing NULL-`component_id` count is **not** evidence that this defect is still
+accumulating, and a session watching that predicate to decide whether the fix is urgent will read
+the wrong signal.
+
+**The row that misled all three of us:** advertise.co.uk `/tool-cpm-cpc-benchmark-comparator`,
+created 15:27:34Z, `page_type=tool`, position **5**, slot_name = the page's own tool name — with
+**all five rows on that page created in the same second** by one full build (`needs_content_page`
+item `74d9bd66`, page-build-handler, claimed 15:21:03Z, complete 15:28:16Z). Four siblings got
+component ids; the fifth did not. Two older rows share that shape: idea.uk `/tool-funding-fit`
+(09-02 12:27) and loanzy.uk `/tool-loan-vs-savings` (08-28 07:33), both tool pages, both named
+after their tool.
+
+⚠ **`[UNVERIFIED]` why those sections' metadata lacked an id is NOT chased here** and is not this
+bug. It belongs to whoever owns the tool-page build. Recorded so the next reader does not fold it
+into this file the way I nearly did.
+
+**So the census to use for THIS bug is not the plain predicate.** It is the duplicate-position one
+that the original §Measured used:
+
+```sql
+SELECT page_id, slot_name, position, count(*)
+  FROM page_components WHERE component_id IS NULL
+ GROUP BY 1,2,3 HAVING count(*) > 1;
+```
+
+> **⚠ AND A COUNT ON THIS POPULATION NEEDS THE TIME OF DAY, NOT JUST THE DATE.** Raised by the
+> `bugs_open/384` lane and it is a real sharpening of CLAUDE.md's rule. Three censuses inside 45
+> minutes: 14 rows / 7 pages at ~14:45Z, 14/7 at 15:15Z, **15/8 at 15:31:36Z**. Each was correct
+> when taken and stale within the hour. A reader tomorrow taking "14 rows on 7 pages" as current
+> gets neither number.
+>
+> **The one figure that has not moved, and it is the strongest form of the trap** (384's
+> measurement, quoted as theirs): of all 15 rows, **zero** match an active component by `cc.name`.
+> Every resolving row resolves by `function`. So a screening query joined on `cc.name` returns
+> **100% stranded on this population at any size, on any day** — it cannot come out right, which is
+> why the 14-of-14 result looked plausible to two lanes at once.
