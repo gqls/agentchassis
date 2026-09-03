@@ -1570,3 +1570,14 @@ swapped a slot's component on a live page here, so I have written the steps down
 at eleven at night. The simpler alternative the critic itself suggests is a card count that divides by
 three, so three or six case studies instead of four, which is a content decision for you. Say "carousel"
 or "three" or "six" and it happens first thing.
+
+**2026-09-03, 23:30 BST, two imagery facts worth knowing.** The critic saw the same hero picture on
+five pages; the whole site has thirty-eight hero sections and two pictures, thirty-five of them the
+same one. Separately, ten pages already have their own hero image generated and deployed that nothing
+displays. For four of them (use cases, case studies, approach, contact) the fix is wiring, owned by the
+imagery lane's mechanism from bug 412, and I would only ask for it on your yes since it changes four
+live pages. For the other six, tool and guide pages, the components cannot show an image without a
+change that has already been tried once fleet-wide and rolled back because it showed the same picture
+twice; leave those. And the ten "broken image" alarms that have sat on your case-study cards since July
+were stale: every image returns fine, checked against a deliberately invented one that does not, so I
+closed them and told the lane that owns the detector.

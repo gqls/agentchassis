@@ -3600,3 +3600,30 @@ waiting on the roll. After it lands: no dispatch within ~300 s of the pod start;
 `page_rerender` fan-out from 20:17Z (a roll can interrupt the item being processed — it retries, but
 read the queue rather than assume); the card canary and any Stage B follow-up wait for the pods to be
 older than five minutes anyway.
+
+## 2026-09-03 (22:15–22:30Z) — the hero finding is 7× the critic's sample; ten pages hold generated heroes nothing shows; ten stale image-404 rows closed
+
+From the uplift lane, measured aggregated (no pipe could truncate): **38 hero components on the site,
+2 distinct images — 35 use `/assets/images/hero.jpg`**, 1 the careers hero, 2 extract none. The critic's
+"five pages" was its instrument's sample (≤8 pages screenshotted) reported as a site property.
+**IMG-077 (`unrendered_page_imagery`) fired on this site today and filed two `needs_human_review` items:**
+`6db67bde` — 4 pages `unwired` (use-cases, case-studies, approach, contact: each has a deployed
+`content-hero-<page>.jpg` the page never renders); `d280a6fd` — 6 pages `no_image_slot` (tool/guide
+pages whose components cannot show an image by construction; the migration-686 trap — giving a
+component its own image field renders the SAME image twice on any page that also has a hero, 292/301
+fleet-wide — means do NOT "fix" these six that way).
+**My own check on the four `unwired` `[MEASURED 22:25Z]`:** their hero slots are page-specific hero
+components (`about-hero`, `case-studies-hero`, `contact-hero`, `use-cases-hero`) whose `content_data` does
+NOT hold the `content-hero-<page>` path and whose rendered_html shows neither it nor the shared hero.jpg.
+So the item's "where content_data already holds the path, a reason=template_changed rerender delivers
+today" does NOT apply here; wiring these four is `bugs_open/412` fix candidate 1 (deploy-time wiring),
+a mechanism owned outside this lane. (A first `assets` count of 0 was my predicate — I matched the
+hyphenated web name against `storage_path`, which carries the underscore key form; not re-run, the
+IMG-077 item is the authority that the assets exist and are deployed.)
+**Stale rows closed:** the ten `image_url_404` `detected` rows naming the case-study card images
+(2026-07-26 / 08-03) re-probed from outside: all five `case-study-*.jpg` **200 image/jpeg** (52–94 KB),
+invented-URL control **404**. CANCELLED with the probe as the reason; `image_url_404:empty-src` left
+(unprobed). CONTRIB to `bugfix_168_deployed_asset_path` (the detector's lane, 7 references): the check
+never re-verifies or closes its rows — a month-old detection reads like this morning's.
+**Comparison graphic shape agreed with the uplift lane:** lives WITH the orange-left-border device;
+crisp £99 (exact) against a BANDED ~$5,000 (approximate) — the asymmetry is the honesty.

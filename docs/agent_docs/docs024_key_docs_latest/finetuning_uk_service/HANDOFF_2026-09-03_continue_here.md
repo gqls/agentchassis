@@ -207,6 +207,11 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    six case studies (content decision), no swap. Do NOT touch `features` (solid) or `differentiators`
    (the site's strongest device; the uplift lane's infographic sits with it). Site-wide monotony and the
    hero image reused on five pages are composition/imagery questions, not this lane's card swap.
+0e. **Imagery (uplift lane's half, owner's yes needed):** 35 of 38 heroes are `hero.jpg`; IMG-077 items
+   `6db67bde` (4 pages `unwired`: use-cases, case-studies, approach, contact — wiring is `bugs_open/412`
+   fix candidate 1, NOT a rerender: their hero slots' content_data lacks the path, measured) and
+   `d280a6fd` (6 `no_image_slot` tool/guide pages — leave; the 686 double-image trap). Ten stale
+   `image_url_404` rows on the case-study cards CANCELLED after a probe with a control; `empty-src` left.
 0a. **Playground follow-ups, in order:** (i) a criteria fence for `tool-playground` so TL-013's
    ladder grades it (the brief's ACCEPTANCE list is the fence's content); (ii) a multi-turn probe
    run (the CDP probe sends one message; the route and widget are multi-turn); (iii) the owner's read
