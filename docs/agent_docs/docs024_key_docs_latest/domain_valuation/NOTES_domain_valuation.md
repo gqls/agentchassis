@@ -334,3 +334,34 @@ domains still listed there were probably lost."*
   the Leopardess animal-brandable pattern). ⚠ **`mandrill.uk` deliberately NOT
   recommended — Mailchimp trademark in the same tech space.** All parked at
   Dan.com, no site behind them.
+
+## 2026-09-03 (night) — two gaps closed, one of them mine twice over
+
+- **`healthcare.uk` cost £40,000; the model said $149** — a **~340× miss**, the
+  worst yet, and it sat in `health-medical/general`, the lowest-median block and
+  therefore **FIRST in the sell cut**. Caught only because "healthcare" is a
+  single dictionary word and that hold-out was created hours earlier for
+  `free.uk`. ⚠ The precise diagnosis: the model gave `healthcare.uk` and
+  `healthcarecareers.uk` the **identical $149**, because both inherit the same
+  subcategory median. It does not under-value premium names by a correctable
+  factor — **it cannot distinguish them**. Calibration gained: £40k for a
+  one-word `.uk` is the TOP of that market, not an overpay (comps: digi.uk £18k,
+  seo.uk £55.8k), so the £2–5k band describes ORDINARY one-word `.uk`.
+- **⚠ OWNER FIGURES WERE PROSE, NOT DATA — and that let one through.**
+  `holidaytime.com` **sold for $12,000** and was still sitting in the sell cut
+  at a $450 keen price, because no scarcity rule catches a two-word compound and
+  `OWNER_STATED_PRICES.md` is a document the model never reads. Now fixed:
+  `OWNER_FIGURES.csv` is read by the valuer and any domain with an owner figure
+  is held as `OWNER-FIGURE:<kind>` (7 domains). **Same failure class as the
+  quote-as-a-pair ruling earlier today** — a rule recorded in prose is not a
+  control on a file other lanes consume. Check for this shape whenever a ruling
+  lands: *is it enforced, or only written down?*
+- **leopardess, final state**: it IS the owner's own consultancy (fact, verified
+  at the live site + his confirmation), AND he then ruled *"we can work as if
+  leopardess is a paying client if that helps, I do pay through the nose for
+  these tokens"*. So D4's paying-client care now stands **by ruling** rather
+  than by fact, and the earlier note here that it rests on "ordinary live-site
+  grounds" is **superseded** — treat it with client-grade care. D4 corrected at
+  source by the copy_quality lane; the error was in the ruling as written, not
+  added downstream, and had passed through three lanes because **nobody read the
+  live site — a quoted ruling is the thing nobody re-checks.**

@@ -446,7 +446,7 @@ carremaps.com,dynadot,misc,general,com,9,2027-07-22,atom,5264,2026-09-02,direct,
 carsafes.co.uk,nominet,automotive,parts-accessories,co.uk,8,2028-09,,,,,,,,,50000,min_offer,,,,,1608,category-median,low,0.85,co.uk x0.85,1367,C,700,tbd,,71.4
 carsafes.uk,nominet,automotive,parts-accessories,uk,8,2028-09,,,,,,,,,10000,min_offer,,,,,1608,category-median,low,0.21,uk x0.21,338,E,200,tbd,,50.0
 carsforchildren.com,dynadot,consumer-products,kids-baby,com,15,2027-02-19,afternic,4147,2026-09-02,direct,,dynadot,2508.00,2026-09-03,,,,,,,4147,own-appraisal,high,1.00,,4147,B,2500,tbd,0.6,
-cartoon.co.uk,nominet,generic-word,general,co.uk,7,2027-06,,,,,,,,,,,,,,,4602,subcategory-median,medium,0.85,co.uk x0.85,3912,B,,PREMIUM-REVIEW:single-word,,
+cartoon.co.uk,nominet,generic-word,general,co.uk,7,2027-06,,,,,,,,,,,,,,,4602,subcategory-median,medium,0.85,co.uk x0.85,3912,B,,OWNER-FIGURE:acquisition-cost,,
 carvanlease.co.uk,nominet,automotive,leasing,co.uk,11,2027-07,,,,,,,,,,,2613,,,,1608,category-median,low,0.85,co.uk x0.85,1367,C,700,tbd,,
 cassavaroot.com,dynadot,food-drink,general,com,11,2026-12-02,afternic,1178,2026-09-02,direct,,,,,12000,min_offer,,,,,1178,own-appraisal,high,1.00,,1178,D,550,tbd,,21.8
 casualshirt.uk,nominet,consumer-products,clothing-fashion,uk,11,2028-11,,,,,,,,,,,,,,,3512,subcategory-median,medium,0.21,uk x0.21,738,D,350,tbd,,
@@ -1025,7 +1025,7 @@ foundationalmodels.com,porkbun,ai-tech,ai,com,18,2027-06-11,afternic,,,,,afterni
 fourwheeldrive.co.uk,nominet,automotive,general,co.uk,14,2028-05,,,,,,,,,,,,,,,916,subcategory-median,medium,0.85,co.uk x0.85,779,D,375,tbd,,
 free-credit-report-check.com,dynadot,financial,credit-debt,com,24,2026-11-26,afternic,193,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,5000,,,,193,own-appraisal,high,0.44,3 hyphens -45%; very long -20%,85,E,,KEEP:network-financial,294.4,
 free-credit-reports.co.uk,nominet,financial,credit-debt,co.uk,19,2028-11,,,,,,,,,,,5000,,,,990,subcategory-median,medium,0.47,2 hyphens -45%; co.uk x0.85,463,E,,KEEP:network-financial,,
-free.me.uk,nominet,brandable-short,4-char,me.uk,4,2028-04,,,,,,,,,50000,min_offer,,,,,1026,subcategory-median,medium,0.12,me.uk x0.12,123,E,,PREMIUM-REVIEW:single-word,,
+free.me.uk,nominet,brandable-short,4-char,me.uk,4,2028-04,,,,,,,,,50000,min_offer,,,,,1026,subcategory-median,medium,0.12,me.uk x0.12,123,E,,OWNER-FIGURE:owner-floor,,
 free.uk,nominet,brandable-short,4-char,uk,4,2030-10,,,,,,,,,,,,,,,1026,subcategory-median,medium,0.21,uk x0.21,215,E,,PREMIUM-REVIEW:single-word,,
 freelanceseoexpert.co.uk,nominet,web-digital,marketing,co.uk,18,2027-08,,,,,,,,,,,,,,,1482,subcategory-median,medium,0.85,co.uk x0.85,1260,C,650,tbd,,
 freelanceuxdesigner.com,porkbun,web-digital,design,com,19,2027-08-10,afternic,,,,,afternic,4999,2026-09-03,,buy_now,1500,,,,3255,subcategory-median,medium,1.00,,3255,C,1650,tbd,1.5,
@@ -1182,7 +1182,7 @@ hcare.uk,nominet,health-medical,care,uk,5,2028-09,,,,,,,,,10000,min_offer,,,,,66
 hdg8.com,porkbun,brandable-short,4-char,com,4,2027-01-07,afternic,,,,,,,,50000,min_offer,,,,,1026,subcategory-median,medium,0.96,short .com +20%; digits -20%,985,D,450,tbd,,111.1
 headwalls.co.uk,nominet,industrial-equipment,materials,co.uk,9,2028-12,,,,,,,,,,,,,,,1568,subcategory-median,medium,0.85,co.uk x0.85,1333,C,700,tbd,,
 health-monitors.com,porkbun,health-medical,general,com,15,2026-11-25,afternic,,,,,afternic,25000,2026-09-03,,buy_now,2000,,,,711,subcategory-median,medium,0.75,hyphen -25%,533,D,250,tbd,46.9,
-healthcare.uk,nominet,health-medical,general,uk,10,2030-09,,,,,,,,,120000,min_offer,2000,,live-site,,711,subcategory-median,medium,0.21,uk x0.21,149,E,,PREMIUM-REVIEW:single-word,,
+healthcare.uk,nominet,health-medical,general,uk,10,2030-09,,,,,,,,,120000,min_offer,2000,,live-site,,711,subcategory-median,medium,0.21,uk x0.21,149,E,,OWNER-FIGURE:acquisition-cost,,
 healthcareaward.co.uk,nominet,health-medical,general,co.uk,15,2028-10,,,,,,,,,10000,min_offer,2000,,,,711,subcategory-median,medium,0.85,co.uk x0.85,604,D,275,tbd,,36.4
 healthcareaward.uk,nominet,health-medical,general,uk,15,2027-10,,,,,,,,,10000,min_offer,2000,,,,711,subcategory-median,medium,0.21,uk x0.21,149,E,200,tbd,,50.0
 healthcareawards.uk,nominet,health-medical,general,uk,16,2027-10,,,,,,,,,10000,min_offer,2000,,,,711,subcategory-median,medium,0.21,uk x0.21,149,E,200,tbd,,50.0
@@ -1259,7 +1259,7 @@ holidayletsinscotland.com,porkbun,travel,general,com,21,2026-11-18,afternic,,,,,
 holidayletsinwales.com,porkbun,travel,general,com,18,2026-11-18,afternic,,,,,,,,10000,min_offer,,,,,995,subcategory-median,medium,1.00,,995,D,450,tbd,,22.2
 holidayletspadstow.co.uk,nominet,travel,general,co.uk,18,2028-09,,,,,,,,,10000,min_offer,,,,,995,subcategory-median,medium,0.85,co.uk x0.85,846,D,400,tbd,,25.0
 holidayresorts.uk,nominet,travel,general,uk,14,2027-01,,,,,,,,,50000,min_offer,,,,,995,subcategory-median,medium,0.21,uk x0.21,209,E,200,tbd,,250.0
-holidaytime.com,porkbun,travel,general,com,11,2027-02-20,afternic,,,,,,,,100000,min_offer,,,,,995,subcategory-median,medium,1.00,,995,D,450,tbd,,222.2
+holidaytime.com,porkbun,travel,general,com,11,2027-02-20,afternic,,,,,,,,100000,min_offer,,,,,995,subcategory-median,medium,1.00,,995,D,,OWNER-FIGURE:realised-sale,,
 holidayworld.co.uk,nominet,travel,general,co.uk,12,2028-04,,,,,,,,,10000,min_offer,,,,,995,subcategory-median,medium,0.85,co.uk x0.85,846,D,400,tbd,,25.0
 holybibles.co.uk,nominet,consumer-products,retail,co.uk,10,2027-01,,,,,,,,,50000,min_offer,,,,,3568,subcategory-median,medium,0.85,co.uk x0.85,3033,C,1550,tbd,,32.3
 holzgreifer.com,porkbun,industrial-equipment,lifting,com,11,2027-08-25,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,2066,category-median,low,1.00,,2066,C,1050,tbd,2.4,
@@ -2229,7 +2229,7 @@ reisvilla.com,porkbun,travel,general,com,9,2027-07-23,afternic,,,,,afternic,4999
 reits.uk,nominet,financial,investing,uk,5,2028-10,,,,,,,,,10000,min_offer,,,,,2331,subcategory-median,medium,0.21,uk x0.21,490,E,,KEEP:network-financial,,
 releasepension.co.uk,nominet,financial,investing,co.uk,14,2028-04,,,,,,,,,10000,min_offer,2613,,,,2331,subcategory-median,medium,0.85,co.uk x0.85,1981,C,,KEEP:network-financial,,
 releaseyourpension.co.uk,nominet,financial,investing,co.uk,18,2028-04,,,,,,,,,10000,min_offer,2613,,,,2331,subcategory-median,medium,0.85,co.uk x0.85,1981,C,,KEEP:network-financial,,
-relojistas.com,dynadot,consumer-products,jewellery-watches,com,10,2026-11-10,cloudflare,1490,2026-09-03,direct,,afternic,45000,2026-09-03,,buy_now,,,live-site,,1490,own-appraisal,high,1.00,,1490,C,,KEEP:live-site,30.2,
+relojistas.com,dynadot,consumer-products,jewellery-watches,com,10,2026-11-10,cloudflare,1490,2026-09-03,direct,,afternic,45000,2026-09-03,,buy_now,,,live-site,,1490,own-appraisal,high,1.00,,1490,C,,OWNER-FIGURE:owner-floor,30.2,
 remortgagecalculator.uk,nominet,financial,mortgages,uk,20,2028-09,,,,,,,,,50000,min_offer,1649,,live-site,,1608,subcategory-median,medium,0.21,uk x0.21,338,E,,KEEP:network-financial,,
 remortgagequotation.co.uk,nominet,financial,mortgages,co.uk,19,2028-10,,,,,,,,,,,2000,,,,1608,subcategory-median,medium,0.85,co.uk x0.85,1367,C,,KEEP:network-financial,,
 remortgagequotation.uk,nominet,financial,mortgages,uk,19,2028-10,,,,,,,,,,,2000,,,,1608,subcategory-median,medium,0.21,uk x0.21,338,E,,KEEP:network-financial,,
@@ -2881,8 +2881,8 @@ webclothes.co.uk,nominet,consumer-products,clothing-fashion,co.uk,10,2028-11,,,,
 webconsulting.uk,nominet,web-digital,web,uk,13,2028-11,,,,,,,,,,,,,,,1635,category-median,low,0.21,uk x0.21,343,E,200,tbd,,
 webcook.co.uk,nominet,food-drink,general,co.uk,7,2028-03,,,,,,,,,10000,min_offer,,,,,1233,subcategory-median,medium,0.85,co.uk x0.85,1048,D,475,tbd,,21.1
 webcx.uk,nominet,web-digital,web,uk,5,2027-10,,,,,,,,,10000,min_offer,,,,,1635,category-median,low,0.21,uk x0.21,343,E,200,tbd,,50.0
-webdesign.co.uk,nominet,web-digital,web,co.uk,9,2031-12,,,,,,,,,,,1188,webdesign.uk,live-site,,1635,category-median,low,0.85,co.uk x0.85,1390,C,,QUOTE-AS-PAIR:webdesign.uk,,
-webdesign.uk,nominet,web-digital,web,uk,9,2031-10,,,,,,,,,,,1188,webdesign.co.uk,live-site,,1635,category-median,low,0.21,uk x0.21,343,E,,QUOTE-AS-PAIR:webdesign.co.uk,,
+webdesign.co.uk,nominet,web-digital,web,co.uk,9,2031-12,,,,,,,,,,,1188,webdesign.uk,live-site,,1635,category-median,low,0.85,co.uk x0.85,1390,C,,OWNER-FIGURE:owner-estimate,,
+webdesign.uk,nominet,web-digital,web,uk,9,2031-10,,,,,,,,,,,1188,webdesign.co.uk,live-site,,1635,category-median,low,0.21,uk x0.21,343,E,,OWNER-FIGURE:owner-estimate,,
 webdesignagencies.co.uk,nominet,web-digital,web,co.uk,17,2028-04,,,,,,,,,10000,min_offer,1188,,,,1635,category-median,low,0.85,co.uk x0.85,1390,C,700,tbd,,14.3
 webdesignagencies.uk,nominet,web-digital,web,uk,17,2028-09,,,,,,,,,50000,min_offer,1188,,,,1635,category-median,low,0.21,uk x0.21,343,E,200,tbd,,250.0
 webdesignaward.uk,nominet,web-digital,web,uk,14,2028-10,,,,,,,,,10000,min_offer,1188,,,,1635,category-median,low,0.21,uk x0.21,343,E,200,tbd,,50.0

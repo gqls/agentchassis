@@ -71,6 +71,28 @@ try:
 except OSError:
     NETWORK_KEEP = set()
 
+# Domains the owner has given a real figure for — a realised sale, what he paid,
+# or a floor he set. These are the ONLY per-domain numbers in the estate that
+# did not come from an algorithm, and every one measured so far is far above
+# what the model produces. Recorded in prose was not enough: holidaytime.com
+# sold for $12,000 and still sat in the sell cut at $450, because no scarcity
+# rule happened to catch a two-word compound. So the file is now DATA.
+def _owner_figures():
+    import csv as _csv
+    out = {}
+    try:
+        with open(os.path.join(HERE, 'OWNER_FIGURES.csv')) as fh:
+            for row in _csv.DictReader(fh):
+                d = row['domain'].strip().lower()
+                if d:
+                    out[d] = row
+    except OSError:
+        pass
+    return out
+
+
+OWNER_FIGURES = _owner_figures()
+
 # A single dictionary word with no hyphen or digit. These are the estate's
 # premium end and the model cannot price them: only 4 of 144 have an appraisal,
 # and the two we have owner figures for (cartoon.co.uk £5,000+ paid,
@@ -185,6 +207,9 @@ def main():
         # stock — checked FIRST, because it outranks every other reason.
         if r['registrar'].startswith('NOT-OWNED'):
             keen_out, sell = '', r['registrar']
+        elif d in OWNER_FIGURES:
+            f = OWNER_FIGURES[d]
+            keen_out, sell = '', 'OWNER-FIGURE:' + f['kind']
         elif is_single_word(d) and not r['dynappraisal']:
             keen_out, sell = '', 'PREMIUM-REVIEW:single-word'
         elif (r['tld'] == 'com' and int(r['sld_length']) == 4
