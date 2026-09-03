@@ -1,6 +1,18 @@
 # 463 — `validate_site_plan` Pass C silently drops every NEW child page of a section index, so an empty section index can never be filled
 
-**Filed 2026-09-03 ~15:40Z by the `gamedesign.uk` lane. UNOWNED.**
+**Filed 2026-09-03 ~15:40Z by the `gamedesign.uk` lane.**
+
+> ## ✅ FIXED IN CODE 2026-09-03 by session `463` — commit `9b540c2e6`. STILL OPEN: inert until the chassis image rebuilds and rolls, and unverified at the artefact until then.
+>
+> Both halves are in that commit: Pass C narrowed to a true collider, and the
+> `parent_section` derivation §5 below said was not needed (see the correction there —
+> **without it the Pass C fix changes nothing at the artefact**). Council submitted,
+> corr `9f6c6374-1b76-4094-9b4c-e04808d8428c`, verdict pending.
+> Tests: `platform/orchestration/actions/v3_site_reconcile_section_children_test.go`,
+> `platform/orchestration/datahelpers/page_parent_section_test.go`.
+> **Do not re-plan gamedesign.uk until the roll** — a fourth plan before then is deleted
+> by the same pass.
+
 **Severity: this is why a site with an articles/guides/news hub and no children stays empty for ever, through any number of re-plans.**
 
 ## 1. Symptom, at the artefact
@@ -95,6 +107,33 @@ section_children:articles-index` at 10:40:18Z, and five children dropped at 14:1
 - **NOT about `parent_section`.** The dropped pages carried `parent_section: null`, but Pass C
   never reads that field — setting it correctly would not have saved them.
 
+> **CORRECTED 2026-09-03 by session `463`, while fixing this bug.** The bullet above is
+> **true of Pass C and false of the write path**, and taken as written it would have
+> produced a fix that changed nothing on the served page. Pass C indeed never reads
+> `parent_section`. But `WriteSitePlanAction` and `SyncPagesToDBAction` both **discard the
+> planner's url** and re-derive it from `datahelpers.CanonicalisePage`, whose `blog-post`
+> arm is `dir := parent; if dir == "" { dir = "blog" }`. `ValidateRoles` copied
+> `ParentSection` verbatim and never derived it, and its rule 5 (`nestedRoleFromURL`)
+> rescues only `tools`/`guides`/`games` — which is exactly why §3's control
+> (mortgagecalculator's `/guides/` children) survives and `/articles/` cannot.
+>
+> So a child kept by a fixed Pass C would have been written to `/blog/<slug>.html`,
+> `countSectionChildren("/articles/")` would still have counted zero, and 444's gate would
+> still have held the hub. Same empty page, different cause.
+>
+> `[MEASURED 2026-09-03]` at the live `agent_definitions` row: the `plan_site`
+> prompt_template is **32,191 chars** and does not contain the string `parent_section`;
+> `site_plan_pages` holds **109** `blog-post` rows, **109** with `parent_section` absent and
+> **0** set. Every leaf-role plan row fleet-wide sits in its role's DEFAULT directory except
+> where a realised identity or an explicit Go producer supplied the value. The planner has
+> never once placed a leaf page in a custom section, and cannot: nothing asks it for the
+> field and, until this fix, nothing derived it.
+>
+> What caught it: tracing what happens to a surviving page rather than stopping at the drop.
+> The cheap check that would have caught it at filing time is one query —
+> `SELECT role, parent_section, url FROM site_plan_pages WHERE role='blog-post' LIMIT 20`
+> — which shows every row at `/blog/` with a NULL parent.
+
 ## 6. Fix candidates, ordered by what closes the door
 
 1. **Make Pass C distinguish a child from a collider — the only fix that makes the bad state
@@ -139,3 +178,69 @@ defect and has been told directly — if a fix lands, it should probably land th
 have two lanes editing one action. `designblog.co.uk` (owns 730/731) and `bugs_open/427` have been
 told, because a zero-article outcome would otherwise read as evidence against rule 20 and it is
 not. `scripts/who-owns.py 463` before routing work at it.
+
+---
+
+## 9. The fix, and what it deliberately leaves (added 2026-09-03 by session `463`)
+
+### Fleet blast radius, measured before fixing
+
+`[MEASURED 2026-09-03]` **53 of 78** section-index-family hubs at `/<sec>/index.html`, across
+**21 sites**, have zero child pages under their prefix. gamedesign.uk is not a special case; it
+is the case that got diagnosed. (This is the population that *cannot* be filled while the bug
+stands — not a claim that Pass C emptied all 53.)
+
+### What changed (commit `9b540c2e6`)
+
+1. **Pass C compares the full path each side CLAIMS**, through `datahelpers.PagePathKey`, the
+   estate's existing collision key. `/articles.html` and `/articles/index.html` both claim
+   `/articles` → still dropped. `/articles/x.html` claims `/articles/x` → kept. The name-stem
+   map survives only as the fallback for a plan page carrying no url, where behaviour is
+   unchanged.
+   This makes Pass C and §4's gate complementary **by construction**: "claims the hub's path"
+   and "lives under the hub" (`countSectionChildren`'s prefix test) partition the old
+   first-segment test, so the two guards in series can no longer disagree about one page.
+   `[MEASURED]` **83 of 83** live hubs have a name-derived stem equal to the one their url
+   yields, so on today's estate the new rule drops a strict **subset** of what the old one did.
+2. **`ValidateRoles` derives `parent_section` from a leaf page's own url** — see the §5
+   correction for why this is not optional. Gated to leaf roles, to an absent value, and to an
+   entry the reconciler has NOT paired with a realised page.
+3. **A drop now names the page, its url and the pass** on `reconcileCounts`.
+
+### Deliberately not done, and by whom
+
+- **The durable finding of candidate 2 is the `428` lane's**, shipped the same day
+  (`recommended_type_reconciliation.go`, commits `eee40b554`/`91173c6d7`). It classifies by
+  STAGE rather than by pass, which is the vocabulary that survives these passes being
+  renumbered. Two lanes filing overlapping findings for one event is the drift this estate
+  keeps paying for, so this bug's producer-side record stays a `reconcileCounts` field.
+  **Residual that lane named itself:** its check is type-level, so a re-derived url is invisible
+  to it — the `blog-post` type IS present in the final set, so it reports no omission while the
+  hub is still held. That is exactly the half §5's correction covers.
+- **Candidate 3 (flat article URLs outside the section prefix) was NOT taken.** It trades a
+  dropped page for an orphaned one and breaks the `section_children` resolver 444's gate
+  depends on.
+
+### Residuals, filed or named rather than fixed here
+
+- **`bugs_open/465`** — `truncatePreservingRealised` drops EVERY net-new page once the preserved
+  set reaches `max_pages` (20), with one `logger.Warn` and no durable record. Same silent-shrink
+  signature, different pass; it means this fix alone will not fill a hub on a site of 20+ pages.
+- **`create_blog_posts_action.go`, `apply_gap_plan_action.go`, `apply_adoption_plan_action.go`**
+  call `CanonicalisePage` without threading `ParentSection` at all, so they still write
+  blog-posts to `/blog/` whatever the plan says. Found by the `feed lane` and verified here.
+  Unaffected by this fix because there is no url at those call sites to derive from — a
+  different fix, in a producer dormant since 2026-04-24 (`bugs_open/460`).
+- **`bugs_open/457`** (`rebuild_blog_listing` appending orphan `page_components` rows) is the
+  hub-RENDER path and is owned and in flight. It decides whether a filled hub actually *lists*
+  its children, so it gates the end-to-end verification of this fix, not the fix itself.
+- **`sectionStems` is last-write-wins with no ambiguity refusal**, unlike every other map in
+  `reconcilePlanWithRealised`. Left as-is: the refusal direction is already the safe one and the
+  case is unmeasured.
+
+### How to close this bug
+
+Not before the chassis image rebuilds and rolls — Go changes are inert until then. Then §7's
+step-boundary check, and one addition to it: confirm the children reach `site_plan_pages` at
+**`/articles/<slug>.html`, not `/blog/<slug>.html`**. That second assertion is the one a
+Pass-C-only fix would fail, and a served-page check cannot distinguish the two.
