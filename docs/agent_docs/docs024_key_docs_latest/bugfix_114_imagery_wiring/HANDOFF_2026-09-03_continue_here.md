@@ -1,5 +1,14 @@
 # HANDOFF 2026-09-03 — bugs_open/114 imagery wiring: continue here
 
+> **UPDATE 2026-09-03 ~13:30Z — THIRD roll of the day, `v1.0.1359` (pods born 13:28Z),
+> check survived again: capability 61/61 with clean controls.** Coverage now **5 sites,
+> 6 rollups, 9/9 orchestrations COMPLETED** — loancash.co.uk joined (`no_image_slot` 7,
+> plausible: it is one of RFC_063's plan-less sites holding 9 content-hero assets).
+> Gate unchanged otherwise: still waiting on one `fragment_slot` observation and the
+> big-`unwired` sites. Nothing of this lane's rides any roll now — these re-verifies
+> are hygiene, and the closing session can do them with the one query + one probe above
+> each entry.
+>
 > **UPDATE 2026-09-03 later afternoon — the closure gate is now TWO of three states
 > observed:** the first **`unwired`** rollup landed (fundamentallyai.com, count 3,
 > 12:30:48Z — a detector READING there is fine; that site stays excluded only as

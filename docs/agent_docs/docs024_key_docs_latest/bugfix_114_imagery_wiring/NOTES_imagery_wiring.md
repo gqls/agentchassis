@@ -858,3 +858,10 @@ The user reported a further fresh build; the agent-chassis deployment still read
 never pick up. Immaterial here: nothing of this lane's is roll-pending. Recorded so the
 next session does not read "a build was deployed" as "agent-chassis re-rolled" —
 same-tag is the FRESH-BUILD landmine, and the tag is never the evidence.
+
+### 2026-09-03 ~13:30Z — third roll (`v1.0.1359`), survived; coverage 5 sites / 6 rollups / 9-of-9
+
+Capability on the new pods: 61/61, controls clean. New rollup: loancash.co.uk
+`no_image_slot` **7** (plausible — a plan-less RFC_063 site holding 9 content-hero
+assets; its pages cannot render them and the check says so). Still outstanding:
+`fragment_slot` (tool-page sites) and webdesign.co.uk's big `unwired` population.
