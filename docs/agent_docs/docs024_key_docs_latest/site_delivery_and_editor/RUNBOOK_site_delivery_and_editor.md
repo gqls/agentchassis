@@ -208,3 +208,46 @@ Two terminals inside 7 days above an `unresolved` one = the ladder. Re-file exac
 the served pages after the mirror tick. ⚠ The wave re-assembles every page (`_assemble`
 items, reason-less ⇒ `rerender_single_page`, stored arrays re-shipped) — it does NOT re-resolve
 list items; still-suffixed cards after it are not a new failure.
+
+## boxingonline /index.html call-to-action — "the calendar below" copy fix, framework route (prepared 2026-09-03 ~12:2xZ; NOT FIRED — gated on the components lane's batch 691 reading)
+
+**The defect** (boxingonline session's read of the 12:09:49Z rebuild, credited): the repaired CTA's
+subheadline reads *"New results, announcements and fight news land regularly, and the calendar below
+tells you what's coming up next."* The CTA is the LAST section on the page; there is no calendar on
+the home page (it is `/tools/fight-calendar/index.html`, which the secondary CTA already links). A
+falsifiable spatial claim of the very class item 1 was about. Do NOT fix it by hand — the framework
+writes the content (owner 08-06).
+
+**The route, read at the live definitions:** `needs_copy_edit` → handler **`copy-editor`** (active,
+registered) → `run_copy_edit` (LLM) → **`request_review` (`checkpoint_for_review`)** — the proposal
+lands in the OWNER's review queue on admin.apis.uk (approve / request_changes, verified end-to-end
+09-02) → on approval the edit is applied as a `section_edit` (`apply_section_edit`, `content_edit`,
+`field_updates`, re-renders ONLY that slot from its template and re-assembles the page from stored
+components; commits and deploys the page directly — no `page_rerender` item, no re-resolve of the
+listing). ⚠ The existing deferred row `6776b944` on this page is an RFC_056 VERDICT row about the
+OLD CTA (third-person tool voice) with a stale `current_value`/`acceptance_test` — its
+`release_recipe` would dispatch a rewrite against copy that no longer exists. Leave it; file fresh.
+
+**Pre-flight:** 691's reading in hand (key SURVIVES ⇒ go; key GONE ⇒ still go, because this route
+does not re-resolve the listing — but say so explicitly and re-read the key after the apply);
+no open `needs_copy_edit`/`section_edit` on the page; then:
+```sql
+INSERT INTO site_work_items (site_id, source, item_type, severity, summary, page_id, priority,
+  handler_agent, pipeline, approval_mode, status, created_by, spec)
+VALUES ('d2aa5206-73bc-4707-a69c-2702c1eb9152', 'operator', 'needs_copy_edit', 'medium',
+  'index CTA subheadline claims "the calendar below" — the CTA is the last section and the calendar is a separate page (secondary CTA links it); rewrite so nothing on the page is described that is not on the page (owner item 1 class; boxingonline session read 2026-09-03)',
+  '0ff07948-8e6f-477a-9069-452d1a2aecca', 20, 'copy-editor', 'build', 'auto', 'triaged',
+  'site_delivery_and_editor-session',
+  jsonb_build_object(
+    'page_name','index', 'slot_name','call-to-action', 'component','call-to-action',
+    'category','accuracy', 'origin','human_review', 'audit_source','site_delivery_and_editor',
+    'description','The subheadline says "the calendar below tells you what''s coming up next". The call-to-action is the LAST section of the home page; nothing is below it, and the fight calendar is a separate page (/tools/fight-calendar/index.html) that the secondary button already links. The sentence describes the page''s own layout and gets it wrong.',
+    'current_value','New results, announcements and fight news land regularly, and the calendar below tells you what''s coming up next.',
+    'suggestion','Keep the headline and both buttons. Rewrite the subheadline (one sentence, second person, no more than ~120 characters) so it talks to the reader about what they get — results, announcements, fight news — and lets the "See the full fight calendar" button carry the calendar; do not describe where anything sits on the page.',
+    'acceptance_test','The subheadline contains no spatial reference (below/above/here/this page/the list) to content that is not on the home page, keeps second-person address, and both CTA labels and URLs are unchanged.',
+    'max_fix_attempts', 2)
+) RETURNING id, created_at;
+```
+Then: watch the item → `checkpoint_for_review` → the owner's queue; after approval, re-read
+`page_components` on index — content-listing still 6 excerpt keys, CTA subheadline changed — and the
+served page after the mirror tick.

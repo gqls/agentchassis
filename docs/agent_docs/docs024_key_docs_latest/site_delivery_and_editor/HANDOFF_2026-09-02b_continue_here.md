@@ -310,6 +310,7 @@ EXPECTED pre-convergence shape, not a failure).
    > BUILD or waits for 425's code fix.** Served /index.html still the 21:30 render until the
    > mirror tick (`deploy_result` success, files [index.html]; `pages.deployed_at` unchanged —
    > the 315 shape); monitor `b83oh2rij` reports decks + GTM on the served page.
+   > **Copy-fix route PREPARED (RUNBOOK, "the calendar below"):** `needs_copy_edit` → `copy-editor` → LLM → `checkpoint_for_review` (the OWNER's approve/request_changes queue) → `section_edit` applies one slot + deploys, no re-resolve of the listing. The existing deferred `6776b944` is a stale VERDICT row about the old CTA — do not release it. Fire after the components lane's 691 reading (either way; say which), re-read the excerpt key after the apply.
    > refresh `ec92320f` and the components' `06210ec6` wait on the same turn and will load in
    > the same run (max 8), expected order 8 → 10 → 10 → 80.
    > **CORRECTED 10:31Z: "hours away" was WRONG — boxingonline is POSITION 2.** The
