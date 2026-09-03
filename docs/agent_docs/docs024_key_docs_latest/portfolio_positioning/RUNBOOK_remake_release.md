@@ -257,7 +257,14 @@ a file in the 444 submission) — resolve by FILENAME, never bare number:
 ## 6. Fire-direction template (v2, NOTES (q))
 
 Per-domain vertical · best-in-vertical · no-omission · fullness · no negative-identity ·
-LAYOUT intent naming a distinct layout (prefer the nine unused) — ⚠ **an INFLUENCE, NOT a lever
+LAYOUT intent naming a distinct layout ~~(prefer the nine unused)~~ **— ⚠ DO NOT "prefer the nine
+unused": [MEASURED 2026-09-03] NINE of 18 layouts are reachable by ZERO sites' tags** (soft-editorial,
+affiliate-hub, comparison-aggregator, docs-sidebar, industry-hub, media-grid, portfolio-kinetic,
+tool-first-landing, utility-tool), because their `industry_tags` are a designer's INDUSTRY dialect
+(`wellness, bakery, artisan`, `law`, `boxing`) that the classifier never emits. Only
+`tool-portal-dark`/`-light` have vocabularies written in the classifier's own language, which is why
+15 of 33 sites sit on two layouts. A brief cannot reach an unreachable layout by naming it; the
+lever is the TAG vocabulary, which is 445's ground (NOTES (cc)) — ⚠ **an INFLUENCE, NOT a lever
 (NOTES (z), 2026-09-03)**: the resolver scores `classification.category` + `industry_tags` only,
 and takes just the light/dark SCHEME from `design_intent.style_direction`; it *"never consults
 design_intent"* for the layout itself. A named layout reaches it only if the CLASSIFIER copies the

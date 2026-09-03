@@ -4348,3 +4348,42 @@ not the score, which mostly measures how many tags a site happens to have.** Our
    Their design point, adopted: the unit of a library gap is a CLUSTER, not a site — seven per-site
    items are a queue nobody drains.
 
+### (cc) 2026-09-03 ~11:0xZ — the layout problem is a TAG-VOCABULARY gap, measured: 9 of 18 layouts are reachable by ZERO sites
+
+Prompted by the 445 lane's never-used split (`soft-editorial` scores above zero on 27/33 sites but
+only on the same-scheme bonus, never on tag fit). I asked the reachability question directly —
+**for each layout, how many sites emit ANY of its `industry_tags`?**
+
+| reachable by | layouts |
+|---|---|
+| 23 / 21 sites | `tool-portal-dark` (14 tags), `tool-portal-light` (11 tags) |
+| 5 / 4 / 3 / 2 / 1 | magazine-grid 5 · technical-precise 4 · social-lobby 3 · brochure-formal 2 · brochure-bold, ecommerce-storefront, high-energy 1 each |
+| **ZERO** | **`soft-editorial`, `affiliate-hub`, `comparison-aggregator`, `docs-sidebar`, `industry-hub`, `media-grid`, `portfolio-kinetic`, `tool-first-landing`, `utility-tool` — 9 of 18** |
+
+[MEASURED 2026-09-03: `layouts.industry_tags` ∩ every current `classification.industry_tags`.]
+
+**The mechanism of the whole sameness problem, and it is not a library gap.** The two winners are
+the only layouts whose tag vocabulary has been grown into the language the CLASSIFIER actually
+speaks — `interactive-platform`, `tool-portal`, `practitioner-platform`, `editorial-publication`.
+Every other layout still carries 4–6 tags in a *designer's industry* dialect the classifier never
+emits: `wellness, lifestyle, bakery, artisan` · `law, consultancy` · `boxing, martial-arts` ·
+`podcast, gallery`. So 15 of 33 sites funnel onto two layouts not because the library is short of
+designs but because **only two of them are addressable**. Adding an 18th layout without tags in the
+emitted dialect produces a 10th unreachable one — 445 suspected this; it is now measured.
+**The deeper design fault: a layout's tags name an INDUSTRY, while what makes a layout right for a
+site is its FORM (reading-first, long-form, tool-dominated). The two vocabularies answer different
+questions, and the classifier mostly emits shape words.**
+
+**Consequences for this lane, both immediate:**
+1. **`soft-editorial` is UNREACHABLE for copyonline — zero sites emit any of `wellness, lifestyle,
+   bakery, artisan, personal-brand, long-form`, and a B2B copywriting site will emit none of them.**
+   The layout is aesthetically right (warm, reading-first, serif) and tagged for a market we are not
+   in. My template-v2 line "prefer the nine unused layouts" was aiming at the nine that CANNOT BE
+   REACHED. Corrected in the runbook.
+2. **FALSIFIABLE PREDICTION for №5, recorded before the build so the outcome can disconfirm it:**
+   copyonline will resolve to **`tool-portal-light`** (it ships four browser tools, and that layout
+   carries `tool-portal`/`tools`/`interactive-platform` plus `editorial-publication`), with
+   `magazine-grid` the alternative if the classifier leads with editorial words. **Not
+   `soft-editorial`, whatever the brief says.** Read `site_specs` `aspect='resolved_composition'`
+   the moment composition runs and record which way it went — either outcome is evidence for 445.
+
