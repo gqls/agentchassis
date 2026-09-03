@@ -4048,3 +4048,51 @@ tag — `<strong>open-weight model</strom>` — which is in the stored `content_
 served page** (`curl … | grep -c strom` = 1 on both). Present in the gate's `from` AND `to`, so
 the gate faithfully preserved it; it is a writer-output defect, not a repair defect. Raised with
 the finetuning lane. No HTML-validity check stands between the writer and the bucket.
+
+**2026-09-03 ~11:20Z — AFTER-PASS #2 (the HOMEPAGE, writer orch `6e7b0529`): HIS RULING CAME OUT
+OF THE FRAMEWORK VERBATIM, and the gate refused a truncation of the very shape he ruled for.**
+
+Keyed on `orchestration_id`, not correlation — the dispatch loop took both finetuning.uk items
+under one correlation `6e8eadaa`, so a correlation-keyed read mixes two pages (the finetuning
+lane caught this; my technical-details read was clean but only by luck, proven after the fact by
+a provenance grep). This run carries a provenance control in the watcher itself: homepage
+marker=1, technical-details marker=0.
+
+**The headline, and it is the thing to tell him:** the page now serves
+
+> **"We're not tied to one provider."**
+
+which is *exactly* his ruling ("Keep 'We're not tied to one provider'", cut at the comma),
+produced by the framework with nobody hand-editing a word. `[MEASURED]` the old full sentence
+("…, so you get the model that fits the task, not the model we happen to sell") is **gone from
+the served page** (`grep -c` = 0, HTTP 200, 66,887 bytes). The 2026-08-04 ruling held: the
+framework wrote it.
+
+**The gate's own report:** `hits_before=9 → hits_after=3`, 6 repairs, **2 rejections**, 0 exempt
+(`rather_than` 4, `x_not_y` 1, `instead_of` 1). Page-level `content_data`: **13 → 2**, and note
+the page got **LONGER** — 1,804 → 2,042 words (+13.2%), against technical-details' −33.5%. So the
+shrink on that page was that page's writer, not a property of rebuilds, which sharpens the
+`bugs_open/422` observation rather than generalising it.
+
+**⚠ THE FINDING WORTH HIS ATTENTION — the gate is MORE CONSERVATIVE THAN HIS RULING.** One of the
+two rejections is `reason: "gutted"`:
+> from: *"We pick the tool suited to each task rather than pushing one platform across everything you need."*
+> to:   *"We pick the tool suited to each task."*  ← **REJECTED, original kept**
+
+That proposed repair is the same operation he ordered on his own sentence — keep the first
+clause, cut at the comparison — and `AcceptNegationRewrite` judged the result gutted and failed
+closed, so the `rather_than` survives on the live page. **His ruling and the gate's judge
+disagree about how much a truncation may remove.** He ruled on a sentence whose first half stands
+alone comfortably; the judge is protecting against truncations that leave a stub. Both are
+defensible and they are not reconcilable by argument — it is a calibration number someone has to
+choose. Raised for him with the register, not settled here. It is also the only reason the
+homepage is at 2 rather than 1.
+
+The second rejection is `reason: "no_answer_for_target"` on `features[3].description` (`x_not_y`,
+`to: None`) — the model returned no rewrite at all. That is a live instance of the class the
+handoff already sized at **13.6% of 1,849 targets**, and it is the strongest argument yet for the
+queued re-ask: this one cost a repair on the page the owner personally complained about.
+
+The other survivor is `so_consequence`, which is **not in the register** — correct behaviour, and
+the same v3 candidate as on technical-details. Both pages now carry exactly one shape the gate is
+not yet allowed to see, which is a tidy argument for cutting v3 once he rules on the "so" form.
