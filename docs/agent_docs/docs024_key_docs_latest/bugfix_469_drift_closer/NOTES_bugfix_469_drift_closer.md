@@ -205,3 +205,49 @@ to the owner alongside RFC_064, do not apply.** Both affected lanes told.
 
 Even with the stamp withdrawn, whether an archived page is reachable by the build path at
 all is unknown to me. Recorded as an open question rather than assumed either way.
+
+### Correction to my own claim, same session
+
+I told the robot hands lane that archived-but-serving was "a fact nobody had". **Wrong.**
+`bugs_closed/359` is the archived-page-still-serving lane and names `gripper-catalog` by
+exact byte count on 2026-08-26; its detector is live (migration `648`) and it FIRED:
+
+```sql
+SELECT status, count(*), min(created_at)::date FROM site_work_items
+WHERE item_type='archived_page_still_serving' GROUP BY 1;
+--  detected | 9 | 2026-08-26
+```
+
+All nine still `detected`, none triaged, `handler_agent=''`. Two are robot-hands.com
+(`gripper-catalog`, `news`).
+
+> **CORRECTED, same session, by the robot hands lane.** I first wrote "all filed in the same
+> minute". **False, and I had not looked.** The truth: eight across 2026-08-26 22:32 →
+> 2026-08-27 02:02 in per-site pairs (four sites), and a **ninth on 2026-09-02 14:03**,
+> standalone. I had read `min(created_at)::date` — a DATE — plus the two robot-hands rows
+> sharing a timestamp, and generalised from two to nine. The correction **sharpens** the
+> point rather than softening it: the detector is still finding FRESH instances a week later,
+> so this is not one stale August batch. Logged in `WRONG_CALLS.md`.
+
+What was genuinely new was narrower and I should have said only that: **the page carrying
+469's composition loss is the same page carrying an un-triaged serving flag**, and nobody
+had connected them.
+
+### A distinction that will mislead the next stale-backlog sweep
+
+These two look identical in a backlog query — "old flag, nobody acted" — and want **opposite
+remedies**:
+
+| | `archived_page_still_serving` (9 open) | `section_source_drift` (469) |
+|---|---|---|
+| has a `Resolved` arm? | **yes** — one of the 19 | **no** |
+| why is it still open? | because the finding is **still TRUE** — the pages really are serving | because nothing could ever close it |
+| what the item says today | accurate | describes a state that **no longer exists** |
+| what it is blocking | nothing | the dedup key — fresh drift on that page cannot be filed |
+| the remedy it wants | triage / routing to a handler | a closer that **cannot ratify the loss it just observed** |
+
+**So "an old flag-only item" is not one defect.** A check with a working retraction arm and a
+real un-fixed defect produces exactly the same backlog row as a check with no arm at all and
+a defect that completed weeks ago. The discriminator is whether the item's own predicate
+still holds — which is precisely what nothing re-derives today, and precisely what a
+direction-aware closer must re-derive before it touches anything.

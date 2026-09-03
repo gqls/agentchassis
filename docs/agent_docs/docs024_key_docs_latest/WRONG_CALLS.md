@@ -64908,3 +64908,31 @@ section list. I learned the "one trigger of many" lesson and wrote it up *well*.
 same section, I verified the consequence on the wrong surface. **Fixing the mechanism you got
 wrong does not license relaxing about the evidence**, and a correction paragraph is exactly
 where confidence is highest and scrutiny lowest.
+
+## 2026-09-03 — "all nine filed in the same minute", from a query that only returned a DATE (`bugs_open/469` lane)
+
+- **The claim.** Reporting the `archived_page_still_serving` backlog to a peer lane and into my
+  own NOTES: *"All nine still `detected`, none triaged, all filed in the same minute."*
+- **What was true.** Eight were created between 2026-08-26 22:32 and 2026-08-27 02:02, in
+  per-site PAIRS across four sites — and the **ninth was created 2026-09-02 14:03**, six days
+  later and standalone.
+- **Where the error came from, and it is the instructive bit.** My query was
+  `SELECT status, count(*), min(created_at)::date FROM … GROUP BY 1` — which returns a **DATE**.
+  I combined that single date with a *different* query in which the two robot-hands rows
+  happened to share a timestamp to the microsecond, and generalised from two rows to nine.
+  **The instrument could not have told me otherwise**: a `::date` cast cannot disconfirm a
+  same-minute claim, so the claim was unfalsifiable by the very query I was reading when I
+  made it.
+- **Why it mattered.** The correction does not weaken the point, it **sharpens** it: a fresh
+  instance on 2026-09-02 means the detector is still finding new cases, not sitting on one
+  stale August batch nobody triaged. So I stated the weaker version of my own finding while
+  believing I was stating the stronger one.
+- **What caught it.** The `robot hands` lane, which re-derived the count before repeating it —
+  the same "a peer report is another doc" discipline I had applied to *their* messages and
+  not to my own aggregate. Caught in one round.
+- **The cheap check that would have.** When the claim is about **when** things happened, select
+  the timestamps, not an aggregate of them: `SELECT created_at, … ORDER BY created_at` — nine
+  rows, one screen. The general form: **an aggregate cannot support a claim at finer grain than
+  the aggregate's own precision**, and a `::date` in the SELECT list is the tell.
+- **Cost.** One peer round. Nothing shipped on it; the NOTES entry is corrected in place with
+  the correction visible rather than edited away.
