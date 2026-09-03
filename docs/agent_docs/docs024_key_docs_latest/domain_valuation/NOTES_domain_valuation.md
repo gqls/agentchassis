@@ -205,3 +205,19 @@
   `inbound/appraisal_queue_proxy_2026-09-04.csv` (875 .co.uk/.org.uk/.me.uk via
   the .com string equivalent, recorded as a PROXY). 12 domains on untested TLDs
   (org/cv/vin/biz/ai/io) need one probe each first.
+
+## 2026-09-03 — OWNER RULING: NameSilo out of scope
+
+*"namesilo exists but has nothing interesting in it, we can ignore them. Any
+domains still listed there were probably lost."*
+
+- **Do not enumerate NameSilo, do not re-raise it as a coverage gap.** The
+  account exists; the owner has judged its contents not worth valuing.
+- Anything traced to NameSilo is treated as **lost, not stock** — here `qlp.us`,
+  already excluded as not-owned, so the 2,945 estate total is unchanged.
+- Implication for listing hygiene, passed to the afternic lane: a live Afternic
+  listing whose domain traces to NameSilo advertises something we cannot
+  deliver, same class as the three expired names.
+- **NOT covered by this ruling:** `pocketvaginas.com`, registered at *Dynadot*
+  yet absent from Dynadot's own 453-domain inventory. Still unexplained. One
+  low-value name — recorded, not chased.
