@@ -91,6 +91,13 @@
 -- verify block was then INDUCED to fail by removing the second UPDATE, and it
 -- aborted with 'still concatenate markup' — so it bites, and is not decoration.
 --
+-- ⚠ A CLEAN DRY RUN SAYS NOTHING ABOUT THIS FILE (council r2, guardian, low —
+-- verified at scripts/migration/run-migrations.sh:147). The runner refuses to
+-- probe any migration whose flattened text matches \b(ROLLBACK|ABORT)\b, and
+-- this header names its ROLLBACK companion, so the file is listed "not probed"
+-- rather than validated. Do not read a green dry run as coverage here — the
+-- BEGIN/ROLLBACK rehearsal recorded above is what stands in for it.
+--
 -- Live on apply. No image, no roll. The published /tools/assets/*.js follow on
 -- each site's next render.
 
@@ -280,11 +287,31 @@ DECLARE
   n_text    int;
   n_href    int;
   n_rel     int;
+  n_forked  int;
   n_rows    int;
 BEGIN
   SELECT count(*) INTO n_rows FROM content_components WHERE function IN ('news-listing','latest-news');
   IF n_rows <> 2 THEN
     RAISE EXCEPTION '758: expected exactly 2 component rows, found %', n_rows;
+  END IF;
+
+  -- ⚠ THE ASSUMPTION THIS WHOLE MIGRATION RESTS ON, MADE CHECKABLE (council
+  -- 17a61f16 r2, guardian, HIGH — and the seat was right that I had never asked).
+  -- content_components carries `forked_from` because per-site forks are real and
+  -- COMMON on this estate: 103 of 561 rows across 67 distinct functions are
+  -- forked [MEASURED 2026-09-03]. If either of these two were forked per site, a
+  -- `WHERE function = '...'` UPDATE would patch ONE site and leave the defect
+  -- live on the rest — and the row-count check above passes either way, which is
+  -- exactly the presence-not-behaviour shape this migration already had once.
+  --
+  -- Measured today: both are SHARED, single-row, not forked, and bound on TEN
+  -- sites (news-listing) and EIGHT (latest-news) via page_components. Asserted
+  -- rather than trusted, so a future fork turns this into a loud failure instead
+  -- of a silent partial apply.
+  SELECT count(*) INTO n_forked FROM content_components
+   WHERE function IN ('news-listing','latest-news') AND forked_from IS NOT NULL;
+  IF n_forked <> 0 THEN
+    RAISE EXCEPTION '758: % forked copy/copies of these components exist — a WHERE function=... UPDATE would patch only the shared row and leave the defect live on the forked sites. Enumerate them and widen the UPDATE before applying.', n_forked;
   END IF;
 
   -- No interpolation into markup survives anywhere in either script.
