@@ -451,8 +451,22 @@ nothing to do with each other. I was shown that warning because an unrelated fil
 happened to be open, three hours before the moment it mattered, while I was thinking about something
 else entirely. It arrived by coincidence and it was filed under the wrong dimension.
 
-**So the useful distinction is: what does this warning guard, and when should it appear?** We have
-been treating those as one question and they are not. Getting the first right is what we have done;
+**So the useful distinction is: what does this warning guard, and when should it appear?**
+
+> **Correction added the same evening, after the other thread read the code and I checked it myself.**
+> I said above that we had been treating those as one question. That was wrong, and the truth is
+> worse. The tool separates them **deliberately** — its own source says bare table and command
+> warnings *"will not match a path and are deliberately not reported here — a session start is about
+> files. Those are found by grep"* — and the standing instruction in our house rules carries the
+> other half: grep the file yourself **"before touching anything unfamiliar"**.
+>
+> **That last word is the whole problem.** The manual half only fires when you already suspect you
+> need it. Neither of us was doing anything unfamiliar. I was checking a difference I had just
+> produced; they were editing a style guide they had written an hour earlier. **A rule that depends
+> on you doubting yourself cannot catch you being confidently competent — and that is exactly the
+> state these mistakes happen in.** So it is not an oversight to be tidied up. It is a real gap with
+> a reason written next to it, and the cheap-looking fix ("just remember to grep") is the thing
+> already tried. Getting the first right is what we have done;
 the second is untouched, and it is the one that decides whether a warning ever changes anything.
 
 There is already a proposal in the repo for reworking how these traps are stored and delivered, with
