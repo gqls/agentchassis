@@ -99,7 +99,8 @@ RELEASE_IMAGES := auth-service core-manager agent-chassis reasoning-agent \
 	optional-explicit-wires-check commit-sha-exposure-check \
 	capped-schedule-ordering-check component-source-vocabulary-check \
 	live-declaration-drift-check finding-code-registry-check \
-	ungraded-completions-check render-truncation-check
+	ungraded-completions-check render-truncation-check \
+	template-input-field-check
 
 # AGENT_DEPLOY_SERVICES — what deploy-agents retags and applies. Entry form is
 # <service>[:<image>]; the image defaults to the service name. A service that
@@ -130,6 +131,7 @@ AGENT_DEPLOY_SERVICES := agent-chassis reasoning-agent web-search-adapter \
 	capped-schedule-ordering-check component-source-vocabulary-check \
 	live-declaration-drift-check finding-code-registry-check \
 	ungraded-completions-check render-truncation-check \
+	template-input-field-check \
 	github-actions-runner github-actions-runner-vmsites:github-actions-runner
 
 # RETAG_EXEMPT — overlays that pin a RELEASE_IMAGES image but are retagged by
@@ -452,6 +454,10 @@ build-shared-output-fields-check: ## Build shared-output-fields-check CronJob im
 .PHONY: build-loop-sitewide-item-key-check
 build-loop-sitewide-item-key-check: ## Build loop-sitewide-item-key-check CronJob image (committed HEAD; REF=<ref> to pin)
 	$(call ref_build,loop-sitewide-item-key-check)
+
+.PHONY: build-template-input-field-check
+build-template-input-field-check: ## Build template-input-field-check CronJob image (committed HEAD; REF=<ref> to pin)
+	$(call ref_build,template-input-field-check)
 
 # Ships the SAME Go binary the offline audit uses, so the scheduled check walks
 # workflow steps with validation.WalkSteps rather than a re-implementation
@@ -2393,6 +2399,23 @@ loop-sitewide-item-key-check-now: ## Trigger an immediate loop-sitewide-item-key
 	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
 		--from=cronjob/loop-sitewide-item-key-check \
 		loop-sitewide-item-key-check-manual-$$(date +%Y%m%d-%H%M%S)
+
+.PHONY: push-template-input-field-check
+push-template-input-field-check: ## Push the template-input-field-check CronJob image
+	docker push $(REGISTRY)/template-input-field-check:$(IMAGE_TAG)
+
+.PHONY: deploy-template-input-field-check
+deploy-template-input-field-check: ## Deploy the daily template-input-field-check CronJob (bugs_open/453, WFA-024)
+	@echo "$(YELLOW)Deploying template-input-field-check CronJob...$(NC)"
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k $(KUSTOMIZE_DIR)/services/template-input-field-check/overlays/$(OVERLAY_PATH)
+	@echo "$(GREEN)CronJob deployed. Next run:$(NC)"
+	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) get cronjob template-input-field-check
+
+.PHONY: template-input-field-check-now
+template-input-field-check-now: ## Trigger an immediate template-input-field-check run
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl -n $(PROJECT_NAME) create job \
+		--from=cronjob/template-input-field-check \
+		template-input-field-check-manual-$$(date +%Y%m%d-%H%M%S)
 
 .PHONY: push-verifier-remit-check
 push-verifier-remit-check: ## Push the verifier-remit-check CronJob image

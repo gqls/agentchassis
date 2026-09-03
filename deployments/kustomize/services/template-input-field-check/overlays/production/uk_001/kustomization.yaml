@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ai-persona-system
+resources:
+  - ../../../base
+
+labels:
+  - pairs:
+      environment: production
+      region: uk
+
+# Pinned, like every other overlay here. In RELEASE_IMAGES and
+# AGENT_DEPLOY_SERVICES (bugs_open/237 Decision B, owner ruling 2026-08-18:
+# check images ride the fleet release so their inventory cannot freeze), so
+# the fleet release retags this like any other service.
+images:
+  - name: docker.io/aqls/template-input-field-check
+    newTag: v1.0.1359

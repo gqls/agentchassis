@@ -1,0 +1,130 @@
+# deployments/kustomize/services/template-input-field-check/base/cronjob.yaml
+#
+# bugs_open/453, the standing half. WFA-024.
+#
+# WHAT IT CHECKS. Every live step that renders a prompt template, asking whether
+# each template variable's ROOT can actually reach it. A step renders its
+# prompt_template against ExtractFields(CollectedData, input_fields) — a SUBSET
+# of the run's data — so a variable whose root is outside that subset is absent
+# when the template executes, and Go's text/template renders a guarded or ranged
+# absent key as NOTHING and an unguarded one as "<no value>". The step returns
+# success. The prompt is plausible and one section short. 453 records four
+# separate catches of this class, every one of them found because somebody
+# happened to write a fixture that rendered the thing and looked at the output.
+#
+# It fails ONLY on unreachable_root — input_data is not promoted, so config
+# alone decides it and the variable resolves on no row, ever. conditional_root
+# (undecidable from config) and declared_unread are reported and never convict.
+#
+# WHY OFFLINE AND FLEET-WIDE. No run of the defective config can reveal the
+# defect: the step succeeds either way and the missing section leaves no trace.
+# Same argument as loop-sitewide-item-key-check and commit-sha-exposure-check.
+# The motivating finding is its own best evidence — page-content-writer's
+# generate_content asks for {{.research_result}} that its input_fields cannot
+# supply, on the SAME step a careful hand-fix had corrected a week earlier for a
+# different missing root.
+#
+# WHY A SCHEDULE AND NOT A HAND RUN. The surface it checks grows continuously:
+# measured on 2026-09-03, the fleet went from 202 agents / 139 templates to
+# 203 / 140 inside ninety minutes. A hand-run audit is a snapshot of the day
+# somebody remembered.
+#
+# ⚠ READ-ONLY BY CONSTRUCTION — the property the owner asked about before
+# agreeing to schedule it (2026-09-03). The mode's only two database touches are
+# the fleet-export SELECT over agent_definitions and the doc_notes INSERT that
+# --report performs. No Kafka, no object storage, no write to pages,
+# page_components, site_components or any site artefact. **It cannot cause a
+# site to change or republish.** Verified at the source, not asserted: the only
+# statements reachable from emitTemplateInputFields are
+# loadLiveAgentsFromDBWithQuery (SELECT) and writeDocNote (INSERT INTO
+# doc_notes).
+#
+# WHY AN IMAGE AND NOT A ConfigMap SCRIPT. Following loop-sitewide-item-key-check
+# and shared-output-fields-check: the check is a Go binary that parses each
+# template with production's OWN parser and func map (datahelpers.PromptTemplateFuncs)
+# and models the reachable root set through the same exported contracts
+# ExtractFields itself uses. A script re-implementation would be a replica, and a
+# replica proves the replica works — which is the whole failure this check exists
+# to remove.
+#
+# CONNECTS TO POSTGRES DIRECTLY — never kubectl exec. The ai-persona-app service
+# account has no pods/exec RBAC in this namespace; PG_CLIENTS_HOST being set is
+# how this job declares the DB route (cmd/config-key-audit/fleetdb.go, shared
+# decoder with the stdin route on purpose).
+#
+# IT REPORTS ON EVERY RUN, INCLUDING CLEAN ONES. A check that only speaks when it
+# fails is indistinguishable from one that has stopped running (bugs_open/140). A
+# MISSING doc_notes row means THE JOB DID NOT RUN and must never be read as
+# "nothing is wrong":
+#   SELECT created_at, left(body, 250) FROM doc_notes
+#   WHERE source = 'template_input_field_check' ORDER BY created_at DESC LIMIT 7;
+# The body states the SCOPE of the run (agents scanned, templates checked, and
+# how many were agent-tier), because a finding count alone cannot tell "checked
+# 140 templates and found one" from "checked 4 and found one" — the second is a
+# broken export reporting success. The mode refuses outright rather than printing
+# a clean report over zero templates, or over an export lacking the
+# agent_prompt_template projection.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: template-input-field-check
+  labels:
+    app: template-input-field-check
+    component: config-integrity
+spec:
+  # Daily, 08:00 UTC. Slot chosen against the LIVE cluster on 2026-09-03, not
+  # from a list in a handoff: the 06:20-07:55 band is fully occupied (four jobs
+  # already share 07:40), loop-sitewide-item-key-check holds 07:55, and 08:00
+  # is the first clear minute after it.
+  schedule: "0 8 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # 1, not 0: a transient database blip should get one retry, because a
+      # failed run here is indistinguishable at a glance from a NEW finding and
+      # both page a human. Not more than 1 — a retried job that keeps failing on
+      # a real finding just writes the same row three times.
+      backoffLimit: 1
+      # One query plus an in-memory walk over ~203 workflows, parsing ~140
+      # templates; measured ~2s by hand against the live fleet on 2026-09-03.
+      # 300s is a wide margin that still stops a hung job blocking tomorrow's.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: template-input-field-check
+            component: config-integrity
+        spec:
+          restartPolicy: Never
+          # REQUIRED, and easy to miss by copying a job that pulls a public
+          # image: aqls/ is private. Without it the job sits in
+          # ImagePullBackOff — which reports as a Job still "Running", never as
+          # a failure, so a scheduled check would go permanently silent while
+          # looking merely slow (component-render-check caught this on its first
+          # manual run; this job inherits the fix).
+          imagePullSecrets:
+            - name: docker-hub-creds
+          containers:
+            - name: check
+              # Tag is set by the overlay, as every other service here does it.
+              image: docker.io/aqls/template-input-field-check:latest
+              # CMD is already --template-input-fields --report (in the image),
+              # so this job fails ONLY on an unreachable root.
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 300m
+                  memory: 256Mi
