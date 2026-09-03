@@ -251,3 +251,28 @@ VALUES ('d2aa5206-73bc-4707-a69c-2702c1eb9152', 'operator', 'needs_copy_edit', '
 Then: watch the item → `checkpoint_for_review` → the owner's queue; after approval, re-read
 `page_components` on index — content-listing still 6 excerpt keys, CTA subheadline changed — and the
 served page after the mirror tick.
+
+## The delivery recipient is REFUSED, not inherited — measured at the code 2026-09-03
+
+`RFC_058` §5.5 records the delivery chain's source as *"convention, not code"*. Half of that is
+now measurable and stronger than the RFC claims, and the distinction matters to the identity
+decision the owner is being asked for:
+
+- **What value is sent IS convention** — it comes from the step's `input_mapping`, and this lane's
+  recipe points it at `build_queue.direction->>'customer_email'`.
+- **But the refusal to guess is CODE.** `send_delivery_email_action.go:55` declares
+  `Required: []string{"site_id","customer_email","live_site_url"}`, and `:99-102` does
+  `customerEmail := strings.TrimSpace(inputs.Get("customer_email"))` then errors
+  `customer_email resolved empty`. So the action cannot fall back to any other identity: an
+  unnamed or empty recipient FAILS the delivery step rather than silently emailing whoever is
+  nearest.
+- **Nothing in the delivery path reads `sites.email`** `[MEASURED 2026-09-03, by column name and
+  not by SQL verb — the literal-verb census misses runtime-assembled writers, see LANDMINES]`.
+  The live `sites.email` readers are all PUBLISHED-contact uses: `rerender_page_sections_action.go:1096`
+  (page content), `maintenance_actions.go:171` (a reviewed brief field), and
+  `check_contact_form_undeliverable.go:254` (the form-action check).
+
+**Consequence for RFC_058:** whichever identity wins, it must be NAMED in the 651 recipe — and
+that is cheap to honour precisely because nothing currently inherits it and the action refuses an
+empty value. The choice is the owner's; this measurement only says the plumbing will not quietly
+make it for him.
