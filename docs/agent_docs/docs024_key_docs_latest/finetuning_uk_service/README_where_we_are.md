@@ -1293,3 +1293,17 @@ cluster, with no call to Anthropic or anyone else. The only thing that costs rea
 hour is the GPU box, and that is reserved for booked sessions at about thirty-five cents an
 hour, billed by the minute. The plan for building the playground is now written, in five steps,
 starting with getting the demo model loaded and timed.
+
+2026-09-03, 11:45. Your direction for the site, in your words: "As a whole, I'd like the
+finetuning site to be very much focused around this tool. We can still have the other tools, but
+much of the "what else we do as a company" should now move to leopardess consulting or other "me"
+sites. For finetuning.uk I'd like this tool shown prominently on the home page and I want in the
+future example after real example of what we've done and before and after examples. And I'd like
+to host those same models so they can try them (at maybe a couple of pounds for an hour or
+something that covers our costs say 5x) We can talk details later."
+
+Recorded as the direction in the plan and as a new milestone summary. Nothing has been moved or
+rebuilt on the back of it yet; the playground build carries on as step one, and the site
+refocus, the examples catalogue and the pricing wait for the details conversation. On the
+pricing: five times our measured GPU cost comes to about £1.40 an hour, so a couple of pounds
+covers it with room.

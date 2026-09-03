@@ -348,3 +348,29 @@ tests, council; (3) capability on the site row, fork the widget through the tool
 `/playground.html` through the framework (never hand-authored); (4) booked-hour provisioning as
 a workflow, reusing the training-run actions; (5) the booking → session handoff. Each step
 verified at the artefact (curl the route; chat on the served page).
+
+## DIRECTION (owner, 2026-09-03, 11:45Z) — the site is the tool; details later
+
+Owner, verbatim: *"As a whole, I'd like the finetuning site to be very much focused around this
+tool. We can still have the other tools, but much of the "what else we do as a company" should
+now move to leopardess consulting or other "me" sites. For finetuning.uk I'd like this tool
+shown prominently on the home page and I want in the future example after real example of what
+we've done and before and after examples. And I'd like to host those same models so they can try
+them (at maybe a couple of pounds for an hour or something that covers our costs say 5x) We can
+talk details later."*
+
+What this changes in the plan, as decisions (not yet scheduled; "details later"):
+- **Phase P's scope grows from "a chat on /playground.html" to "the site's centre".** The
+  homepage hero and first sections present the playground; company-general sections
+  (departments-grid, the consultancy-style case-studies-grid) are candidates to move to
+  leopardessconsulting.co.uk. Moving copy is a re-plan of both sites through the framework, and
+  the leopardess lane must be told before anything moves (a live session exists).
+- **A catalogue of real examples, each with a before/after pair and a hostable model.** Data
+  model to design: an example = the case (what the business was, what changed), the before/after
+  text, the model artefact in B2, and a bookable-hour price. This is the booked-hours mechanism
+  generalised from "the customer's own model" to "any model in the catalogue".
+- **Pricing posture: cover cost ×5.** Measured cost is a6000 $0.35/hr real + warm-up (≈$0.75
+  per 2-hour window, Phase 0 invoice). ×5 ≈ $1.75–$1.90/hr ≈ **£1.35–£1.45/hr**, so "a couple of
+  pounds an hour" clears the posture with room. `[NOT DECIDED]` the number; set it in the details
+  conversation, after the CPU-demo tok/s measurement says what the free tier can carry.
+- Existing tools stay. Their pages are unaffected by this direction.
