@@ -176,3 +176,39 @@ The recipe above still stands, plus two arms it did not have:
    follow-on, carrying `approved_data`, as before.
 3. **The negative control is on this site and was deliberately preserved:** `5edadfbe`, one item,
    both named fields null, dead at `load_edit_context`.
+
+---
+
+## COUNCIL: APPROVED at round 3 (`d04c1bc1-b9a3-41bb-b144-1d101e68e542`)
+
+Three rounds, and **each REVISE found something real** — which is the argument for submitting rather
+than the argument against. Recorded because a bug file that says only "approved" loses the part worth
+reading.
+
+| round | verdict | what it caught, and whether it was right |
+|---|---|---|
+| 1 | REVISE (gated by `bug_historian`) | An **empty** fan-out array would file zero items while the review row still read `complete` — the exact silent completion this bug is about, one level down. The code already reported it; there was **no test**, and an unasserted behaviour is one refactor from gone. Right. |
+| 2 | REVISE (gated by `prior_art_librarian`) | My blast-radius scan used `jsonb_each(…->'workflow'->'steps')`, a TOP-LEVEL walk that `LANDMINES` documents as blind to `sub_workflow` steps. Re-run recursively: same answer, **sound evidence**. Right to refuse the weaker version. `editquality` in the same round caught two more: the moved-target REFUSAL rested on `page_components.updated_at`, which **cannot** support "the copy changed" (status-only writers bump it, one page-wide) — so it would have refused fresh approvals; and `follow_on_item_ids` as a nil slice marshals to `null`, not `[]`, which round 2's own test could not distinguish. Both right. |
+| 3 | **APPROVED**, 2 advisory | `editquality` (medium): the `batch_id` grouping was **asserted and not covered**. Now tested and mutation-killed. Three low advisories settled by measurement — see the commit. |
+
+**Ten mutations across the four rounds, all killed.** The one worth naming: declaring `followOnIDs`
+as a nil slice **survived** round 2's test and dies against round 3's. That is the whole difference
+between asserting a length and asserting the wire format, and it is the reason the empty-array fix
+from round 1 is now actually held by something.
+
+### Two advisories deliberately NOT actioned here, and why
+
+1. **`bug_historian` cross-reference:** `bugs_open/035` (`site_work_items_updated_at_is_not_maintained`)
+   is the same shape as the trap that caught the moved-target guard — an `updated_at` column bumped
+   by unrelated writers and therefore useless as a change signal. Cited here rather than folded in:
+   the plan reached the correct WARN-not-REFUSE remedy independently, and the two cases are on
+   different tables. Worth a human cross-reading before anyone builds a third `updated_at` gate.
+
+2. **`architecture`: the moved-target WARN is a permanent half-measure until a digest baseline
+   exists.** Correct, and **it is not this handler's change to make.** `page_components.content_hash`
+   and `rendered_html_digest` move only when content does, so they *could* answer "did the copy
+   move?" — but a comparison needs a baseline, and no proposal records the digest it was computed
+   against. Recording one is the **PROPOSER's** job (copy-editor, `sql_for_agents/447`), and until it
+   does, this handler can only hand the approver a doubt it is honest about. **Follow-up, unowned:**
+   have `copy-editor` stamp each proposed edit with the target's `content_hash` at proposal time;
+   the WARN then becomes a REFUSAL that can actually make its claim.
