@@ -114,6 +114,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **read where the RUNTIME takes its config from before calling an edit "live-immediate" — an orchestration EMBEDS `agent_config` at spawn, so a definition edit reaches future spawns only; `initial_request_data->agent_config` of one live run is the check** | **1** |
 | **verify the working tree carries the edit (`git diff --numstat <file>`) BEFORE writing the commit message — a heredoc script that dies on an assertion leaves the message claiming a change that never happened, and `set -e` did not stop the commit** | **3** |
 | **choose a negative control by the PROPERTY it must lack, not by convenience — "my latest commit" is only a not-aboard control if it postdates the stamp; derive it (`git log --format='%H %cI' | awk '$2 > <stamp time>'`)** | **1** |
+| **treat a NEW detector's first run as candidates, not findings — follow each hit to its source (and each zero to its needle) before reporting; one sweep produced 4 false positives and 1 false clean, and every one looked exactly like a real result** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -62351,3 +62352,33 @@ pin-the-clock-to-before-the-failure, a-closer-census-cannot-see-what-it-succeede
 
 Family: a-measured-marker-proves-a-measurement-was-claimed-not-complete, mutate-the-code-to-prove-the-guard,
 a-mutation-that-passes-may-have-hit-a-guard-in-series, a-report-is-not-a-measurement.
+
+## 2026-09-03 — a newly written sweep's first run: four false positives and one false clean, all indistinguishable from findings (session site_delivery_and_editor)
+
+- **The claim.** `sweep_site_defects.sh` (mechanising `SITE_DEFECT_CATEGORIES.md`) reported on
+  boxingonline: an unsubstituted `TOTAL_QUESTIONS` placeholder; 5 `placehold` placeholder defects;
+  guides and blog-posts unreachable from navigation; per-page hit counts; and a clean **0** on the
+  ordering party's email — the owner's item 0.
+- **Why each was false.** (1) `TOTAL_QUESTIONS` is `var TOTAL_QUESTIONS = 10`, a working constant.
+  (2) The five `placehold` hits are legitimate `placeholder="e.g. Terence Crawford"` input
+  attributes; `placehold.co` count is 0. (3) The families are linked from 20/20 and 7/20 served
+  pages via footer/body — my check only read `<header>`, while the checklist asks whether any nav
+  label reaches them "directly or via a hub". (4) `grep -c` counts LINES, so on single-line HTML
+  every per-page count was 1-per-file, not occurrences. (5) The email needle was EMPTY (the
+  `build_queue.direction` lookup missed), and `grep -Fc ""` on an empty needle returns a tidy 0 —
+  a clean report from a check that measured nothing.
+- **Plus a harness defect that inverted a guard:** the "is this token declared?" test used
+  `grep -q` under `set -o pipefail`, where grep's early exit SIGPIPEs the upstream `cat` and the
+  pipeline reports failure though it matched — so the guard warned on every token. Filed as a
+  landmine; it is general to any `pipefail` script.
+- **What caught it.** Following every hit to its source text before writing it down, and asking of
+  each zero *what was the needle*. Not the counts, which all looked plausible.
+- **The mistake, precisely.** I wrote ~25 checks and read their OUTPUT as findings. A detector's
+  first run measures the detector. The checklist I was mechanising says this in its own words —
+  "a named unmechanisable category is worth more than a weak check that looks like the others and
+  quietly does not work" — and four of my arms were exactly that.
+- **The cheap check that would have.** For every non-zero: print the matched context, not a count.
+  For every zero: print the needle's length and a positive control in the same line. Both are now
+  in the script, and the false-positive arms carry the measured reason beside them.
+- **Cost.** None released — the sweep's write-up was composed after the follow-through, so no false
+  finding reached a handoff, a bug file or the owner. The cost was the extra runs.

@@ -1,0 +1,110 @@
+=== sweep boxingonline.com — site d2aa5206-73bc-4707-a69c-2702c1eb9152 — serving host boxingonline.ugg2.com — 2026-09-03T14:13:52Z ===
+[control] invented path -> 404  OK
+[pages] 20 deployed+active pages enumerated from the DB
+  /about.html                                    200  served=Thu, 03 Sep 2026 13:13:58 GMT  deployed_at=2026-09-03 13:14:23  control(</html>)=1
+  /articles/index.html                           200  served=Thu, 03 Sep 2026 13:13:59 GMT  deployed_at=2026-09-03 13:45:03  control(</html>)=1
+  /blog/cruiserweight-boxings-best-kept-secret.html 200  served=Thu, 03 Sep 2026 13:14:11 GMT  deployed_at=2026-09-03 12:14:08  control(</html>)=1
+  /blog/flyweight-division-deserves-attention.html 200  served=Thu, 03 Sep 2026 13:14:12 GMT  deployed_at=2026-09-03 13:12:22  control(</html>)=1
+  /blog/japans-golden-generation-boxers-to-know.html 200  served=Thu, 03 Sep 2026 13:14:12 GMT  deployed_at=2026-09-03 13:12:58  control(</html>)=1
+  /blog/last-nights-result-underdog-shocks-the-champion.html 200  served=Thu, 03 Sep 2026 13:14:13 GMT  deployed_at=2026-09-03 12:11:16  control(</html>)=1
+  /blog/saturday-fight-card-preview-whos-fighting-who.html 200  served=Thu, 03 Sep 2026 13:14:14 GMT  deployed_at=2026-09-03 13:10:47  control(</html>)=1
+  /blog/womens-boxing-having-a-moment.html       200  served=Thu, 03 Sep 2026 13:14:14 GMT  deployed_at=2026-09-03 12:11:55  control(</html>)=1
+  /guides/index.html                             200  served=Thu, 03 Sep 2026 13:14:17 GMT  deployed_at=2026-09-03 10:46:01  control(</html>)=1
+  /guides/tool-boxing-trivia-quiz-guide.html     200  served=Thu, 03 Sep 2026 13:14:17 GMT  deployed_at=2026-09-03 12:12:40  control(</html>)=1
+  /guides/tool-fight-countdown-guide.html        200  served=Thu, 03 Sep 2026 13:14:17 GMT  deployed_at=2026-09-03 13:46:58  control(</html>)=1
+  /guides/tool-fighter-comparator-guide.html     200  served=Thu, 03 Sep 2026 13:14:18 GMT  deployed_at=2026-09-03 13:45:57  control(</html>)=1
+  /guides/tool-weight-class-finder-guide.html    200  served=Thu, 03 Sep 2026 13:14:19 GMT  deployed_at=2026-09-03 12:13:19  control(</html>)=1
+  /index.html                                    200  served=Thu, 03 Sep 2026 13:14:20 GMT  deployed_at=2026-09-02 21:30:16  control(</html>)=1
+  /news/index.html                               200  served=Thu, 03 Sep 2026 13:14:20 GMT  deployed_at=2026-09-03 13:11:47  control(</html>)=1
+  /tools/boxing-trivia-quiz/index.html           200  served=Thu, 03 Sep 2026 13:14:23 GMT  deployed_at=2026-09-03 13:46:51  control(</html>)=1
+  /tools/fight-calendar/index.html               200  served=Thu, 03 Sep 2026 13:14:23 GMT  deployed_at=2026-09-03 13:44:22  control(</html>)=1
+  /tools/fight-countdown/index.html              200  served=Thu, 03 Sep 2026 13:14:23 GMT  deployed_at=2026-09-03 13:43:47  control(</html>)=1
+  /tools/fighter-comparator/index.html           200  served=Thu, 03 Sep 2026 13:14:24 GMT  deployed_at=2026-09-03 13:13:40  control(</html>)=1
+  /tools/weight-class-finder/index.html          200  served=Thu, 03 Sep 2026 13:14:24 GMT  deployed_at=2026-09-03 13:11:17  control(</html>)=1
+
+--- 1.1 meta-copy (first-person-plural policy prose), per page with context
+      /about.html                                    1
+      /articles/index.html                           1
+      /guides/tool-boxing-trivia-quiz-guide.html     1
+      /tools/fight-calendar/index.html               1
+         cards that never make the mainstream press, we cover the sport across every weight class and ever
+         the best outcome a quiz like this can have. We'd rather you finish having learned something than fin
+        view nights to smaller cards worth catching. We update entries as fights are confirmed, but dates a
+--- 1.4 raw source residue
+    markdown links '](http': 5   ellipses: 12
+--- 1.5 AI tells (context printed: 'honest'/'plainly' are weak needles and need a reader — checklist 1.2's rule)
+      ing news, a reliable fight calendar and honest editorial — no corporate spin, just lov
+      re after boxing in its most technically honest form, where a fighter can't paper over 
+    control-labelled fields over 120 chars (DB):
+--- 2.2 index-role pages and their listable-item counts (zero is a finding)
+      /articles/index.html -> 6 items (max over 6 listing component(s))
+      /guides/index.html -> 4 items (max over 1 listing component(s))
+      /news/index.html -> 20 items (max over 1 listing component(s))
+--- 2.3 nav: distinct hrefs vs distinct labels in <header>
+    hrefs 4  labels 4
+--- 2.4 orphans (zero inbound links from any other deployed page)
+--- 2.6 nav reach per page-type family
+      blog-index: 1 deployed
+      blog-post: 6 deployed
+      content: 2 deployed
+      guide: 4 deployed
+      landing: 1 deployed
+      news-index: 1 deployed
+      section-index: 1 deployed
+      tool: 5 deployed
+        tool: header links 1, pages linking it anywhere 20/20 
+        guide: header links 0, pages linking it anywhere 20/20 (reachable, but not from the header)
+        blog-post: header links 0, pages linking it anywhere 7/20 (reachable, but not from the header)
+--- 3.1 tools: STORED component markup (never the served page — chrome adds a menu button)
+      /tools/boxing-trivia-quiz/index.html: inputs 40 selects 0 textareas 0
+      /tools/fight-countdown/index.html: inputs 0 selects 1 textareas 0
+      /tools/fighter-comparator/index.html: inputs 18 selects 0 textareas 0
+      /tools/weight-class-finder/index.html: inputs 3 selects 0 textareas 0
+    stored-newer-than-deployed (repair written, not served — pair with served bytes):
+--- 3.3 evidence_base facts
+    7 facts
+--- 4.1/4.2 imagery: BOTH encodings, per page
+      /about.html                                    <img> 1   css-url 1
+      /articles/index.html                           <img> 21  css-url 1
+      /blog/cruiserweight-boxings-best-kept-secret.html <img> 1   css-url 0
+      /blog/flyweight-division-deserves-attention.html <img> 1   css-url 0
+      /blog/japans-golden-generation-boxers-to-know.html <img> 1   css-url 0
+      /blog/last-nights-result-underdog-shocks-the-champion.html <img> 1   css-url 0
+      /blog/saturday-fight-card-preview-whos-fighting-who.html <img> 1   css-url 0
+      /blog/womens-boxing-having-a-moment.html       <img> 1   css-url 0
+      /guides/index.html                             <img> 1   css-url 0
+      /guides/tool-boxing-trivia-quiz-guide.html     <img> 1   css-url 1
+      /guides/tool-fight-countdown-guide.html        <img> 1   css-url 1
+      /guides/tool-fighter-comparator-guide.html     <img> 1   css-url 1
+      /guides/tool-weight-class-finder-guide.html    <img> 1   css-url 1
+      /index.html                                    <img> 7   css-url 0
+      /news/index.html                               <img> 1   css-url 1
+      /tools/boxing-trivia-quiz/index.html           <img> 1   css-url 0
+      /tools/fight-calendar/index.html               <img> 1   css-url 1
+      /tools/fight-countdown/index.html              <img> 1   css-url 0
+      /tools/fighter-comparator/index.html           <img> 1   css-url 0
+      /tools/weight-class-finder/index.html          <img> 1   css-url 0
+    distinct hero urls: 1
+--- 4.5 logo alpha (colour type 4/6 OR tRNS — test both)
+      400x218 depth=8 colour_type=6 tRNS=False -> OK (real alpha)
+--- 5.1 empty slot elements
+    hits: 16
+--- 5.3 unsubstituted placeholders
+    placehold.co / hard tokens: 0
+      TOTAL_QUESTIONS: DECLARED in-document (1 declaration line(s)) — a working constant, not a placeholder
+--- 6.1 ordering party's email on the site (must be 0)
+    served hits for the order email (must be 0): 0   [needle length 27, control: a known-present string 'Boxing' -> 540]
+    sites.email: (empty)
+    any mailto/tel on served pages: 0
+--- 6.2 forms that submit nowhere
+      form_action=#contact x1
+--- 6.3 retracted pages: archived in DB, still serving? (404 AND zero inbound is the close)
+      /contact.html: served 404 (want 404), inbound links 0 (want 0)
+--- 10.2 brief-echo headings on index pages
+    hits: 0
+--- 10.3 CSS-url heroes that resolve to a non-200
+--- 10.4 interactive elements
+    canvas/iframe/video/data-tool: 14
+
+=== OWED, not mechanisable (the checklist says so): 1.2, 1.3, 3.2, 4.3, 7.1, 7.2, 7.3, 9.1-9.4, 10.1, 10.5 ===
+=== §8: a complete work item is not a repaired artefact — every line above is read at the served page or the row, not at a status ===

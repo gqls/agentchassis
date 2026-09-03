@@ -480,3 +480,48 @@ dir) → SITE_DEFECT_CATEGORIES §0 → bugs 424/425/429 handoffs (all
 - **Measurement trap, corroborating an existing landmine:** `pages.rendered_head` reads **0 GTM on all 21 pages** while the served pages carry it — the served head is composed from `site_components` at assemble time (`rerender_single_page_action.go:361-367`). Never check "did the tag ship" at that column.
 
 **NEXT:** (a) `a930e70c` → the owner's queue, then re-read the CTA subheadline AND the excerpt key; (b) re-probe `/about.html` (and any page assembled after 13:14) after the ~15:1xZ tick; (c) then §1.5's pre-delivery sweep, which is now the only thing between here and the 651 rehearsal; (d) delivery stays HELD (`customer_access_tokens` 0).
+
+---
+
+## PRE-DELIVERY SWEEP — 2026-09-03 14:16Z, boxingonline (§1.5 of this file, now RUN)
+
+Script: **`sweep_site_defects.sh <domain>`** (this dir, reusable, committed) — the mechanisable
+checks of `SITE_DEFECT_CATEGORIES.md` with §0's disciplines executed rather than remembered
+(serving host from `publish_project`; invented-path 404 control each pass; a `</html>` control per
+page; pages enumerated from the DB; served `last-modified` printed beside `pages.deployed_at`).
+Raw output: `SWEEP_2026-09-03_boxingonline_output.txt`. **20 deployed+active pages, all 200, all
+controls held.** Two consecutive runs differ only in their timestamp.
+
+**CLEAN, each with its control stated:** order-party email **0** (needle 27 chars — proven
+non-empty — with 'Boxing' → 540 as the positive control) · `mailto:`/`tel:` **0** ·
+`/contact.html` **404 with 0 inbound** (the 429 close criterion, both halves) · logo **colour type
+6** real alpha · placeholders **0** (`placehold.co`/hard tokens; `TOTAL_QUESTIONS` is
+`var TOTAL_QUESTIONS = 10`, declared) · orphan pages **0** · header hrefs 4 = labels 4 ·
+brief-echo headings **0** · CSS-url heroes resolving non-200 **0** · interactive elements **14** ·
+`evidence_base` **7 facts** (was 1 on 08-31 — the 427 lane) · no stored-newer-than-deployed pages.
+
+**FINDINGS, and none of them are new classes — every one has an owner:**
+
+| § | finding | owner |
+|---|---|---|
+| 5.1 | **`/articles/index.html`: 14 empty `article-card__category` + 2 empty `article-card__excerpt`** — 425's class on a page the index fix never reached | components lane (`bugs_open/425`); contributed |
+| 1.1 | meta-copy, 1 occurrence each on **/about**, **/articles/index**, **/guides/tool-boxing-trivia-quiz-guide**, **/tools/fight-calendar** ("We update entries as fights are confirmed…") — owner item 1's class BEYOND the CTA | copy lane; the calendar page's real defect is item 10, so a copy fix there is premature |
+| 1.4 | **/news/index.html: 5 markdown links, 12 ellipses** | `bugs_open/332` (known) |
+| 4.2 / 9.4 | **one hero file (`hero-home.jpg`) on 7 pages**; every page except /index (7) and /articles/index (21) carries exactly **1 `<img>` — the logo** | owner item 8; `bugs_open/114` |
+| 3.1 | **/tools/fight-calendar has NO tool component at all** (4 of 5 tools have one); comparator 18 inputs / 0 data | owner items 9+10; `bugs_open/427` |
+| 2.6 | guides + blog-posts are **not in the `<header>`** (reachable from footer/body on 20/20 and 7/20). Also: the header's "News" points at **/articles/index.html** while **/news/index.html** exists separately with 20 items | soft; note for the nav family |
+
+**So the sweep adds no blocker the approval read-out did not already carry.** §B of
+`APPROVAL_READOUT_2026-09-02` remains the cut-line: items 7, 9, 10, 12b, 3b, 8 — all other lanes'.
+
+**⚠ THE SCRIPT'S OWN FIRST RUN CARRIED FOUR FALSE POSITIVES AND ONE FALSE CLEAN** — all caught by
+following each finding to its source before reporting it, all now fixed in the script with the
+reason written beside each arm: (1) a fetched `logo.png` in the corpus made grep say "binary file
+matches" and STOP counting, silently blinding every text check; (2) the order-email needle came
+back EMPTY, so `grep -Fc ""` reported a clean 0 while measuring nothing — the owner's item 0;
+(3) `placehold` as a substring matched five legitimate `placeholder="e.g. …"` attributes;
+(4) `grep -c` counts LINES, and on single-line HTML every per-page count was 1-per-file; (5) the
+"is this token declared?" guard used `grep -q` under `set -o pipefail`, where grep's early exit
+SIGPIPEs the upstream `cat` and the pipeline reports failure **even though it matched** — so the
+guard inverted and warned on every token. **A detector's first run is not evidence; its findings
+are candidates.**
