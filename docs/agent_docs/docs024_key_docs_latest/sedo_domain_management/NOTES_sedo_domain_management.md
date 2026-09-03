@@ -655,3 +655,56 @@ conflation found — but the owner's own intent needs the same precision:
 his example named one, and it matters which one a live-sites pricing
 effort actually prices and lists. Flagging to the valuation lane and the
 owner rather than assuming his answer covers both identically.
+
+## 2026-09-03 (later still) — owner ruled per-domain on the 39-domain Clook batch; draft8 = 2,860; one domain unaddressed; a real cost basis surfaced
+
+Owner sent explicit exclude/release lists covering the 39-domain Clook
+batch. **Reconciled by diff, not by eye**: his exclude list (17, after
+dedup — `designconsultancy.co.uk` and `dsgn.co.uk` were each named
+twice in his message) plus his release list (21) = 38. **One of the 39
+was in neither list: `2v.uk`.** Not assumed either way — kept in the
+fence pending explicit word, same principle as every other edge case
+this session.
+
+**Owner's 17 confirmed exclusions**: websy.uk, workdomain.co.uk, wpx.uk,
+leopardess.co.uk, leopardess.uk, healthcare.uk, designconsultancy.co.uk,
+dsgn.co.uk, 5un.co.uk, onpointcopy.co.uk, managementemail.co.uk/.uk,
+minisitemaker.co.uk, emailsecurity.uk, vectordb.uk, email-account.co.uk/.uk.
+Notably these read as operational/product/service names (email, design
+consultancy, minisite maker, vector db) rather than generic keyword
+domains — consistent with the pattern already flagged for wpx.uk/
+designconsultancy.co.uk. `EXCLUDED_live_clook_2026-09-03.txt` rebuilt to
+these 17 + 2v.uk = 18 (down from 39).
+
+**Owner's 21 released** (agentcoordinator.uk, aiartgallery.uk,
+businesschristmasgifts.co.uk/.uk, businessinsurancequotation.co.uk,
+cartoon.co.uk, catalogues.co.uk, conferences.co.uk, fatherchristmas.uk,
+felines.co.uk/.uk, fridge-magnets.co.uk, pelletburners.co.uk,
+personalgift.co.uk, personae.uk, santaclaus.uk, seduce.co.uk,
+soyrocks.co.uk, uniquedirectory.co.uk, vinrose.uk, writesy.uk) — released
+back into the ORDINARY portfolio sheet, not the high-value live-sites
+track, since "don't need to exclude" reads as "treat as normal stock,"
+not "list at a premium." Draft8 = 2,839 + 21 = **2,860**, verified: 2,861
+`<row` = header + 2,860; cartoon.co.uk confirmed present as MAKE_OFFER/
+blank; the four permanently-held domains (wpx.uk, leopardess.co.uk,
+leopardessconsulting.co.uk, 2v.uk) confirmed still absent.
+
+**A real cost basis surfaced, same message**: owner said "I paid over
+5000 pounds for cartoon.co.uk so don't underprice that one." This is now
+a genuine floor — same class as relojistas.com's owner-set $12k Afternic
+floor — and it must reach the valuation lane's pricing pass BEFORE
+cartoon.co.uk gets a number, not discovered after. Relayed (see reply).
+Worth noting for future releases from this batch: if one domain carried
+an unstated £5k+ cost, others in the released-21 may too — the owner
+volunteered this one unprompted, nothing here rules out more.
+
+**Cross-check against domain_valuation's parallel finding**: their
+Dynappraisal tool priced relojistas.com at $1,490 against the owner's own
+$12k floor (8×) and webdesign.uk at $1,144 against his stated
+">£1,000,000" (~1,100×) — the algorithmic appraiser is structurally blind
+to exact-match/category-leadership value and cannot anchor the
+high-value tier at all; it stays valid for ordinary keyword-domain stock.
+Their principle — carry the owner's own figure labelled AS HIS ESTIMATE,
+never silently substitute the appraisal for it — applies equally to
+cartoon.co.uk's £5k floor. wpx.uk confirmed never-list by both lanes
+independently, for the same reason (owner's own email address).

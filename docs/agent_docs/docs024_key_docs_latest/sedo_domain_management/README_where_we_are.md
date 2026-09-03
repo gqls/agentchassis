@@ -257,3 +257,25 @@ example — "could be worth over a million" — was webdesign.uk, an
 pages) — it's your actual webdesign business's shopfront. Worth
 confirming which one (or both) you meant, since pricing or listing the
 wrong one would be an expensive mix-up.
+
+## 2026-09-03 (later still) — your list applied, cartoon.co.uk's price floor noted, one domain still needs an answer
+
+Went through your keep/release list against the 39 I'd found. It matched
+cleanly except for one: **2v.uk** — you didn't say either way, so I've
+left it excluded for now rather than guess.
+
+Everything else is done: your 17 keeps stay off the list, your 21
+releases are back in the ordinary sheet as normal for-sale stock (not the
+high-price tier — nothing you said suggested those were special, just
+that they didn't need protecting).
+
+Noted what you said about cartoon.co.uk — over £5,000 paid for it, so it
+must not go out underpriced. It's currently sitting at no price, same as
+everything else in the sheet, and I've made sure the valuation thread has
+that figure before they set any number on it. Worth mentioning: if
+there's a real cost behind that one you hadn't told me, there may be
+others among the 21 I don't know about — happy to hold any more you think
+of the same way.
+
+**Current sheet**: `outbound/SEDO_IMPORT_2026-09-03_draft8.xlsx` —
+**2,860 domains**.

@@ -99,6 +99,15 @@ parking) by Claude sessions, via Sedo's API.
   handful of domains that are the owner's own operating infrastructure or
   an active client relationship stay held out pending his explicit
   confirmation that "all live sites" was meant to include them too.
+  **Progress same day**: owner reconciled the 39-domain Clook batch by
+  name — 17 stay excluded, 21 released back to ORDINARY stock (not the
+  high-value tier). One (`2v.uk`) unaddressed, still held. `draft8 =
+  2,860 domains`, `outbound/SEDO_IMPORT_2026-09-03_draft8.{xlsx,csv}`.
+  `leopardessconsulting.co.uk` (not part of the 39) confirmed
+  PERMANENTLY excluded on a prior, named owner precedent (D4) — needs its
+  own by-name reconfirmation, not covered by any blanket answer. A real
+  cost basis surfaced unprompted (cartoon.co.uk, owner paid £5,000+) —
+  relayed to the valuation lane as a floor.
 - **P3 — first credentialed calls.** `--check-secret`, then
   `DomainList 'results=100'`: inventory what (if anything) the account
   holds, and reconcile against the estate's domains. First writing call
