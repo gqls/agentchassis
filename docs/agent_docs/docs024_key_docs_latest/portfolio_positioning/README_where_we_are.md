@@ -1563,3 +1563,33 @@ I have not applied it. You told me not to change things that are already running
 answered since. I do not think silence is permission, so it stays on the shelf. But I would rather you
 knew that the thing on the shelf now fixes a live problem rather than a predicted one, and that the
 window for it closes when the planner runs.
+
+**Same evening, about twenty past six — one correction, and it is in your favour.**
+
+I told you an hour ago that ten pages were built and live, and that copyonline was being built as an
+SEO tools portal instead of the site you approved. The second half stands. The word "live" was mine
+and it was wrong.
+
+Nothing is public. I checked the site itself rather than trusting the database, which is what I should
+have done before writing to you. copyonline.co.uk still serves your old Drupal site, exactly as it did
+this morning. Every one of the ten new pages returns "page not found", and I confirmed that means what
+it says by asking for a made-up address as well and getting the same answer. The site's own record
+agrees: it has never been given anywhere to publish to, and its build status still reads pending.
+
+What misled me is that each individual page carries a "deployed" timestamp. That is a page-level flag
+about rendering. It says nothing about whether the site has been published, and I read it as though it
+did.
+
+So the position is better than I made it sound. The wrong pages exist inside the system, not on the
+internet. Nobody can stumble on them. There is no hurry created by anything being visible, and
+clearing them up later is an internal tidy rather than an embarrassing retraction.
+
+What has not changed is the substance. Your brief still reaches none of the agents that decide what
+this site becomes. Six of them have now run without it, the site is being designed as a copywriter
+marketplace because the classifier read your old Drupal pages and believed them, and the page planner
+is next in the queue. That is the step that fixes the shape of the site, and it has not run yet.
+
+The choice is still yours and it is still the same choice. I have written it up properly, with what
+each route costs, in the lane's plan document. The short version: let it finish and rebuild afterwards,
+or hold it now, repair the brief, re-run the classification and let it build the site you signed off.
+I would take the second. I have not done either.
