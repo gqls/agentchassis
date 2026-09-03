@@ -363,3 +363,52 @@ a "better" query carrying a fleet-wide `GROUP BY` for queue position; it consist
 60 s timeout. It said so only because I had added a consecutive-failure counter; with the usual
 `|| true` + `2>/dev/null` it would have rendered as "no change". **Keep a watcher's probe cheap, and
 make its silence prove itself.**
+
+---
+
+## UPDATE BLOCK 5 — 2026-09-03 ~17:30Z. 463 FIXED by another lane (NOT rolled); the contact address is a FOUR-surface change and the last surface is in flight.
+
+**463 — FIXED, NOT LIVE, DO NOT RE-PLAN YET.** Session `463` took the fix this lane filed and declined:
+`9b540c2e6` (17:52 BST), both halves — Pass C no longer deletes new section children, AND the write
+path no longer relocates `blog-post` pages to `/blog/` (their correction to my §5: `parent_section`
+DID matter, on the write path, not in Pass C — 109 of 109 `blog-post` plan rows had it absent). It
+is Go, so **inert until an image rolls**: live agent-chassis is `30438851…` and
+`git merge-base --is-ancestor 9b540c2e6 <stamp>` says NO. **They will tell this lane when it has
+rolled and verified (proposed = survived at the step boundary; children at `/articles/<slug>.html`
+not `/blog/`). Only then re-plan.** A re-plan before that is deleted by the same pass. They also
+filed **`bugs_open/467`** in passing — a re-plan cannot add ANY new page to a site of 20+ pages
+(`truncatePreservingRealised`), 26 of 42 sites; not this site (4 live pages) but the same family.
+
+**The contact address lives on FOUR surfaces. Three fixed and verified; the fourth is queued.**
+Each earlier pass verified clean at its own table while the live page still served the old value —
+**only the served bytes are ground truth**, and even those need the CDN caveat below.
+
+| # | surface | seed | verified how |
+|---|---|---|---|
+| 1 | `site_specs` — `submission.email`, `briefing.contact.contact_email` | 09-03c | rows |
+| 2 | 3 components' `content_data` (about/generic-text-block, contact/generic-text-block, contact/hero-contact) | 09-03e → `section_edit` | rows 3 new / 0 old |
+| 3 | **`sites.email`** — what chrome AND the contact-form's `rendered_html` render from (`render_site_components_action.go:464`, `rerender_pages_actions.go:796`) | 09-03f | row |
+| 4 | **rendered chrome** (`site_components.footer`) — regenerated ONLY by `render_site_components`, which `rerender-pages` runs when `needs_rerender.spec.refresh_site_components=true`; a single-page `page_rerender` does NOT touch it | 09-03g | footer row `updated_at 17:13:15`, new addr ✓ old addr ✗ |
+
+**Why the served page STILL shows the old footer at 17:30Z, and why that is not a failure:**
+`rerender-pages` regenerates chrome and then **spawns one `page_rerender` child per page**
+(`create_rerender_items` step) — it does not deploy itself. Four children were spawned 17:13Z and
+are `triaged`, queued behind the fleet selector. **Until they run, no page has been deployed since
+chrome was fixed** — `pages.deployed_at` is 16:26–16:28Z for three pages and index is still
+`needs_rebuild` from the 11:03 failure guard. A background watcher (this session) fires when all
+four complete and then reads deploy dates + cache-busted served bytes. **If you inherit this
+before it fires:** `SELECT status FROM site_work_items WHERE site_id='8f17eb73…' AND
+item_type='page_rerender' AND created_at > '2026-09-03 17:12';` — then the curl loop in
+`SEED_2026-09-03g`'s header. **Pass condition: ONLY `gamedesignuk@` on every page, ZERO bare
+`gamedesign@`.**
+
+⚠ **CDN:** `cache-control: max-age=3600`, `cf-cache-status: DYNAMIC`. A cache-busted URL
+(`?v=<epoch>`) reaches origin; a `Cache-Control: no-cache` REQUEST header does not. `last-modified`
+on the served file is the honest deploy clock — it read **15:12Z** at 17:20Z, i.e. no deploy had
+landed since before any fix, which is how "CDN lag" was ruled OUT and "children not yet run" ruled
+IN.
+
+⚠ **Two watcher lessons from today, both mine:** a heavier probe (fleet-wide `GROUP BY`) outran its
+timeout and blinded the watch for the 56 minutes the chain ran in; and a watcher that greps only
+the success marker is silent through a failure. The current one polls a single-row count by key,
+exits on any failed/needs_human_review/unresolved child, and caps at 150 min.
