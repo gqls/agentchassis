@@ -61134,3 +61134,41 @@ never ontological ("does not exist") — the form that invites belief.
 
 **Tally:** **an-absence-claim-needs-the-looked-where-statement** ×(n+1);
 **never-embed-an-unverified-absolute-in-live-config** ×1 (new).
+
+---
+
+## 2026-09-03 — I wrote "Pinned by <TestName>" in a code comment for a test I had not written, and a council seat found it before any reader did (`bugs_open/450` lane)
+
+- **The claim**: `v3_site_actions.go` carried `// ... Pinned by TestToolGateRunsBeforeListingGate.`
+  against a genuinely new and non-obvious behaviour — that a plan-time tool gate must run BEFORE
+  the listing gate, or a `/tools/` hub ships empty. The council submission repeated it
+  ("Pinned by a composition test").
+- **What was actually true**: **the test did not exist.** `grep -rn 'func TestToolGate'` returned
+  nothing. The design called for it, I wrote fifteen other tests, and the comment describing the
+  one I had skipped went in anyway — asserting coverage of the single riskiest property in the
+  change.
+- **What caught it**: the council gate's `guardian` seat, on an **APPROVED** verdict, objecting
+  that the ordering *"should be pinned by an explicit test naming both keys armed together, not
+  deferred to 'worth a reviewer's eye'"*. It was reasoning from my prose, not from the test list —
+  it had no way to know the named test was absent, and its objection happened to land exactly on
+  the gap.
+- **The cheap check**: `grep -c "func <TestName>"` for every test name a comment or a submission
+  names. Under a second, mechanical, and it is the same check the estate already applies to
+  finding codes (`findingcodes_scan_test.go` fails the build for an unregistered ErrorCode) — a
+  test-name reference has no such scanner, which is precisely why it needs a human habit.
+- **Why this is worse than a missing test**: a missing test is a gap; a comment claiming the test
+  is a gap **plus a signpost telling the next reader not to look**. It is the same family as
+  "a doc comment is not an enforcement mechanism" — except here the comment did not merely fail
+  to enforce, it asserted that something else was enforcing.
+- **What I did**: wrote it for real, plus a CONTROL
+  (`TestListingGateFirstWouldKeepTheEmptyHub`) proving the ordering claim is not vacuous — run
+  the gates the wrong way round and the hub survives, so the ordering test cannot pass for any
+  order. The comment now also records that it preceded the tests it named, because that is the
+  part a future reader should distrust in their own writing.
+- **The generalisable half**: **a comment that names an artefact is a citation, and citations get
+  checked.** Test names, finding codes, migration numbers, register ids, correlation ids — every
+  one is a claim that something exists, written in the voice of something verified. Grep before
+  you write it, not after someone asks.
+
+Family: a-doc-comment-is-not-an-enforcement-mechanism, a-report-is-not-a-measurement,
+a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.

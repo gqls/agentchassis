@@ -267,3 +267,53 @@ mislabelled-`page_type` risk I had carried as `[UNMEASURED]` is exactly **one pa
 your fix's predicate as the census** — a fix and its denominator disagreeing is invisible while
 both look reasonable, and re-running the old query reproduced its number and read as confirmation
 when it only reproduced the question I had encoded.
+
+## (k) 2026-09-03 — gate council APPROVED, and the guardian found a test I had claimed but not written
+
+Corr `4e7497ed`: **APPROVED**, 9 objections across the seats, none high. Two mediums actioned in
+`5bfc016d7`; one low left open on purpose.
+
+**The one that matters, and it is a defect in my own work rather than in the design.**
+`v3_site_actions.go` said *"Pinned by TestToolGateRunsBeforeListingGate"* — **and that test did
+not exist.** The guardian seat objected that the ordering should be pinned by an explicit test
+"naming both keys armed together, not deferred to 'worth a reviewer's eye'", reasoning from my
+prose without any way of knowing the named test was absent. It landed exactly on the gap.
+Now written, plus `TestListingGateFirstWouldKeepTheEmptyHub` as the **control**: run the gates the
+wrong way round and the hub survives on the strength of children about to be removed, so the
+ordering test cannot pass for any order. WRONG_CALLS logged — **a comment naming a test is a
+citation, and citations get checked.**
+
+**`reuse_agent` (medium) — why not call `resolveToolPageIdentity`?** Answered in the code so it is
+not re-raised: it runs the same naming rule in the OPPOSITE direction (function → page row, one
+function at a time, canonicalising to decide where a page WOULD live), whereas this takes a
+planned page with no row yet and asks which functions could fill it, from a batch census.
+Inverting it costs one query per planned page and a canonicalisation that is meaningless before
+the row exists. The shared part is the RULE, bound by lockstep test.
+
+**`architecture` (low) — a pointer from the listing gate's side.** Added, comment only. ⚠ It
+breaches the "zero edits to `listing_item_sources.go`" I promised the 444 lane, so I told them
+directly rather than letting them find it in a diff. Zero behaviour changed; the promise was about
+not touching their mechanism, and a comment does not — but a promise is a promise and the honest
+move is to say so.
+
+**LEFT OPEN, deliberately — `bug_historian` (low), and it is the sharpest thing in the verdict:**
+nothing PINS the §7 assumption itself. This gate's entire licence to hold pages is "nothing reads
+planned tool pages", which is a NEGATIVE finding living in a code comment, not a check. A future
+producer that starts reading them would starve **silently**. The one-line disarm (the key) is
+today's mitigation; the real answer is a periodic "has a reader appeared" check. **Named as
+follow-up work rather than quietly accepted** — and it is the thing to build next if this lane
+continues.
+
+## (l) 2026-09-03 — a rehearsal recipe of mine went stale within the hour, which is the point
+
+My RUNBOOK §10 originally recorded a hardcoded "before" md5 (`85b9821d…`) as proof the migration
+round trip was byte-exact. Re-rehearsing an hour later produced `d2e44c19…` — **not a regression:
+another lane had landed a prompt migration, so the live baseline had moved.** Had I trusted the
+recorded value I would have read a healthy round trip as a failure.
+
+Recipe replaced with a **self-baselining** form: capture the baseline into a temp table inside the
+same transaction, apply, unwind, and let the query answer `byte_exact` directly. It cannot go
+stale because it never records an absolute. Proven twice, at two different baselines. The general
+shape — **a check that compares against a recorded constant expires; a check that computes both
+sides in one breath does not** — is worth more than the specific recipe, and I had warned the 443
+lane about exactly this an hour before doing it myself.
