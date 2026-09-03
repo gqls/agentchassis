@@ -61821,3 +61821,56 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
 
 Family: your-measurement-answers-the-question-you-encoded, a-post-fix-zero-needs-a-demand-control,
 a-closer-census-cannot-see-what-it-succeeded-at, a-measured-marker-proves-a-claim-not-a-check.
+
+## 2026-09-03 — an audit that cleared the two snippets I already knew were guilty, because Postgres wraps base64 at 76 chars (session "AI page 3", gripper dossier lane)
+
+- **The claim.** A fleet audit table stating, per `js_snippets` row, whether it reads the DOM and
+  whether it self-guards — produced to answer a council objection that the fix patched one call
+  site of a generic convention.
+- **What happened.** The audit reported **"n/a — no DOM read"** for `gripper-report-intake-widget`
+  and `hero-card-carousel`. Both demonstrably contain `document.querySelector(`; the widget's is
+  the very line the whole bug is about.
+- **The mechanism.** I extracted `js_content` as base64 to dodge quoting. **`encode(…,'base64')`
+  inserts a newline every 76 characters**, so 18 rows arrived as 978 lines. A per-line
+  `split('\t')` parse then decoded fragments, and `base64.b64decode` accepted them without
+  complaint. Every downstream regex ran against garbage and reported *absence*.
+- **Why it survived — and why it nearly didn't.** It failed **safe-looking**: absence of a match
+  reads as "clean", which is the answer an author wants. The output was a tidy aligned table of 18
+  rows with plausible verdicts. **The only tell was that a known-good case came out clean** — I
+  knew the carousel guards and the widget queries, and the table denied both.
+- **The cheap check that would have caught it.** Two, both trivial: assert the row COUNT after
+  parsing (`18` expected, `978` present — this alone was decisive), and assert each decoded blob
+  still looks like the thing it should be (`'function' in js`). Strip the wrapping at the source:
+  `replace(encode(convert_to(x,'UTF8'),'base64'), E'\n','')`.
+- **The general shape.** **Put a case with a KNOWN answer through every census you build**, in both
+  polarities, before you read its findings. A census reporting absence cannot distinguish "not
+  there" from "I could not see". This is the same lesson as the negative control on the fix itself
+  — I applied it to the fix and initially not to the audit of the fix.
+
+## 2026-09-03 — the second audit flagged the known-CORRECT snippet, because textual order is not execution order (same session, same lane)
+
+- **The claim.** Having fixed the base64 bug, I audited guard coverage by comparing the byte offset
+  of each snippet's first `document.querySelector(` against the offset of its first
+  `DOMContentLoaded`, calling it `DOM READ BEFORE GUARD` when the read came first.
+- **What it said.** `** DOM READ BEFORE GUARD **` for **8 of 9 active snippets**, including
+  `hero-card-carousel` — the snippet the fix explicitly copies as the known-good convention — and
+  including **my own fixed widget, which I had already proven correct by executing it**.
+- **The mechanism.** These snippets are written `function initX(){ … document.querySelector … }`
+  near the top and `if (readyState==='loading') addEventListener('DOMContentLoaded', initX); else
+  initX();` at the bottom. The DOM read is **lexically first and temporally last** — it lives in a
+  function body that does not run until the guard calls it. No refinement of a source scan fixes
+  this; the property being tested is a runtime one.
+- **Why it survived for one run.** It is a *more* sophisticated check than the previous one, it
+  produced a stricter-looking result, and "almost everything is unguarded" is exactly what the
+  council objection had primed me to expect. **An objection you agree with makes a wrong
+  confirmation of it much harder to see.**
+- **The cheap check that would have caught it.** The same one, again: a case with a known answer.
+  My own widget had been proven correct by execution twenty minutes earlier, so any audit calling
+  it defective is refuted before it is read.
+- **What replaced it.** A behavioural test: run each snippet under a stub `document` whose lookups
+  return null and are **counted**, with an `addEventListener` that records ready-handlers; the pair
+  `(lookups during initial execution, ready-listeners registered)` is the discriminator, and the
+  pre-fix widget body is carried as a negative control so a clean result cannot be a blind one.
+- **Cost.** Two discarded audits, ~20 minutes. Both were caught by the same reflex and neither by a
+  tool, which is the argument for the reflex: **before believing a census, ask what it says about
+  the one case you already know the answer to.**

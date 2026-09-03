@@ -2675,3 +2675,85 @@ migration), submitted as **`5775dc10-c791-4285-9f4c-249a055b5aa3`**, reached
 is a DOM simulation plus a byte count. The artefact that settles it is a Start button
 on the real page, in a real browser, after the rerender ships — precisely the loop the
 misstep entry above says I cannot close myself.
+
+## 2026-09-03 (afternoon) — council round 1: REVISE, and it was worth the round. Four seats, three real gaps, one of them a fleet finding I would not have looked for
+
+Verdict on `5775dc10-c791-4285-9f4c-249a055b5aa3`: **REVISE**, gated by `debug_historian`.
+10 seats ran; 7 approved. Recording what each objection actually was, because two of them
+changed what I did rather than how I described it.
+
+**`debug_historian`, HIGH (the gating one) — still OPEN, and correctly so.** *"Verification
+stops at the DB row (octet_length + a DOM-stub simulation). Nothing confirms the change
+reaches the served artifact… a DB-level pass here does not prove the live
+/assets/js/snippets.js or /gripper-report.html ever picked up the fix."* That is exactly
+right and it is the same altitude error as 08-26, one hop further along: last time I
+mistook "in the bundle" for "renders"; this time the risk was mistaking "in the row" for
+"in the bundle". It cannot be closed until the rerender ships. `[MEASURED 2026-09-03
+afternoon]` the served bundle still returns `grep -c DOMContentLoaded` = **1**, i.e. the
+OLD bundle. Waiter armed on the artefact itself rather than on the work item's status,
+because `complete` is not fetchability (`bugs_open/098`).
+
+**`debug_historian`, MEDIUM — CLOSED.** *"a production text mutation on a live content row
+with no backup/dump-first step and no separate rollback file."* Fair: seed 651's own undo
+block only deactivates the snippet, it does not restore a prior body. Written
+`651_robot_hands_gripper_report_page_ROLLBACK.sql`, which carries the exact pre-change
+8175-byte body **inline** — so a restore does not depend on git being reachable — and
+**exercised it against the live row for real**, in a transaction ending `ROLLBACK` instead
+of `COMMIT`: `UPDATE 1`, verify passed (`8175 B, unguarded`), discarded, live row still
+`8173|t`. A rollback file that has never been run is a guess.
+
+**`bug_historian`, MEDIUM — CLOSED by measurement, and it found something.** *"This patches
+ONE js_snippets row… the underlying mechanism is generic across the whole js_snippets
+library and every site's bundle… Nothing in this plan audits other js_snippets rows for
+the same missing guard."* So I audited all 18 rows **by execution** under a head-parse DOM
+stub (body absent, `readyState='loading'`), counting DOM lookups during initial run against
+ready-listeners registered:
+
+| | rows | exposed |
+|---|---|---|
+| **active** | 9 | **0** — 8 guard; `news-date-formatter` touches no DOM at all |
+| **inactive** | 9 | **8** — `accordion`, `copy-to-clipboard`, `counter-animate`, `form-validation`, `lazy-load-images`, `mobile-menu-toggle`, `smooth-scroll`, `typing-effect`; only `scroll-reveal` guards |
+
+So the live bundles are clean and **the library is loaded**: flip `is_active` on any of
+those eight and it reproduces this bug exactly, silently. On record as a LANDMINES entry,
+with the renderer-level fix (emit `defer`, or wrap every snippet at render time) named as
+**architecture-scope** and deliberately not slipped into a bug fix.
+
+> ### Two audits I had to throw away, both of which gave confident wrong answers
+>
+> **1. The extraction was silently corrupt.** I pulled `js_content` as base64 to avoid
+> quoting problems. Postgres's `encode(…,'base64')` **wraps every 76 characters**, so 18
+> rows arrived as 978 lines and my per-line parse decoded garbage. It did not error — it
+> reported *"no DOM read"* for the gripper widget and the carousel, i.e. it cleared the two
+> snippets I already knew contained `document.querySelector`. **The tell was a known-good
+> case coming out clean**, which is the only reason I looked. Fix: `replace(encode(…),
+> E'\n','')`, plus a decode sanity assertion on every row.
+>
+> **2. The positional scan was wrong in principle, not in detail.** Second attempt compared
+> the offset of the first `document.querySelector(` against the offset of the first
+> `DOMContentLoaded`. It flagged **`hero-card-carousel` and my own fixed widget** as
+> `DOM READ BEFORE GUARD` — both provably correct. The reason: these snippets *define*
+> `function initX(){ …querySelector… }` early and *call* it from the guard at the end.
+> **Textual order is not execution order**, and no refinement of a source scan fixes that.
+>
+> Both are logged in WRONG_CALLS. The pattern they share is the one this lane keeps paying
+> for: a cheap proxy for a runtime property, trusted because it produced a plausible table.
+
+The audit's own negative control: the **pre-fix** widget body run through the same generic
+stub gives `QUERIES_INITIAL=1 READY_LISTENERS=0` — the identical signature to the eight
+dormant ones. Without that, "all active rows clean" is indistinguishable from a blind
+harness.
+
+**`tooling_provenance`, LOW — CLOSED.** No travelling-docs entry. Written: `doc_notes`
+`subject_type='tool'`, `subject_key='gripper-report-intake'`, carrying the root cause, the
+19 B budget warning (with "do not put the header comment back, do not re-split the CSS"),
+and the fleet audit.
+
+**`prior_art_librarian`, `missing` — ANSWERED.** It could not query `js_snippets` and
+flagged that if the verify used `length()` (characters) rather than `octet_length` (bytes),
+the byte arithmetic would be invalid. Checked: **651:328 is `octet_length`** (the `length()`
+at :325 is a different check, on `rendered_html`), and it is moot anyway — the row is
+ASCII-only, so `octet_length = length = 8173`.
+
+Not resubmitting until the served-artefact check can be answered with evidence rather than
+a promise — resubmitting now would draw the same HIGH objection, correctly.
