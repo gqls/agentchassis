@@ -134,3 +134,37 @@ been "re-render a shell and look at it", I would have been reading a mirror and 
 concluded something about my own guard from it. RUNBOOK §8b now says so. This is the
 `a-plausible-external-cause-is-when-to-doubt-your-instrument` shape arriving as a gift instead of
 as a lost day, and it came from telling a peer what my change did to a function they own.
+
+## (g) 2026-09-03 ~11:4xZ — the repair wave's numbers, and the one instance that is interesting to THIS lane
+
+From the `portfolio_positioning` lane, on the instance half (their measurement, not mine):
+all **7 seotools tools built 09:30–09:54Z, no retries**, every one **adopting its existing page
+at the existing URL** (`page_adopted: true`, no duplicate rows). Nothing published yet — all 7
+`page_rerender` items sit `triaged` behind older site backlogs and they are not jumping the
+queue. So the 61-page census should shrink by 7 shortly, by 8 once websitepromotion's
+`tool-channel-prioritiser` builds.
+
+**The 8th is the one worth watching from here.** It is the SECTIONLESS variant: its planned page
+had no `site_plan_sections`, so the link repair parked all 7 of its `unbuilt_internal_link` items
+at `mark_no_ready_sections` (HITL) instead of writing a shell. That fork is the reason the
+plan-side arm (candidate 1) is designed to hold **empty-sectioned tool pages too**: "no shell" is
+not "harmless" — it converts a served-prose bug into a recurring HITL tax on a page row no
+producer will ever fill. This instance is the live evidence for that design decision, and it is
+worth re-reading when the arm is written rather than trusting my summary of it.
+
+**Their finding that sharpens our own file:** the position-2 collision is not incidental —
+`create_tool_component` inserts the widget at a **hardcoded position 2** ("same as
+deploy_tool_action") without consulting what the page already holds, so every repaired shell ends
+with the tool AND the old prose block sharing position 2, ordering decided by whatever the
+renderer's `ORDER BY` leaves. Theirs to decide; ours only to note that after the tool attaches
+our refusal has lifted, so nothing of ours is holding that still for them.
+
+## (h) 2026-09-03 — council r1 dispatched and RUNNING; the DB is slow enough to be worth a note
+
+Corr `2b236e83-ffd1-4911-b73f-1c17249064c1`, observed at `review_constitution|EXECUTING_STEP`.
+⚠ The cluster DB was slow enough this session that a plain `psql -c` **timed out repeatedly at
+100–120 s** while the fleet was busy. That is load, not a dropped dispatch, and the CLAUDE.md
+warning applies exactly: **do not retry the trigger on that evidence** — it costs a duplicate
+round. Poll in the background instead of blocking, and find the run by payload
+(`collected_data->'input_data'->>'fix_correlation_id'`), never by the printed `RUN_ORCH_ID`,
+which is not the id the chassis assigns.

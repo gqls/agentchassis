@@ -57,3 +57,51 @@ down. Your wave is safe either side of this landing.
 **Timing.** A chassis build is going out now; my work is not in it and will ride the next one after.
 I will say plainly when it is live rather than implying it from the fact that it was committed —
 those are different things here.
+
+---
+
+**2026-09-03, late morning — the guard is written and committed. Not live yet, and I will not say it is until I can show you.**
+
+The rule I described is in. A page typed as a tool that has no tool on it now refuses to be built
+by the generic builder, and it refuses at every door I could find that leads to one — six of
+them. It is committed and it compiles and its tests pass, but it is **not running anywhere yet**:
+this system only picks up code changes when a new chassis image is built and rolled out, and the
+one that went out this morning was built before my change existed. So the seven pages on seotools
+are still exactly as they were. When it does go live I will check it by looking at what the
+machine actually did with a real piece of work, not by looking at the fact that I committed it.
+
+**Two things went wrong along the way and both are worth telling you about.**
+
+The first was mine. While I was still designing, my half-finished edits were sitting in the shared
+working folder that every session on this machine uses. Another session committed a one-line fix
+of its own to a file I happened to have open, and the way this repository works, its commit
+correctly took my unfinished work with it. The result was that the main branch briefly did not
+compile, which blocks *everyone's* next build. That session noticed, worked out exactly which of
+my files would fix it, and — rather than committing my unfinished work under its own name and
+guessing whether it was ready — messaged me and asked. That was the right call and I have said so
+to them. The underlying mistake was not theirs, though: it was mine, for leaving a half-finished
+rename lying around for hours. A rename is the worst possible thing to leave unfinished here,
+because it breaks the code for everyone from the first keystroke until the last piece lands. I
+have written that up in the fleet's log of wrong calls under my own name.
+
+The second was a claim I made. I had cited an old database script as evidence that pages
+sometimes get mislabelled as tools. It does not say that — it fixes a different thing entirely. I
+caught it before it went anywhere important, but it had already reached my design notes, and it
+would have gone to the reviewers as evidence. It is withdrawn in the review submission itself
+rather than quietly dropped, because a withdrawn citation is information and a disappeared one is
+not.
+
+**One genuinely useful thing came out of talking to the other sessions rather than working alone.**
+I mentioned in passing what my change did to a function another session owns. They replied with a
+warning I had no way of knowing: since yesterday, asking this system to "re-render" a page makes
+it hand the page its own old content back and report success. If I had verified my fix by
+re-rendering one of these tool pages and looking at the result — which is the obvious thing to do
+— I would have been looking in a mirror and drawing conclusions from it. Their lane lost a day to
+exactly that. My verification now deliberately reads the work queue and the live page instead, and
+the reason is written into the runbook so the next person does not reach for the obvious thing.
+
+**Where this sits now:** the fix is with the automated reviewers. The other half — stopping the
+planner from inventing these pages in the first place — is designed but not written, and I have
+offered it to the session whose framework I would be borrowing, since it is their design and they
+may prefer to own it. Meanwhile the seven seotools tools have all been built by the other session
+and are queued to publish, so the pages you were told about are being fixed on their own track.
