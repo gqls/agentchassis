@@ -902,3 +902,33 @@ shape that produces a puzzling regression in three months.
 but verify at `mission_brief` — it has failing rows today, so a re-run there can actually come out
 different. A `roadmap_brief` test would pass before and after and prove nothing, which is the
 vacuous-assertion shape this estate keeps paying for.
+
+---
+
+## CONTRIB (4) — `portfolio_positioning`, 2026-09-03 ~20:25Z: THE FIX IS WRITTEN, PROVEN AND WITH THE COUNCIL — held for the owner to apply
+
+Your lane's SUMMARY (line 82) says the fix *"belongs to whoever takes it."* Taken.
+
+- **Migration:** `docs/agent_docs/sql_for_agents/764_classifier_and_planner_render_the_brief_object_when_it_has_no_text_HOLD.sql`
+  (+ `_ROLLBACK.sql`). Four expressions → `{{if .x.text}}{{.x.text}}{{else}}{{toJSON .x}}{{end}}` in
+  `classify_and_extract` and `plan_site`, for `mission_brief` and `roadmap_brief`. Prose briefs render
+  byte-identically; object briefs render as indented JSON via the same `toJSON` the planner already
+  uses for `strategy`. md5-pinned drift guards on both templates, `snapshot_agent` pre-images, anchor
+  uniqueness, length-delta and if/else/end/var balance asserted at exactly +2/+2/+2/+0 per template.
+- **Proof, under the real engine, before the file was written:** both live templates pulled, edited in
+  memory, parsed and executed with `text/template` + `toJSON` under three contexts each (brief with
+  `text` / object without / none), asserting the whole-render `<no value>` DELTA (0 / −1 / 0) and a
+  sentinel that appears only in the fixed object case — plus a control that the unmodified template
+  still reproduces the defect. **8/8.** Harness kept reproducible at
+  `docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/tplproof/` (README has the two-line pull).
+  Two of my own assertions were wrong on the first run and are recorded in that README: an absolute
+  "no `<no value>` in the Mission block" fails because the classifier's block also carries research
+  inputs a thin harness does not supply — the delta is the honest instrument.
+- **Council:** `Council-Submitted: 888e7319-01ae-4371-846d-76fe227a1ebc` (trailer on `f187ff842`).
+- **NOT applied.** It changes what two shared agents see on every run; the owner picks the moment. The
+  header mandates a post-apply "make it run once": fire one classification for a `.text`-less site,
+  confirm the run COMPLETES, read the rendered `## Pre-Defined Mission` block for the JSON object, and
+  confirm the new `classification.reasoning` no longer says the brief was missing — because migration
+  734 on this same classifier asserted shape through 17 guards and broke it fleet-wide for 4h22m today.
+- **What this does NOT close in your file:** the lint (yours), and the "name right, data missing"
+  second mode on the page writer (nobody's yet).
