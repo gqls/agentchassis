@@ -4895,3 +4895,31 @@ Owner: *"otherwise the brief is good carry on"* — the release word. Per RUNBOO
   **releasing a site makes the discovery sweep act on it within minutes**, which is earlier than the
   runbook's §2b window assumed.
 
+### (ll) 2026-09-03 16:01:39Z — **734 ROLLED BACK: my register step was breaking the classifier fleet-wide**
+
+- **The defect:** `read_positioning_register`'s query uses `$1` but the step config carried no
+  `params` array. `query_database` binds parameters from `config.params` (offer-analyser's
+  `load_premise`: `"params": ["site_record.site_id"]`). Runtime: `query failed: expected 1
+  arguments, got 0`. **Every classifier run after 11:39Z failed at that step.**
+- **Realised damage, measured:** two copyonline classifications FAILED (15:52:02Z, 15:59:09Z),
+  burning one attempt on each research item. No other site attempted a classification in the window,
+  so the blast radius was our own newly-released build. Both items retain **2 of 3 attempts** and
+  retry at 16:22:05Z and 16:29:12Z, so the build resumes unaided.
+- **Rolled back 16:01:39Z, keeping the half that works.** The register step and its prompt variable
+  are gone; **`layout_taxonomy` stays in the allow-list** (a separate, working fix, and the one that
+  matters most to 445's finding). Verified: step absent, chain restored, prompt no longer references
+  the register, taxonomy reference and allow-list entry both intact. Snapshot taken first.
+- **My test could not have caught it, and that is the lesson.** I verified the query on six sites
+  before writing the migration — by `sed`-substituting a literal for `$1`. **The substitution removed
+  the exact thing that was broken.** A test that edits the statement to make it runnable is no longer
+  testing the statement. And my 17 guards plus the `COMMIT`→`ROLLBACK` dry run all assert the CONFIG
+  IS WELL-FORMED; none asserts the step can RUN.
+- **The check I owe every future workflow change: make it run once.** Fire one job and read
+  `orchestration_states.current_step/status`, or execute the query through the action's own path.
+  Twenty seconds, and it is the difference between "applied" and "working".
+- **Owed:** tell the 445 lane (they dated a measurement boundary to 11:39Z for a change that never
+  worked); the council submission `f0ad8366` round 2 describes a now-rolled-back change and needs the
+  correction; and the fix-forward is `params: ["input_data.site_id"]` **only once that path is proven
+  to resolve in this agent** — the classifier has no `ensure_site_record` step, so it does not have
+  offer-analyser's `site_record.site_id`.
+

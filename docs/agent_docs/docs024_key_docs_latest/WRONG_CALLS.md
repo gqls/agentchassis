@@ -62965,3 +62965,43 @@ output without the prompt.
 Family: measurement-discipline-index, cite-the-arm-not-the-function,
 prompt-text-poisons-its-own-detector, a-guarantee-conditional-on-a-classifier-inherits-its-gaps,
 declaring-a-key-silences-your-own-detector.
+
+## 2026-09-03 — I tested my migration's query with a LITERAL where the runtime passes a PARAMETER, so the test could never have caught the defect that took the classifier down (session portfolio_positioning)
+
+- **The claim.** Migration `734` (RFC_037, owner-instructed) added a `read_positioning_register`
+  step to `domain-research-classifier`. I wrote in NOTES, in the RFC, in the runbook and in a
+  council submission that it was **applied and verified live**, and I told the `bugs_open/445` lane
+  to date their before/after boundary to it.
+- **What actually happened.** Every classifier run after it FAILED:
+  `step read_positioning_register failed: failed to execute action query_database: query failed:
+  expected 1 arguments, got 0`. My step config carried `query` and `output_format` but **no
+  `params` array**, which is how `query_database` binds `$1` (offer-analyser's `load_premise`:
+  `"params": ["site_record.site_id"]`). Two copyonline classifications failed (15:52:02Z,
+  15:59:09Z) and burned an attempt on both research items — on the owner's just-released build.
+- **Why my testing could not have caught it.** I DID test the query before writing the migration,
+  and it passed on six sites. **I tested it by substituting a literal for `$1`:**
+  `sed "s/\$1/(SELECT id FROM sites WHERE domain='copyonline.co.uk')/"`. That is a different
+  artefact from the one that runs. The parameter binding — the only thing that was broken — was the
+  exact part my substitution removed. **A test that edits the statement to make it runnable has
+  stopped testing the statement.**
+- **Why my migration's own guards did not catch it either.** 17 `RAISE EXCEPTION`s, a dry run with
+  `COMMIT`→`ROLLBACK`, and a verify block asserting the step exists, the `output_field` is right,
+  the chain is rewired, both inputs are in the allow-list and three prompt surfaces survived.
+  **Every one of those asserts the CONFIG IS WELL-FORMED. Not one asserts the step can RUN.** The
+  dry run proved the migration applied, which I then wrote up as "verified live".
+- **What caught it.** Not my checks: a monitor I had armed for a different purpose showed the
+  build's research item flipping `claimed` → `triaged`, and I asked why. Four hours after applying.
+- **The cheap check that would have.** After applying a step to a live workflow, **make it run
+  once** — fire one job and read the orchestration's `current_step`/`status`, or at minimum execute
+  the query through the action's own path rather than through psql with the parameter inlined.
+  Twenty seconds. `SELECT current_step, status FROM orchestration_states WHERE owner_agent_type=…
+  ORDER BY created_at DESC LIMIT 1` is the whole test.
+- **Cost.** A fleet-wide agent broken for 4h22m (11:39Z→16:01Z rollback). In that window the only
+  classifications attempted were copyonline's, so the realised damage is two failed runs and two
+  burned attempts on the owner's build, which resumes at 16:22Z with 2 of 3 attempts left. Had a
+  busier site classified in that window it would have failed identically. **I also told another lane
+  to treat 11:39Z as a measurement boundary for a change that was never actually working.**
+- **The pattern, stated plainly because it is the third of its shape today and the other two were
+  other people's:** a correct predicate wrapped in an untested inference. Config well-formed →
+  therefore the step works → therefore the change is live. Two unmeasured steps, and I published the
+  third as fact.
