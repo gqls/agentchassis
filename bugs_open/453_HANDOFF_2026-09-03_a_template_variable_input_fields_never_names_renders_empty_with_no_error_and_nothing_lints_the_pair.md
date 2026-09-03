@@ -733,3 +733,43 @@ It supersedes one site's `mission_brief` with the same object plus a `text` key 
 object's own fields. It is a **data** workaround for one site, deliberately not a fix for this bug:
 teaching the two templates to render the structured object is a shared-seam change and belongs to you.
 The owner's standing instruction is not to change a running build, so it stays on the shelf.
+
+### CONTRIB (2) — CORRECTION, appended 2026-09-03 ~17:45Z, same session
+
+Two claims in the contribution above are wrong in ways that would mis-scope your fix. Correcting both
+here rather than editing them away.
+
+**(a) I called the `reasoning`-field sweep "a fleet-wide census you can run today". It is not a
+census — it is a high-precision, LOW-RECALL confirmation test.** [MEASURED 2026-09-03 17:42Z]
+Controls: **111** current specs across **40** sites carry a `reasoning` field, so the predicate runs
+over a real population. The self-conviction sweep returns **2 rows on 1 site** (both copyonline). The
+true affected population, measured directly, is **7 sites**. Site-level recall ≈ **1 in 7** — most
+blind runs simply never remark on what they were missing. My own hedge ("treat a zero as untrustworthy
+without a control") was right and too weak: the number here is not merely untrustworthy, it is low by
+roughly seven times. **Use it to confirm a case and as the behavioural pass/fail after your fix. Do
+not size the problem with it.**
+
+**(b) The defect is NOT confined to `brief-writer`, and I had been repeating that it was.**
+[MEASURED 2026-09-03 17:44Z] The 7 current `mission_brief` specs with no `text` key:
+
+| domain | `site_specs.source` |
+|---|---|
+| advertise.co.uk | `manual` |
+| buytoletcalculator.uk | `brief-writer` |
+| **copyonline.co.uk** | **`owner-revision` — written by my own lane** |
+| designblog.co.uk | `brief-writer` |
+| indoorplanters.co.uk | `brief-writer` |
+| seotools.co.uk | `brief-writer` |
+| websitepromotion.co.uk | `brief-writer` |
+
+Five of seven, not seven of seven. One is hand-authored. One is mine: I superseded copyonline's brief
+three times today and **reproduced the defective shape every time**, by copying the structure of the
+object I was replacing without asking what read it.
+
+**This is the part worth carrying into your fix.** "All of them come from brief-writer" points at one
+producer and invites a producer-side patch. The real spread is three independent producers — an agent,
+a human, and a session that had just finished diagnosing this very bug — all landing on the same
+object with no `text` key, because **nothing anywhere declares that `.text` is what the consumers
+read**. A missing contract reproduces itself through whoever touches it next. That is the argument for
+fixing this at the template/contract seam you already own, and it is a stronger argument than the one
+I gave you first.

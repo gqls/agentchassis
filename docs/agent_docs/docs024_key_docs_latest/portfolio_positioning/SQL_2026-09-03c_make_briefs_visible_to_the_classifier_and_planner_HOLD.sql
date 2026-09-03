@@ -16,7 +16,8 @@
 --   advertise / seotools / copyonline classify_and_extract prompts:        heading then <no value>
 --   gamedesign.uk (its brief HAS .text):  renders its real mission        <- working control
 --   boxingonline.com (no mission_brief):  renders no block at all          <- negative control
--- 7 of 23 current mission_brief specs lack .text and all 7 are brief-writer output.
+-- 7 of 23 current mission_brief specs lack .text. (~~all 7 are brief-writer output~~ — REFUTED, see the
+-- CORRECTION at the foot of this file: 5 of 7 are brief-writer, 1 is manual, 1 is this lane.)
 --
 -- WHY THIS IS THE RIGHT FIX AND NOT A WORKAROUND: the consumers' contract is `.text`; the working
 -- control proves a brief carrying it renders in both steps. The alternative — teaching both templates
@@ -122,4 +123,40 @@ COMMIT;
 --   this fix, and three of the five are the seotools duplicates already awaiting his ruling.
 --
 -- STILL NOT APPLIED. Nothing above changes the permission position.
+-- ============================================================================
+
+-- ============================================================================
+-- ⚠ CORRECTION 2026-09-03 ~17:45Z — a provenance claim in this file's header is WRONG.
+--
+-- The header says: "7 of 23 current mission_brief specs lack .text and all 7 are brief-writer output."
+-- The count is right. **"all 7 are brief-writer output" is FALSE.** [MEASURED 2026-09-03 17:44Z]
+--
+--   domain                    site_specs.source
+--   advertise.co.uk           manual
+--   buytoletcalculator.uk     brief-writer
+--   copyonline.co.uk          owner-revision      <- written by THIS LANE
+--   designblog.co.uk          brief-writer
+--   indoorplanters.co.uk      brief-writer
+--   seotools.co.uk            brief-writer
+--   websitepromotion.co.uk    brief-writer
+--
+-- FIVE of seven are brief-writer. One is hand-written (`manual`). One is mine — I revised
+-- copyonline's brief three times today and **reproduced the defective shape every time**, because I
+-- copied the structure of the object I was superseding without ever asking what read it.
+--
+-- WHY THE CORRECTION MATTERS MORE THAN THE ARITHMETIC: "all 7 are brief-writer output" points the fix
+-- at one producer. The true spread says the opposite — three independent producers, including a human
+-- and including me, all converge on an object with no `text` key, because **nothing anywhere states
+-- that `.text` is the field the consumers read.** That is a missing contract, not a bad writer, and it
+-- is the argument for fixing this at the template/contract seam (`bugs_open/453`) rather than by
+-- patching brief-writer. A reader who inherited my wrong sentence would have scoped it too narrowly.
+--
+-- AND A SECOND OVER-CLAIM, corrected in the same breath: I told the 453 lane that sweeping agents'
+-- own `reasoning` fields for self-conviction ("no mission brief was supplied") gives them a
+-- fleet-wide census. **It gives them a high-precision, LOW-RECALL detector.** [MEASURED 17:42Z]
+-- Controls: 111 current specs across 40 sites carry a `reasoning` field. The phrase sweep returns
+-- **2 rows on 1 site** — both copyonline. The true affected population is **7 sites**. Site-level
+-- recall ≈ 1 in 7. Phrasing varies and most blind runs simply never mention what they lacked.
+-- So: use it to CONFIRM a suspected case and as a pass/fail test after a fix, never to size the
+-- problem, and never read its zero as an all-clear. Corrected in the CONTRIB itself too.
 -- ============================================================================
