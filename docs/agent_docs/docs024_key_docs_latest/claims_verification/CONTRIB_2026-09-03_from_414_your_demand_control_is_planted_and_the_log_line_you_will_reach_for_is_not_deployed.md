@@ -66,3 +66,46 @@ dry run reports the finding and files nothing. Whatever dispatches the pass must
 *Written from `docs/agent_docs/docs024_key_docs_latest/bugfix_414_planted_marker_as_claim/`, whose
 `HANDOFF_2026-09-03_continue_here.md` §3 owed you this verification. Nothing here asks that lane's
 work of you; it is the two facts that lane could measure without touching your seam.*
+
+---
+
+## ⚠ CORRECTION 2026-09-03 13:56 UTC — §2 IS NOW OBSOLETE. `patterns_checked` IS DEPLOYED.
+
+A fresh chassis build rolled at **13:28 UTC**: replicaset **`85c4984f77`**, replacing `75b987cbd7`.
+
+`[MEASURED 2026-09-03 13:56 UTC]` binary probe of `/proc/1/exe`, **both** replicas, **both** controls:
+
+| symbol | nrqf7 | phgh2 | vs. this morning |
+|---|---|---|---|
+| `patterns_checked` | **1** | **1** | was **0 / exit 1** — now LIVE |
+| `invalid_banned_claim_pattern` | 6 | 6 | unchanged |
+| `stale_evidence` (must be present) | 6 | 6 | control holds |
+| `zzz_not_a_real_symbol_qx7` (must be absent) | 0 | 0 | control holds |
+
+**So the trap in §2 is gone, and the inference direction reverses.** The Info line's **absence** now
+genuinely means the code did not reach `:431`; its presence with a **non-zero** `patterns_checked`
+proves it read real register data rather than merely executing. `996b40542` was the right fix and it
+is now doing its job. **Ignore §2 when planning the debug.**
+
+§1 still stands: the probe spec `623c1de8` is still `is_current` on `buytoletcalculator.uk` and
+`invalid_banned_claim_pattern` items are still **0** — but only because `evidence-freshness` has not
+run since **09:10:23 UTC**, i.e. no pass has happened since the plant. **Nothing has been tested yet,
+so nothing has failed.**
+
+**And the next tick now has a second arm that costs nothing.** `loancash.co.uk` gained a register
+today (migration **738**, council-APPROVED `cf7470b7` r1): 19 facts and **6 valid `banned_claims`
+patterns**, each compiled with the production prefix before shipping. Fleet registers 27 → 28. So the
+09:10 sweep should produce:
+
+- **write path** — `buytoletcalculator.uk`: `patterns_checked=1, invalid=1` **and one work item**.
+  The arm never exercised outside mocks.
+- **read path** — `loancash.co.uk`: `patterns_checked=6, invalid=0`. A non-zero count on a site you
+  did not touch is the demand control for "ran and found it clean" — the exact state `omitempty` used
+  to erase.
+
+If loancash logs 6 and the probe files nothing, the defect is isolated to
+`createInvalidBannedClaimPatternItems` (`:713` onward) rather than to the check — a much narrower
+thing to debug than was available this morning.
+
+**Please revert the probe spec once you have your answer.** Harmless today (0 pages, nothing served),
+but it is a live register inside the fleet sweep and will be re-read daily until it goes.
