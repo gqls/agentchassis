@@ -693,3 +693,35 @@ finding was measured against**, so a later reader can distinguish "passed" from 
 palette that no longer exists." Recorded here because it's a second instance, same day, of this
 lane's own reasoning changing a decision outside it — the first being the retry-ladder ruling
 above.
+
+## 2026-09-03 — designblog.co.uk lands on its FINAL attempt (3 of 3, round 2): genuinely good, and dark-marked
+
+Completed `14:30:30 UTC`, fresh key (`20260903/`). Verified at the served bytes, including — for
+the first time this incident — an explicit check for the light-mark invisibility risk
+`websitepromotion` just exposed, not just transparency:
+
+```
+https://designblog.co.uk/assets/images/logo.png → 200, 27,656 bytes
+md5 ff8203b9be1524... (differs from the pre-attempt-3 backup, 34d6e40d8e47..., confirming a genuine
+new object, not a stale re-serve)
+PNG: 400×218, colour type 6 (RGBA), no tRNS needed
+88.48% fully transparent overall; 99.92% of the border ring transparent
+0.088% magenta-like fringe (comparable to seotools' 0.085%, well below websitepromotion's 0.48%)
+opaque pixels: 7,713, ZERO near-white (min channel > 220), average opaque colour (67,58,64) —
+a DARK mark, not the light-on-magenta shape that produced websitepromotion's invisibility
+```
+
+**This is the fourth confirmed genuine success this incident** (`seotools.co.uk`,
+`gamedesign.uk`, `boxingonline.com`, now `designblog.co.uk`), and specifically the kind of result
+that does NOT carry the newly-discovered legibility risk — a useful confirmation that the risk is
+real but not universal, gated on the model's own colour choice for the mark, exactly as `417`'s
+mechanism described.
+
+**Final tally for every site touched by this incident**: `seotools.co.uk` fixed (2 of 3
+attempts), `gamedesign.uk` fixed (3 of 3), `boxingonline.com` fixed (topped-up credits, separate
+lane), `designblog.co.uk` fixed (5 attempts across two reset rounds — 2 refused in round 1
+before exhausting, 2 refused in round 2, succeeded on round 2's final attempt).
+`websitepromotion.co.uk` (not part of this lane's own three, `417`'s own item) technically fixed
+for transparency but known-illegible by owner ruling, kept as 462's test case. **Zero sites left
+serving a silently-bad "fixed" logo that the platform believes is fine and isn't** — the original
+incident's whole premise is now closed across every site it touched.
