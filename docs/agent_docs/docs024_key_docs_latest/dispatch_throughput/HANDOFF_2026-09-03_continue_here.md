@@ -106,3 +106,30 @@ The owner said **"induce it today"**. The window ran 11:14–11:33Z and is fully
 **Revised NEXT:** (1) `bugs_open/459` fix + council round · (2) measure the ungoverned loops'
 share of SPEND, not count · (3) option C (trigger interval ≤25 s), gate now met · (4) the
 standing queue unchanged.
+
+## UPDATE 2026-09-03 ~12:1xZ — NEXT-2 done, and it reframes D4: the governor reaches ~28% of spend
+
+Measured NEXT-2 (the ungoverned loops' share of SPEND). Answer: 3.0% — but the measurement
+turned up something far larger. **By orchestration lineage over 24 h** `[MEASURED 2026-09-03,
+$319.67, control: all 4,620 calls' orchestration_ids resolve]`: governed `build-dispatch-loop`
+**27.6%**, ungoverned `diagnose-dispatch-loop` 3.0%, **no dispatch-loop ancestor at all 69.4%**
+— of which `council-gate` is **$198.38, 62% of all fleet LLM spend**, steady across days.
+
+**So at L3 the governor removes at most ~28% of the burn. It cannot hold spend to a budget.**
+It is a dispatch governor, not a spend governor. This corrects what the lane told the owner on
+09-02; the plain-English correction is in `README_where_we_are.md` (09-03 early afternoon), the
+evidence and the refuted first method in NOTES, and **register AGOV-013 + the concept index are
+corrected** (their status still read "INERT (stage A)" today, which council seats read as truth).
+
+⚠ **Do NOT re-derive this from `llm_call_log.work_item_id`** — that column is propagated one
+generation and lost; 2,278 of 2,278 grandchild-of-a-loop calls carry none, and it yields a
+confident, wrong 93.7%. Lineage is the method; retention (~24–27 h) is its bound. WRONG_CALLS
+row filed.
+
+**Revised NEXT, in order:**
+1. **The owner's choice on coverage** (README states it): extend the governor to the
+   council/verifier dispatch path — architecture-scope, own review round — or accept that it
+   protects the site-building half only. **This is now the top D4 question, ahead of 459.**
+2. `bugs_open/459` — the level-change alarm never fires. Fix + council round.
+3. Option C (trigger interval ≤25 s) — gate met.
+4. The standing queue unchanged.

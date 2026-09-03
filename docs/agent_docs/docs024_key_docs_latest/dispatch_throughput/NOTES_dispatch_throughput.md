@@ -1683,3 +1683,60 @@ loser's version CAS fails — the disconfirming case is the SEQUENTIAL interleav
 double-handle census is observational on production rows, not a synthetic start-line test, so
 the trap does not bite the meter itself; it would bite anyone who tried to verify
 `claim_work_item`'s atomicity with a simultaneous-goroutine test and read green as proof.
+
+### 2026-09-03 ~12:0xZ — HOW MUCH SPEND CAN THE GOVERNOR ACTUALLY SHED? ~28%. Council-gate alone is 62% and is outside it entirely
+
+Picked this up as NEXT-2 (the ungoverned loops' share of SPEND, which I had flagged as
+unmeasured this morning). The answer is much bigger than the question.
+
+**⚠ MY FIRST METHOD WAS WRONG AND I NEARLY REPORTED IT.** `llm_call_log` has a `work_item_id`
+column, so I split September MTD on it: **93.7% of spend had no `work_item_id`**, and I was one
+step from writing "94% of spend is outside the governor". The validation refuted it
+`[MEASURED 2026-09-03]`: among calls made by **grandchildren** of a dispatch loop — work that is
+unambiguously dispatch-driven — **2,278 of 2,278 carry NO `work_item_id`**, and
+`page-content-writer` ($112.36 MTD, the page-writing path itself) is **0.0%** populated. The id
+is propagated one generation and then lost. **So the split measured where a foreign key is
+CARRIED, not where the governor REACHES** — a field's population rate is not the prevalence of
+the relationship it names. The number was real, dated and disconfirmable, and answered a
+question I had not asked.
+
+**The method that answers it: orchestration LINEAGE.** Walk `orchestration_states` down from
+every dispatch loop and attribute each LLM call to the loop it descends from, if any. Bounded
+by retention (~24–27 h), so this is a 24-hour reading and cannot be run over a month — say so
+whenever quoting it. `[all MEASURED 2026-09-03, last 24 h, $319.67 total]`:
+
+| lineage | calls | USD | share |
+|---|---|---|---|
+| **no dispatch-loop ancestor — the governor cannot touch it** | 1,848 | **$221.89** | **69.4%** |
+| `build-dispatch-loop` (governed) | 2,717 | $88.16 | 27.6% |
+| `diagnose-dispatch-loop` (ungoverned by design) | 55 | $9.62 | 3.0% |
+
+**The control that makes this trustworthy, and it is the one the first method lacked: all 4,620
+calls in the window have an `orchestration_id` that RESOLVES in `orchestration_states`.** An
+unresolvable id would have been silently binned as "outside" — that is exactly how this
+measurement would come out 69% by construction rather than by fact, and it did not.
+
+**The 69.4% is overwhelmingly `council-gate`: $198.38, i.e. 62% of ALL fleet LLM spend in 24 h.**
+Steady, not a spike: 69.9% of spend on 09-02, 62.1% on 09-03, and 09-01 (no council activity at
+all) cost $54.80 in total for the whole day. Then `landmine-verifier` $7.94 and a tail of
+auditors.
+
+**The consequence, and it corrects what this lane told the owner on 09-02.** We said that at
+$2,000 the governor "will actively slow things down… maintenance pauses ~day 14, builds ~day 17,
+research ~day 19". The pauses are real and now proven. **What is NOT true is the implication
+that this holds spend to $2,000**: at L3 — everything the governor can shed — it removes at most
+~28% of the burn. **It is a DISPATCH governor, not a spend governor.** Defending a budget would
+need a gate on the council/verifier path too, which is architecture-scope on a shared seam.
+
+**The prior art was in CLAUDE.md the whole time.** Its council section records migration 377's
+caching as "a **measured 68% saving** on what was **~85% of fleet LLM spend**". The estate had
+already measured that council dominates the bill; D4 was designed, budgeted and enabled without
+anyone putting that sentence beside this design. Nothing was hidden — the two facts simply never
+met. **That is the lesson worth carrying: the coverage of a governor is a measurement, not a
+property of its design, and it belongs in the design round.** Register AGOV-013 previously implied
+otherwise and has been corrected visibly (status was still "INERT (stage A)" today, which a
+council seat would have read as ground truth).
+
+Also settled, the question I actually opened this to answer: the ungoverned dispatch loops are
+**3.0% of spend** against ~1% of claims by count. My morning caveat ("by spend unmeasured and
+plausibly not small") was right in direction and small in size — 3×, not 30×.

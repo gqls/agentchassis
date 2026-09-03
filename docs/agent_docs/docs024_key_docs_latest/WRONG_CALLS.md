@@ -63007,3 +63007,35 @@ declaring-a-key-silences-your-own-detector.
   third as fact.
 
 - **2026-09-03 — `bugfix_453_template_input_fields_lint`: I wrote "`research-agent` orchestrations ALL TIME = 0" from a table that retains TWO DAYS, and told the owner the agent had "never run, not once, in the system's entire history".** `orchestration_states` holds `2026-09-02 .. 2026-09-03` (9,635 rows) — it is a rolling window, pruned. My query said `count(*) … WHERE owner_agent_type='research-agent'` with no date predicate, so the *absence of a WHERE clause* read to me as "all time" when the TABLE was the window. **What caught it:** the owner asked what the built agent actually was, and `research_results` turned out to hold **183 rows going back to 2026-01-14** — which cannot coexist with "never ran". **The cheap check, and I have a memory note for exactly this** (*"a closer census cannot see what it SUCCEEDED at — `site_work_items` is a ROLLING WINDOW"*): **before reading a zero as historical, ask the table its own span** — `SELECT min(created_at), max(created_at), count(*) FROM <t>` — and say "in the last N days" unless the span says otherwise. **The corrected claim is stronger, not weaker**, which is the galling part: `research-agent` wrote 92 rows in a five-day window in **January 2026**, **none** linked to a `page_id` or `component_instance_id`, and it appears **zero** times in `llm_call_log`, which spans `2026-03-25 .. 2026-09-03` across **87,822** calls and is the training corpus rather than a pruned log — and the agent has two `execute_llm_prompt` steps, so any run must appear there. So: **not run since 2026-01-18**, evidenced on a table that actually keeps history. The conclusion the false claim was supporting survived; the evidence for it did not, and I had published it to the owner before checking.
+
+## 2026-09-03 — I split spend on a foreign key and measured where the KEY is carried, not where the mechanism reaches — 93.7% "outside the governor" was an artefact (dispatch_throughput lane)
+
+- **The claim, one step from being written down.** Asked how much of the fleet's LLM spend the
+  new spend governor can actually shed, I split September's `llm_call_log` on `work_item_id`:
+  **93.7% of spend had no work item**, therefore 94% of spend is beyond the governor's reach.
+  Real query, real money, dated, disconfirmable — and answering a question I had not asked.
+- **What it actually measured.** `work_item_id` is propagated one generation and then lost.
+  Among calls made by **grandchildren** of a dispatch loop — work that is unambiguously
+  dispatch-driven — **2,278 of 2,278 carry no `work_item_id`**, and `page-content-writer`
+  ($112 MTD, the page-writing path itself) is **0.0%** populated. A foreign key's population
+  rate is not the prevalence of the relationship it names.
+- **Why it mattered.** The false version and the true version point the same way (the governor's
+  reach is limited), so the conclusion would have "held up" while the number was wrong by more
+  than a factor of two — 94% vs the true 72%. **A wrong method that agrees with the right answer
+  is the hardest kind to catch**, because nothing downstream contradicts it.
+- **What caught it.** Asking what a NULL in that column means before trusting a count of them —
+  i.e. running the validation *before* the report rather than after a challenge. One query:
+  take work known to be dispatch-driven by lineage, and check the field's population there.
+- **The cheap check that would have.** Before splitting a population on a nullable FK, establish
+  the field's population rate on a subpopulation where the relationship is known to hold. If it
+  is not ~100%, the field is a propagation artefact and the split is measuring plumbing.
+- **The method that answered it, and its own control.** Orchestration lineage: walk down from
+  each dispatch loop, attribute each call to the loop it descends from. True figures: governed
+  27.6%, ungoverned dispatch loop 3.0%, **no dispatch ancestor at all 69.4%** (council-gate
+  alone 62% of fleet spend). The load-bearing control — absent from the first method and the
+  reason the second is trustworthy — is that **all 4,620 calls in the window have an
+  `orchestration_id` that RESOLVES**; an unresolvable id would have been binned as "outside"
+  and produced ~69% by construction rather than by fact.
+- **Cost.** None — caught before it left the session. Logged because the tally is the point, and
+  because this is the second entry from this lane today in the same family: measuring the
+  instrument rather than the thing (the other was counting a query that ends in `LIMIT 1`).

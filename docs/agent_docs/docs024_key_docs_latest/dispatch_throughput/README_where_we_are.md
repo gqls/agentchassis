@@ -530,3 +530,42 @@ reports, deliverables) which were deliberately left outside it, so they keep spe
 level. That is about 1% of jobs by count, but diagnosis jobs are individually expensive, so I
 would not assume it is 1% of the money. Worth measuring before the real crossing around the
 11th.
+
+2026-09-03 early afternoon — I need to correct something I told you yesterday, and it matters
+for the budget.
+
+Yesterday I said that at $2,000 the governor would slow things down in the second half of a
+typical month — maintenance around day 14, builds day 17, research day 19. The pauses are real
+and I proved them this morning. **But the implication that this holds your spend to $2,000 is
+wrong, and I should have measured it before saying it.**
+
+Here is the shape of it. The governor works by refusing to pick up website jobs. So it can only
+touch money spent by website jobs. I measured where the money actually goes over the last 24
+hours, by tracing every AI call back to whatever started it: **about 28% comes from the website
+work queue, 3% from a smaller queue the governor deliberately doesn't cover — and 69% comes from
+something the governor cannot see at all.**
+
+That 69% is almost entirely **the review council** — the system that reviews platform changes
+before they ship. It alone is 62% of everything the fleet spends on AI. That's steady, not a
+one-off: 70% of Wednesday's spend, 62% of today's. On 1 September, when no reviews ran at all,
+the whole day cost $55.
+
+So the honest position: the governor will do exactly what you ruled — pause maintenance, then
+builds, then research, in that order, announced on the dashboard — but even with everything it
+can pause paused, roughly 70% of the spending carries on. It is a **dispatch** governor, not a
+spend governor.
+
+Two things you might reasonably want, and they are your call, not mine:
+
+1. **Extend it to cover the review council.** That is the single change that would let a budget
+   actually be defended. It's a bigger design question than a config change, so it would go
+   through the architecture review first.
+2. **Or leave it and treat the number differently** — knowing that the governor protects the
+   site-building half, and that the review council's cost is managed separately (there is
+   already a caching change that cut it by about two-thirds earlier in the summer).
+
+One more thing worth saying plainly: this was findable all along. Our own house rules document
+already records that the review council was about 85% of all AI spend before that caching fix.
+Nobody put that sentence next to the governor's design — including me, until I measured it
+today. I've corrected the internal record so the next person reads the governor's coverage as a
+measured number rather than an assumption.
