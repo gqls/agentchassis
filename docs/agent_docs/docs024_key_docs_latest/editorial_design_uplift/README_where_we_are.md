@@ -250,3 +250,70 @@ state. The migration file is marked do-not-apply with the reason written into it
 shared log of wrong calls has the entry, because the lesson is worth more than the fix was: I
 measured the broken cases thoroughly and never asked what the healthy ones do. A remedy has to fit
 the population, not just the fault.
+
+---
+
+## 3 September 2026 — the piece of work that was finished but never plugged in
+
+Today was the other half of this lane: not the pictures, the **structure** work (the "035" job — letting
+one page section be built out of smaller parts instead of one lump).
+
+Back on 31 August a piece of that was written, reviewed three times by the review council, and
+committed. It was meant to do one job: when someone edits a small part of a section, the bigger
+section that contains it has to be rebuilt, because the bigger one is what the page actually shows.
+Without it, you edit the text, the edit saves, everything reports success — and the page keeps
+showing the old words.
+
+**It was never plugged in.** Nothing in the system ever called it. On 2 September a check of the
+running program found the piece missing from the build, and correctly worked out it was there in the
+source but unreachable — the compiler throws away code nothing calls.
+
+**Today I found out why, and it is a small thing with a large moral.** The function asked for
+something its only possible caller does not have. In plain terms: it demanded to be handed a
+"transaction" — a way of grouping several database writes so they succeed or fail together — and the
+part of the system that was supposed to call it doesn't use one at all. It writes to the database one
+statement at a time.
+
+What makes this worth writing down is *why nobody noticed*. The file said, in capital letters, that
+this arrangement was **forced** — not a preference, a necessity — and explained at length which reads
+had to happen inside that transaction. It read like a measured fact. It was an assumption, and it was
+wrong, and **a comment is not checked by anything**. Three rounds of expert review looked at the plan
+and did not catch it. One search of the file it referred to caught it in a few seconds.
+
+**And once I tried to actually connect it, three more problems fell out** — none of which any amount
+of reviewing the design would have found, because they live a level below the thing everyone was
+arguing about:
+
+- The write it makes had **no safety catches on it**. Everywhere else on that path, a write checks
+  two things first: is this section retired, and has a human locked it? This one checked neither. That
+  matters more here than elsewhere, because this write happens *automatically* as a knock-on effect of
+  editing something else — so it reaches sections nobody chose. Without the checks, the one route in
+  the whole system that can overwrite a section a human has locked would have been the route nobody
+  aimed at it.
+- **It could not tell "refused" from "done".** If the database declines the write, the statement still
+  reports success. So a locked section would have been recorded as updated while quietly keeping its
+  old contents — which is precisely the failure this whole feature exists to prevent, appearing inside
+  the fix for it.
+- **It did not sign its work.** We keep a history of who changed each section; a write that doesn't
+  announce itself gets logged as coming from an anonymous network connection.
+
+All three are fixed, and the fix is pinned by tests that I deliberately tried to break: I made four
+separate sabotaging edits and checked each one turned a test red. All four did. Before today that file
+had no tests at all.
+
+**Does this change anything customers see? No, and that is on purpose.** No page anywhere is built out
+of parts yet — I counted, and it is zero out of 3,229 sections, even though the table grew by about a
+thousand rows in the last three days. The new code adds one cheap database lookup per edit and then
+does nothing. It is switched off by construction until something opts in, which is how we are supposed
+to ship anything that touches shared machinery.
+
+**Where the structure work stands now.** Two of the three pieces are live: the system refuses to render
+a parent section on its own (which would silently blank its children), and now it rebuilds parents when
+a child changes. The missing third piece is the **reading** side — nothing yet actually renders a page
+built out of parts. Until that lands, this feature is not usable, and I have corrected an entry in our
+internal reference that was telling everyone the wrong reason for that.
+
+**One thing worth flagging that is not mine.** A change another thread committed at lunchtime today
+leaves a test failing for everybody in a neighbouring area of the code. I have left it alone — it is
+their fix to make and the test message tells them exactly what to do — but it is worth knowing, because
+a red test that isn't yours makes it harder to tell whether your own work is sound.

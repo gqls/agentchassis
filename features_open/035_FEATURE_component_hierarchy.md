@@ -446,6 +446,43 @@ Falsifier: the save/rerender paths cannot leave siblings untouched without
 edits to `save_page_sections` — that is §6.1's boundary; scope P1 to owned
 pages and say so.*
 
+> **P1 PROGRESS, 2026-09-03 — DIRECTION 2 IS WIRED AND LIVE-CAPABLE; THE READ PATH IS NOT.**
+> Commit `1007be27d`, council `cab931b1-8b45-461e-8a37-0dbdfa6aa928` (`Council-Submitted:`, verdict
+> owed a read). State of the seven P1 deliverables, so the next session does not re-audit:
+>
+> | deliverable | state |
+> |---|---|
+> | `deriveRenderMode` third value (`composite`) | **DONE** `1f745e730` |
+> | membership helpers (`hierarchyChildrenOf` / `hierarchyAncestorChain` / `hierarchyChildKey`) | **DONE** `bc8167100`; reached in production |
+> | direction 1 — refuse to render a composition parent alone | **DONE** `028c3e112` |
+> | flat-pass extraction (`rerenderFlatSections`, `classifyStoredSection`, `renderPlannedSection`) | **DONE** `2a0bdb001`, `94f81cc60`, `22ed53ee7` |
+> | direction 2 — `recomposeAncestors`, **called** | **DONE 2026-09-03** `1007be27d` |
+> | `check_render_mode` routing arm | **REFUTED, not deferred** — `5542a76d6`: nothing reads `render_mode`. P1's routing story cannot work as this document wrote it; routing a composite needs a consumer for that column or a different signal, and that is an open design question |
+> | the walk in both render paths + §6.9's filter + register entry + live canary | **NOT DONE — this is what remains of P1** |
+>
+> **The finding worth carrying, because three rounds of review did not reach it.**
+> `recomposeAncestors` shipped 08-31 with a `tx *sql.Tx` parameter whose necessity its own header
+> asserted in capitals (*"THE db/tx SPLIT IS FORCED"*), reasoning about reads that must see "the
+> uncommitted edit" inside `apply_section_edit`'s transaction. `[MEASURED 2026-09-03]`
+> **there is no transaction** — `grep -nE 'BeginTx|\.Begin\(|Commit\(\)|Rollback\(\)'
+> section_editor_actions.go` returns nothing; it persists on the autocommit connection. So no call
+> could compile, the function sat uncalled for three days and the linker dropped it. **A comment can
+> assert a fact about its caller and nothing type-checks it**; the plan reviews read the plan, and
+> only compiling a call reads the caller. Attempting the wiring also found three defects in the
+> ancestor write that no round had reached — it carried neither the tombstone nor the lock predicate
+> its sibling writes carry, it read zero-rows-affected as success, and it was unstamped though it
+> writes an archived column. All fixed, all pinned by mutation-proved tests (M1–M4, each killed).
+> Full account: `LANDMINES.md#a-function-can-carry-a-parameter-its-only-caller-cannot-supply…`,
+> `WRONG_CALLS.md` 2026-09-03, `editorial_design_uplift/NOTES` 2026-09-03.
+>
+> **Still inert, and re-measured rather than carried forward** (the dated-count rule): **0 of 3,229**
+> `page_components` rows carry a `parent_instance_id` `[MEASURED 2026-09-03]`, against 0 of 2,249 on
+> 08-31 and 0 of 2,005 on 08-24 — the table grew ~1,000 rows in ten days and the parented count
+> stayed at zero. The cost direction 2 adds to the live edit path is one indexed SELECT per edit.
+>
+> **⚠ The next session's first obligation is §6.9's filter, and it belongs INSIDE the read-path
+> change, not after it.** `loadStoredSections` still has no `parent_instance_id` filter.
+
 **P2 — decomposed generation (council-gated).** D5's fan-out for one composite
 family (`insight-article`: lead prose + figure + chart + pull-quote), shared
 brief in `content_brief`. First NEW editorial feature built this way instead of

@@ -1329,3 +1329,170 @@ carrying an illustration-capable section, **8 are landing pages with exactly one
 not put a single image inside article text. **Progress on the first must not be reported as progress
 on the second** — that is this lane's one-slab finding (`bugs_open/114`) arriving from the supply
 side.
+
+---
+
+## 2026-09-03 — 035 P1 direction 2 WIRED, and the reason it was never wired is the finding
+
+Picked the lane up from `HANDOFF_2026-09-02_continue_here.md`. Its §7 items 1–3 were already
+discharged in §9; item 4 is a "do not"; item 5 (`news-listing`) is deliberately parked behind the §3
+question. So the live item was **6 — resume 035 P1**.
+
+### Environment, first, because both facts changed under the handoff
+
+- **Kubeconfig is ALIVE** (`kubectl get pods` returns, 2026-09-03 ~10:00 BST). The handoff's §0.1
+  expiry is long resolved.
+- **A NEW roll landed while the handoff was being read**: chassis `v1.0.1356`, pods started
+  `08:57–08:58Z` today. So the post-roll migration dry-run was owed again and was run:
+  **`Pending (177)`** (was 164 pre-roll on 09-02, 176 post-roll) and **36 files flagged
+  `LIKELY ALREADY APPLIED; its own guard raised`** (was 34 on 09-02 — that figure is `bugs_open/426`'s
+  and it is still climbing). `708_enable_unrendered_page_imagery.sql` now reads ALREADY APPLIED, so
+  IMG-077 is no longer inert — the 114 lane discharged it (`21e18a504`).
+- **A further chassis build was announced by the owner mid-session** and will roll again. Nothing in
+  this entry depends on which of the two images it lands in: the change is inert by measurement.
+
+### Where P1 actually was — the audit, because the handoff's one-line status understates it
+
+| P1 deliverable | state found 2026-09-03 |
+|---|---|
+| `walkComponentHierarchy` + its tests | written, **no production caller** |
+| `deriveRenderMode` third value (`composite`) | DONE (`1f745e730`) |
+| membership helpers (`hierarchyChildrenOf`/`AncestorChain`/`ChildKey`) | DONE (`bc8167100`), reached in production by direction 1 |
+| direction 1 — refuse to render a composition parent alone | DONE (`028c3e112`) |
+| `recomposeAncestors` (direction 2) | written (`3fd617ef6`, `fdb03cbc1`), **no caller** |
+| flat-pass extraction (`rerenderFlatSections`/`classifyStoredSection`/`renderPlannedSection`) | DONE |
+| `check_render_mode` routing arm | **REFUTED as impossible** (`5542a76d6`) — nothing reads `render_mode` |
+| hazard 6.9 filter, register entry, live canary | NOT DONE |
+
+### THE FINDING: a parameter no caller could supply, justified by a paragraph that measured nothing
+
+`recomposeAncestors` took `tx *sql.Tx`. Its own file header explained why, under a heading in
+capitals — *"THE db/tx SPLIT IS FORCED, not stylistic"* — reasoning at length about which reads must
+see *"the uncommitted edit"* inside **apply_section_edit's transaction**.
+
+`[MEASURED 2026-09-03]` There is no such transaction:
+
+```
+grep -nE 'BeginTx|\.Begin\(|Commit\(\)|Rollback\(\)' platform/orchestration/actions/section_editor_actions.go
+→ (no matches)
+```
+
+Every persist on that path goes through `updatePageComponentAfterEdit(ctx, params.DB, …)` on the
+autocommit connection. So the one caller the function was designed for **could not compile a call to
+it**, and the function sat with no caller from 08-31 to 09-03 — long enough for the linker to drop it
+and for the 09-02 binary probe to read it as absent (§9 of the handoff got that right: "not reachable
+in this build", not "the commit did not ship").
+
+**Three council rounds reviewed the PLAN and none of them caught it. One grep did.** The general
+shape: *a comment can assert a fact about its caller, and nothing type-checks a comment.* The
+justification read as though it had been measured because it was specific, confident and technical —
+it named the two functions that "cannot take a `*sql.Tx`", which is true, and inferred a transaction
+from that, which is not.
+
+The guarantee the `tx` was there to provide arrives for free: the child's UPDATE has committed before
+the recompose runs, so an ordinary read sees it. Every read now goes through `*sql.DB`.
+
+### Three more defects that only appeared when the wiring was attempted
+
+None of these are visible in a design review; all three are one level below the seam the rounds
+argued about.
+
+1. **The ancestor write was UNGUARDED** — a bare `UPDATE page_components SET rendered_html = … WHERE
+   id = $1`, with neither the tombstone predicate nor the lock predicate that every other write on
+   this path carries. And it matters MORE here than there: a recompose is a *mechanical consequence*
+   of a child edit, so it reaches rows nobody chose. `ApplySectionEditAction` checks the lock
+   (`bugs_open/058`) and the tombstone (`bugs_open/360`) on the row it was ASKED to edit and on
+   nothing above it. Without the clauses, **the one code path in the estate that can rewrite a
+   human-locked section is the one path no human pointed at it.**
+   ⚠ **Nothing existing would have caught the absence.** `TestNoHandSpelledTombstonePredicate` finds
+   a *wrong spelling* of the predicate, never a *missing* one; `page_component_writer_coverage_test.go`
+   asks only about the floors, which this writer already enforced. An absent guard has no detector on
+   this estate — which is why it needed a pin, and now has one.
+2. **Zero rows affected read as success.** The statement succeeds whether or not a predicate admitted
+   the row, so an unchecked result reports a refused ancestor as recomposed: a green result over
+   stale bytes — this feature's own defect class, arriving inside its own fix.
+3. **The write was UNSTAMPED** — a seventh writer of `page_components.rendered_html`, a column the
+   357/552 triggers archive, with no `application_name` announcement. That re-opens exactly the
+   attribution hole `bugs_open/355` A1 closed. New writer name `action:recompose_ancestors`, kept
+   distinct from `section_editor.update` so an archive row can answer "who rewrote the parent".
+
+### What was written
+
+- `writeRecomposedAncestor` — the write extracted into its own function, guarded with
+  `datahelpers.NotRemovedSQL` + `pageComponentAgentWritableSQL("")`, stamped, and returning
+  `(written bool, err error)` so a refusal is distinguishable from a failure. Extracted because that
+  is the seam `section_editor_tombstone_guard_test.go` drives on `updatePageComponentAfterEdit`: **a
+  write with no such seam can only be tested by mocking the whole render chain in front of it, which
+  is how a guard ends up asserted in prose instead of in a test.**
+- The call in `ApplySectionEditAction`, **after** the persist and **before** `assemblePage`. Both
+  sides are load-bearing: after, so ancestors embed the new child bytes; before, because the
+  reassembly reads `page_components` back and recomposing later would ship the stale parent in the
+  very HTML this action returns for deployment.
+- `stale_ancestor_slots` in the result map — an ancestor that could not be refreshed becomes a
+  durable record in `collected_data` rather than a log line that rotates within minutes.
+
+### Inert, and measured rather than assumed
+
+`[MEASURED 2026-09-03]` `SELECT count(*), count(parent_instance_id) FROM page_components` →
+**3,229 | 0**. Up from 0 of 2,249 on 08-31: the table grew ~1,000 rows in three days and the parented
+count stayed at zero. So `hierarchyAncestorChain` returns empty on its first read and the loop body
+is unreachable on today's data. The whole cost on the live edit path is **one indexed SELECT per
+edit**. That is RFC_022's shape — opt-in, unsafe side OFF.
+
+### Tests, and the mutations that make them mean something
+
+Four cases, no happy path, in a file that had **zero** tests before. Every mutation run and killed:
+
+| mutation | case that went red |
+|---|---|
+| M1 drop `AND `+`NotRemovedSQL` | predicate case (tombstone) |
+| M2 drop `AND `+`pageComponentAgentWritableSQL("")` | predicate case (lock) |
+| M3 `return true, nil` instead of `n > 0, nil` | refusal case |
+| M4 delete the call from `ApplySectionEditAction` | wiring case |
+
+The wiring case is a source scan and **strips Go comments first** — this test file and the call site
+both name the function in prose, so an unstripped scan would pass vacuously (LANDMINES: "a
+source-scan test makes your COMMENTS load-bearing"). Its weakness is written into the file: it proves
+the call is WRITTEN, not that it EXECUTES. The behavioural half is the inert-row case, which asserts
+through `mock.ExpectationsWereMet()` that **nothing beyond one SELECT runs** on a top-level row.
+
+`verify-head-builds.sh --test --with <5 files> ./platform/orchestration/actions/` green against HEAD
+`e44aa9fc9`.
+
+### A stale register claim corrected on the way
+
+`CLC-030`'s relations line told every reader that `page_components.parent_instance_id` *"is read by
+**zero** Go files and set on **0 of 2,005** rows as of 2026-08-24"*. The **reachability half is now
+false** — the membership queries are reached in production from `ApplySectionEditAction` — while the
+population half held and has been re-measured. Corrected in place with strike-through, both halves
+dated. Its standing advice is unchanged and its *reason* is not: do not treat 035 as available,
+**not** because nothing is built, but because the READ path is still unwired, so a row that opted in
+today would render flat.
+
+### Committed and submitted
+
+Commit `1007be27d`, 7 files, pathspec, scope block clean.
+Council correlation **`cab931b1-8b45-461e-8a37-0dbdfa6aa928`**, trailer `Council-Submitted:`
+(pre-verdict, per the 2026-07-30 rule). **The verdict is still owed a read.**
+
+### ⚠ HEAD is RED in a neighbouring package, and it is not this lane's
+
+`go test ./platform/orchestration/...` fails one case:
+`discovery_checks/TestStylesheetGutted_TokenSetMatchesCanonicalCSSTokens` —
+*"canonicalCSSTokens declares 4 token(s) this check does not police:
+[--color-accent-ink --color-accent-text --color-cta-bg-ink --color-primary-ink]"*.
+Neither file is dirty, so it fails at committed HEAD. `git log` names `0325ddebb` (2026-09-03 12:10,
+the 458 lane) as the commit that added the tokens without extending `rendererGuaranteedTokens`. Left
+alone deliberately — it is that lane's fix and the test is telling them exactly what to do — but
+recorded here because a red package makes every other session's `go test` ambiguous.
+
+### What P1 still needs, in order
+
+1. **The READ path.** `walkComponentHierarchy` still has no production caller, so a row that opted in
+   would render flat. This is the remaining core of P1 and it is a separate council round.
+2. **Hazard 6.9's filter must land INSIDE that change** — `loadStoredSections` has no
+   `parent_instance_id` filter, so the flat pass and a nested walk would both render children and
+   every later section's occurrence index would shift, attaching figures to the wrong sections. It is
+   archaeology if found afterwards.
+3. **The register entry** for composition itself, once the read path makes the claim true.
+4. **The live canary page**, which is P1's actual acceptance.
