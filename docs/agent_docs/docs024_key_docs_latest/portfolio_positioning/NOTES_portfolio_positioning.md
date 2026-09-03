@@ -4540,3 +4540,49 @@ Owner: *"please fix the classifier to read the register."* RFC_037's DB half shi
   library tag list is populated, not `null`, and (2) the register block is present. Told the 445
   lane the apply time so they can date their before/after boundary.
 
+### (ff) 2026-09-03 ~12:0xZ — copyonline brief REVISION 2 (owner), and 734's council REVISE answered
+
+- **OWNER DIRECTION**: AI is the biggest force on this audience, threat and opportunity at once, and
+  *"AI is also pretty bad at it"*; a lead-generation page in the nav carries the conversion aim so the
+  rest of the site can stay as planned; the CTA points at a directory (a randomised listing at first),
+  later at the owner or a lead buyer; webdesign.uk may route leads here.
+- **He asked whether he had missed AI in the brief. He had not — and the absence was MINE.** Measured:
+  exactly **3** `\bAI\b` mentions in the original, ALL defensive (a stance against pretending AI needs
+  no editing; a must-not against hyping AI tools; one *aspirational* page listing AI among four
+  contested questions). No page about it, no positioning. **My own fire direction said "no hype about
+  AI writing" and the writer obeyed.** Said so plainly rather than letting him think he misread it.
+- **Revision applied 11:56:00Z** (`0d9311fb` current; brief-writer original `c1b5c41d` RETAINED,
+  superseded — retire-then-insert as SEPARATE statements per the runbook trap; guarded on exactly-1
+  current row AND on the review item still being `needs_human_review`, i.e. refuses if the build was
+  released underneath me; verify asserts 2 rows, ≥3 AI-titled plan items, exactly 1 `lead-route` page).
+  24 → **28** plan items.
+- **The design decision worth keeping**: the owner's two aims conflict, and his own answer (one page,
+  in the nav) is the right one — implemented as `kind: lead-route`, plus a must-not that stops it
+  bleeding into the guides. **The randomised directory is STAGE 2 and deliberately NOT planned**: we
+  have no copywriters to list, so it is the 444 empty-listing class, and claiming a panel we do not
+  have is a claim the site cannot stand behind. Stage 1 routes to the owner and says so. Both staging
+  questions went into `open_questions` as HIS calls, not mine.
+- **AI framing guarded both ways**: new must-nots forbid hype AND sneering, because neither is
+  checkable, and require every claim about machine output to be shown in a worked before-and-after.
+- **734's council verdict: REVISE (editquality, 6 abstained, 11:48:39Z).** The objection: the rationale
+  claimed the migration inserts a template variable but **the sketch showed only three `jsonb_set` calls,
+  none touching `prompt_template`** — so on my evidence the field would be extracted and never rendered.
+  **The seat was RIGHT about my evidence and WRONG about the code**, and that distinction is the whole
+  point: my sketch under-described the change. Verified at the live row that
+  `{{.positioning_register.block}}` IS in the prompt (and survived 445's later migration 735 intact,
+  along with my `input_fields` and the chain). **This is the same defect class the migration itself
+  fixes, one field along — a good catch on a plan I wrote carelessly.**
+- **The seat also asked the better question — blast radius across the 25 agents sharing this
+  allow-list. I ran the census and REFUSED TO REPORT A NUMBER, because the obvious query is invalid**:
+  a naive `{{.root}}`-vs-`input_fields` diff counts loop-scoped fields inside `{{range}}` blocks as
+  missing roots (worked example: `build-site-planner.plan_site` has
+  `{{range .existing_pages}}- name: {{.name}} | page_type: {{.page_type}}`, and those are element
+  properties, correctly absent). The only evidence that convicted the classifier was the RENDERED
+  prompt. Handed the fleet question to the `--template-input-fields` lint (WFA-024) which can model
+  scoping. **I nearly published a 25-agent figure that would have been wrong in the same way three of
+  today's other corrections were.**
+- Round 2 resubmitted on the same correlation `f0ad8366` with the corrected sketch, the live
+  verification, the disclaimed census, and a new risk the objection implies: the ROLLBACK must remove
+  the prompt variable too, or reverting would leave a reference to an unsupplied field rendering
+  `<no value>` — the exact failure being fixed.
+
