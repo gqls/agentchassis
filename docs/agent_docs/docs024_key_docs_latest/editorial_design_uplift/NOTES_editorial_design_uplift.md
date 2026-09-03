@@ -1496,3 +1496,82 @@ recorded here because a red package makes every other session's `go test` ambigu
    archaeology if found afterwards.
 3. **The register entry** for composition itself, once the read path makes the claim true.
 4. **The live canary page**, which is P1's actual acceptance.
+
+### 2026-09-03 (later) — council `cab931b1` came back APPROVED in 16 minutes, and one advisory was a real defect I had argued the wrong way
+
+11 reviewers, 6 abstained, `decided_by` = *"approved with 6 advisory objection(s) — none
+high-severity"*. Submitted 12:08Z, verdict artifact 12:24Z. Acted on in `3ba94508c`
+(`Council-Reviewed:` — written only after reading the verdict body, per the trailer rule).
+
+**The one that mattered — `debug_historian`, medium, and it is a correction of my own reasoning, not
+a misunderstanding of the change.** `writeRecomposedAncestor` returned `true` when `RowsAffected()`
+*itself* errored. My comment justified it: the statement succeeded, and a false "stale" would send
+the caller filing work about a healthy row. The seat's answer: *"Falling back to 'assume written' on
+a driver error re-opens the door the predicate+RowsAffected check was built to close."*
+
+They are right, and the deciding move is one I did not make — **name the asymmetry**. A false STALE
+costs a log line and a result key nothing reads. A false WRITTEN costs a page serving a parent that
+embeds the pre-edit child, silently and for ever. Those are not comparable, so the tie-break I
+applied ("don't invent work") was answering the smaller question. Now `return false, nil`, pinned by
+`TestRecomposedAncestorWriteFailsClosedWhenTheDriverCannotReportRows` and mutation **M5** (restore
+`return true` → red).
+
+**Two seats, one test.** `guardian` (medium) asked whether `pageComponentAgentWritableSQL("")`
+degrades to always-true on an empty alias; `reuse_agent` (medium) asked whether a second
+guarded-write style beside `updatePageComponentAfterEdit` can drift from it. Both are the same
+question — *is the guard the same guard?* — so
+`TestAncestorAndChildWritesCarryTheIDENTICALLockPredicate` asserts the rendered predicate is
+**byte-identical in both writers' statements**, names `locked_at`, and is not a tautology. It fails
+**loudly on the CHILD arm** if the helper stops rendering a guard, so it reports its own blindness
+rather than passing through it. Mutation **M6** (`AgentWritableSQLFor` → `"(true)"`) → red.
+
+**⚠ THE RE-MEASUREMENT, and it caught a stale figure of mine.** `prior_art_librarian` (medium)
+objected that the inertness argument *"rests on two DB counts asserted as `[MEASURED 2026-09-03]`"*
+that it could not independently confirm — and specifically that `content_components` has no `slots`
+column (correct: it is nested in `input_schema` jsonb). I had carried the **386** figure forward from
+08-31 without re-running it. Re-run:
+
+```sql
+SELECT count(*) AS total,
+       count(*) FILTER (WHERE input_schema ? 'slots')      AS slots_key,
+       count(*) FILTER (WHERE render_mode='composite')     AS composite
+  FROM content_components;
+→ 554 | 0 | 0
+```
+
+The claim survives and is **larger** — 0 of 554, not 0 of 386. **Stale by ADDITION**: the count did
+not become wrong, it became out of date upward, which is exactly the failure the dated-count rule
+names. Corrected in `features_open/035` with the provenance, because "386" is now in several docs and
+every one of them is quoting 08-31.
+
+**Answered by reading, no code:** `guardian` (low) asked whether a downstream step reads the result
+map by exact key set or length. It does not — `ApplyResultSpec` selects by NAMED fields, by NAMED
+mapping, or falls through to a filtered dump of every non-`__` key, and **none of the three agents
+that call `apply_section_edit`** (`section-editor`, `tool-improver`, `component-template-fixer`)
+declares a `result_spec` or `result_mapping` at all, so all three take the dump. Adding a key is
+additive.
+
+**Adjudicated, not actioned:**
+- `editquality` (medium) is right that the `component_hierarchy_walk.go` correction has no covering
+  edit — and it **cannot have one**: 097 refuses a comment-only sketch (*"a fix plan proposes
+  changes, not observations"*) and that change is comment-only. It is named in edit 1's rationale,
+  which is the runbook's own prescribed home for a path the rationale mentions but does not edit. The
+  gap is in the submission FORMAT, not in the work. **Worth knowing before the next round:** a
+  comment-only correction is unsubmittable as an edit by construction.
+- `reuse_agent` (medium) asked why `updatePageComponentAfterEdit` was not extended. Because it
+  promotes `build_status='approved'` and writes `content_data`, and an ancestor recompose must do
+  neither — the ancestor's `content_data` is unchanged by definition, and a mechanical rebuild must
+  not move a row's approval state.
+
+**Carried forward as BINDING on the read-path submission** (both seats framed them as follow-ups):
+`stale_ancestor_slots` must be wired into something that files a work item before composed pages
+become real (`bug_historian`: it is `bugs_open/083`/`/071`'s shape), and the deployed binary must be
+probed for `recomposeAncestors` after the next roll with controls on opposite sides
+(`debug_historian`: the instrument that diagnosed the absence must confirm the presence). Both are in
+the handoff's §4.
+
+**The meta-point for this lane's own record.** Yesterday's entry says a council *"cannot catch"* the
+population class (686). Today's says it caught a fail-open fallback I had reasoned my way into and
+written a comment defending. Neither is the general rule: **a council catches what is visible in the
+diff and cannot fetch the estate around it.** The RowsAffected fallback was four lines in the
+submitted sketch; the 292 neighbouring pages were nowhere in it.

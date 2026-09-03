@@ -480,6 +480,15 @@ pages and say so.*
 > 08-31 and 0 of 2,005 on 08-24 — the table grew ~1,000 rows in ten days and the parented count
 > stayed at zero. The cost direction 2 adds to the live edit path is one indexed SELECT per edit.
 >
+> ⚠ **The COMPONENT-side count in this document was stale, and the council's `prior_art_librarian`
+> seat is what forced the re-measurement** (corr `cab931b1`, medium: the inertness argument "rests on
+> two DB counts asserted as `[MEASURED]`"). `content_components` holds **554** rows
+> `[MEASURED 2026-09-03]`, not the **386** quoted here and in this lane's docs since 08-31. The claim
+> survives and is larger: **0 of 554** declare a `slots` key in `input_schema`, **0 of 554** carry
+> `render_mode='composite'`. Stale by ADDITION — the count did not go wrong, it went *out of date
+> upward*, which is precisely why the dated-count rule exists. **Anyone quoting "386" is quoting
+> 08-31.**
+>
 > **⚠ The next session's first obligation is §6.9's filter, and it belongs INSIDE the read-path
 > change, not after it.** `loadStoredSections` still has no `parent_instance_id` filter.
 

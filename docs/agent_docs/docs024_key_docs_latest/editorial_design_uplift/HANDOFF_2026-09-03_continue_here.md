@@ -98,13 +98,21 @@ SELECT per edit** to the live edit path and nothing else.
 
 ## 4. What to do next, in order
 
-1. **Read the council verdict** on `cab931b1-8b45-461e-8a37-0dbdfa6aa928` and act on it. The code is
-   already on the shared branch, so a REVISE is a follow-up commit, not a hold.
-   ```sql
-   SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
-    WHERE correlation_id='cab931b1-8b45-461e-8a37-0dbdfa6aa928' AND kind='council_report'
-    ORDER BY created_at;
-   ```
+1. ~~Read the council verdict~~ **DONE — `cab931b1-8b45-461e-8a37-0dbdfa6aa928` came back APPROVED**
+   (11 reviewers, 6 abstained, *"approved with 6 advisory objection(s) — none high-severity"*), was
+   read, and was acted on in commit `3ba94508c` (trailer `Council-Reviewed:`). **One objection was a
+   real defect I had argued the wrong way** — `writeRecomposedAncestor` returned `true` when
+   `RowsAffected()` itself errored, which re-opens the door the row count exists to close; it now
+   fails closed (case + mutation M5). A second commit-worthy pair (guardian: does
+   `pageComponentAgentWritableSQL("")` degrade to always-true? reuse_agent: can two guarded-write
+   styles drift?) is answered by one predicate-PARITY test asserting the rendered predicate is
+   byte-identical in both writers and is not a tautology (mutation M6). Full adjudication of all six
+   in `3ba94508c`'s message.
+   ⚠ **One re-measurement the librarian seat's challenge forced, and it found a STALE count of my
+   own:** `content_components` is **554** rows, not the **386** this lane and `features_open/035`
+   were both quoting from 08-31. The inertness claim survives and is larger — **0 of 554** declare a
+   `slots` key, **0 of 554** carry `render_mode='composite'` `[MEASURED 2026-09-03]`. Stale by
+   ADDITION, exactly the class the dated-count rule exists for.
 2. **THE READ PATH — the remaining core of P1.** `walkComponentHierarchy` still has no production
    caller, so a row that opted in today would render flat. Its own council round.
 3. **Hazard 6.9's filter MUST land inside that change, not after it.** `loadStoredSections` selects
@@ -114,6 +122,19 @@ SELECT per edit** to the live edit path and nothing else.
    the wrong sections — rendering, deploying and looking correct. Read 035 §6.9 in full first: it also
    carries the `MergeLockedPageSlots` inverted-polarity trap for any plan-vs-live guard.
 4. **Then the register entry and the live canary**, which are P1's actual acceptance.
+
+   ⚠ **TWO CONDITIONS BIND THAT SUBMISSION, both named by seats that called them follow-ups rather
+   than blocks. Do not let the read path land without them:**
+   - **`stale_ancestor_slots` must be wired into something that FILES.** It is computed today and
+     consumed by nothing — `bug_historian` (medium) named that as this platform's single most
+     repeated failure shape (`bugs_open/083`, `/071`, 016b §9: *"a finding that outlives the state it
+     describes is indistinguishable from a live one"*). It is harmless while the mechanism is inert;
+     it becomes the incident the moment the read path makes composed pages real.
+   - **Probe the DEPLOYED BINARY after the next roll**, controls on opposite sides
+     (`LANDMINES.md:492`). `debug_historian` (low) is right that the bug was FOUND by a binary probe
+     showing the symbol absent, and the fix's own verification is unit tests only — the instrument
+     that diagnosed it must be the one that confirms it. `recomposeAncestors` should now be PRESENT,
+     because it has a caller.
 5. **`news-listing`** — same defect `article-body` had, still unwritten, still deliberately behind the
    09-02 handoff's §3 question.
 6. **Do NOT restart imagery work at the component layer.** Unchanged from 09-02 §7.4; the live
