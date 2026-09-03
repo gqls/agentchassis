@@ -8151,3 +8151,32 @@ lane's per the ownership ruling.
   regenerated-copy read (seven per-class checks from OWNER_REVIEW + SITE_DEFECT_CATEGORIES,
   sharpest first: a control-labelled field must read like a control — shorter is necessary, not
   sufficient); this lane supplies the row read, the floor-after and the window count.
+
+## 2026-09-03 (10:27Z, clock-read) — the queue is oldest-item-first across the fleet, boxingonline's turn is hours away; 725 window closed and made claim-gated
+
+- **Why nothing of ours has been claimed (rebuild 09:53, logo 09:24, chrome 08:35, discriminator
+  08:26 — all still `triaged` at 10:21Z while 21 page_rerenders were claimed fleet-wide in 15 min):**
+  `build-pipeline-trigger.find_dispatchable_site` `[read at the live row]`: per site, the top
+  `max_items` (8) eligible items by (priority ASC, created_at ASC) form a window; the trigger picks
+  the site whose window has the OLDEST `created_at` (ORDER BY MIN(created_at)), LIMIT 1, skipping
+  sites with a `claimed` item; then spawn+call `build-dispatch-loop` for that one site (loads the
+  same 8, processes them). 21 sites / 270 triaged build items at 10:21Z; gaswholesalers served 9×
+  and gamesdesign 10× in 3 h because their minima stay oldest. Boxingonline's minimum = 06210ec6
+  (08:26Z today). Yesterday's 8-minute claim of `c5614b00` was rotation luck; the 424 lane's three
+  resets were served within minutes because a RESET keeps its original old `created_at`. No honest
+  lever: site selection takes no input; priority only shapes the window; the 08-08 "dispatch
+  build-dispatch-loop directly" recipe is recorded further down that entry as a silent no-op under
+  bare `orchestrate` (`4e26e881`), and the direct page-build-handler route carries the
+  bugs_open/029 hang. Not filing the starvation shape — the dispatch_throughput lane's RUNBOOK
+  carries these very queries (`age_rank`/`load_rank`) and bugs_closed/169+176/284 chose FIFO-by-age
+  deliberately.
+- **Consequence for the 725 window:** a flat window until our turn would expose every fleet build
+  (~4/h) at 0.1. Closed it 10:26:44Z (ROLLBACK; NOTICE line; snapshot taken; `[MEASURED]` 0 other
+  `needs_page` completed 09:53:26→10:26:44Z). Replaced the monitor with a CLAIM-GATED one
+  (`bpphsj4ji`): applies the HOLD when `2d1f9c51` reads `claimed`, runs the ROLLBACK at terminal,
+  prints floor-after, the row read, and other builds completed between claim and terminal. Basis:
+  page-build-handler took 8 min claim→first save on `c5614b00` (21:42:49→21:51), so a 30 s poll
+  opens the window well before the save. Failure mode if the monitor dies: the build runs at 0.5,
+  refuses, burns attempts — recoverable by refiling; NOT a fleet exposure.
+- Told the components and boxingonline sessions: hours, not minutes; expected in-run order 8 → 10
+  → 10 → 80 [INFERRED from `process_item_iter_N_spawn_handler` step names — sequential].

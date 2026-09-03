@@ -259,6 +259,19 @@ EXPECTED pre-convergence shape, not a failure).
    > terminal, run the ROLLBACK by hand — the window must not outlive the item.** After it lands:
    > new-shape baseline for the components lane's step 2; read the regenerated copy against the
    > OWNER_REVIEW classes; featured-content drops (unknown `featured_post` source).
+   > **10:27Z: window CLOSED at 10:26:44Z (ROLLBACK; 0 other builds completed while open) and
+   > made CLAIM-GATED** — monitor `bpphsj4ji` re-applies the HOLD the moment `2d1f9c51` reads
+   > `claimed` (page-build-handler takes ~8 min from claim to save) and runs the ROLLBACK at
+   > terminal. Why: the fleet trigger's `find_dispatchable_site` (read at the live row) serves
+   > the site whose 8-item window holds the OLDEST `created_at`; boxingonline's minimum is
+   > 08:26Z today against 21 sites / 270 triaged items with week-old minima, so its turn is
+   > hours away and the flat window would have exposed every build until then. No honest
+   > override exists (site selection has no input; the 08-08 "dispatch the loop directly"
+   > bypass no-ops under bare orchestrate; direct-handler has the 029 hang). **If you find the
+   > floor at 0.1 with `2d1f9c51` terminal, run the ROLLBACK; if you find it 0.1 with the item
+   > `claimed`, that is the monitor working — leave it.** The logo `d71b7877`, the chrome
+   > refresh `ec92320f` and the components' `06210ec6` wait on the same turn and will load in
+   > the same run (max 8), expected order 8 → 10 → 10 → 80.
    > **What actually produces decks here:** the BUILD path — proven on this very site
    > (guides-index `needs_page` rebuild 17:23:02Z → excerpt PRESENT, suffix stripped;
    > §1.4 closed that way). A `needs_page` rebuild of `index` is the known-working route
