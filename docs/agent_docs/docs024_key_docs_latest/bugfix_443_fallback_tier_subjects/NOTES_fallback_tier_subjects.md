@@ -313,3 +313,25 @@
   NOT backfilling the plan-less-six damaged pages yet: item 4 sequences that after Stage B,
   and RFC_063 option B execution could put subjects into plan rows instead — "do NOT do
   both" stands.
+
+- **09-03 ~15:00Z — 641's block choice reopened, checked against OUR already-completed
+  backfill before assuming rework is owed.** The `framework_prompts_positive_voice` lane
+  (now the applier, per the 09-03 10:40Z handoff) took the owner's later note as a further
+  redraft direction: candidate C ("You'll want to know {subject}. That's what this section
+  is for.") is now one of four candidates under test, alongside three "option A" forms that
+  print the subject VERBATIM as the section's line with no bridging sentence at all — their
+  `render_test/fixtures.json` fixture `C2_playground_LIVE_array_2026-09-03` is our own live
+  backfilled array read back, so this is a real cross-check, not a hypothetical. **Read
+  their OUTPUT.txt directly: all four candidates render our completed backfill
+  (playground/your-own-model/technical-details, phrased per the RUNBOOK's "lowercase,
+  no em dash, short noun phrase" rule) cleanly — no `<no value>`, sensible as either a
+  filled blank (C) or a standalone fragment (option A).** So **no backfill rework is owed
+  regardless of which candidate the owner picks** — the phrasing rule's specific
+  justification ("must complete 'You'll want to know ___'") is what may go stale, not the
+  rule's practical shape (short, lowercase, distinct, no em dash), which is what actually
+  keeps it compatible. RUNBOOK D8 left as-is for now (the block isn't decided; editing the
+  rationale before the pick risks being wrong twice) — flag for whoever closes out Stage B
+  to confirm the wording still reads right under whichever candidate ships, since council
+  approval `6c92d154` covered candidate C specifically and a different pick may need its
+  own round (their process, not ours to pre-empt). Nothing owed to them; they've already
+  verified this better than we could, from their own harness.
