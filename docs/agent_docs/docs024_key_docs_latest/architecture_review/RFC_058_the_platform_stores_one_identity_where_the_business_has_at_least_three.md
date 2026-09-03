@@ -162,6 +162,15 @@ invite the same fallback confusion the register already suffered.
    unconditionally — is the shape of the work, and that census must be re-run and re-dated before
    any migration, because a census goes stale by addition.
 
+   > **This census is not bookkeeping — under the 2026-09-03 ruling it is the thing the ruling
+   > depends on.** Option C makes `sites.email` a *derived view of the published contact* rather
+   > than a store, so **every reader has to learn WHICH identity it is reading.** A reader the
+   > census misses is therefore not a tidiness problem: it is **a reader that quietly keeps reading
+   > the old column**, serving the pre-ruling identity indefinitely, with nothing failing and no
+   > symptom to notice. That is this RFC's own §5.2 trap wearing a different coat — the wrong
+   > answer and the right answer look identical at the call site.
+   > *(Framing contributed by the `site_delivery_and_editor` lane, 2026-09-03.)*
+
    > **PARTIAL REFRESH 2026-09-03** (prompted by the `site_delivery_and_editor` lane, on the
    > grounds that the owner is engaging with this RFC now and §5.4's own instruction makes the
    > census the first thing to go stale). **Writers are still FOUR, no growth in three days:**
