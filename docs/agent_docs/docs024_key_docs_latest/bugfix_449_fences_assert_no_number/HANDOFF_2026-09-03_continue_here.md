@@ -122,7 +122,7 @@ dispatch `tool-improver` at a **shared** component. The mcalc lane was asked for
 | lane | state | owed |
 |---|---|---|
 | `mortgagecalculator_couk_adoption` | ACTIVE; filed 449, owns 441/448 and the site half | **3 questions unanswered** (division of labour; 441's landing order; `no_auto_fix`) — `CONTRIB_2026-09-03_from_the_449_lane_…` in their dir |
-| `loancalculator` | ACTIVE; owns `toolgolden.py` | **3 questions unanswered** (sent via SendMessage, so *not on disk* — if it matters, re-send or write a CONTRIB) |
+| `loancalculator` | ACTIVE; owns `toolgolden.py` | **3 questions unanswered** — now durable at `docs/agent_docs/docs024_key_docs_latest/loancalculator_couk/CONTRIB_2026-09-03_from_the_449_lane_where_may_an_expected_value_COME_FROM_your_toolgolden_discipline_is_the_blocker.md` (they were sent by message first, which is not a record — gap closed) |
 | `458` lane | ACTIVE; shares the `tool-generator` row | Told in `bugs_open/458` §11 that `0325ddebb` left `TestStylesheetGutted_TokenSetMatchesCanonicalCSSTokens` **RED at HEAD**, and that their own §9 verification (`-run TokenAudit`) cannot select it. **Still red at last check — not mine to fix.** |
 | `staged_component_build` | quiet | nothing; its 6 fences are the existence proof P4 copies |
 
