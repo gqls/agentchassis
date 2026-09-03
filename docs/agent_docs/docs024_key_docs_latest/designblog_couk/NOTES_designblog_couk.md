@@ -841,3 +841,28 @@ LOCKED so the run needs the owning lane's interpretation. The pair (690:
 newly-declared write; apis: existing-field re-resolve) separates "never
 writes resolver-sourced values" from "never writes fields added after the
 row was last built".
+
+## 2026-09-03 — the "free control" DOES NOT EXIST: the apis rerender FAILED; fired ≠ ran
+
+inline guide imager checked before routing (the caution did its job) and
+withdrew their own offer: apis.uk's reasoned index rerender
+(`section_data_resolved`, created 16:47:03.788197Z — the IDENTICAL
+microsecond as the six imagery rows, one transaction, correctly done)
+**FAILED at 18:21:41Z with `result = {}`** — no detail, no guessing. This
+morning's completed item carries NO reason (assemble path, resolver never
+asked). All seven page_components rows still `updated_at=2026-08-24` and
+**`lock_type='permanent'`** — a locked page whose reasoned rerender already
+failed is a CONFOUNDED control, not a free one. They told the apis lane
+directly (as information, not an unlock request — the six seeded figures
+have never been exercised and the failure is invisible on the item).
+
+Status corrections:
+- **IMG-075 = "armed, and its one attempted test FAILED"** — not "waiting".
+- The existing-declared-field control has NO VENUE yet; hunt PARKED until
+  690 lands (if 690 writes the field, no control needed; if not, components'
+  predicate-census machinery is the fast way to find one).
+- ⚠ **Caution on my own relay, third instance of the family in two days: a
+  record that something was FIRED is not a record that it RAN** (siblings:
+  a `complete` item that repaired nothing; `updated_at` moving without a
+  rerender). The workstream index said the apis lane "fired" the reasoned
+  rerender — true, and it failed, and the index line couldn't show that.
