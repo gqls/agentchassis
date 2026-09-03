@@ -35,7 +35,7 @@
 -- are covered — the same "door, not the producer" argument that moved the growth door
 -- itself into writeWorkItem (council corr 1e735fa2).
 --
--- ── BEFORE INSERT ONLY, AND THAT IS THE LOAD-BEARING WORD ──────────────────────
+-- ── BEFORE INSERT ONLY, AND WHAT THAT DOES *NOT* GUARANTEE ────────────────
 --
 -- `ensure_site_record` UPSERTs the site row on EVERY improvement-loop pass (~50/day
 -- fleet-wide). A trigger that also fired on UPDATE would silently re-hold every site
@@ -43,6 +43,32 @@
 -- that unrepresentable rather than merely avoided. Arm 5 of the verify block induces
 -- an UPSERT of an existing site and fails if its posture moves.
 --
+--
+-- ⚠ BUT "BEFORE INSERT, THEREFORE EXISTING ROWS ARE SAFE" IS FALSE IN THE PRESENCE
+-- OF AN UPSERT, and rounds 1-3 of this migration said it was. The council's guardian
+-- seat raised it (HIGH, round 3) and it is right: Postgres fires a BEFORE INSERT row
+-- trigger for EVERY row a statement PROPOSES, before the conflict is detected, and
+-- `EXCLUDED` is that POST-TRIGGER row. So an UPSERT whose DO UPDATE branch writes
+-- `settings = EXCLUDED.settings` carries this trigger's stamp onto a row that
+-- already existed.
+--
+-- INDUCED, both branches, 2026-09-03, with this trigger installed:
+--   ON CONFLICT (domain) DO UPDATE SET updated_at = now()           -> cookly.uk stays OPEN
+--   ON CONFLICT (domain) DO UPDATE SET settings = EXCLUDED.settings -> lampenkap.com becomes HELD
+-- The second is a RELEASED site being silently re-held.
+--
+-- IT IS NOT REACHABLE TODAY, and that is a measurement rather than a hope.
+-- [MEASURED 2026-09-03] the four UPSERTs on `sites` set `updated_at = now()`
+-- (upsertSite), `email = COALESCE(sites.email, EXCLUDED.email)` (one seed), or
+-- DO NOTHING (two). None writes `settings`. And pg_trigger carried ZERO
+-- non-internal triggers on `sites` before this one, so there is no ordering
+-- question either.
+--
+-- THE STANDING RULE THIS LEAVES, one reasonable edit away from being broken:
+-- **no `DO UPDATE SET` on `sites` may write `settings` from `EXCLUDED`.** Merge into
+-- the existing row instead — `settings = sites.settings || <your jsonb>` never
+-- carries the stamp. Recorded in LANDMINES.md with the induction recipe, because
+-- ARM 5 TESTS ONLY TODAY'S CLAUSE and will keep passing after someone widens it.
 -- ── ABSENT MEANS "NOBODY SAID"; A STATED VALUE IS KEPT ─────────────────────────
 --
 -- The trigger stamps only when the key is ABSENT. A row that names it keeps what it
@@ -104,7 +130,8 @@ BEGIN
 END;
 $fn$ LANGUAGE plpgsql;
 
--- BEFORE INSERT ONLY, and that is the load-bearing word. ensure_site_record UPSERTs
+-- BEFORE INSERT ONLY. See the header for what this does NOT guarantee under an
+-- UPSERT whose DO UPDATE branch writes settings from EXCLUDED. ensure_site_record UPSERTs
 -- the site row on EVERY improvement-loop pass (~50/day fleet-wide), so a trigger that
 -- also fired on UPDATE would silently re-hold every site the owner had released,
 -- for ever. INSERT-only makes "the loop re-holds a released site" unrepresentable
