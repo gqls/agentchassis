@@ -63,6 +63,35 @@ correct everywhere while the pages still serve the old image.
 > `--since 2026-09-02` re-derives it. **A census does not go wrong; it goes stale, and yours can
 > be stale because of you.**
 
+## 0o. ⭐ THE TWO QUEUED EXPERIMENTS — read these first, do NOT re-file them
+
+Both `triaged` as of 2026-09-03 ~12:30Z. **Find them by batch id; a long silence is the queue, not
+a lost item.**
+
+| batch | target | reason | baseline recorded before firing | what each answer means |
+|---|---|---|---|---|
+| **`…000691`** ⭐ | boxingonline.com **/index** | `template_changed` | instance `f01a8669`, canonical `content-listing`, `query.blog_posts`, 6 items, **all excerpt-bearing, all suffix-free**, written 12:09:49Z | **key GONE** → a rerender actively rebuilds the array with something that is not the fixed projection · **key SURVIVES** → it never touches `articles` here |
+| `…000690` | remortgagecalculator.uk **/about** | `image_landed` | instance `228921ba`, **no `background_image` key**, unpinned, own hero `hero_about`, untouched since 08-23 | **key appears and matches** → the 56-page hero wave is viable · **absent** → hero class and deck class share one root cause |
+
+**691 is the better of the two and is the one to read first.** It runs on the *exact page,
+component and source* where a rerender produced the old shape **four times** — so unlike `688`
+(which ran on a fork with a different source and could not discriminate), both hypotheses predict
+different outcomes here.
+
+⚠ **`691` also gates someone else's work.** The `site_delivery_and_editor` lane is holding a copy
+fix for that page's CTA (*"the calendar below tells you what's coming up next"* in the last section
+of a page with no calendar) — they file it if the key survives, and route it through a build if it
+goes. They have excluded `/index` from their assemble batch, so **there is no second writer on that
+page**; keep it that way until the reading lands.
+
+⚠ **A `survive` reading licenses the copy fix ON INDEX only** — not a general conclusion that
+rerenders are deck-safe. designblog's rerender rebuilt correctly and boxingonline's did not, with
+everything a census can hold constant held constant.
+
+**Reading them:** print the item status alongside the artefact (a timed-out watcher otherwise shows
+a baseline as a result), attribute the write by `source_item_id` joined on **`page_id`**, and expect
+the instance id to change — the sections path DELETE/re-INSERTs, so a new id is not evidence.
+
 ## 0n. METHOD — a claim tested against a population YOU chose is the weak form
 
 From the `bugs_open/437` lane via `bugsweep4`, and it is the most transferable thing this lane
