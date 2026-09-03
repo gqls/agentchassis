@@ -301,5 +301,11 @@ control at 2 forms / 40 inputs / 8 scripts.
   'the tool and the prose collide', which is already a claim about a visitor. **The rewrite is
   where the qualifier dies.**"* So the dangerous moment is not receiving a finding, it is
   summarising it — including into a commit message or a handoff line.
+  **The operational form, theirs, and the one to actually use:** *before restating someone's
+  finding, ask what INSTRUMENT produced it and keep that instrument in the sentence — a database
+  reading, a body probe, a log line. If the compression cannot carry the instrument, it is too
+  short to send.* Worked both ways between two lanes in one afternoon: a database reading became
+  "the tool and the prose collide" (a claim about a visitor), and it took a `curl` three hours
+  later to retract it.
 - Timestamps here are **UTC from the database clock**. `agent_error_log` has **no `created_at`** —
   `\d` it before querying.
