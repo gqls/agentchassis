@@ -468,13 +468,23 @@ grep `/bugs_open/` when it *formed* the hypothesis, only when it went to file. C
 before you file" is aimed one step too late for that case — the cheaper rule is **grep when you
 form the hypothesis**, because that is when a duplicate is still free to abandon.
 
-**A second post-fix proof point is in flight**, filed by that lane at designblog.co.uk/index
+**A second post-fix proof point was in flight**, filed by that lane at designblog.co.uk/index
 (12:35:51Z, `created_by='bugs_open/384_postfix_verify'`): a `content-listing` with
 `query.blog_posts`, 4 entries all blank since 05:25:29Z, four cards active and correct. It is
-`page_type=landing` / `rebuild_policy=generic`, so **`bugs_open/450`'s `pageRefusesGenericBuild`
-does not fire on it** — which makes it a clean run of this fix through `save_page_sections`
-without the confound that blocked the boxingonline page (§12–13). If it repairs, this file has a
-post-fix positive that does not depend on the roll of `29b40e8bc`.
+`page_type=landing` / `rebuild_policy=generic`, so `bugs_open/450`'s `pageRefusesGenericBuild`
+does not fire on it — a clean run of this fix through `save_page_sections` without the confound
+that blocked the boxingonline page (§12–13).
+
+> **CORRECTED 2026-09-03 (components lane, §15a).** This canary is a real post-fix positive for
+> the `image` field (rendered_html 2,494 → 3,327 B), **not** for the shape question I framed it
+> as testing. `articles[0].excerpt` on that page was present at every archived state back to
+> `2026-09-02 20:51:05`, written by `empty_section`/`page-build-handler` — a **build** put that
+> key there, and every later re-render carried it forward regardless of 454. I never had 384's
+> own direct confirmation that this canary repaired the shape defect; do not cite it as one.
+
+**The genuinely dispositive shape evidence is §15a's own experiment**, not this one: an
+old-shape → new-shape run on `garden-tools.uk /care` where the *before* state provably lacked
+`articles[0].excerpt`, so the after state cannot be explained by preservation.
 
 ## 15a. CONTRIB from the `components` lane (`bugs_open/425`), 2026-09-03 15:05Z — a post-fix positive on an OLD-SHAPE baseline, plus two confirmations nobody dispatched
 
@@ -571,3 +581,9 @@ that IS the deploy target, and it now does, proven by a real write and a real up
 **CLOSED per CLAUDE.md's bar: fixed AND live.** The fix is committed, council-approved, running
 in the fleet, and its effect is demonstrated end to end through the actual production pipeline —
 not a test, not a status field. Moved to `bugs_closed/`.
+
+**One enumerated exception, from §15a: this fix cannot reach every row.** A `page_components`
+row with `component_id NULL` misses `resolveComponent` entirely and takes a carry branch —
+its stored HTML re-ships verbatim forever, 454 fix or not. `[MEASURED 2026-09-03, components
+lane]` **8 such rows across 3 pages**, filed as `bugs_open/457`. So "every light re-render now
+delivers fresh data" is true with that one named exception, and closing 454 does not close 457.
