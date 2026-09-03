@@ -1217,3 +1217,20 @@ relationship with gamesdesign.co.uk", and "You'll want to know Brief description
 Either the planner is nudged to write subjects as the thing a reader wants to know, or the sentence
 is loosened. I'd nudge the planner. Your words stay exactly as you picked them either way, and you
 will get the exact final text back for a fresh read once apis.uk have put it into the migration.
+
+2026-09-03, morning. You told me a chassis build was on its way within the hour. Checking what
+that changes, I found last night's roll had already shipped the piece we were waiting for: the
+running service can now carry a subject per section on sites like this one. So the wait is over,
+and it was over before the handoff said it would be. I have corrected that note.
+
+I have written the subjects for three of the four affected pages, in the phrasing your chosen
+prompt needs, and held off the rebuild until your new build has landed and settled, because a
+rebuild running through a roll gets killed. After that, the front-door page gets rebuilt first.
+Its three identical "How it works" headings will still be identical after this step; that is
+expected, because the prompt change itself is still with the apis.uk lane. What this step proves
+is that the subjects reach the writer at all.
+
+And the prompt change is written up as a starting document for the new thread you want to open on
+all the prompts in the framework. It has your words, the four drafts and why three were rejected,
+how a prompt actually reaches the model here, and a count of every live prompt as of this morning:
+141 of them, and only 7 read the one shared voice block.

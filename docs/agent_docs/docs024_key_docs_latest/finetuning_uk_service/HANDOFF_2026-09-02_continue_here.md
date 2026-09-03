@@ -196,3 +196,30 @@ decision, naming this site as the largest affected.
 Terms and privacy pages published and locked · the 9 hero images delivered and wired · copy quality
 handed to `copy_quality_two_stage` · the three voice datasets remain small (26/13/16) and would
 benefit from more owner emails and articles if he offers them.
+
+> ## ▶ CORRECTED 2026-09-03 (morning) — the "NOT rolled" row in the state table above is STALE; `dbb218a41` IS in the running binary
+>
+> Probed on pod `agent-chassis-8ddbf8958-cd2h9`, image `v1.0.1355`, started 2026-09-02 20:56Z
+> (twelve minutes after `dbb218a41` was committed at 21:08 BST). `grep -ac` on `/proc/1/exe`:
+> `subjects_attached` **1**, `facts_attached` **1**, present control `section_subjects` **3**,
+> absent control `zzz_absent_control_zzz` **0**. So the fallback half shipped last night and
+> **Stage A is open now**, not "when the roll lands". The state table was written before that
+> roll and read as current for a night; this is the "an INERT-until-the-roll line makes the
+> correct action look premature" trap from the memory index.
+>
+> **Done 2026-09-03:** `pages.section_subjects` written for `playground`, `your-own-model`,
+> `technical-details` (all `UPDATE 1`, 6/6 aligned; text in NOTES 2026-09-03), phrased to complete
+> "You'll want to know ___" per the owner's chosen 641 text. `our-position-on-ai` (the fourth
+> repeating page, `needs_rebuild`, no `needs_content_page` brief to derive from) is still null.
+> **NOT done, deliberately:** no rebuild dispatched. The owner said at ~09:00 that a further
+> chassis build (`v1.0.1356`, makefile `IMAGE_TAG`) deploys within the hour; a roll kills in-flight
+> orchestrations and nothing dispatches within ~300 s of the new pods. **Canary `your-own-model`
+> AFTER 1356 has settled**, then read `sections_ready[].subject` on the writer's
+> `orchestration_states` row (Stage A proof; the served h2s still repeat until 641).
+>
+> **641 has moved on** (this handoff's rows 2–3): the owner picked a framing ("C"), the block was
+> test-rendered against real loop rows, and two requirements went to apis.uk by CONTRIB (the
+> sibling list is NOT in the writer's `input_fields` today; subjects must complete "You'll want to
+> know ___"). Full record: `DRAFT_2026-09-02_641_positive_prompt_candidates.md` (appended sections).
+> And the owner asked for the whole prompt change written up for a NEW thread on every prompt in
+> the framework: `docs/agent_docs/docs024_key_docs_latest/framework_prompts_positive_voice/HANDOFF_2026-09-03_continue_here.md`.

@@ -2236,3 +2236,55 @@ Handovers written: `apis_uk_bees_homepage/CONTRIB_2026-09-02_from_finetuning_own
 (the final template text + the `input_fields` requirement + verify assertion), and
 `bugfix_443_fallback_tier_subjects/CONTRIB_2026-09-02_from_finetuning_subjects_must_complete_youll_want_to_know.md`
 (the phrasing rule for backfill arrays). RUNBOOK gained the harness and the `input_fields` query.
+
+## 2026-09-03 (morning) — the fallback half is ALREADY live on v1.0.1355; Stage A arrays written; rebuild held for the 1356 roll; prompt change written up for the framework-prompts thread
+
+Owner, ~09:00: *"Please be aware that a chassis build is happening now which will be deployed
+within the hour."* Checked what that changes for this lane and found the previous roll had already
+done the thing we were waiting for:
+
+```
+# pod agent-chassis-8ddbf8958-cd2h9, image v1.0.1355, started 2026-09-02T20:56:43Z
+subjects_attached 1 | facts_attached 1 | section_subjects 3 (present ctrl) | zzz_absent_control_zzz 0 (absent ctrl)
+git merge-base --is-ancestor dbb218a41 HEAD -> YES; dbb218a41 committed 2026-09-02 21:08:04 +0100
+```
+
+So the 2026-09-02 handoff's "commit `dbb218a41` NOT rolled" row went stale within the hour it was
+written (the roll landed 20:56Z). Corrected there visibly. The build the owner means is
+`v1.0.1356` (makefile `IMAGE_TAG`); the dirty overlay files in `git status` are the 1353→1355 bump.
+
+**Stage A, DB half, done.** The four finetuning.uk pages that repeat a component type (key-agnostic
+census over `pages.sections`, which is an array of STRINGS, not objects, so `s->>'name'` reads
+null on every element and a name-keyed census matches ALL 52 pages, a trap I hit first):
+`playground`, `your-own-model`, `technical-details` (hero, gtb×3, faq, cta) and `our-position-on-ai`
+(hero, gtb, features, gtb, faq, cta; `needs_rebuild`; 13 items, none a `needs_content_page` brief).
+Subjects derived from each page's `spec.suggestion` brief, phrased to complete "You'll want to
+know ___" (the owner's chosen 641 sentence):
+
+| page | section_subjects |
+|---|---|
+| playground | what the playground is · what you actually do in the hour · when you can book it · what to have ready before the hour · what people ask about the hour · how to book |
+| your-own-model | what the offer is · how it works · what you get, exactly · how £99 can be enough · what the words mean · how to book a discovery call |
+| technical-details | exactly what the £99 fine-tune contains · which model it is and what its licence allows · what file you receive and where it runs · how the training works and what we handle · what a technical reader asks · where to go next |
+
+Written with the 443 RUNBOOK's alignment guard (`AND jsonb_array_length(sections)=6`): three
+`UPDATE 1`, read-back 6/6 on each. `our-position-on-ai` left null: no brief to derive from, and it
+is one of the 17 `needs_rebuild` pages RFC_063's proof must cover; derive its subjects from the
+served page when it is rebuilt.
+
+**Rebuild NOT dispatched.** A roll kills in-flight orchestrations and nothing dispatches within
+~300 s of new pods; with 1356 due within the hour the canary would race it. After 1356 settles:
+canary `your-own-model` (verbatim-identical "How it works" ×3 makes before/after unarguable), then
+prove Stage A at `sections_ready[].subject` on the writer's `orchestration_states` row, and expect
+the served h2s to STILL repeat until 641 applies. Rebuild mechanism for an already-deployed page
+is not yet pinned down in this lane's RUNBOOK; `apis_uk_bees_homepage/fire_page_rebuild.sh`
+exists as a candidate recipe, `[UNVERIFIED]` for our shape.
+
+**Prompt change written up as a cold-start for a new lane**, at the owner's request:
+`docs/agent_docs/docs024_key_docs_latest/framework_prompts_positive_voice/HANDOFF_2026-09-03_continue_here.md`.
+It carries the directive verbatim, all four drafts with what was wrong with each, the template
+mechanics (`ExtractFields(input_fields)`, the four FuncMap names, missingkey `<no value>`), the
+change-control rules, and a dated census of every live prompt: **141 strings / 64 types /
+674,201 chars / 1,762 negation matches / 1,560 em dashes / 7 reading `{{.voice_style}}`**
+`[MEASURED 2026-09-03]`. The voice row (`agent_default_configs.voice_style_block`) is one place
+and 7 of 141 prompts read it: the first structural fact for that thread.
