@@ -56,8 +56,17 @@ domain.
    not recoverable by finding a forgotten login — only by buying them back.
 3. **Two sit at registrars outside the four we enumerate** — one at Dynadot but
    missing from Dynadot's own account listing (a second Dynadot account?), one
-   at NameSilo. **If a NameSilo account exists, it holds domains this valuation
-   cannot see.**
+   at NameSilo. ~~**If a NameSilo account exists, it holds domains this
+   valuation cannot see.**~~
+   > **ANSWERED — OWNER RULING 2026-09-03:** *"namesilo exists but has nothing
+   > interesting in it, we can ignore them. Any domains still listed there were
+   > probably lost."* **NameSilo is deliberately OUT OF SCOPE for this
+   > valuation** — do not enumerate it, do not re-raise it as a gap, and treat
+   > anything traced to it (here, `qlp.us`) as lost rather than as stock. The
+   > estate total of 2,945 is unaffected: `qlp.us` was already excluded as
+   > not-owned. The Dynadot-registered `pocketvaginas.com` is NOT covered by
+   > this ruling and remains unexplained — one low-value name, not worth
+   > chasing unless something else turns on it.
 4. **Two .co names cannot be checked from here.** Low value, but they can be
    resolved by looking them up in a browser if it matters.
 
