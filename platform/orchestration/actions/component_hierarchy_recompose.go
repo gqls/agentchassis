@@ -333,10 +333,18 @@ func writeRecomposedAncestor(ctx context.Context, db *sql.DB, id uuid.UUID, html
 	}
 	n, rowsErr := res.RowsAffected()
 	if rowsErr != nil {
-		// The driver could not tell us. Treat it as written rather than inventing
-		// a stale report: the statement itself succeeded, and a false "stale"
-		// would send the caller filing work about a row that is fine.
-		return true, nil
+		// FAIL CLOSED. ~~Treat it as written~~ — **corrected 2026-09-03 by the
+		// council's debug_historian seat (corr cab931b1, medium), and the seat was
+		// right.** The first version returned true here, reasoning that the
+		// statement had succeeded and a false "stale" would send the caller filing
+		// work about a healthy row. But this function's entire purpose is that a
+		// write which may not have landed must not read as one; an "assume written"
+		// fallback re-opens the exact door the predicates and the row count were
+		// added to close, on the one path where the driver has told us it cannot
+		// say. The asymmetry decides it: a false STALE costs a log line and a key
+		// nobody reads; a false WRITTEN costs a page serving a parent that embeds
+		// the pre-edit child, indefinitely and silently.
+		return false, nil
 	}
 	return n > 0, nil
 }

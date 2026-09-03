@@ -15,10 +15,18 @@
 //	M2  drop `AND `+pageComponentAgentWritableSQL → predicate case fails (lock)
 //	M3  `return true, nil` instead of `n > 0, nil` → refusal case fails
 //	M4  delete the call from ApplySectionEditAction → wiring case fails
+//
+// Two more added 2026-09-03 after council cab931b1 came back APPROVED with
+// advisories, both run and both killed:
+//
+//	M5  `return true, nil` in the rowsErr branch   → fail-closed case fails
+//	M6  AgentWritableSQLFor → "(true)"             → predicate-parity case fails
 package actions
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -119,6 +127,94 @@ func TestRecomposedAncestorWriteReportsARefusalRatherThanSuccess(t *testing.T) {
 					tc.rowsAffected, written, tc.want)
 			}
 		})
+	}
+}
+
+// COUNCIL cab931b1, debug_historian (medium): the first version of this function
+// returned `true` when RowsAffected() itself errored, on the reasoning that the
+// statement had succeeded. That re-opens the exact door the predicates and the row
+// count were added to close, on the one path where the driver says it cannot tell
+// us. The asymmetry decides it — a false STALE costs a log line; a false WRITTEN
+// costs a page serving a parent that embeds the pre-edit child, silently and
+// indefinitely. This case pins the corrected direction.
+//
+// Mutation: `return true, nil` in the rowsErr branch -> this case goes red.
+func TestRecomposedAncestorWriteFailsClosedWhenTheDriverCannotReportRows(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	mock.ExpectExec(".*").WillReturnResult(sqlmock.NewErrorResult(errors.New("driver cannot report rows affected")))
+
+	written, err := writeRecomposedAncestor(context.Background(), db, uuid.New(), "<article>x</article>")
+	if err != nil {
+		t.Fatalf("a RowsAffected failure must not become an error: %v", err)
+	}
+	if written {
+		t.Error("an unreportable row count was treated as WRITTEN — the ancestor may hold pre-edit bytes " +
+			"and the caller will not know; fail closed and report it stale (council cab931b1, debug_historian)")
+	}
+}
+
+// COUNCIL cab931b1, guardian (medium) and reuse_agent (medium): this write is a
+// SECOND guarded-write style for page_components sitting beside the edit path's
+// own, and pageComponentAgentWritableSQL is called with an empty alias — so the
+// two questions are "does the helper degrade to always-true on an empty alias"
+// and "can the two writers drift apart". One test answers both: the predicate
+// text this statement carries must be BYTE-IDENTICAL to the one the sibling
+// writer carries, and must not be a tautology.
+//
+// It is a parity test rather than an assertion against the constant, because
+// asserting against the constant would let a vacuous edit to the constant pass
+// its own test (section_editor_tombstone_guard_test.go's reason, applied here).
+func TestAncestorAndChildWritesCarryTheIDENTICALLockPredicate(t *testing.T) {
+	capture := func(run func(db *sql.DB)) string {
+		var queries []string
+		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(captureSQLMatcher{queries: &queries}))
+		if err != nil {
+			t.Fatalf("sqlmock: %v", err)
+		}
+		defer db.Close()
+		mock.ExpectExec(".*").WillReturnResult(sqlmock.NewResult(0, 1))
+		run(db)
+		if len(queries) != 1 {
+			t.Fatalf("expected 1 statement, got %d", len(queries))
+		}
+		return queries[0]
+	}
+
+	ancestor := capture(func(db *sql.DB) {
+		_, _ = writeRecomposedAncestor(context.Background(), db, uuid.New(), "<article>x</article>")
+	})
+	child := capture(func(db *sql.DB) {
+		_ = updatePageComponentAfterEdit(context.Background(), db, uuid.New(), "<p>x</p>", nil)
+	})
+
+	// The rendered predicate, taken from the code rather than retyped — if the
+	// helper ever degrades, both strings degrade together and the tautology check
+	// below is what catches it.
+	pred := pageComponentAgentWritableSQL("")
+
+	// A tautology would satisfy every "is the predicate present" test while
+	// guarding nothing. Two independent tells: it must name the lock column, and
+	// it must not be one of the shapes that admits every row.
+	if !strings.Contains(pred, "locked_at") {
+		t.Fatalf("the agent-writable predicate does not mention locked_at, so it cannot be enforcing a lock: %q", pred)
+	}
+	for _, tautology := range []string{"true", "TRUE", "1=1", "1 = 1"} {
+		if strings.TrimSpace(pred) == tautology || strings.TrimSpace(pred) == "("+tautology+")" {
+			t.Fatalf("pageComponentAgentWritableSQL(\"\") rendered a tautology %q — every write is admitted "+
+				"and both writers' lock guards are inert", pred)
+		}
+	}
+
+	if !strings.Contains(ancestor, pred) {
+		t.Errorf("the ancestor write does not carry the shared lock predicate:\n%s", ancestor)
+	}
+	if !strings.Contains(child, pred) {
+		t.Fatalf("the CHILD write no longer carries it either — this test has gone blind rather than the "+
+			"ancestor having drifted:\n%s", child)
 	}
 }
 
