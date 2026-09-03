@@ -2692,3 +2692,41 @@ Against Phase 0's a6000 (0.36 s first token, 139 tok/s) that is ~10× slower: fi
 "try it" with a reply cap (~150 tokens) and streaming, not for the paid hour. The answer text
 itself was sensible ("papers, articles and blog posts from different authors and genres… assess
 the model's performance across different types of texts"). Next: step 2, the tools-api route.
+
+## 2026-09-03 (11:50–12:40Z) — Phase P step 2 CODE DONE (council 63be72d1); and a CORRECTION: the demo cannot be served from the cluster's Ollama
+
+**Correction first (WRONG_CALLS 2026-09-03(e)).** I told the owner at ~11:15Z the demo "runs on the
+cluster's own CPU" and did step 1 there. **tools-api does not run in the cluster.** It is a docker
+compose stack on the ISLAND VM `toolsapisuk.vs.mythic-beasts.com` (`island-tools-api-1`
+`aqls/tools-api:v1.0.1343`, `island-caddy-1`, `island-postgres-1`; `/opt/island/.env` +
+`docker-compose.yml`), behind a Cloudflare tunnel, holding no cluster credentials, and the PLAN's
+own line 63 says *"No callback into the cluster, ever."* The webdesign.uk chat backend is a
+different box (`webdesign.vs.mythic-beasts.com`, systemd `webdesign-chat.service`). I never asked
+where the service that would call the model actually runs before answering "no cost". The cheap
+check: `kubectl get deploy -A | grep tools` returns nothing.
+
+`[MEASURED 2026-09-03 11:47Z, ssh read-only]` **island: 1 vCPU, 1 GB RAM, 14 GB disk free, load
+0.06, no ollama.** It cannot host a 1.7B model beside tools-api. Its `sites` allowlist (CORS) holds
+**robot-hands.com, vonc.com only** — finetuning.uk must be added (`island_db_prep.sql`'s minimal
+table) or every browser call 403s. The cluster's `finetuning-demo` model and its 14 tok/s figure
+stand as the CPU-speed estimate; the model must ALSO be placed somewhere the island can reach.
+
+**Placement options for the demo model server (owner decision, replaces "in-cluster"):**
+(a) a small dedicated CPU VPS (e.g. Mythic Beasts 4 vCPU / 8 GB, ~£10–20/month `[UNVERIFIED
+price]`) running Ollama, reached from the island over the network with a shared key;
+(b) resize the island itself and run Ollama in its compose (one box; the model competes with
+tools-api for CPU); (c) expose the cluster's Ollama to the island through an authenticated
+ingress — contradicts the island's isolation posture, owner ruling required; (d) the GPU box
+always-on ≈ $8.40/day, rejected. Lane recommends (a): LLM fees still £0, a small fixed monthly
+cost, no change to the cluster's exposure. **Correction to the owner's cost answer: "no cost"
+becomes "no per-token fees, plus one small VPS a month".**
+
+**Step 2 code** (commit above, `Council-Submitted: 63be72d1`): `internal/tools-api` gains
+`/api/v1/tools/playground/chat` — opt-in on `PLAYGROUND_OLLAMA_URL` (+ `PLAYGROUND_MODEL`
+default `finetuning-demo`, `PLAYGROUND_MAX_TOKENS` 150, `PLAYGROUND_NUM_CTX` 2048,
+`PLAYGROUND_MAX_BODY_BYTES` 8192), gripper-shaped guards, stateless transcript (≤12 × ≤1000
+runes, last from user), fixed system prompt, Ollama `/api/chat` streamed → SSE `token`/`done`/
+`error`; 5 handler tests + 2 router tests, `go vet` clean. Deploy = island image swap
+(`aqls/tools-api:<tag>` in `/opt/island/docker-compose.yml`) + the five env keys in
+`/opt/island/.env` + the island `sites` row; none done — waits on the placement decision, the
+council verdict and the owner. Submission file: `council_submission_playground_route_r1.json`.

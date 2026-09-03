@@ -61431,3 +61431,12 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   Tally: **shipped-a-branch-today's-data-cannot-execute** ×1,
   **live-run-agreed-before-and-after-so-proved-nothing** ×1,
   **decorative-figure-invented-in-a-measurement-document** ×1.
+- [2026-09-03(e), finetuning_uk_service] Told the owner the playground's public demo "runs on the
+  cluster's own CPU ... at no model-fee cost" and loaded the model into the in-cluster Ollama,
+  without asking where the service that would CALL it runs. tools-api is not in the cluster: it is
+  a docker compose stack on the island VM (`toolsapisuk.vs.mythic-beasts.com`, 1 vCPU / 1 GB) that
+  by design never calls into the cluster (PLAN line 63). The cheap check, before any placement
+  claim: `kubectl get deploy -A | grep <service>` → nothing, then read the service's own RUNBOOK
+  for its host. Cost answer corrected the same hour (a small VPS a month, still no per-token fee).
+  **tally:** **a-placement-claim-without-locating-the-caller** ×1; family
+  a-claim-about-behaviour-is-not-the-behaviour.

@@ -1317,3 +1317,13 @@ the big one is $1.09 an hour on the same invoice, so five times that is about £
 than £1.40. The big card buys bigger models and more people at once, not speed on a small model.
 The third-party idea means the examples pages are built as "model pages" from the start, with an
 owner on each, so ours are just the first ones.
+
+2026-09-03, 12:40. A correction to what I told you about the demo's cost. I said it would run on a
+machine already in the cluster. The service that has to call it, the tools service behind
+tools.apis.uk, does not run in the cluster; it runs on a small rented box that, by design, never
+calls into the cluster. That box has one processor and one gigabyte of memory, so it cannot run
+the model itself. So the demo needs a small machine of its own that the tools box can reach:
+still no per-answer fees, but roughly ten to twenty pounds a month for the box. That is the one
+placement choice for you, and it is the only thing between the route, which is written, tested
+and with the council, and a working demo. The model I loaded this morning still gave us the
+speed measurement, so that work stands.
