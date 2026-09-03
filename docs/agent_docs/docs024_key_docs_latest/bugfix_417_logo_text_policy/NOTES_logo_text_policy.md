@@ -338,9 +338,21 @@ Magenta-ish opaque pixels as a fraction of the image: **gamedesign 0.01%, seotoo
 
 ### The exposure figure, and why a literal is legitimate here
 
-`origin_prompt` census, 5 sites: **5 of 5 carry BOTH the wordmark licence and the text-free
+~~`origin_prompt` census, 5 sites: **5 of 5 carry BOTH the wordmark licence and the text-free
 override** `[MEASURED 2026-09-03]`. So the override is load-bearing on every logo generation, not
-occasionally — there is no population where the licence is simply absent.
+occasionally — there is no population where the licence is simply absent.~~
+
+> **CORRECTED 2026-09-03, ~1 hour later, same session — this was WRONG and it flattered the
+> conclusion.** The override clause itself ends *"…presupposes a **wordmark** or any text"*, so every
+> prompt carrying the override matches `%wordmark%` **because of the override**. I was counting the
+> prohibition as if it were the licence, and the census could not have come out any other way.
+> Re-measured with the override sentence stripped first: **0 of 5** carry a licence outside it, and
+> the true figure is **1 of 5** — `designblog`, which says *"abstract letterform or typographic
+> symbol"* and never uses the word "wordmark" at all. So the licence survived 669/670 by being
+> **reworded**, which is this bug's own central finding happening to my own detector.
+> **What caught it:** the 424 lane messaged to say it was resetting designblog, which sent me to read
+> that prompt in full. Not a check I ran — a peer's unrelated message.
+> Full correction, and what it does to the rate: `bugs_open/417`, the struck exposure section.
 This is a literal match, which 417's own finding says is a floor. Legitimate for a **measurement**
 (and only a measurement): being a floor, the true figure can only be higher, which is the direction
 that keeps the conclusion safe.

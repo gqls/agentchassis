@@ -642,23 +642,74 @@ passes every automated check and is caught only when a human opens the file.
 trigger OPEN.** Nothing has refuted the override, and 2 of the 2 real post-fix opportunities came
 back clean — but 8 runs cannot distinguish "reliable" from "fails one time in five".
 
-### The exposure figure the fence section asked for is now answerable — and it is total
+### ~~The exposure figure the fence section asked for is now answerable — and it is total~~
 
-The section suggests a cheap intermediate: *count how often we are relying on adjudication at all* —
-logo prompts whose `origin_prompt` contains BOTH a wordmark licence and the policy clause.
+> **CORRECTED 2026-09-03, same session, ~1 hour after I wrote it. The measurement below was WRONG,
+> and wrong in the direction that flattered the conclusion.** What caught it: the 424 lane messaged
+> to say it was resetting `designblog` for another retry round, which sent me to read designblog's
+> full `origin_prompt` — and the licence-detector fell apart on contact with the actual text.
 
-**Measured 2026-09-03: 5 of 5 sampled sites carry BOTH** (boxingonline, designblog, gamedesign,
-seotools, websitepromotion — `origin_prompt ILIKE '%wordmark%'` AND `LIKE '%Render a text-free
-mark%'`, both true on every row).
+**What I claimed:** *"Measured 2026-09-03: 5 of 5 sampled sites carry BOTH"* a wordmark licence and
+the policy clause (`origin_prompt ILIKE '%wordmark%'` AND `LIKE '%Render a text-free mark%'`), and
+therefore *"the override is load-bearing on 100% of logo generations"*.
 
-**So we are relying on adjudication in every case, not occasionally.** That is the number the fence
-section wanted, and it is the strongest argument *for* eventually building the fence: there is no
-population of prompts where the licence is simply absent and the override is redundant. The override
-is load-bearing on 100% of logo generations `[MEASURED 2026-09-03, n=5]`.
-⚠ That census is a **literal match**, which 417's own finding says is a floor — the model rewords
-the licence. A floor is a legitimate instrument for a *measurement*; it would not be one for a
-guarantee. Being a floor, the true figure can only be **higher**, never lower, which is the direction
-that makes the conclusion safe.
+**Why it is false.** **The override clause itself contains the word.** It ends:
+*"…overrides any earlier wording in this prompt that mentions, permits or presupposes a **wordmark**
+or any text."* So every prompt carrying the override matches `%wordmark%` **because of the
+override**, and my licence-detector was matching the prohibition. The census could not have come out
+any other way — which is the estate's own test for whether a `[MEASURED]` figure is evidence at all,
+and this one fails it.
+
+⚠ **This is the RUNBOOK's documented trap, in mirror image, and the RUNBOOK is three lines long
+about it**: *"⚠ The exemplar phrase itself matches `no text`, so 'does the prompt forbid text?'
+scores the contradictory prompts as SAFE. And counting the licence by literal is still a literal."*
+I read that warning, wrote the census to avoid counting the prohibition — and then counted the
+prohibition, in a new place, because the override *quotes the licence in order to overrule it*.
+
+**Re-measured, stripping the override sentence before looking** `[MEASURED 2026-09-03]`:
+
+| domain | naive `%wordmark%` | licence OUTSIDE the override | `letterform` | `typographic` |
+|---|---|---|---|---|
+| boxingonline.com | t | **f** | f | f |
+| designblog.co.uk | t | **f** | **t** | **t** |
+| gamedesign.uk | t | **f** | f | f |
+| seotools.co.uk | t | **f** | f | f |
+| websitepromotion.co.uk | t | **f** | f | f |
+
+**The real picture is the opposite of what I wrote, and it is more interesting.**
+
+- **0 of 5 carry a wordmark licence outside the override.** Migrations 669/670 worked: the
+  exemplar's licence is gone from the composed prompt. The override is redundant on four of five.
+- **1 of 5 carries a licence at all — `designblog.co.uk` — and it does NOT use the word "wordmark".**
+  Its subject line asks for *"abstract **letterform** or **typographic symbol** suggesting editorial
+  authority"*, then forbids *"lettering or words of any kind"* **in the same sentence**.
+
+**That single row is 417's whole thesis reproducing itself.** This file's finding is that *the model
+rewords the licence, so a literal is a floor*. The licence did not survive as "wordmark"; it survived
+as **"letterform"**, which no literal aimed at 669/670's phrasing would ever catch — including mine,
+written by the session that knew about the problem.
+
+### What this does to the rate above — it weakens it badly, and specifically
+
+The 8-clean / 0-lettered bound treats the generations as exchangeable. **They are not.**
+`designblog` is the only prompt in the population that actually contains a licence, so it is the only
+run that genuinely tests adjudication — **and it has never produced an artefact.** Three attempts,
+three transparency refusals, nothing stored.
+
+**So my sample systematically excludes the only case that tests the thing I am measuring.** The
+other 8 runs show the model not painting text when nothing asked it to, which is a much weaker claim
+than "the override beats a licence". The honest bound on the adjudication case is **n = 0**.
+
+**The recommendation survives but its reasoning is now inverted.** Keep the fence UNBUILT and the
+trigger OPEN — but not because the evidence is reassuring. Because **the evidence on the case that
+matters does not exist yet**, and the 424 lane's next `designblog` retry is the run that would
+produce it. ⚠ **When it lands, eye-check it before anything overwrites it** — a regeneration UPSERTs
+the row and the artefact is gone.
+
+**The cheap intermediate the fence section asked for still stands, with a correct detector**: count
+prompts carrying a licence *after* removing the override sentence, and do not key on `wordmark`
+alone — `letterform`, `typographic`, `monogram`, `initial` and `lettering` are all the same licence
+in different clothes. Currently **1 of 5** `[MEASURED 2026-09-03]`.
 
 **See also `bugs_open/462`** — a separate gap found while eye-checking these: the marks are text-free
 and correctly matted, and nothing in the estate checks whether one is legible against its header.
