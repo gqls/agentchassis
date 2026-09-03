@@ -1813,3 +1813,60 @@ went to the two sites that ALSO hold ranks 1–2 by oldest-waiting row and stay 
 the "refills with old rows vs never fully drains" question, and it is INPUT to the owner's
 provisional no-reorder ruling, whose mechanical revisit trigger is the pin-census age tail.
 Not acted on today; carried in the handoff.
+
+### 2026-09-03 17:43Z — D4b architecture round APPROVED (corr dc6d2a54) — and the guardian's advisory REDESIGNS stage B into a config-only change
+
+**Verdict read in full** `[READ 2026-09-03 ~18:2xZ]`: **"approved with 4 advisory objection(s) —
+none high-severity"**, 6 abstentions, `gated_by_truncation: false`. Landed 17:43:31Z, 28 min
+after submission (the documented queue). The seats did their job — one advisory changes the
+design for the better, two dissolve under it, and every "missing" was a check I could run.
+
+**Checks the seats asked for, all run** `[MEASURED 2026-09-03]`:
+- `agent_error_log` EXISTS with the shape reuse_agent described — **61,333 rows, 54 codes**,
+  written by `validation_drop.go` and `produce_retry.go`. A standing sink does exist.
+- `governor_admits` callers: Go — only `work_items_common.go` (the helper
+  `workItemNotGovernorShedSQL`; loader and claim go through it); live config — **1** row
+  (`build-pipeline-trigger`); scheduled tasks — 0. The "three callers" are one helper + one text.
+- `council-gate` active `agent_definitions` rows: **1** (version 2). No duplicate-row hazard.
+- council-gate's workflow already carries `query_database` and `conditional` steps
+  (`load_schema_hint`, fourteen `gate_*` conditionals, four `complete_*` terminals,
+  `append_verdict` = `append_doc_note`). **The guardian's narrower seam is real.**
+
+**Dispositions (also in RFC_065 §3):**
+- **guardian (medium) — ADOPTED, and it is a better design.** I had put stage B at
+  `processor.go executeWorkflow`, the single admission point for every agent in the fleet, and
+  never wrote down why not a narrower seam. A leading `gate_spend_governor` step INSIDE
+  council-gate's own workflow (`query_database` → `conditional` → `complete_withheld`) is
+  **config-only**: no Go, no roll, no shared choke point, opt-in by construction, and **the
+  orchestration row IS the observable** — `current_step = complete_withheld`, found by the 097
+  runbook's existing `fix_correlation_id` query. That one change dissolves two other seats:
+- **bug_historian (medium) — dissolved.** The Go sketch failed OPEN on read errors but CLOSED
+  on a failed withheld-row write (run dropped, zero trace). Under the redesign the orchestration
+  row exists before the decision; nothing can be lost on a write. Rule carried: **no record, no
+  refusal.**
+- **reuse_agent (medium) — adopted.** `governor_withheld_runs` + view are no longer needed
+  (applied today, inert) and **stage B's migration should DROP them** rather than leave dormant
+  surface — the architecture seat's own low objection. ⚠ I built a new table without searching
+  for a sink; the seat found one in a minute. Logged here, not in WRONG_CALLS: the table never
+  carried a row, and the cost was one seat's time.
+- **guardian (medium) — 099 --apply erases the activation.** True of both designs. Guard owed
+  with stage B: a daily parity check that council-gate's `start_step` is the governor gate, in
+  the 657-VERIFY shape.
+- **editquality (medium):** a sketch is not an edit — stage B gets its own lighter round with
+  the real config. Risk 6 ("the design is self-applying") was FALSE as written: nothing can shed
+  a council run until stage B is live. Corrected here.
+- **debug_historian (medium):** the 097 "find your run" query must show withheld vs queued —
+  under the redesign it does (`complete_withheld`); a runbook line ships with stage B.
+- **architecture (approve, low ×3):** RFC filed —
+  `architecture_review/RFC_065_a_dispatch_governor_is_not_a_spend_governor_the_agent_type_namespace.md`;
+  dormant surface → the drop above; **do not arm until the owner confirms the LEVEL** — agreed.
+- **prior_art (approve):** caller census + council-gate row count attached above.
+- guidelines / render_guardian / constitution / mission: approve, no asks.
+
+**Stage B as now designed** (RFC_065 §4): one md5-guarded migration on the council-gate row —
+`gate_spend_governor` (query_database: `SELECT governor_admits_agent('council-gate')`) →
+`route_spend_governor` (conditional: admitted → `load_schema_hint`, else → `note_withheld`) →
+`note_withheld` (append_doc_note, categories `['spend-governor','withheld-run']`) →
+`complete_withheld` (complete_workflow, message: *withheld by the spend governor at level N —
+not queued, do not retry*). Plus the drop, the parity check, the runbook line. **Not armed until
+the owner answers the level question.** This NOTES commit carries `Council-Reviewed:`.

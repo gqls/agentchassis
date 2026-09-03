@@ -158,3 +158,26 @@ row filed.
 
 **Revised NEXT:** (1) read dc6d2a54's verdict; act on it · (2) stage B Go + tests, after the
 verdict · (3) the two owner questions · (4) 459 fix + round · (5) option C · (6) standing queue.
+
+## UPDATE 2026-09-03 ~18:3xZ — dc6d2a54 APPROVED; stage B REDESIGNED (config-only); RFC_065 filed
+
+- **Verdict: APPROVED, 4 advisories, none high.** Read it in full before doing stage B — the
+  dispositions are in NOTES (17:43Z entry) and RFC_065 §3.
+- **Stage B is now CONFIG-ONLY, inside council-gate's own workflow** (guardian's advisory,
+  adopted): `gate_spend_governor` → `route_spend_governor` → `note_withheld` →
+  `complete_withheld`, then `load_schema_hint` as before. Exact step shapes to mirror are in
+  the live row (`load_schema_hint` = query_database, `gate_render` = conditional,
+  `complete_invalid` = complete_workflow, `append_verdict` = append_doc_note). md5-guard the
+  row like 674. **Ship with it:** DROP `governor_withheld_runs` + `_recent` (reuse_agent —
+  `agent_error_log` exists; the orchestration row is the observable now); a daily
+  start-step parity check in the 657-VERIFY shape (guardian — 099 `--apply` would erase the
+  step); a line in the 097 runbook that `complete_withheld` means withheld, not queued
+  (debug_historian). Its own lighter council round (editquality). **`processor.go` is NOT
+  touched — the Go sketch is withdrawn.**
+- **DO NOT ARM until the owner answers the LEVEL question** (architecture seat + this lane).
+  Seeded `research` (L3). Owner asked twice in README; no answer yet.
+- **RFC_065** carries the reasoning — cite it, don't excavate migration 751's header.
+
+**Revised NEXT:** (1) owner's level answer · (2) stage B config migration per RFC_065 §4, its
+round, then apply · (3) `bugs_open/459` fix + round · (4) option C · (5) standing queue. The
+mortgagecalculator CONTRIB (ordering) stays parked against the no-reorder ruling's trigger.

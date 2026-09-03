@@ -591,3 +591,18 @@ site-work half works, and it's deliberate — a typo in a list should never be a
 the whole fleet.
 
 Everything is written up; the reviewers' verdict lands in about half an hour.
+
+2026-09-03 late evening — the reviewers approved the extension (no serious objections, four
+advisory ones), and one of the advisories made the plan better. I had planned to put the
+"should this council run?" check at the one door every agent in the fleet walks through. A
+reviewer asked why not put it inside the council's own workflow instead — and they're right:
+that version touches nothing shared, needs no code change and no release, and a held-back
+review shows up as a plainly-labelled row that says "held by the spend governor — not stuck,
+don't retry" rather than looking like the usual half-hour queue wait. Two other objections
+disappear with the same change. So the second half is now a configuration change, not code.
+
+Nothing is switched on yet, and I've kept it that way deliberately: the reviewers agreed the
+"at what level does council review get held back?" question is yours, and it should be
+answered before anything is armed. Same question as before — last (95% of budget, my
+conservative default) or first (biggest saving, review absent for roughly the second half of
+each month)? One word decides it.
