@@ -9,8 +9,14 @@ this lane, 09-02/09-03).
 
 ---
 
-## 1. STATE: the defect is GONE from the artefact, the mechanism is CONFIRMED, and 384 is CLOSEABLE
-## on one owner decision
+## 1. STATE: 384 STAYS OPEN (owner ruling). The starvation is resolved — but the defect is
+## REPRODUCING LIVE on the seam's own path
+
+> **OWNER RULING 2026-09-03: *"keep it open until those are checked and fixed."*** The decision
+> that stood in §2 is settled — **384 does not close on "recovers by rotation"**. The remaining
+> items are to be checked AND fixed. My Option-A recommendation is superseded; do not re-open the
+> question. **And the first check found the defect live, which falsifies the framing that decision
+> rested on.**
 
 `[MEASURED 2026-09-03 09:1x–09:2xZ]`
 
@@ -25,37 +31,53 @@ this lane, 09-02/09-03).
 - **Fleet census now:** generic **5 blanks / 2 pages, all IN-FLIGHT** (cards landed 4.3h and 7.1h
   ago — nothing stuck); owned **14 / 3**, unchanged.
 
-## 2. ⚠ THE DECISION THE OWNER HAS TO MAKE — everything else follows from it
+## 2. ⚠ THE LIVE REPRODUCTION — read this before touching anything
 
-**Does 384 close on "blog listings recover by rotation", or must the seam repair them directly?**
+`[ALL MEASURED 2026-09-03 09:3x–10:0xZ]` **designblog.co.uk/index is broken right now**, on the
+current build, and it **is not a blog listing**:
 
-The fact that forces the question: the 384 seam files `page_rerender` → the `page-rerender` agent,
-**whose workflow contains no `rebuild_blog_listing` step**. A blog listing's array is written only
-by `rebuild_blog_listing`, which lives only in the **`rerender-pages`** agent. So on a blog-listing
-page the seam's own item completes, deploys a real sha, and rebuilds nothing. **leopardess was
-repaired by `rerender-pages` on ordinary rotation, not by this lane's seam.**
+- Component `content-listing`, field `articles`, source **`query.blog_posts`**. The page is
+  **`save_page_sections`-maintained** — the path I previously said the seam "repairs correctly".
+- **The seam fired correctly.** 5 `page_rerender` items from `derive_card_asset`,
+  `reason=section_data_resolved`, all complete by 05:25:51; two carry
+  `consumes: ["query.blog_posts"]`, matching the component's own source.
+- **Every projection input is present and correct.** Four target pages `active` / `page_type
+  blog-post`; four card assets `active` with non-empty `asset_key` and matching `site_id`; cards
+  landed 04:56:39–05:05:10.
+- **The array was rewritten twice after all four cards existed** (05:06:21, 05:25:28) and holds
+  **4 entries, 4 blank**, pre-image blank each time.
 
-On tool-listing and archetype pages the seam DOES repair correctly (four demonstrations verified as
-genuine `save_page_sections` writes). **The gap is blog listings specifically.**
+**THE CARRY HYPOTHESIS IS REFUTED.** The runs are still inside `orchestration_states` retention
+(hours old, not days — the problem that defeated the leopardess diagnosis):
 
-**Option A — CLOSE 384 now.** The bar is "fixed AND live". The generic-page defect is not
-observable anywhere; blog listings self-heal on rotation. The six-day exposure was NOT the seam's
-doing — it was the two-strike starvation, which is `bugs_open/389`'s mechanism and is being fixed
-there. With 389 fixed, rotation latency is hours.
-*Cost:* a blog listing stays stale until the next `rerender-pages` visit, and nobody is measuring
-that latency. Normal case unknown; worst case observed was **six days**.
+| run | section_count | rerendered | carried | escalated | skipped |
+|---|---|---|---|---|---|
+| 05:06:19 | 4 | **4** | **0** | false | false |
+| 05:08:24 | 4 | 4 | 0 | false | false |
 
-**Option B — KEEP OPEN and close the gap.** Make the seam repair blog listings directly: either add
-`rebuild_blog_listing` to the `page-rerender` path, or have the seam file an item routed to
-`rerender-pages`. Either is a change to a shared workflow, so it is **council-gate scope** and
-probably RFC-adjacent (new authority on a shared seam).
-*Cost:* a round, plus the risk of a second producer on a listing this lane already worked hard to
-give ONE writer.
+Nothing was carried. So **`plan.Status != "ready"` (`rerender_page_sections_action.go:509`) is NOT
+the cause** — I carried that candidate through two handoffs and it is now dead for this case.
 
-**My recommendation: A, with a measurement attached.** The seam's job — invalidate on card landing —
-is done and proven; the blog-listing path is a *different repair vehicle*, not a defect in the
-invalidation. But close it with the rotation latency actually measured (§5 item 1), so "recovers by
-rotation" is a number rather than a hope. **This is the owner's call, not a session's.**
+**Remaining hypothesis, UNTESTED — do not build a fix on it:** the `query.blog_posts` resolve
+returns without populating `articles`, so `plan.ResolvedData` lacks the key, `mergedContent` keeps
+the stored blank array, and the section still counts as `rerendered` because it did render HTML.
+That would also explain `content_data` unchanged while `rendered_html` changed.
+
+**A `090` was fired on this live case 2026-09-03 ~10:1xZ** with the seeding corrected (whole files,
+not symbols; the live workflow routing quoted in the symptom). **Find its verdict before
+re-diagnosing** — intake slug `query_blog_posts_resolves_empty_image_despite_active_cards`,
+`RUNTIME_SITE=designblog.co.uk`. If it returned UNVERIFIABLE again, read its "still needed" list:
+last time that list was what actually cracked the case.
+
+### Three corrections this forces to my own earlier claims
+
+1. **RETRACTED: "the defect is BLOG-LISTING-specific."** It is not.
+2. **WEAKENED: "four of five demonstrations are genuine."** I verified a `save_page_sections`
+   **write happened** on finetuning at 19:13/19:14/19:15 — **not that those writes produced
+   non-blank images.** The 0-blank figure comes from the 08-26 census. **Re-verify before quoting.**
+3. The leopardess repair (09-02 23:20) is still real and the starvation chain is still confirmed —
+   but it repaired via `rebuild_blog_listing`, and that tells us nothing about whether the seam's
+   own path works. On this evidence it does not.
 
 ## 3. What else must be settled before close, whichever option
 
@@ -83,7 +105,7 @@ rotation" is a number rather than a hope. **This is the owner's call, not a sess
   control that separated leopardess from its comparators, and adopted the `unresolved`-is-terminal
   overcount caveat into their runbook.
 
-## 5. If you are closing it — the checks, in order
+## 5. Checks worth running (NOT a closing checklist any more — see the owner ruling in §1)
 
 1. **Measure the rotation latency** so Option A closes on a number:
    ```sql
