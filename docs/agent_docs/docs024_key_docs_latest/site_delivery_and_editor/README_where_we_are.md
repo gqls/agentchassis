@@ -692,3 +692,32 @@ and footer changes to this site now fails every time on an unrelated bug in the 
 (bugs_open/457), so I am filing those page rebuilds by hand until that is fixed; and the same
 class of bug parks that refresh for eleven other sites (bugs_open/451). Delivery stays held
 until the pre-delivery sweep, which is the last thing left on my side.
+
+## 2026-09-03 (afternoon) — I have run the acceptance checklist over the whole site, and it found nothing new
+
+Everything on the live site now matches what we fixed today, so I ran the full pre-delivery
+check over all twenty pages. I wrote it as a script this time rather than doing it by hand, so
+the next site gets the same check for free and nobody has to remember the twenty-odd things to
+look at.
+
+Clean, and each of these was checked in a way that could have come out badly: your personal
+email appears nowhere on the site (and I proved the search term was real by finding a word that
+is there 540 times in the same pass); no email or phone links anywhere; the contact page
+returns "not found" and nothing links to it; the logo is a genuine transparent image; no
+leftover placeholder text; no page is orphaned; no picture link points at a missing file.
+
+What it found, it found nothing new. Every item is one you already know from the review:
+the news page still carries raw feed text, the comparison tool still asks the reader for all
+its data, the fight calendar page has no calendar in it at all, and apart from the home page
+and the articles index every page carries exactly one picture, the logo, with a single hero
+image shared across seven pages. Those sit with the threads that own them. One small thing to
+add to the list: four pages still describe how we work rather than talking to the reader, the
+same complaint as your first point, and the fight calendar page is one of them.
+
+Worth telling you plainly, because it is the kind of thing that would otherwise look like
+diligence: the checking script's own first run produced five wrong answers, four false alarms
+and one false all-clear on the most important check of the lot, your email. I found them by
+chasing each result back to the page it came from before writing any of it down. They are all
+fixed, the reasons are written next to each check so nobody loosens them again, and none of the
+wrong answers reached you. But it is a reminder that a new check tells you about the check
+first and the site second.
