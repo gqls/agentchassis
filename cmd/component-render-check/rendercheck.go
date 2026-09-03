@@ -515,7 +515,7 @@ func classifyAgainstBaseline(findings []finding, base, covered map[string]bool) 
 		if base[findingKey(f)] {
 			continue
 		}
-		if covered[canonicalName(f.Component)] {
+		if covers(covered, f.Component) {
 			regressions = append(regressions, f)
 			continue
 		}
@@ -556,7 +556,8 @@ func writeDocNote(body string) {
 type baselineFile struct {
 	Note string   `json:"note"`
 	Keys []string `json:"keys"`
-	// Components is the ANALYSED-component set at write time, in canonical names.
+	// Components is the COVERED set at write time: every component whose template
+	// PARSED — raw names, clones and static templates included, never canonicalised.
 	//
 	// WHY IT EXISTS (bugs_open/361). Without it the ratchet can only ask "does this
 	// finding's key appear in the baseline?", which cannot distinguish a component
@@ -569,6 +570,18 @@ type baselineFile struct {
 	// and a clean component that later regresses is exactly what a ratchet is for.
 	// Recording coverage separately from findings is what makes that state
 	// unrepresentable.
+	//
+	// TWO REASONS IT IS RAW AND NOT CANONICAL, both found by review of the first cut:
+	//   - a clone that is later EDITED stops matching its representative's hash and
+	//     gets its own identity (see the note above findingKey, which says its findings
+	//     then reporting as NEW "is correct"). Only its OWN name can vouch for it; a
+	//     canonical-only set silently exempts every clone that later diverges.
+	//   - a STATIC template (no template actions) is skipped before `checked++`, so an
+	//     analysed-only set cannot see it either. A static component later rewritten to
+	//     reference fields and render a hole is exactly this check's stated signal —
+	//     "a component started being able to render a hole" — and it must fail.
+	// `covers` below reads raw first, then the representative, so a clone born after
+	// the baseline still inherits its representative's coverage.
 	Components []string `json:"components,omitempty"`
 }
 
@@ -619,20 +632,43 @@ func loadBaseline(path string) (keys map[string]bool, covered map[string]bool, l
 		return nil, nil, false, fmt.Errorf("baseline %s holds no keys", path)
 	}
 	covered = make(map[string]bool, len(bf.Components))
-	if len(bf.Components) > 0 {
-		for _, c := range bf.Components {
-			covered[canonicalName(c)] = true
-		}
-	} else {
+	switch {
+	case bf.Components == nil:
+		// Legacy artefact: derive coverage from the keys. Strictly better than the
+		// key-level diff it replaces, and it announces its own blind spot.
 		legacy = true
 		for k := range keys {
 			covered[baselineComponent(k)] = true
+		}
+	case len(bf.Components) == 0:
+		// Present but EMPTY is a ratchet switched off by a hand edit: every finding
+		// would be unbaselined and nothing could ever fail. The tool never writes it.
+		// Distinguished from absent, which Go's decoder gives us for free.
+		return nil, nil, false, fmt.Errorf("baseline %s: \"components\" is present but EMPTY — every "+
+			"finding would read as unbaselined and nothing could fail; the tool never writes this", path)
+	default:
+		for _, c := range bf.Components {
+			covered[c] = true
 		}
 	}
 	return keys, covered, legacy, nil
 }
 
-func writeBaseline(path string, findings []finding, analysed map[string]bool) error {
+// covers answers the ratchet's scoping question: did this baseline vouch for the
+// component? Raw name first — an edited clone must stay accountable under its own
+// name — then its template-identity representative, so a clone born after the
+// baseline inherits the coverage of the component it is a copy of.
+func covers(covered map[string]bool, component string) bool {
+	if covered[component] {
+		return true
+	}
+	if rep, ok := canonicalComponent[component]; ok {
+		return covered[rep]
+	}
+	return false
+}
+
+func writeBaseline(path string, findings []finding, analysed map[string]bool, checkedCount int) error {
 	// DEDUPED, which only started mattering on 2026-08-05: once a clone's findings
 	// key by their template's representative, two identical components contribute
 	// the SAME key and an append-per-finding loop would write it twice. A duplicate
@@ -650,26 +686,23 @@ func writeBaseline(path string, findings []finding, analysed map[string]bool) er
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	// The covered set is written in CANONICAL names, the same identity findingKey
-	// uses, so a clone and its representative cannot disagree about coverage.
+	// RAW names, one per component that parsed — NOT canonicalised and NOT deduped by
+	// template. See the Components field comment: canonicalising here would exempt
+	// every clone that is later edited, and dropping the static templates would exempt
+	// every component that gains its first field after the baseline was cut.
 	comps := make([]string, 0, len(analysed))
-	seenComp := make(map[string]bool, len(analysed))
 	for name := range analysed {
-		cn := canonicalName(name)
-		if seenComp[cn] {
-			continue
-		}
-		seenComp[cn] = true
-		comps = append(comps, cn)
+		comps = append(comps, name)
 	}
 	sort.Strings(comps)
 	bf := baselineFile{
-		Note: fmt.Sprintf("component-render-check baseline: %d findings across %d analysed components "+
-			"(%d canonical). Keys are component\\0field\\0shape — counts deliberately excluded. "+
+		Note: fmt.Sprintf("component-render-check baseline: %d findings across %d analysed components; "+
+			"%d COVERED (analysed + static templates, which are vouched for but not probed). "+
+			"Keys are component\\0field\\0shape — counts deliberately excluded. "+
 			"\"components\" is the ANALYSED set: a finding in a component listed there but not in "+
 			"\"keys\" is a REGRESSION and fails the run; a finding in a component absent from it is "+
 			"unbaselined growth and does not. Regenerate with --write-baseline.",
-			len(keys), len(analysed), len(comps)),
+			len(keys), checkedCount, len(comps)),
 		Keys:       keys,
 		Components: comps,
 	}
@@ -744,11 +777,17 @@ func main() {
 			unanalysedNames[c.Name] = true
 			continue
 		}
+		// COVERED, and recorded BEFORE the static skip below. A template with no
+		// actions has no field whose absence could be probed, so it is not "analysed"
+		// and never reaches `checked` — but the baseline DID look at it and found it
+		// incapable of rendering a hole. That is a vouch, and if the template is later
+		// rewritten to reference a field and render one, that is a regression. Placing
+		// this after the `continue` was a real defect in the first cut of this fix.
+		analysedNames[c.Name] = true
 		if len(an.root.children) == 0 {
 			continue // static template, nothing to probe
 		}
 		checked++
-		analysedNames[c.Name] = true
 		runtimeFill := componentIsRuntimeFillShell(c.Template)
 		if runtimeFill {
 			runtimeFillComps++
@@ -843,7 +882,7 @@ func main() {
 				"therefore uncovered\n", len(unanalysed))
 			os.Exit(2)
 		}
-		if err := writeBaseline(*writeBase, findings, analysedNames); err != nil {
+		if err := writeBaseline(*writeBase, findings, analysedNames, checked); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(2)
 		}
