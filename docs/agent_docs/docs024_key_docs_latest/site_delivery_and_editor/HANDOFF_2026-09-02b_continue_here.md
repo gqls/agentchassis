@@ -282,6 +282,25 @@ EXPECTED pre-convergence shape, not a failure).
    > 08:26:24 (5 in window)** · 3 garden-tools.uk … gaswholesalers/gamesdesign not in the top
    > 15. So the four items load in the NEXT boxingonline run, minutes away. The claim-gated
    > window stands (it is now the better design regardless). WRONG_CALLS row filed.
+   > **10:49Z — the turn came at 10:42Z and claim-gating was WRONG BY MECHANISM.** The
+   > page-build-handler orchestration EMBEDS `agent_config` at spawn (10:43:47Z, ten seconds
+   > before my apply at 10:43:57Z; verified: `initial_request_data->agent_config…save_sections`
+   > carries NO floor; error says "floor 50%"). A definition edit reaches FUTURE spawns only.
+   > `2d1f9c51` attempt 1 FAILED 10:45:28Z (1116→181, 16%); `retry_after` 11:15:25Z, attempts
+   > 1/3. **The window is OPEN (0.1 since 10:43:57Z) and stays open for attempt 2**; the
+   > claim-gated monitor still closes it at terminal; a hard-close guard runs the ROLLBACK at
+   > 12:00Z regardless. If you inherit this with the floor at 0.1 and the item `triaged`/1,
+   > that is the plan, not a leak — but if it is past 12:00Z and still 0.1, run the ROLLBACK.
+   > Same run: chrome refresh `ec92320f` re-rendered all three slots 10:42:35Z (head has
+   > `GTM-PQ3WCTBD` + `cc_v1`, header GTM) then FAILED at `rebuild_blog_listing`
+   > (duplicate-key on articles-index — `findBlogListingSlot` finds no listing slot and INSERTs
+   > a fresh position-3 row each run; 7 such rows exist; 316's constraint now refuses the
+   > unchanged one) → 0 assemble children; retries 11:12 will fail the same way. Interim:
+   > **18 `_assemble` items hand-filed 10:47:56Z, batch `000622a9`** (index + guides-index
+   > excluded), the exact shape `create_rerender_items` would have produced. Logo `d71b7877`:
+   > Gemini **429 "prepayment credits are depleted"** (bugs_open/455, 424 lane) — deferred to
+   > 10:58 without an attempt; OWNER must top up AI Studio before any logo can generate.
+   > Components' discriminator `06210ec6` COMPLETED 10:46:05Z (theirs to read).
    > **What actually produces decks here:** the BUILD path — proven on this very site
    > (guides-index `needs_page` rebuild 17:23:02Z → excerpt PRESENT, suffix stripped;
    > §1.4 closed that way). A `needs_page` rebuild of `index` is the known-working route

@@ -615,3 +615,21 @@ The logo test is still queued behind three sites the logo thread is retrying. On
 seotools, has already come back right: a genuine transparent background, measured at the image
 itself, after the repaired safety check correctly refused a first attempt. That is the first
 real success of the mechanism.
+
+## 2026-09-03 (late morning) — one thing needs you: the image model's prepaid credits are gone
+
+Boxingonline's turn in the queue came at 10:42, and the logo regeneration you approved failed
+before it could even try: Google's image model answered that the project's prepayment credits
+are depleted. Until that is topped up in AI Studio, no logo can be generated anywhere on the
+fleet, including the three portfolio retries. The platform parked the attempt without counting
+it, so nothing is lost; it just waits for the credit. The logo thread has filed this as
+bugs_open/455.
+
+The rest of the turn: the site's header and footer were regenerated and the head now carries
+the analytics tag and the consent banner, but the refresh then failed on a step that tries to
+re-insert an unchanged blog listing, so the twenty page rebuilds it should have queued never
+appeared. I have queued them by hand. The home-page rebuild failed its first attempt after all,
+by ten seconds: the platform copies an agent's settings into a run at the moment it starts, and
+my floor change landed ten seconds after that moment. The floor is now in place for the second
+attempt at about 11:15, with an automatic reset at noon if nothing else closes it. That
+ten-second lesson is written down where the next person will meet it.

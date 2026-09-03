@@ -20251,3 +20251,59 @@ code change owed at the next roll, tracked in RFC_015 §5.
   list)
 - **source:** 2026-09-03, `bugs_open/161` residual lane, re-verifying 161 before resuming it
 - **added:** 2026-09-03, bugs_open/456 lane
+
+### The dispatch selector ends in `LIMIT 1`, so counting its rows measures the LIMIT — every experiment on it returns 1, at every level, whether your change works or not
+
+- **footprint:** `agent_definitions` type `build-pipeline-trigger`
+  (`default_config#>>'{workflow,steps,find_dispatchable_site,config,query}'`),
+  `docs/agent_docs/sql_for_agents/657_selector_ranks_sites_by_loadable_work_VERIFY.sql`,
+  `docs/agent_docs/sql_for_agents/674_d4_stage_b_enable_selector_and_flags.sql`,
+  `governor_admits`, `governor_withheld_now`
+- **fires when:** you probe the live selector to see whether a predicate you added actually
+  narrows it — `SELECT count(*) FROM (<the selector text>) s`, the obvious and otherwise
+  correct move of using the selector's OWN query rather than a proxy census.
+- **the trap:** the query's last two tokens are `LIMIT 1` (it returns the ONE site to
+  dispatch next). So the count is **1 whatever you do to it**. On 2026-09-03 that produced
+  `selector_candidate_sites=1` at spend-governor levels 0, 1, 2 and 3 — a clean-looking
+  four-row table that reads as "the governor changes nothing", from a meter that could not
+  have printed any other number if the governor had been perfect, broken, or absent.
+- **why the wrong result looks exactly like the right one:** the shape is right (four levels,
+  four rows, no error), the query is the authoritative one, and `1` is a plausible answer for
+  a selector. Nothing distinguishes it from a real negative. The sibling failure is worse:
+  had the change been broken, the same `1`s would have read as a PASS.
+- **the check:** strip the trailing limit and make the strip itself assertable, so a selector
+  that stops ending in `LIMIT 1` aborts the probe instead of silently reverting to the trap:
+  ```sql
+  qn := regexp_replace(q, 'LIMIT\s+1\s*$', '');
+  IF qn = q THEN RAISE EXCEPTION 'ABORT: trailing LIMIT 1 not found — do not trust the count'; END IF;
+  ```
+  Then count `qn`. Stripped, the same probe read 14 sites at L0 and 13 at L1/L2/L3 — and the
+  item-level meter (`governor_withheld_now`: 0 / 51 / 112 / 112) is the one that actually
+  discriminates, because shedding is per `item_type` and sites are a lagging view of it.
+  Full runnable probe (rolled back, invisible to live dispatch):
+  `dispatch_throughput/RUNBOOK_dispatch_throughput.md` §"Spend governor (D4)".
+- **the adjacent trap, same hour, same lane:** **"the selector" names TWO live objects.** The
+  governor clause and 657's pinned md5 live in `agent_definitions` as above; the
+  `scheduled_tasks.pre_query` on `build-pipeline-trigger` is a DIFFERENT query (the wake-up
+  gate, the 415/688 lane's). Reading the governor clause off `pre_query` returns a confident
+  `false` and an unfamiliar md5 — which reads as *another session reverted your migration*.
+  Name the object, not the role.
+- **relations:** MEMORY [[measurement-discipline-index]] (a `[MEASURED]` figure is only
+  evidence if it could have come out otherwise) · the components lane's inverse entry, commits
+  `d01ee48b1`/`a474daae2` — *rank with the selector's OWN query, never a proxy census*; this
+  is the failure mode of obeying that rule without reading the query's last line ·
+  `bugs_closed/413` (why the selector ranks sites at all)
+- **source:** 2026-09-03, dispatch_throughput lane, first post-enable proof of the D4 spend
+  governor's shed staircase (NOTES 2026-09-03 §6)
+- **added:** 2026-09-03, dispatch_throughput lane
+
+---
+
+### An `agent_definitions` edit is "live-immediate" for FUTURE spawns only — every orchestration carries its own copy of the definition from the moment it was spawned
+
+- **footprint:** `agent_definitions.default_config` · `orchestration_states.initial_request_data->'agent_config'` · any `_HOLD.sql` / `snapshot_agent` window on a step config (`section_shrink_floor`, `section_component_floor`, prompts, `max_items`) · `spawn_agent` / `call_agent` steps
+- **fires when:** you change a definition and expect a run that is already claimed, spawned or mid-workflow to see it — a temporary floor window "opened on claim", a prompt fix applied while a writer is running, a `max_items` change while the dispatch loop is looping. The chassis embeds the WHOLE definition into the orchestration at spawn (`initial_request_data.agent_config`, present on every `build-dispatch-loop` and handler row) and steps read that copy. Measured 2026-09-03: `section_shrink_floor` set to 0.1 at 10:43:57Z; the page-build-handler for the target item had been spawned at 10:43:47Z (~20 s after its claim) and refused at "floor 50%" at 10:45:28Z while the live row read 0.1 the whole time. The guard's own comment says the key is "live-immediate" — true of the definition row, false of anything already running.
+- **the check:** before relying on a definition edit, read one live run's embedded copy: `SELECT created_at, initial_request_data #>> '{agent_config,workflow,steps,<step>,config,<key>}' FROM orchestration_states WHERE owner_agent_type='<type>' ORDER BY created_at DESC LIMIT 1`. For a scoped window: open it BEFORE the item can be claimed (the trigger's `find_dispatchable_site` ranking tells you when your site is next), not on claim; and read the ERROR TEXT of a refusal for the floor it quotes — that number is the embedded one.
+- **relations:** [[seed-sql-is-history-live-row-is-fact]] (one level further: the live row is not the running orchestration either) · mig `725` HOLD/ROLLBACK (the window this bit) · WRONG_CALLS 2026-09-03 "claim-gated config window"
+- **source:** 2026-09-03, `site_delivery_and_editor`, rebuild `2d1f9c51` attempt 1
+- **added:** 2026-09-03, `site_delivery_and_editor` lane

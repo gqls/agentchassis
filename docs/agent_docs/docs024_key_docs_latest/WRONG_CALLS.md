@@ -111,6 +111,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **`ls -t` / `git log --since=<your last read>` the lane you are about to act IN (or point the next session INTO) before writing the action item — clearing the blocker you were watching is not re-reading the lane; the disconfirming evidence arrives by another session's commit while you are busy verifying yours** | **1** |
 | **write the `[MEASURED]` marker only AFTER the tool result is on screen — never batch a claim with its own check; a tool failure (here a classifier outage) lets the claim land without the measurement, and the file then asserts a check that never ran** | **1** |
 | **rank yourself with the SELECTOR's own query, never a proxy census — a proxy's population includes what the selector EXCLUDES (here: locked sites), and a served-site history read as "starvation" is the same proxy one step later** | **1** |
+| **read where the RUNTIME takes its config from before calling an edit "live-immediate" — an orchestration EMBEDS `agent_config` at spawn, so a definition edit reaches future spawns only; `initial_request_data->agent_config` of one live run is the check** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -60841,3 +60842,25 @@ a-post-fix-zero-needs-a-demand-control, a-bound-added-for-a-reviewer-narrows-you
 - **Cost.** None this round — the verdict was approved and the claim was true. Logged because the
   tally is what makes a repeated skipped check worth automating, and because the answer was
   strictly more informative than the assertion.
+
+## 2026-09-03 — a "claim-gated" config window that opened 10 seconds after the config had already been captured (session site_delivery_and_editor)
+
+- **The claim.** ~10:27Z: "re-open the 725 floor window when the rebuild item reads `claimed`;
+  page-build-handler takes ~8 min from claim to save, so a 30 s poll opens it well before the
+  save." Sent to two lanes as the safer design.
+- **Why it was false.** The page-build-handler orchestration is spawned ~20 s after the claim and
+  EMBEDS the agent definition in `initial_request_data.agent_config` at that moment; the save step
+  reads the embedded copy. Apply at 10:43:57Z, spawn at 10:43:47Z: the run refused at "floor 50%"
+  with the live row reading 0.1. Verified at the orchestration row (no `section_shrink_floor` in
+  the embedded config).
+- **What caught it.** The artefact — attempt 1's error text naming a floor the live row no longer
+  had, then the embedded config. Not the design review.
+- **The mistake, precisely.** "Live-immediate" in the guard's own comment is true OF THE DEFINITION
+  and I read it as true OF THE RUN. The 8-minute figure was real and irrelevant: the window that
+  mattered was claim→spawn (~20 s), not claim→save.
+- **The cheap check that would have.** `SELECT initial_request_data ? 'agent_config' FROM
+  orchestration_states WHERE owner_agent_type='page-build-handler' LIMIT 1` — one row, 5 seconds,
+  and it was in an output I had already read that morning (the build-dispatch-loop rows carry the
+  same embedded `agent_config`).
+- **Cost.** One wasted attempt of three on the rebuild (attempt 2 at ≥11:15Z now runs with the
+  window open), and a window left open ~35 min longer than the design promised.

@@ -8192,3 +8192,34 @@ lane's per the ownership ruling.
   buytoletcalculator, indoorplanters, adversecreditmortgage). Both lanes corrected; WRONG_CALLS
   row + tally row ("rank yourself with the selector's own query, never a proxy census"). The
   claim-gated window stands — better shape regardless of the wait.
+
+## 2026-09-03 (10:49Z, clock-read) — boxingonline's turn came 10:42Z: chrome slots refreshed, then three different failures; claim-gating was wrong by mechanism
+
+- **Loop run `6e0e9f1a`** (build-dispatch-loop for boxingonline, 10:42:15Z; position 2 was right).
+  Sequential children, in priority order:
+  1. `ec92320f` chrome refresh (prio 8): `render_site_components` wrote all three slots 10:42:35Z —
+     **head 44,932 B with `GTM-PQ3WCTBD` AND `cc_v1`; header 2,514 B with GTM; footer 2,289 B** —
+     then `rebuild_blog_listing` FAILED: `duplicate key … uq_page_components_no_byte_identical_duplicate`
+     (the 09-01 `b6c4eded` failure, deterministic). Mechanism `[read at the code + the rows]`:
+     `findBlogListingSlot(articles-index)` returns no existing component, so the action takes the
+     INSERT branch (`rebuild_blog_listing_action.go:404`, slot generic-text-block position 3); the
+     page already holds **7 generic-text-block rows at position 3** (one per prior run) and
+     migration 316's constraint refuses the byte-identical eighth. So `create_rerender_items` never
+     runs → 0 children; retry 11:12:42Z will fail identically, then attempt 3, then `failed`.
+     **Interim: 18 `_assemble` items hand-filed 10:47:56Z, batch `000622a9-a079-4206-8fc5-6ed949ec8994`**
+     (source operator, shape of the 09-02 16:28 batch; index + guides-index excluded).
+  2. `d71b7877` logo (prio 10): image-build-handler `complete_error` — Gemini **429 "Your prepayment
+     credits are depleted"** (AI Studio billing). Platform set `retry_after` 10:58:25Z WITHOUT
+     counting an attempt (correct). Fleet-wide block on image generation; the 424 lane filed
+     `bugs_open/455`; owner told. designblog/gamedesign attempt 3 will hit the same 429.
+  3. `2d1f9c51` rebuild (prio 10): claimed 10:43:28Z, handler spawned 10:43:47Z, **my HOLD applied
+     10:43:57Z** (the claim-gated monitor saw the claim at 10:43:55Z and correctly refused to stack).
+     FAILED 10:45:28Z: `1116→181 chars (16% kept, floor 50%)`. **The embedded config is the
+     explanation** `[MEASURED]`: `initial_request_data->agent_config…save_sections.config` on that
+     orchestration has NO `section_shrink_floor` — the definition is copied in at spawn. Claim→spawn
+     is ~20 s, not the ~8 min claim→save I designed around. WRONG_CALLS row + LANDMINES entry.
+     `retry_after` 11:15:25Z, attempts 1/3. **Window left OPEN (0.1)** for attempt 2 — boxingonline's
+     window-min returns to 08:35 at 11:12 (chrome retry) so its turn follows; monitor closes at
+     terminal; hard-close guard (`bk0axkiq4`) forces the ROLLBACK at 12:00Z.
+  4. `06210ec6` components' discriminator (prio 80): COMPLETED 10:46:05Z — theirs to read.
+- Served pages unchanged until the assemble batch + the next mirror tick; index until attempt 2.
