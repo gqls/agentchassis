@@ -2469,3 +2469,27 @@ homepage baseline, commit `2e2c7e0eb`, carries the correction marked as one). Th
 So for both items: `llm_call_log` rows for `rewrite_negations` per correlation (ran at all), the
 `content_data` shape count against the pinned baseline (repaired), and the rejection reasons
 (why anything survived). Correlations still owed to the copy lane; both items triaged at 10:30Z.
+
+## 2026-09-03 (10:35Z) — **STAGE A PROVEN at plan time** on technical-details (corr `6e8eadaa`)
+
+Item `896bb245` claimed 10:34:02Z by `build-dispatch-loop` (orch `5bf75f69`) → page-build-handler
+`28610ba3` → page-content-writer `ce514ce0` (10:35:06Z). On the handler row, `[MEASURED 2026-09-03 10:36Z]`:
+
+```
+section_plan.sections_ready[]: name | status | subject
+hero               | ready | exactly what the £99 fine-tune contains
+generic-text-block | ready | which model it is and what its licence allows
+generic-text-block | ready | what file you receive and where it runs
+generic-text-block | ready | how the training works and what we handle
+faq                | ready | what a technical reader asks
+call-to-action     | ready | where to go next
+load_spec_sections: {"count":6,"source":"pages_table","section_subjects":[…6…],"locked_merge_count":0}
+```
+
+Six of six, the three repeated `generic-text-block` slots each with their own subject, sourced
+from `pages_table` (tier 3) — the exact thing `bugs_open/443` said was structurally unreachable
+before `dbb218a41`. The disconfirming result would have been `(none)` on the text-block rows or
+`source` ≠ `pages_table`; neither happened. Remaining reads at completion: the writer row's
+`sections_for_render.sections_ready[].subject`; detector quiet (`agent_error_log`
+`REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT` for this page after 10:34Z = 0); served h2s (expected to
+STILL repeat: 641 not applied). Correlation sent to the 443 lane and the copy lane.
