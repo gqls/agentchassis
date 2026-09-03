@@ -61746,3 +61746,78 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   kind='council_report' ORDER BY created_at DESC LIMIT 1` — and before believing a verdict, confirm
   its `plan summary` describes the change you submitted. Mine named a domain I have no lane on.
   Tally: **another lane's artefact read as mine because the query was ordered by time, not identity** ×1.
+
+## 2026-09-03 — "THE db/tx SPLIT IS FORCED": I wrote a measured-sounding justification for a transaction that does not exist (session editorial_design_uplift)
+
+- **The claim.** `component_hierarchy_recompose.go`, committed 2026-08-31 (`3fd617ef6`) by this
+  lane, carried two header assertions in the same voice as everything else in the file:
+  *"WHY IT CANNOT RETURN AN ERROR. It runs inside apply_section_edit's transaction"* and, under a
+  capitalised heading, *"THE db/tx SPLIT IS FORCED, not stylistic … edit-SENSITIVE reads … go
+  through tx and see the uncommitted edit"*. The same claim was repeated on the `hierarchyDB`
+  interface in `component_hierarchy_walk.go`.
+- **Why it was false.** `ApplySectionEditAction` holds no transaction and never has.
+  `[MEASURED 2026-09-03]` `grep -nE 'BeginTx|\.Begin\(|Commit\(\)|Rollback\(\)'
+  platform/orchestration/actions/section_editor_actions.go` returns nothing; every persist on that
+  path runs through `updatePageComponentAfterEdit(ctx, params.DB, …)` on the autocommit connection.
+- **What it cost.** The function took a `tx *sql.Tx` its only intended caller could not supply, so
+  **no call to it could compile**. It sat uncalled from 08-31 to 09-03, Go's linker eliminated it,
+  and the 09-02 binary probe reported the symbol ABSENT — a result that reads like a missing commit
+  and needed a paragraph of explanation in the handoff to not be one.
+- **What caught it.** Attempting the wiring. Not review: **three council rounds** examined this
+  design and none of them asked whether the caller had a transaction. The claim was specific,
+  technical and confident — it correctly named two functions that cannot take a `*sql.Tx` — and
+  inferred a transaction from that, which does not follow.
+- **The mistake, precisely.** I wrote a claim about a DIFFERENT FILE's control flow in the voice of
+  a measurement, in a file where every neighbouring paragraph *was* one. The estate's marker rules
+  (`[MEASURED]`, `[INFERRED]`) exist for exactly this and I applied them to my own file's behaviour
+  while leaving the caller's unmarked. **Prose about someone else's code is the highest-risk
+  sentence in any header, because it is the one thing the compiler cannot check.**
+- **The cheap check that would have.** One grep of the caller, before writing the justification:
+  `grep -nE 'BeginTx|\.Begin\(' <caller>.go`. Seconds. And the standing habit it belongs to: before
+  building on any helper, `grep -rn '<name>(' --include=*.go | grep -v _test` — **zero production
+  callers is a fact about the code, not about the roadmap.**
+- **What the same attempt then found, none of which any review round had reached** (recorded because
+  it is the argument for wiring early rather than reviewing longer): the ancestor write carried
+  **neither** the tombstone nor the lock predicate its sibling writes carry, treated **zero rows
+  affected as success**, and was **unstamped** despite writing an archived column.
+- **Fixed in** `1007be27d` (council `cab931b1-8b45-461e-8a37-0dbdfa6aa928`), with the corrections
+  left visible in both headers rather than deleted, and four mutation-proved tests on a file that
+  had none.
+- Tally: **a claim about a caller's control flow written from inference in a measured voice** ×1 ·
+  **a helper's zero callers read as scheduling rather than as a symptom** ×1.
+
+---
+
+## 2026-09-03 — my DEMAND CONTROL counted terminal rows as demand, which would have licensed the exact false conclusion it existed to prevent (`bugs_open/450` lane)
+
+- **The claim**: a pre-roll baseline recorded "**16** open `unbuilt_internal_link` items and
+  **59** open `page-build-handler` items at tool-shell pages" as the demand that would make a
+  post-roll zero readable — written into the lane NOTES and a commit message as `[MEASURED]`.
+- **What was actually true**: the dispatchable demand was **6**. My filter was
+  `status NOT IN ('complete','verified','rejected','wont_fix','cancelled')` — five of the SIX
+  terminal statuses. It admitted **`unresolved` (26 rows) and `failed` (8)**, both of which ARE
+  terminal (`work_items_common.go:42`, `workItemTerminalStatuses`), plus **`needs_human_review`
+  (24)**, which is the human queue and is never auto-claimed. About 53 of the 59 were never going
+  to be dispatched by anything.
+- **What caught it**: the first post-roll reading came back unchanged (0/16/59) and, instead of
+  waiting out the watch for a null, asking *"can these items actually be claimed?"* — one
+  `GROUP BY status` against the same rows.
+- **The cheap check**: `SELECT status, count(*) ... GROUP BY status` on the very rows a control
+  counts, before quoting the control. Three seconds, and it converts "N are waiting" into "N are
+  waiting **and here is who will pick them up**".
+- **Why it is worse than a wrong number**: a demand control's ONLY job is to make a zero mean
+  something. This one would have licensed exactly the conclusion it was built to prevent — "59
+  items were waiting and none was refused, therefore the guard failed" — against a guard that
+  might be working perfectly. **A broken control is more dangerous than no control**, because it
+  converts "I know nothing" into a confident wrong answer.
+- **THE TALLY IS THE POINT, and this is the third of one shape in a day** (all in this lane): a
+  census whose `deployed_at`/`is_active` filter could not see the population it existed to
+  measure; a `[MEASURED]` position that was stale within the hour; and now a control whose
+  "open" meant five arbitrary statuses rather than "something will claim this". In every case the
+  filter did not match the noun I named it after, and in every case the number looked reasonable
+  enough to repeat. **Before quoting a count, say the predicate out loud and check it against the
+  word you are about to use for it.** "Open" is not `NOT IN (five statuses)`; it is "a handler
+  will pick this up".
+
+Family: your-measurement-answers-the-question-you-encoded, a-post-fix-zero-needs-a-demand-control,
+a-closer-census-cannot-see-what-it-succeeded-at, a-measured-marker-proves-a-claim-not-a-check.

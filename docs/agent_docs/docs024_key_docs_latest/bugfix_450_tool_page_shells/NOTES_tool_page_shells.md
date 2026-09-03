@@ -398,3 +398,45 @@ open link items are claimed and the shell pages get rebuilt anyway. The first th
 is NOT the predicate but whether the running binary really carries the commit — which the stamp
 above already answers, so a null result would point at the declaration probe
 (`refuse_owned_page` on `page-build-handler`) or at those items not being claimed at all.
+
+## (o) 2026-09-03 12:1xZ — MY OWN DEMAND CONTROL WAS WRONG, and it is the third measurement of this shape today
+
+First post-window reading: **0 / 16 / 59**, identical to baseline (m). Before treating that as a
+null result I checked whether those items *can* be claimed — and they mostly cannot.
+
+Status breakdown of the "59 open" build items at tool-shell pages:
+
+| status | n | claimable? |
+|---|---|---|
+| `unresolved` | 26 | **NO — `unresolved` is in `workItemTerminalStatuses`** |
+| `needs_human_review` | 24 | NO — the human queue, never auto-claimed |
+| `failed` | 8 | **NO — terminal** |
+| `triaged` | 1 | yes |
+
+> **CORRECTION to (m): the demand was never 59, and "16 open link items" was the same error.** My
+> filter was `status NOT IN ('complete','verified','rejected','wont_fix','cancelled')` — five of
+> the six terminal statuses. It **admitted `unresolved` and `failed`**, which ARE terminal
+> (`work_items_common.go`, `workItemTerminalStatuses`), and admitted the HITL queue on top. The
+> genuinely dispatchable demand `[MEASURED 2026-09-03 12:1xZ]` is **6**, not 59.
+
+**Why this matters more than the arithmetic.** A demand control exists to make a zero readable.
+Mine counted rows that will never be dispatched, so it would have licensed exactly the conclusion
+it was built to prevent: "59 items were waiting and none was refused, therefore the guard failed."
+The truth is that ~53 of them were never going anywhere, guard or no guard.
+
+**Third instance today of one shape** — the census floor (`deployed_at`/`is_active`), the stale
+`[MEASURED]` position, and now this. In each case the filter I wrote did not match the concept I
+named it after, and in each case the number looked reasonable enough to repeat. The tally is the
+point (WRONG_CALLS): **before quoting a count, say the predicate out loud and check it against the
+noun** — "open" is not `NOT IN (five statuses)`, it is "a handler will pick this up".
+
+**The corrected control, and what it now licenses:**
+
+- **6** claimable items at shell pages — real demand, small.
+- **11** work items created since the roll fleet-wide, **0** of them at a tool-shell page — so the
+  write-time door has had **no opportunity to fire yet**. Its zero is not evidence either way.
+- **0** `deferred` rows created since the roll — consistent with the above, not a failure.
+
+So the honest statement right now is **"the guard is live and has not yet been exercised"**, not
+"the guard did not fire". The watch continues on receipts, which remains the right signal; if the
+6 claimable items are picked up and rebuild their pages without a receipt, THAT is falsification.
