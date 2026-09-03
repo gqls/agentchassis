@@ -197,6 +197,17 @@ func EnsureSiteRecordAction(ctx context.Context, params ActionParams) (interface
 		zap.String("domain", siteRecord.Domain),
 	)
 
+	// Seed the network's default analytics container for a site with no site_config yet
+	// (bugs_open/397 §6.2). Best-effort by contract: failure leaves the site exactly as
+	// unseeded as before this mechanism existed, and the backfill census catches it.
+	if seeded, err := seedAnalyticsDefault(ctx, params.DB, siteRecord.ID, networkID, params.Logger); err != nil {
+		params.Logger.Warn("EnsureSiteRecordAction: analytics default seed failed (non-fatal)",
+			zap.Error(err))
+	} else if seeded {
+		params.Logger.Info("EnsureSiteRecordAction: seeded network default analytics container",
+			zap.String("site_id", siteRecord.ID.String()))
+	}
+
 	return map[string]interface{}{
 		"site_id":      siteRecord.ID.String(),
 		"domain":       siteRecord.Domain,
