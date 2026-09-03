@@ -61172,3 +61172,55 @@ never ontological ("does not exist") — the form that invites belief.
 
 Family: a-doc-comment-is-not-an-enforcement-mechanism, a-report-is-not-a-measurement,
 a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
+
+- **2026-09-03 — mortgagecalculator_couk_adoption — I was two observations away from filing a
+  fleet-wide dispatch outage that did not exist.** Eight acceptance runs sat unclaimed for 17
+  minutes. I measured that `acceptance_run` claims fleet-wide went from steady all night to **zero
+  across two hours, 14 items stuck on three sites**, while the dispatch loop made **102 claims in
+  the same hour** on other item types — a textbook "detection works, dispatch does not". I then
+  found the handler agent had been edited at 08:56, an hour before the stall, and that its
+  `workflow.steps` was a JSON **object** where I expected an array. Cause, motive and timing all
+  agreed.
+  **All of it was wrong.** The control I nearly skipped: *how do other agents shape this?* **All 202
+  active agents use an object** — it is the normal shape, a map of step-name to step. The governor
+  was innocent too (`governor_admits('acceptance_run')` is true). The real cause was in the loader's
+  own SQL, which I had already read: `ORDER BY priority ASC ... LIMIT 8` with six priority-80
+  `page_rerender` items ahead of my priority-90 runs. **A queue, not an outage.**
+  ⚠ **What makes this worth logging is the shape of the near-miss, not the error.** Three
+  independent signals — a real zero, a real timestamp coincidence, and a real structural oddity —
+  pointed the same way, and the story they told was coherent, urgent and false. **Coincidence in
+  time is not mechanism, and "this looks wrong to me" is not a defect until you have looked at a
+  healthy peer.** The two cheap checks that dissolved it were one query each and I nearly wrote the
+  bug file first.
+  **The cheap check:** for any claim of the form "X is malformed", run the same inspection over the
+  population of X and see how many share the shape. If most do, you have found the convention, not
+  the bug. And before blaming a recent edit for a stall, ask whether anything *else* explains the
+  ordering — starvation and queueing look identical to failure from the stuck row's point of view.
+  Tally: **structural-oddity-called-a-defect-without-a-peer-comparison** ×1,
+  **coincident-timestamp-read-as-causation** ×1.
+
+- **2026-09-03 — bugfix_449 lane — a `cd` in one Bash call silently re-pointed every relative
+  path I used afterwards, and the only reason I noticed is that I happened to name a path.**
+  I ran `cd docs/agent_docs/.../bugfix_449_.../ && cat >> NOTES.md <<EOF` to append to my own
+  workstream notes. The shell's working directory persists between calls, so the next command,
+  `grep -n "no_auto_fix" platform/orchestration/actions/tool_acceptance_actions.go`, resolved
+  against the docs directory and reported **"No such file or directory"**. I briefly read that
+  as *another session has deleted or moved the file* — on a tree where that genuinely happens —
+  and went looking in `git log` for the rename. There was no rename. I was in the wrong
+  directory.
+  ⚠ **The near-miss is not the error, it is the version of it that stays quiet.** I got an
+  error only because I named one file. `grep -rn "<pattern>" --include='*.go' .` from the wrong
+  directory returns **zero matches, exit 0, and no message** — indistinguishable from
+  "the pattern is not in this codebase", which is exactly the false-clean this file is full of.
+  I had already run several `grep -r ... .` sweeps that session to establish that
+  `write_doc_plan_action.go` is the *only* Go writer of `doc_plans` — a **negative** claim, and
+  a load-bearing one. Had the `cd` landed a few commands earlier, that sweep would have come
+  back empty and I would have had no way to tell an empty codebase from an empty search.
+  **The cheap check:** `cd` inside a compound command is not scoped to that command. Either use
+  a subshell — `(cd <dir> && …)` — or, better, never `cd` at all and pass absolute paths; the
+  repo root is fixed and every path in this repo's docs is written repo-relative anyway. When a
+  sweep that should find something returns nothing, **`pwd` before you believe the zero** — and
+  pair any negative-claim sweep with a demand control (a pattern that MUST match), because a
+  wrong-directory zero and a true zero are the same bytes.
+  Tally: **relative-path-sweep-from-an-unverified-cwd** ×1,
+  **negative-claim-established-without-a-demand-control** ×1.
