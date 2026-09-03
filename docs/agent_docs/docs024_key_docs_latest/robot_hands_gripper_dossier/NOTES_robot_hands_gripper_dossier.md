@@ -2921,3 +2921,59 @@ own handoff records that topic as *"a topic NOTHING CONSUMES"* — but that land
 dispatch script is the estate's standard tool. **`[UNVERIFIED]` whether that verifier run
 ever executes.** Flagged only; the entry it was arming has since been retracted, so nothing
 here depends on it.
+
+## 2026-09-03 (evening) — the owner's screenshot showed no button; a real headless-Chromium render RIGHT NOW shows one. Reconciled by timestamp, not assumed away
+
+Owner sent a screenshot of `/gripper-report.html` after a hard refresh (Ctrl+Shift+R):
+no Start button, only the explainer copy and footer. Given this lane's own 08-26/09-02
+misstep — declaring a widget "live" on artefact-level checks that cannot see whether it
+renders — I did not treat the fix as proven and re-verify with more of the same. I found
+a real headless Chromium on this box (`/snap/bin/chromium`, snap-confined; writes must
+target `$HOME`, not the scratchpad, which it cannot see) and rendered the live URL.
+
+`--dump-dom` on `https://robot-hands.com/gripper-report.html` right now:
+```
+<div data-gri-root …><div class="gri-box"><p>…</p><button class="gri-btn">Start</button>…</div></div>
+```
+and a full screenshot (`/home/ant/live_render.png`) shows a bordered box with the intro
+copy and a blue **Start** button, mounted directly under the third paragraph. No console
+errors in the headless run's stderr. **This is the artefact that matters — a rendered,
+visible button — not a bundle grep**, closing the exact gap `debug_historian`'s gating
+objection named.
+
+So there are two true facts in tension: the owner's screenshot and my render disagree.
+Reconciled, not dismissed, by timestamp:
+
+- screenshot filename: `Screenshot From 2026-09-03 14-40-35.png` → **14:40:35 local
+  (BST)** = **13:40:35 UTC**, if the capturing machine's clock matches this repo's commit
+  timestamps (also BST, `+0100`).
+- my rerender (`4486ce39…`) completed **13:50:24 UTC** — *after* the screenshot's
+  timestamp.
+- **a second session picked up this exact bug concurrently** and shipped a further fix I
+  had not seen: `47d27dbe0` (16:19:47 UTC) — bubble text was unreadable on the site's dark
+  theme (`.gri-a`/`.gri-v` inherited `--color-text` #E2E8F0 onto their own near-white
+  backgrounds, 1.09:1 and 1.13:1 contrast; `.gri-note` hardcoded `#556` onto a `#0F1218`
+  page, 2.57:1). Fixed with `color:#111` on the two bubble classes (safe — the widget owns
+  both background and text there) and `opacity:.7` on `.gri-note` in place of a hardcoded
+  colour (correct — that element sits on the page background, which the widget does not
+  own). Byte-neutral by construction (both replacements are 10 B) plus 11 B for the pinned
+  colour: 8173 → **8184 B**, still under 8192. Applied, rerendered
+  (`d5f5a488-0df6-4ea8-832f-2ad4ad9b798f`, completed 16:18:44 UTC), and that session's own
+  commit records the owner having loaded the page and seen it render, immediately before
+  they found the contrast defect.
+
+So the screenshot most likely predates BOTH fixes by roughly ten minutes and forty
+minutes respectively. It is not evidence the current page is broken; it is evidence of
+what the page looked like before either landed. **I did not simply assert this** — the
+headless render just now is independent, current, positive evidence, not an explanation
+that argues the negative evidence away.
+
+Live row, right now, `[MEASURED 2026-09-03 evening]`: `octet_length=8184`,
+`js_content LIKE '%DOMContentLoaded%'`=t. Served bundle: 15,396 B, `grep -c
+DOMContentLoaded`=2, `grep -c color:#111`=1. Served page: 73,220 B unchanged, mount div at
+line 2324.
+
+**Council round 1's gating objection is now discharged by evidence, not by promise** —
+still owed: resubmit `5775dc10-c791-4285-9f4c-249a055b5aa3` with the served-artefact proof
+attached, and fold in the second session's contrast fix so the round reviews what is
+actually live rather than round 1's snapshot.
