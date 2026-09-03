@@ -64598,3 +64598,32 @@ returned something, so I have an answer".
 
 Family: measurement-discipline-index, a-measured-marker-proves-a-measurement-was-claimed,
 comm-and-sort-disagree-on-collation, grep-silent-on-non-utf8.
+
+## 2026-09-03 — "every recent diagnosis run has failed", from a query whose own filter excluded every success (`portfolio_positioning`, caught before publication)
+
+- **The near-claim.** Checking the diagnosis queue for duplicates before filing, I listed open
+  `needs_diagnosis` items and got **five rows, all `failed`**. I was one sentence from reporting that
+  the 090 loop — which CLAUDE.md makes the default before asserting any durable cause — was failing
+  every run, i.e. a fleet-wide capability outage affecting every lane.
+- **What was actually true.** The loop is healthy. Live table: **31 complete, 5 failed, 5 cancelled**,
+  the most recent completion **an hour before I looked**. Including the archive: **189 complete against
+  33 failed**, a ~15% failure rate over two months.
+- **Why the query said otherwise.** My filter was `status NOT IN ('complete','cancelled','rejected')` —
+  the standard open-work predicate, correct for its actual purpose (duplicate detection). But `failed`
+  is **not** in that terminal list, so failed items are the only `needs_diagnosis` rows that never leave
+  the open set. **The query could only ever have returned failures.** It was not a wrong predicate; it
+  was the right predicate read as an answer to a question it was not asked.
+- **Why it is worth logging even though nothing shipped.** This is the third instance in one day of the
+  same root shape — *my measurement answered the question I encoded* — after reading a page-level flag
+  as site-level publication, and after enumerating the readers of a field and speaking about the readers
+  of the information. Two of the three reached durable documents. The tally is the point.
+- **What caught it.** Noticing that "100% failure" and "CLAUDE.md tells every session to use this daily"
+  are hard to hold at once, and running the denominator. **An implausibly total result is the cheapest
+  possible prompt to check the denominator** — a 5-of-5 failure rate on a mechanism the estate depends
+  on should read as a suspect query before it reads as an outage.
+- **The cheap check that would have.** When a status filter produces a uniform result, **group by
+  status with no filter at all** before drawing any conclusion — one query, and the shape of the answer
+  changes completely. And remember `failed` is absent from `workItemTerminalStatuses`, so on ANY item
+  type an "open work" filter silently selects the failures: the same trap is waiting on
+  `needs_composition`, `page_rerender` and everything else.
+- **Cost.** None. Caught before it reached the owner or any document.
