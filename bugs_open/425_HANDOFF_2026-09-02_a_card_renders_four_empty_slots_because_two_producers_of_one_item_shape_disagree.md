@@ -733,8 +733,28 @@ Recorded here so the next reader of that row does not rediscover `nav_label` and
 2. **DONE — guard the slots** (migration 682), so a component can tell a missing input from
    an intentional blank.
 3. **DONE — detect the class** (`check_card_slot_guards.py`) and un-blind its sibling.
-4. **OPEN, and the only one that makes the bad state unrepresentable: give `input_schema` a
-   per-item field vocabulary.** *(Its cost is now visible in two directions: unguarded slots,
+4. **OPEN — and CORRECTED 2026-09-03: the per-item vocabulary EXISTS. What is missing is
+   narrower and I had it wrong.**
+
+   > I wrote repeatedly that `input_schema` "has NO vocabulary for the fields INSIDE an array
+   > item", and told three lanes so. **False.** `[MEASURED 2026-09-03]` **48 of 57** active
+   > `{{range}}` components declare an element shape (`items` or `item_schema`), **268 per-item
+   > declarations** exist across the library, and the resolver reads them —
+   > `extractArrayItemFields` at `plan_sections_action.go:2730`.
+   >
+   > **What that vocabulary cannot express is the part I needed**, and this is the accurate claim:
+   > of those 268 declarations, **218 carry a `type`, 2 carry `required`, and ZERO carry
+   > `on_missing` or `source`.** `extractArrayItemFields`'s own doc says it "returns the sorted
+   > field **names** each element must contain" — it feeds the **writer's prompt**, not the
+   > renderer's missing-handling.
+   >
+   > So the gap is not *"no per-item vocabulary"*. It is: **the per-item vocabulary describes
+   > SHAPE for the content writer and carries no missing-handling contract for the renderer.**
+   > Nothing can declare that `articles[].excerpt` is optional, or what to do when it is absent —
+   > which is why `check_card_slot_guards.py` still cannot tell a required headline slot from an
+   > optional read-time one, and why that check reports candidates rather than defects.
+   >
+   > The fix-candidate survives in the narrower form; my statement of it did not.** *(Its cost is now visible in two directions: unguarded slots,
    AND three unranked names for two slots — see the `nav_label` section above.)* Today `required` / `on_missing` / `fallback` exist per
    TOP-LEVEL field and the resolver honours them — but there is no vocabulary for the fields
    INSIDE an array item. `articles {required: true, on_missing: skip_section}` governs
