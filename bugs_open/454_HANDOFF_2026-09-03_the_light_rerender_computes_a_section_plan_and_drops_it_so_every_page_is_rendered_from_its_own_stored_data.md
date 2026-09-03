@@ -329,3 +329,71 @@ should read them before assuming this was the only way for resolved data to go m
 predates the verdict and carries `Council-Submitted: 075cfedd…`, which the 098 report resolves
 to the approval at report time with no amend (forward-only forbids one). That is the designed
 path, not an omission.
+
+## 12. VERIFIED LIVE, 2026-09-03 — the fix is proven at the artefact, and it stays OPEN for one reason only
+
+**A fresh chassis rolled at 12:18Z and the fix is in it.** Standing pods
+`agent-chassis-554857f96f-{kx69c,mdc6d}`, image `v1.0.1358`, both reporting
+`git_commit = d0252fd4dab2a3a583d1cc8eb8e1b26e9c422d85`, and
+`git merge-base --is-ancestor 9831e9ab4 d0252fd4d` exits 0.
+
+> ⚠ **The stale-row landmine fired exactly as documented and would have given the wrong
+> answer.** A bare newest-first read of `service_binary_capabilities` returned six rows for a
+> **spawned** `agent-image-build-handler` pod still carrying the OLD commit `7bf1ff67`. Filter
+> to the standing pods by name (`pod_name LIKE 'agent-chassis-<replicaset>-%'`) — the two
+> standing pods agree with each other, and that agreement is the signal.
+
+### The proof, from the run's own output rather than from a status
+
+Dispatched `page-rerender` / `reason=section_data_resolved` at the fight-calendar page
+(correlation `be75b209-1c52-4563-a7b3-bd00902a0367`). `rerender_sections` reported
+`rerendered:2 carried:0 escalated:false` — the same counts a broken run reported for a
+fortnight, which is why the counts are not the evidence. **The `sections_metadata` is:**
+
+| slot | content_data keys | items | rendered_html |
+|---|---|---|---|
+| `event-list` | `content, heading, **items**` | **1** | **2,498** bytes |
+| `hero-tool` | +`background_image`, +`hero_url` | — | 3,859 bytes |
+
+Against the pre-dispatch control taken minutes earlier: `event-list` was `content, heading`,
+**0** items, **1,813** bytes (`md5 ee2ec06829ff94ad8247945452b95915`), unchanged across three
+dispatches yesterday.
+
+**So the defect is closed on both halves of its own claim.** The query-sourced `items` field
+populates, and — the part that confirms the blast-radius argument rather than just the symptom
+— `hero-tool` simultaneously regained `hero_url`/`background_image`, the authoritative hero
+aliasing `planSection` writes for any section declaring an image field. **Two sections, two
+different non-`llm` sources, both restored by one line.** That is the 1,855-row population
+made visible on the one page that could see it.
+
+### Why this stays OPEN
+
+**The save was refused**, by a guard that went live in the same image:
+
+```
+step save_sections failed: failed to execute action save_page_sections:
+OWNED_PAGE_GUARD: page tool-fight-calendar is page_type=tool with no tool component:
+a generic section save would publish prose about a tool that is not there.
+```
+
+That is `bugs_open/450`'s `pageRefusesGenericBuild` (`owned_page_guard.go:161-166`,
+`page_type='tool' AND NOT EXISTS(component_level='tool')`), committed `587666be8` today. **The
+predicate genuinely holds here** — this page is `page_type='tool'` and both its components are
+`component_level='section'` — so this is not a claim that the guard is wrong.
+
+`[MEASURED 2026-09-03]` its reach: **58** active tool pages match the refusal across **12**
+sites, of which **53** on **9** sites already have deployed, serving components — those are the
+pages whose *re-render* is now refused, not merely whose build is held. Concentrated, not a
+long tail: loanandmortgagecalculator.co.uk 16, loanzy.uk 5+, idea.uk 3, loancash.co.uk 3,
+leopardessconsulting.co.uk 2.
+
+**The timing is what makes it bite, and it is nobody's fault.** Until this morning a re-render
+on those pages ran, reported success and delivered nothing — so refusing the save cost nothing
+observable. From `d0252fd4d` the same refusal costs a real repair. Raised with the `450` lane
+with the measurement (they had asked to be told if their tool-shell arm got in the way); the
+scope decision is theirs and **this file does not fork an account of it.**
+
+**454's own defect is fixed and proven.** It stays in `/bugs_open/` only because CLAUDE.md's bar
+is fixed AND live *at the artefact*, and the served page cannot change until the save completes.
+Whoever picks this up: the re-render half needs no further work — re-read this section before
+re-testing it.
