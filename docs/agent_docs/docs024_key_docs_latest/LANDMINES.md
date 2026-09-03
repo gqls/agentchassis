@@ -19936,6 +19936,7 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** MEMORY [[prove-a-deploy-at-the-artefact-index]] · [[relative-git-refs-are-not-evidence]] · [[a-fresh-deploy-can-ship-no-new-code]] · the `build provenance` line in CLAUDE.md ("did my fix ship? is now a query, not an inference" — the query is `merge-base`, and that is the timezone-free half of the advice)
 - **source:** 2026-09-02, bugfix 417/420 lane, dating the 424 guard fix against the running adapter. The `merge-base` verdict was right all along; only the human-readable story I built around it was wrong, which is why the error survived to a committed document.
 - **added:** 2026-09-02, bugfix 417/420 lane
+- **addendum 2026-09-03 (site_delivery_and_editor):** the same trap one tool over — **`date -u -d '<bare timestamp>'` parses the STRING in the machine's local zone (BST) and only RENDERS in UTC.** `date -u -d '2026-09-03 12:00:00' +%s` gave the epoch for **11:00Z**; a monitor armed with it as a "12:00Z hard close" fired at 11:02Z and closed a config window 13 minutes before the run it existed for. `-u` governs output, not input. Suffix the string: `date -u -d '2026-09-03T12:00:00Z' +%s`, and print the parsed deadline back in UTC before looping on it — the wrong value is visible in one line, and was, once printed.
 
 ---
 

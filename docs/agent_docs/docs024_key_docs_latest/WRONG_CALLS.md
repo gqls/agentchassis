@@ -39,7 +39,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **grep for the capability before asserting it does not exist** | **6** |
 | **prove the artefact is current before reasoning from it** | **4** |
 | measure a property before describing it | **2** |
-| **record the CLOCK beside a reading, never infer it afterwards** | **3** |
+| **record the CLOCK beside a reading, never infer it afterwards** | **4** |
 | **run a census against a known-positive control before reporting the count — and for a binary classifier, sample its BOUNDARY, because every implementation agrees at the extremes** | **3** |
 | **look at the real values before designing for the assumed ones** | **5** |
 | **follow the value across EVERY hop before sizing a fix — a struct→map→struct conversion is a hop, and a defect that fully explains the symptom can still be one of three** | **1** |
@@ -61084,3 +61084,23 @@ relay it: the 427 lane was right, and I only knew that because I re-ran their th
   it because the error line happened to survive the tail. **Read back `git log -1 --format=%B` after
   any message containing punctuation you did not think about.**
   Tally: **backticks-in-a-commit-message-executed** ×1.
+
+## 2026-09-03 — a "12:00Z" hard-close guard that fired at 11:02Z: `date -u -d` parses input in LOCAL time (session site_delivery_and_editor)
+
+- **The claim.** A monitor "forces the 725 ROLLBACK at 12:00Z if the window is still open" — told to
+  two lanes and the owner as the bound on the window's worst case.
+- **Why it was false.** `deadline=$(date -u -d '2026-09-03 12:00:00' +%s)` — `-u` sets the OUTPUT
+  zone; the bare string is parsed in the machine's local zone (BST, +01:00), so the epoch was
+  11:00:00Z. The guard fired at 11:02:03Z and closed the window at 11:02:05Z, thirteen minutes
+  before the rebuild's `retry_after` (11:15:25Z) — the one run the window existed for. Re-opened by
+  hand at 11:02:38Z; a new guard uses `'2026-09-03T12:00:00Z'` and prints its parsed deadline.
+- **What caught it.** The guard's own notification arriving an hour early. Not the design.
+- **The mistake, precisely.** The estate already has a landmine on exactly this family (kubectl UTC vs
+  git BST, "put both sides in one zone explicitly") and I had READ it that morning to write the
+  post-roll ancestry check. I applied it to git and kubectl and not to `date -d`, which is the same
+  trap in the tool I used to guard against the others.
+- **The cheap check that would have.** Print the parsed deadline back in UTC before the loop:
+  `date -u -d @$deadline`. One line; it is now in the monitor.
+- **Cost.** The window was closed for 33 s at 11:02 with no run inside it (no exposure, no missed
+  attempt — attempt 2 could not spawn before 11:15). The cost is a fourth clock/zone row in this
+  ledger today; the tally now reads 4.
