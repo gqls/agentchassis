@@ -167,3 +167,50 @@ step they wrote down for themselves doesn't select that test, so their own check
 shared build is red.
 
 ---
+
+## 2026-09-03, mid-afternoon — it's running, the reviewers approved it, and I want to be careful about what that means
+
+The new chassis went out and the two code changes are in it. I checked at the binary rather than
+trusting the version number, and I'm glad I did, because **an earlier build four hours before had
+the same version bump, the same restarted servers, and did not contain my change at all.** Three
+things that all looked like proof — the version went up, the servers restarted, my work was in the
+shared codebase — and together they proved nothing. The only thing that answered it was asking the
+running program directly whether it contained the new behaviour, with a deliberate wrong answer
+thrown in to check the question was capable of coming back negative.
+
+The internal reviewers also approved it, on the second round. The first round said *revise*, and it
+was right to. One reviewer spotted that my new record-keeping write could have been silently
+rejected by the database and I'd never have known, because I'd deliberately made that write
+non-fatal so it couldn't break anything more important. I checked: it was fine — but **only because
+of which value I happened to be using**, and I hadn't verified it. That's a fair catch, and the
+version now on record says which value it uses and why, and warns what to look at first if the
+thing ever goes quiet. Two of the six points they raised changed the code. That's a good return on
+half an hour.
+
+**Now the careful bit.** "It's running" is not the same as "it's working". Nothing has actually
+exercised the new behaviour yet: no calculator has been built and no calculator has been checked in
+the few minutes since the new version went out. So there's no example on record of a verdict
+carrying its new honesty label. I've written down exactly what to look for and — importantly — how
+to tell "nothing has happened yet" from "it's broken", because both look like an empty result and
+they want opposite responses. I'd rather hand that over as an open question than tell you it works
+on the strength of it being installed.
+
+**The daily report, though, is genuinely running and has produced real numbers.** It graded 241 test
+plans across the whole estate: **58 of them fill in a calculator's boxes and then check nothing at
+all about what comes out.** Thirteen of those were written in the last week. So this isn't a
+historical mess — it's a tap that's still running, and now there's something watching it every
+morning and writing down what it saw, including on the days it sees nothing wrong, so a silent day
+can't be mistaken for a clean one.
+
+**What I have not done, and would like a decision on eventually.** I still haven't taught the system
+to write better test plans. That's the actual cause. I've explained why in the last entry — briefly:
+recording what a brand-new calculator prints just protects today's mistake, and separately there's an
+open bug making test plans point at moved page elements, so switching number-checks on now would make
+*correct* calculators fail loudly. I've asked the two teams who own those pieces and neither has
+answered yet. Until they do, doing it would be guessing, and guessing here produces something worse
+than what we have: a wrong number defended by a green tick.
+
+Everything is written up for whoever picks it up next, and the handoff leads with the distinction
+above rather than burying it.
+
+---
