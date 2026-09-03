@@ -51,6 +51,11 @@ var (
 	ErrWaitingForResponse   = errors.New("orchestration is waiting for responses")
 	ErrVersionMismatch      = errors.New("optimistic lock failure: version mismatch")
 	ErrLoopExpansionHandled = errors.New("loop expansion handled: outer continueExecution must not continue")
+	// ErrTakeoverLost: the row this caller judged stale from its SNAPSHOT was no
+	// longer stale on the FRESH read inside the claim — another actor resumed it,
+	// or it moved on of its own accord. The caller returns having executed
+	// nothing (bugs_open/329).
+	ErrTakeoverLost = errors.New("stale-orchestration takeover lost: the row is being driven")
 )
 
 // backoffWithJitter calculates exponential backoff with random jitter.
@@ -758,28 +763,22 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 	case StatusExecutingStep:
 		s.logger.Info("Status Executing Step in handleOrchestrationStatus")
 		// Check if stuck
+		// The SNAPSHOT saying "stuck" is a reason to TRY a takeover, not to perform
+		// one. takeOverStaleOrchestration re-judges the FRESH row inside the
+		// version-CAS and resumes only if it wins the claim (bugs_open/329). This
+		// used to be ClearExecutingStep + reload + continueExecution — three
+		// separate reads, none of which re-tested the predicate.
 		if state.CurrentlyExecuting != nil && time.Since(state.LastActivity) > StuckOrchestrationTimeout {
-			s.logger.Warn("Found stuck orchestration, taking over",
-				zap.String("stuck_step", *state.CurrentlyExecuting))
-
-			if err := repo.ClearExecutingStep(ctx, state.OrchestrationID); err != nil {
-				return err
-			}
-
-			state, err := repo.GetState(ctx, state.OrchestrationID)
-			if err != nil {
-				return fmt.Errorf("failed to reload state: %w", err)
-			}
-
-			return s.continueExecution(ctx, state, execCtx)
+			return s.takeOverStaleOrchestration(ctx, repo, state, execCtx, StatusExecutingStep)
 		}
 
 		s.logger.Info("Orchestration is actively executing")
 		return nil
 
 	case StatusRunning:
-		// RUNNING is the inter-step GAP, not a resting state. ClearExecutingStep
-		// (the takeover just above) sets it immediately before continueExecution's
+		// RUNNING is the inter-step GAP, not a resting state. The EXECUTING_STEP
+		// takeover just above sets it (inside its claim, since bugs_open/329 —
+		// it was ClearExecutingStep before) immediately before continueExecution's
 		// loop re-marks the step as executing, so a healthy row occupies RUNNING
 		// for milliseconds. A message arriving inside that window belongs to a pod
 		// that is already resuming this orchestration, and resuming it here too
@@ -793,12 +792,10 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 		// stalled row rejected it instead. The reaper's invariant arm (migration
 		// 465) now bounds such rows at 4h whatever happens; this recovers them in
 		// seconds when a message does arrive, rather than erroring.
+		// Claimed, not assumed (bugs_open/329). This arm previously wrote NOTHING
+		// at all before resuming, so two arrivals seconds apart both resumed.
 		if time.Since(state.LastActivity) > StuckOrchestrationTimeout {
-			s.logger.Warn("Found orchestration stalled between steps (RUNNING), resuming",
-				zap.String("current_step", state.CurrentStep),
-				zap.Duration("idle_for", time.Since(state.LastActivity)))
-
-			return s.continueExecution(ctx, state, execCtx)
+			return s.takeOverStaleOrchestration(ctx, repo, state, execCtx, StatusRunning)
 		}
 
 		s.logger.Info("Orchestration is between steps (RUNNING) - another process is resuming it",
@@ -822,6 +819,40 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 	default:
 		return fmt.Errorf("unknown orchestration status: %s", state.Status)
 	}
+}
+
+// takeOverStaleOrchestration claims a row an arm judged stale from its SNAPSHOT and
+// then resumes it — or returns having done NOTHING, when another actor holds it.
+//
+// nil on a lost claim, not an error: the message was for an orchestration somebody
+// else is driving, which is exactly the disposition of the arms' own non-stale
+// branch. Returning an error here would turn a normal outcome into a retry.
+//
+// STALE_TAKEOVER_CLAIMED / STALE_TAKEOVER_LOST are the field meters. Before this
+// there was no durable needle at all, which is why "have the arms ever fired?" could
+// only be answered inside a pod's live log window (bugs_open/329).
+func (s *SagaCoordinator) takeOverStaleOrchestration(ctx context.Context, repo *StateRepository,
+	snapshot *OrchestrationState, execCtx *types.ExecutionContext, from OrchestrationStatus) error {
+
+	claimed, err := repo.ClaimStaleOrchestration(ctx, snapshot.OrchestrationID, from, StuckOrchestrationTimeout, s.podName)
+	if errors.Is(err, ErrTakeoverLost) {
+		s.logger.Warn("STALE_TAKEOVER_LOST: stale on the snapshot, driven on the fresh row — not resuming",
+			zap.String("orchestration_id", snapshot.OrchestrationID),
+			zap.String("snapshot_status", string(from)),
+			zap.Duration("snapshot_idle", time.Since(snapshot.LastActivity)))
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("stale takeover claim for %s: %w", snapshot.OrchestrationID, err)
+	}
+
+	s.logger.Warn("STALE_TAKEOVER_CLAIMED: resuming an orchestration idle past the stuck threshold",
+		zap.String("orchestration_id", claimed.OrchestrationID),
+		zap.String("from_status", string(from)),
+		zap.String("current_step", claimed.CurrentStep),
+		zap.Int("claimed_version", claimed.Version))
+
+	return s.continueExecution(ctx, claimed, execCtx)
 }
 
 // continueExecution executes from the current step

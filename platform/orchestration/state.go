@@ -1413,23 +1413,6 @@ func (r *StateRepository) TakeOverOrchestration(ctx context.Context, orchestrati
 	return rows > 0, nil
 }
 
-// ClearExecutingStep clears the currently executing step
-func (r *StateRepository) ClearExecutingStep(ctx context.Context, orchestrationID string) error {
-	state, err := r.GetState(ctx, orchestrationID)
-	if err != nil {
-		return err
-	}
-
-	state.CurrentlyExecuting = nil
-
-	// Only change status if not waiting for responses
-	if state.Status == StatusExecutingStep {
-		state.Status = StatusRunning
-	}
-
-	return r.UpdateState(ctx, state)
-}
-
 // ExecuteWithOptimisticLocking executes a function with retry on version conflicts
 func (r *StateRepository) ExecuteWithOptimisticLocking(ctx context.Context, orchestrationID string, fn func(*OrchestrationState) error) error {
 	maxRetries := 12
@@ -1476,6 +1459,92 @@ func (r *StateRepository) ExecuteWithOptimisticLocking(ctx context.Context, orch
 	}
 
 	return fmt.Errorf("max retries (%d) exceeded for orchestration %s", maxRetries, orchestrationID)
+}
+
+// ClaimStaleOrchestration is the check-and-claim behind handleOrchestrationStatus's
+// two takeover arms (bugs_open/329).
+//
+// THE DEFECT IT CLOSES is not a missing lock — it is a CHECK-THEN-ACT ACROSS TWO
+// READS. The arm judged "stuck" from the caller's SNAPSHOT; the write that used to
+// follow did its own fresh GetState → mutate → version-CAS and never re-tested the
+// predicate, so two takers arriving seconds apart BOTH won, each CASing against the
+// version it had just read. (⚠ Note the corollary before writing any test: exactly
+// SIMULTANEOUS takers never double-executed — the loser's CAS failed. The
+// disconfirming case is the SEQUENTIAL interleaving.)
+//
+// ⚠ bugs_open/329 and bugs_closed/294 both state that these writes are unversioned
+// ("ends in r.UpdateState(...), not UpdateStateWithVersion"). That is FALSE and was
+// false when written: UpdateState is a one-line wrapper for UpdateStateWithVersion
+// (see above). The version CAS was always there; it was answering a different
+// question.
+//
+// So: re-judge the FRESH row INSIDE the version-CAS and write only if it is still
+// stale. The write IS the claim — UpdateStateWithVersion stamps last_activity = now
+// and version+1 unconditionally, so the next caller's fresh read sees a row that is
+// no longer stale and gets ErrTakeoverLost. A lost version race is re-read by
+// ExecuteWithOptimisticLocking and RE-JUDGED; it never retries the claim blind.
+//
+// WHAT THIS DOES NOT CLOSE, so no caller reads more into it: a live driver versus a
+// taker. defaultLocalActionTimeout is 7200s and NOTHING refreshes last_activity
+// during a local action, so a driver inside a long step is "stuck" by the 300s clock
+// while behaving correctly. A driver holds nothing, and no claim on the takeover
+// side can exclude it. This bounds concurrency at 2 (driver + exactly one taker),
+// down from unbounded; closing the rest needs a driver heartbeat, a separate seam.
+//
+// Composed from the version-CAS ONLY: no SQL of its own, and processing_node is
+// neither read nor written — that column belongs to TakeOverOrchestration, and the
+// two guarded mechanisms must never govern the same column (state_locks_test.go,
+// council objection corr 4a227ed9). Deliberately NOT built on TakeOverOrchestration:
+// its CAS is `WHERE processing_node = $3` from the OBSERVED value, so where the row
+// already carries the acting pod's own name two callers in that pod both match and
+// both report rowsAffected = 1 — no exclusion at all.
+func (r *StateRepository) ClaimStaleOrchestration(ctx context.Context, orchestrationID string,
+	expectStatus OrchestrationStatus, staleAfter time.Duration, claimedBy string) (*OrchestrationState, error) {
+
+	var claimed *OrchestrationState
+
+	err := r.ExecuteWithOptimisticLocking(ctx, orchestrationID, func(fresh *OrchestrationState) error {
+		if fresh.Status != expectStatus {
+			return ErrTakeoverLost
+		}
+		if time.Since(fresh.LastActivity) <= staleAfter {
+			return ErrTakeoverLost
+		}
+
+		idleFor := time.Since(fresh.LastActivity)
+
+		// EXECUTING_STEP additionally clears the executing step — what
+		// ClearExecutingStep used to do in a separate, unguarded read-modify-write.
+		if expectStatus == StatusExecutingStep {
+			if fresh.CurrentlyExecuting == nil {
+				return ErrTakeoverLost
+			}
+			fresh.CurrentlyExecuting = nil
+			fresh.Status = StatusRunning
+		}
+
+		if fresh.ProcessingHistory == nil {
+			fresh.ProcessingHistory = []ProcessingRecord{}
+		}
+		fresh.ProcessingHistory = append(fresh.ProcessingHistory, ProcessingRecord{
+			PodName:   claimedBy,
+			StepID:    fresh.CurrentStep,
+			StepName:  fresh.CurrentStep,
+			Action:    "stale_takeover_claimed",
+			Timestamp: time.Now(),
+			Details: fmt.Sprintf("idle %s > %s in %s",
+				idleFor.Round(time.Second), staleAfter, expectStatus),
+		})
+
+		claimed = fresh
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// UpdateStateWithVersion bumped Version and LastActivity on this pointer.
+	return claimed, nil
 }
 
 func (r *StateRepository) GetStateByCorrelation(ctx context.Context, correlationID string) (*OrchestrationState, error) {
