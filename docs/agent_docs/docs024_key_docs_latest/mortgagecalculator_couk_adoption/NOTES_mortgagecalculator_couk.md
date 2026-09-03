@@ -5318,3 +5318,70 @@ naming a mechanism from it — having already made that mistake twice today on t
 **Nothing here is blocked in a way that matters.** No customer-visible work is waiting; the queue
 will reach us. The one thing with a clock on it is §4a of the handoff: when the rerenders land, the
 three held fences must be re-pointed **before** their runs are re-fired.
+
+## 2026-09-03 evening — my morning repair was half a repair, and it cost five false failures
+
+The queue drained while I was writing docs. All 11 rerenders completed (the last by 16:08), **all 18
+tool pages now render instance-scoped ids**, and the 5 acceptance runs came back. **All five FAILED.**
+
+### They failed because of me, and the detail is the lesson
+
+`tool-simple`: *"`#monthlyResult` is absent from the live DOM after settle (it reported a value when
+the golden was captured)"*. Same shape on the other four — `#pay1`, `#displayMonthly`, `#tcTotal`,
+`#erMaxCash`. **Bare** selectors, on pages I had supposedly re-pointed that morning.
+
+The fence holds selectors in **two** places and I only handled one:
+
+| where | key | my transform |
+|---|---|---|
+| the inputs to drive | `steps[].selector` | ✅ prefixed |
+| **the assertions** | **`expect_values`** — a map whose **KEYS are selectors** | ❌ **missed** |
+
+I matched a key called `values`. The runner's field is `expect_values`
+(`run_checks_action.go:238`, `ExpectValues map[string]string \`json:"expect_values"\``). So every
+fence filled the right boxes, clicked the right button, and then asserted an id the rerender had
+renamed. **The tools were never broken.**
+
+⚠ **And my verification could not have caught it, because it walked the same wrong key.** The
+morning check reported *ALL EIGHT SATISFIABLE* over selectors it collected with `k=="values"` — so
+the `expect_values` selectors were **never tested at all**. This is the mock-cannot-assert-a-negative
+family in its purest form: **a checker built from the same misunderstanding as the thing it checks
+returns green on the defect it was written to find.** The `[MEASURED]` marker was on it, the control
+was on it, and neither helped, because both ran through the same blind walker.
+
+### The fix, and the thing I did differently
+
+Re-pointed **every** selector on all 8 fences — the 5 half-broken ones plus the 3 held ones, whose
+pages had since been re-rendered too (bridging-loan, overpayment and stamp-duty went from 0 absent to
+**9/6/4 of their own selectors absent**, which is exactly the hazard §4a of the midday handoff
+predicted, arriving on schedule).
+
+**Verified textually off the raw fence JSON** — every `"#..."` occurrence — rather than by walking
+typed keys. That check cannot be fooled by a key name because it never looks at key names. Then:
+
+- **control:** the superseded fences, same test, absent on **1–9 selectors each** — so the transform
+  did real work rather than being a no-op;
+- an in-transaction `RAISE EXCEPTION` unless all 8 current fences carry `c-tool-`;
+- and **verified again by reading the fences back out of `doc_plans`**, not from my local files —
+  because "the file I wrote is correct" and "the row in the database is correct" are different
+  claims and I had just been burned by conflating two things that looked identical.
+
+**No expected VALUE was changed at any point today**, in either pass. Only addresses.
+
+8 runs re-fired: `f4ca8c2f` simple · `ccec6115` repayment · `afc70eb2` equity-release · `ab5b74c1`
+fee-analyser · `c06dd0a9` rate-forecaster · `768502e7` bridging-loan · `c635e599` overpayment ·
+`1c902ef1` stamp-duty.
+
+### What this cost, stated plainly
+
+Five false Tier-4 failures on record against working calculators, and a morning scoreboard in the
+midday handoff built on fences I had broken. **`no_auto_fix: true` is the only reason it stopped
+there** — those five went to a human queue instead of `tool-improver`, which would otherwise have
+been dispatched to "fix" five calculators that were correct. I chose that flag for a different
+reason and it caught this.
+
+⚠ **The irony worth recording:** I filed `bugs_open/441` about acceptance fences pointing at
+pre-conversion ids and recording false failures against working tools — and then produced five more
+of exactly that, by hand, in the repair. **Knowing the failure mode in detail did not protect me from
+committing it**, because my error was one level down: not "I forgot fences go stale" but "I did not
+read the struct that defines where selectors live."
