@@ -131,6 +131,16 @@ BEGIN
     WHERE type = 'content-quality-auditor' AND is_active
       AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 
+    -- NULL-SAFETY FIRST (council round 2, editquality MEDIUM — a real fails-open).
+    -- `position(<literal> in NULL)` is NULL, `NULL = 0` is NULL, and plpgsql treats
+    -- IF NULL as FALSE — so every anchor guard below would silently NOT raise if a
+    -- jsonb path resolved to NULL (step renamed, key missing, config drifted), and
+    -- the migration would proceed to replace() over a NULL prompt. Demonstrated in
+    -- psql: the bare form reports `fired = f` on a NULL input. Refuse explicitly.
+    IF q IS NULL OR p IS NULL THEN
+        RAISE EXCEPTION '694: load_page_content.query or run_content_llm_audit.prompt resolved to NULL on the live row (q IS NULL: %, p IS NULL: %) — the step names or config keys have moved; re-derive this seed from the live row', (q IS NULL), (p IS NULL);
+    END IF;
+
     -- Anchor on the exact defects this file is written against. If any is
     -- already gone, the live row is not the row these measurements describe.
     IF position($a$p.name IN ('index', 'about', 'services', 'contact')$a$ in q) = 0 THEN
@@ -221,7 +231,7 @@ WHERE type = 'content-quality-auditor' AND is_active
   AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
 
 DO $$
-DECLARE q text; p text;
+DECLARE q text; p text; v_site uuid; v_rows int; v_types int;
 BEGIN
     SELECT default_config->'workflow'->'steps'->'load_page_content'->'config'->>'query',
            default_config->'workflow'->'steps'->'run_content_llm_audit'->'config'->>'prompt'
@@ -229,6 +239,10 @@ BEGIN
     FROM agent_definitions
     WHERE type = 'content-quality-auditor' AND is_active
       AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL;
+
+    IF q IS NULL OR p IS NULL THEN
+        RAISE EXCEPTION '694: verify failed — the query or prompt resolved to NULL after the update';
+    END IF;
 
     -- The four-name allow-list must be GONE, not merely joined by new text.
     IF position($a$p.name IN ($a$ in q) > 0 THEN
@@ -258,6 +272,36 @@ BEGIN
     IF position('TOP 5 most impactful' in p) > 0 THEN
         RAISE EXCEPTION '694: verify failed — the old TOP 5 cap survived';
     END IF;
+
+    -- EXECUTE THE EMBEDDED SQL (council round 2, debug_historian MEDIUM).
+    -- Substring checks prove the text was written, never that it PARSES or runs:
+    -- SQL inside a step config is DATA to this migration and only becomes code
+    -- when the chassis runs the step, which is far too late to find a typo. So
+    -- run it here, against the real site with the most renderable components, and
+    -- assert it returns rows across more than one page_type (which is the whole
+    -- point of the change — the old query could only ever return the four names).
+    SELECT p2.site_id INTO v_site
+    FROM pages p2
+    JOIN page_components pc2 ON pc2.page_id = p2.id
+    WHERE pc2.rendered_html IS NOT NULL AND pc2.rendered_html <> '' AND pc2.locked_at IS NULL
+    GROUP BY p2.site_id
+    ORDER BY count(DISTINCT p2.page_type) DESC, count(*) DESC
+    LIMIT 1;
+
+    IF v_site IS NULL THEN
+        RAISE EXCEPTION '694: verify failed — no site with renderable components to execute the new query against, so the execution check would be vacuous';
+    END IF;
+
+    EXECUTE 'SELECT count(*), count(DISTINCT page_type) FROM (' || q || ') AS s'
+      INTO v_rows, v_types USING v_site;
+
+    IF v_rows IS NULL OR v_rows = 0 THEN
+        RAISE EXCEPTION '694: verify failed — the new load_page_content query parses but returned 0 rows for site % (it must sample something)', v_site;
+    END IF;
+    IF v_types < 2 THEN
+        RAISE EXCEPTION '694: verify failed — the new query returned % row(s) spanning only % page_type(s) for site %; the change exists to sample MORE than one class of page', v_rows, v_types, v_site;
+    END IF;
+    RAISE NOTICE '694 verify: new query executed on site % -> % rows across % page_types', v_site, v_rows, v_types;
 END $$;
 
 COMMIT;

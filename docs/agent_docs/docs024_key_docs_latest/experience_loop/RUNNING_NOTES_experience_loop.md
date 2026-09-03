@@ -1647,3 +1647,37 @@ Its latest audit remains **06:23Z, pre-694, 3 pages**. The sweep takes one site 
 dimensions demonstrably produce the owner's complaint classes. It has still never run on the site
 that prompted it, and that remains 0b(c) for whoever picks this up — by WAITING for the sweep, not
 by re-running my script.
+
+---
+
+## 2026-09-03 — the applied migration was NOT the committed migration, for ~7 hours
+
+Caught while checking the tree was clean ahead of a chassis build. `git status` showed
+`694_content_quality_auditor_can_see_the_site.sql` **modified and uncommitted** — 45 lines that
+exist in the live database and did not exist in git.
+
+**How it happened, and it is a clean example of a rule I had already read.** The sequence was:
+round 1 REVISE → fix the greedy regex → **commit `0fa679a28`** → submit round 2 → **APPROVED with
+three advisories** → act on two of them (the NULL-safety refusal and the execute-the-embedded-SQL
+verify) → **apply to the live DB**. The advisory fixes landed between the commit and the apply, and
+I committed nothing in between. Applying felt like the terminal act, so the commit felt already
+done — but the apply is what makes it *live*, not what makes it *recorded*.
+
+**The cost, had this session ended there:** the next reader of `694…sql` would have found a file
+whose verify block has no NULL guard and never executes the query, and would have concluded the
+live seat was applied without those protections. `agent_definitions_bak_694` and the live row would
+both have disagreed with git, with no way to tell which was authoritative. The rollback file would
+still have worked, so nothing was at risk — but the audit trail was wrong for about seven hours.
+
+**The check, and it costs nothing:** `git status <the file you just applied>` **immediately after
+applying**, not at the end of the session. "Live" and "committed" are independent facts and an
+apply advances only one of them. This is the auto-memory entry
+`live-and-committed-are-independent-facts` — which I had loaded, and which describes this exact
+shape ("sweep file-vs-live before you finish"). Reading a rule is not running it.
+
+Committed now. The live DB and git agree again; nothing was lost, forward-only holds.
+
+**Also noted for the incoming build:** a chassis build is in flight, deploying within the hour
+(current tag `v1.0.1355`, pods up 2026-09-02 20:56/20:57Z). 694 is DB config so the roll cannot
+ship or revert it, but the §0b checks in `HANDOFF_2026-09-02b` are **per-roll, not once** — re-run
+them against the new tag. Boxing Online has *still* not been audited post-694 as of this check.
