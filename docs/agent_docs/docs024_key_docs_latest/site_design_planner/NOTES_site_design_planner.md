@@ -610,3 +610,42 @@ pure CSS, checked its exact selector scope, ready to draft if wanted. Left the
 choice with `vetcomparison`/the owner rather than picking for them — both
 substantial options touch the content freeze regardless of which one looks
 smaller.
+
+## 2026-09-03 — owner approved the claimed-chip (checkmark, no word); implemented
+
+Read the current `directory-listing` template fresh (diffed against the
+2026-09-02 copy — unchanged, safe to build on) before editing, per the
+read-before-write discipline this whole thread has kept. Added the positive
+`{{if .is_claimed}}` branch beside the existing negative one, unchanged
+copy on the negative side. Glyph is a bare `✓`, `role="img"
+aria-label="Claimed listing"` (metadata per the owner's own ruling, not page
+copy). **Deliberately reused the independence_bg/independence_border tokens**
+from the earlier (still-unplaced) banner work rather than inventing new ones —
+same trust-signal family, and it's the pattern the owner pointed at. Glyph
+colour is the accent-ink token, never raw `#10b981` (would fail 3:1... actually
+non-text is 3:1, but the owner's own instruction named the ink token
+explicitly, so honoured it as written rather than relying on the numbers
+alone).
+
+**Applied via a scripted, verified diff, not a hand SQL replace**: python
+generated the new template from an exact-match, uniqueness-checked splice
+(both anchors confirmed `count==1` before writing), MD5-verified the fetched
+copy matched the live DB row byte-for-byte (a trailing-newline artefact from
+`psql -A` output was the only difference, confirmed and accounted for, not
+ignored), applied via dollar-quoted SQL to sidestep any escaping risk on the
+glyph/quotes, verified all four expected substrings present post-write with a
+single query (`~`/`LIKE`, not another eyeball diff).
+
+**Rerender queued, but found and left alone a pre-existing sibling item worth
+recording:** `directory-index` already had a `page_rerender` item from this
+morning's `claimed-first-ordering` rollout (`rerender-pages`, **no `reason`
+key at all** — takes the assemble/re-staple branch, not the regenerating one).
+Reasoned through whether this races my new `template_changed` item: it
+doesn't, because assemble only re-stitches ALREADY-STORED section HTML rather
+than regenerating anything, so whichever order the two run in, the reason-less
+one is a harmless no-op and mine is the one that actually matters. Did not
+cancel it — no need to, and cancelling a work item I don't own outright felt
+like the wrong kind of intervention for a genuinely harmless collision.
+
+Reported to `vetcomparison` for their artefact verification, as agreed
+throughout this thread.
