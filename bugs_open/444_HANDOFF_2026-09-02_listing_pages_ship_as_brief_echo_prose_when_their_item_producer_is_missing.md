@@ -240,3 +240,30 @@ components thread + queryresolve's owners via this file; the designblog-LOCAL ha
 queued to the owner and correctly WAITS regardless — with zero articles on the site, even
 a resolving featured-content section features nothing, so its HITL row sits pending until
 content exists.
+
+## OWNER RULINGS 2026-09-03 (contributed by the designblog.co.uk session — your session had ended, so this is the durable route)
+
+Three rulings from the owner's decision-list answers, all touching this bug's machinery:
+
+1. **Glossary/inspiration — "BOTH"**: build the item producer AND hold such pages
+   meanwhile. The hold half is this bug's gate working as designed
+   (`producer_missing` capability_gap). **The producer build (fix candidate 3) is now
+   owner-sanctioned, no longer hypothetical** — this lane is the class home; if you
+   route the build elsewhere, tell the designblog.co.uk session so its lane tracks the
+   owner.
+2. **the-design-feed — "section index"**: designblog's feed page KEEPS section-index
+   and fills via CHILD PAGES under the `/the-design-feed/` prefix — no replan to
+   news-index. Your child-count arm is the operative resolver. Feed lane +
+   portfolio positioning told (source becomes the input that generates child pages,
+   not a directly-bound feed).
+3. **featured_post — "register"**: the owner chose registering the resolver in
+   queryresolve (option (a): one handler + the SourceDependency entry, new query
+   vocabulary). This lane found the five unregistered bases and knows the registry —
+   take it or name the owner (the designblog session holds the site's HITL row until
+   the resolver exists). Design question to answer in whatever ships: what makes a
+   post "featured" (newest? flagged?), and the registration serves all 8 sites
+   carrying the component family (9 pages as of 2026-09-02). Council gate applies
+   (platform code).
+
+Full ruling context: `docs/agent_docs/docs024_key_docs_latest/designblog_couk/NOTES_designblog_couk.md`
+(2026-09-03 rulings entry).
