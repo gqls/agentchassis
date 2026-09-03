@@ -347,3 +347,54 @@ option that makes the number honest without taxing 35 authors or resting a conve
 extractor's type check. But it is the most work, and the RFC is closed, so it is genuinely the
 owner's call whether the blind spot is worth closing now or left documented. No code shipped for
 this; `bugs_open/345`'s key stays uncounted (and harmless at 3) until the owner rules.
+
+---
+
+## Addendum 2026-09-03 — a recorded escalation trigger for `on_approve.fan_out_from` (`site_delivery_and_editor`)
+
+Filed here rather than left in a council submission's prose, because a decision that lives only in a
+submission has to be re-derived by whoever needs it next — which is the exact failure this RFC is
+about, one level up. Raised by the council's `tooling_provenance` seat on correlation `d04c1bc1`.
+
+**What shipped.** `bugs_open/466` added two optional keys to the `on_approve` block that
+`checkpoint_for_review` embeds in a human-review work item: `fan_out_from` (file one follow-on per
+element of a named array in the approved data) and `defaults`. Both default **absent**, so an
+`on_approve` naming neither behaves byte-identically to before — the 2026-08-02 §2 shape.
+
+**Why the RFC_022 exemption was NOT claimed.** All three of its conditions must hold, and the third
+does not: migration `750` wires a live consumer (copy-editor) in the same commit. The change went
+through the ordinary council gate instead, and the architecture seat read it as a contained
+`point_fix` — correctly, for **one** wired consumer.
+
+**The trigger, stated so nobody re-derives it.** `[MEASURED 2026-09-03]` — by a **recursive** walk of
+every live, non-snapshot, undeleted `agent_definitions.default_config`, exactly **one** step anywhere
+configures `on_approve`: `copy-editor / workflow.steps.request_review`. Zero others, sub-workflows
+included.
+
+> **A SECOND live consumer setting `fan_out_from` comes back as `needs_rfc`, not as another
+> same-commit wiring.** At that point `on_approve` is a small dispatch contract for the estate's only
+> human-in-the-loop copy-approval route, the "zero live consumers" safety property is gone for real,
+> and the accumulation this RFC exists to catch has happened.
+
+⚠ **Re-run the census recursively; the obvious query is blind.** `jsonb_each(default_config->'workflow'->'steps')`
+is a TOP-LEVEL walk and cannot see a step nested in a `sub_workflow` — the council caught exactly
+that in round 2 of this change, where the top-level version happened to give the right answer for the
+wrong reason. Use:
+
+```sql
+WITH RECURSIVE walk(agent, path, node) AS (
+  SELECT d.type, 'workflow.steps', d.default_config->'workflow'->'steps'
+  FROM agent_definitions d
+  WHERE d.is_active AND COALESCE(d.is_snapshot,false)=false AND d.deleted_at IS NULL
+    AND d.default_config->'workflow' ? 'steps'
+  UNION ALL
+  SELECT w.agent, w.path || '.' || kv.key, kv.value
+  FROM walk w, jsonb_each(w.node) kv WHERE jsonb_typeof(w.node)='object'
+)
+SELECT agent, path FROM walk
+WHERE jsonb_typeof(node)='object' AND node->'config' ? 'on_approve';
+```
+
+**Sources:** `bugs_open/466` · council `d04c1bc1` (rounds 1–3) · concept register `ADM-012` ·
+`internal/core-manager/admin/site_admin_handlers.go`, where the same query and the same trigger
+condition are recorded in the handler itself.
