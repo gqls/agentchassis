@@ -570,8 +570,21 @@ func TestEmitOwnedPageReviewItem_ToolShellSpecTellsTheTruth(t *testing.T) {
 	if strings.Contains(advice, "rebuild_policy if the page genuinely is") {
 		t.Errorf("tool_pending advice reuses the OWNED remedy, which does not apply here: %q", advice)
 	}
-	if summary := refusalSummary(refusalToolPending, "tool-x"); !strings.Contains(summary, "no tool component") {
-		t.Errorf("summary should say what is actually wrong: %q", summary)
+	// ⚠ The summary must state the MEASURED fact (no tool-LEVEL component) and not
+	// the inference that the page has no tool at all. idea.uk /report.html is typed
+	// 'tool', has no tool-level row, and serves 1 form / 8 inputs from a
+	// SECTION-level component — so "a tool that is not there" was false for the one
+	// page in the fleet that tests this wording, and would send an operator hunting
+	// for a missing tool they would then find working.
+	summary := refusalSummary(refusalToolPending, "tool-x")
+	if !strings.Contains(summary, "no tool-level component") {
+		t.Errorf("summary must name the measured fact — the absent tool-LEVEL component: %q", summary)
+	}
+	for _, overclaim := range []string{"tool that is not there", "has no tool yet", "is empty"} {
+		if strings.Contains(summary, overclaim) {
+			t.Errorf("summary asserts %q, which is false for a page serving a form from a "+
+				"section-level component: %q", overclaim, summary)
+		}
 	}
 	if summary := refusalSummary(refusalOwned, "tool-x"); !strings.Contains(summary, "Owned page") {
 		t.Errorf("the owned summary must be unchanged — live queries read it: %q", summary)

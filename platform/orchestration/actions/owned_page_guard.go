@@ -446,22 +446,45 @@ func emitOwnedPageReviewItem(ctx context.Context, db *sql.DB, siteID uuid.UUID, 
 // (owned_page_review:<name>) so a page collects ONE row however it was refused
 // and however many producers tried — the dedup arbitration reconcile's own
 // emitter already relies on.
+// ⚠ THE tool_pending WORDING STATES A FACT, NOT AN INFERENCE — corrected
+// 2026-09-03 after a probe of the one page in the fleet that tests it.
+// `idea.uk` `/report.html` is typed 'tool', carries NO tool-level component, and
+// serves 1 form / 8 inputs — indistinguishable from a real tool at the body
+// (control: advertise's ab-test-calculator, 1 form / 11 inputs, same probe, same
+// run). Its interactivity lives in a SECTION-level component
+// (`report-request-form`), and `page_component_history` shows no tool row has
+// EVER been attached, so it is not a stripped tool page either.
+//
+// The refusal is still RIGHT there — a generic rebuild would clobber that form,
+// which is migration 164's whole argument one level along — but the old wording
+// said the generic builder "would publish prose about a tool that is not there",
+// and for this page that is simply false: the tool IS there, at the wrong level.
+// An operator reading it would go looking for a missing tool and find a working
+// one. So the text now says what was MEASURED (no tool-level component) and
+// leaves the consequence conditional. Raised by the portfolio_positioning lane,
+// which pointed out that "6 components and no tool" is also what a page looks
+// like after a tool is removed — a distinction I had not made.
 func refusalSummary(class, pageName string) string {
 	if class == refusalToolPending {
-		return fmt.Sprintf("Tool page %s has no tool component yet — excluded from generic rebuilds so it is not filled with prose about the tool", pageName)
+		return fmt.Sprintf("Tool page %s has no tool-level component — excluded from generic rebuilds, which would rewrite it as ordinary prose", pageName)
 	}
 	return fmt.Sprintf("Owned page %s was excluded from a generic rebuild — needs owner-aware handling, not the generic builder", pageName)
 }
 
 func refusalFixAdvice(class string) string {
 	if class == refusalToolPending {
-		return "This page is typed 'tool' but carries no tool component, so the generic builder " +
-			"would publish prose about a tool that is not there (bugs_open/450). Do NOT route it " +
-			"to the generic page builder. The tool pipeline creates the component itself " +
+		return "This page is typed 'tool' and carries no tool-LEVEL component, so a generic " +
+			"rebuild would rewrite it as ordinary prose (bugs_open/450). Do NOT route it to the " +
+			"generic page builder. The tool pipeline creates the component itself " +
 			"(design-discovery evaluate_tools -> tool-suggester add_tool -> tool-deployer), after " +
 			"which this refusal STOPS ON ITS OWN — it is derived from the page's contents, not a " +
-			"flag anyone has to clear. If the page is not really a tool page, correct " +
-			"pages.page_type; if the tool is wanted now, mint an add_tool item for it."
+			"flag anyone has to clear. " +
+			"CHECK THE SERVED BODY BEFORE ASSUMING THE PAGE IS EMPTY: a tool is a FORM, and a " +
+			"page can serve a working one from a SECTION-level component, in which case this " +
+			"refusal is protecting it rather than reporting a gap (idea.uk /report.html: 1 form, " +
+			"8 inputs, no tool-level row, 2026-09-03). If the tool is wanted as a first-class " +
+			"component, mint an add_tool item; if the page is not really a tool page, correct " +
+			"pages.page_type; if it is already interactive and correctly typed, leave it."
 	}
 	return "Owned/interactive page was excluded from a generic rebuild. Do NOT route it to " +
 		"the generic page builder — it produces a prose page where an interactive tool " +

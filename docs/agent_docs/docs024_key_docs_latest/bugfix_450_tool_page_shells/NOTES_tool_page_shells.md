@@ -581,3 +581,39 @@ Also from them, and it closes my one open risk: **none of the 8 looks like the `
 case** — a page wrongly typed `tool` whose generic rebuild was genuinely wanted. All 8 were real
 tools the briefs asked for. The single fleet-wide candidate for that class remains `idea.uk`
 `/report.html`, unchanged.
+
+## (t) 2026-09-03 — the [UNMEASURED] risk is CLOSED, and the answer is not the one I expected
+
+The portfolio lane cautioned that *"six components and no tool is also what a page looks like
+after a tool was removed or deactivated, not only what a mis-typed page looks like"* — a
+distinction I had not made. `idea.uk` `/report.html` was my sole fleet-wide candidate for the
+council's `[UNMEASURED]` misfire class, and I had called it "mislabelled" on a predicate that only
+established "typed tool, no tool-level component". Different claims.
+
+**Settled at the rows and then at the artefact:**
+
+- `page_component_history`: **no tool-level row has EVER been attached.** So not a stripped page.
+- Its six components: `hero`, `Generic Text Block` ×2, `info-card-grid`, `call-to-action`, and
+  **`report-request-form` — a form, at SECTION level.**
+- **At the served body `[MEASURED 2026-09-03]`: 1 form, 8 inputs, 2 buttons, 100,896 B.** Control
+  in the same run, a known-real tool: advertise's `ab-test-calculator`, 1 form / 11 inputs.
+  **Indistinguishable from a real tool by this lane's own test.**
+
+**So the answer to the council's risk is: ZERO pages where the refusal causes harm.** The one
+candidate is a fully working interactive page, and refusing a generic rebuild of it is *correct* —
+a rebuild would clobber that form, which is migration 164's argument one level along.
+
+> **BUT THE RECEIPT WAS LYING, and that is the real finding.** The old wording said the generic
+> builder *"would publish prose about a tool that is not there"*. For this page that is **false**:
+> the tool IS there, at the wrong level. An operator reading that receipt would go hunting for a
+> missing tool and find a working one. Fixed: the summary and the advice now state the MEASURED
+> fact (no tool-**level** component) and leave the consequence conditional, and the advice tells
+> the reader to **check the served body before assuming the page is empty**, naming this page as
+> the worked example. The test that pinned the old wording asserted the falsehood, so it now
+> asserts the opposite — that the summary must NOT claim the tool is absent.
+
+**The shape, for the fourth or fifth time today:** I measured one thing (`no tool-level
+component`) and named it another (`mislabelled`, then `prose about a tool that is not there`). The
+predicate was right; every sentence I wrapped around it was an inference I had not tested. What
+caught it was a peer asking what else could produce the same reading — which is the cheapest
+possible form of the check and the one I keep not running on my own claims.
