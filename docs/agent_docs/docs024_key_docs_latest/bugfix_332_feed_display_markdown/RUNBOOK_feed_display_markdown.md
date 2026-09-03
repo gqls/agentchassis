@@ -277,16 +277,40 @@ for d in agent-chassis core-manager; do
 done
 ```
 
-### Prove it ran; do not infer it from a clean page
+### Prove it ran — the THIRD question, which neither the surface nor the column answers
 
-A page can read clean because the feed had no markdown that day.
+There are three questions here and they need three instruments. *Is the visitor seeing junk?* →
+the served surface. *Is ingestion clean?* → the column. **And: did my change actually ship and
+run?** → neither of those. A page can read clean because the feed had no markdown that day.
+
+> **⚠ CORRECTED 2026-09-03 — the first version of this command lied in two ways, both of which
+> make a zero UNREADABLE rather than merely noisy** (the `news_feed_ingestion` lane's catch;
+> the count below is sharper than theirs — they said five call sites, it is **seven**).
+>
+> 1. **The needle was too loose.** `grep 'stripped literal markdown'` matches **7** call sites
+>    and only ONE is this projection: `section_editor_actions.go:1151` and `:1330`,
+>    `rerender_page_sections_action.go:312` and `:1632`, `v3_site_actions.go:2298` and `:2363`,
+>    and the real one, `queryresolve/news_items.go:443`. A rerender or a section edit on that
+>    site satisfies it just as well, and on a busy chassis both are far more frequent than a
+>    feed render. Use the distinct prefix.
+> 2. **`logs deploy/agent-chassis` reads ONE POD OF N**, and there are **2** live right now
+>    (verified 2026-09-03). A zero can simply mean the other pod served the request.
 
 ```bash
-kubectl -n ai-persona-system logs deploy/agent-chassis --since=2h | grep 'stripped literal markdown'
+kubectl -n ai-persona-system logs -l app=agent-chassis --since=2h --prefix \
+  | grep -c 'queryresolve: stripped literal markdown'
 ```
 
-**Disconfirming: zero lines while dirty rows exist for that site** ⇒ the switch is set, or the
-reader executing is not the one you changed.
+**READ IT THREE WAYS, NOT AS PASS/FAIL** — the third reading is the one mistaken for success:
+
+| result | means |
+|---|---|
+| non-zero | the projection ran. This is the pass. |
+| zero **while the column is dirty for that site** | the switch is set, or the binary is old. This is the failure. |
+| zero **while the column is clean** | **nothing whatsoever.** The instrument had no case it could have come out otherwise on. |
+
+That third row is the same demand-control shape as the self-heal falsifier above — and I wrote
+both of them without it, one paragraph apart.
 
 ### ⚠ `build provenance` is a STARTUP line and scrolls
 
