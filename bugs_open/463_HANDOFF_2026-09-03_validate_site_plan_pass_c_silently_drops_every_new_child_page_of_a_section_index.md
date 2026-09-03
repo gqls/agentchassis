@@ -223,9 +223,11 @@ stands — not a claim that Pass C emptied all 53.)
 
 ### Residuals, filed or named rather than fixed here
 
-- **`bugs_open/465`** — `truncatePreservingRealised` drops EVERY net-new page once the preserved
+- **`bugs_open/467`** — `truncatePreservingRealised` drops EVERY net-new page once the preserved
   set reaches `max_pages` (20), with one `logger.Warn` and no durable record. Same silent-shrink
-  signature, different pass; it means this fix alone will not fill a hub on a site of 20+ pages.
+  signature, different pass. `[MEASURED 2026-09-03]` **26 of 42** sites with pages are already at
+  or over that cap, so on those sites this fix alone will not fill a hub — 467 eats the children
+  immediately afterwards. **Verify 463 on a site UNDER the cap**; gamedesign.uk (9 pages) is one.
 - **`create_blog_posts_action.go`, `apply_gap_plan_action.go`, `apply_adoption_plan_action.go`**
   call `CanonicalisePage` without threading `ParentSection` at all, so they still write
   blog-posts to `/blog/` whatever the plan says. Found by the `feed lane` and verified here.
