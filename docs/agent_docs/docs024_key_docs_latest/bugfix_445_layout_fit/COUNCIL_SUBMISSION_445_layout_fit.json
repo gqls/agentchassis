@@ -1,0 +1,67 @@
+{
+  "rationale": "bugs_open/445 was filed as 'the layout library has no archetype for content-hub-with-embedded-tools, so three briefs converged on magazine-grid'. That is true and it is a symptom. The mechanism is that the estate cannot SEE a library gap of that shape, by construction. site-design-planner's library-growth signal (needs_new_layout_candidate) is emitted only when resolveLayoutByTags returns IsFallback (no layout scores above zero anywhere in the library) or IsSchemeMismatch. But the category (0.75), description (<=0.90) and same-scheme (0.50) bonuses are added to `total` INDEPENDENTLY of any tag matching, so `total > 0` is satisfiable with `tagScore == 0`. A layout matching NONE of a site's tags therefore counts as the library having answered, and no gap is recorded. MEASURED 2026-09-03: four live sites are recorded by this very code as `tags 0.00` WITH lineage layout_source `library_match`; exactly TWO needs_new_layout_candidate items exist across 63,007 work items ever written (29,657 live UNION 33,350 archived), and BOTH are from the degenerate no-tags-at-all arm \u2014 so the number of times this mechanism has assessed the library and reported it short is zero. Meanwhile the classifier's live prompt tells the model 'an unmatched tag will trigger a library-growth review work item rather than silently fail', which is false. This change does not invent a mechanism: migration 103_site_design_planner.sql specified it in April 2026 (lineage.layout_match_score '(float 0-1) \u2014 tag-overlap score for chosen layout', a threshold whose worked example reads 'above threshold 0.5', and layout_source 'needs_new_layout_candidate') and none of the three was ever built. It computes the normalised score, records it with the threshold in force, and widens the predicate to fire on weak tag fit. SELECTION IS DELIBERATELY UNCHANGED \u2014 no site's layout moves; only what is recorded and whether a parked review item is filed. The threshold 0.50 is taken from the measured coverage distribution's widest empty band (38%-62%) rather than invented; the only other empty band (10%-15%) is about one tag wide on a ten-term site and would flip on ordinary classifier variance. What I most want challenged: (a) whether firing on weak fit will flood a queue nobody drains \u2014 my answer is that the durable record is the resolved_composition row and the work item is site-scoped and deduped by item_key, with clustering planned as a separate fleet sweep; (b) whether promoting lineage.layout_source to 'needs_new_layout_candidate' on a gap loses the information that a real library_match occurred \u2014 I keep layout_gap_flagged/layout_gap_reason as separate keys and leave library_fallback intact for the fallback arm, but a reviewer may prefer the enum untouched; (c) whether the coverage denominator should include terms no layout carries (it does, deliberately \u2014 a term the library cannot serve is exactly what must count against fit).",
+  "plan": {
+    "summary": "445: make layout FIT a measured, recorded quantity and fire the library-growth signal on it. The signal could only fire when the TOTAL score was zero library-wide, but bonuses are added independently of tag matching, so a layout matching NONE of a site's tags counted as a successful match \u2014 measured on four live sites, with only two gap items ever raised across 63,007 work items, both from the degenerate no-tags arm. Completes migration 103's April-2026 spec (layout_match_score, a threshold, and the needs_new_layout_candidate lineage value), none of which was ever built. Selection is deliberately unchanged; no migration needed.",
+    "edits": [
+      {
+        "file": "platform/orchestration/actions/fork_theme_composition.go",
+        "operation": "add",
+        "rationale": "Add lmMinTagCoverage tunable plus layoutFit struct and LibraryGap()/GapReason() methods, so the gap predicate has ONE definition shared by the action and its tests and cannot drift.",
+        "sketch": "const lmMinTagCoverage = 0.50\ntype layoutFit struct { TagCoverage, Score, TagScore, RunnerUpScore, Margin, Threshold float64; SiteTermCount int; MatchedTerms, UnmatchedTerms []string; RunnerUp string }\nfunc (r *layoutResolution) LibraryGap() bool { return r.IsFallback || r.IsSchemeMismatch || r.IsWeakFit }\nfunc (r *layoutResolution) GapReason() string // fallback > scheme_mismatch > weak_tag_fit"
+      },
+      {
+        "file": "platform/orchestration/actions/fork_theme_composition.go",
+        "operation": "modify",
+        "rationale": "Compute the fit inside resolveLayoutByTags using the caller's OWN idf weight closure, so the coverage numerator and denominator are guaranteed to use identical weights. Recomputing them separately is how two halves of a ratio silently stop being comparable.",
+        "sketch": "func lmBuildFit(best *scoredLayout, scored []scoredLayout, siteTerms map[string]struct{}, weight func(string) float64) layoutFit {\n  for term := range siteTerms { totalWeight += weight(term); if _, ok := winnerTags[term]; ok { matched } else { unmatched } }\n  if totalWeight > 0 { fit.TagCoverage = best.tagScore / totalWeight }\n}"
+      },
+      {
+        "file": "platform/orchestration/actions/fork_theme_composition.go",
+        "operation": "modify",
+        "rationale": "fallbackLayout gains siteTerms so a fallback records coverage 0 with EVERY term listed as unmatched. Left as a zero value, an absent fit and a measured-zero fit read identically downstream.",
+        "sketch": "func fallbackLayout(..., siteTerms map[string]struct{}, logger) { fit := layoutFit{SiteTermCount: len(siteTerms), UnmatchedTerms: lmKeys(siteTerms), Threshold: lmMinTagCoverage} ... IsWeakFit: len(siteTerms) > 0 }"
+      },
+      {
+        "file": "platform/orchestration/actions/resolve_composition_layout_action.go",
+        "operation": "modify",
+        "rationale": "Widen the emit condition from `IsFallback || IsSchemeMismatch` to resolution.LibraryGap(), add a weak-fit warn branch, and report `source` on EVERY branch (previously only the theme-kit one, which forced the installer to infer layout_source from is_fallback \u2014 an inference that cannot represent a scheme gap or a weak fit).",
+        "sketch": "if resolution.LibraryGap() {\n  if resolution.IsWeakFit && !resolution.IsFallback && !resolution.IsSchemeMismatch { logger.Warn(\"weak tag fit ...\", zap.Float64(\"tag_coverage\", ...), zap.Strings(\"unmatched_terms\", ...)) }\n  ...\n}\nsource := \"library_match\"; if resolution.IsFallback { source = \"library_fallback\" }"
+      },
+      {
+        "file": "platform/orchestration/actions/resolve_composition_layout_action.go",
+        "operation": "modify",
+        "rationale": "Carry the fit into the work item's spec AND its summary. The percentage goes in the summary so a reviewer can triage the queue by number without opening each row, and so a cluster of sites leaning on the same thin match is visible as a pattern in a list view. unmatched_terms is the operative field: it distinguishes 'we need a new layout for this shape' from 'an existing layout needs these tags'.",
+        "sketch": "spec[\"gap_reason\"], spec[\"tag_coverage\"], spec[\"matched_terms\"], spec[\"unmatched_terms\"], spec[\"runner_up\"], spec[\"threshold\"]\nsummary: \"Layout gap for %s (%s, scheme=%s) \u2014 applied %s at %.0f%% tag coverage (%d/%d terms); extend a layout's tags, fix the classification, or add a layout\""
+      },
+      {
+        "file": "platform/orchestration/actions/install_site_composition_action.go",
+        "operation": "modify",
+        "rationale": "Write lineage.layout_match_score (103's key, 0 of 33 rows carry it today) plus layout_fit, and record the THRESHOLD IN FORCE alongside the score so a later threshold change cannot silently re-interpret rows written under the old one. Needs no migration: validate_resolved_composition_spec is permissive on unknown keys and already admits the enum value.",
+        "sketch": "if coverage, ok := readFloatFromContext(collectedData, \"composition_layout.tag_coverage\"); ok {\n  lineage[\"layout_match_score\"] = coverage\n  lineage[\"layout_fit\"] = map[string]interface{}{\"tag_coverage\":..., \"matched_terms\":..., \"unmatched_terms\":..., \"threshold\":..., \"runner_up\":...}\n}"
+      },
+      {
+        "file": "platform/orchestration/actions/install_site_composition_action.go",
+        "operation": "modify",
+        "rationale": "Persist is_scheme_mismatch (computed since June, never recorded \u2014 a scheme gap was stored as a clean library_match) and prefer the resolver's REPORTED source over inferring it from is_fallback. New readFloatFromContext returns (value, ok) so an absent fit and a measured-zero fit do not both land as 0.0.",
+        "sketch": "switch reported := readStringFromContext(collectedData, \"composition_layout.source\"); reported {\ncase \"theme_kit_default\", \"library_fallback\", \"library_match\", \"mission_hint\": layoutSource = reported\ndefault: if readBoolFromContext(..., \"composition_layout.is_fallback\") { layoutSource = \"library_fallback\" } }\nif readBoolFromContext(..., \"composition_layout.is_scheme_mismatch\") { lineage[\"layout_scheme_mismatch\"] = true }"
+      },
+      {
+        "file": "platform/orchestration/actions/fork_theme_composition_fit_test.go",
+        "operation": "add",
+        "rationale": "fork_theme_composition.go had NO test of any kind before this. Six tests over fixtures taken from the real seed rows, including a CONTROL (an adequately-fitted site must NOT be flagged, or a mutation flagging everything would pass every other test). The guard is proven by MUTATION, and the recorded results include one prediction of mine that was wrong and is corrected in place rather than tidied away.",
+        "sketch": "TestOneAttractorTagIsAWeakFit (designblog's shape: asserts magazine-grid STILL WINS \u2014 selection unchanged \u2014 but coverage 0.072 and GapReason weak_tag_fit)\nTestZeroTagOverlapStillCountsAsAGap (webdesign.uk: TagScore==0 AND Score>0, so the OLD predicate provably stays silent)\nTestAdequateFitIsNotAGap (control)\nTestSchemeGapArmStillFires / TestFallbackRecordsEveryTermAsUnmatched (old arms intact)\nMUTATIONS RUN: (i) threshold->0 kills the two weak cases only; (ii) denominator->tagScore kills ONE (the other has tagScore==0 so the expression is never reached); (iii) predicate reverted kills the two weak cases, old arms still pass."
+      }
+    ],
+    "grounded_in": [
+      "fork_theme_composition.go lmFirstEligible: `for i := range s { if !s[i].mismatched && s[i].total > 0 { return &s[i] } }` \u2014 the sole test is total>0, and total includes bonuses added independently of tag matching.",
+      "Live resolved_composition reasoning strings, 2026-09-03: 'weighted match: score 0.75 (tags 0.00), layout \"brochure-bold\"' (webdesign.uk) and three x 'score 0.90 (tags 0.00), layout \"industry-hub\"' \u2014 all four with lineage layout_source `library_match`, none with a work item.",
+      "103_site_design_planner.sql:210 \u2014 `layout_match_score   (float 0-1) \u2014 tag-overlap score for chosen layout`; and its worked example at :190 \u2014 `\"reasoning\": \"Classification 'developer-tools' scored utility-tool=0.82 above threshold 0.5\"`.",
+      "SELECT data->'lineage'->>'layout_source', count(*) FROM site_specs WHERE aspect='resolved_composition' AND is_current GROUP BY 1 => library_match 31, library_fallback 2. `needs_new_layout_candidate` never written.",
+      "SELECT count(*) FILTER (WHERE data->'lineage' ? 'layout_match_score') FROM site_specs WHERE aspect='resolved_composition' AND is_current => 0 of 33.",
+      "site_work_items UNION site_work_items_archive where item_type='needs_new_layout_candidate' => 2 rows (robot-hands.com 2026-07-08 wont_fix; ai-agent-orchestration.com 2026-08-12 needs_human_review), both spec.reason = 'fallback \u2014 no classification tags', out of 63,007 work items ever written.",
+      "689_theme_kits.sql:139-221 validate_resolved_composition_spec \u2014 no jsonb_object_keys loop, no residue check, and its layout_source enum at :195 already includes 'needs_new_layout_candidate'. Hence no migration.",
+      "Measured coverage distribution across the 33 composed sites: 0% (4 sites), 7-10% (7 sites, all magazine-grid on the single tag editorial-publication), 15-38% (15 sites), 62-87% (3 sites). Empty bands: (10%,15%) width 5pp and (38%,62%) width 24pp.",
+      "Independent replication control: a Python re-implementation of this scorer reproduces the system's OWN recorded score exactly on 29 of 30 scored sites (the one miss had its classification refreshed after composition). Mutation (i) then printed TagCoverage=0.072 for the designblog fixture, matching that site's live 7%."
+    ]
+  }
+}

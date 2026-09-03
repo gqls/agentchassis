@@ -43,6 +43,58 @@ type layoutResolution struct {
 	IsFallback       bool     // true when no layout matched and brochure-formal was used
 	Scheme           string   // chosen layout's scheme (light/dark/neutral/""), for the audit trail
 	IsSchemeMismatch bool     // true when only an opposite-scheme layout fit (a library-gap signal)
+
+	Fit       layoutFit // structured evidence for how well the chosen layout actually fits
+	IsWeakFit bool      // Fit.TagCoverage < lmMinTagCoverage (a library-gap signal)
+}
+
+// layoutFit is the structured record of HOW WELL the chosen layout fits, as
+// opposed to merely which one won. Migration 103 specified this in April 2026
+// (`lineage.layout_match_score`, "(float 0-1) — tag-overlap score for chosen
+// layout") and it was never computed: measured 2026-09-03, 0 of 33
+// resolved_composition rows carry the key, and the only surviving trace of a
+// score is a prose sentence in `reasoning` that has to be parsed with a regex.
+//
+// TagCoverage is the normalised score 103 asked for. Note the denominator uses
+// the SAME IDF weights as the numerator, including for terms no layout carries:
+// weight() gives an unmatched term df=0 → d=1 → the maximum weight. That is
+// deliberate. A term the whole library cannot serve is exactly the thing this
+// measure must count against the fit, not quietly drop.
+type layoutFit struct {
+	TagCoverage    float64  // matched weight / total site-term weight, in [0,1]
+	SiteTermCount  int      //
+	MatchedTerms   []string // sorted canonical site terms the chosen layout carries
+	UnmatchedTerms []string // sorted canonical site terms it does not
+	Score          float64  // total incl. bonuses — the figure `reasoning` prints
+	TagScore       float64  // the tag-overlap half alone
+	RunnerUp       string   // next eligible layout, "" if none
+	RunnerUpScore  float64  //
+	Margin         float64  // Score - RunnerUpScore
+	Threshold      float64  // lmMinTagCoverage in force when this was recorded
+}
+
+// LibraryGap — the single definition of "the library did not have a good answer
+// for this site", shared by the action and its tests so the two cannot drift.
+//
+// The weak-fit arm is the one added by bugs_open/445. The other two are the
+// original behaviour and are unchanged.
+func (r *layoutResolution) LibraryGap() bool {
+	return r.IsFallback || r.IsSchemeMismatch || r.IsWeakFit
+}
+
+// GapReason names which arm fired, most-severe first, for the work item and the
+// lineage record. Empty string when there is no gap.
+func (r *layoutResolution) GapReason() string {
+	switch {
+	case r.IsFallback:
+		return "fallback"
+	case r.IsSchemeMismatch:
+		return "scheme_mismatch"
+	case r.IsWeakFit:
+		return "weak_tag_fit"
+	default:
+		return ""
+	}
 }
 
 // Weighted, scheme-aware layout matching. The tunables, synonym map, and
@@ -54,6 +106,32 @@ const (
 	lmDescWordBonus      = 0.15 // per distinct site term found in the description
 	lmDescBonusCap       = 0.90 // max description contribution
 	lmSameSchemeBonus    = 0.50 // nudge toward an exactly-matching scheme
+
+	// lmMinTagCoverage — below this fraction of the site's own weighted identity,
+	// a positively-scored match is STILL a library gap.
+	//
+	// Why a coverage floor exists at all (bugs_open/445). The three bonuses above
+	// are added to `total` INDEPENDENTLY of any tag matching, so `total > 0` — the
+	// old sole test for "the library had something" — is satisfiable with
+	// tagScore == 0. Measured 2026-09-03: four live sites are recorded by this
+	// very code as `tags 0.00` AND lineage layout_source `library_match`
+	// (webdesign.uk→brochure-bold 0.75; farmerinsurance/garden-tools/vetcomparison
+	// →industry-hub 0.90). A layout matching NONE of a site's tags, recorded as a
+	// successful library match, with no needs_new_layout_candidate raised.
+	//
+	// Why 0.50 and not a rounder-sounding smaller number. The measured coverage
+	// distribution over the 33 composed sites has exactly two empty intervals:
+	// (10%, 15%) — 5 points wide — and (38%, 62%) — 24 points wide. One tag on a
+	// ten-term site moves coverage by roughly 8-10 points, so a cut in the narrow
+	// band would flip sites on ordinary classifier variance; only the wide band is
+	// stable against it. 0.50 is also the threshold migration 103's own worked
+	// example names ("scored utility-tool=0.82 above threshold 0.5"), and reads
+	// plainly: more than half the site's declared identity, weighted by
+	// specificity, is unaddressed by the layout it was given.
+	//
+	// This does NOT change which layout is selected — only whether the gap is
+	// recorded. See layoutFit.
+	lmMinTagCoverage = 0.50
 )
 
 // canonicalTag folds known synonyms/variants to one token so the matcher
@@ -148,7 +226,7 @@ func resolveLayoutByTags(
 
 	siteTerms := canonicalSet(append([]string{category}, industryTags...))
 	if len(siteTerms) == 0 {
-		return fallbackLayout(ctx, tx, siteScheme, "no classification tags", nil, logger)
+		return fallbackLayout(ctx, tx, siteScheme, "no classification tags", nil, siteTerms, logger)
 	}
 	siteCategory := canonicalTag(category)
 
@@ -184,7 +262,7 @@ func resolveLayoutByTags(
 		return nil, fmt.Errorf("layout rows iteration: %w", err)
 	}
 	if len(layouts) == 0 {
-		return fallbackLayout(ctx, tx, siteScheme, "no active layouts", nil, logger)
+		return fallbackLayout(ctx, tx, siteScheme, "no active layouts", nil, siteTerms, logger)
 	}
 	N := float64(len(layouts))
 	weight := func(tag string) float64 {
@@ -257,12 +335,18 @@ func resolveLayoutByTags(
 
 	// Prefer the best same-scheme / neutral / unknown layout with positive fit.
 	if best := lmFirstEligible(scored); best != nil {
+		fit := lmBuildFit(best, scored, siteTerms, weight)
+		weak := fit.TagCoverage < lmMinTagCoverage
 		logger.Info("resolveLayoutByTags: matched (scheme-aware, weighted)",
 			zap.String("layout_name", best.row.name),
 			zap.String("layout_scheme", best.row.scheme),
 			zap.String("site_scheme", siteScheme),
 			zap.Float64("score", best.total),
 			zap.Float64("tag_score", best.tagScore),
+			zap.Float64("tag_coverage", fit.TagCoverage),
+			zap.Strings("matched_terms", fit.MatchedTerms),
+			zap.Strings("unmatched_terms", fit.UnmatchedTerms),
+			zap.Bool("weak_fit", weak),
 			zap.Strings("candidates", candidates),
 		)
 		return &layoutResolution{
@@ -270,18 +354,23 @@ func resolveLayoutByTags(
 			LayoutName: best.row.name,
 			Scheme:     best.row.scheme,
 			Reason: fmt.Sprintf("weighted match: score %.2f (tags %.2f), layout %q [scheme=%s] vs site scheme %q; candidates %s",
-				best.total, best.tagScore, best.row.name, lmSchemeOrDash(best.row.scheme), lmSchemeOrDash(siteScheme), strings.Join(candidates, ", ")),
+				best.total, best.tagScore, best.row.name, lmSchemeOrDash(best.row.scheme), lmSchemeOrDash(siteScheme), strings.Join(candidates, ", ")) +
+				lmFitSummary(fit),
 			Candidates: candidates,
 			IsFallback: false,
+			Fit:        fit,
+			IsWeakFit:  weak,
 		}, nil
 	}
 
 	// Only opposite-scheme layouts fit -> use the best, but FLAG the gap.
 	if best := lmFirstWithFit(scored); best != nil {
+		fit := lmBuildFit(best, scored, siteTerms, weight)
 		logger.Warn("resolveLayoutByTags: only opposite-scheme layouts fit — library gap",
 			zap.String("layout_name", best.row.name),
 			zap.String("layout_scheme", best.row.scheme),
 			zap.String("site_scheme", siteScheme),
+			zap.Float64("tag_coverage", fit.TagCoverage),
 			zap.Strings("candidates", candidates),
 		)
 		return &layoutResolution{
@@ -290,14 +379,17 @@ func resolveLayoutByTags(
 			Scheme:           best.row.scheme,
 			IsSchemeMismatch: true,
 			Reason: fmt.Sprintf("scheme gap: no %s layout fit these tags; applied %q [scheme=%s]. candidates %s",
-				lmSchemeOrDash(siteScheme), best.row.name, lmSchemeOrDash(best.row.scheme), strings.Join(candidates, ", ")),
+				lmSchemeOrDash(siteScheme), best.row.name, lmSchemeOrDash(best.row.scheme), strings.Join(candidates, ", ")) +
+				lmFitSummary(fit),
 			Candidates: candidates,
 			IsFallback: false,
+			Fit:        fit,
+			IsWeakFit:  fit.TagCoverage < lmMinTagCoverage,
 		}, nil
 	}
 
 	return fallbackLayout(ctx, tx, siteScheme,
-		fmt.Sprintf("no layout fit site terms (%s)", strings.Join(lmKeys(siteTerms), ",")), candidates, logger)
+		fmt.Sprintf("no layout fit site terms (%s)", strings.Join(lmKeys(siteTerms), ",")), candidates, siteTerms, logger)
 }
 
 func lmFirstEligible(s []scoredLayout) *scoredLayout {
@@ -316,6 +408,76 @@ func lmFirstWithFit(s []scoredLayout) *scoredLayout {
 	}
 	return nil
 }
+
+// lmBuildFit assembles the structured fit evidence for the layout that won.
+//
+// `weight` is the caller's IDF closure — passed in rather than recomputed so the
+// coverage denominator is guaranteed to use the same weights as the tagScore
+// numerator the matcher already produced. Computing them twice is how the two
+// halves of a ratio silently stop being comparable.
+func lmBuildFit(
+	best *scoredLayout,
+	scored []scoredLayout,
+	siteTerms map[string]struct{},
+	weight func(string) float64,
+) layoutFit {
+
+	fit := layoutFit{
+		SiteTermCount: len(siteTerms),
+		Score:         best.total,
+		TagScore:      best.tagScore,
+		Threshold:     lmMinTagCoverage,
+	}
+
+	winnerTags := canonicalSet(best.row.tags)
+	var totalWeight float64
+	for term := range siteTerms {
+		totalWeight += weight(term)
+		if _, ok := winnerTags[term]; ok {
+			fit.MatchedTerms = append(fit.MatchedTerms, term)
+		} else {
+			fit.UnmatchedTerms = append(fit.UnmatchedTerms, term)
+		}
+	}
+	sort.Strings(fit.MatchedTerms)
+	sort.Strings(fit.UnmatchedTerms)
+
+	if totalWeight > 0 {
+		fit.TagCoverage = best.tagScore / totalWeight
+	}
+
+	// Runner-up: the next layout that would itself have been eligible. Reported
+	// so a reviewer can see whether the win was decisive or a coin-toss.
+	for i := range scored {
+		if &scored[i] == best {
+			continue
+		}
+		if !scored[i].mismatched && scored[i].total > 0 {
+			if scored[i].total > fit.RunnerUpScore || fit.RunnerUp == "" {
+				if scored[i].row.name != best.row.name {
+					fit.RunnerUp = scored[i].row.name
+					fit.RunnerUpScore = scored[i].total
+					break
+				}
+			}
+		}
+	}
+	fit.Margin = fit.Score - fit.RunnerUpScore
+	return fit
+}
+
+// lmFitSummary renders the fit as a clause appended to the existing Reason
+// string. The prefix of Reason is deliberately left byte-identical, because
+// runbooks and at least one other lane read the score out of that prose today.
+func lmFitSummary(f layoutFit) string {
+	matched := strings.Join(f.MatchedTerms, ",")
+	if matched == "" {
+		matched = "none"
+	}
+	return fmt.Sprintf("; tag coverage %.0f%% (%d/%d terms matched: %s)",
+		f.TagCoverage*100, len(f.MatchedTerms), f.SiteTermCount, matched)
+}
+
 func lmHasTerm(set map[string]struct{}, t string) bool { _, ok := set[t]; return ok }
 func lmKeys(m map[string]struct{}) []string {
 	out := make([]string, 0, len(m))
@@ -341,6 +503,7 @@ func fallbackLayout(
 	siteScheme string,
 	reason string,
 	candidates []string,
+	siteTerms map[string]struct{},
 	logger *zap.Logger,
 ) (*layoutResolution, error) {
 
@@ -360,6 +523,17 @@ func fallbackLayout(
 		return nil, fmt.Errorf("fallback layout %q not found: %w — was Phase 1 seed loaded?", fallbackName, err)
 	}
 
+	// A fallback matched nothing by construction, so coverage is 0 and every site
+	// term is unmatched. Recorded explicitly rather than left as a zero value: an
+	// absent fit and a measured-zero fit read identically downstream otherwise,
+	// and the unmatched list is what tells a reviewer WHICH vocabulary the
+	// library could not serve.
+	fit := layoutFit{
+		SiteTermCount:  len(siteTerms),
+		UnmatchedTerms: lmKeys(siteTerms),
+		Threshold:      lmMinTagCoverage,
+	}
+
 	logger.Info("fallbackLayout", zap.String("layout", fb.name), zap.String("site_scheme", siteScheme), zap.String("reason", reason))
 	return &layoutResolution{
 		LayoutID:         fb.id,
@@ -369,6 +543,8 @@ func fallbackLayout(
 		Reason:           "fallback — " + reason,
 		Candidates:       candidates,
 		IsFallback:       true,
+		Fit:              fit,
+		IsWeakFit:        len(siteTerms) > 0, // coverage 0 < threshold whenever there were terms to match
 	}, nil
 }
 

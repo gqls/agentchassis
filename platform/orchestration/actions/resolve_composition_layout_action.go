@@ -210,12 +210,38 @@ func ResolveCompositionLayoutAction(ctx context.Context, params ActionParams) (i
 
 	siteTagsForOutput := collectNormalisedSiteTags(category, industryTags)
 
-	// Emit a library-growth work item when the library had no same-scheme
-	// match: either a hard fallback, or a scheme gap (an opposite-scheme
-	// layout was applied). Both mean "the library is missing a good fit".
+	// Emit a library-growth work item when the library had no good answer:
+	// a hard fallback, a scheme gap (an opposite-scheme layout was applied),
+	// or — added by bugs_open/445 — a WEAK TAG FIT: a layout that scored above
+	// zero on bonuses while matching little or none of the site's own tags.
+	//
+	// The weak arm exists because the old two-arm test could not fire on the
+	// case that actually happens. `IsFallback` requires the TOTAL score to be
+	// zero across the whole library, and the category/description/scheme
+	// bonuses are added to that total independently of any tag matching — so a
+	// layout matching NONE of a site's tags still scores above zero and the
+	// library was recorded as having answered. Measured 2026-09-03: four live
+	// sites recorded `tags 0.00` with lineage `library_match`, and exactly two
+	// needs_new_layout_candidate items exist across 63,007 work items ever
+	// written (29,657 live ∪ 33,350 archived), BOTH from the degenerate
+	// no-tags-at-all arm. The mechanism had never once assessed the library and
+	// reported it short.
 	var reviewItemQueued interface{}
-	if resolution.IsFallback || resolution.IsSchemeMismatch {
-		if resolution.IsSchemeMismatch && !resolution.IsFallback {
+	if resolution.LibraryGap() {
+		if resolution.IsWeakFit && !resolution.IsFallback && !resolution.IsSchemeMismatch {
+			logger.Warn("ResolveCompositionLayoutAction: weak tag fit — the applied layout addresses little of this site's classification",
+				zap.String("site_id", siteID.String()),
+				zap.String("domain", domain),
+				zap.String("applied_layout", resolution.LayoutName),
+				zap.Float64("tag_coverage", resolution.Fit.TagCoverage),
+				zap.Float64("threshold", resolution.Fit.Threshold),
+				zap.Strings("matched_terms", resolution.Fit.MatchedTerms),
+				zap.Strings("unmatched_terms", resolution.Fit.UnmatchedTerms),
+				zap.String("runner_up", resolution.Fit.RunnerUp),
+				zap.Strings("site_tags", siteTagsForOutput),
+				zap.String("recommendation", "extend a layout's industry_tags, correct the classification, or add a layout for this shape"),
+			)
+		} else if resolution.IsSchemeMismatch && !resolution.IsFallback {
 			logger.Warn("ResolveCompositionLayoutAction: scheme gap — no same-scheme layout fit; applied a cross-scheme match",
 				zap.String("site_id", siteID.String()),
 				zap.String("domain", domain),
@@ -241,6 +267,7 @@ func ResolveCompositionLayoutAction(ctx context.Context, params ActionParams) (i
 			siteID, domain, siteScheme,
 			resolution.Reason, resolution.LayoutName,
 			siteTagsForOutput, resolution.Candidates,
+			resolution.GapReason(), resolution.Fit,
 			logger,
 		)
 		if qerr != nil {
@@ -254,6 +281,16 @@ func ResolveCompositionLayoutAction(ctx context.Context, params ActionParams) (i
 		}
 	}
 
+	// `source` is now reported on EVERY branch, not just the theme-kit one.
+	// Until this change the tag-match and fallback paths emitted no `source`
+	// key at all, so install_site_composition had to INFER layout_source from
+	// is_fallback — an inference that cannot represent a scheme gap or a weak
+	// fit, and silently recorded both as a clean `library_match`.
+	source := "library_match"
+	if resolution.IsFallback {
+		source = "library_fallback"
+	}
+
 	return map[string]interface{}{
 		"layout_id":          resolution.LayoutID.String(),
 		"layout_name":        resolution.LayoutName,
@@ -264,6 +301,21 @@ func ResolveCompositionLayoutAction(ctx context.Context, params ActionParams) (i
 		"is_scheme_mismatch": resolution.IsSchemeMismatch,
 		"site_tags":          siteTagsForOutput,
 		"review_item_queued": reviewItemQueued,
+		"source":             source,
+
+		// Structured fit evidence — migration 103's `layout_match_score` and the
+		// context a reviewer needs to act on it without re-running the matcher.
+		"library_gap":     resolution.LibraryGap(),
+		"gap_reason":      resolution.GapReason(),
+		"tag_coverage":    resolution.Fit.TagCoverage,
+		"tag_score":       resolution.Fit.TagScore,
+		"score":           resolution.Fit.Score,
+		"matched_terms":   resolution.Fit.MatchedTerms,
+		"unmatched_terms": resolution.Fit.UnmatchedTerms,
+		"runner_up":       resolution.Fit.RunnerUp,
+		"runner_up_score": resolution.Fit.RunnerUpScore,
+		"margin":          resolution.Fit.Margin,
+		"fit_threshold":   resolution.Fit.Threshold,
 	}, nil
 }
 
@@ -344,6 +396,8 @@ func queueLayoutCandidateReview(
 	appliedLayout string,
 	siteTags []string,
 	candidatesConsidered []string,
+	gapReason string,
+	fit layoutFit,
 	logger *zap.Logger,
 ) (*uuid.UUID, error) {
 
@@ -361,6 +415,19 @@ func queueLayoutCandidateReview(
 		"site_tags":             siteTags,
 		"candidates_considered": candidatesConsidered,
 		"applied_layout":        appliedLayout,
+
+		// Which arm fired, and the evidence to act on it. `unmatched_terms` is
+		// the operative field for a reviewer: it names the vocabulary the
+		// library could not serve, which is what distinguishes "we need a new
+		// layout for this shape" from "an existing layout needs these tags".
+		"gap_reason":      gapReason,
+		"tag_coverage":    fit.TagCoverage,
+		"coverage_pct":    fmt.Sprintf("%.0f%%", fit.TagCoverage*100),
+		"threshold":       fit.Threshold,
+		"matched_terms":   fit.MatchedTerms,
+		"unmatched_terms": fit.UnmatchedTerms,
+		"runner_up":       fit.RunnerUp,
+		"margin":          fit.Margin,
 	}
 	specJSON, err := json.Marshal(spec)
 	if err != nil {
@@ -385,12 +452,19 @@ func queueLayoutCandidateReview(
 	// (an April 2026 convention whose handler was never built), and tool-auditor
 	// was not even setting this status, so the "existing pattern" was the bug.
 	item := workItem{
-		siteID:       siteID,
-		source:       "side_effect",
-		pipeline:     "build",
-		itemType:     "needs_new_layout_candidate",
-		severity:     "low",
-		summary:      fmt.Sprintf("Layout gap for %s (scheme=%s) — applied %s; review classification or add a layout", domain, scheme, appliedLayout),
+		siteID:   siteID,
+		source:   "side_effect",
+		pipeline: "build",
+		itemType: "needs_new_layout_candidate",
+		severity: "low",
+		// The coverage percentage is in the SUMMARY, not only the spec, so a
+		// reviewer can triage the queue by number without opening each row —
+		// and so a cluster of sites leaning on the same thin match is visible
+		// as a pattern in a list view rather than only in the JSON.
+		summary: fmt.Sprintf(
+			"Layout gap for %s (%s, scheme=%s) — applied %s at %.0f%% tag coverage (%d/%d terms); extend a layout's tags, fix the classification, or add a layout",
+			domain, gapReason, scheme, appliedLayout,
+			fit.TagCoverage*100, len(fit.MatchedTerms), fit.SiteTermCount),
 		spec:         string(specJSON),
 		priority:     80,
 		handlerAgent: "",

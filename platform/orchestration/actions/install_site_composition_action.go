@@ -616,12 +616,20 @@ func buildResolvedCompositionSpec(
 	// the truth but is not queryable, which is the whole point of the enum.
 	// Requires 689_theme_kits.sql's validator widening to be LIVE first —
 	// validate_resolved_composition_spec REFUSES an unknown layout_source.
+	//
+	// The resolver now REPORTS its source on every branch (bugs_open/445); the
+	// is_fallback inference below is kept only for replaying older
+	// collected_data shapes that carry no `source` key. Trust the reported
+	// value first — an inference cannot represent a scheme gap or a weak fit,
+	// and recorded both as a clean `library_match`.
 	layoutSource := "library_match"
-	switch {
-	case readStringFromContext(collectedData, "composition_layout.source") == "theme_kit_default":
-		layoutSource = "theme_kit_default"
-	case readBoolFromContext(collectedData, "composition_layout.is_fallback"):
-		layoutSource = "library_fallback"
+	switch reported := readStringFromContext(collectedData, "composition_layout.source"); reported {
+	case "theme_kit_default", "library_fallback", "library_match", "mission_hint":
+		layoutSource = reported
+	default:
+		if readBoolFromContext(collectedData, "composition_layout.is_fallback") {
+			layoutSource = "library_fallback"
+		}
 	}
 
 	layoutReason := readStringFromContext(collectedData, "composition_layout.reason")
@@ -635,6 +643,69 @@ func buildResolvedCompositionSpec(
 	}
 	if cands := readStringSliceFromContext(collectedData, "composition_layout.candidates"); len(cands) > 0 {
 		lineage["layout_candidates"] = cands
+	}
+
+	// --- fit evidence (bugs_open/445) ---
+	//
+	// `layout_match_score` is not a new invention: migration 103 specified it in
+	// April 2026 as "(float 0-1) — tag-overlap score for chosen layout", and it
+	// was never computed. Measured 2026-09-03, 0 of 33 current
+	// resolved_composition rows carry the key, and the only trace of a score was
+	// a prose sentence in `reasoning` that had to be parsed with a regex to be
+	// read at all. This writes it, plus the context needed to act on it.
+	//
+	// The validator (689_theme_kits.sql) is permissive on unknown keys, so these
+	// need no migration — but `layout_source` IS enum-checked, and
+	// 'needs_new_layout_candidate' is already among its allowed values.
+	if coverage, ok := readFloatFromContext(collectedData, "composition_layout.tag_coverage"); ok {
+		lineage["layout_match_score"] = coverage
+
+		fit := map[string]interface{}{
+			"tag_coverage":    coverage,
+			"matched_terms":   readStringSliceFromContext(collectedData, "composition_layout.matched_terms"),
+			"unmatched_terms": readStringSliceFromContext(collectedData, "composition_layout.unmatched_terms"),
+			"runner_up":       readStringFromContext(collectedData, "composition_layout.runner_up"),
+		}
+		// The threshold in force is recorded ALONGSIDE the score, so that
+		// changing the threshold later cannot silently re-interpret rows written
+		// under the old one. A bare score plus a constant that moved is how a
+		// historical comparison quietly stops meaning anything.
+		if thr, ok := readFloatFromContext(collectedData, "composition_layout.fit_threshold"); ok {
+			fit["threshold"] = thr
+		}
+		if s, ok := readFloatFromContext(collectedData, "composition_layout.score"); ok {
+			fit["score"] = s
+		}
+		if ts, ok := readFloatFromContext(collectedData, "composition_layout.tag_score"); ok {
+			fit["tag_score"] = ts
+		}
+		if m, ok := readFloatFromContext(collectedData, "composition_layout.margin"); ok {
+			fit["margin"] = m
+		}
+		if rus, ok := readFloatFromContext(collectedData, "composition_layout.runner_up_score"); ok {
+			fit["runner_up_score"] = rus
+		}
+		lineage["layout_fit"] = fit
+	}
+
+	// A scheme gap used to be invisible in the structured record: the resolver
+	// computed is_scheme_mismatch, nothing persisted it, and the row read as a
+	// clean `library_match`. Recorded as its own key rather than folded into the
+	// enum, so one field carries one fact.
+	if readBoolFromContext(collectedData, "composition_layout.is_scheme_mismatch") {
+		lineage["layout_scheme_mismatch"] = true
+	}
+	if readBoolFromContext(collectedData, "composition_layout.library_gap") {
+		lineage["layout_gap_flagged"] = true
+		if gr := readStringFromContext(collectedData, "composition_layout.gap_reason"); gr != "" {
+			lineage["layout_gap_reason"] = gr
+		}
+		// Promote the enum only for a gap on a real match. A hard fallback keeps
+		// `library_fallback`, which says what was actually applied; the gap flag
+		// above is what marks it for review either way.
+		if layoutSource == "library_match" {
+			lineage["layout_source"] = "needs_new_layout_candidate"
+		}
 	}
 
 	reasoning := layoutReason
@@ -715,6 +786,28 @@ func readBoolFromContext(data map[string]interface{}, path string) bool {
 		return b
 	}
 	return false
+}
+
+// readFloatFromContext returns (value, true) only when the path actually holds
+// a number. The `ok` is load-bearing: an ABSENT fit and a measured-zero fit
+// must not both land in the lineage as 0.0, because a reader cannot then tell
+// "this layout matched nothing" from "this row predates fit evidence".
+func readFloatFromContext(data map[string]interface{}, path string) (float64, bool) {
+	switch v := datahelpers.ExtractNestedField(data, path).(type) {
+	case float64:
+		return v, true
+	case float32:
+		return float64(v), true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case json.Number:
+		f, err := v.Float64()
+		return f, err == nil
+	default:
+		return 0, false
+	}
 }
 
 func readStringSliceFromContext(data map[string]interface{}, path string) []string {
