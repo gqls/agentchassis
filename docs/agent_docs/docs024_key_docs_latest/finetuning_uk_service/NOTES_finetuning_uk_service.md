@@ -2819,3 +2819,61 @@ Four rounds, one correlation. Advisories, all acted on rather than filed:
 Registered: **PUB-006** (the playground route group) and **PUB-007** (`mountBrowserGroup`), with
 index rows. Code is committed and HEAD builds with tests. **Nothing is deployed**: island sites row,
 five env keys, image swap, and a model host — the last is the owner's open decision.
+
+## 2026-09-03 (15:30–15:45Z) — owner: put the demo model on a Hetzner box. DONE and reachable; it is ~3× faster than the cluster
+
+Owner: *"on one of the hertzner boxes for now I think."* Two exist; both 2 vCPU / 3.8 GB / x86_64:
+`idea1` (116.203.204.115, runs the LIVE idea.uk product) and `ubuntu-4gb-nbg1-1-relojistas`
+(167.233.33.159, the traffic-probe box, `site-engine` + nginx, load 0.00, 69 GB free). **Chose
+relojistas**: idle, more disk, and not a live product's front door. Lane's judgement, not his.
+
+**What was done, in order:**
+1. `curl -fsSL https://ollama.com/install.sh | sh` → ollama 0.33.2, systemd unit active, CPU-only,
+   default bind 127.0.0.1:11434.
+2. Model file fetched **straight from B2 to the box** via a presigned GET generated INSIDE the
+   cluster (a throwaway `amazon/aws-cli` pod with the storage secret as env; the pod printed only
+   the URL, the secret never entered this session — owner ruling 2026-08-23). 1,055,609,504 bytes,
+   byte-identical to the cluster copy; `ollama create finetuning-demo` 4.2 s; **same model id
+   `cd4c8ea62f1d` as the in-cluster copy**, which is the cross-check that it is the same artefact.
+3. **Firewall BEFORE exposure** (order matters): `ufw allow from 176.126.243.183 to any port 11434
+   proto tcp`. `ufw status verbose` first confirmed **default deny (incoming)** — without that the
+   next step would have published an unauthenticated model API. 176.126.243.183 is the island's
+   public IP, measured from the island.
+4. systemd drop-in: `OLLAMA_HOST=0.0.0.0:11434`, `OLLAMA_MAX_LOADED_MODELS=1`,
+   `OLLAMA_NUM_PARALLEL=1`, `OLLAMA_KEEP_ALIVE=30m` (bounded memory; one model, one request).
+
+**Speed on this box `[MEASURED 2026-09-03 15:39Z, single user]` — far better than the cluster:**
+
+| | cluster ollama-adapter | Hetzner relojistas |
+|---|---|---|
+| generation | 14.2–14.3 tok/s | **38.3–42.2 tok/s** |
+| prompt eval | 37.8–46.9 tok/s | 85.8–97.7 tok/s |
+| cold load | 2.41 s | 1.54 s |
+| warm total, ~46 tok | 3.82 s | **1.34 s** |
+
+So a 150-token demo reply is ~3.5 s, not ~11 s. Memory with the model loaded: 1,992 MB used of
+3,809, 1,817 available, no swap; `ollama ps` reports 1.5 GB, 100% CPU, ctx 2048.
+
+**Reachability proven in BOTH directions** (the landmine's own discipline):
+- from the island: `/api/tags` → **HTTP 200 in 0.036 s**; a real `/api/chat` call returned a
+  sensible answer in 2.70 s total (1.55 s of it load).
+- from this machine (a third party): port 11434 **refused**, with a control proving the host is
+  up (443 open from the same place). So the refusal is the ufw rule, not a dead box.
+
+**Island prerequisite 1 of 3 DONE:** migration `737_…_ISLAND.sql` applied to the island Postgres
+and ledgered in `island_migrations`; `sites` now holds finetuning.uk, robot-hands.com, vonc.com.
+(My read-back queries first failed on nested-ssh quote mangling — psql saw `" | "` as a column;
+re-run through a heredoc. The shell-quoting trap, again.)
+
+**Two prerequisites left, both operator actions on the live island, neither done:**
+- **the five `PLAYGROUND_*` keys in `/opt/island/.env`** — I was blocked from editing that file by
+  this session's permission classifier, which is the right call for a live box's env: it is a
+  hand edit an operator should make. Inert with the current image, so it can go in at any time.
+  `PLAYGROUND_OLLAMA_URL=http://167.233.33.159:11434`, `PLAYGROUND_MODEL=finetuning-demo`,
+  `PLAYGROUND_MAX_TOKENS=150`, `PLAYGROUND_NUM_CTX=2048`, `PLAYGROUND_MAX_BODY_BYTES=8192`.
+- **the image swap.** The island runs `docker.io/aqls/tools-api:v1.0.1343`, whose compose block
+  carries a per-version changelog. There is **no makefile target for tools-api** (it is not a
+  cluster service); the documented path is `docker save … | ssh $ISL 'gunzip | docker load'`
+  (`gauntlet_dead_cta/RUNBOOK` §"deploy"). That restart also serves robot-hands.com and vonc.com
+  (gauntlet + gripper), so it is an outward-facing change to two other live sites and is the
+  owner's call, not something to slip in behind a model install.

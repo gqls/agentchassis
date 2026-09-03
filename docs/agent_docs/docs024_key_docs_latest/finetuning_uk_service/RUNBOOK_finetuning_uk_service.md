@@ -732,3 +732,34 @@ curl -sS -o /dev/null -w '%{http_code}\n' -X POST https://tools.apis.uk/api/v1/t
 ⚠ The island is **1 vCPU / 1 GB** and has no Ollama: it cannot host the model, and it **cannot
 reach the cluster's** (`[MEASURED 2026-09-03]` cluster DNS does not resolve there and
 `162.209.114.65:11434` is refused). `PLAYGROUND_OLLAMA_URL` must name a host the island can reach.
+
+## The demo model host (built 2026-09-03) — where it is, how to check it, how to change it
+
+**Host:** Hetzner `ubuntu-4gb-nbg1-1-relojistas`, `167.233.33.159`, key `~/.ssh/hetzner1`, user
+root. Ollama 0.33.2 (systemd), model `finetuning-demo` (id `cd4c8ea62f1d`) from
+`/opt/models/smollm2-1.7b-phase0-q4_k_m.gguf`. Drop-in:
+`/etc/systemd/system/ollama.service.d/override.conf` (bind 0.0.0.0, 1 model, 1 parallel, 30 m keep-alive).
+
+**It is open to the ISLAND ONLY.** `ufw allow from 176.126.243.183 to any port 11434 proto tcp`,
+on a box whose default is deny incoming. Ollama has no authentication of its own, so that rule is
+the whole control: **check it before and after any ufw change on this box.**
+
+```bash
+# health + speed, on the box
+ssh -i ~/.ssh/hetzner1 root@167.233.33.159 'ollama ps; ollama run finetuning-demo --verbose "In one sentence, what is fine-tuning?" 2>&1 | grep -E "eval rate|load duration"'
+# reachability, BOTH directions (a one-sided check proves nothing)
+ssh root@toolsapisuk.vs.mythic-beasts.com 'curl -s -m 15 -o /dev/null -w "island -> model: %{http_code}\n" http://167.233.33.159:11434/api/tags'   # expect 200
+timeout 10 bash -c 'cat < /dev/null > /dev/tcp/167.233.33.159/11434' && echo "OPEN — WRONG" || echo "refused (correct)"
+timeout 10 bash -c 'cat < /dev/null > /dev/tcp/167.233.33.159/443'   && echo "443 open — the control holds"
+```
+
+**To add another model** (a catalogue entry, per the owner's 2026-09-03 direction): generate a
+presigned GET inside the cluster so no storage key enters a session —
+`kubectl -n ai-persona-system run presign-gguf --restart=Never --image=amazon/aws-cli:2.17.0` with
+the four `personae-storage-secrets` keys as env and `aws s3 presign <s3 url> --expires-in 3600` as
+the command — then `curl -o /opt/models/<name>.gguf '<url>'` on the box and `ollama create`.
+⚠ 3.8 GB RAM, no swap, and the running model already holds 1.5 GB: check `free -m` before loading
+a second, and keep `OLLAMA_MAX_LOADED_MODELS=1` unless the box grows.
+
+⚠ **Quoting:** run island/box psql through a **heredoc**, never nested inside an `ssh '...'`
+string — the quotes are eaten and psql reads a quoted literal as a column name.
