@@ -562,3 +562,17 @@ dartsonline `page_rerender …_section_data_resolved` ×2 (index, guides-index),
 pattern) — their pages serve yesterday's bytes (tag yes, banner not yet) until their machinery
 rerenders; noted in case their lane reads this. Estate now 39 deployed sites with heads / 38
 tagged; the two 09-02 newborns were already keyed by c2#2; D=0 held.
+
+**30.** `[2026-09-03 ~10:30 BST]` **The §6.2 seeder is BUILT and council-submitted** — STY-061,
+commit `fe7359158`, `Council-Submitted: 45ae3ad3-b10d-4f27-a412-a9a79f0f0cab` (survives DRY_RUN
+admission; two schema missteps first: the 097 plan is an OBJECT `{summary, edits, grounded_in,
+risks}`, and a sketch whose every line starts `#`/`--` is refused as comment-only — a markdown
+heading sketch trips it). Shape: `seedAnalyticsDefault` in `EnsureSiteRecordAction` after
+`upsertSite` — network value opt-in (unsafe default OFF at network level), **no-current-row guard**
+(never a second current `site_config`, never touches `mode:none`), `mode:'default'` stamp,
+non-fatal by contract; sqlmock tests green; migration `733` (+ROLLBACK) sets the Default Network
+value — **applied only via the runner, pending as of this entry**; `c2` gained the `mode='none'`
+predicate in the same hour (`90c787355`). **Go half INERT until the next fleet roll.** Owed still:
+the §6.3 detector (config-key-audit fleet — manual form is `check_gtm_state.sh --db`), and the
+policy pages. Verdict to read: find the run by payload
+(`collected_data->'input_data'->>'fix_correlation_id' = '45ae3ad3-…'`), budget ~30 min.

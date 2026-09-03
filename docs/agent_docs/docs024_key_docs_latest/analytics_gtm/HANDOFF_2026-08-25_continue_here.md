@@ -61,6 +61,14 @@
 > (`consent=` column; also `gtm=`). Fail-safe: broken banner ⇒ consent stays denied. **OWED:
 > per-site cookie/privacy policy pages (phase 2, through the framework) + the §6.2 seeder.**
 
+> **2026-09-03: the §6.2 SEEDER IS BUILT (STY-061, `fe7359158`, Council-Submitted 45ae3ad3…).**
+> New sites get `{analytics: {gtm_container_id: <network default>, mode: default}}` at creation;
+> network value opt-in; `mode:none` honoured everywhere (c2 predicate added `90c787355`). **Go half
+> inert until the next roll; migration 733 sets the Default Network value — check
+> `schema_migrations` for it before assuming.** Consent wave: 22/38 heads overnight, live
+> behavioural test on noted.co.uk 5/5 (NOTES §29). Owed: §6.3 detector, policy pages, and READ the
+> council verdict for 45ae3ad3.
+
 ## 1. Verify before doing anything — one command
 
 ```bash
