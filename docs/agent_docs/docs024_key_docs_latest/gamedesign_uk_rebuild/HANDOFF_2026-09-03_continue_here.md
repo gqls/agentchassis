@@ -112,7 +112,13 @@ Use `SITE_DEFECT_CATEGORIES.md` §10 as the checklist, and RUNBOOK §8 for the m
   session (their gate `6525b45ae` is in the build; whether 720 is applied decides if it fires).
 - **Heroes** (721's first live test, owed to `components`): filename-anchored — about must carry
   `hero-about.jpg`, contact `hero-contact.jpg`, articles NOT `hero.jpg`; control `hero-home.jpg`
-  on `/` only. Report the `url()`s to components right or wrong.
+  on `/` only. Report the `url()`s to components right or wrong. **⚠ (components, 09-03):** an
+  ASSEMBLE-mode rerender (`spec->>'reason'` = none) re-ships stored bytes and CANNOT pick up 721's
+  field — 66 of 66 post-721 rerenders they found were that mode. Only a page BUILD or a rerender
+  with a qualifying reason re-resolves. The rebuild BUILDS the pages, so it should bind; if
+  about/contact still wear `hero-home.jpg`, read the item's reason before calling 721 failed.
+  Also: never set `section_shrink_floor`/`section_component_floor` on page-rerender's step
+  (fleet-wide); an agent-scoped, time-boxed override with a rollback is the only sanctioned shape.
 - **Imagery temperature** (10.1): the prompts — `SELECT result->'response'->'image_result'->>'prompt'
   FROM site_work_items WHERE site_id=… AND item_type='needs_imagery' AND created_at > '2026-09-03'`
   — must NOT say "no game imagery"; must be game scenes, characters, worlds.
