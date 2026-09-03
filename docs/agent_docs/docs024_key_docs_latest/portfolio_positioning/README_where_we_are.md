@@ -1426,3 +1426,15 @@ am preparing the eight build requests now and firing them once the roll has land
 not before — a tool build interrupted halfway is exactly the half-page problem we are clearing
 up. The cluster duplicates stay as they are.
 
+**2026-09-03, a little later — seven of the eight are queued behind the new chassis; one I am holding, and it needs a word from you.**
+
+The seven build requests are written and checked, and a watcher fires them the moment the new
+chassis has been up for seven minutes. Each one attaches to the page the site already links, so
+the addresses do not change. The one I have held is the redirect chain checker: following a
+chain of redirects means making requests from a server, a browser is not allowed to see where
+another site sends it, and this platform has no way to give a generated tool a server. Two
+honest options: retire that page, or accept a lesser tool (one that explains redirect chains and
+checks a chain the user pastes in). Say which. The other two "fetch a URL" tools I scoped so they
+genuinely work in a browser: Core Web Vitals reads Google's public PageSpeed data, and the meta
+tag checker works from pasted page source with a fetch attempt as a bonus.
+

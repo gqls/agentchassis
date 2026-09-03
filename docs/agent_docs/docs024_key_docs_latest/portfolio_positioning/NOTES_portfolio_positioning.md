@@ -4066,4 +4066,17 @@ drops spawns — so the 8 `add_tool` items are PREPARED now (shape read from seo
 rows) and FIRED after the roll is seen and settled. Open question being read before firing:
 how `tool-deployer` names/creates its page when a row with the target name already exists
 (the 7 shells) — the ruling wants the tools under the ALREADY-LINKED urls.
+- **(w) follow-through**: `adopt_existing_page: true` LIVE on tool-generator `save_tool` (286
+  closed, TL-044, arm committed 88897190e 08-16 — in v1.0.1355 and in whatever rolls next);
+  `pages_site_id_name_key` UNIQUE is what the plain arm would hit. No library tool claims any of
+  the 8 functions (nearest: robots-txt-GENERATOR, gtm-channel-fit). No backend provisioning for
+  generated tools exists (`tool_backend_provision.go` header) → redirect-chain checker HELD;
+  CWV via keyless PSI v5; meta-tag from pasted source. 7 items composed with build briefs from
+  the shells' own meta/hero text (the brief's intent), guarded, dry-run ROLLBACK passed; watcher
+  armed on "all chassis pods Running + newest start > 20:57:10Z + 420 s". wp `target_page`
+  copied from the suggester's wp rows: `new` (wp has no tools page). File copied into the lane
+  dir as `SQL_2026-09-03_fire_planned_tools_450_instance.sql`.
+- **450 addendum-worthy**: the suggester's evaluate_tools reasoning on seotools treated the
+  shells as deployed tools and suggested complements ("directly complements the existing
+  robots.txt tester") — the shells fooled the suggester as well as every checker.
 

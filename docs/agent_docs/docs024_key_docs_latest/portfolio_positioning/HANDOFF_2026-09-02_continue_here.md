@@ -270,3 +270,32 @@ The owner refreshed the kubeconfig ~21:2xZ (the 444 session noticed first). Ever
   (discovery at plan time) → №5 carries three canary duties (chrome pin, imagery prompt,
   discovery-before-plan).
 
+# ADDENDUM 4 — 2026-09-03 ~08:5xZ: the 7 `add_tool` items are ARMED behind the chassis roll; 1 of 8 HELD
+
+- **File of record:** `SQL_2026-09-03_fire_planned_tools_450_instance.sql` (this dir) — guarded
+  (sites unlocked+deployed; each target page exists as `page_type='tool'` with NO tool-level
+  component; no live item with the key; no library tool claims the function), dry-run PASSED
+  with ROLLBACK 08:4xZ. Shape = the suggester's completed rows; keys
+  `add_tool_novel_<domain>_<function>`; handler `tool-generator`; `adopt_existing_page: true` is
+  LIVE on its `save_tool` step (bugs_closed/286, TL-044) so each build ATTACHES to the planned
+  page row at the already-linked URL and enqueues a rerender.
+- **Firing condition (background watcher in this session; may die with the session):** every
+  `agent-chassis` pod Running, newest `startTime` > 2026-09-02T20:57:10Z (the pre-roll pair),
+  and ≥ 420 s since that start — the ~300 s no-dispatch window with margin. 3 h deadline, then
+  it does NOT fire. **If you find the items absent and the roll done, fire by hand:**
+  `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < <that file>` — the guards make it idempotent-safe.
+- **HELD, 1 of 8: `tool-redirect-chain-checker` (seotools).** Following redirect hops needs
+  server-side requests; a browser cannot see cross-origin `Location` headers, and the platform
+  has NO backend provisioning for generated tools (`tool_backend_provision.go` provisions
+  nothing — it files a handover item, and only for library tools tagged requires-backend on a
+  site with the `backend` capability). Owner is told in README with two choices: retire that
+  page, or accept a reduced tool. The other two fetch-shaped tools were scoped honestly
+  instead: Core Web Vitals via the keyless PageSpeed Insights v5 API (browser-callable);
+  meta-tag checker from PASTED source with fetch as a best-effort second mode.
+- **After they land, verify at the BODY** (runbook §4 form probe on the 7 URLs) and at the rows
+  (tool-level component present on each planned page), then close the 7+1 `owned_page_review`
+  holds with evidence; the `dead_internal_link_live` ×7 clear themselves.
+- **450 note to carry:** the suggester's own reasoning on seotools read the shells as
+  "already deployed tools" (evaluate_tools result: "the site already has … robots.txt tester,
+  Core Web Vitals checker …") and suggested COMPLEMENTS — the shells fooled the suggester too.
+
