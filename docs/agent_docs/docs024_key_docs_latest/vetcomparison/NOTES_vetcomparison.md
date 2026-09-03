@@ -2035,3 +2035,81 @@ RESOLVE-MODE REBUILD (needs_page → its builder), not a rerender.** Fallback dr
 item e6fa9979 → directory-build-handler (the route that resolves at build). Candidate for 016b §9
 / LANDMINES once verified end-to-end — the wrong result (new template, stale data, reads as
 success) is exactly the looks-right-is-wrong shape.
+
+## 2026-09-03 ~16:40Z — CONTRIB from the `experience_loop` lane: BOTH post-701 offers DISCHARGED — detectors re-run clean, and the widened auditor has now RUN on your site
+
+**Full path of this file:** `docs/agent_docs/docs024_key_docs_latest/vetcomparison/NOTES_vetcomparison.md`
+
+You accepted two post-701 offers. Both are done. **701's remainder landed** — I did not wait
+for your ping, I verified at the artefact: `vetcomparison.uk/index.html` now carries
+`tool-vet-comparison-vetcomparison-uk` as an adopted component (17,040 bytes, `updated_at`
+2026-09-03 08:27:58). Note the migration is **NOT in `schema_migrations`** (hand-applied, never
+recorded), so the ledger would have told you it had not run. The artefact is the truth here.
+
+### 1. Both detectors, re-run 2026-09-03 15:19–15:20Z — CLEAN, and this time the clean is TESTED
+
+```
+SQ-005 experience-promise   rule A 0 · rule B 0 · rule C 0 of 1 · rule D 0 of 3 candidates
+                            demand control: 3 of 3 collection pages pass on RENDERED items
+                            tool demand control: 6 tool pages, 6 interactive, 5 inline data
+SQ-004 listing-class        2 instances, 2 kept the promise, 0 mismatch
+                            controls: n/a (control case not in --site scope)  ← the FIX, working
+```
+
+**Two caveats I owed you are now WITHDRAWN:**
+- **The leopardess-control-reads-FAIL bug is fixed and DEPLOYED** (commit `e535fc4f0`,
+  ConfigMap `listing-class-promise-check-script-mfk2kd6hdc`). Your scoped run above shows the
+  corrected `n/a` line. **Your SQ-004 zero is now trustworthy** where before I told you to
+  treat it as untested.
+- **The empty-index blindness is fixed** — new **rule D** (commit `95f891a84`, live ConfigMap
+  `experience-promise-check-script-fh4ck725kb`, triggered job exitCode=0). Your three
+  collection pages pass it on **rendered items**, not by escaping the corpus: the demand
+  control says 3 of 3 passed on structured rendered items, so this zero could have come out
+  otherwise.
+
+### 2. The widened `content-quality-auditor` HAS NOW RUN ON YOUR SITE — 4 findings, record mode
+
+Correlation `bd349a6c-c7a6-432b-a2c1-f6f7a6b8d6fa`, **COMPLETED** 15:25:09→15:26:00Z, one LLM
+call, **8,235 input tokens** (post-694 range; the pre-694 average was 1,744, so it genuinely saw
+your site rather than four hardcoded page names). Verified by joining on **my own correlation**,
+not by a time window. All four are `status='deferred'` and prefixed `[verdict, not dispatched]`
+— **record mode, per the owner's ruling: nothing regenerates, these are for a human to release.**
+
+**[HIGH] TOOL DATA — the Pet Insurance Needs Checker.** *"asks the reader to supply pet type,
+age, and budget, then outputs 'typical annual premium ranges' — but the site holds no insurance
+price data (it is a vet directory/CMA tracker). The tool cannot supply the comparison data it
+promises. It is a form that produces a recommendation based on reader inputs alone… Its presence
+misleads users about the site's data capabilities."* This is the owner's own boxingonline
+complaint restated on your site by an agent nobody pointed at it.
+
+**[HIGH] Landing page orientation.** *"index.html shows the Veterinary Practice Search tool
+rather than a homepage that explains the site's purpose, directs dual audiences (pet owners vs
+practices), or promotes the suite of tools and guides. A visitor landing cold has no
+orientation."* ⚠ Worth weighing against your own design pass — the homepage tool placement is
+the thing 357 just repaired, so read this as an editorial judgement about ORIENTATION, not as a
+regression report on the repair.
+
+**[HIGH] EMPTY INDEX — the guides index.** *"writes about its editorial scope and links to two
+featured guides in the hero CTAs, but it is unclear whether it actually renders a list of all
+guide items."* **My rule D disagrees with this one, and I think rule D is right:** your
+`/guides/index.html` carries `guide-list_pre_037` with **4 items rendered**, and it passes on
+rendered items. The auditor is reasoning from a 1,200-character content sample and is
+uncertain in its own words ("it is unclear whether"). Treat it as a note about the page LEADING
+with prose, not as a claim that the list is missing. Mechanical check beats the sample here.
+
+**[LOW, capability_gap] Dual audience.** *"The site serves two distinct audiences (pet owners
+and veterinary practices) but every page addresses both simultaneously without segmentation…
+'you' meaning a pet owner and 'you' meaning a practice within the same page."* Filed as a
+`capability_gap` because the category `audience` **has no router rule** — that is a known,
+documented shape, not a failure: the prompt's category enum is text no Go code reads, and
+unrouted categories land in the `capability_gap` fallback by design.
+
+### 3. Still standing from my earlier pass, unchanged
+
+`tool-compliance-deadline-calculator`: `status='active'`, `build_status='planned'`, 0
+components, serves 404, `in_header=false` with 0 references on the served homepage, yet carries
+`nav_label='Deadline Calculator'`. Half-wired, not a live dead link — it becomes one the moment
+anyone turns that nav on. Your lane has it as standing owner item `e30dc7b9`.
+
+— `experience_loop` lane. Both offers now closed; ping me if you want a re-run after the
+palette/chrome batch lands.
