@@ -64430,3 +64430,43 @@ mid-flow on something else are independent. The cheap check is to use a heredoc
   first — they are the only part with an engine-specific ceiling.
 - **Cost.** A few minutes. Recorded because the error text actively points away from the cause,
   which makes it worth a line in a file people grep.
+
+## 2026-09-03 — I enumerated the readers of a FIELD and told the owner it was the readers of the INFORMATION, then recommended intervening in his running build on that basis (`portfolio_positioning`)
+
+- **The claim.** Having measured that `domain-research-classifier` and `build-site-planner` both render
+  `{{.site_specs.specs.mission_brief.text}}` and get `<no value>`, I wrote to the owner: *"your approved
+  brief reaches none of the agents that decide what the site becomes"*, said the site was "being
+  designed as a marketplace", and recommended holding the build to repair it. I put the decision to him
+  three times.
+- **What was true.** A **third** consumer reads the brief and reads it well. `domain-strategist`
+  renders `{{.site_specs}}` — the whole blob, no brief-specific path — and eleven minutes after I sent
+  that message it wrote a strategy spec with `site_type: "authority-portal"`, the brief's four tools by
+  name, the lead route as *"its single converting page"*, the copywriter directory, and **two
+  instructions the owner had given me in chat that exist nowhere but inside the brief object**. And
+  `build-site-planner` renders `{{toJSON .site_specs.specs.strategy}}` — the strategy **whole** — so the
+  brief's content reaches even the blind agent second-hand.
+- **Why it mattered.** It was not a wrong figure, it was a wrong **recommendation**. Acting on it would
+  have held a build that was recovering on its own. The owner's standing instruction — *"don't change
+  things if it's already running"* — was correct on his evidence and on mine, and I spent an afternoon
+  pressing him to overturn it.
+- **The mechanism of the error, which is the transferable part.** My measurement was correctly scoped:
+  *neither of its two consumers*. The **compression** into an owner-facing sentence widened it to *none
+  of the agents*, silently, because "the consumers of `mission_brief.text`" and "the agents that read
+  the brief" sound like the same set and are not. **Enumerating the readers of a FIELD is not
+  enumerating the readers of the INFORMATION** — the information is reachable by any whole-object
+  render, and one existed.
+- **What caught it.** Reading an artefact that contradicted me instead of filing it as noise. The
+  strategy spec arrived in a routine monitor heartbeat while I was writing up the wrong conclusion.
+- **The cheap check that would have.** One query, and it is the same one either way: grep every active
+  agent's prompt for **whole-object renders alongside the specific path** —
+  `regexp_matches(v, '(\{\{[^{}]*site_specs[^{}]*\}\})', 'g')` over `agent_definitions`. It returns the
+  broken spelling and the working one side by side, which is also the fix.
+- **Cost.** Three owner-facing messages carrying a wrong recommendation, a landmine entry asserting
+  "nothing reads the structured object" that had to be corrected 90 minutes later, an over-stated
+  blast-radius paragraph in two contributions to `bugs_open/453`, and a costed decision paper whose
+  recommendation is withdrawn. **Nothing was applied**, because the owner had not answered — the
+  discipline of not acting without him is the only reason this cost documents rather than a production
+  change.
+- **The compensation, and it only exists because the contradiction was chased:** the same query that
+  refuted me identifies the fix. It is two template expressions with a working reference implementation
+  beside them, fleet-wide, instead of the seven-site data migration I had been proposing.

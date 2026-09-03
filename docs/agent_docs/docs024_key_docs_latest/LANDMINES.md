@@ -21892,3 +21892,27 @@ END $$;
 - **relations:** `bugs_open/332` (tier 2 and its argument) · CQ-019 (the five layers, and the tiering) · migration 499 (the invisible-loop wording) · `bugs_open/277` §5 (the ported-page population these routes exist for) · MEMORY [[a-quiet-test-passes-when-the-rule-is-gone]]
 - **source:** 2026-09-03, `bugs_open/332` lane; the reason unclosed-bold and list-marker rules were confined to a feed-display tier rather than added to the shared detector.
 - **added:** 2026-09-03, bugfix_332_feed_display_markdown lane
+
+### ⚠ CORRECTION to the `mission_brief` entry above (added earlier the same day, 2026-09-03) — it says nothing reads the structured object, and that is FALSE
+
+- **footprint:** `site_specs` aspect `mission_brief` · `mission_brief.text` · `domain-strategist` · `domain-research-classifier` · `build-site-planner` · `bugs_open/453`
+- **what the entry above gets wrong:** it says the brief is invisible to *"the only two agents that consume it"* and that *"nothing reads the structured object"*. **A third consumer reads it and reads it well.** [MEASURED 2026-09-03 17:53Z at the live `agent_definitions` rows]
+
+  ```
+  domain-research-classifier : {{if .site_specs.specs.mission_brief}} … {{.site_specs.specs.mission_brief.text}}
+  build-site-planner         : {{if .site_specs.specs.mission_brief}} … {{.site_specs.specs.mission_brief.text}}
+  domain-strategist          : {{.site_specs}}      <- whole blob, no brief-specific path, WORKS
+  ```
+- **the controlled proof, one site, one afternoon:** copyonline.co.uk's classifier ran at 16:57Z and recorded *"no mission brief was supplied"*, producing `category: hub`, tags marketplace / community-platform / tool-portal. Its `domain-strategist` ran at **17:44:34Z on the identical spec set** and produced `site_type: "authority-portal"`, the brief's four tools by name, the lead route as *"its single converting page"*, the copywriter directory, and two owner instructions that exist only inside the brief object. Same data, same site, minutes apart, opposite outcomes.
+- **so the corrected mechanism is narrower and more useful:** the **data always arrives** — `site_specs` is in `plan_site.input_fields` and reaches the classifier too. The defect is **two template expressions** asking for a `.text` child that brief-writer output does not carry, under a guard that opens on the parent. It is not an input-starvation bug and it is not a brief-writer bug.
+- **and the entry above over-states the downstream damage.** It says a persisted blind read means "repair is supersede-and-re-run, not one write". The blind classification IS persisted and IS wrong — that part stands. But `build-site-planner` renders `{{toJSON .site_specs.specs.strategy}}`, the strategy object **whole**, so a faithful strategy carries the brief's content onward second-hand. On the worked case the pipeline substantially self-corrected with no intervention, and a session acting on the entry above would have held a running build unnecessarily.
+- **the check that distinguishes them, and the one whose absence caused this:** when you enumerate the consumers of a spec, grep for **whole-object renders as well as the specific path** — `{{.site_specs}}`, `{{toJSON .site_specs.specs.<aspect>}}` — because **enumerating the readers of a FIELD is not enumerating the readers of the INFORMATION**, and the second set is reached by more than one route. One query over `agent_definitions` covers both:
+  ```sql
+  SELECT ad.type, m[1] FROM agent_definitions ad,
+         jsonb_each_text(ad.default_config->'workflow'->'steps') AS s(k,v),
+         regexp_matches(v, '(\{\{[^{}]*site_specs[^{}]*\}\})', 'g') AS m
+   WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL ORDER BY 1;
+  ```
+- **still true in the entry above:** three independent producers reproduce the keyless shape (5 `brief-writer`, 1 `manual`, 1 written by the diagnosing lane itself); 7 of 23 current briefs lack the key; `roadmap_brief.text` is the same shape in the planner and is an unmeasured lead. **The pre-write advice is unchanged** — but the fix now recommended at `bugs_open/453` is to render the object in the two templates, which retires the trap for every future author rather than one site at a time.
+- **relations:** the entry it corrects, immediately above · `bugs_open/453` CONTRIB (3) · MEMORY [[a-census-must-be-derived-from-the-code-it-models]] (a census whose predicate models fewer arms than the code)
+- **added:** 2026-09-03, portfolio_positioning lane — same session, ~90 minutes after the entry it corrects
