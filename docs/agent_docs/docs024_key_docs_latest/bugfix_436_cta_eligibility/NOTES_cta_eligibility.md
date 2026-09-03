@@ -451,3 +451,51 @@ filing, in the same batch, on the same binary, rules that out.
 
 So the accurate statement is: **the cause is fixed on three sites; the residue is not.** Anyone
 quoting this entry as "three sites fixed" should carry the two sentences above with it.
+
+## 2026-09-03, 12:31–12:40Z — page rerenders (owner: "please go ahead"). Header fixed ON THE WIRE; in-page CTAs measured as unfixable this way
+
+### What was dispatched, and why only one site
+
+Owner asked for the page rerenders. Only **cv1.co.uk** could benefit: its header had moved
+(`site_components.rendered_html` = `/tools/job-search-readiness-checker/index.html`, 12:31:52Z, after
+the opt-out). `gamesdesign.co.uk` and `vetcomparison.uk` store `/contact/index.html` and
+`/contact.html` respectively — the Contact-nav gate — so their headers were never the fossil and a
+reassembly there would deploy byte-identical pages. Not dispatched, and that is a saving, not an
+omission.
+
+**The queue was NOT waited on.** cv1.co.uk had 7 `page_rerender` items `triaged` since 11:25Z behind
+~170 fleet-wide (the 11:58 and 12:31 site renders added none — same item keys, `bugs_open/326` dedup).
+Dispatched `page-rerender` per page directly instead (envelope from
+`081b_trigger_rerender_single_page_gaswholesalers.sh`, `input_data.page_id`, published through
+`kafka-publish-lib.sh`). 8 dispatched, 8 COMPLETED inside ~3 minutes.
+
+### Result: 7 of 7 deployable pages, new header, live
+
+| | |
+|---|---|
+| deployed with new header | `index.html`, `tools/example/index.html`, `tools/job-search-readiness-checker/index.html`, `tools/target-role-clarity-scorecard/index.html`, `request/index.html` (+`tools/assets/contact-form.js`), both `guides/*-guide.html` |
+| rendered HTML carries | `<a href="/tools/job-search-readiness-checker/index.html" class="header-cta">` on every one |
+| on the wire | all 7 serve 200 with the new header; invented-URL control **404** (not a catch-all) |
+| skipped | `how-it-works-index` — the workflow's own `check_skipped` gate fired (`condition_met: true`). Correct: it is the empty page the 11:25 site render had already converted to a build ask. It 404s on the wire, but it is **not linked from the live nav** (header links are index, request, and the new CTA), so no broken link is being served |
+
+⚠ **Two pages returned curl `000` on the first sweep and 200 on retry.** Transport failure, not a
+404 — and `000` next to a genuine `404` in the same column is exactly how a transient reads as damage.
+Retry before filing anything on a `000`.
+
+### The KEEP #2 limit is no longer a documented claim — it is measured under the strongest test
+
+`[MEASURED 2026-09-03 12:40Z]` **After all 8 pages were rerendered and redeployed, the count of stored
+CTA fields pointing at the now-INELIGIBLE `tool-example` is unchanged: 5 of 10.** And on the wire,
+`request/index.html` serves **3** links to `/tools/example/index.html` and
+`guides/tool-job-search-readiness-checker-guide.html` serves **5**.
+
+This is a better proof than the earlier one. Before, the stored fields survived two rerenders while the
+page was *eligible* — consistent with "nothing tried to change them". Now the page is **ineligible**,
+every page has been re-rendered and re-deployed, and the fields still point at it. `applyCTARecompute`
+KEEP #2 holds a valid stored destination regardless of eligibility, exactly as the PLAN says, and no
+amount of rerendering will move it.
+
+**So the honest summary of the whole fix, and it must travel as one sentence:** the *header* button is
+fixed and live; the *in-page* buttons are not, cannot be fixed by rerendering, and need a full page
+rebuild (which regenerates copy) or `bugs_closed/391`'s rewrite-and-relink recipe. The opt-out's
+guarantee is that nothing will re-create them.
