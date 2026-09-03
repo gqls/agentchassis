@@ -1,5 +1,10 @@
 # HANDOFF — bug sweep lane, 2026-09-03c (post-roll, mechanism LIVE)
 
+> ⚠ **THERE ARE TWO `09-03c` HANDOFFS IN THIS DIRECTORY AND THEY ARE DIFFERENT SESSIONS.**
+> `HANDOFF_2026-09-03c_bugsweep4_continue_here.md` is a concurrent sweep covering bugs **361,
+> 366, 400** — disjoint from this one, and neither supersedes the other. **This file is the
+> 442/464 thread** (and carries forward 338/320/404/407). Read whichever thread you are resuming.
+
 **Read this instead of `HANDOFF_2026-09-03b_continue_here.md` and
 `HANDOFF_2026-09-03_continue_here.md`.** Both are still correct about 338/320/404/407 and the four
 owner rulings; what changed is that **`bugs_open/442` is BUILT AND LIVE**, a second bug
@@ -112,7 +117,17 @@ Round 2 was mid-review at 12:05; pods were replaced at 12:06; **7 of 11 in-fligh
 fleet-wide froze in the same minute**, which is how you tell a roll from a sick submission. The
 correlation survives, the run does not — resubmit under `RESUBMIT_CORR`. Second recorded instance.
 
-### 4.4 The working tree may not compile, and it may not be yours
+### 4.4 ⚠ Another session is mid-edit in THIS lane's test file — do not sweep it, and note the corruption
+`platform/orchestration/actions/save_page_meta_description_test.go` has **uncommitted** changes
+that are not this lane's: a `gofmt` comment reflow (spaces → tab), plus one real corruption. In
+`TestSavePageMetaDescription_EmptyCandidateWritesNothing`'s **MUTATION** instruction, the two
+ASCII quotes in *"an UPDATE writing `''`"* have become a single curly `”` (U+201D). It compiles —
+it is a comment — but **the mutation instruction now names the wrong literal**, so anyone
+following it writes something else and draws the wrong conclusion about whether the guard holds.
+Not ours to commit (it is their working state); worth telling them, and worth not sweeping into
+a pathspec commit of that file.
+
+### 4.5 The working tree may not compile, and it may not be yours
 Another session has an **untracked** `criteria_value_assertions.go` whose `itoa` collides with a
 test helper at HEAD. `go test ./platform/orchestration/actions/` fails in the tree and proves
 **nothing** about HEAD. Everything this lane ran went through
