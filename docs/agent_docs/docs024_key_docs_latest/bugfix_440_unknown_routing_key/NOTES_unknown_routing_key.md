@@ -329,3 +329,39 @@ required order (`landmines-verify-dispatch.sh`, not the sync alone).
 named in `symbol` must appear in the sketch", it FAILED on `_ROUTING_SHAPED_RE` — the exact
 class of gap (`StampRerenderReason` named, body never shown) that drew `editquality`'s medium at
 round `c7dab2c1`. Fixed before dispatch instead of after a REVISE.
+
+## 2026-09-03 (late) — phase 3's blocker DISCHARGED, and it found a defect in already-approved code
+
+The blocker written into the module header, RFC_062's design and two approved submissions —
+*"confirm the evaluator's behaviour on a MISSING key vs `''` before pasting; getting it wrong
+inverts the guard for legacy items"* — was discharged by **executing the evaluator**, not reading
+it. The assumption behind the shipped renderer was **FALSE**.
+
+`compareValues` (`conditional_branch_action.go`) handles nil BEFORE it strips quotes, so the
+quoted two-character `''` is compared against a raw nil and never matches. Measured
+`[MEASURED 2026-09-03]`, through the real `resolveFieldValue` + `compareValues` pair:
+
+| item state | `== null` | `== ''` | `== 'cta_links_stale'` |
+|---|---|---|---|
+| routing key ABSENT | **TRUE** | false | false |
+| present, `""` | false | **TRUE** | false |
+| present, known | false | false | **TRUE** |
+| present, unknown | false | false | false ← the only refusing state |
+
+**Consequence for phase 1a's `CheckRoutingKnownConditionClause()`, which is APPROVED and shipped:**
+it emitted `== ''` and the five values, and no `== null`. Pasted into the phase-3 gate migration
+it would have evaluated FALSE for **every `page_rerender` item minted before phase 2** — the
+fleet's entire normal traffic — sending all of them to the refusal branch on flip day. Fixed
+today; the header's warning is kept as a visible correction rather than deleted, because the
+next person to test emptiness in a workflow condition will make the same assumption.
+
+Pinned so nobody re-derives it: `rerender_routing_gate_clause_test.go` runs the RENDERED clause
+through the real evaluator for all four states, plus the transition clause under both keys. The
+`== null` disjunct is mutation-proved (delete it → "absent routing key … clause allowed=false,
+want true"). The general trap is a LANDMINES entry (synced, `doc_notes` row confirmed).
+
+**The estate lesson, and it is the whole argument for stated blockers:** this defect was
+disclosed to the council as a risk, in two rounds, and approved both times — correctly, because
+no seat can catch it from the submission text. What caught it was the blocker being *written
+down* and then *discharged by execution* rather than by re-reading the code. A stated blocker is
+only worth the run that discharges it.

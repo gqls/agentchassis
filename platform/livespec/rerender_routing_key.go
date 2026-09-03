@@ -29,11 +29,16 @@
 //
 // ⚠ The clause renderers below are PASTED into migrations (DB config cannot
 // import Go — see rerender_reasons.go's header for the full argument and the
-// declaration-auditor idiom that holds the paste honest daily). The
-// present-but-unknown test in CheckRoutingKnownConditionClause relies on the
-// evaluator treating a MISSING key and '' identically — CONFIRM THAT against
-// the conditional action's evaluator before pasting (RFC_062 open list);
-// getting it wrong inverts the guard for legacy items.
+// declaration-auditor idiom that holds the paste honest daily).
+//
+// > **RESOLVED 2026-09-03 — this header used to say "CONFIRM that the evaluator
+// > treats a MISSING key and '' identically before pasting; getting it wrong
+// > inverts the guard for legacy items." It was confirmed, BY EXECUTING THE
+// > EVALUATOR, and the assumption was FALSE: a missing key does NOT match `''`.
+// > The renderer was carrying that defect and is fixed below. The warning is
+// > kept as a correction rather than deleted, because the next person to write a
+// > workflow condition that tests emptiness will make the same assumption
+// > (LANDMINES, 2026-09-03).**
 
 package livespec
 
@@ -90,10 +95,29 @@ func TransitionRerenderModeConditionClause() string {
 
 // CheckRoutingKnownConditionClause renders the read-door guard for the phase-3
 // refusal step: TRUE when the routing key is absent or known (proceed), FALSE
-// when present-but-unknown (the step's else branch refuses). See the header's
-// ⚠ about missing-vs-empty before pasting.
+// when present-but-unknown (the step's else branch refuses).
+//
+// ⚠ THE `== null` DISJUNCT IS LOAD-BEARING AND WAS MISSING FROM THE FIRST CUT.
+// The evaluator's own semantics, MEASURED by executing it 2026-09-03 rather
+// than read (conditional_branch_action.go: compareValues' nil branch runs
+// BEFORE quote-stripping, so a quoted ” never equals nil):
+//
+//	state             == null   == ''   == 'cta_links_stale'
+//	absent (no key)    TRUE     false        false
+//	present, ""        false     TRUE        false
+//	present, known     false    false         TRUE
+//	present, unknown   false    false        false     <- the ONLY refusing state
+//
+// So a clause carrying `== ”` alone evaluates FALSE for every item that has no
+// routing key — i.e. every item minted before phase 2 — and would have sent the
+// whole legacy population down the refusal branch to human review on the day
+// the gate flipped. Both disjuncts are required: `== null` for absent, `== ”`
+// for present-but-empty. The four-state table is pinned by
+// TestCheckRoutingKnownConditionClause_CoversEveryEvaluatorState in the actions
+// package, where the real evaluator lives.
 func CheckRoutingKnownConditionClause() string {
-	parts := make([]string, 0, len(RerenderSectionReasons)+1)
+	parts := make([]string, 0, len(RerenderSectionReasons)+2)
+	parts = append(parts, "input_data.spec."+RoutingReasonSpecKey+" == null")
 	parts = append(parts, "input_data.spec."+RoutingReasonSpecKey+" == ''")
 	for _, r := range RerenderSectionReasons {
 		parts = append(parts, "input_data.spec."+RoutingReasonSpecKey+" == '"+r.Name+"'")

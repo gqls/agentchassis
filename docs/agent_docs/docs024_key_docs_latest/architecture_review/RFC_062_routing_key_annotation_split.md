@@ -47,8 +47,18 @@ values include arbitrary sentences. Splitting is what makes refusal well-defined
   2. *Read door*: a second `conditional` step ahead of `check_rerender_mode` (the live gate is
      one conditional with only then/else — read 2026-09-02): `routing_reason == '' OR
      routing_reason IN (<vocabulary>)` → continue; else → refusal step. Catches pre-CHECK rows
-     and any door the CHECK misses. ⚠ Implementation must confirm the condition evaluator's
-     behaviour on a MISSING key vs empty string before this ships — flagged, not assumed.
+     and any door the CHECK misses. ⚠ ~~Implementation must confirm the condition evaluator's
+     behaviour on a MISSING key vs empty string before this ships — flagged, not assumed.~~
+     **DISCHARGED 2026-09-03 BY EXECUTING THE EVALUATOR, and the assumption was FALSE.** A
+     missing key does NOT match `== ''` (`compareValues`' nil branch runs before quote-stripping,
+     so the quoted `''` never equals nil). Measured truth table — absent: `== null` TRUE, `== ''`
+     false; present-empty: `== ''` TRUE; present-known: the value TRUE; present-unknown: all
+     false, the only refusing state. **The clause therefore needs BOTH `== null` and `== ''`
+     disjuncts**; the renderer shipped in phase 1a carried only `== ''` and would have routed
+     every item minted before phase 2 — the entire legacy population — to human review on flip
+     day. Fixed, with the four-state table pinned against the real evaluator
+     (`rerender_routing_gate_clause_test.go`) and the `== null` disjunct mutation-proved.
+     LANDMINES 2026-09-03 carries the general trap.
   3. *Producer conversion — WIDENED 2026-09-03 by the phase-1b producer census
      (bugs_open/440)*: the routing key must be stamped by EVERY producer, not just the Go item
      creator. `[MEASURED 2026-09-03]` 13 Go files write an in-vocabulary reason directly, mostly

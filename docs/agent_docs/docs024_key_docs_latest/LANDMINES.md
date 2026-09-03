@@ -20646,3 +20646,47 @@ existing census SQL in the repo is deliberate about this.
 - **relations:** `bugs_open/440` + `architecture_review/RFC_062_routing_key_annotation_split.md` (the split and its phases) · `bugs_open/404` (why the vocabulary must have ONE home — three copies drifted and the gate knew two values Go did not) · register **REB-008** · the Go side is done: `livespec.RerenderReasonFields` / `StampRerenderReason` / `RerenderReasonJSONPrefix`
 - **source:** 2026-09-03, bugfix_440 lane, phase 2 — the raw-SQL producer door
 - **added:** 2026-09-03, bugfix_440 lane
+
+### A workflow condition testing `== ''` does NOT match a MISSING key — only a present-but-empty one, and the difference routes your whole legacy population
+
+- **footprint:** `platform/orchestration/actions/conditional_branch_action.go` (`compareValues`, `resolveFieldValue`) · any `agent_definitions` workflow step with `"action": "conditional"` · any migration pasting a gate condition · `input_data.spec.*` field tests
+- **fires when:** you write a gate condition meaning "this key is absent or one of these values" and spell the absent case `field == ''`. It reads correctly, it passes review, and it is wrong for exactly the population you were trying to wave through. `compareValues`' nil branch runs **before** quote-stripping, so the quoted two-character `''` is compared against a raw `nil` and never matches. Measured by executing the evaluator, 2026-09-03:
+
+  | item state | `== null` | `== ''` | `== 'a_value'` |
+  |---|---|---|---|
+  | key ABSENT | **TRUE** | false | false |
+  | key present, `""` | false | **TRUE** | false |
+  | key present, matching | false | false | **TRUE** |
+  | key present, other | false | false | false |
+
+- **why the wrong result looks exactly right:** every state you test by hand while writing the migration is a state where the key is PRESENT — you set it to try the branch. The absent case is the one you cannot see without an item that predates your change, and it is usually the largest population by far. A gate carrying `== ''` alone therefore behaves perfectly in every trial and sends the entire legacy backlog down the else branch on the day it goes live.
+- **the check — write BOTH disjuncts, and prove it against the real evaluator, not by reading:** `field == null OR field == '' OR field == 'v1' OR …`. `null` catches absent, `''` catches present-but-empty. To prove it, run the rendered clause through `compareValues(resolveFieldValue(...))` for all four states — the worked harness is `evalGateClause` in `platform/orchestration/actions/rerender_routing_gate_clause_test.go`, which is a few lines and needs no database.
+- **live instance, 2026-09-03 (bugfix_440 lane):** `livespec.CheckRoutingKnownConditionClause()` — the renderer whose output RFC_062's phase-3 gate migration pastes — shipped with `== ''` alone and passed a council round in that state (`55def842`, approved; the risk was disclosed as "confirm before pasting" and no seat could have caught it from the text). Executing the evaluator showed it would have routed **every `page_rerender` item minted before phase 2** — the whole fleet's normal traffic — to the refusal branch. Fixed the same day, with the four-state table pinned as a test and the `== null` disjunct mutation-proved (delete it → the absent case fails).
+- **relations:** `bugs_open/440` + `architecture_review/RFC_062_routing_key_annotation_split.md` · register **REB-008** · [[a-post-fix-zero-needs-a-demand-control]] (the same shape: the state you cannot see is the one that matters) · the estate rule this instance vindicates — **a stated blocker is only worth the run that discharges it**
+- **source:** 2026-09-03, bugfix_440 lane, discharging RFC_062's own phase-3 blocker
+- **added:** 2026-09-03, bugfix_440 lane
+
+### The code index's `content` search returns ONE hit for every symbol — it cannot find callers, and "1 hit" is what a symbol with twenty callers looks like
+
+- **footprint:** `code_symbols` · `code_symbols.content` · `index_code_symbols` · any "who calls X / is X still referenced" question answered from the code index
+
+**the trap:** you want to prove a symbol has no callers left — before deleting it, or to size a
+change — and the code index looks like the right instrument: it is fleet-wide, it is fresh (9,598
+symbols at `92f90e114`, 2026-09-02 `[MEASURED 2026-09-03]`), and `SELECT count(*) FROM code_symbols
+WHERE content ILIKE '%YourSymbol%'` returns a clean, plausible small number. **It returns `1`. It
+returns `1` for everything**, because `content` holds each symbol's OWN body, so the only row that
+matches a name is the declaration itself. A caller's body is a different row and is not searched the
+way you think.
+
+⚠ **Measured controls, and they are the point** `[MEASURED 2026-09-03]`: `NewStateRepository` →
+**1** content hit, against **20 files** containing it in the tree. `UpdateStateWithVersion` → **1**.
+`handleOrchestrationStatus` → **1**. A symbol genuinely down to its declaration also returns **1**.
+**The measurement cannot come out otherwise, so it is not evidence.**
+
+**the check:** for "does anything still call this?", the instrument is the **compiler** —
+`go build ./...` with the symbol deleted is complete for compiled callers by construction, which no
+index can match. Then grep for what the compiler cannot see: `grep -rn '<symbol>' --include='*.go'`
+for comments, and **outside `.go`** for config, SQL seeds and migrations. That last one is not
+theoretical — deleting `ClearExecutingStep` (`bugs_open/329`) left a live
+`orchestration_status_vocabulary.written_by` row naming it, seeded by migration 466, invisible to
+every compile-time check and to the index (migration `736`).
