@@ -241,7 +241,7 @@ remedies**:
 | | `archived_page_still_serving` (9 open) | `section_source_drift` (469) |
 |---|---|---|
 | has a `Resolved` arm? | **yes** — one of the 19 | **no** |
-| why is it still open? | because the finding is **still TRUE** — the pages really are serving | because nothing could ever close it |
+| why is it still open? | because the finding is **still TRUE** — the pages really are serving | because the check has no closer (⚠ NOT "nothing ever closes one" — see the correction below) |
 | what the item says today | accurate | describes a state that **no longer exists** |
 | what it is blocking | nothing | the dedup key — fresh drift on that page cannot be filed |
 | the remedy it wants | triage / routing to a handler | a closer that **cannot ratify the loss it just observed** |
@@ -406,3 +406,70 @@ drain — already in the stated risks, `bugs_open/033`, and not fixable here.
 
 **Total: 18 mutations run across the change, each killing a named test, sources restored and
 diffed byte-identical every time.**
+
+---
+
+## 2026-09-03 — CORRECTION: "nothing ever closes one of these" is FALSE, and my instrument could not have told me otherwise
+
+Raised by the `427` lane after I read the two archived rows it pointed me at. **It is right,
+and I had repeated the claim in the shipped code comment, a LANDMINES entry, this file's own
+table, the SUMMARY and the owner log.** Corrected in all of them; the code comment matters
+most, because that is the one a future reader inherits without asking.
+
+### What is actually true
+
+```sql
+SELECT item_key, status, created_at::date, completed_at::date, handled_by
+FROM site_work_items_archive WHERE item_type='section_source_drift';
+-- section_source_drift:contact       complete 2026-07-16 2026-07-19  bugfix thread (bugs_open/002 C)
+-- section_source_drift:who-we-help   complete 2026-07-17 2026-07-19  bugfix thread (bugs_open/002 C)
+```
+
+**Eight of this type have ever been filed** (6 live + 2 archived), and **two were closed by
+hand** — both on 2026-07-19, both by ONE thread, two and three days after filing. (The `427`
+lane said "two people, same-day"; it was one thread, 2–3 days later. Stating it because the
+correction should be more accurate than the error, not merely different from it.)
+
+### Why neither of us could see them, which is the transferable half
+
+**A census over `site_work_items` returns "nothing ever closes these" whatever the truth
+is**, because closing a row archives it out of the table being queried. The instrument
+cannot produce the disconfirming answer. That is
+`MEMORY[a-closer-census-cannot-see-what-it-succeeded-at]` — *"`site_work_items` is a ROLLING
+WINDOW; closing a row archives it out of the table you queried"* — about this exact table,
+already in my index while I wrote its negation.
+
+**And the same error inflated a claim I made to the owner about the OTHER nine checks.** I
+wrote "nine other detectors raise warnings that nothing ever closes". Over the UNION,
+`[MEASURED 2026-09-03]`:
+
+| item type | ever filed | ever closed |
+|---|---|---|
+| `claims_unverified` | 61 | **16** |
+| `voice_tells` | 72 | **5** |
+| `image_source_unsatisfiable` | 94 | **2** |
+| `decision_blocked_change` | 14 | **2** |
+| `capability_gap` | 334 | **1** |
+| `content_duplication` | 1 | **1** |
+| `contact_form_undeliverable` | 7 | 0 |
+| `section_source_drift` | 8 | **8** |
+
+**Six of eight have real closures.** The true property is **"rare, manual, undriven, and
+invisible once it happens"**, not "impossible".
+
+### What survives, and what this changes about the fix
+
+**Nothing in the design changes, and the fix is better motivated by the true version.** The
+failure was never that resolution is impossible — it is that it depends on an individual
+being present at the right moment and leaves no visible trace afterwards. `capability_gap`
+at **1 closure in 334** is a sharper statement of that than "zero" would have been, because
+zero invites "so nobody can", while 1-in-334 says "somebody did, once, and you would never
+find out".
+
+### The cheap check that would have
+
+**When a claim is "X has never happened", ask what your query does to X when it DOES
+happen.** Here: closing archives the row, so the census is blind by construction. The
+general form is the one I already had in memory and did not apply to my own sentence —
+which is the uncomfortable part, and the reason this is in `WRONG_CALLS` rather than only
+here.

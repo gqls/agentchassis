@@ -40,10 +40,25 @@
 // HARD PART IS THAT CLOSING THEM NAIVELY WOULD BE WORSE THAN NEVER CLOSING.
 // ════════════════════════════════════════════════════════════════════════════
 //
-// Until now the check was flag-only and nothing on the estate ever closed one
-// of its items. Three properties compounded (469 §3):
+// Until now the check was flag-only and had no closer of its own. Three
+// properties compounded (469 §3):
 //
-//   - nothing closed them, so they accumulated — six open, the oldest 37 days;
+//   - ⚠ NOT "nothing ever closed one" — that claim is FALSE and the way it was
+//     reached is worth more than the claim. A census over `site_work_items`
+//     returns 6 open items and 0 closures, and reports "nothing ever closes
+//     these" WHATEVER THE TRUTH IS, because closing a row ARCHIVES IT OUT OF
+//     THE TABLE THE CENSUS QUERIED. Over `site_work_items` UNION
+//     `site_work_items_archive`, [MEASURED 2026-09-03]: 8 of this type ever
+//     filed and 2 were closed BY HAND on 2026-07-19 (`handled_by = 'bugfix
+//     thread (bugs_open/002 C)'`, one thread closing both). The same instrument
+//     error inflates the general case too — of eight flag-only item types,
+//     SIX have closures in the archive (claims_unverified 16 of 61,
+//     voice_tells 5 of 72, capability_gap 1 of 334).
+//     So the true property is narrower and still motivates this code better
+//     than the false one: closure here is MANUAL, UNDRIVEN, RARE, and INVISIBLE
+//     once it happens. It depends on an individual noticing at the time, and
+//     leaves no trace where anyone would look. Six items got no such attention
+//     and the oldest sat 37 days;
 //   - the item's `spec` is frozen at filing time and reads as CURRENT, so a
 //     reader triaging the backlog learns nothing about today;
 //   - an open item SUPPRESSES re-filing (idx_swi_dedup is UNIQUE on

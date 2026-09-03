@@ -22155,8 +22155,22 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   oldest 8 days — and its check DOES populate `Resolved` (one of only 19 of 71
   that can). Its items are open because **the finding is still TRUE**: the pages
   really are serving. `section_source_drift` had **6**, the oldest 37 days, open
-  because nothing could ever close them — and by then most of them described a
-  state that **no longer existed**.
+  because the check has no closer of its own — and by then most of them described
+  a state that **no longer existed**.
+- **⚠ AND "nothing ever closes these" IS THE ANSWER A CENSUS OF OPEN ITEMS RETURNS
+  WHATEVER THE TRUTH IS.** Closing a row ARCHIVES IT OUT of `site_work_items`, so a
+  query over that table alone cannot observe a single closure and will report zero
+  forever. Over the table **UNION `site_work_items_archive`**, `[MEASURED 2026-09-03]`
+  **six of eight** flag-only item types have real closures: `claims_unverified` 16 of
+  61, `voice_tells` 5 of 72, `image_source_unsatisfiable` 2 of 94, `capability_gap`
+  **1 of 334**, `section_source_drift` 8 of 8 (2 by hand on 2026-07-19, `handled_by =
+  'bugfix thread (bugs_open/002 C)'`; 6 by migration 753). **So the property is not
+  "impossible" but "rare, manual, undriven, and invisible once it happens"** — which
+  is a better argument for a machine closer than the false version, because it names
+  what actually fails: closure depends on an individual being present, and leaves no
+  trace where anyone would look for it. Same rule as
+  `MEMORY[a-closer-census-cannot-see-what-it-succeeded-at]`, arriving from the other
+  direction.
 - **the check:** before acting on a stale item, ask whether **its own predicate
   still holds**, by re-deriving it — not whether the row is old and not whether a
   handler exists. Nothing on the estate does this for you: the item's `spec` is

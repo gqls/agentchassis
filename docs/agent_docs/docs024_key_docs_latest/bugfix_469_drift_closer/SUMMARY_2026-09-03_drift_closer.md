@@ -102,9 +102,19 @@ page:
    properly", questions 1 and 2 stop mattering for this page entirely.
 
 Beyond that, two things are noted and not attempted. Nine other detectors raise warnings
-that nothing ever closes — the mechanism built here is reusable for them, but each one needs
-its own judgement about what closing safely means, and doing nine of them shallowly is how
-you get nine naive closers. And the record this fix files goes into a queue the estate
+that nothing *automatically* closes — the mechanism built here is reusable for them, but each
+one needs its own judgement about what closing safely means, and doing nine of them shallowly
+is how you get nine naive closers.
+
+> **CORRECTED later the same day, and the correction is worth reading.** This paragraph first
+> said those detectors raise warnings "that nothing ever closes". That is false, and the way
+> I reached it is the useful part: I counted open warnings, and **closing one removes it from
+> the list I was counting**, so that query reports "nothing ever closes these" no matter what
+> is true. Counting the archive as well: six of the eight kinds have real closures — 16 of 61
+> for one, 5 of 72 for another, and **1 of 334** for the biggest. So people *do* close these,
+> occasionally, by hand, and it leaves no trace anywhere anyone would look. That is a better
+> argument for the fix than the version I wrote, not a weaker one: 1-in-334 says somebody did
+> it once and you would never find out, where zero would have invited "so nobody can". And the record this fix files goes into a queue the estate
 demonstrably does not drain. That is worth saying plainly: what we have guaranteed is that a
 destroyed page can never again be quietly marked "resolved" — not that somebody reads the
 record. The reading is a different problem, and it already has a bug number.

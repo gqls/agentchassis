@@ -165,3 +165,31 @@ another kind sitting open, the oldest six weeks. I'm not going to pretend this f
 What it guarantees is narrower and, I think, the important half: a page that lost something
 can never again be quietly marked "resolved". Whether anyone reads the record is a separate
 problem that already has its own bug number.
+
+## 2026-09-03, later still — a correction to something I told you two hours ago
+
+I said nine other detectors raise warnings "that nothing ever closes". **That is wrong, and
+how I got it wrong is more useful than the number.**
+
+I counted the warnings sitting open. But closing a warning *removes it from the list I was
+counting* — it moves to an archive table. So that query answers "nothing ever closes these"
+no matter what the truth is. It cannot produce the other answer.
+
+Counting the archive too: **six of the eight kinds have real closures.** One has 16 out of
+61. Another has 5 out of 72. The biggest has **1 out of 334**.
+
+So people do close these — occasionally, by hand, and it leaves no visible trace afterwards.
+Including the warnings on this very bug: two were closed in July by one thread, three days
+after they were raised, and neither of us could see it because both had left the table we
+were looking at.
+
+**This makes the case for the fix stronger, not weaker.** "Nothing ever closes them" invites
+the reply "so nobody can" — which was never the problem. One-in-three-hundred-and-thirty-four
+says somebody *did*, once, and you would have no way of finding out. That is exactly what a
+machine record fixes: not the possibility of resolution, but its invisibility.
+
+It was another lane that caught it, from two archived rows it had told me to read. I had the
+general rule written down in my own notes — *"closing a row archives it out of the table you
+queried"* — and applied it to somebody else's claim this morning while writing its opposite
+into mine this afternoon. It is corrected everywhere it appeared, including in the code
+comment, which is the copy a future reader inherits without asking anyone.
