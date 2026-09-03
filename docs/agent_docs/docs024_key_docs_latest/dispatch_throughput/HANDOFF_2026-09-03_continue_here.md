@@ -192,3 +192,15 @@ mortgagecalculator CONTRIB (ordering) stays parked against the no-reorder ruling
 - If the verdict is REVISE, revise 752 and resubmit with `RESUBMIT_CORR=c400d333…`.
 **NEXT:** (1) c400d333 verdict · (2) owner's level → apply 752 → suffix drop + record → canary
 → induced-L3 proof · (3) `bugs_open/459` · (4) option C · (5) standing queue.
+
+## UPDATE 2026-09-03 ~19:3xZ — c400d333 APPROVED; 752 REVISED for its advisories (still HELD); ready to apply on the owner's word
+
+- 752 HOLD revised: fail-open on a SUCCESSFUL-but-empty gate query (`FROM (SELECT 1) LEFT JOIN`
+  + `COALESCE(admitted,true)`), four refusal arms before the DROP, transaction-safety comment.
+  Verify gained an induced-missing-row arm; daily VERIFY gained a one-row arm. Re-proven six
+  ways incl. mutation 3d (RFC_065 §3b, NOTES 19:15Z).
+- **APPLY GATE is now ONE owner fact: the LEVEL.** The round is approved. On the word: set the
+  class if not 'research' → apply per RUNBOOK §"D4b stage B" → daily VERIFY green → suffix
+  drop + record → canary → induced-L3 proof. Both trailers for this arc are earned
+  (`Council-Reviewed:` dc6d2a54 and c400d333).
+- Forward work noted, not built: a documented 4-step template before agent #2 is mapped.

@@ -614,3 +614,13 @@ live database without changing anything, and it's gone to the reviewers for a fi
 It stays switched off until you answer the one question that's still open: **should council
 reviews be the LAST thing held back (at 95% of budget — my conservative setting) or the
 FIRST?** One word and I'll apply it. September stands at about $571 of your $2,000.
+
+2026-09-03 late night — the reviewers approved the second half too, and one of them caught
+something I'm glad was caught before it went anywhere: a way the new check could have quietly
+withheld ALL council reviews because of a missing database row, not because of spend — and it
+would have looked exactly like the governor doing its job. Fixed, with a test that deliberately
+removes the row and proves the review still runs. One thing they asked me to tell you plainly:
+once this is switched on, the council governs itself — so at the level where reviews are held
+back, a review of an emergency fix to the governor would be held back too. That's by design,
+and it's another reason "last, at 95%" is the safer default. Still switched off; still waiting
+on your word about the level.

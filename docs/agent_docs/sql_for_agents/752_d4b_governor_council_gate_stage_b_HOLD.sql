@@ -75,6 +75,19 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='governor_withheld_runs') THEN
     RAISE EXCEPTION '752 REFUSED: governor_withheld_runs absent — 751 not applied or this already ran.';
   END IF;
+  -- The DROP below removes a table added by 751: refuse if it holds rows or anything names it
+  -- (council c400d333, guidelines + guardian: a recently-added object removed on an ASSERTED absence
+  -- of consumers is the column-drop hazard in a different coat). Repo census 2026-09-03: only
+  -- 751/752 and this lane's docs mention it; live: 0 rows, 0 config/task references, 0 dependents.
+  SELECT count(*) INTO n FROM governor_withheld_runs;
+  IF n <> 0 THEN RAISE EXCEPTION '752 REFUSED: governor_withheld_runs holds % rows — something wrote to it; investigate before dropping.', n; END IF;
+  SELECT count(*) INTO n FROM agent_definitions WHERE default_config::text LIKE '%governor_withheld_runs%';
+  IF n <> 0 THEN RAISE EXCEPTION '752 REFUSED: % agent_definitions rows name governor_withheld_runs — a consumer exists.', n; END IF;
+  SELECT count(*) INTO n FROM scheduled_tasks WHERE pre_query LIKE '%governor_withheld_runs%';
+  IF n <> 0 THEN RAISE EXCEPTION '752 REFUSED: % scheduled_tasks name governor_withheld_runs — a consumer exists.', n; END IF;
+  SELECT count(*) INTO n FROM pg_depend d JOIN pg_rewrite r ON r.oid=d.objid JOIN pg_class c ON c.oid=r.ev_class
+   WHERE d.refobjid='governor_withheld_runs'::regclass AND c.relname <> 'governor_withheld_runs_recent';
+  IF n <> 0 THEN RAISE EXCEPTION '752 REFUSED: % other views depend on governor_withheld_runs.', n; END IF;
   -- One live row only: the UPDATE below is by type, and a duplicate active row would be silently half-updated.
   SELECT count(*) INTO n FROM agent_definitions
   WHERE type='council-gate' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
@@ -91,9 +104,9 @@ SET default_config = jsonb_set(
     {
       "gate_spend_governor": {
         "action": "query_database",
-        "description": "D4b (RFC_065, AGOV-013): ask the spend governor whether a council-gate run is admitted right now, and compose the withheld note in the same query so nothing else has to know the level. $ctx.correlation_id is THIS run's envelope correlation — the key the 097 runbook finds a submission by. error_step = FAIL-OPEN: an unreadable governor runs the review.",
+        "description": "D4b (RFC_065, AGOV-013): ask the spend governor whether a council-gate run is admitted right now, and compose the withheld note in the same query so nothing else has to know the level. $ctx.correlation_id is THIS run's envelope correlation — the key the 097 runbook finds a submission by. FAIL-OPEN TWICE: error_step covers a query that ERRORS; the FROM (SELECT 1) LEFT JOIN + COALESCE(admitted, true) covers a query that SUCCEEDS with a missing governor row — which would otherwise yield no admitted field and route to WITHHELD (council c400d333, bug_historian). The query returns exactly one row in every state.",
         "config": {
-          "query": "SELECT governor_admits_agent('council-gate') AS admitted, gs.shed_level, format('spend-governor: council-gate run for submission %s WITHHELD at shed level %s (%s%% of budget spent) - NOT queued; do not retry; re-trigger when governor_state.shed_level drops. RFC_065.', $1, gs.shed_level, round(100*gs.mtd_usd/NULLIF(gc.monthly_budget_usd,0))) AS body FROM governor_state gs, governor_config gc WHERE gs.id=1 AND gc.id=1",
+          "query": "SELECT COALESCE(governor_admits_agent('council-gate'), true) AS admitted, COALESCE(gs.shed_level, 0) AS shed_level, format('spend-governor: council-gate run for submission %s WITHHELD at shed level %s (%s%% of budget spent) - NOT queued; do not retry; re-trigger when governor_state.shed_level drops. RFC_065.', $1, COALESCE(gs.shed_level, 0), COALESCE(round(100*gs.mtd_usd/NULLIF(gc.monthly_budget_usd,0)), 0)) AS body FROM (SELECT 1) always_one_row LEFT JOIN governor_state gs ON gs.id=1 LEFT JOIN governor_config gc ON gc.id=1",
           "params": ["$ctx.correlation_id"],
           "output_format": "object"
         },
@@ -201,8 +214,21 @@ BEGIN
   UPDATE governor_state SET shed_level = 0 WHERE id=1;
   EXECUTE 'SELECT admitted FROM (' || q || ') g' INTO adm;
   IF adm IS DISTINCT FROM true THEN RAISE EXCEPTION '752 VERIFY: at L0 the gate should admit'; END IF;
-  UPDATE governor_state SET shed_level = saved_level WHERE id=1;
+  -- INDUCED fail-open on a SUCCESSFUL query with a MISSING governor row (c400d333, bug_historian):
+  -- the gate must still return exactly ONE row, admitted = true. Without the LEFT JOIN + COALESCE
+  -- shape this returns zero rows, the conditional sees no `admitted`, and the council is withheld
+  -- for a data-integrity reason that looks identical to a real shed.
+  DELETE FROM governor_state WHERE id=1;
+  EXECUTE 'SELECT count(*), bool_and(admitted) FROM (' || q || ') g' INTO n, adm;
+  IF n <> 1 OR adm IS DISTINCT FROM true THEN
+    RAISE EXCEPTION '752 VERIFY: with governor_state missing the gate returned % row(s), admitted=% — must be 1 row, admitted=true (fail-open)', n, adm;
+  END IF;
+  INSERT INTO governor_state (id, shed_level) VALUES (1, saved_level);
   UPDATE governor_config SET enabled = saved_enabled WHERE id=1;
+  -- NOTE on the mutate-and-restore above (c400d333, debug_historian): every UPDATE/DELETE here is
+  -- inside this migration's single BEGIN…COMMIT. An EXCEPTION aborts the whole transaction, which
+  -- rolls the mutations back — so a failing verify cannot leave governor_state corrupted for the
+  -- fleet. The explicit restores exist so a PASSING verify commits the row exactly as found.
 
   -- fleet negative control: no OTHER live agent row carries the gate step
   SELECT count(*) INTO n FROM agent_definitions

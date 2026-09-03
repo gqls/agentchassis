@@ -1906,3 +1906,34 @@ the end-to-end proof — both in the RUNBOOK's apply procedure.
 
 Governor at close of this entry: enabled, level 0, **~$571 MTD** (28.5%), heartbeat live,
 alarm still dead (459). Nothing sheds council work yet.
+
+### 2026-09-03 19:15Z — stage B round APPROVED (c400d333, 2 advisories, none high) — one REAL catch fixed in the held file before it could ever be applied
+
+**Verdict read in full** `[READ 2026-09-03 ~19:2xZ]`: "approved with 2 advisory objection(s) —
+none high-severity", 6 abstentions, landed 19:15:48Z (~15 min after submission). Dispositions in
+RFC_065 §3b; the ones that changed the file:
+
+- **bug_historian's catch is the lesson of the day, and I would have armed it wrong.** My gate
+  query cross-joined `governor_state, governor_config WHERE id=1` — **zero rows** if either is
+  missing, no `admitted` field, conditional routes to WITHHELD: fail-CLOSED on a data fault,
+  wearing a shed's clothes, on the platform's own review channel. I had covered "query errors"
+  (error_step) and believed that was fail-open. **A query that SUCCEEDS with nothing is a third
+  state, and `error_step` does not see it.** Fixed with `FROM (SELECT 1) LEFT JOIN … LEFT JOIN`
+  + `COALESCE(admitted, true)`; the verify now DELETEs the state row in-transaction and requires
+  1 row / admitted=true; the daily VERIFY asserts exactly one row.
+- **guidelines + guardian:** four refusal arms before the DROP (rows / agent text / task text /
+  dependents) — repo + live census 0/0/0/0 first.
+- **debug_historian:** the mutate/restore IS exception-safe (single BEGIN…COMMIT) — a comment
+  now says so at the mutation.
+- **editquality:** "099 hazard CLOSED" → **detected, not prevented**. Corrected.
+
+**Re-proven after the revision** `[all MEASURED 2026-09-03, rolled back, live row untouched]`:
+apply OK · chained rollback byte-identical · 3a/3b/3c mutations caught as before · **3d NEW:
+the wrapper reverted to the objected CROSS JOIN form → `with governor_state missing the gate
+returned 0 row(s), admitted=<NULL>`** — the exact failure the seat described, now a permanent
+arm · daily VERIFY red on today's row (1/6) / green once applied. Post-control: start_step
+`load_schema_hint`, 44 steps, md5 `8dd74a5b…`, state row present, level 0, enabled.
+
+**Still HELD**, on the owner's level answer (asked four times; nothing yet). This commit carries
+`Council-Reviewed: c400d333` — the revisions are the round's own advisories, applied to a file
+that has never been applied.

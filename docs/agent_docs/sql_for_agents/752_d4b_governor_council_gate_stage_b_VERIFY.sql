@@ -54,6 +54,8 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE proname='governor_admits_agent') THEN
     RAISE EXCEPTION '752 VERIFY 5/6: governor_admits_agent() is gone — 751 rolled back under a live caller';
   END IF;
+  EXECUTE 'SELECT count(*) FROM (' || replace(q, '$1', '''752-daily-verify''') || ') g' INTO n;
+  IF n <> 1 THEN RAISE EXCEPTION '752 VERIFY 5/6: the gate query returned % rows — it must return exactly ONE in every state, or the conditional routes to WITHHELD on a missing field', n; END IF;
   EXECUTE 'SELECT admitted, shed_level FROM (' || replace(q, '$1', '''752-daily-verify''') || ') g' INTO adm, lvl;
   IF adm IS DISTINCT FROM governor_admits_agent('council-gate') THEN
     RAISE EXCEPTION '752 VERIFY 5/6: gate SQL and governor_admits_agent disagree at the live level';

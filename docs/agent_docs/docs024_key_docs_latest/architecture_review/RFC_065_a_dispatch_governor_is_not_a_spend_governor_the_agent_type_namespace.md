@@ -141,3 +141,37 @@ per AGOV-013's standing gate.
   (`landmine-verifier` $7.94/24 h, the auditors) is worth mapping at all.
 - **Lane:** stage B per §4; `bugs_open/459` (the level-change alarm never fires) remains the
   next fix after it.
+
+## 3b. The stage-B round (corr `c400d333`, APPROVED 2026-09-03 19:15Z, 2 advisories, 6 abstentions)
+
+- **bug_historian (medium) — REAL, FIXED before arming.** The gate query's `FROM governor_state
+  gs, governor_config gc WHERE …` returned **zero rows** if either governor row was missing; the
+  conditional then saw no `admitted` field and routed to WITHHELD — fail-*closed* on a
+  data-integrity fault, indistinguishable from a real shed. The predicate `governor_admits_agent`
+  is fail-open; my wrapper was not. Fixed: `FROM (SELECT 1) always_one_row LEFT JOIN … LEFT
+  JOIN …` with `COALESCE(admitted, true)`, so the query returns exactly one row in every state.
+  The verify now DELETEs the `governor_state` row inside the transaction and requires 1 row /
+  `admitted = true`; a mutation reverting the wrapper is caught by that arm (`0 row(s),
+  admitted=<NULL>`). The daily VERIFY's arm 5 asserts exactly one row too. **The transferable
+  rule, added to the reasoning: a query that SUCCEEDS with nothing is a third state beside
+  "admitted" and "error", and `error_step` does not cover it.**
+- **guidelines + guardian (medium) — DROP without a consumer check.** Fixed: four refusal arms
+  before the DROP (row count 0; no `agent_definitions` or `scheduled_tasks` text names the
+  table; no dependent view besides its own). Repo census 2026-09-03: only 751/752 and this
+  lane's docs mention it; live 0/0/0/0.
+- **debug_historian (medium) — the verify's mutate-and-restore is not exception-safe.** It is,
+  by construction: every mutation sits inside the migration's single `BEGIN…COMMIT`, so an
+  EXCEPTION rolls them back. Stated in a comment where the mutation is, so the next reader does
+  not re-raise it. The daily VERIFY mutates nothing.
+- **prior_art (medium) — is 751 actually applied?** Yes: applied 17:12:21Z, ledger 17:13:13Z.
+  The seats' schema view excludes `governor_*`; the lane's NOTES carry the psql output.
+- **editquality (low ×3):** the boolean's survival through `query_database` → `conditional`
+  mirrors `panel.run_render == true` in the same row; `governor.body` mirrors `gate_note.body`;
+  and **"the 099 hazard is CLOSED" overstated it — the daily VERIFY DETECTS a regeneration, it
+  does not PREVENT one.** Corrected here and in the RUNBOOK.
+- **reuse_agent + architecture (low) — the 4-step pattern for agent #2.** Accepted as forward
+  work: the second agent type mapped into `governor_agent_class_map` should get a documented
+  step template, not a hand-copied variant. Not built now (one consumer).
+- **guardian (low) — self-governance.** Once armed, council-gate governs itself: an emergency
+  submission to fix a governor bug would itself be withheld at the shed level. By design, and
+  now stated to the owner in plain words.
