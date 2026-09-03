@@ -64748,3 +64748,24 @@ anyone dispatching either delivery agent from that seed.
   putting it to.
 - **Cost.** One council round, and a figure repeated to four audiences before it was corrected.
   Nothing shipped on it: the migration is still held.
+
+## 2026-09-03 — a 090 symptom asserting "no producer files a replacement needs_composition", refuted by the loop on the second site it looked at (`portfolio_positioning`)
+
+- **The claim.** Filed to the diagnosis loop: *"when the specs it named as missing are subsequently
+  written, no producer files a replacement needs_composition."* My lane NOTES had already hedged the
+  copyonline-specific version ("may self-heal"), but the symptom I authored stated the general form.
+- **What was true.** On oxenunity.com a second `needs_composition` was filed 5h48m after the first
+  bailed, ran `ready=true`, and the site has a composition. The loop found this on iteration 1 and
+  returned UNVERIFIABLE on the "who filed it" question at its cap. First-hand afterwards:
+  `MissingStyleCollectionCheck` files it whenever `sites.style_collection_id IS NULL`, on the site's next
+  design-discovery selection. A producer exists; it is periodic, not event-driven.
+- **Why it mattered.** Only credits — the loop did its job. Logged because the shape recurs: **I had
+  measured "nothing has re-filed it" on ONE site over THREE hours and wrote it as a property of the
+  platform.** A negative observed on one site inside one window is not "no producer"; it is "not yet".
+- **What caught it.** The loop, by reading a second site. And the estate's rule that a REFUTED verdict
+  is a success — this row exists because of that rule, not despite it.
+- **The cheap check that would have.** Before asserting "nothing re-files X", query X's history on the
+  sites that DID recover: `SELECT site_id, count(*) FROM site_work_items WHERE item_type=X GROUP BY 1
+  HAVING count(*) > 1`. A site with two rows is the producer's fingerprint. Ten seconds, and it was in
+  the very table I had been reading all afternoon.
+- **Cost.** One diagnosis run. The site is unchanged.

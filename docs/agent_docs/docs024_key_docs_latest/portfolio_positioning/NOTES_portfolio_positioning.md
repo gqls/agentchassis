@@ -5489,3 +5489,77 @@ caught once by enumerating the readers of a field and speaking about the readers
 ran the general form rather than the specific one, and it answered a question I had left open as well
 as the one I asked. **The cheap generalisation of a query that has already caught you is usually worth
 running twice.**
+
+### (vv) 2026-09-03 ~19:20Z — owner's three evening instructions executed: duplicates retired (after the broad search), lead route ruled and measured, and the composition stall explained
+
+**A. "Retire the duplicate tool pages, but check it's correct first using broader search."**
+
+The prior incident the owner meant is the loanzy one (`bugfix_311_component_keys` NOTES): four tool
+pages archived that the site should have held; owner: *"it should have held pages"*; all four
+unarchived. So the check that precedent demands is not "are these duplicates" but **"does this site's
+own brief or strategy want them"**. Five axes, all `[MEASURED 2026-09-03 18:5xZ]`, all in
+`SQL_2026-09-03d_…retire…sql`'s header: (1) component-level duplication fleet-wide — all three live and
+deployed on seotools.co.uk, one on websitepromotion too; (2) neither the approved brief nor the sighted
+strategy names SERP / title tag / keyword intent anywhere, with `headline scorer` hitting in both as
+the control; (3) three-source inbound audit (body / chrome / nav) with `website-brief-starter` as the
+positive control — the three GUIDES have zero inbound (already orphans; the checker's own
+`orphan_blog_posts` finding agreed), the three TOOLS have 13; (4) nothing published; (5) zero open
+items on the six. **Archived six (three tools + their companion guides, the guides because a guide to
+a retired tool is not a page to keep), four survivors verified untouched.** `content_components`
+untouched — they are shared library rows.
+
+**Retraction, the SECOND half, fired via `216_TRIGGER_page_retraction.sh`:**
+- guides (run `b23dd73e`): **RETRACTED** — three files removed from `gqls/sites`, commit
+  `1b0c14889e24887de2c1eda09fd83ba7cf5d0a30`, 18:58:08Z.
+- tools (run `45a7eba9`): **REFUSED, all three, "still linked from live content"** — exactly what the
+  audit predicted, and the guard the owner's caution asked for. 13 named inbound: footer ×3,
+  `tool-cta` ×3 (insight-injector), hero ×2 + call-to-action ×2 (both surviving guides),
+  article-body ×3 (prose on both surviving guides). Nav rows still `active` (the refusal precedes
+  deactivation).
+- ⚠ **the three retracted guides still carry `pages.deployed_at`** — the 315/359 shape; recorded, not
+  fixed here.
+
+**Repairs filed, ten items, each the estate's own route (`SQL_2026-09-03f_…`):** `page_rerender`
+`reason=cta_links_stale` ×3 (the check_misdirected_cta path; the resolver recomputes against
+`loadResolverPageSet`, archived excluded) · `needs_rerender` `refresh_site_components=true` ×1 (footer
+regenerates from `loadFetchablePageSet`, archived excluded) · `phantom_internal_link` ×6 routed to
+`page-build-handler` for `tool-cta` and `article-body`, **because `ctaFieldNames` covers hero and
+call-to-action only** — derived from stored html, the check's own item_key shape. **Filed by hand
+because `completeness-discovery-agent` selected ONE site in the last four hours across 40 in
+rotation** `[MEASURED 19:1xZ]`; waiting would have been days. Watcher `b14z2xpln` reports when all ten
+are terminal; then re-fire the tools' retraction.
+
+**B. "What's the choice for the lead route? It can point to a list of companies… measure that."**
+
+Brief **revision 5** applied (`SQL_2026-09-03e_…`, guarded supersede, everything outside
+`content_plan`/`open_questions` proven byte-identical): lead route's PRIMARY action = a list of UK
+copywriting COMPANIES from the directory (organisations, not named individuals — this is the answer to
+the brief's own removal/attribution question), enquiry form SECONDARY with its destination still the
+owner's; directory lists organisations first; two `open_questions` entries record the ruling and the
+measurement. **Reach stated honestly in the file: the classifier/planner cannot read it (453) and the
+strategist has already run, so today it is the owner's record.**
+
+**Measurement:** copyonline was **the one untagged site in the fleet** (`check_gtm_state.sh --db`:
+38 durable, 1 untagged — copyonline; born after the c2 waves, STY-061's birth-seed is inert till the
+roll). Applied `analytics_gtm/sql/c2_…` with `GO=yes UNTAGGED=1` after a DRY run showed the target set
+was exactly this site: `site_config.analytics.gtm_container_id = GTM-PQ3WCTBD` written 18:58:39Z, the
+source the head template's `{{if .gtm_container_id}}` gate reads, so every page it builds is tagged
+and reports to GA4 `G-Y26N29T4KH`. Ordered AFTER the archive so the chrome rebuild touches 4 pages,
+not 10. Consent Mode v2 defaults all-denied → visits count cookieless until Accept: **an undercount
+by design**, fine for "is anyone arriving", not for attribution. If the owner later wants clicks on
+the company links, that is a GA4 event, not a page change.
+
+**C. The composition stall — diagnosis verdict and the producer found first-hand.**
+
+090 run `ef0ec49c`: **UNVERIFIABLE (iteration cap)**, but it **refuted my symptom's strong form** —
+on oxenunity a second `needs_composition` WAS filed ~6h after the first bailed, with `ready=true`. It
+could not settle what filed it. First-hand, then: the only producer it saw is
+`check_integrity.go:(*MissingStyleCollectionCheck).Run`, which files `needs_composition` (key
+`needs_composition`, status `triaged`) whenever **`sites.style_collection_id IS NULL`**. copyonline's
+is **NULL**; oxenunity's is set. The previous item is terminal (`complete`), so `idx_swi_dedup` does not
+block a re-file. **Prediction, conditional:** copyonline's composition re-files on its next
+`design-discovery-agent` selection — which has no rotation row for this site yet, so the cadence is
+`[UNMEASURED]`. Still not prodded.
+
+**Also today:** `sites.status` for copyonline read `active` at 17:38Z and `deployed` at 19:0xZ —
+something flipped it between; not chased.
