@@ -472,3 +472,37 @@ stored assets + the theme token (no browser, sweeps all 30 stored logos, but tru
 over the render — the very thing §1b warns about, mitigated only by having *measured* that the token
 is genuinely consumed on this one site). Routing is unsettled too: `css-patch-agent` cannot fix a
 pale PNG. Recommendation recorded as input, not taken.
+
+### designblog landed 14:30:30Z — the decisive run, and it passed
+
+Attempt 3 of round 2. Key `20260903/`, md5 `ff8203b9be15`, 27,656 B, 404 control. Row confirms the
+prompt carried **both** the override and the `letterform` licence (`updated_at` 14:30:30Z — checked
+on the POST-regeneration row, not the morning's).
+
+An abstract open-cube with an arrow. **Zero lettering**, one composition, no invented brand — from a
+prompt whose subject line asks for *"abstract letterform or typographic symbol"* and forbids
+lettering in the same sentence. Also the day's best artefact on legibility: 0 near-white opaque
+pixels, **min contrast 5.83:1** (every pixel clears the floor), median 11.05:1, fringe 0.022%.
+Header confirmed `#ffffff` at the usage.
+
+**Adjudication case: n=0 → n=1, passed.** Recorded in 417 with the caveat that n=1 bounds nothing —
+it refutes "the override never wins", which nobody claimed. Trigger stays open; the next evidence is
+the other 12 licence-carrying sites when they regenerate.
+
+### RFC_058 §5.4 census — partial refresh, and a trap I nearly fell into again
+
+`site_delivery_and_editor` flagged that the census is dated 2026-08-31 and the owner is engaging
+now. Refreshed the **writer** half: still **4**, no growth in three days. **Did not** re-count the
+14 readers; that half stays dated and still owes a re-run.
+
+⚠ **The admin PATCH writer is invisible to a literal-SQL census.**
+`internal/core-manager/admin/site_admin_handlers.go:389` builds `UPDATE sites SET %s` from
+**runtime-assembled** `setClauses`, so there is no literal `email` next to any `UPDATE`. **My first
+two greps returned it as absent** and I would have reported 3 writers. A naive re-run drops
+**precisely the unconditional writer** the RFC flags as most dangerous.
+
+**That is the fourth time in one day I measured a thing by a literal that the thing does not
+contain** (three on the 417 licence census, one here). The difference is that this time the
+disconfirming result was cheap to imagine — the RFC *says* there are four and I found three, and a
+shortfall against a known prior is the one shape that forces you to look. Recorded in RFC_058 §5.4
+as a trap for whoever re-runs it, because the next person will not have that prior.

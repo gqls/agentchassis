@@ -161,6 +161,23 @@ invite the same fallback confusion the register already suffered.
    `sites.email` as of 2026-08-31**, including an admin PATCH endpoint that writes it
    unconditionally — is the shape of the work, and that census must be re-run and re-dated before
    any migration, because a census goes stale by addition.
+
+   > **PARTIAL REFRESH 2026-09-03** (prompted by the `site_delivery_and_editor` lane, on the
+   > grounds that the owner is engaging with this RFC now and §5.4's own instruction makes the
+   > census the first thing to go stale). **Writers are still FOUR, no growth in three days:**
+   > `sync_site_identity_action.go`, `seed_build_queue_action.go`, `v3_site_actions.go`, and
+   > `internal/core-manager/admin/site_admin_handlers.go` (the unconditional admin PATCH).
+   > **The 14 readers were NOT re-counted** — that half remains dated 2026-08-31 and still owes a
+   > re-run before any migration. Do not quote a refreshed reader figure; there isn't one.
+
+   ⚠ **TRAP FOR WHOEVER RE-RUNS THIS: the admin writer is INVISIBLE to a literal-SQL census.**
+   `site_admin_handlers.go:389` builds `UPDATE sites SET %s` with the column list assembled at
+   **runtime** from `setClauses`, so the file contains no literal `email` adjacent to any `UPDATE`.
+   Two separate greps on this refresh returned it as **absent**. A naive re-run therefore reports
+   **three** writers and silently drops the unconditional one — **precisely the writer this
+   constraint exists to worry about**, and the one an identity model most needs to account for.
+   Search the file set for the **column name independently of the SQL verb**, then read each
+   candidate. A count that cannot see a dynamically-built writer is not a census of writers.
 5. **The delivery chain's source must stay explicit.** It reads
    `build_queue.direction.customer_email` today (**convention, not code** — no code reads
    `sites.email` for delivery, measured 2026-08-31). Whichever identity becomes the delivery

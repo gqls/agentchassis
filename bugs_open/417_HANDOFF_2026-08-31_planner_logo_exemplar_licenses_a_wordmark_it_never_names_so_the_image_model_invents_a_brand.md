@@ -746,3 +746,56 @@ since the override shipped — and it has never yielded an artefact.
 
 **See also `bugs_open/462`** — a separate gap found while eye-checking these: the marks are text-free
 and correctly matted, and nothing in the estate checks whether one is legible against its header.
+
+---
+
+## THE DECISIVE RUN — `designblog.co.uk` landed 2026-09-03 14:30:30Z, and the override WON
+
+**This is the run the fence trigger was actually waiting for**, and the section above said so before
+it happened: designblog is the **only** site in the estate whose current plan still carries a
+licence, so it was the only live test of whether the override beats one. Every other clean
+generation showed the model not painting text *when nothing asked it to*.
+
+**It carried both, verified on the post-regeneration row** (`updated_at` 14:30:30Z, key
+`20260903/`, `attempt_count=3`): `override = t`, `licence_letterform = t`.
+
+The licence is unusually blunt — the subject line asks for *"abstract **letterform** or
+**typographic symbol** suggesting editorial authority"*, and the prohibition follows **in the same
+sentence**. So the model was handed a direct self-contradiction and had to adjudicate.
+
+**Result: an abstract open-cube mark with an arrow emerging from it. Zero lettering, zero
+letterforms, one composition, no invented brand.** Eye-checked at the served bytes (200, 27,656 B,
+md5 `ff8203b9be15`, 404 invented-path control), key date `20260903/`.
+
+**And it is the best artefact of the day on every other axis too** — which matters because
+`bugs_open/462` was filed this morning on the opposite outcome:
+
+| | designblog (this run) | websitepromotion (same day, 462 §6) |
+|---|---|---|
+| transparent | 88.5% | 93.4% |
+| near-white opaque px | **0** | 3,928 (85.4%) |
+| **min contrast, any pixel** | **5.83:1** | 1.02:1 |
+| median contrast | 11.05:1 | 1.01:1 |
+| magenta fringe | 0.022% | 0.48% (63% of visible px) |
+
+**Every pixel clears the 3:1 floor**, against a header confirmed `#ffffff` at the usage (4
+`var(--color-header-bg)` consumers). Text-free *and* legible.
+
+### What this does to the fence decision — it is now n=1, not n=0, and that is a real change
+
+The section above recorded the honest position that the adjudication case had **n = 0**. It is now
+**n = 1, and it passed.** That is the first direct evidence in this file's history that the override
+beats a licence in the composed prompt rather than merely surviving alongside nothing.
+
+⚠ **But n=1 bounds nothing.** Rule of three on a single clean run gives no useful upper bound at
+all. One run cannot distinguish "the override reliably wins" from "the override wins most of the
+time"; it only refutes "the override never wins", which nobody claimed. **Do not let this section be
+read as the trigger closing.**
+
+**Recommendation: fence stays UNBUILT, trigger stays OPEN — now for a different reason than
+yesterday.** Yesterday's reason was that the evidence did not exist. Today's is that it exists,
+points the right way, and is one run deep. **The trigger's own terms are unchanged: any lettered
+logo that carried the clause → build the fence.** The 12 other sites carrying a licence
+(§ exposure, 13 of 33) have not regenerated since the override shipped; each of those is a further
+test when it comes, and they are where the next evidence will come from — not from the sites that
+carry no licence at all.

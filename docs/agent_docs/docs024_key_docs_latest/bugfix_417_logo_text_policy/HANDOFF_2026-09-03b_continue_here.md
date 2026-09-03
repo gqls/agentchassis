@@ -61,7 +61,15 @@ not this one; another roll has been announced since.** Use ancestry, never dates
    this is not an outstanding repair and should not be re-raised as one. The two `PRESERVED_*.png`
    files in this directory are now **evidence, not a rollback option**; keep them, they are the only
    copy of the pre-regeneration artefact and the pair is what makes §6's mechanism legible.
-3. **Wait for `designblog.co.uk`.** The 424 lane reset it again (owner-authorised) and it was on
+3. ~~**Wait for `designblog.co.uk`.**~~ **LANDED 2026-09-03 14:30:30Z on attempt 3 — CLEAN, and it
+   is the decisive run.** It carried BOTH the override and the `letterform` licence (verified on the
+   post-regeneration row), and produced an abstract open-cube mark with an arrow: **zero lettering,
+   one composition, no invented brand** — and the best artefact of the day on every other axis
+   (0 near-white opaque px, **min contrast 5.83:1**, median 11.05:1, fringe 0.022%). Full write-up
+   in `bugs_open/417`, "THE DECISIVE RUN". **The adjudication case is now n=1 and it passed — but
+   n=1 bounds nothing, so the trigger does NOT close.** The next evidence comes from the other 12
+   licence-carrying sites when they regenerate, not from sites carrying no licence.
+   ~~original text:~~ The 424 lane reset it again (owner-authorised) and it was on
    attempt 2 of 3 at ~12:56Z, `retry_after` 13:24:20Z. **It is worth more than the other eight runs
    combined for 417**, because it is the ONLY site whose current plan still carries a permitting
    phrase — *"abstract letterform or typographic symbol"* — immediately followed by *"no lettering or
