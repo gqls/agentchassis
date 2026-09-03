@@ -2877,3 +2877,18 @@ re-run through a heredoc. The shell-quoting trap, again.)
   (`gauntlet_dead_cta/RUNBOOK` §"deploy"). That restart also serves robot-hands.com and vonc.com
   (gauntlet + gripper), so it is an outward-facing change to two other live sites and is the
   owner's call, not something to slip in behind a model install.
+
+## 2026-09-03 (16:40Z) — peer report verified: `/tools/llm-cost-calculator` tool-cta cards image-less since 08-12; handoff rewritten
+
+The `bugs_open/384` lane reported 5 blank card images in that page's `tool-cta` block. Verified at
+the artefact rather than taken on report `[MEASURED 2026-09-03 16:40Z]`: `page_components` slot 2
+`tool-cta` (a **`section`**-level component, not the tool fork), `content_data.items` = 5, all 5
+`image: ""`, `updated_at` 2026-08-12 15:10; slot 1 is the `tool`-level `tool-llm-cost-calculator`
+fork (content_data 1,626 bytes, so NOT the `{}` shape of the section_edit-blanks-a-tool-fork
+landmine). Page is `rebuild_policy='owned'`. Served page carries exactly one `<img>` (the logo), so
+a visitor sees cards without images rather than broken images. Their class assignment stands
+(`bugs_open/389` §2 "Owned page"; remedy `section_edit` → `section-editor`, migration 486). Left
+with 389; recorded in the handoff's "Reported by peers" section. Told them the slot-level finding
+(editor route safe on slot 2).
+
+`HANDOFF_2026-09-03_continue_here.md` written at the owner's request; supersedes 09-02.
