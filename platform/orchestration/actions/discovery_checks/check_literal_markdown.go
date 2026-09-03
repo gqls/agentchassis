@@ -154,10 +154,33 @@ func (c *LiteralMarkdownCheck) Name() string { return "literal_markdown" }
 // field) moved with them: datahelpers.HTMLMarkupRe.
 var htmlMarkupRe = datahelpers.HTMLMarkupRe
 
+// maxLiteralMarkdownSpecFindings bounds the finding list carried in the work
+// item's spec. The count is always exact (spec.findings_total); only the
+// examples are capped — check_asset_reference_404.go's maxEmptyRefSamples shape.
+// 25 rather than that check's 5 because a repairing agent reads these to
+// understand the page, where the 404 check's samples are illustrative only.
+const maxLiteralMarkdownSpecFindings = 25
+
+// capSpecFindings bounds what the spec carries. Extracted so the cap has a
+// direct test — the same reason create_work_item_action.go:468 extracted its
+// gate. It must NEVER be used to decide anything: routing reads the full slice.
+func capSpecFindings(findings []literalMarkdownFinding, pageName string, logger *zap.Logger) []literalMarkdownFinding {
+	if len(findings) <= maxLiteralMarkdownSpecFindings {
+		return findings
+	}
+	if logger != nil {
+		logger.Info("literal_markdown: spec findings capped",
+			zap.String("page", pageName),
+			zap.Int("found", len(findings)),
+			zap.Int("carried", maxLiteralMarkdownSpecFindings))
+	}
+	return findings[:maxLiteralMarkdownSpecFindings]
+}
+
 type literalMarkdownFinding struct {
 	SlotName string `json:"slot_name"`
 	Field    string `json:"field,omitempty"` // content_data path; empty for rendered_html
-	Pattern  string `json:"pattern"`         // bold | code_span | heading
+	Pattern  string `json:"pattern"`         // the LiteralMarkdownPatterns names — read them there, not here
 	Matched  string `json:"matched"`
 	Source   string `json:"source"` // content_data | rendered_html
 }
@@ -459,13 +482,30 @@ func (c *LiteralMarkdownCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 
 	for _, id := range pageOrder {
 		pf := byPage[id]
+		// CAP THE SPEC, NOT THE DECISION (bugs_open/332, 2026-09-03). This check
+		// was the only one of its family writing an unbounded finding list into
+		// the spec — check_asset_reference_404.go:204-206, check_structure_floor,
+		// check_componentless_pages and check_page_content_divergence all bound
+		// theirs. A page whose whole news listing is dirty produces one finding
+		// per value, and 332 widens the pattern set, so the cap lands first.
+		//
+		// Two properties, both load-bearing:
+		//   - findings_total is ALWAYS exact; only the examples are capped. A
+		//     silent cap is bugs_open/181's shape — the reader cannot tell a
+		//     capped list from a complete one.
+		//   - transformRouteSlot below is called on the FULL slice. Routing is a
+		//     judgement about EVERY finding on the page ("all code_span, one
+		//     slot"); routing on a capped view would let finding 26 change the
+		//     right answer and never be seen.
+		carried := capSpecFindings(pf.Findings, pf.PageName, dctx.Logger)
 		spec := map[string]interface{}{
-			"check":     "literal_markdown",
-			"reason":    "literal_markdown", // page-rerender gates its sections branch on this (migration 473)
-			"page_id":   pf.PageID,
-			"page_name": pf.PageName,
-			"page_url":  pf.PageURL,
-			"findings":  pf.Findings,
+			"check":          "literal_markdown",
+			"reason":         "literal_markdown", // page-rerender gates its sections branch on this (migration 473)
+			"page_id":        pf.PageID,
+			"page_name":      pf.PageName,
+			"page_url":       pf.PageURL,
+			"findings":       carried,
+			"findings_total": len(pf.Findings),
 			"fix": "A literal_markdown rerender strips markdown markers from plain-text " +
 				"content_data fields deterministically (datahelpers.StripLiteralMarkdown, " +
 				"gated by strip_literal_markdown on page-rerender's rerender_sections step) " +
