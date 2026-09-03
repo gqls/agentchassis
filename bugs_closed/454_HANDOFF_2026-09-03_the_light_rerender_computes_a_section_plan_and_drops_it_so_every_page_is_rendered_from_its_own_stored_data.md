@@ -476,15 +476,33 @@ does not fire on it — a clean run of this fix through `save_page_sections` wit
 that blocked the boxingonline page (§12–13).
 
 > **CORRECTED 2026-09-03 (components lane, §15a).** This canary is a real post-fix positive for
-> the `image` field (rendered_html 2,494 → 3,327 B), **not** for the shape question I framed it
-> as testing. `articles[0].excerpt` on that page was present at every archived state back to
-> `2026-09-02 20:51:05`, written by `empty_section`/`page-build-handler` — a **build** put that
-> key there, and every later re-render carried it forward regardless of 454. I never had 384's
-> own direct confirmation that this canary repaired the shape defect; do not cite it as one.
+> the `image` field, **not** for the shape question I framed it as testing. `articles[0].excerpt`
+> on that page was present at every archived state back to `2026-09-02 20:51:05`, written by
+> `empty_section`/`page-build-handler` — a **build** put that key there, and every later
+> re-render carried it forward regardless of 454. Do not cite this canary as shape evidence; see
+> §15a's `garden-tools.uk` experiment for that.
 
-**The genuinely dispositive shape evidence is §15a's own experiment**, not this one: an
-old-shape → new-shape run on `garden-tools.uk /care` where the *before* state provably lacked
-`articles[0].excerpt`, so the after state cannot be explained by preservation.
+**But for the `image` field it did repair, and it is now the strongest single piece of evidence
+in this file — because it is the only one independently verified to the SERVED page, not a DB
+row.** `bugs_open/384` dispatched it at 12:35:51Z; it repaired at **12:54:41–43Z**
+(`page-rerender`, `reason=section_data_resolved`, item `80a1c536` complete, `attempt_count 0`,
+`page_type=landing`/`rebuild_policy=generic` — no `450` confound). The before-state was not
+their assertion — **it was this session's own unrelated read of the same row at 12:54Z**,
+minutes earlier, for a different purpose (checking a chassis-roll claim), so it functions as an
+independently-taken baseline rather than a story either lane told about its own dispatch:
+
+| | before (12:54Z, this lane's read) | after (12:54:43Z) |
+|---|---|---|
+| `content_data->'articles'` images | 0 of 4 populated | **4 of 4** |
+| `rendered_html` | 2,494 B | **3,327 B** |
+| served `designblog.co.uk/` | — | **4 `<img>` tags, real `src`, zero `src=""`** — re-verified here independently via `WebFetch` and the DB row directly, both agreeing |
+
+**And the run's own counts were, again, useless as evidence**: `section_count 4, rerendered 4,
+carried 0, escalated false` is byte-for-byte what the BROKEN runs on this same page reported at
+05:06:19Z and 05:08:24Z, which produced four blanks. Anyone verifying 454 from the dispatch
+metadata alone gets a pass whether or not the fix is present — the served artefact is the only
+discriminator, which is the whole of §3's argument, now demonstrated a third time on a third
+lane's evidence.
 
 ## 15a. CONTRIB from the `components` lane (`bugs_open/425`), 2026-09-03 15:05Z — a post-fix positive on an OLD-SHAPE baseline, plus two confirmations nobody dispatched
 
