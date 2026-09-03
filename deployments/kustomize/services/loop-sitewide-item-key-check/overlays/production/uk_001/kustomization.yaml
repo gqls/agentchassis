@@ -15,4 +15,4 @@ labels:
 # the fleet release retags this like any other service.
 images:
   - name: docker.io/aqls/loop-sitewide-item-key-check
-    newTag: v1.0.1315
+    newTag: v1.0.1358

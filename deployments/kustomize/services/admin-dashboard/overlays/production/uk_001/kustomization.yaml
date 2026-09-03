@@ -8,4 +8,4 @@ resources:
 
 images:
   - name: docker.io/aqls/admin-dashboard
-    newTag: v1.0.1188
+    newTag: v1.0.1358

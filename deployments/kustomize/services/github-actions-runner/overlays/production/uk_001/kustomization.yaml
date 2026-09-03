@@ -6,7 +6,7 @@ resources:
 
 images:
   - name: docker.io/aqls/github-actions-runner
-    newTag: v1.0.948
+    newTag: v1.0.1358
 
 patches:
   - target:

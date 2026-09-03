@@ -16,7 +16,7 @@ patches:
 # service deliberately has no binary of its own.
 images:
   - name: docker.io/aqls/browser-runner-adapter
-    newTag: v1.0.1194
+    newTag: v1.0.1358
 
 # Same config shape as the browser-runner because it is the same binary; the
 # copy under configs/ is this service's deployed source of truth.
