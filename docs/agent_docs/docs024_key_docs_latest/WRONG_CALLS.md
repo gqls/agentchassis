@@ -62858,3 +62858,42 @@ reading only our own lane's files, and the two errors met in the middle over one
 
 Family: prior-art-search-goes-stale, a-report-is-not-a-measurement, measurement-discipline-index,
 an-objection-naming-one-file-is-naming-a-category, a-closer-census-cannot-see-what-it-succeeded-at.
+
+## 2026-09-03 — I verified the half of a peer's message I DISAGREED with and adopted the half I had no opinion about, and published the adopted half as a mechanism (`bugs_open/384` lane)
+
+- **The claim.** `bugs_open/384`, 15:3xZ, committed: *"`bugs_open/457`'s orphan append is producing
+  these continuously, so both my count and the peer's were correct when taken and stale within the
+  hour."* Written to sharpen CLAUDE.md's dated-count rule — correctly — on an attribution that was
+  false.
+- **What was wrong.** 457 has appended nothing since 2026-09-02 16:28:02, 23 hours earlier. Its
+  INSERT (`rebuild_blog_listing_action.go:403-407`) **hard-codes `position 3`** and does not name
+  `component_id` at all; it fires only on a blog-index page. The row I watched arrive was produced
+  by the ordinary save path (`save_page_sections_action.go:1124-1127`), which writes
+  `position = i+1` and `component_id = componentIDPtr` — a POINTER, NULL when the section metadata
+  carries none. Split on that signature the population is 6 rows on 1 page from 457 (frozen) and 9
+  rows on 7 pages from the save path (oldest 2026-03-16, newest today).
+- **What caught it.** The peer lane chased the same row and told me. I then verified their account
+  at both the code and the data before correcting — which is the discipline I had applied to their
+  *previous* message and not to this one.
+- **THE SHAPE, and it is the reason this is worth a row rather than a shrug.** In the same message
+  from the same peer I did two opposite things. Their `component_id IS NULL` screening rule I
+  distrusted, so I read `resolveComponent` and `loadComponentSchemas`, measured all 14 rows, and
+  corrected them — 12 of 14 resolve, not 0. Their *"all produced by `bugs_open/457`"* I had no
+  opinion about, so I carried it into my own file as established fact, in my own voice, with a
+  mechanism attached ("producing these continuously") that they had never claimed. **Disagreement
+  triggered verification; the absence of disagreement suppressed it.** That is not a rule anyone
+  would state out loud, and it was governing what I checked.
+- **The cheap check, and it was one query I was already inside.** I was querying that exact table,
+  for that exact population, in that exact minute. `GROUP BY` the producer's own signature —
+  `CASE WHEN position=3 AND slot_name='generic-text-block' THEN '457' ELSE 'save path' END` — and
+  the two producers separate on sight, with 457's `max(created_at)` sitting 23 hours stale. Or,
+  equivalently and more cheaply: **read the INSERT.** Two statements, seven lines each, and they
+  disagree on both of the columns I was reasoning about.
+- **The general form:** *a peer's message is not one claim, it is several, and they do not come with
+  equal evidence behind them.* When you correct part of a message, that is the moment to ask which
+  other parts you have just silently ratified — you are about to publish them under your name, and
+  the correction makes the rest of the message look checked. **Grade a peer's claims one at a time,
+  and hardest where you agree.**
+
+Family: a-report-is-not-a-measurement, damage-confirmed-is-not-mechanism-confirmed,
+your-measurement-answers-the-question-you-encoded, cite-the-arm-not-the-function.

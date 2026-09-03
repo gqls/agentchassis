@@ -1467,3 +1467,42 @@ at the save: migration `316`'s `uq_page_components_no_byte_identical_duplicate` 
 byte-identical to one already present, and six rows rendering the same deck from the same data is
 that shape — which is `457`'s own reported failure mode. **Do not build on it without testing it.**
 It does not change this seam's record; it bounds what a re-render can do for that one page.
+
+## CORRECTION 2026-09-03 15:5xZ — **I attributed the growing NULL-id population to `bugs_open/457` and that is WRONG.** 457 has appended nothing in 23 hours; the growth is the ordinary save path
+
+The 15:3xZ update above says *"`bugs_open/457`'s orphan append is producing these continuously"*.
+**It is not.** The `components` lane chased the 15:27:34Z row independently, and I have now verified
+their account at both the code and the data rather than adopting it.
+
+**At the code — two different INSERTs, and they are not confusable once read:**
+
+| | `rebuild_blog_listing_action.go:403-407` (457) | `save_page_sections_action.go:1124-1127` (the save path) |
+|---|---|---|
+| position | **hard-coded `3`** | **`i+1`** — the section index |
+| `component_id` | **column absent from the INSERT entirely** | `$5` = `componentIDPtr`, a POINTER — NULL when the section metadata carries no id |
+| fires when | a blog-index page and `findBlogListingSlot` misses | every ordinary section save |
+
+**At the data** `[MEASURED 2026-09-03 15:5xZ]` — the population splits cleanly on that signature:
+
+| producer | rows | pages | oldest | newest |
+|---|---|---|---|---|
+| 457's append (`position 3` + `generic-text-block`) | 6 | **1** (boxingonline `/articles-index`) | 2026-08-31 16:29:48 | **2026-09-02 16:28:02 — nothing in 23 h** |
+| the save path | 9 | 7 | **2026-03-16** 14:46:47 | 2026-09-03 15:27:34 |
+
+And the decisive one: **all five rows on advertise.co.uk `/tool-cpm-cpc-benchmark-comparator` were
+created inside 0.2 s** (15:27:34.043 → .248), positions 1–5, and **only position 5 lacks its id**.
+Four healthy siblings. That is one full page build writing a NULL `componentIDPtr` for one section,
+not an append onto an existing page. 457's rows arrive alone, at position 3, on one page.
+
+**What survives, unchanged:** the population IS growing, both censuses were stale within the hour,
+and on this population a count needs the **time** and not just the date. Only the attribution was
+wrong — and 457's own file predicts its silence, because the action now hard-fails on migration
+`316`'s duplicate guard before reaching that insert.
+
+`[UNVERIFIED — theirs, and not this lane's]` why those tool-page sections' metadata lacked a
+component id at all. Two older rows of the same shape are already in the population (idea.uk
+`/tool-funding-fit` 09-02 12:27, loanzy.uk `/tool-loan-vs-savings` 08-28 07:33), both tool pages
+whose slot is named after the tool. That belongs to whoever owns the tool-page build.
+
+**And the three-era table's "after" column is still moving** — quote it as **18/18 as of 15:27Z**,
+not as a settled figure. Three of those repairs were dispatched by nobody at either bug.
