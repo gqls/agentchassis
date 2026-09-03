@@ -31,6 +31,38 @@ one-pod-of-two hole — those pods are gone — but it makes that hole irrelevan
 
 **Next: the ⭐ experiment in §2.** It is now the only cheap thing left that discriminates.
 
+## 0d. MIGRATION 721 — working mechanically, ONE page improved so far, and my own count went stale in 12 hours
+
+`[MEASURED 2026-09-03 ~08:50Z]` instances of the six hero components carrying
+`content_data.background_image`:
+
+| era | rows | window |
+|---|---|---|
+| **before 721** | **5** | 08-25 20:18 → 09-02 14:00 |
+| **after 721** (applied 20:15:47Z) | **23** | 09-02 20:20 → 09-03 05:50 |
+
+**So the field resolves and lands.** 721 is not inert — 23 instances have gained
+`background_image` through resolution since it applied, which is the mechanism working.
+
+**But the visible improvement is ONE page.** Of those 23: **22 have no page-scope hero asset**, so
+they take the declared fallback or the site hero — correct behaviour, no change to what a reader
+sees. **1 renders its own hero.** Only a page that BOTH has its own asset AND has re-rendered
+since 20:15Z can improve, and most overnight re-renders were on pages without one.
+
+**The designblog lane predicted exactly this and was right**: the fix is *necessary and not
+sufficient*; closing the class needs re-renders carrying a re-resolving reason across the affected
+pages, then verification at the SERVED bytes, filename-anchored. The component row now reads
+correct everywhere while the pages still serve the old image.
+
+> ⚠ **AND MY OWN "5 of 158" WENT STALE IN TWELVE HOURS — by ADDITION, caused by my own change.**
+> I published that count in migration 721's header and in its council submission, and used it to
+> reject a proposed cheaper route. It was correct when measured (2026-09-02, pre-migration) and is
+> now 28. Nothing about it was wrong; it simply counted a population my own edit then grew. This
+> is precisely why CLAUDE.md requires a count to carry the date it was counted — the header says
+> `[MEASURED 2026-09-02]`, so the staleness is visible rather than silent, and
+> `--since 2026-09-02` re-derives it. **A census does not go wrong; it goes stale, and yours can
+> be stale because of you.**
+
 ## 0c. A FLEET FINDING made while measuring this bug — 30 rerenders carrying PROSE as their reason
 
 `[MEASURED 2026-09-02]` completed `page_rerender` items over 24 hours, by reason:
