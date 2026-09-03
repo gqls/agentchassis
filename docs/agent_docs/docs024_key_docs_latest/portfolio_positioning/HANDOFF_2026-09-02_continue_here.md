@@ -270,7 +270,7 @@ The owner refreshed the kubeconfig ~21:2xZ (the 444 session noticed first). Ever
   (discovery at plan time) → №5 carries three canary duties (chrome pin, imagery prompt,
   discovery-before-plan).
 
-# ADDENDUM 4 — 2026-09-03 ~08:5xZ: the 7 `add_tool` items are ARMED behind the chassis roll; 1 of 8 HELD
+# ADDENDUM 4 — 2026-09-03 ~08:5xZ: the 7 `add_tool` items are ARMED behind the chassis roll; 1 of 8 HELD — **FIRED 09:05:25Z after v1.0.1356 settled (NOTES (x)); ids there; verify at the body when they land**
 
 - **File of record:** `SQL_2026-09-03_fire_planned_tools_450_instance.sql` (this dir) — guarded
   (sites unlocked+deployed; each target page exists as `page_type='tool'` with NO tool-level

@@ -4080,3 +4080,15 @@ how `tool-deployer` names/creates its page when a row with the target name alrea
   shells as deployed tools and suggested complements ("directly complements the existing
   robots.txt tester") — the shells fooled the suggester as well as every checker.
 
+### (x) 2026-09-03 09:05:25Z — chassis v1.0.1356 rolled (first new pod 08:56:01Z, pair settled 08:58:07Z + 420 s); the 7 `add_tool` items FIRED
+
+Monitor saw the roll at 08:56:03Z (2/3 Running, rolling update) and SETTLED at 09:05:10Z;
+fired at 09:05:25Z from the file of record — `INSERT 0 7`, all guards passed, COMMIT. Items
+(`triaged`, `tool-generator`): seotools 1961c217 robots-txt-tester · d6189102
+core-web-vitals-checker · 876a0c54 title-tag-scorer · 095e55ca serp-snippet-previewer ·
+6a757c3c keyword-difficulty-estimator · dce904b8 meta-tag-checker · websitepromotion 00b4981a
+channel-prioritiser. Redirect-chain checker HELD (owner asked). A monitor reports each item's
+terminal state and whether its page gained a `component_level='tool'` row; verification at the
+BODY (runbook §4) follows. The 10-min-capped shell watcher was still polling at 09:04:50Z; any
+later attempt of its own hits the dedup guard and aborts — the file is idempotent-safe by design.
+
