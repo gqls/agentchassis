@@ -447,3 +447,14 @@ I could verify it carries the governor code (the usual 3-day cycle — a fresh k
 the Rackspace console fixes it). Everything is written up for the next session: verify the
 build, apply the held configuration, then your "enable" — plus the console cap raise above
 $2,000. The handoff file has the exact steps in order.
+
+2026-09-03 morning — you said "enable" and the spend governor is now LIVE. Nothing changes
+today: September stands at $373 of your $2,000, well under the first line, so everything
+runs normally — but from this moment every piece of AI-bearing work is checked against your
+budget before it's picked up, and the staged slow-down you ruled (maintenance first, builds
+second, research last) will happen by itself if spend approaches the cap. One number to
+know: the fleet is currently burning ~$124/day, a bit hotter than last week's estimate, so
+the first line ($1,400 — maintenance pauses) would arrive around the 11th at this pace.
+The dashboard question "is this paused or stuck?" is one query (governor_withheld_now).
+Last reminder on my list: the Anthropic console cap should sit above $2,000 so the
+governor's gentle brake always beats the account's hard wall.

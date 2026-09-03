@@ -1468,3 +1468,19 @@ Owner refreshed the kubeconfig; the handoff's NEXT ran end-to-end `[all MEASURED
 **Remaining for D4, both the owner's:** console cap above $2,000, then
 `UPDATE governor_config SET enabled=true WHERE id=1;` — after which watch the first shed
 cycle and unlock option C.
+
+## 2026-09-03 10:14:32Z — OWNER SAID "enable" — THE GOVERNOR IS LIVE
+
+**Owner (chat, verbatim): "enable".** Executed 10:14:32Z; read back in the same transaction:
+enabled=t, budget $2,000, thresholds 70/85/95. State at enable: **level 0, $373.42 MTD**
+(day 3 — running ~$124/day, hotter than the $99 estimate: at this pace L1 ~Sep 11-12,
+L2 ~Sep 14, L3 ~Sep 16). Immediate verification: `governor_admits` TRUE for all four probe
+classes (maintenance/build/llm-free/unmapped) at level 0; `governor_withheld_now` = 0 rows.
+Post-enable live-dispatch watch appended below. **D4's build→live arc is COMPLETE**: four
+measured blackouts → owner-ruled policy → three tables of council rounds → a governor that
+now watches every claim with the owner's numbers in it. Console-cap-above-$2,000 reminder
+issued a third time (owner's console, not verifiable from here). **Option C's gate is now
+"one real or induced shed observed"** — at the current burn the first REAL shed arrives
+~Sep 11; an INDUCED one (briefly lower the budget in a controlled window, watch L1 fire,
+withheld view populate, level-change doc_note write, restore) is the faster path and a
+next-session choice.
