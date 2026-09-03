@@ -424,3 +424,43 @@ write vacuously.
   row. ⚠ **Do not read "no rows" as "it does not work"** — read it with the demand control:
   `SELECT count(*) FROM pages WHERE status='active' AND COALESCE(meta_description,'')='' AND
   page_visible_text_len(id) > 200;` If that is 0, nothing could have filed.
+
+### 10f. ⚠ THE PRIOR RULING THIS COMES CLOSEST TO, AND THE CHECK THAT IT IS NOT CROSSED
+
+Found *after* the council round was submitted, by reading
+`docs026_concept_register/102_coverage_ratchet.txt` line 105 while registering the mechanism.
+It names, as a thing that must NOT be done casually:
+
+> "a work-item-driven route to `save_page_meta_description` would be **NEW STANDING AUTHORITY to
+> rewrite published copy on an automated finding** — the authority the owner explicitly withheld
+> on 2026-08-21 (`bugs_open/320` §15) — and is architecture-scope with its own council round, not
+> a ratchet line"
+
+**This IS a work-item-driven route to `save_page_meta_description`.** So the question is exact:
+does it carry that authority? **No, and it is checkable rather than arguable.**
+
+The withheld thing is specifically `overwrite_existing: true`. `bugs_open/320` §15 records that
+the flag was granted **for one act only** — set inline on a one-off dispatch script — and that
+*"the seeded agent was never armed"*, verified afterwards by probing the step config.
+`meta-description-repair`'s `save_description` step **does not declare the key**, so it defaults
+`false`: it can fill a blank and nothing else. It cannot touch a page that already has a
+description, which is the entire content of the withheld authority.
+
+Verified 2026-09-03 with the same probe the 320 lane used, and with a control proving the probe
+can see a declared key at all:
+
+```
+meta-description-repair | declares overwrite_existing: f | (absent -> defaults false)
+control: jsonb_build_object('overwrite_existing',true) ? 'overwrite_existing' -> t   (must be true)
+         jsonb_build_object('other',true)              ? 'overwrite_existing' -> f   (must be false)
+```
+
+⚠ **Two things follow, and both are for whoever touches this next.**
+1. **Adding `overwrite_existing: true` to this agent IS the withheld authority.** It is a
+   one-line config edit that would look completely innocuous in a migration diff, and it is an
+   owner decision plus a council round — not a config edit. It is now flagged in the register
+   entry (**SEO-008**) as well as here.
+2. ⚠ **The council round `76288ff9` did NOT see this fact** — my submission never cited
+   `bugs_open/320` §15 or the ratchet line, because I found them afterwards. Whatever that round
+   returns, it did not weigh this, and the verdict should be read with that gap named rather than
+   as having cleared it. The constraint itself is verified above, independently of any seat.
