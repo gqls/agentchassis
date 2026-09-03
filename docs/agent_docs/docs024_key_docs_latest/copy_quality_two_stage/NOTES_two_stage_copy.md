@@ -3756,3 +3756,19 @@ replacement if wanted. It was never in the owner's announced batch, so his queue
 > time; its stated blind spot, pinned by their test + register BLD-028, is a listing-in-fact
 > page typed `content` with generic sections — exactly both shipped glossaries, exactly ours).
 > Their migration 720 additionally discourages planning such pages without a producer.
+
+---
+
+## 2026-09-03 morning — first v2 nightly: the new arm fires, with a boundary case to read
+
+07:41Z run (v1.0.1354 CLI): **11 of 39** brief-supplies (site census grew 34→39) · word-instr
+column live · spec-claims **1 of 41 from 8,086 scanned fields** (a real spec claim appeared —
+whichever lane owns that site reads it; the demand control is healthy). **plain_words' FIRST
+live finding is MANDATED**: `"term — plain English gloss — practical implication"` in a
+content_direction — and the read matters: that string is a glossary ENTRY-FORMAT template
+(the phrase names a format column), not the site labelling its own tone. Whether a mandated
+format descriptor containing "plain English" teaches the writer to emit the collocation on
+pages is exactly the transfer question the supplied class exists to put in front of a human —
+the filed item carries it; if the read says format-descriptors are a distinct non-defect
+class, that's a v3 treatment note, NOT an in-place v2 change (the usage rule). First-cycle
+label printed as designed; N-of-M movement reads as the arm arriving.
