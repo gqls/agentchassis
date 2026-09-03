@@ -178,6 +178,16 @@ def main():
             keen_out, sell = '', r['registrar']
         elif is_single_word(d) and not r['dynappraisal']:
             keen_out, sell = '', 'PREMIUM-REVIEW:single-word'
+        elif (r['tld'] == 'com' and int(r['sld_length']) == 4
+              and d.split('.')[0].isalpha()
+              and set('aeiouy') & set(d.split('.')[0])):
+            # OWNER RULE 2026-09-03: "4 letters with vowels or vaguely
+            # pronounceable with e.g. y's are worth good money." A recognised
+            # scarcity class the model cannot see — it was pricing ipry.com at
+            # $1,650 keen while the owner rejected a €150 offer on it as far
+            # too low. Held out whether or not an appraisal exists, because the
+            # appraiser is measurably low on this class too.
+            keen_out, sell = '', 'PREMIUM-REVIEW:4-letter-com'
         elif int(r['sld_length']) <= 3 and not r['dynappraisal']:
             # Short names are a SCARCITY class the model cannot see: it was
             # pricing 2w.uk / 4l.uk / 5s.uk at the $200 floor, against realised

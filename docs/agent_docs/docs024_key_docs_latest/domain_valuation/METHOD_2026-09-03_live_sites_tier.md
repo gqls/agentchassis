@@ -86,3 +86,42 @@ two kept visibly separate, or the tail's credibility carries the top's optimism.
   probably never be listed at any price.
 - Whether relojistas.com's $12,000 floor still stands, now that he is framing
   live sites in "worth a lot more soon" terms.
+
+---
+
+## ADDENDUM — the pattern is now five cases, and it has one cause
+
+`[MEASURED 2026-09-03]` Every time an owner figure has met a model figure, the
+model has been far too low:
+
+| name | model said | reality | ratio |
+|---|---|---|---|
+| `free.uk` | $215 | sibling `free.co.uk` sold **~£160,000** | — |
+| `cartoon.co.uk` | $2,934 (with a −25% penalty) | **£5,000+ paid** | ~2× under |
+| `holidaytime.com` | $995 | **$12,000 realised** | **12× under** |
+| `relojistas.com` | $1,490 | **$12,000** owner floor | **8× under** |
+| `2w.uk` / `4l.uk` / `5s.uk` | $200 floor | realised `.uk` short sales **£2,500–£5,200** | ~15× under |
+
+**The cause is one thing, not five.** Where a domain has no appraisal of its
+own, the model anchors on its category median — and a premium name is by
+definition the one that deviates most from a median. So the anchoring mechanism
+systematically drags exactly the best names toward the middle, and the better
+the name the worse the error. It is a *tail-pricing* model being asked to price
+the top.
+
+**The response is not a better multiplier — it is refusing to price this class
+at all.** Anything in a recognised scarcity class is now held out of the
+algorithmic tail as `PREMIUM-REVIEW` (**183 domains** as of 2026-09-03):
+
+- a single English dictionary word (144 found, 66 `.uk`, 63 `.co.uk`)
+- a name of 3 characters or fewer
+- a 4-letter alphabetic `.com` containing a vowel or `y` (owner's rule)
+
+These get a real appraisal first — they are at the FRONT of the appraisal
+queues — and then the owner's eye, never an inherited median.
+
+**What would help most, and only the owner has it:** more realised figures. Two
+have surfaced by accident in one day (`free.co.uk`, `holidaytime.com`), each
+overturning a model number by an order of magnitude. Any other domain he has
+sold, been offered real money for, or paid significantly for is worth more to
+this valuation than another 300 algorithmic appraisals.

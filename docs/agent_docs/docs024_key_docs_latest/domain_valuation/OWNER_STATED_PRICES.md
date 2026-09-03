@@ -11,6 +11,7 @@ must travel labelled as his statement, never as a valuation.
 | `webdesign.uk` | **">£1,000,000"** | aspirational, forward-looking — *"probably going to be worth that in a year or so"* | 2026-09-03, via the sedo lane |
 | `free.co.uk` | **~£160,000 REALISED** | **an actual completed SALE**, his own, some years ago — the only realised sale price known anywhere in this estate | stated 2026-09-03 |
 | `free.uk` | *(still owned)* | the retained sibling of the £160k sale | — |
+| `holidaytime.com` | **$12,000 REALISED** | an actual completed sale, "once" — no date given. The model had it at **$995** | stated 2026-09-03 |
 | `webdesign.co.uk` | same tier | confirmed in scope for the high-value tier alongside `.uk` | 2026-09-03 |
 
 ## The general lesson from cartoon.co.uk, which is bigger than one domain
@@ -82,3 +83,27 @@ consolidate. That changes the pricing question:
   both, not two independent prices. Decided, do not re-open. Any output naming
   either domain must carry the pairing, so a later reader cannot lift one price
   out of context and list it alone.
+
+
+## Live offers, all rejected as too low (2026-09-03)
+
+| domain | offer | the model's keen price | note |
+|---|---|---|---|
+| `ipry.com` | €150 | $1,650 | 4-letter .com, has an appraisal of $2,670 |
+| `holidaytime.com` | €200 | $450 | **sold for $12,000 once** |
+| `ortd.com` | €220 | $650 | 4-letter .com |
+
+Two things follow. **First, the offers are far below even this model's
+conservative numbers**, so the owner's judgement that they are too low is
+supported by every figure we hold — these are lowballs, not market signals about
+value. **Second, they are exactly what a make-offer listing with NO MINIMUM
+invites**: this lane warned the sedo lane of that on 2026-09-02, before any of
+these arrived. Setting minimums is what filters them mechanically, and the
+minimums come from this lane's output.
+
+## The owner's own valuation rules, recorded as rules
+
+- **"4 letters with vowels or vaguely pronounceable with e.g. y's are worth good
+  money."** (2026-09-03) Now implemented: a 4-letter alphabetic `.com` containing
+  a vowel or `y` is held out of the algorithmic tail entirely. 30 of the estate's
+  34 four-letter `.com` names qualify.

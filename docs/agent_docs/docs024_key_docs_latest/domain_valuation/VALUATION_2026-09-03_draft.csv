@@ -10,7 +10,7 @@ domain,registrar,category,subcategory,tld,sld_length,expiry,ns_class,dynappraisa
 5un.co.uk,nominet,brandable-short,3-char,co.uk,3,2028-05,,,,,,,,,,,,,live-site,,1870,category-median,low,0.68,digits -20%; co.uk x0.85,1272,C,,PREMIUM-REVIEW:short-name,,
 8qzq.com,porkbun,brandable-short,4-char,com,4,2027-01-07,afternic,,,,,,,,50000,min_offer,,,,,1026,subcategory-median,medium,0.96,short .com +20%; digits -20%,985,D,450,tbd,,111.1
 aadaishu.com,dynadot,foreign-language,chinese,com,8,2027-07-02,afternic,1127,2026-09-02,direct,,afternic,4999,2026-09-03,,buy_now,,,,,1127,own-appraisal,high,0.75,thin-demand category -25%,845,D,400,tbd,5.9,
-aakn.com,porkbun,brandable-short,4-char,com,4,2027-07-20,afternic,4554,2026-09-03,direct,,,,,10000,min_offer,,,,,4554,own-appraisal,high,1.20,short .com +20%,5465,B,3250,tbd,,3.1
+aakn.com,porkbun,brandable-short,4-char,com,4,2027-07-20,afternic,4554,2026-09-03,direct,,,,,10000,min_offer,,,,,4554,own-appraisal,high,1.20,short .com +20%,5465,B,,PREMIUM-REVIEW:4-letter-com,,
 abtesting.uk,nominet,web-digital,marketing,uk,9,2028-10,,,,,,,,,,,,,,,1482,subcategory-median,medium,0.21,uk x0.21,311,E,200,tbd,,
 accountancysites.com,dynadot,business-services,accounting,com,16,2026-10-15,afternic,431,2026-09-02,direct,,,,,10000,min_offer,,,,,431,own-appraisal,high,1.00,,431,E,200,tbd,,50.0
 acomedido.com,spaceship,foreign-language,spanish,com,9,2027-08-27,other,,,,,,,,,,,,,,3342,subcategory-median,medium,0.75,thin-demand category -25%,2506,C,1300,tbd,,
@@ -159,7 +159,7 @@ applejuicers.com,dynadot,consumer-products,appliances,com,12,2027-07-23,afternic
 applesorter.com,dynadot,agriculture-farming,equipment,com,11,2026-11-25,afternic,6794,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,,,,,6794,own-appraisal,high,1.00,,6794,B,3750,tbd,3.7,
 appmusic.co.uk,nominet,music,general,co.uk,8,2028-10,,,,,,,,,,,,,,,1872,portfolio-median,very-low,0.85,co.uk x0.85,1592,C,800,tbd,,
 appmusic.uk,nominet,music,general,uk,8,2028-10,,,,,,,,,,,,,,,1872,portfolio-median,very-low,0.21,uk x0.21,393,E,200,tbd,,
-aprj.com,dynadot,brandable-short,4-char,com,4,2027-07-25,afternic,850,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,,,,,850,own-appraisal,high,1.20,short .com +20%,1020,D,475,tbd,24.5,
+aprj.com,dynadot,brandable-short,4-char,com,4,2027-07-25,afternic,850,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,,,,,850,own-appraisal,high,1.20,short .com +20%,1020,D,,PREMIUM-REVIEW:4-letter-com,24.5,
 aproximar.com,dynadot,foreign-language,spanish,com,9,2027-09-10,afternic,3468,2026-09-02,direct,,,,,10000,min_offer,,,,,3468,own-appraisal,high,0.75,thin-demand category -25%,2601,C,1350,tbd,,7.4
 arabianperfumes.co.uk,nominet,beauty-personal-care,fragrance,co.uk,15,2028-04,,,,,,,,,50000,min_offer,,,,,2907,category-median,low,0.85,co.uk x0.85,2471,C,1250,tbd,,40.0
 araignees.com,porkbun,foreign-language,french,com,9,2027-10-30,other,,,,,,,,,,,,,,1307,subcategory-median,medium,0.75,thin-demand category -25%,980,D,450,tbd,,
@@ -529,7 +529,7 @@ clothesdesigns.co.uk,nominet,web-digital,design,co.uk,14,2028-10,,,,,,,,,10000,m
 clotheshangers.uk,nominet,consumer-products,household,uk,14,2028-07,,,,,,,,,,,,,,,9199,subcategory-median,medium,0.21,uk x0.21,1932,C,1000,tbd,,
 clothingclearance.co.uk,nominet,consumer-products,clothing-fashion,co.uk,17,2028-06,,,,,,,,,10000,min_offer,,,,,3512,subcategory-median,medium,0.85,co.uk x0.85,2985,C,1500,tbd,,6.7
 codeintrospection.com,porkbun,ai-tech,software,com,17,2027-06-11,other,,,,,,,,,,,,,,1802,category-median,low,1.00,,1802,C,950,tbd,,
-cogk.com,porkbun,brandable-short,4-char,com,4,2026-12-19,afternic,,,,,afternic,28500,2026-09-03,,buy_now,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,23.1,
+cogk.com,porkbun,brandable-short,4-char,com,4,2026-12-19,afternic,,,,,afternic,28500,2026-09-03,,buy_now,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,23.1,
 col-tec.com,porkbun,brandable-short,pronounceable,com,7,2027-06-10,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,4146,subcategory-median,medium,0.75,hyphen -25%,3110,C,1600,tbd,1.6,
 collateralfinancing.com,porkbun,financial,general,com,19,2028-06-03,afternic,1135,2026-09-03,direct,,,,,10000,min_offer,,,,,1135,own-appraisal,high,1.00,,1135,D,550,tbd,,18.2
 colloidalsilver.uk,nominet,health-medical,supplements,uk,15,2028-02,,,,,,,,,,,,,,,662,category-median,low,0.21,uk x0.21,139,E,200,tbd,,
@@ -840,7 +840,7 @@ edge-trimmers.com,spaceship,home-garden,garden,com,13,2027-06-18,afternic,1006,2
 edibly.uk,nominet,food-drink,general,uk,6,2027-01,,,,,,,,,,,,,,,1233,subcategory-median,medium,0.21,uk x0.21,259,E,200,tbd,,
 editorialista.com,porkbun,foreign-language,spanish,com,13,2027-10-05,other,,,,,,,,,,,,,,3342,subcategory-median,medium,0.75,thin-demand category -25%,2506,C,1300,tbd,,
 editorialplacement.uk,nominet,web-digital,marketing,uk,18,2027-10,,,,,,,,,,,,,,,1482,subcategory-median,medium,0.21,uk x0.21,311,E,200,tbd,,
-eetz.com,porkbun,brandable-short,4-char,com,4,2026-10-24,afternic,,,,,afternic,180000,2026-09-03,,buy_now,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,146.2,
+eetz.com,porkbun,brandable-short,4-char,com,4,2026-10-24,afternic,,,,,afternic,180000,2026-09-03,,buy_now,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,146.2,
 effectiveness.uk,dynadot,generic-word,general,uk,13,2027-06-14,afternic,3576,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,,,,,3576,own-appraisal,high,0.21,uk x0.21,751,D,350,tbd,33.3,
 egret.co.uk,nominet,generic-word,general,co.uk,5,2028-11,,,,,,,,,,,,,,,4602,subcategory-median,medium,0.85,co.uk x0.85,3912,B,,PREMIUM-REVIEW:single-word,,
 ehrung.com,porkbun,foreign-language,german,com,6,2027-10-05,afternic,,,,,,,,10000,min_offer,,,,,3050,category-median,low,0.90,short .com +20%; thin-demand category -25%,2745,C,1400,tbd,,7.1
@@ -1245,7 +1245,7 @@ highestsavingsrate.co.uk,nominet,financial,banking-savings,co.uk,18,2028-10,,,,,
 highriskhealthinsurance.com,dynadot,financial,insurance,com,23,2027-02-14,afternic,1946,2026-09-02,direct,,,,,,,2499,,,,1946,own-appraisal,high,0.80,very long -20%,1557,C,800,tbd,,
 highstakescasinos.uk,nominet,sports-leisure,betting,uk,17,2028-11,,,,,,,,,,,,,,,2057,category-median,low,0.21,uk x0.21,432,E,200,tbd,,
 hingedkneebraces.com,dynadot,health-medical,mobility-aids,com,16,2026-11-28,afternic,374,2026-09-02,direct,,,,,12000,min_offer,,,,,374,own-appraisal,high,1.00,,374,E,200,tbd,,60.0
-hmuu.com,porkbun,brandable-short,4-char,com,4,2027-06-10,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,15.4
+hmuu.com,porkbun,brandable-short,4-char,com,4,2027-06-10,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 hoardingdesign.com,spaceship,web-digital,design,com,14,2027-09-03,other,,,,,,,,,,1500,,,,3255,subcategory-median,medium,1.00,,3255,C,1650,tbd,,
 hoeinvestereninvastgoed.com,porkbun,financial,investing,com,23,2027-06-13,afternic,549,2026-09-03,direct,,,,,12000,min_offer,3500,,,,549,own-appraisal,high,0.80,very long -20%,439,E,200,tbd,,60.0
 hoistingmachinery.com,dynadot,industrial-equipment,lifting,com,17,2027-06-29,afternic,675,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,,,,,675,own-appraisal,high,1.00,,675,D,325,tbd,37.0,
@@ -1315,7 +1315,7 @@ identicards.co.uk,nominet,packaging-print,print-services,co.uk,11,2028-02,,,,,,,
 identitychip.co.uk,nominet,pets-vet,general,co.uk,12,2028-03,,,,,,,,,,,,,,,825,subcategory-median,medium,0.85,co.uk x0.85,701,D,325,tbd,,
 identitychip.uk,nominet,pets-vet,general,uk,12,2028-03,,,,,,,,,,,,,,,825,subcategory-median,medium,0.21,uk x0.21,173,E,200,tbd,,
 identitychips.uk,nominet,pets-vet,general,uk,13,2028-03,,,,,,,,,,,,,,,825,subcategory-median,medium,0.21,uk x0.21,173,E,200,tbd,,
-ijih.com,dynadot,brandable-short,4-char,com,4,2028-07-14,afternic,3435,2026-09-02,direct,,,,,10000,min_offer,,,,,3435,own-appraisal,high,1.20,short .com +20%,4122,B,2500,tbd,,4.0
+ijih.com,dynadot,brandable-short,4-char,com,4,2028-07-14,afternic,3435,2026-09-02,direct,,,,,10000,min_offer,,,,,3435,own-appraisal,high,1.20,short .com +20%,4122,B,,PREMIUM-REVIEW:4-letter-com,,
 ijsklontjes.com,porkbun,foreign-language,dutch,com,11,2027-08-10,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3050,category-median,low,0.75,thin-demand category -25%,2288,C,1150,tbd,2.2,
 ileeds.co.uk,nominet,names-places,geographic,co.uk,6,2028-02,,,,,,,,,10000,min_offer,,,,,1872,portfolio-median,very-low,0.64,co.uk x0.85; thin-demand category -25%,1194,D,550,tbd,,18.2
 illustratedmaps.co.uk,nominet,web-digital,design,co.uk,15,2028-05,,,,,,,,,,,,,,,3255,subcategory-median,medium,0.85,co.uk x0.85,2767,C,1400,tbd,,
@@ -1408,7 +1408,7 @@ investmentsapp.co.uk,nominet,financial,investing,co.uk,14,2028-10,,,,,,,,,10000,
 investmentsapp.uk,nominet,financial,investing,uk,14,2028-10,,,,,,,,,10000,min_offer,3500,,,,2331,subcategory-median,medium,0.21,uk x0.21,490,E,200,tbd,,50.0
 inzahlungnahme.com,porkbun,automotive,general,com,14,2027-08-31,other,,,,,,,,,,,,,,916,subcategory-median,medium,1.00,,916,D,425,tbd,,
 iomt.uk,nominet,brandable-short,4-char,uk,4,2028-03,,,,,,,,,,,,,,,1026,subcategory-median,medium,0.21,uk x0.21,215,E,200,tbd,,
-ipry.com,dynadot,brandable-short,4-char,com,4,2027-09-11,afternic,2670,2026-09-02,direct,,,,,10000,min_offer,,,,,2670,own-appraisal,high,1.20,short .com +20%,3204,C,1650,tbd,,6.1
+ipry.com,dynadot,brandable-short,4-char,com,4,2027-09-11,afternic,2670,2026-09-02,direct,,,,,10000,min_offer,,,,,2670,own-appraisal,high,1.20,short .com +20%,3204,C,,PREMIUM-REVIEW:4-letter-com,,
 irrcalculator.com,dynadot,tools-comparison,general,com,13,2027-09-08,afternic,2387,2026-09-02,direct,,,,,10000,min_offer,1649,,,,2387,own-appraisal,high,1.00,,2387,C,1200,tbd,,8.3
 ishopping.biz,porkbun,consumer-products,retail,biz,9,2027-08-24,none,,,,,,,,,,,,,,3568,subcategory-median,medium,0.30,biz x0.3,1070,D,500,tbd,,
 iskold.com,porkbun,foreign-language,danish,com,6,2027-08-14,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3050,category-median,low,0.90,short .com +20%; thin-demand category -25%,2745,C,1400,tbd,1.8,
@@ -1416,7 +1416,7 @@ istep.co.uk,nominet,brandable-short,pronounceable,co.uk,5,2028-02,,,,,,,,,10000,
 itenerife.com,dynadot,travel,general,com,9,2026-10-26,afternic,1220,2026-09-02,direct,,,,,10000,min_offer,,,,,1220,own-appraisal,high,1.00,,1220,C,650,tbd,,15.4
 ivalentines.co.uk,nominet,consumer-products,gifts,co.uk,11,2028-03,,,,,,,,,10000,min_offer,,,,,4375,subcategory-median,medium,0.85,co.uk x0.85,3719,B,2250,tbd,,4.4
 japanesestore.uk,nominet,consumer-products,retail,uk,13,2028-10,,,,,,,,,10000,min_offer,,,,,3568,subcategory-median,medium,0.21,uk x0.21,749,D,350,tbd,,28.6
-jebr.com,porkbun,brandable-short,4-char,com,4,2027-07-23,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,15.4
+jebr.com,porkbun,brandable-short,4-char,com,4,2027-07-23,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 jet-hire.com,porkbun,business-services,jobs-hire,com,8,2027-09-01,afternic,,,,,afternic,25000,2026-09-03,,buy_now,2000,,,,3028,subcategory-median,medium,0.75,hyphen -25%,2271,C,1150,tbd,11.0,
 jet-marketing.com,spaceship,web-digital,marketing,com,13,2026-12-17,atom,,,,,,,,,,,,,,1482,subcategory-median,medium,0.75,hyphen -25%,1112,D,550,tbd,,
 jethire.co.uk,nominet,aviation,charter,co.uk,7,2028-11,,,,,,,,,30000,min_offer,2000,,,,1872,portfolio-median,very-low,0.85,co.uk x0.85,1592,C,800,tbd,,37.5
@@ -1473,18 +1473,18 @@ kitchensep.com,dynadot,home-garden,kitchens-extensions,com,10,2027-09-17,afterni
 knesten.com,dynadot,brandable-short,pronounceable,com,7,2027-07-25,afternic,139,2026-09-02,direct,,,,,10000,min_offer,,,,,139,own-appraisal,high,1.00,,139,E,200,tbd,,50.0
 kodierer.com,porkbun,ai-tech,software,com,8,2027-08-20,afternic,,,,,afternic,25000,2026-09-03,,buy_now,,,,,1802,category-median,low,1.00,,1802,C,950,tbd,13.9,
 kodning.com,porkbun,ai-tech,software,com,7,2027-12-21,other,,,,,,,,,,,,,,1802,category-median,low,1.00,,1802,C,950,tbd,,
-kogj.com,porkbun,brandable-short,4-char,com,4,2028-08-09,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,15.4
+kogj.com,porkbun,brandable-short,4-char,com,4,2028-08-09,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 komunikatif.com,dynadot,foreign-language,indonesian,com,11,2027-07-19,afternic,1825,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,,,,,1825,own-appraisal,high,0.75,thin-demand category -25%,1369,C,700,tbd,18.3,
 kongelige.com,porkbun,foreign-language,danish,com,9,2027-08-25,afternic,,,,,,,,20000,min_offer,,,,,3050,category-median,low,0.75,thin-demand category -25%,2288,C,1150,tbd,,17.4
 konichiwa.co.uk,nominet,foreign-language,japanese,co.uk,9,2028-02,,,,,,,,,50000,min_offer,,,,,3050,category-median,low,0.64,co.uk x0.85; thin-demand category -25%,1945,C,1000,tbd,,50.0
 konichiwa.uk,nominet,foreign-language,japanese,uk,9,2028-11,,,,,,,,,,,,,,,3050,category-median,low,0.16,uk x0.21; thin-demand category -25%,480,E,200,tbd,,
 koplampen.com,porkbun,automotive,parts-accessories,com,9,2027-08-11,afternic,,,,,afternic,25000,2026-09-03,,buy_now,,,,,1608,category-median,low,1.00,,1608,C,850,tbd,15.5,
-kopz.com,porkbun,brandable-short,4-char,com,4,2026-12-30,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,15.4
+kopz.com,porkbun,brandable-short,4-char,com,4,2026-12-30,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 kotaete.com,porkbun,foreign-language,japanese,com,7,2027-08-31,afternic,,,,,,,,12000,min_offer,,,,,3050,category-median,low,0.75,thin-demand category -25%,2288,C,1150,tbd,,10.4
 kredietdesk.com,porkbun,financial,loans,com,11,2027-06-20,afternic,3243,2026-09-03,direct,,afternic,30000,2026-09-03,,buy_now,,,,,3243,own-appraisal,high,1.00,,3243,C,1650,tbd,9.3,
 kruste.com,porkbun,foreign-language,german,com,6,2027-05-14,afternic,,,,,afternic,25000,2026-09-03,,buy_now,,,,,3050,category-median,low,0.90,short .com +20%; thin-demand category -25%,2745,C,1400,tbd,9.1,
 kvetinac.com,porkbun,home-garden,garden,com,8,2027-07-01,afternic,,,,,,,,12000,min_offer,,,,,1484,subcategory-median,medium,1.00,,1484,C,750,tbd,,16.0
-kzlu.com,porkbun,brandable-short,4-char,com,4,2027-08-01,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,15.4
+kzlu.com,porkbun,brandable-short,4-char,com,4,2027-08-01,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 ladiesbeautytips.com,dynadot,beauty-personal-care,cosmetics,com,16,2026-12-03,afternic,1781,2026-09-02,direct,,,,,12000,min_offer,,,,,1781,own-appraisal,high,1.00,,1781,C,900,tbd,,13.3
 ladieswatches.me.uk,nominet,consumer-products,jewellery-watches,me.uk,13,2028-10,,,,,,,,,,,,,,,1059,subcategory-median,medium,0.12,me.uk x0.12,127,E,200,tbd,,
 lakelodges.co.uk,nominet,travel,accommodation,co.uk,10,2028-06,,,,,,,,,,,,,,,1030,category-median,low,0.85,co.uk x0.85,876,D,400,tbd,,
@@ -1887,9 +1887,9 @@ organisationaudits.uk,nominet,business-services,audits,uk,18,2028-06,,,,,,,,,,,2
 organisert.com,porkbun,foreign-language,norwegian,com,10,2027-06-29,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3050,category-median,low,0.75,thin-demand category -25%,2288,C,1150,tbd,2.2,
 organizationaudit.com,porkbun,business-services,audits,com,17,2028-06-10,afternic,,,,,afternic,4999,2026-09-03,,buy_now,2495,,,,1837,category-median,low,1.00,,1837,C,950,tbd,2.7,
 organizationaudits.com,porkbun,business-services,audits,com,18,2028-06-10,afternic,,,,,afternic,4999,2026-09-03,,buy_now,2495,,,,1837,category-median,low,1.00,,1837,C,950,tbd,2.7,
-ortd.com,porkbun,brandable-short,4-char,com,4,2027-09-27,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,15.4
+ortd.com,porkbun,brandable-short,4-char,com,4,2027-09-27,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 oticato.com,porkbun,brandable-short,pronounceable,com,7,2027-06-14,afternic,,,,,,,,12000,min_offer,,,,,4146,subcategory-median,medium,1.00,,4146,B,2500,tbd,,4.8
-oufe.com,porkbun,brandable-short,4-char,com,4,2026-12-02,cloudflare,,,,,afternic,120000,2026-09-03,,buy_now,,,live-site,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,KEEP:live-site,97.5,
+oufe.com,porkbun,brandable-short,4-char,com,4,2026-12-02,cloudflare,,,,,afternic,120000,2026-09-03,,buy_now,,,live-site,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,97.5,
 outboardengines.co.uk,nominet,marine,equipment,co.uk,15,2028-04,,,,,,,,,,,,,,,1872,portfolio-median,very-low,0.85,co.uk x0.85,1592,C,800,tbd,,
 outdoorfashions.co.uk,nominet,consumer-products,clothing-fashion,co.uk,15,2028-04,,,,,,,,,10000,min_offer,,,,,3512,subcategory-median,medium,0.85,co.uk x0.85,2985,C,1500,tbd,,6.7
 outdoorheatingproducts.com,dynadot,home-garden,heating-plumbing,com,22,2027-07-15,afternic,290,2026-09-02,direct,,afternic,4999,2026-09-03,,buy_now,,,,,290,own-appraisal,high,0.80,very long -20%,232,E,200,tbd,21.5,
@@ -2024,7 +2024,7 @@ pipespools.com,porkbun,industrial-equipment,general,com,10,2027-06-27,afternic,,
 pistes.co.uk,nominet,sports-leisure,general,co.uk,6,2028-04,,,,,,,,,10000,min_offer,,,,,3126,subcategory-median,medium,0.85,co.uk x0.85,2657,C,1350,tbd,,7.4
 pitchconstruction.co.uk,nominet,industrial-equipment,groundcare,co.uk,17,2028-10,,,,,,,,,,,,,,,2066,category-median,low,0.85,co.uk x0.85,1756,C,900,tbd,,
 pitforex.com,dynadot,financial,foreign-exchange,com,8,2026-10-26,afternic,5002,2026-09-02,direct,,afternic,24000,2026-09-03,,buy_now,,,,,5002,own-appraisal,high,1.00,,5002,B,3000,tbd,4.8,
-pivl.com,dynadot,brandable-short,4-char,com,4,2027-07-18,afternic,740,2026-09-02,direct,,,,,12000,min_offer,,,,,740,own-appraisal,high,1.20,short .com +20%,888,D,400,tbd,,30.0
+pivl.com,dynadot,brandable-short,4-char,com,4,2027-07-18,afternic,740,2026-09-02,direct,,,,,12000,min_offer,,,,,740,own-appraisal,high,1.20,short .com +20%,888,D,,PREMIUM-REVIEW:4-letter-com,,
 pizzaovenkits.com,dynadot,consumer-products,kitchenware,com,13,2027-08-26,atom,594,2026-09-02,direct,,,,,,,,,,,594,own-appraisal,high,1.00,,594,D,275,tbd,,
 pjvd.com,porkbun,brandable-short,4-char,com,4,2027-07-09,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,15.4
 plantarproblems.com,dynadot,health-medical,general,com,15,2026-11-07,afternic,824,2026-09-02,direct,,,,,20000,min_offer,,,,,824,own-appraisal,high,1.00,,824,D,375,tbd,,53.3
@@ -2318,7 +2318,7 @@ rulers.uk,nominet,consumer-products,office-stationery,uk,6,2028-10,,,,,,,,,50000
 running-belt.com,porkbun,sports-leisure,fitness,com,12,2027-08-06,afternic,,,,,afternic,25000,2026-09-03,,buy_now,,,,,2057,category-median,low,0.75,hyphen -25%,1543,C,800,tbd,16.2,
 running-belts.com,spaceship,sports-leisure,fitness,com,13,2027-08-04,afternic,,,,,,,,,,,,,,2057,category-median,low,0.75,hyphen -25%,1543,C,800,tbd,,
 runningboots.com,dynadot,sports-leisure,fitness,com,12,2026-09-30,afternic,1025,2026-09-03,direct,,,,,10000,min_offer,,,,,1025,own-appraisal,high,1.00,,1025,D,475,tbd,,21.1
-ruql.com,porkbun,brandable-short,4-char,com,4,2026-11-10,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,15.4
+ruql.com,porkbun,brandable-short,4-char,com,4,2026-11-10,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 sabinanigo.com,porkbun,names-places,geographic,com,10,2027-07-02,afternic,,,,,,,,12000,min_offer,,,,,1872,portfolio-median,very-low,0.75,thin-demand category -25%,1404,C,750,tbd,,16.0
 saccuir.com,porkbun,consumer-products,clothing-fashion,com,7,2027-08-10,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3512,subcategory-median,medium,1.00,,3512,B,1950,tbd,1.4,
 safari-holiday.com,spaceship,travel,general,com,14,2027-07-14,afternic,,,,,,,,,,,,,,995,subcategory-median,medium,0.75,hyphen -25%,746,D,350,tbd,,
@@ -2393,7 +2393,7 @@ seniorenwoningen.com,dynadot,property,general,com,16,2026-09-25,afternic,2044,20
 seocompanies.uk,nominet,business-services,general,uk,12,2027-01,,,,,,,,,50000,min_offer,,,,,1135,subcategory-median,medium,0.21,uk x0.21,238,E,200,tbd,,250.0
 seoinfo.co.uk,nominet,web-digital,marketing,co.uk,7,2028-04,,,,,,,,,,,,,,,1482,subcategory-median,medium,0.85,co.uk x0.85,1260,C,650,tbd,,
 seotools.co.uk,nominet,web-digital,marketing,co.uk,8,2027-01,,,,,,,,,10000,min_offer,,,live-site,,1482,subcategory-median,medium,0.85,co.uk x0.85,1260,C,,KEEP:live-site,,
-seqd.com,porkbun,brandable-short,4-char,com,4,2027-07-26,afternic,,,,,,,,50000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,76.9
+seqd.com,porkbun,brandable-short,4-char,com,4,2027-07-26,afternic,,,,,,,,50000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 servercooling.com,dynadot,industrial-equipment,general,com,13,2027-07-15,afternic,2289,2026-09-03,direct,,,,,10000,min_offer,,,,,2289,own-appraisal,high,1.00,,2289,C,1150,tbd,,8.7
 sharedbestpractice.com,porkbun,business-services,general,com,18,2027-06-19,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,1135,subcategory-median,medium,1.00,,1135,D,550,tbd,4.4,
 sharedbestpractise.com,porkbun,business-services,general,com,18,2027-06-19,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,1135,subcategory-median,medium,1.00,,1135,D,550,tbd,4.4,
@@ -2625,7 +2625,7 @@ tenantscontentsinsurance.uk,nominet,financial,insurance,uk,24,2028-10,,,,,,,,,30
 tennisbetting.co.uk,nominet,sports-leisure,betting,co.uk,13,2027-02,,,,,,,,,50000,min_offer,,,,,2057,category-median,low,0.85,co.uk x0.85,1748,C,900,tbd,,55.6
 tennisequipment.co.uk,nominet,sports-leisure,general,co.uk,15,2027-02,,,,,,,,,10000,min_offer,2995,,,,3126,subcategory-median,medium,0.85,co.uk x0.85,2657,C,1350,tbd,,7.4
 tensile-testing.com,porkbun,industrial-equipment,test-measurement,com,15,2027-06-06,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,2066,category-median,low,0.75,hyphen -25%,1549,C,800,tbd,3.2,
-terj.com,porkbun,brandable-short,4-char,com,4,2028-08-09,afternic,,,,,,,,50000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,76.9
+terj.com,porkbun,brandable-short,4-char,com,4,2028-08-09,afternic,,,,,,,,50000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 terracepaint.com,dynadot,home-garden,building-trades,com,12,2027-06-25,afternic,3947,2026-09-03,direct,,afternic,25000,2026-09-03,,buy_now,,,,,3947,own-appraisal,high,1.00,,3947,B,2250,tbd,6.3,
 terrazzo-flooring.com,dynadot,home-garden,building-trades,com,17,2027-11-14,atom,2223,2026-09-03,direct,,,,,,,,,,,2223,own-appraisal,high,0.75,hyphen -25%,1667,C,850,tbd,,
 tethered.uk,nominet,generic-word,general,uk,8,2028-08,,,,,,,,,10000,min_offer,,,,,4602,subcategory-median,medium,0.21,uk x0.21,966,D,,PREMIUM-REVIEW:single-word,,
@@ -2701,15 +2701,15 @@ ucit.uk,nominet,brandable-short,4-char,uk,4,2027-06,,,,,,,,,,,,,,,1026,subcatego
 ucits.co.uk,nominet,financial,investing,co.uk,5,2027-06,,,,,,,,,,,,,,,2331,subcategory-median,medium,0.85,co.uk x0.85,1981,C,1000,tbd,,
 ucits.uk,nominet,financial,investing,uk,5,2027-06,,,,,,,,,,,,,,,2331,subcategory-median,medium,0.21,uk x0.21,490,E,200,tbd,,
 ugg2.com,porkbun,brandable-short,4-char,com,4,2027-01-09,cloudflare,,,,,,,,30000,min_offer,,,live-site,,1026,subcategory-median,medium,0.96,short .com +20%; digits -20%,985,D,,KEEP:live-site,,
-ujei.com,dynadot,brandable-short,4-char,com,4,2026-11-12,afternic,378,2026-09-03,direct,,afternic,25000,2026-09-03,,buy_now,,,,,378,own-appraisal,high,1.20,short .com +20%,454,E,200,tbd,55.1,
-ujoi.com,dynadot,brandable-short,4-char,com,4,2026-11-11,afternic,1026,2026-09-03,direct,,,,,10000,min_offer,,,,,1026,own-appraisal,high,1.20,short .com +20%,1231,C,650,tbd,,15.4
+ujei.com,dynadot,brandable-short,4-char,com,4,2026-11-12,afternic,378,2026-09-03,direct,,afternic,25000,2026-09-03,,buy_now,,,,,378,own-appraisal,high,1.20,short .com +20%,454,E,,PREMIUM-REVIEW:4-letter-com,55.1,
+ujoi.com,dynadot,brandable-short,4-char,com,4,2026-11-11,afternic,1026,2026-09-03,direct,,,,,10000,min_offer,,,,,1026,own-appraisal,high,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 ukairtaxis.com,porkbun,aviation,charter,com,10,2026-11-05,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,1872,portfolio-median,very-low,1.00,,1872,C,950,tbd,2.7,
 ukbiota.com,porkbun,education,nature,com,7,2027-09-02,other,,,,,,,,,,,,,,4237,category-median,low,1.00,,4237,B,2500,tbd,,
 ukcommercialmortgage.com,dynadot,financial,mortgages,com,20,2026-11-26,afternic,415,2026-09-03,direct,,afternic,25000,2026-09-03,,buy_now,2000,,,,415,own-appraisal,high,1.00,,415,E,200,tbd,60.2,
 ukdigitalmarketingagency.com,dynadot,web-digital,marketing,com,24,2026-10-29,afternic,1672,2026-09-03,direct,,,,,10000,min_offer,,,,,1672,own-appraisal,high,0.80,very long -20%,1338,C,700,tbd,,14.3
 ukvouchercode.com,dynadot,consumer-products,retail,com,13,2027-02-07,afternic,1597,2026-09-03,direct,,,,,,,,,,,1597,own-appraisal,high,1.00,,1597,C,800,tbd,,
 ultrasonics.uk,nominet,industrial-equipment,test-measurement,uk,11,2028-04,,,,,,,,,,,,,,,2066,category-median,low,0.21,uk x0.21,434,E,200,tbd,,
-umeg.com,porkbun,brandable-short,4-char,com,4,2027-05-02,afternic,,,,,,,,50000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,76.9
+umeg.com,porkbun,brandable-short,4-char,com,4,2027-05-02,afternic,,,,,,,,50000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 umstrukturierung.com,porkbun,business-services,general,com,16,2027-07-05,afternic,,,,,,,,12000,min_offer,,,,,1135,subcategory-median,medium,1.00,,1135,D,550,tbd,,21.8
 under-floor-heating.com,dynadot,home-garden,heating-plumbing,com,19,2027-05-15,atom,,,,,,,,,,,,,,3149,subcategory-median,medium,0.55,2 hyphens -45%,1732,C,900,tbd,,
 underfloorheatingkits.com,porkbun,home-garden,heating-plumbing,com,21,2028-04-06,afternic,,,,,afternic,25000,2026-09-03,,buy_now,,,,,3149,subcategory-median,medium,1.00,,3149,C,1600,tbd,7.9,
@@ -2723,7 +2723,7 @@ unsecuredlender.com,dynadot,financial,loans,com,15,2027-01-06,afternic,2898,2026
 unsecuredpersonalloans.co.uk,nominet,financial,loans,co.uk,22,2028-05,,,,,,,,,,,1805,,,,1822,subcategory-median,medium,0.68,very long -20%; co.uk x0.85,1239,C,650,tbd,,
 uprights.co.uk,nominet,generic-word,general,co.uk,8,2027-10,,,,,,,,,,,,,,,4602,subcategory-median,medium,0.85,co.uk x0.85,3912,B,,PREMIUM-REVIEW:single-word,,
 uprights.uk,nominet,generic-word,general,uk,8,2027-10,,,,,,,,,,,,,,,4602,subcategory-median,medium,0.21,uk x0.21,966,D,,PREMIUM-REVIEW:single-word,,
-uqia.com,dynadot,brandable-short,4-char,com,4,2026-11-12,afternic,7856,2026-09-03,direct,,,,,10000,min_offer,,,,,7856,own-appraisal,high,1.20,short .com +20%,9427,B,5250,tbd,,1.9
+uqia.com,dynadot,brandable-short,4-char,com,4,2026-11-12,afternic,7856,2026-09-03,direct,,,,,10000,min_offer,,,,,7856,own-appraisal,high,1.20,short .com +20%,9427,B,,PREMIUM-REVIEW:4-letter-com,,
 urgestalt.com,porkbun,foreign-language,german,com,9,2027-08-13,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3050,category-median,low,0.75,thin-demand category -25%,2288,C,1150,tbd,2.2,
 urlaubhaus.com,porkbun,travel,accommodation,com,10,2027-07-23,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,1030,category-median,low,1.00,,1030,D,475,tbd,4.9,
 urlaubsverwaltung.com,spaceship,foreign-language,german,com,17,2027-06-24,atom,,,,,,,,,,,,,,3050,category-median,low,0.75,thin-demand category -25%,2288,C,1150,tbd,,
@@ -2739,10 +2739,10 @@ usedvanfinance.com,porkbun,financial,general,com,14,2028-01-25,afternic,48,2026-
 userfeedback.uk,nominet,web-digital,web,uk,12,2028-10,,,,,,,,,10000,min_offer,,,,,1635,category-median,low,0.21,uk x0.21,343,E,200,tbd,,50.0
 userretention.uk,nominet,web-digital,marketing,uk,13,2027-10,,,,,,,,,10000,min_offer,,,,,1482,subcategory-median,medium,0.21,uk x0.21,311,E,200,tbd,,50.0
 uslongbond.com,dynadot,financial,investing,com,10,2027-08-03,afternic,3808,2026-09-03,direct,,,,,10000,min_offer,,,,,3808,own-appraisal,high,1.00,,3808,B,2250,tbd,,4.4
-usyq.com,dynadot,brandable-short,4-char,com,4,2027-01-25,afternic,958,2026-09-03,direct,,,,,10000,min_offer,,,,,958,own-appraisal,high,1.20,short .com +20%,1150,D,550,tbd,,18.2
+usyq.com,dynadot,brandable-short,4-char,com,4,2027-01-25,afternic,958,2026-09-03,direct,,,,,10000,min_offer,,,,,958,own-appraisal,high,1.20,short .com +20%,1150,D,,PREMIUM-REVIEW:4-letter-com,,
 utilitybag.co.uk,nominet,consumer-products,clothing-fashion,co.uk,10,2028-03,,,,,,,,,10000,min_offer,,,,,3512,subcategory-median,medium,0.85,co.uk x0.85,2985,C,1500,tbd,,6.7
 uurtjes.com,porkbun,foreign-language,dutch,com,7,2027-08-25,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3050,category-median,low,0.75,thin-demand category -25%,2288,C,1150,tbd,2.2,
-uwio.com,dynadot,brandable-short,4-char,com,4,2026-11-11,afternic,647,2026-09-03,direct,,,,,10000,min_offer,,,,,647,own-appraisal,high,1.20,short .com +20%,776,D,350,tbd,,28.6
+uwio.com,dynadot,brandable-short,4-char,com,4,2026-11-11,afternic,647,2026-09-03,direct,,,,,10000,min_offer,,,,,647,own-appraisal,high,1.20,short .com +20%,776,D,,PREMIUM-REVIEW:4-letter-com,,
 vaartuig.com,porkbun,marine,general,com,8,2027-07-29,afternic,,,,,,,,12000,min_offer,,,,,1872,portfolio-median,very-low,1.00,,1872,C,950,tbd,,12.6
 vacanzaperfetta.com,porkbun,travel,general,com,15,2027-07-23,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,995,subcategory-median,medium,1.00,,995,D,450,tbd,5.0,
 vacuumexcavationservices.com,spaceship,consumer-products,appliances,com,24,2027-04-23,atom,,,,,,,,,,,,,,1367,subcategory-median,medium,0.80,very long -20%,1094,D,500,tbd,,
@@ -2856,12 +2856,12 @@ visitors.co.uk,nominet,generic-word,general,co.uk,8,2028-02,,,,,,,,,50000,min_of
 viuty.shop,dynadot,brandable-short,pronounceable,shop,5,2027-06-19,afternic,95,2026-09-03,direct,,afternic,4999,2026-09-03,,buy_now,,,,,95,own-appraisal,high,0.35,shop x0.35,33,E,200,tbd,150.3,
 vivirmoderno.com,porkbun,foreign-language,spanish,com,12,2027-06-22,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3342,subcategory-median,medium,0.75,thin-demand category -25%,2506,C,1300,tbd,2.0,
 voicecontrol.io,porkbun,ai-tech,ai,io,12,2027-06-03,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,1808,subcategory-median,medium,1.00,,1808,C,950,tbd,2.8,
-vonc.com,dynadot,brandable-short,4-char,com,4,2027-07-06,cloudflare,3002,2026-09-03,direct,,,,,,,,,live-site,,3002,own-appraisal,high,1.20,short .com +20%,3602,B,,KEEP:live-site,,
+vonc.com,dynadot,brandable-short,4-char,com,4,2027-07-06,cloudflare,3002,2026-09-03,direct,,,,,,,,,live-site,,3002,own-appraisal,high,1.20,short .com +20%,3602,B,,PREMIUM-REVIEW:4-letter-com,,
 voters.co.uk,nominet,generic-word,general,co.uk,6,2028-09,,,,,,,,,10000,min_offer,,,,,4602,subcategory-median,medium,0.85,co.uk x0.85,3912,B,,PREMIUM-REVIEW:single-word,,
 voucherscodes.com,porkbun,consumer-products,retail,com,13,2027-07-23,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3568,subcategory-median,medium,1.00,,3568,B,2000,tbd,1.4,
 vouchersstore.com,dynadot,consumer-products,retail,com,13,2027-08-21,afternic,4149,2026-09-03,direct,,,,,10000,min_offer,,,,,4149,own-appraisal,high,1.00,,4149,B,2500,tbd,,4.0
 vulcate.com,dynadot,brandable-short,pronounceable,com,7,2026-11-26,afternic,5043,2026-09-03,direct,,afternic,4999,2026-09-03,,buy_now,,,,,5043,own-appraisal,high,1.00,,5043,B,3000,tbd,1.0,
-vulz.com,porkbun,brandable-short,4-char,com,4,2026-11-25,afternic,,,,,,,,50000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,76.9
+vulz.com,porkbun,brandable-short,4-char,com,4,2026-11-25,afternic,,,,,,,,50000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 vulz.net,porkbun,brandable-short,4-char,net,4,2027-08-27,afternic,,,,,,,,50000,min_offer,,,,,1026,subcategory-median,medium,0.55,net x0.55,564,D,275,tbd,,181.8
 vw-transporters.com,spaceship,sports-leisure,general,com,15,2027-07-16,afternic,,,,,,,,10000,min_offer,,,,,3126,subcategory-median,medium,0.75,hyphen -25%,2344,C,1200,tbd,,8.3
 vzdq.com,porkbun,brandable-short,4-char,com,4,2027-01-22,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,15.4
@@ -2968,7 +2968,7 @@ wireframes.uk,nominet,web-digital,design,uk,10,2028-10,,,,,,,,,10000,min_offer,,
 wireless-mic.com,spaceship,consumer-products,electronics,com,12,2027-08-04,afternic,,,,,,,,10000,min_offer,,,,,3013,subcategory-median,medium,0.75,hyphen -25%,2260,C,1150,tbd,,8.7
 wireless-mics.com,spaceship,consumer-products,electronics,com,13,2027-08-04,afternic,,,,,,,,10000,min_offer,,,,,3013,subcategory-median,medium,0.75,hyphen -25%,2260,C,1150,tbd,,8.7
 wirtschaftslehre.com,porkbun,education,general,com,16,2027-08-24,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,4023,subcategory-median,medium,1.00,,4023,B,2250,tbd,1.2,
-wlmu.com,dynadot,brandable-short,4-char,com,4,2027-07-07,afternic,617,2026-09-03,direct,,,,,20000,min_offer,,,,,617,own-appraisal,high,1.20,short .com +20%,740,D,350,tbd,,57.1
+wlmu.com,dynadot,brandable-short,4-char,com,4,2027-07-07,afternic,617,2026-09-03,direct,,,,,20000,min_offer,,,,,617,own-appraisal,high,1.20,short .com +20%,740,D,,PREMIUM-REVIEW:4-letter-com,,
 womandaybook.com,dynadot,consumer-products,office-stationery,com,12,2026-11-04,afternic,2039,2026-09-03,direct,,,,,10000,min_offer,,,,,2039,own-appraisal,high,1.00,,2039,C,1050,tbd,,9.5
 womens-fitness.co.uk,nominet,sports-leisure,general,co.uk,14,2028-08,,,,,,,,,10000,min_offer,,,,,3126,subcategory-median,medium,0.64,hyphen -25%; co.uk x0.85,1993,C,1000,tbd,,10.0
 womenscycling.co.uk,nominet,sports-leisure,general,co.uk,13,2028-11,,,,,,,,,,,,,,,3126,subcategory-median,medium,0.85,co.uk x0.85,2657,C,1350,tbd,,
@@ -3004,13 +3004,13 @@ wykefarm.co.uk,nominet,agriculture-farming,farming,co.uk,8,2029-10,,,,,,,,,,,,,o
 wykefarm.uk,nominet,agriculture-farming,farming,uk,8,2028-10,,,,,,,,,,,,,owner-withdrawn,,3535,category-median,low,0.21,uk x0.21,742,D,,KEEP:owner-withdrawn,,
 wyntrix.com,dynadot,brandable-short,pronounceable,com,7,2027-08-12,atom,,,,,,,,,,,,,,4146,subcategory-median,medium,1.00,,4146,B,2500,tbd,,
 wzorki.com,dynadot,foreign-language,polish,com,6,2026-10-16,afternic,1208,2026-09-03,direct,,,,,10000,min_offer,,,,,1208,own-appraisal,high,0.90,short .com +20%; thin-demand category -25%,1087,D,500,tbd,,20.0
-xhii.com,dynadot,brandable-short,4-char,com,4,2027-09-13,afternic,922,2026-09-03,direct,,,,,12000,min_offer,,,,,922,own-appraisal,high,1.20,short .com +20%,1106,D,500,tbd,,24.0
+xhii.com,dynadot,brandable-short,4-char,com,4,2027-09-13,afternic,922,2026-09-03,direct,,,,,12000,min_offer,,,,,922,own-appraisal,high,1.20,short .com +20%,1106,D,,PREMIUM-REVIEW:4-letter-com,,
 xmasgifts.co.uk,nominet,consumer-products,gifts,co.uk,9,2028-03,,,,,,,,,,,,,,,4375,subcategory-median,medium,0.85,co.uk x0.85,3719,B,2250,tbd,,
 xmasgiftshop.com,dynadot,consumer-products,gifts,com,12,2027-01-03,afternic,4941,2026-09-03,direct,,afternic,25000,2026-09-03,,buy_now,,,,,4941,own-appraisal,high,1.00,,4941,B,2750,tbd,5.1,
 xmasparty.co.uk,nominet,events-exhibitions,general,co.uk,9,2028-11,,,,,,,,,,,,,,,1872,portfolio-median,very-low,0.85,co.uk x0.85,1592,C,800,tbd,,
 xmasparty.uk,nominet,events-exhibitions,general,uk,9,2028-11,,,,,,,,,,,,,,,1872,portfolio-median,very-low,0.21,uk x0.21,393,E,200,tbd,,
 xmaspresents.co.uk,nominet,consumer-products,gifts,co.uk,12,2027-01,,,,,,,,,50000,min_offer,,,,,4375,subcategory-median,medium,0.85,co.uk x0.85,3719,B,2250,tbd,,22.2
-xosr.com,dynadot,brandable-short,4-char,com,4,2026-11-28,afternic,1646,2026-09-03,direct,,afternic,25000,2026-09-03,,buy_now,,,,,1646,own-appraisal,high,1.20,short .com +20%,1975,C,1000,tbd,12.7,
+xosr.com,dynadot,brandable-short,4-char,com,4,2026-11-28,afternic,1646,2026-09-03,direct,,afternic,25000,2026-09-03,,buy_now,,,,,1646,own-appraisal,high,1.20,short .com +20%,1975,C,,PREMIUM-REVIEW:4-letter-com,12.7,
 xraylease.com,porkbun,health-medical,equipment,com,9,2027-09-21,afternic,,,,,afternic,4999,2026-09-03,,buy_now,2613,,,,530,subcategory-median,medium,1.00,,530,D,250,tbd,9.4,
 yacht-photography.com,spaceship,marine,services,com,17,2026-12-20,atom,,,,,,,,,,,,,,1872,portfolio-median,very-low,0.75,hyphen -25%,1404,C,750,tbd,,
 yachtcentre.co.uk,nominet,marine,general,co.uk,11,2031-10,,,,,,,,,,,,,,,1872,portfolio-median,very-low,0.85,co.uk x0.85,1592,C,800,tbd,,
@@ -3023,8 +3023,8 @@ your-vet.uk,nominet,pets-vet,general,uk,8,2028-03,,,,,,,,,,,,,,,825,subcategory-
 zapato.uk,nominet,foreign-language,spanish,uk,6,2028-11,,,,,,,,,,,,,,,3342,subcategory-median,medium,0.16,uk x0.21; thin-demand category -25%,526,D,250,tbd,,
 zapatos.uk,nominet,foreign-language,spanish,uk,7,2027-10,,,,,,,,,,,,,,,3342,subcategory-median,medium,0.16,uk x0.21; thin-demand category -25%,526,D,250,tbd,,
 zavarovalnica.com,porkbun,financial,insurance,com,13,2027-05-20,afternic,92,2026-09-03,direct,,,,,10000,min_offer,,,,,92,own-appraisal,high,1.00,,92,E,200,tbd,,50.0
-zdec.com,porkbun,brandable-short,4-char,com,4,2027-06-16,afternic,,,,,,,,30000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,46.2
+zdec.com,porkbun,brandable-short,4-char,com,4,2027-06-16,afternic,,,,,,,,30000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 zeichenkohle.com,porkbun,consumer-products,art-craft,com,12,2027-08-18,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3122,category-median,low,1.00,,3122,C,1600,tbd,1.6,
 zeichenstift.com,porkbun,consumer-products,art-craft,com,12,2027-07-08,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3122,category-median,low,1.00,,3122,C,1600,tbd,1.6,
-ziqt.com,porkbun,brandable-short,4-char,com,4,2027-06-12,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,650,tbd,,15.4
+ziqt.com,porkbun,brandable-short,4-char,com,4,2027-06-12,afternic,,,,,,,,10000,min_offer,,,,,1026,subcategory-median,medium,1.20,short .com +20%,1231,C,,PREMIUM-REVIEW:4-letter-com,,
 zirkuszelt.com,spaceship,foreign-language,german,com,10,2027-08-23,other,,,,,,,,,,,,,,3050,category-median,low,0.75,thin-demand category -25%,2288,C,1150,tbd,,
