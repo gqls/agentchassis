@@ -3062,3 +3062,42 @@ max_upload = small cap). **Remaining, optional timing:** the >30 MB
 end-to-end probe (RUNBOOK "Large uploads" — throwaway + box-psql override +
 a real ~35 MB file through the editor + self-delete). The paid tier
 discussion resumes on the owner's word after that proof.
+
+---
+
+## 2026-09-03 — owner's three findings: migrate CTA + nav FIXED on the wire; 50 MB ruling handed over; a silent save-skip found and closed on the way
+
+Owner tested and reported: (1) migrate's "Save everything" does nothing,
+(2) the nav "Save my notes" tab should save their notes, (3) the per-file cap
+message says 25 MB, should be 50.
+
+**(1)+(2) — both were SELF-LINKS in authored data** (the 08-26 sweep's item
+6a087e4f had filed exactly this, awaiting a product decision the owner has
+now given). Fix, deterministic end to end: hero `content_data.cta_url` and
+`site_nav_items` "Save my notes" both → `/tools/legacy-rescue/index.html`
+(the real export surface; `__cta_minted` left as honest history); chrome
+rerendered via STY-055 (corr 7843d3a7, asserted at the STORED header, not
+the status); migrate rerendered FROM DATA (corr b5191169, sections_saved=4,
+rows dated today); remaining 11 pages re-assembled (assemble-only 049b ×11).
+**Wire-verified: hero button and index nav both carry the new href; editor
+intact (3 chunk refs); live smoke 17/17.** Item 6a087e4f completed with the
+decision + trail.
+
+**The finding on the way (LANDMINES 2026-09-03 + 049b patched, 25648df04):**
+the FIRST rerender (corr 7487f8fa) went COMPLETED/deploy-success with
+`rerendered: 4` — and saved NOTHING: `save_page_sections` skips
+`{"success":true,"sections_saved":0,"reason":"no page name"}` when
+`input_data.spec.page_name` is absent, and the pipeline then deploys the
+STALE rows all-green. 049b now derives page_name from page_id and refuses a
+reasoned dispatch without it. Scope honestly bounded by measurement: the
+work-item route carries page_name — the wave's `[unresolved after 2
+attempts]` CTA-rerenders are NOT this class (a rerender cannot fix a CTA
+whose DATA still names the wrong target; fixing the data first, as here, is
+the correct order — which their fixer should note).
+
+**(3) — the 25 MB cap is env `NOTED_MAX_UPLOAD_MB=25`;** the 50 MB block is
+staged with the owner (message of 2026-09-03) along with the interplay he
+should rule on: cap=50 with quota=50 means one max file fills a free
+account, and his 52.8 MB test file needs either a quota raise or his
+account's overrides (which would also first-exercise the chunked path).
+Awaiting his run/word; /api/me remains the truth either way.

@@ -662,3 +662,23 @@ all seventeen live checks pass. Nothing changes for any existing account
 until we deliberately raise its limit — that's the paid tier's switch, still
 parked for your pricing decisions. The one proof left, whenever you feel
 like it: the real ~35 MB upload described at the end of the runbook.
+
+---
+
+2026-09-03. Your three findings, dealt with. The "Save everything" button
+and the "Save my notes" tab were both pointing at the page they were already
+on — the platform's own review had caught this in August and was waiting for
+your decision, which you've now given. Both now lead to the real
+export tool, live and verified on the site, and all seventeen live checks
+still pass.
+
+Chasing it exposed a genuinely nasty platform flaw: a page refresh of the
+sort we used can report complete success while quietly saving nothing —
+it happened on our first attempt. It's fixed at the tool that fires these
+refreshes, and written up so no other team gets fooled by it.
+
+The 25 MB limit is simply the server's configured default; the one-line
+command to raise it to 50 MB is in our chat waiting for you — along with
+the wrinkle you should rule on: your storage allowance is also 50 MB, so at
+50 MB per file one video fills a whole free account, and your 52.8 MB test
+file still wouldn't fit. Say the word on the allowance and I'll fold it in.
