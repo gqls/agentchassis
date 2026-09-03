@@ -671,3 +671,11 @@ while a DEFERRED_HANDLER producer's rows stay `detected` and are counted per typ
 daily check family, so "this pass" has a number and a date. Both are shared-seam changes →
 `090` for the root-cause claim, then the council. **Not started; the skip-link drain is not at
 its floor and the 458 still need reading at the row level, not just the producer level.**
+
+> **§(xx) item 1, follow-through (17:4xZ):** prior-art grep done — `image_url_404` appears in 8
+> `bugs_open/` files and none of them, nor 016b, nor LANDMINES, says the check cannot retract.
+> The neighbouring lane (`bugfix_149`) is quiet 14 days and nobody is mid-edit on the file.
+> **Filed as `bugs_open/470`** with the 090 substitution stated (local, one file,
+> self-evidencing), fix candidates ordered by what closes the door, and the §9 pattern *"a check
+> that files a finding and has no path to retract it"* added to 016b. Not fixed — that is item
+> 4a of the revised plan, after the 458 are read at row level.

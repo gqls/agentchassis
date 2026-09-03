@@ -6956,6 +6956,8 @@ until 2026-07-17; ~23 documents still reference the old path). §9 above holds t
 durable PATTERNS; the files below hold the case detail, evidence and fix
 candidates. Read the file before acting — several are already fixed.
 
+**`470`** — **`image_url_404` findings can NEVER close: the check emits no `ResolvedFinding`, so a repaired image keeps its finding for ever** (filed 2026-09-03 by the improvement_loop lane from a producer census). 87 rows on 34 sites, oldest 07-20, 0 ever closed by the check; the sibling `check_site_structural_validity.go` closes the same class the moment a page re-probes clean (343 in a day). `check_asset_reference_404.go`'s `empty_src` key has the same hole. Local, self-evidencing (`grep -c ResolvedFinding` = 0 vs 5 on the control). Fix: per-key retraction at the end of `Run` (load open keys, subtract this run's, retract the rest), then a registry-level contract test so the next flag-only check cannot omit it. Pattern: §9 *"a check that files findings and never retracts them"*.
+
 **`444`** — **Remake listing pages ship EMPTY of their own content type, filled with brief-echo prose — and every naive check passes** (filed 2026-09-02 from the owner's designblog critique, verified same evening on advertise.co.uk). Three producer-absence mechanisms behind one symptom: feed pages have a LIVE mechanism but 0 `content_sources` rows (undriven, never converges); directory pages need a directory KIND that does not exist (DIR-001 is wired, adding a kind is a documented 7-place data change); glossary/showcase pages have NO item producer at all [absence claim, re-verify]. The brief-echo copy is downstream [INFERRED]: a writer given a listing section with zero items writes about the intent. Kin: no remake got a tools nav link or /tools hub (plan runs before tools exist). Fix candidates ordered by door-closing in the file; (1) = plan validation refuses/degrades a listing page whose item source resolves to zero. Lane: portfolio_positioning (advertise instances) + designblog.co.uk session (theirs).
 
 **`436`** — **CTA destinations are ranked by `nav_order` alone, so every NEW site inherits an off-topic primary button.** Spun out of `bugs_closed/391` on its closure (2026-09-02): 391 fixed the damage on three sites, this is the untouched cause. `chooseCTATargets` (`resolve_internal_links_action.go:651`) sorts every `tool`/`game` page on `COALESCE(nav_order,100)` then `name` and takes `[0]` — **no topic, tag or semantic input**. And the wrong pick **locks itself in**: `stampCTADestinationGuidance:362` feeds the chosen title into the writer's spec, so the framework writes copy *naming* what it picked, and the label match (which runs AHEAD of the positional pick) then keeps it — `[MEASURED 2026-08-25]` **20 of 80** fields had reached that unreachable state, including all three the owner reported. No live damage today (391 cleared it); the next build re-creates it. Owner decision 3 approved candidate 1 (`eligible_as_cta_target` opt-out) + candidate 4 (anomalous-`nav_order` detector), with three binding constraints: read **at the RANKING, not the loaders** (`render_site_components_action.go:182-190` takes `ordered[0]` and never persists it, so a loader change moves every site's header button with no `content_data` diff); it must also bind `LoadCTALabelUniverse` or the opt-out has a hole the exact shape of this bug; and **engage RFC_022 with the consumers ENUMERATED** before booking a council round. Architecture-scope (2026-07-29 §1: it changes what the ranking GUARANTEES). ⚠ `bugs_open/399`'s write-time audit is **structurally blind** to this — when the framework both picks and names the destination the two agree, pinned by their own deliberately-passing test. Lane: `docs024_key_docs_latest/bugfix_389_cta_relevance/`
@@ -15734,3 +15736,43 @@ root, one layer along: **the inference here was "set equality is what this test 
 
 Cases: `bugs_open/458` §6 (with the retraction of the author's own "warn-only, no behaviour change"
 claim), `WRONG_CALLS.md` 2026-09-03, commits `0325ddebb` (the break) and `7491c6d21` (the split).
+
+### A check that FILES a finding and has no path to RETRACT it produces rows that are wrong the moment the world improves — and every measurement of its accuracy was taken in the other direction (2026-09-03, `bugs_open/470`, found by a producer census, not by a symptom)
+
+**The shape.** `check_image_url_404.go` files three shapes of finding and appends to
+`result.Resolved` **zero** times; its sibling `check_site_structural_validity.go` appends five
+times and closed 343 `head_essentials_missing` rows in a day once the skip link shipped. The
+closing machinery (`ResolvedFinding` → `resolveWorkItems`, no `handler_agent` filter) is generic
+and would have worked unchanged; the check never asks. Result: **87 rows on 34 sites, oldest
+2026-07-20, 0 ever closed by the check** — each a claim of unknown truth, because a repointed,
+regenerated or removed image leaves its row reading exactly as it did the day it was filed.
+`check_asset_reference_404.go` has the same hole for one of its two keys.
+
+**Why nothing noticed.** The check's own header is careful about the OPPOSITE error: it measures
+false positives (1 of 127) and records the predicate it replaced, with a table whose columns are
+*"reports a WORKING image | SILENT on a broken one"*. There is no column for *"still reports an
+image that has since been fixed"* — accuracy was measured at filing time only. Downstream,
+`insertWorkItem` is `dropOnConflict`, so a re-run that re-finds a key is a silent no-op and a
+re-run that does NOT re-find it is also silent; the only consumer of these rows counts them.
+A row that never changes looks identical whether the world is still broken or was fixed weeks
+ago.
+
+**The check to run when you TOUCH a discovery check, before any symptom:**
+
+```
+grep -c 'Findings = append' <check>.go ; grep -c 'ResolvedFinding' <check>.go
+```
+
+A non-zero first number with a zero second is this bug, unless the file names why (routing
+that nothing can repair is the one legitimate case on record, `check_site_unreachable.go`, and
+it still retracts with `AllOfType` on a successful probe). And when you read a check's accuracy
+table, ask which DIRECTION it was measured in: a predicate's precision at filing says nothing
+about whether its rows can ever clear.
+
+**The class fix** is a contract test at the registry, not eleven per-file fixes: the 2026-09-03
+producer census found 13 flag-only producers with **no shared constructor** and a copy-pasted
+comment at 11 sites, so a rule about all of them has nowhere else to live. Fix candidates and
+the verification query: `bugs_open/470`. Related: *"a detector whose output nobody drains is not
+neutral — it is actively misleading"* (`bugs_open/083`, quoted at itself by
+`check_archived_page_still_serving.go:104`) — this is that sentence one step further: a
+detector whose output cannot RETRACT is misleading even to the one person who does read it.
