@@ -114,6 +114,13 @@ var liveConfiguredChecks = []string{
 	// BEFORE the config landed; real-predicate calibration over all 31 deployed
 	// sites the same morning filed 0.
 	"stylesheet_gutted",
+	// unrendered_page_imagery — bugs_open/114's closing detector (IMG-077,
+	// council APPROVED corr 3b568104 round 3), migration 708 (HOLD discharged
+	// and applied 2026-09-03 on chassis v1.0.1356). Capability verified on
+	// 79/79 reporting pods via service_binary_capabilities with a negative
+	// control BEFORE the config landed. Added HERE in the same commit as the
+	// discharge, per this list's standing rule.
+	"unrendered_page_imagery",
 
 	// availability-discovery-agent (bugs_open/236 522-half, migration 372,
 	// applied 2026-08-10). A FOURTH agent now calls run_discovery_checks, so the

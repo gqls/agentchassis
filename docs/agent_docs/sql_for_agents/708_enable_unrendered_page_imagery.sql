@@ -1,7 +1,22 @@
--- 708_enable_unrendered_page_imagery_HOLD.sql
+-- 708_enable_unrendered_page_imagery.sql
+--
+-- ✅ HOLD DISCHARGED AND APPLIED 2026-09-03 — the `_HOLD` suffix is off.
+--
+-- Both conditions were met and each was PROBED, not assumed:
+--   1. ROLLED. Chassis v1.0.1356 (pods born 08:57Z 2026-09-03).
+--   2. CAPABILITY, positive + negative controls in one query:
+--      service_binary_capabilities kind='discovery_check', 10-minute window —
+--      unrendered_page_imagery on 79 pods = undeployed_assets on 79 (positive
+--      control), the _NOTREAL name 0 rows (negative control).
+--   Preflight (round-3 guardian advisory): exactly 1 active non-snapshot
+--   design-discovery-agent row. Applied: UPDATE 1, verify passed, array 24→25.
+--   Post-apply what-did-I-break: 0 design-discovery orchestrations in the
+--   window (none broken; none had yet run — the first sweep pass with the new
+--   check follows the rotation). Companion liveConfiguredChecks edit landed in
+--   the same commit as this discharge, per the 648 pattern.
 --
 -- ############################################################################
--- ##  _HOLD — DO NOT APPLY UNTIL A CHASSIS IMAGE CARRYING                    ##
+-- ##  (Discharged) _HOLD — DO NOT APPLY UNTIL A CHASSIS IMAGE CARRYING       ##
 -- ##  check_unrendered_page_imagery.go HAS ROLLED.                           ##
 -- ##  The gate commit is the one that ships this file with the check.        ##
 -- ############################################################################
