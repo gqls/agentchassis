@@ -18,51 +18,60 @@ serves at **https://boxingonline.ugg2.com**, and the owner's two approved copy e
 been handed over. The approve-to-apply seam that failed on his first use (`bugs_open/466`) is fixed,
 council-**APPROVED** at round 3, and **inert until a release**. He then authorised a **full** delivery
 rehearsal on a non-customer site: it is running on **idea.uk**, step 1 of 4 is done, and it is now
-waiting on **one click from him**. Two new bugs were filed from the rehearsal itself
-(`474`, and the `651` recipe defect), both fixed. Fleet on **v1.0.1359**.
+run END TO END: he approved at 19:20:58Z, the zip cut, the email arrived, and he confirmed the
+zip and both links work. **Three bugs were filed from the rehearsal itself** (`474` twice over, the
+`651` recipe defect, and `475` — the email making a false claim to the customer); the first two are
+fixed and `475` has the owner's ruling and draft copy. Fleet on **v1.0.1359**.
 
 ---
 
 ## 1. NEXT, in order
 
-1. **THE OWNER HAS ONE BUTTON TO PRESS, and everything downstream waits on it.**
-   Item `e370e0bb-a15e-4856-978f-5a9384f9d4e9`, site **idea.uk**, `needs_delivery_review`, at
-   `needs_human_review`.
+> **THE REHEARSAL IS DONE. All four agents ran, the owner approved, the email arrived, the zip
+> opened and both customer links worked.** First `handed_over_at` stamp and first
+> `customer_access_tokens` rows in the estate's history. Full account in `RUNBOOK…`.
 
-   > ⚠ **WITH THE DASHBOARD'S DEFAULT SETTINGS THIS ITEM IS INVISIBLE, and the first directions
-   > written here were wrong because of it.** Work Items filters by pipeline **server-side**
-   > (`App.tsx:470`) and **defaults to `build`** (`:417`); this item is `pipeline = 'delivery'`; and
-   > the dropdown's whole option set is `build` · `content` · `all` (`:1091-1093`). The row is not
-   > one you could scroll past — it is never requested from the API. `bugs_open/474` §2.
-
-   **Where, in order:** admin.apis.uk → **Work Items** → **pipeline dropdown → "all pipelines"**
-   (the step that is easy to miss) → status **"Needs Review"** → optionally type
-   **`needs_delivery_review`** to isolate it → the row with the purple **`checkpoint`** badge,
-   summary beginning *"Pre-delivery review"*. The panel opens titled **"Review & Approve"**; the
-   button is **"Approve & Continue"**.
-   ⚠ **APPROVE, not resolve.** Resolve writes `resolved_by`, which `delivery.Reviewed()` deliberately
-   ignores — the delivery would stall for ever while every button press appeared to succeed.
-   A monitor is watching the row and distinguishes the two.
-2. **Then steps 3 and 4 are ours to fire** — recipes in `RUNBOOK…` § "The delivery rehearsal on a
-   NON-customer site", with the CORRECTED envelope (see §5). Recipient, **owner-supplied 2026-09-03**:
-   **`aaa@designconsultancy.co.uk`**. Step 4 is irreversible: it stamps the handover once, mints the
-   customer tokens and sends.
-3. **`bugs_open/466` needs a release to do anything.** Committed `33dfeed3a` → `bfc2925ce`, APPROVED
-   (`d04c1bc1`). Until an admin/core-manager image carrying it rolls, the owner's copy approvals still
-   fail the way they did this morning. Check with
-   `git merge-base --is-ancestor 33dfeed3a <the admin-dashboard build stamp>`. **`make release` is the
-   owner's.**
-4. **`bugs_open/474` candidate 2 is unclaimed and is the half that closes the door.** The fix applied
-   (migration `751`) makes *this* producer file `review_data`. It does not stop the next one omitting
-   it, because the approve button's VISIBILITY condition (`isCheckpoint`) is not its SUBMITTABILITY
-   condition (`editedReviewData != null`) — `App.tsx:1295` vs `:762`. Making them one predicate needs
-   a frontend build. Council verdict for the applied half: `95eaf57c-74d4-46f3-bad3-f8ef46bc1df8`.
-5. **Carry `bugs_open/420` §C to the owner WITH the next delivery ask** — unchanged, still owed, in
-   the exact form: **"what CONSENT STATE may a classifier write on a contact row?"** Hand the answer
-   back to the `bugfix_417_420` lane verbatim; it is their record.
-6. **The four remaining boxingonline review points are other lanes' code** (`bugs_open/427` for the
-   articles/comparator/calendar root, `bugs_open/114` for imagery). Verify at the artefact when they
-   land. The logo question is still with the owner.
+1. **`bugs_open/475` — the delivery email tells the customer the ZIP contains instructions, and it
+   contains none.** The owner found it by reading the email as a customer would. It is a FALSE claim
+   to a paying customer, on the line their whole "you host it yourself" story depends on, and the
+   failure mode is them blaming the download. **Owner ruled "all three":** a correctable page, a
+   `README.txt` pointer in the ZIP, and per-site slots. Draft copy written to house style:
+   `DRAFT_2026-09-03_customer_instructions_copy.md`.
+   ⚠ **Do not ship §4 of that draft.** Nobody has ever performed the hosting steps. Somebody must
+   drag this actual ZIP onto `app.netlify.com/drop` once, end to end, and write down what they saw —
+   shipping unperformed instructions repeats 475's own root cause one level along.
+2. **THE THREE-LIFETIME FINDING, and it has a deadline.** The presign lasts **7 days**, the email
+   says **30**, the tokens run **42**. Not a broken link — `HandleZipDownload` renders a refresh page
+   rather than redirecting to a stale presign — but the 30-day promise rests on `zip-link-refresher`,
+   which is scheduled, enabled, and **has never refreshed anything** because there were no zip tokens
+   until tonight. **Before 2026-09-10:**
+   `SELECT purpose, stored_url_expires_at, expires_at FROM customer_access_tokens WHERE purpose='zip_download';`
+   `stored_url_expires_at` advancing is the proof. If it does not move, our 30 days is really 7.
+3. **`bugs_open/466` needs a release to do anything.** Committed `33dfeed3a` → `bfc2925ce`, council
+   APPROVED (`d04c1bc1`). Until an admin/core-manager image carrying it rolls, the owner's copy
+   approvals still fail the way they did this morning.
+   `git merge-base --is-ancestor 33dfeed3a <the admin-dashboard build stamp>`. **`make release` is
+   the owner's.**
+4. **Migration `752` is written and NOT applied, and its resubmission is NOT sent.** The council's
+   REVISE of `751` was right twice: pointing `review_data` at the whole `input_data` map is
+   unconstrained (a future change to input_data silently changes what the owner is shown), and it
+   left the backfilled item and future items with two shapes for one field. `752` narrows it to an
+   object the dispatcher composes, with the RUNBOOK recipe updated in step. **Submit BEFORE applying
+   this time** — the round's other fair hit was that `751` was applied before review, so the seats
+   audited a change already live. `RESUBMIT_CORR=95eaf57c-74d4-46f3-bad3-f8ef46bc1df8`.
+5. **`bugs_open/474` §2 is unclaimed** — Work Items filters by pipeline server-side, defaults to
+   `build`, and the dropdown names two of the eight live pipelines. Five pipelines holding **1,984**
+   items are reachable only via the unlabelled catch-all. Strongest fix derives the options from the
+   data so a new pipeline cannot go missing by omission. Frontend build.
+6. **`bugs_open/474` candidate 2 is also unclaimed** — the approve button's VISIBILITY condition
+   (`isCheckpoint`) is not its SUBMITTABILITY condition (`editedReviewData != null`), so it renders
+   for items it cannot submit. Frontend build.
+7. **Carry `bugs_open/420` §C to the owner WITH the next delivery ask** — unchanged, still owed:
+   **"what CONSENT STATE may a classifier write on a contact row?"** Hand the answer back to the
+   `bugfix_417_420` lane verbatim.
+8. **boxingonline's delivery is still HELD** on the owner's own cut-line, and its four remaining
+   review points are other lanes' code (`bugs_open/427`, `bugs_open/114`). The logo question is
+   still with him.
 
 ---
 
