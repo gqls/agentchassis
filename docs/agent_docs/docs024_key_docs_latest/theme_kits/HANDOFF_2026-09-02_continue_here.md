@@ -1,5 +1,16 @@
 # HANDOFF — theme kits lane, 2026-09-02 (session "themes")
 
+> **⚠ SUPERSEDED 2026-09-03 by `HANDOFF_2026-09-03_continue_here.md` — READ THAT FIRST.**
+> This file stays as the fuller account of what was BUILT (the eight pre-apply defects, the
+> owner's ruling, the cross-lane commitments) and its §0/§0a are still accurate. **What has
+> changed since:** the lane now has its standing five; the council reached round 2 and found
+> a REAL DEFECT this file does not mention (a kit applied before classification silently
+> loses palette AND typography — `bugs_open/438` §6d); the §3a(ii) `candidates` defect is
+> FIXED (`28aeb4ca0`); chrome turned out to be a NO-OP for kits, so **three of a kit's four
+> dimensions cannot change how a site looks**; and two evidence claims quoted below were
+> found false. **Do not act on §5's open items from this file — the newer handoff's §7 is
+> the live list.**
+
 **Read this first, then §1's verification block before believing anything about liveness.**
 
 The owner asked for a system of themes: reusable, named bundles of design defaults
