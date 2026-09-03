@@ -113,3 +113,19 @@ case for you, not a spoiled one:
 
 I have not measured which of the two the composition path weights, and I am not implying it. Flagging
 the shape because it is yours to exploit if it is useful.
+
+---
+
+## ADDENDUM 21:30Z — copyonline's tags are now SIGHTED; the contamination warning applies only to the superseded row
+
+Migration 764 (classifier + planner render a `text`-less brief as its object) went live at 20:55:27Z on
+the owner's word and was proven at the artefact at **21:25:18Z**: copyonline's classification was re-run
+against its brief and the new current row reads `category=editorial`, tags
+`editorial-guides, content-hub, tool-portal, interactive-tools, guides, directory, knowledge-base,
+long-form-content, practitioner-platform, founder-tools`, with a reasoning that names the brief's four
+tools and its lead route. **These tags ARE a sample of the classifier reading a brief** — admit them.
+
+The 16:57:10Z row (`hub`; marketplace / community-platform / …) is superseded in place and remains the
+starved-input sample; exclude it by `created_at`, not by site. The admission check in §2 still stands
+for the other six sites until they are re-classified, and after 764 the check becomes "was the
+classification row written after 2026-09-03 20:55:27Z" for any site whose brief lacks `text`.
