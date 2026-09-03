@@ -6942,3 +6942,22 @@ first live pass is tomorrow ~09:09.** The 414 relay's standing instruction appli
 READ the first findings rather than treating silence as clean — 12 citations re-fetched
 (two hosts), quotes re-matched; a `citation_lost` on a legislation.gov.uk URL may mean
 revised statutory text, which is the design working.
+
+## 2026-09-03 — the register's FIRST LIVE PASS, read as instructed: 12/12 green with demand
+
+`[MEASURED 2026-09-03]` The evidence refresher ran 09:10:22 and wrote a new current
+register row 09:10:31. Its own words: **"12 live-verifiable fact(s) checked, 12
+updated, 0 drifted"** — every citation re-fetched from its live source (both hosts) and
+its verbatim quote re-matched by the production pipeline, all 12 `verified_at` stamps
+advanced to 2026-09-03. This is the demand-controlled green the whole exercise exists
+for: the counter proves 12 rows did work, unlike the vacuous clean run over an empty
+set that RFC_060 §1 called "the worst kind of green".
+
+**And the 699-advisory verification is now proven ON DATA, not only by code-read:** the
+refresher's supersede carried all 12 facts, both `corrects_site_citation` fields, and
+all 8 banned_claims through its round-trip untouched. `created_by` is now
+`evidence-refresher` — 699/707's rollback guards refuse from here, correctly.
+
+**385:** no `needs_page`/`page_rerender` filed on this site since 09-02 noon, zero
+orphan rows — the build-arm close criterion has not been exercised; the bug stays open
+on it.
