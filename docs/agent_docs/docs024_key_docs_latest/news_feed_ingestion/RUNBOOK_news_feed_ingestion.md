@@ -241,6 +241,51 @@ SELECT count(*) FILTER (WHERE source_summary ~ '\]\([^)]*$') AS unclosed_link_ta
 the page can fill. It does **not** prove the ingested summaries are clean. Both are worth
 knowing and they are different questions.
 
+### The THIRD question — "did my change actually ship?" — and the two ways its instrument lies
+
+The 332 lane's addition to the split above, and it is right: neither the surface nor the
+column answers *"is the fix running?"*. Post-roll that is the only thing separating "the
+fix works" from "the fix is not running and the feed happened to be clean today". The
+instrument is the pod's own testimony, but **their suggested form has two defects, both
+verified here 2026-09-03, and both make a zero unreadable:**
+
+1. **The needle is too loose.** `grep 'stripped literal markdown'` matches **five** call
+   sites, only ONE of which is the feed projection: `rerender_page_sections_action.go`
+   :312 and :1632, `section_editor_actions.go` :1151 and :1330, and the real one,
+   `queryresolve/news_items.go:443`. A non-zero therefore proves *some* strip ran, not
+   that the feed projection did — a rerender or a section edit satisfies it. Same family
+   as the `build provenance` trap this lane hit the same morning: a needle that matches
+   another mechanism's line.
+2. **`logs deploy/agent-chassis` reads ONE POD OF N**, and there are **2** chassis pods
+   `[MEASURED 2026-09-03]`. A zero can simply mean the other pod served the request.
+
+Use the distinct prefix and fan across pods:
+
+```bash
+kubectl -n ai-persona-system logs -l app=agent-chassis --since=2h --prefix \
+  | grep -c 'queryresolve: stripped literal markdown'
+```
+
+Read it as a **three-way** result, not a pass/fail: non-zero means the projection ran;
+zero **while the column is dirty for that site** means the switch is set or the binary is
+old; zero **while the column is clean** means nothing at all, and is the reading that
+gets mistaken for success.
+
+### The same trap in this lane's own migrations: PRESENCE is not BEHAVIOUR
+
+The 332 lane's other warning generalises past the JS case that prompted it. Their
+post-condition asserted a helper's **presence**, which stays true after the helper is
+broken. **Neither `691` nor `746` greps `js_content`, so the literal case does not touch
+this lane** — but the shape does, and it is already the reason step 4 exists:
+
+- `691`'s post-check asserts the `region` key is **present** on 26 rows. That remains
+  true if the key never reaches Firecrawl.
+- Only the **live dispatch**, read at the adapter's own `"Executing search"` line with
+  `region` in it, shows the behaviour.
+
+So do not let `691_..._VERIFY.sql` passing stand in for step 4. It cannot: it is a
+presence check by construction, and it is the one that will look like success.
+
 ## Retiring the 332 lane's truncated-link pattern — the check, and why a double zero is the wrong result
 
 Their `MDLinkTruncatedRe` repairs at read what this lane's `6f0a246de` stops producing at
