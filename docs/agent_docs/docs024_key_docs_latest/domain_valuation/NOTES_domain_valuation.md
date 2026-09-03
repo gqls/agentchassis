@@ -221,3 +221,44 @@ domains still listed there were probably lost."*
 - **NOT covered by this ruling:** `pocketvaginas.com`, registered at *Dynadot*
   yet absent from Dynadot's own 453-domain inventory. Still unexplained. One
   low-value name — recorded, not chased.
+
+## 2026-09-03 (afternoon) — withdrawals, and a fence glob that was silently stale
+
+- **Owner withdrawals now 18** (`WITHDRAWN_owner.txt`, read by the joiner into
+  `keep_override=owner-withdrawn`, kept DISTINCT from the live-site fence — a
+  live-site keep could be revisited if the site came down, a withdrawal could
+  not): the 8 Appleby family names (7 + williama.co.uk, owner-confirmed) and
+  **10** wyke/pastured-egg names. ⚠ **The sedo lane supplied 8 of the wyke set;
+  the estate grep found 10** — "remove anything like wyke or wykefarm or
+  pasteured egg" is a PATTERN instruction, so it was re-derived here rather
+  than taken as a list. wykefarm.co.uk/.uk were omitted there as already-fenced
+  live sites; they are withdrawn here too, because a withdrawal outranks and
+  outlives a fence entry. `aggeggi.com` and `veilig-beleggen.com` also match
+  "egg" and are deliberately NOT withdrawn.
+- **⚠⚠ FENCE GLOB BUG, mine, found by following up that instruction.** The
+  joiner globbed `EXCLUDED_live_cloudflare_*.txt` and so kept reading the
+  19-domain 2026-09-02 fence while `EXCLUDED_live_2026-09-03.txt` (**50**
+  domains) sat beside it. **For most of today, 31 live sites — webdesign.co.uk,
+  idea.uk, mortgagecalculator.co.uk, loancalculator.co.uk, vonc.com,
+  leopardessconsulting.co.uk among them — were counted as SELLABLE STOCK.**
+  A glob that matches nothing new fails silently and is indistinguishable from
+  "no new fence". Fixed: union every `EXCLUDED_live*` file (union, not newest —
+  over-fencing costs a domain sitting unsold, under-fencing means listing a
+  live business site) and PRINT what was loaded each run.
+- **Not-owned domains were being priced too** — the 6 we don't own were counted
+  as sellable until the same pass. Now excluded ahead of every other rule.
+- Sale status: **2,879 sellable · 48 live-site · 18 owner-withdrawn ·
+  6 not-owned** — the 2,879 matches the sedo lane's sheet exactly, reached by a
+  different route.
+- **`site_specs.commercial.tier` (1|2|3) IS NOT THIS LANE'S TIER (A–E).**
+  Raised by the copy-quality lane 2026-09-03: their resolver-owned field feeds
+  the live `about-commercial-block` on 3 sites and sets an Afternic
+  minimum-offer floor (never a displayed price — PLAN 2026-07-24 D2). No
+  mapping between the two vocabularies exists and none should be invented
+  silently. **My tiers must not drive anything public at 20% appraisal
+  coverage** — told them so.
+- **"All domains will be in afternic" (owner, relayed 09-03) cannot mean
+  literally all** — 66 are held back and 6 more aren't ours. The true statement
+  is "all PORTFOLIO domains", and the fence + withdrawal list are the
+  definition of the difference. Flagged to the copy-quality lane, whose D4
+  fail-closed rule is the right protection.
