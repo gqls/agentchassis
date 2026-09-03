@@ -195,5 +195,20 @@ runtime hypothesis, and is the case the escape hatch was written for.
 **Ownership.** `bugs_open/424`'s lane examined this and scoped it out — *"transparency mechanism vs
 mark legibility against arbitrary backgrounds are genuinely different problems"* — then handed it
 over explicitly. The `417` lane owns it.
-⚠ `scripts/who-owns.py` **will not tell you that**: it reads commits, and until this file existed
-there were none. Ownership transferred in a cross-session message, which no tool can see.
+⚠ `scripts/who-owns.py` **will not tell you that, and committing did not fix it** — checked after
+the filing commit landed, so this is measured rather than predicted `[MEASURED 2026-09-03]`. It
+reports `likely OWNING workstream(s): (none identified)` and files
+`docs024_key_docs_latest/bugfix_417_logo_text_policy` under *"also cites it (probably just a
+cross-reference)"*. The owning lane is listed, in the section that says to ignore it.
+
+Two reasons, both structural rather than fixable by more commits:
+- ownership is inferred from how often a workstream directory **mentions** the number, and a lane
+  that owns a bug from its first day has few mentions — indistinguishable from one citing it in
+  passing;
+- ownership here transferred in a **cross-session message**, which leaves no artefact any tool reads.
+
+⚠ It also false-matches on the bare number: the run picked up `1ee2ecf71` ("0 of 462 …"), an
+unrelated commit about prose composition. Resolve by **slug**, per CLAUDE.md, not by number.
+
+**So: this paragraph is the ownership record.** The 417 lane owns 462. Do not conclude from
+`who-owns.py` that it is unowned and available to route work at.
