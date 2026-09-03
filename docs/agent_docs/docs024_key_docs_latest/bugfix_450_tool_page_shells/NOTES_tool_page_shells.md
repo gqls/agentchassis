@@ -317,3 +317,42 @@ stale because it never records an absolute. Proven twice, at two different basel
 shape — **a check that compares against a recorded constant expires; a check that computes both
 sides in one breath does not** — is worth more than the specific recipe, and I had warned the 443
 lane about exactly this an hour before doing it myself.
+
+## (m) 2026-09-03, pre-roll — THE DEMAND-CONTROL BASELINE, captured before it becomes unreconstructable
+
+Owner: "a fresh chassis is being built and will be deployed in the next hour." All three commits
+(`587666be8`, `5e6fee47b`, `5bfc016d7`) confirmed ancestors of HEAD, so a build from current HEAD
+carries both halves. Pods pre-roll: ReplicaSet `75b987cbd7`, started 08:57–08:58Z.
+
+**Captured NOW because after the roll it cannot be reconstructed** — and because a post-fix zero
+is not evidence without it (`a-post-fix-zero-needs-a-demand-control`):
+
+| # | metric `[MEASURED 2026-09-03 pre-roll]` | value |
+|---|---|---|
+| A | `owned_page_review` rows carrying `spec.refusal_class` | **0** |
+| B | OPEN `unbuilt_internal_link` items **at a tool-shell page** — *the demand* | **16** |
+| C | OPEN items routed to `page-build-handler` at a tool-shell page, all types | **59** |
+| D | tool-shell pages (the guard's own predicate) | **67** |
+| E | `capability_gap:tool:*` rows (plan-side gate; 729 unapplied) | **0** |
+
+**Why this baseline is worth more than the post-roll numbers.** A is 0 *by construction* — the
+`refusal_class` key did not exist before `587666be8`, so ANY non-zero reading afterwards was
+caused by this change and nothing else. B and C are the control that makes A's reading meaningful:
+there are **16 items actively pointing at shell pages, and 59 across all producer types**, so work
+WILL be claimed against these pages after the roll. Without B and C, a post-roll `A = 0` would be
+ambiguous between "the guard held nothing because nothing tried" and "the guard did not fire" —
+the exact ambiguity that makes an absence unreadable. With them, `A = 0` can only mean the second.
+
+**What to expect, stated in advance so it cannot be rationalised afterwards:**
+
+- **A should become non-zero**, with `refusal_class='tool_pending'`, as queued items are claimed.
+- **B and C should FALL**, as those items terminate `wont_fix` rather than rebuilding pages.
+- **D should be flat or fall slowly** — this fix repairs nothing; D only falls when the
+  portfolio lane's real tools attach (7 of its 8 are built and queued to publish).
+- **E stays 0** — 729 is deliberately unapplied until the roll is confirmed.
+- ⚠ **No dispatch for ~300 s after the pods restart** — spawns in that window are silently
+  dropped, so an immediately-post-roll reading of A is expected to be 0 and means nothing.
+
+**If A stays 0 once dispatch resumes and B/C have not moved, the guard did not fire** and the
+first thing to check is whether the image actually carries the commit (§7), not whether the
+predicate is right.
