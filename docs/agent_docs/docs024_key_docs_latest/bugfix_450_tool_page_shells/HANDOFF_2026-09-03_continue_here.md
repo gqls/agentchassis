@@ -185,6 +185,23 @@ activity, not wall-clock. §1's 36 writes are far above that share and are the f
    `owned_page_review` hold still having no consumer, `rerender_single_page`'s re-assembly path
    (bug 210 family), and N-links-one-page churn (220's own candidate).
 
+### §5a ⚠ "A tool is a FORM" is FALSIFIED as a universal — this lane's own probe is unsound
+
+RUNBOOK §3 and `016b` §9 both say flatly *a tool is a FORM, never a size*, and the whole bug was
+found with that probe. **The `portfolio_positioning` lane has now measured two working tools that
+serve ZERO `<form>` elements** (their own watcher was passing them on `forms > 0 OR fields > 2`,
+which a prose page with a search box would also satisfy — they volunteered that their test was
+unsound even though it happened to be right).
+
+**So the probe is asymmetric and must be stated that way:** a form is strong positive evidence
+that a tool is present; **its absence is NOT proof of a shell.** The seven original seotools shells
+read 0 forms / 0 inputs / 0 selects, which is a much stronger signal than 0 forms alone.
+
+Not reworked here — flagged as an open item. Whoever touches it: the sound version probably keys on
+interactive controls generally (`<input>`, `<select>`, `<button>` beyond the mobile-menu toggle,
+and script count) with a known-real tool as an in-run control, and should carry the two zero-form
+tools as fixtures so the new probe is proved against the case that broke the old one.
+
 ## §6 Traps this lane paid for — read before touching anything
 
 - **RUNBOOK §8b** — do not verify with a re-render.
