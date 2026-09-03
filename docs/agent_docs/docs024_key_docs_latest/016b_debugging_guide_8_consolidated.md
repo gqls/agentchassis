@@ -15567,3 +15567,61 @@ behind it, and this one had already been through one round of correction.
 
 Cases: `bugs_open/450` (the guard, four of the five instances, and the runbook that pastes the
 predicate), `bugs_open/427` §18 (the floor-as-total, with its own WRONG_CALLS entry).
+
+### A correct predicate wrapped in untested inferences — the check fires on the right rows and TELLS THE OPERATOR SOMETHING FALSE, and no test can see it because every test asserts the predicate (2026-09-03, `bugs_open/450`)
+
+A guard refused exactly the right pages. Its `summary` and `fix` text — the only part a human
+ever reads — asserted something that was not true of one of them, and the page it lied about was
+the single fleet-wide case anyone would have used to sanity-check the guard.
+
+**The worked case.** The predicate was `page_type='tool' AND NOT EXISTS (a live
+component_level='tool' row)` — correct, measured, council-reviewed. From it, three sentences were
+written, each reading like a restatement of the one before:
+
+1. *no tool-level component* — **measured, true.**
+2. *therefore the page is mislabelled* — **inference, untested.**
+3. *therefore a generic rebuild "would publish prose about a tool that is not there"* —
+   **inference, and FALSE on the page that tested it.**
+
+`idea.uk/report.html` is typed `tool`, has never had a tool-level row, and serves **1 form, 8
+inputs** from a SECTION-level component (`report-request-form`) — indistinguishable from a real
+tool at the body (control, same run: a known tool at 1 form / 11 inputs). The refusal was RIGHT
+there (a rebuild would clobber that form). The receipt would have sent an operator hunting for a
+missing tool they would then have found working.
+
+**Why nothing caught it.** Tests assert the predicate: which rows are selected, which are
+refused, what status the item lands in. **Nothing asserts the sentence**, and the sentence is what
+leaves the system. Reviewers read the diff and see a true predicate with plausible prose attached;
+the prose is the part they have no way to check, because checking it means probing the artefact
+for the one page where the inference breaks.
+
+**And the test can hold the falsehood in place.** The suite here contained
+`assert summary contains "no tool component"` — pinning the wrong sentence exactly as firmly as a
+right one would have been pinned, so correcting the text broke a passing test. **A red test after
+a correction is not automatically a regression; ask what the test was asserting.**
+
+**The general shape, which is not about tool pages.** Every discovery check, guard and gate on
+this estate writes operator-facing `summary`, `fix`, `reason` and `what_to_do` text. All of it is
+inference layered on a predicate, none of it is asserted anywhere, and the operator acts on the
+text rather than on the predicate. The failure is invisible in exactly the cases where the
+underlying detection is working perfectly.
+
+**The check, and the template that came out of it:**
+
+- **State the MEASURED fact, not the conclusion you drew from it.** "No tool-level component" is
+  what the query established. "No tool" is not.
+- **Leave the consequence CONDITIONAL.** "…would rewrite it as ordinary prose" describes what the
+  builder does; "…prose about a tool that is not there" asserts a fact about the page.
+- **Name the worked exception in the advice itself**, so the reader meets it before assuming:
+  *"check the served body before assuming the page is empty — a page can serve a working form from
+  a section-level component."*
+- **Probe the artefact for the case that would break the sentence.** Not the rows: the artefact.
+  Here it was one `curl` with a known-good control in the same run.
+- **Ask a peer what ELSE could produce this reading.** That is what caught it — "six components
+  and no tool is also what a page looks like after a tool was removed" — and it is the cheapest
+  form of the check, because the author is the person least able to see their own inference chain
+  as a chain.
+
+Cases: `bugs_open/450` (the guard, the receipt, the test that pinned the falsehood), and the
+companion measurement entry above — same lane, same day, same root: **the predicate was right, and
+every sentence wrapped around it was an untested inference.**
