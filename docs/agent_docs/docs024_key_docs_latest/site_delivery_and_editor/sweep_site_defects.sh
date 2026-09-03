@@ -218,10 +218,26 @@ echo "--- 5.1b ORPHAN component rows, and the duplicate listings they cause (add
 #     ERAS that no re-render can normalise, so 5.1's empty-slot numbers there
 #     attribute to the wrong cause. The components lane's rule, adopted verbatim:
 #     non-zero orphan rows means STOP before reading a class count off the page.
-rows "SELECT '      ⚠ '||p.url||': '||count(*)||' ORPHAN row(s) (component_id NULL), created '||to_char(min(pc.created_at),'MM-DD HH24:MI')||' → '||to_char(max(pc.created_at),'MM-DD HH24:MI')||' — 5.1 counts here are UNRELIABLE until a re-render (each row is frozen at its own template era); a re-render clears the EMPTINESS, only deletion removes the DUPLICATION (bugs_open/457 cand. 4)' FROM pages p JOIN page_components pc ON pc.page_id=p.id WHERE p.site_id='${SITE_ID}' AND pc.component_id IS NULL GROUP BY p.url ORDER BY p.url;"
+# ⚠ ATTRIBUTE, DO NOT ASSUME (components lane, 2026-09-03): a NULL component_id
+# has (at least) TWO producers and they need different responses.
+#   457's producer — rebuild_blog_listing_action.go:402-407, position HARD-CODED 3,
+#     component_id absent from the INSERT's column list, fires only when a
+#     BLOG-INDEX page's findBlogListingSlot misses. Its fingerprint is therefore
+#     several rows on ONE blog-index page, all at position 3. It has produced
+#     nothing since 2026-09-02 16:28 because the action now hard-fails on 316.
+#   the ordinary save path — save_page_sections_action.go:1124-1127 writes
+#     component_id from componentIDPtr, NULL when a section's metadata carries
+#     none, at position i+1, on any page type. This is what makes the fleet count
+#     RISE, so a rising NULL count is NOT evidence 457 is still accumulating, and
+#     sizing 457's urgency off that predicate reads the wrong signal.
+rows "SELECT '      ⚠ '||p.url||' ('||p.page_type||'): '||count(*)||' ORPHAN row(s) at position(s) '||string_agg(DISTINCT pc.position::text,',')||', created '||to_char(min(pc.created_at),'MM-DD HH24:MI')||' → '||to_char(max(pc.created_at),'MM-DD HH24:MI')||' — '||CASE WHEN p.page_type='blog-index' AND count(*)>1 AND count(DISTINCT pc.position)=1 THEN 'fingerprint MATCHES bugs_open/457 (stacked, one position, blog-index): a re-render clears the EMPTINESS, only deletion removes the DUPLICATION (cand. 4)' ELSE 'NOT 457''s shape — likely the ordinary save path writing a NULL component_id for a section whose metadata carries none; one row per section, no duplication to remove' END FROM pages p JOIN page_components pc ON pc.page_id=p.id WHERE p.site_id='${SITE_ID}' AND pc.component_id IS NULL GROUP BY p.url, p.page_type ORDER BY p.url;"
 echo "    of those, how many are genuinely STRANDED (no active component matches the slot by name OR function):"
-# ⚠ the obvious name-only version returns EVERY orphan as stranded — slot names
-# match by FUNCTION here (12 of 14 fleet-wide, none by name). Components lane's query.
+# ⚠ the obvious name-only version returns EVERY orphan as stranded, and it is
+# worse than inaccurate: measured across the fleet by the bugs_open/384 lane,
+# ZERO of 15 rows match by `cc.name` and all the resolving ones match by
+# `cc.function`. So `WHERE cc.name = pc.slot_name` returns 100% stranded at any
+# size on any day — a check that CANNOT come out otherwise, which is why it
+# convinced two lanes at once. Match on name OR function. Components lane's query.
 rows "SELECT '      ⚠ STRANDED: '||p.url||' slot '||pc.slot_name FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE p.site_id='${SITE_ID}' AND pc.component_id IS NULL AND NOT EXISTS (SELECT 1 FROM content_components cc WHERE (cc.name = pc.slot_name OR cc.function = pc.slot_name) AND cc.is_active);"
 norph=$(q "SELECT count(*) FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE p.site_id='${SITE_ID}' AND pc.component_id IS NULL;")
 [ "${norph:-0}" -gt 0 ] && finding "${norph} orphan component row(s) on this site — see the per-page lines above"

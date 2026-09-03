@@ -1,26 +1,26 @@
-=== sweep boxingonline.com — site d2aa5206-73bc-4707-a69c-2702c1eb9152 — serving host boxingonline.ugg2.com — 2026-09-03T14:24:32Z ===
+=== sweep boxingonline.com — site d2aa5206-73bc-4707-a69c-2702c1eb9152 — serving host boxingonline.ugg2.com — 2026-09-03T15:35:09Z ===
 [control] invented path -> 404 OK
 [pages] 20 deployed+active pages enumerated from the DB
-  /about.html                                    200  served=Thu, 03 Sep 2026 13:13:58 GMT  deployed_at=2026-09-03 13:14:23  control(</html>)=1
-  /articles/index.html                           200  served=Thu, 03 Sep 2026 13:13:59 GMT  deployed_at=2026-09-03 13:45:03  control(</html>)=1
-  /blog/cruiserweight-boxings-best-kept-secret.html 200  served=Thu, 03 Sep 2026 13:14:11 GMT  deployed_at=2026-09-03 12:14:08  control(</html>)=1
-  /blog/flyweight-division-deserves-attention.html 200  served=Thu, 03 Sep 2026 13:14:12 GMT  deployed_at=2026-09-03 13:12:22  control(</html>)=1
-  /blog/japans-golden-generation-boxers-to-know.html 200  served=Thu, 03 Sep 2026 13:14:12 GMT  deployed_at=2026-09-03 13:12:58  control(</html>)=1
-  /blog/last-nights-result-underdog-shocks-the-champion.html 200  served=Thu, 03 Sep 2026 13:14:13 GMT  deployed_at=2026-09-03 12:11:16  control(</html>)=1
-  /blog/saturday-fight-card-preview-whos-fighting-who.html 200  served=Thu, 03 Sep 2026 13:14:14 GMT  deployed_at=2026-09-03 13:10:47  control(</html>)=1
-  /blog/womens-boxing-having-a-moment.html       200  served=Thu, 03 Sep 2026 13:14:14 GMT  deployed_at=2026-09-03 12:11:55  control(</html>)=1
-  /guides/index.html                             200  served=Thu, 03 Sep 2026 13:14:17 GMT  deployed_at=2026-09-03 10:46:01  control(</html>)=1
-  /guides/tool-boxing-trivia-quiz-guide.html     200  served=Thu, 03 Sep 2026 13:14:17 GMT  deployed_at=2026-09-03 12:12:40  control(</html>)=1
-  /guides/tool-fight-countdown-guide.html        200  served=Thu, 03 Sep 2026 13:14:17 GMT  deployed_at=2026-09-03 13:46:58  control(</html>)=1
-  /guides/tool-fighter-comparator-guide.html     200  served=Thu, 03 Sep 2026 13:14:18 GMT  deployed_at=2026-09-03 13:45:57  control(</html>)=1
-  /guides/tool-weight-class-finder-guide.html    200  served=Thu, 03 Sep 2026 13:14:19 GMT  deployed_at=2026-09-03 12:13:19  control(</html>)=1
-  /index.html                                    200  served=Thu, 03 Sep 2026 13:14:20 GMT  deployed_at=2026-09-02 21:30:16  control(</html>)=1
-  /news/index.html                               200  served=Thu, 03 Sep 2026 13:14:20 GMT  deployed_at=2026-09-03 13:11:47  control(</html>)=1
-  /tools/boxing-trivia-quiz/index.html           200  served=Thu, 03 Sep 2026 13:14:23 GMT  deployed_at=2026-09-03 13:46:51  control(</html>)=1
-  /tools/fight-calendar/index.html               200  served=Thu, 03 Sep 2026 13:14:23 GMT  deployed_at=2026-09-03 13:44:22  control(</html>)=1
-  /tools/fight-countdown/index.html              200  served=Thu, 03 Sep 2026 13:14:23 GMT  deployed_at=2026-09-03 13:43:47  control(</html>)=1
-  /tools/fighter-comparator/index.html           200  served=Thu, 03 Sep 2026 13:14:24 GMT  deployed_at=2026-09-03 13:13:40  control(</html>)=1
-  /tools/weight-class-finder/index.html          200  served=Thu, 03 Sep 2026 13:14:24 GMT  deployed_at=2026-09-03 13:11:17  control(</html>)=1
+  /about.html                                    200  served=Thu, 03 Sep 2026 15:15:08 GMT  deployed_at=2026-09-03 13:14:23  control(</html>)=1
+  /articles/index.html                           200  served=Thu, 03 Sep 2026 15:15:09 GMT  deployed_at=2026-09-03 13:45:03  control(</html>)=1
+  /blog/cruiserweight-boxings-best-kept-secret.html 200  served=Thu, 03 Sep 2026 15:15:23 GMT  deployed_at=2026-09-03 12:14:08  control(</html>)=1
+  /blog/flyweight-division-deserves-attention.html 200  served=Thu, 03 Sep 2026 15:15:25 GMT  deployed_at=2026-09-03 13:12:22  control(</html>)=1
+  /blog/japans-golden-generation-boxers-to-know.html 200  served=Thu, 03 Sep 2026 15:15:25 GMT  deployed_at=2026-09-03 13:12:58  control(</html>)=1
+  /blog/last-nights-result-underdog-shocks-the-champion.html 200  served=Thu, 03 Sep 2026 15:15:26 GMT  deployed_at=2026-09-03 12:11:16  control(</html>)=1
+  /blog/saturday-fight-card-preview-whos-fighting-who.html 200  served=Thu, 03 Sep 2026 15:15:27 GMT  deployed_at=2026-09-03 13:10:47  control(</html>)=1
+  /blog/womens-boxing-having-a-moment.html       200  served=Thu, 03 Sep 2026 15:15:27 GMT  deployed_at=2026-09-03 12:11:55  control(</html>)=1
+  /guides/index.html                             200  served=Thu, 03 Sep 2026 15:15:29 GMT  deployed_at=2026-09-03 10:46:01  control(</html>)=1
+  /guides/tool-boxing-trivia-quiz-guide.html     200  served=Thu, 03 Sep 2026 15:15:30 GMT  deployed_at=2026-09-03 12:12:40  control(</html>)=1
+  /guides/tool-fight-countdown-guide.html        200  served=Thu, 03 Sep 2026 15:15:30 GMT  deployed_at=2026-09-03 13:46:58  control(</html>)=1
+  /guides/tool-fighter-comparator-guide.html     200  served=Thu, 03 Sep 2026 15:15:31 GMT  deployed_at=2026-09-03 13:45:57  control(</html>)=1
+  /guides/tool-weight-class-finder-guide.html    200  served=Thu, 03 Sep 2026 15:15:32 GMT  deployed_at=2026-09-03 12:13:19  control(</html>)=1
+  /index.html                                    200  served=Thu, 03 Sep 2026 15:15:32 GMT  deployed_at=2026-09-02 21:30:16  control(</html>)=1
+  /news/index.html                               200  served=Thu, 03 Sep 2026 15:15:33 GMT  deployed_at=2026-09-03 13:11:47  control(</html>)=1
+  /tools/boxing-trivia-quiz/index.html           200  served=Thu, 03 Sep 2026 15:15:34 GMT  deployed_at=2026-09-03 13:46:51  control(</html>)=1
+  /tools/fight-calendar/index.html               200  served=Thu, 03 Sep 2026 15:15:35 GMT  deployed_at=2026-09-03 15:10:36  control(</html>)=1
+  /tools/fight-countdown/index.html              200  served=Thu, 03 Sep 2026 15:15:36 GMT  deployed_at=2026-09-03 13:43:47  control(</html>)=1
+  /tools/fighter-comparator/index.html           200  served=Thu, 03 Sep 2026 15:15:37 GMT  deployed_at=2026-09-03 13:13:40  control(</html>)=1
+  /tools/weight-class-finder/index.html          200  served=Thu, 03 Sep 2026 15:15:38 GMT  deployed_at=2026-09-03 13:11:17  control(</html>)=1
 
 --- 1.1 meta-copy (first-person-plural policy prose), per page + context
       /about.html                                    1
@@ -95,14 +95,20 @@
       /tools/fight-countdown/index.html              <img> 1   css-url 0
       /tools/fighter-comparator/index.html           <img> 1   css-url 0
       /tools/weight-class-finder/index.html          <img> 1   css-url 0
-      distinct hero/css-url files: 1
+      distinct hero/css-url files: 2
       ⚠ 11 page(s) carry at most the logo and no CSS hero (4.2 — 'everything except the logo')
-      ⚠ ONE distinct hero file across every page that has one (4.2 companion / 9.4 within-site sameness)
 --- 4.5 logo alpha (colour type 4/6 OR tRNS — either alone gives a false negative)
       probing /assets/images/logo.png (from assets.url)
       400x218 depth=8 colour_type=6 tRNS=False -> OK (real alpha)
 --- 5.1 empty slot elements (a component that renders an empty element cannot tell missing from blank)
       ⚠ /articles/index.html: 16 empty slot element(s) (5.1 / bugs_open/425)
+--- 5.1b ORPHAN component rows, and the duplicate listings they cause (added 2026-09-03)
+      ⚠ /articles/index.html (blog-index): 6 ORPHAN row(s) at position(s) 3, created 08-31 16:29 → 09-02 16:28 — fingerprint MATCHES bugs_open/457 (stacked, one position, blog-index): a re-render clears the EMPTINESS, only deletion removes the DUPLICATION (cand. 4)
+    of those, how many are genuinely STRANDED (no active component matches the slot by name OR function):
+      none
+      ⚠ 6 orphan component row(s) on this site — see the per-page lines above
+    duplicate listings at the SERVED page (distinct item links vs total):
+      ⚠ /articles/index.html serves 36 item links for only 6 distinct items — the listing is repeated 6x
 --- 5.3 unsubstituted placeholders
       placehold.co / hard tokens: 0
       TOTAL_QUESTIONS: DECLARED in-document (1 line(s)) — a working constant, not a placeholder
@@ -120,8 +126,8 @@
 --- 10.3 CSS-url heroes that resolve to a non-200
       all CSS-url assets resolve 200
 --- 10.4 interactive elements
-      canvas/iframe/video/data-tool: 14
+      canvas/iframe/video/data-tool: 20
 
 === OWED, not mechanisable (the checklist says so): 1.2, 1.3, 3.2, 4.3, 7.1, 7.2, 7.3, 9.1-9.4, 10.1, 10.5 ===
 === §8: a complete work item is not a repaired artefact — every line above is read at the served page or the row, never at a status ===
-=== RESULT: 7 finding(s), 0 blind check(s) ===
+=== RESULT: 8 finding(s), 0 blind check(s) ===

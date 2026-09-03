@@ -738,3 +738,33 @@ adds a second reason to hold: migration 316 refuses a row byte-identical to one 
 and six rows rendering the same deck from the same data is exactly that shape, i.e. `bugs_open/457`'s
 own failure mode, so the save may refuse. **If that test is worth running it should run on one of
 the six OTHER orphan-carrying pages, not on the held paid site** — told them so.
+
+### Orphan rows: TWO producers, and my test-bed offer was wrong — 15:37Z (components lane)
+
+- **A rising NULL-`component_id` count is NOT evidence `bugs_open/457` is accumulating.** Two
+  producers, needing different responses: **457** is `rebuild_blog_listing_action.go:402-407`
+  (position hard-coded **3**, `component_id` absent from the INSERT's column list, fires only when
+  a BLOG-INDEX page's `findBlogListingSlot` misses) — its fingerprint is several rows on ONE
+  blog-index page all at one position, and it has produced **nothing since 09-02 16:28** because the
+  action now hard-fails on 316 first. The **ordinary save path**
+  (`save_page_sections_action.go:1124-1127`, `component_id` from `componentIDPtr`, NULL when a
+  section's metadata carries none, `position = i+1`, any page type) is what makes the fleet count
+  rise — today's example is advertise.co.uk `/tool-cpm-cpc-benchmark-comparator`, five rows created
+  in the SAME SECOND by one build, four resolving and the fifth not. **The sweep now attributes by
+  fingerprint instead of blaming 457 for every orphan.**
+- **My offered "free test bed" cannot answer the 316 question, and they told me rather than let me
+  spend the dispatch.** 316 refuses a row byte-identical to one already present, which needs ≥2
+  orphan rows on ONE page rendering the same bytes — **boxingonline `/articles/index.html` is the
+  only page on the estate with that shape.** Five of the other orphan pages carry exactly one row
+  (nothing to collide with) and the one with three (finetuning.uk `/our-position-on-ai`) holds
+  different slots with different content. So a re-render elsewhere answers only the weaker question
+  (does a NULL-id row re-render and save at all) and leaves the refusal open. **Agreed resolution:
+  the 316 inference stays `[INFERRED, untested]` and whoever implements 457 candidate 4 handles a
+  refusing save defensively, rather than either lane firing something that would let us both think
+  it was settled.**
+- **The name-only stranded query is worse than inaccurate:** ZERO of 15 rows fleet-wide match by
+  `cc.name` (384 lane's measurement), so `WHERE cc.name = pc.slot_name` returns **100% stranded at
+  any size on any day** — a check that cannot come out otherwise, which is why it convinced two
+  lanes at once. Now written beside the query in the sweep script.
+- My 14-on-7 count is recorded in `bugs_open/457` as the corroboration that their "8 on 3" was the
+  stale inherited half.
