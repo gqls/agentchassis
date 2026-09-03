@@ -161,3 +161,33 @@ supposed to be a formality. **Paste the quote; never retype it.**
 - Council: `Council-Submitted: cf7470b7-d922-4e2d-aa84-b7aae489cadd`, verdict pending at time of
   writing. **Read it and act on it** — the migration is already applied, so a REVISE is discharged by
   a follow-up migration, not by an amend.
+
+### Council verdict, and what was done with it
+
+**APPROVED, round 1, all reviewers** — correlation `cf7470b7-d922-4e2d-aa84-b7aae489cadd`. The commit
+carries `Council-Submitted:`, which `098` credits automatically now the verdict is approved; no amend
+is needed (and forward-only forbids one).
+
+Four objections, all **low** severity, all dispositioned rather than waved through:
+
+1. **"Nothing ties the UUID back to the domain via the `sites` table."** Real, and the sharpest of the
+   four: a mistyped `site_id` would populate *another site's* register and **every count in the verify
+   block would still pass**, because they are all scoped to the same wrong id. Closed factually —
+   `SELECT s.domain FROM site_specs ss JOIN sites s ON s.id=ss.site_id WHERE ss.created_by='…738…'`
+   returns **loancash.co.uk**, 19 facts, and the control (`created_by` mine AND `site_id` not mine)
+   returns **0**. Closed structurally too: a domain-binding clause is now in the shared method at
+   `lendzy_co_uk/RUNBOOK_lendzy_co_uk.md` §8e, so the next register migration carries it in its guard
+   rather than relying on the author having typed carefully.
+2. **"`pinned: true` should not be read as durable protection."** Correct, and it connects to two
+   existing landmines (`write_site_spec` ignores `pinned`; a refreshed spec's `created_by` names the
+   last writer). My ROLLBACK file already keys on `created_by … AND is_current` and aborts rather than
+   guessing — the reviewers noted this is the right response, but asked it be visible in the header
+   rather than only in the rollback file. Also folded into §8e. **The applied migration file was NOT
+   edited**: it is the record of what ran, and changing its header after the fact would make the file
+   on disk differ from the one that was applied.
+3. **"No backup step."** Not needed and the reviewer says so — the migration only INSERTs a new row and
+   mutates no existing text. Noted, no action.
+4. **"The refresher-supersedes-rollback point is only in the rollback rationale, not the risks list."**
+   Same as (2); handled by §8e.
+
+**Nothing in the verdict contradicted a measurement**, and nothing required a follow-up migration.

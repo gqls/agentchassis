@@ -174,6 +174,34 @@ Their run also proves the method transfers: ICOBS/DISP/statutory-instrument sour
 try (farmerinsurance, migration 698), and it found the fleet's THIRD wrong attribution — loanzy
 grouped MaPS under "FCA-authorised services"; MaPS is the statutory guidance body, not an FCA firm.
 
+### 8e. Two additions to step 5 from the loancash lane's run (2026-09-03, council-APPROVED cf7470b7)
+
+Both came back as low-severity council objections on migration 738 and are cheap enough that the
+next register migration should just carry them.
+
+- **BIND THE UUID TO THE DOMAIN INSIDE THE GUARD.** Step 5's guard asserts that no register already
+  exists; it does **not** assert that the site_id is the site you meant. A mistyped UUID silently
+  populates *another site's* register, and every count in your verify block still passes, because
+  they are all scoped to the same wrong id. One extra clause closes it:
+  ```sql
+  IF NOT EXISTS (SELECT 1 FROM sites WHERE id = '<uuid>' AND domain = '<the domain>') THEN
+    RAISE EXCEPTION 'NNN ABORT: site_id does not resolve to <the domain>';
+  END IF;
+  ```
+  And when you verify afterwards, **read the domain back through a join on `sites`**, not the id you
+  typed: `SELECT s.domain FROM site_specs ss JOIN sites s ON s.id=ss.site_id WHERE ss.created_by=...`.
+  Add a control in the same query — `count(*) WHERE created_by=<yours> AND site_id <> <yours>` must
+  be 0.
+- **SAY THAT `pinned: true` IS NOT PROTECTION.** These INSERTs set `pinned`, and a reader reasonably
+  reads that as "the refresher will leave it alone". It will not — see the landmine *Pinning a
+  `site_specs` row does NOT protect it: `write_site_spec` ignores `pinned` and drops it*, and the
+  companion *A refreshed spec's `created_by` names the last WRITER*. Put the sentence in the
+  migration's **risks/header**, not only in the ROLLBACK file, because the rollback file is the one
+  place nobody reads until it is already too late. The rollback guard should key on
+  `created_by = '<your lane> (migration NNN)' AND is_current` and **abort rather than guess** once
+  that is no longer exactly 1 — which is the state the first refresher pass leaves it in, by design
+  (§8d).
+
 ### 8c. Statute-source traps from the loancalculator lane's run (2026-09-02) — and the day's meta-lesson
 
 - **legislation.gov.uk works with the same tooling and carries the same 200s-on-wrong-paths
