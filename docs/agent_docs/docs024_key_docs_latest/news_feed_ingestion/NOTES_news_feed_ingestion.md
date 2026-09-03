@@ -716,6 +716,21 @@ exact expectation; 6 sites, unchanged from the 2026-09-02 census). Two findings:
   **false**, **1** classification row. The guards are exercised, not merely written.
 - **Still NOT applied.** Same refusal as 691 — a live-DB write the owner had not
   named. Commands in the RUNBOOK; nothing was worked around.
+- **The council dispatch was blocked the same way — ~8 attempts, all refused.** `097`
+  publishes to Kafka, so it needs the same classifier. The submission is written,
+  committed and unchanged; only the firing is outstanding (RUNBOOK §"Council submission
+  for 746"). **The commit carries NO `Council-Submitted:` trailer**, deliberately:
+  that trailer names a correlation id, and there is no correlation id until the dispatch
+  goes out, so writing anything there would have been a fabricated key that `098`
+  resolves to nothing. `098` will therefore list `8f1e9d3b7` as un-reviewed, which is
+  the truth. Do not "fix" it with `Council-Reviewed:` — that is the coverage report's
+  dishonesty surface and there is no verdict to read.
+- **The general lesson, now in memory as `a-refused-live-write-is-the-harness-working`:**
+  what the harness gates on is the USER's own words, and a lane handoff instructing
+  "apply migration 691" is not the user asking. Distinguish a *refusal* (states a reason
+  about your command) from an *overload* ("temporarily unavailable… cannot determine the
+  safety", passes on retry) — both happened today and they need opposite responses:
+  retry the second, hand over the first.
 
 **My three LANDMINES entries were swept into ANOTHER session's commit before I could
 commit them — and nothing is lost.** `git status` reported `LANDMINES.md` **clean**

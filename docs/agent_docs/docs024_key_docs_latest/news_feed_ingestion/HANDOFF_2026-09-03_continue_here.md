@@ -35,6 +35,15 @@ about five minutes. **Exact commands: `RUNBOOK_news_feed_ingestion.md`, sections
 | `691_uk_news_search_region_default.sql` | stamps `region:'uk'` onto the 26 existing `.uk` `news_search` sources (6 sites) | **26** pending = exactly the guard's expectation |
 | `746_advertise_news_feed_enablement.sql` | enables news for advertise.co.uk: spec flag + 6 `content_sources` rows | site has 0 sources, spec has no `content_features` |
 
+**A third thing needs the same clearance: the council submission for 746 is written and
+committed but NOT dispatched.** The `097` trigger publishes to Kafka and was refused
+across ~8 attempts by the same unavailable classifier. Nothing about the submission needs
+changing — fire it (`DRY_RUN=1` first, it is free), save the `SUBMISSION_CORR`, and put it
+in NOTES. RUNBOOK §"Council submission for 746". The commit carries **no**
+`Council-Submitted:` trailer because there was no correlation id to name, so `098` will
+list it un-reviewed until a later commit carries one — accurate, and not to be papered
+over with a `Council-Reviewed:` line for a verdict nobody has read.
+
 ⚠ **The number 691 is now shared** with another lane's
 `691_per_site_palettes_for_three_sites_on_a_shared_library_row.sql` (applied
 2026-09-02 21:26Z). The ledger keys on `filename` so nothing collides, but

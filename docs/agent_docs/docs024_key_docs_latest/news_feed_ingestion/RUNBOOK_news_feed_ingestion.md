@@ -154,6 +154,37 @@ Judge at the artefact: `_VERIFY.sql`'s NOTICE (fetched count, error_count,
 relevant/review/rejected split), then `https://advertise.co.uk/data/news-archive.json`
 (404 today) and the served `/news/index.html` item count.
 
+## Council submission for 746 — WRITTEN, NOT DISPATCHED (2026-09-03)
+
+`COUNCIL_SUBMISSION_746.json` is complete and committed (`8f1e9d3b7`). The dispatch was
+blocked the same way the migration applies were — the `097` trigger publishes to Kafka,
+and this session's classifier was unavailable for it across ~8 attempts. **Nothing about
+the submission needs changing; it just needs firing.**
+
+```bash
+# free admission test first — no credits, no dispatch
+DRY_RUN=1 ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+  docs/agent_docs/docs024_key_docs_latest/news_feed_ingestion/COUNCIL_SUBMISSION_746.json
+# then the real submission — SAVE the printed SUBMISSION_CORR
+./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+  docs/agent_docs/docs024_key_docs_latest/news_feed_ingestion/COUNCIL_SUBMISSION_746.json
+```
+
+Budget ~30 minutes, not ~2 (the council runs in 2–5 min; the dispatch queues behind the
+fleet — measured 29 min publish→start under normal load). A missing
+`orchestration_states` row is almost always latency, **not** a dropped dispatch — do not
+retry on that evidence. Find the run by payload, not by the printed id:
+
+```sql
+SELECT current_step, status FROM orchestration_states
+ WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+```
+
+Record the correlation in NOTES when it lands. The commit deliberately carries **no**
+`Council-Submitted:` trailer, because there was no correlation id to name — so `098` will
+list it as un-reviewed until a later commit carries the trailer. That is accurate, not a
+gap to paper over: never write `Council-Reviewed:` on a verdict you have not read.
+
 ## Dry-running a migration WITHOUT the runner's probe
 
 The runner's probe refuses any file whose flattened text contains the WORD

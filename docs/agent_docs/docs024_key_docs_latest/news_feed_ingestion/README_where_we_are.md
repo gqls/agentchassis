@@ -150,6 +150,13 @@ UK searches to carry the page; the verify script reports the split so we can
 see. Nothing is applied yet — the migration is dry-run clean, going to the
 council, and needs the same apply-by-hand from you as 691.
 
+Three things now wait on you, and they are all the same shape: the 691 stamp, the 746
+apply, and firing the 746 review at the council. The last one surprised me too — the
+review dispatch goes out over the message bus, and the same safety layer would not let
+it through, across about eight attempts. None of the three needs any more work; they
+need either your word naming them or two minutes of your time each. The commands are in
+the RUNBOOK, each under a heading saying who runs it.
+
 designblog.co.uk I have deliberately not touched. You re-scoped it yesterday
 (keep the page as a section index, fill it from child pages), which means a
 news source on its own would not fill it; I need to agree the mechanism with
