@@ -1417,3 +1417,12 @@ flagship, but the tool picker cannot see that instruction (that is the known bug
 a cluster-sized example). Do you want the duplicates pruned from the two smaller sites, kept,
 or is reuse inside a cluster acceptable as policy?
 
+**2026-09-03, mid-morning — your answer: build the tools; duplicates can stay; a new chassis is coming within the hour.**
+
+Understood on all three. The eight planned tools (seven on seotools, the channel prioritiser on
+website promotion) get built under the addresses the sites already link. Because the new chassis
+kills anything mid-flight and ignores new work for about five minutes after its pods restart, I
+am preparing the eight build requests now and firing them once the roll has landed and settled,
+not before — a tool build interrupted halfway is exactly the half-page problem we are clearing
+up. The cluster duplicates stay as they are.
+

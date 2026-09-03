@@ -4057,3 +4057,13 @@ session's — kustomize overlays, 444's bug file, platform tests).
 - Not ours, noted: `capability_gap handler_missing: affiliate-link-manager` on both cluster
   siblings (revenue_shape findings with no registered agent) — a fleet registration gap.
 
+### (w) 2026-09-03 ~08:5xZ — OWNER RULING: build the 8 planned tools; cluster duplicates KEPT; chassis roll within the hour
+
+Ruling verbatim: "build the tools. duplicated tools across the cluster can be kept. Please be
+aware that a new chassis is being prepared and will be deployed in the next hour."
+Sequencing: a roll kills in-flight orchestrations and the ~300 s post-restart no-dispatch window
+drops spawns — so the 8 `add_tool` items are PREPARED now (shape read from seotools' completed
+rows) and FIRED after the roll is seen and settled. Open question being read before firing:
+how `tool-deployer` names/creates its page when a row with the target name already exists
+(the 7 shells) — the ruling wants the tools under the ALREADY-LINKED urls.
+

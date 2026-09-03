@@ -262,7 +262,11 @@ The owner refreshed the kubeconfig ~21:2xZ (the 444 session noticed first). Ever
   — FLEET gap, also on websitepromotion; not ours, worth one line to whoever owns
   revenue_shape) · CTA 15 open (unchanged).
 - **Landmine verifier:** my 450 entry verified `STILL_VALID` 21:45Z.
-- **Order of work now:** owner decision (a)/(b)/(c) → then §1d briefs with runbook §2b applied
+- **OWNER RULED 2026-09-03 ~08:5xZ: (a) BUILD the 8 planned tools; cluster duplicates KEPT; a
+  chassis roll lands within the hour → the `add_tool` items are fired AFTER the roll settles
+  (NOTES (w)); 447's cluster instance is closed by ruling (keep).**
+- **Order of work now:** ~~owner decision (a)/(b)/(c)~~ fire the 8 `add_tool` post-roll, verify at
+  the body (§4 form probe) → then §1d briefs with runbook §2b applied
   (discovery at plan time) → №5 carries three canary duties (chrome pin, imagery prompt,
   discovery-before-plan).
 
