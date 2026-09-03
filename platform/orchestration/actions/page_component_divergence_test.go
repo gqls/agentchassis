@@ -146,7 +146,7 @@ func TestPageWritersStampDigestInSameStatement(t *testing.T) {
 		reason string
 	}{
 		{
-			file:   "save_page_sections_action.go",
+			file: "save_page_sections_action.go",
 			// The tail is 'deployed' and NOT 'deployed'), deliberately. This pin's
 			// property is "the digest is stamped in the SAME statement as the bytes",
 			// which the `stamp` check below enforces over whatever this anchor spans.
@@ -165,9 +165,19 @@ func TestPageWritersStampDigestInSameStatement(t *testing.T) {
 			reason: "the listing refresh UPDATE arm",
 		},
 		{
-			file:   "rebuild_blog_listing_action.go",
-			anchor: `(?s)INSERT INTO page_components \(page_id, slot_name, position, rendered_html, rendered_html_digest.*?VALUES \(\$1, \$2, 3, \$3, md5\(\$3\)`,
-			stamp:  "md5($3)",
+			file: "rebuild_blog_listing_action.go",
+			// Property-shaped, for the reason the save_page_sections entry above
+			// records: the old anchor spelled the COLUMN ORDER and the literal
+			// position (`VALUES ($1, $2, 3, $3, ...`), so it reddened on
+			// bugs_open/457's fix — which had to add component_id to the column
+			// list and replace that hard-coded 3 with the plan's own section
+			// index. A pin that fails on the change it should be indifferent to
+			// teaches the next author to loosen it carelessly. This one spans the
+			// column list without ordering it, and the `stamp` check below still
+			// enforces the only property that matters: the digest is computed in
+			// the SAME statement as the bytes it describes.
+			anchor: `(?s)INSERT INTO page_components \([^)]*rendered_html_digest[^)]*\)\s*VALUES \(.*?'deployed'`,
+			stamp:  "md5($5)",
 			reason: "the listing INSERT arm",
 		},
 		{
@@ -231,7 +241,8 @@ func TestAdoptVerbatimDoesNotStamp(t *testing.T) {
 // Second, the old form called t.Skipf when the file was unreadable, so a RENAME was
 // a silent green. ⚠ Nothing here compares the declaration to the LIVE function, and
 // the live trigger SET has already outgrown 357 (three bindings, not two — 552 added
-// the third); that binding count is declared in livespec and is INERT until phase 2.
+// the third); that binding count is declared in livespec and is checked DAILY by
+// the live-declaration-drift auditor (no Go test reads it — a unit test has no DB).
 func TestPageDivergenceVocabularyMatchesTheDeclaration(t *testing.T) {
 	d := livespec.MustGet("trigger_fn.page_component_artefact_archive")
 	for _, needle := range []string{

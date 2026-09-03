@@ -212,12 +212,44 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		}, nil
 	}
 
-	// ── Find the correct slot name ──────────────────────────────────────
-	slotName, existingComponentID := findBlogListingSlot(ctx, params.DB, blogPageID, logger)
+	// ── Find the correct slot, and decide whether we may write there ────
+	slot := findBlogListingSlot(ctx, params.DB, blogPageID, logger)
+	slotName := slot.Name
+	existingComponentID := slot.Existing
+	op, refusal := decideBlogListingWrite(slot)
 	logger.Info("RebuildBlogListingAction: Resolved slot",
 		zap.String("slot_name", slotName),
+		zap.String("origin", slot.Origin.String()),
+		zap.Int("occupants", slot.Occupants),
 		zap.Bool("has_existing_component", existingComponentID != uuid.Nil),
 	)
+
+	// A refusal is NOT an error, and this is load-bearing (bugs_open/457).
+	// rebuild_blog_listing is an unconditional step of the rerender-pages
+	// workflow, sitting between render_site_components and get_pages, and the
+	// workflow has no error_step: returning an error here aborts the run BEFORE
+	// create_rerender_items, so a chrome refresh re-renders the three
+	// site_components and then creates none of the page rerenders it exists to
+	// create. That is exactly the 18-page outage this bug was filed for. So a
+	// refusal is loud in the log, reported in the result, and the chain
+	// continues.
+	if op != opUpdate && op != opInsert {
+		logger.Error("RebuildBlogListingAction: refusing to write the blog listing",
+			zap.String("blog_page", blogPageName),
+			zap.String("slot_name", slotName),
+			zap.String("origin", slot.Origin.String()),
+			zap.Int("occupants", slot.Occupants),
+			zap.String("reason", refusal),
+		)
+		return map[string]interface{}{
+			"rebuilt":     false,
+			"skipped":     true,
+			"reason":      refusal,
+			"slot_name":   slotName,
+			"slot_origin": slot.Origin.String(),
+			"occupants":   slot.Occupants,
+		}, nil
+	}
 
 	// ── Load blog posts ─────────────────────────────────────────────────
 	rows, err := params.DB.QueryContext(ctx, blogPostsQuery, siteID)
@@ -291,7 +323,7 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 	// ── Load component template ─────────────────────────────────────────
 	// Use content-listing function (has proper input_schema with {{range}}).
 	// The old blog-listing component was CSS-only with empty input_schema.
-	htmlTemplate := loadContentListingTemplate(ctx, params.DB, logger)
+	htmlTemplate, templateComponentID := loadContentListingTemplate(ctx, params.DB, logger)
 
 	// ── Render template with post data ──────────────────────────────────
 	templateData := map[string]interface{}{
@@ -330,7 +362,7 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 	// ── Upsert page_component ───────────────────────────────────────────
 	var componentID uuid.UUID
 
-	if existingComponentID != uuid.Nil {
+	if op == opUpdate {
 		// Update existing component in the correct slot — unless a human has
 		// locked it (bugs_open/058): the lock predicate on the WHERE makes the
 		// refusal race-free, and the blocked refresh is surfaced as a work
@@ -399,18 +431,59 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 			emitPageDivergenceItems(ctx, params.DB, blogPageID, blogPageName, mine, "rebuild_blog_listing", logger)
 		}
 	} else {
-		// No existing component found — insert into the discovered slot
+		// opInsert: the slot is empty AND the page's plan names it as a listing
+		// slot. Both halves are required — see decideBlogListingWrite.
+		//
+		// position comes from the plan's own section index, never a literal.
+		// The old hard-coded 3 collided with whatever legitimately sat there
+		// (on the motivating page, a call-to-action). Note that position is
+		// deliberately NOT part of migration 316's key, so this is a layout
+		// correctness fix and not the duplicate fix — the occupancy check above
+		// is the duplicate fix.
+		position := slot.PlanPos
+		if position < 1 {
+			position = 1
+		}
+
+		// component_id is bound from the component that actually rendered these
+		// bytes, so the row can be attributed, re-rendered by component and
+		// swept by anything reasoning about components. NULL when the built-in
+		// default template was used, because then there is no component.
+		var componentIDPtr *uuid.UUID
+		if templateComponentID != uuid.Nil {
+			c := templateComponentID
+			componentIDPtr = &c
+		}
+
 		err = params.DB.QueryRowContext(ctx, `
-			INSERT INTO page_components (page_id, slot_name, position, rendered_html, rendered_html_digest, content_data, build_status)
-			VALUES ($1, $2, 3, $3, md5($3), $4::jsonb, 'deployed')
+			INSERT INTO page_components (page_id, slot_name, component_id, position, rendered_html, rendered_html_digest, content_data, build_status)
+			VALUES ($1, $2, $3, $4, $5, md5($5), $6::jsonb, 'deployed')
 			RETURNING id
-		`, blogPageID, slotName, rendered, string(contentDataJSON)).Scan(&componentID)
+		`, blogPageID, slotName, componentIDPtr, position, rendered, string(contentDataJSON)).Scan(&componentID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert blog listing component: %w", err)
+			// Do NOT abort the workflow (see the refusal note above): a losing
+			// race against a concurrent run of this same step must not take
+			// create_rerender_items down with it. Migration 316 makes that race
+			// loud rather than silent, which is the behaviour we want — it just
+			// must not be fatal here.
+			logger.Error("RebuildBlogListingAction: insert of the blog listing component failed — listing left unchanged",
+				zap.String("blog_page", blogPageName),
+				zap.String("slot_name", slotName),
+				zap.Int("position", position),
+				zap.Error(err),
+			)
+			return map[string]interface{}{
+				"rebuilt":   false,
+				"skipped":   true,
+				"reason":    fmt.Sprintf("insert into slot %q failed: %v", slotName, err),
+				"slot_name": slotName,
+			}, nil
 		}
 		logger.Info("RebuildBlogListingAction: Created new component",
-			zap.String("component_id", componentID.String()),
+			zap.String("page_component_id", componentID.String()),
 			zap.String("slot_name", slotName),
+			zap.Int("position", position),
+			zap.Bool("component_id_bound", componentIDPtr != nil),
 		)
 	}
 
@@ -637,30 +710,137 @@ func previousArticleCount(ctx context.Context, db *sql.DB, componentID uuid.UUID
 	return n
 }
 
-// findBlogListingSlot checks existing page_components for the blog-index page
-// and returns the first slot name that matches our priority list.
-// If no match is found, falls back to checking the page's sections array,
-// then defaults to "blog-listing".
-// Also returns the existing component ID if found (uuid.Nil if not).
-func findBlogListingSlot(ctx context.Context, db *sql.DB, blogPageID uuid.UUID, logger *zap.Logger) (string, uuid.UUID) {
-	// Strategy 1: Check existing page_components for a known listing slot
+// blogSlotOrigin records HOW a listing slot name was resolved, because that —
+// and not the presence of a component id — is what licenses writing there.
+//
+// bugs_open/457. The old findBlogListingSlot returned (name, componentID) and
+// the caller read a nil id as "this slot is free". It never meant that: only
+// strategy 1 looked in page_components at all, so a name resolved from the
+// page's plan, or defaulted to, arrived with a nil id whether or not rows
+// already occupied that slot. The caller then took the INSERT arm and appended
+// a row — every run, for as long as resolution kept missing. On
+// boxingonline.com's articles-index that was six orphan rows in two days, all
+// at the hard-coded position 3, all with a NULL component_id, each freezing the
+// listing template of its own birthday into rendered_html. The page served
+// thirty-six cards where six belong. Migration 316's byte-identical guard did
+// not prevent the accumulation; it only reported it, on the first run whose
+// render happened to match a row already there, by failing the whole action.
+//
+// So the origin is the authority:
+//
+//   - a row we FOUND may be refreshed — that is the whole job;
+//   - a slot the PLAN names as a listing slot may be created, because the plan
+//     is what declares a page's sections;
+//   - a name we GUESSED, or DEFAULTED to, may not be written at all. A guessed
+//     name is by construction not a listing slot — strategy 1 or 2a would have
+//     matched if it were — and on the motivating page it resolved to
+//     `generic-text-block`, a slot that page uses for prose. Writing there
+//     appends to, or overwrites, someone else's content.
+type blogSlotOrigin int
+
+const (
+	slotOriginNone         blogSlotOrigin = iota // nothing resolved
+	slotOriginExistingRow                        // strategy 1: a listing-class row is already present
+	slotOriginPlanListing                        // strategy 2a: the plan names a listing-class slot
+	slotOriginPlanFallback                       // strategy 2b: first non-skip section — a GUESS
+	slotOriginDefault                            // strategy 3: the page declares no sections
+)
+
+func (o blogSlotOrigin) String() string {
+	switch o {
+	case slotOriginExistingRow:
+		return "existing_row"
+	case slotOriginPlanListing:
+		return "plan_listing_slot"
+	case slotOriginPlanFallback:
+		return "plan_fallback_guess"
+	case slotOriginDefault:
+		return "default"
+	default:
+		return "none"
+	}
+}
+
+// blogListingSlot is the resolved slot plus everything the write decision needs.
+// Occupants is the count of non-removed rows already in that slot; Existing is
+// the single occupant's row id and is set ONLY when Occupants == 1 — never a
+// silently-picked first row out of several (the ambiguity rule
+// portedPageComponentID states at adopt_verbatim.go).
+type blogListingSlot struct {
+	Name           string
+	Origin         blogSlotOrigin
+	Existing       uuid.UUID
+	Occupants      int
+	PlanPos        int  // 1-based index in pages.sections; 0 = not named by the plan
+	OccupancyKnown bool // false when the lookup errored — must NOT read as "empty"
+}
+
+// blogListingSlotOccupancy counts the non-removed rows already in a slot.
+//
+// It is deliberately WIDER than migration 316's own partial index, whose
+// `build_status <> 'removed'` is NULL-blind (NULL <> 'removed' is NULL, so a
+// NULL-build_status row is not indexed and cannot collide). Using the shared
+// tombstone predicate instead means a row the index cannot see is still counted
+// here, so the error direction is refusal, never an append.
+func blogListingSlotOccupancy(ctx context.Context, db *sql.DB, pageID uuid.UUID, slotName string) (uuid.UUID, int, error) {
+	var occupants int
+	var firstID string
+	err := db.QueryRowContext(ctx, `
+		SELECT count(*), COALESCE((array_agg(id ORDER BY position, id))[1]::text, '')
+		  FROM page_components
+		 WHERE page_id = $1 AND slot_name = $2
+		   AND `+pageComponentNotRemovedSQL+`
+	`, pageID, slotName).Scan(&occupants, &firstID)
+	if err != nil {
+		return uuid.Nil, 0, err
+	}
+	if occupants != 1 {
+		return uuid.Nil, occupants, nil
+	}
+	parsed, parseErr := uuid.Parse(firstID)
+	if parseErr != nil {
+		return uuid.Nil, occupants, fmt.Errorf("unparseable page_components id %q: %w", firstID, parseErr)
+	}
+	return parsed, occupants, nil
+}
+
+// findBlogListingSlot resolves the listing slot for a blog-index page and
+// reports how it got there, plus who already occupies it.
+//
+// Every exit path now runs the occupancy lookup — that is the fix. Previously
+// only strategy 1 did, which is why "no component id" and "nobody is here" got
+// confused (bugs_open/457).
+func findBlogListingSlot(ctx context.Context, db *sql.DB, blogPageID uuid.UUID, logger *zap.Logger) blogListingSlot {
+	resolve := func(name string, origin blogSlotOrigin, planPos int) blogListingSlot {
+		slot := blogListingSlot{Name: name, Origin: origin, PlanPos: planPos}
+		existing, occupants, err := blogListingSlotOccupancy(ctx, db, blogPageID, name)
+		if err != nil {
+			// An error is NOT an empty slot. Leaving OccupancyKnown false makes
+			// the caller refuse rather than write blind.
+			logger.Error("findBlogListingSlot: occupancy lookup failed — refusing rather than assuming the slot is free",
+				zap.String("slot_name", name), zap.Error(err))
+			return slot
+		}
+		slot.Existing, slot.Occupants, slot.OccupancyKnown = existing, occupants, true
+		return slot
+	}
+
+	// Strategy 1: an existing page_components row in a known listing slot.
 	for _, candidate := range slotPriority {
-		var pcID uuid.UUID
+		var probe uuid.UUID
 		err := db.QueryRowContext(ctx, `
 			SELECT id FROM page_components
-			WHERE page_id = $1 AND slot_name = $2
+			WHERE page_id = $1 AND slot_name = $2 AND `+pageComponentNotRemovedSQL+`
 			LIMIT 1
-		`, blogPageID, candidate).Scan(&pcID)
+		`, blogPageID, candidate).Scan(&probe)
 		if err == nil {
-			logger.Info("findBlogListingSlot: Found existing component by slot_name",
-				zap.String("slot_name", candidate),
-				zap.String("component_id", pcID.String()),
-			)
-			return candidate, pcID
+			logger.Info("findBlogListingSlot: found an existing listing component by slot_name",
+				zap.String("slot_name", candidate))
+			return resolve(candidate, slotOriginExistingRow, 0)
 		}
 	}
 
-	// Strategy 2: Check the page's sections array (the planner's plan)
+	// Strategy 2: the page's own plan.
 	var sectionsJSON []byte
 	err := db.QueryRowContext(ctx, `
 		SELECT sections FROM pages WHERE id = $1 AND sections IS NOT NULL
@@ -668,77 +848,150 @@ func findBlogListingSlot(ctx context.Context, db *sql.DB, blogPageID uuid.UUID, 
 	if err == nil && len(sectionsJSON) > 0 {
 		var sections []string
 		if json.Unmarshal(sectionsJSON, &sections) == nil {
+			// 2a: the plan names a listing-class slot. This is the one path that
+			// may legitimately CREATE a row — the plan declares the slot.
 			for _, candidate := range slotPriority {
-				for _, section := range sections {
+				for i, section := range sections {
 					if section == candidate {
-						logger.Info("findBlogListingSlot: Found slot in page sections array",
-							zap.String("slot_name", candidate),
-						)
-						return candidate, uuid.Nil
+						logger.Info("findBlogListingSlot: the page plan names a listing slot",
+							zap.String("slot_name", candidate), zap.Int("plan_position", i+1))
+						return resolve(candidate, slotOriginPlanListing, i+1)
 					}
 				}
 			}
-			// If the sections array has entries not in our priority list,
-			// use the first non-standard section (skip hero, header, footer, head, call-to-action)
+			// 2b: the old "first non-skip section" guess. Resolved so the refusal
+			// can name it, never written to — see blogSlotOrigin.
 			skipSections := map[string]bool{
 				"hero": true, "header": true, "footer": true,
 				"head": true, "call-to-action": true, "cta": true,
 			}
-			for _, section := range sections {
+			for i, section := range sections {
 				if !skipSections[section] {
-					logger.Info("findBlogListingSlot: Using first content section from page plan",
-						zap.String("slot_name", section),
-					)
-					return section, uuid.Nil
+					logger.Info("findBlogListingSlot: no listing slot in the plan; first content section is only a guess",
+						zap.String("guessed_slot", section), zap.Int("plan_position", i+1))
+					return resolve(section, slotOriginPlanFallback, i+1)
 				}
 			}
 		}
 	}
 
-	// Strategy 3: Default
-	logger.Info("findBlogListingSlot: No existing slot found, defaulting to blog-listing")
-	return "blog-listing", uuid.Nil
+	// Strategy 3: the page declares no sections at all.
+	logger.Info("findBlogListingSlot: the page declares no sections; 'blog-listing' is a default, not a plan")
+	return resolve("blog-listing", slotOriginDefault, 0)
+}
+
+// blogListingOp is what the caller should do with a resolved slot.
+type blogListingOp int
+
+const (
+	opRefuseUnknown         blogListingOp = iota // occupancy unreadable
+	opUpdate                                     // exactly one occupant — refresh it
+	opInsert                                     // empty slot the plan authorises
+	opRefuseAmbiguous                            // several occupants
+	opRefuseNoSlotAuthority                      // nothing licenses writing here
+)
+
+// decideBlogListingWrite is deliberately pure so the whole decision table can be
+// tested without a database — including the cases that must NEVER write.
+//
+// The trap it exists to close (bugs_open/457): binding a real component_id on
+// the INSERT would stop the new row colliding with the NULL-component_id rows
+// already present, because uq_page_components_no_byte_identical_duplicate is
+// NULLS NOT DISTINCT. That is the only thing currently reporting the
+// duplication, so a fix that binds the id WITHOUT deciding the write in Go
+// first would silently append a seventh row instead of failing loudly. The
+// decision below never consults the constraint; it is taken before the write.
+func decideBlogListingWrite(slot blogListingSlot) (blogListingOp, string) {
+	if !slot.OccupancyKnown {
+		return opRefuseUnknown, "could not read what already occupies the slot"
+	}
+	if slot.Occupants > 1 {
+		return opRefuseAmbiguous, fmt.Sprintf("%d rows already occupy slot %q — refusing to guess which is the listing", slot.Occupants, slot.Name)
+	}
+	if slot.Occupants == 1 {
+		return opUpdate, ""
+	}
+	switch slot.Origin {
+	case slotOriginPlanListing:
+		return opInsert, ""
+	case slotOriginExistingRow:
+		// Strategy 1 matched a row and the count then said zero: the row went
+		// between the two queries. Do not fall through to a write.
+		return opRefuseUnknown, "the listing row disappeared between resolution and the occupancy count"
+	default:
+		return opRefuseNoSlotAuthority, fmt.Sprintf("no listing slot is declared for this page (slot %q resolved by %s); refusing to invent one", slot.Name, slot.Origin)
+	}
 }
 
 // loadContentListingTemplate loads the content-listing template from
 // content_components. This component has a proper input_schema with
 // {{range .articles}} and article card markup.
 // Falls back to a minimal default if not found.
-func loadContentListingTemplate(ctx context.Context, db *sql.DB, logger *zap.Logger) string {
-	var tmpl string
+// It also returns the id of the component the template came from, so a row this
+// action creates can be attributed to the thing that actually rendered it
+// (bugs_open/457 candidate 2; bugs_open/425 fix-candidate 5 names the same
+// carelessness). uuid.Nil means "no honest id" and the caller must write NULL —
+// the built-in default below is a Go constant with no content_components row,
+// and inventing an id there would claim bytes came from a component that did
+// not produce them.
+//
+// ⚠ `function = 'content-listing'` is NOT unique: measured 2026-09-03 there are
+// two active rows, the shared `content-listing` and a per-site fork
+// (`content-listing-guides-boxingonline-com`), byte-identical today. The old
+// `ORDER BY created_at DESC LIMIT 1` therefore silently served the newest —
+// i.e. one site's fork became every site's listing template, and would diverge
+// the moment anyone edited it. Prefer the CANONICAL row (name = function) and
+// log the ambiguity rather than refusing: RFC_034 makes several forks per
+// function the intended future, so refusing here would stop every site's
+// listing rebuilding the moment a second fork exists.
+func loadContentListingTemplate(ctx context.Context, db *sql.DB, logger *zap.Logger) (string, uuid.UUID) {
+	var tmpl, idStr string
+	var candidates int
 
-	// Primary: content-listing function (has proper input_schema)
+	// Primary: content-listing function (has proper input_schema).
+	// name = function first, then oldest — the canonical row either way.
 	err := db.QueryRowContext(ctx, `
-		SELECT html_template FROM content_components
-		WHERE function = 'content-listing'
-		  AND is_active = true
-		  AND html_template IS NOT NULL
-		  AND html_template != ''
-		  AND html_template LIKE '%range%'
-		ORDER BY created_at DESC
-		LIMIT 1
-	`).Scan(&tmpl)
+		SELECT html_template, id::text,
+		       count(*) OVER ()
+		  FROM content_components
+		 WHERE function = 'content-listing'
+		   AND is_active = true
+		   AND html_template IS NOT NULL
+		   AND html_template != ''
+		   AND html_template LIKE '%range%'
+		 ORDER BY (name = function) DESC, created_at ASC
+		 LIMIT 1
+	`).Scan(&tmpl, &idStr, &candidates)
 	if err == nil && tmpl != "" {
-		logger.Info("RebuildBlogListingAction: Using content-listing template")
-		return tmpl
+		parsed, _ := uuid.Parse(idStr)
+		if candidates > 1 {
+			logger.Warn("RebuildBlogListingAction: several active components share function 'content-listing' — using the canonical one",
+				zap.Int("candidates", candidates),
+				zap.String("chosen_component_id", idStr))
+		}
+		logger.Info("RebuildBlogListingAction: Using content-listing template",
+			zap.String("component_id", idStr))
+		return tmpl, parsed
 	}
 
 	// Fallback: article_grid by name
 	err = db.QueryRowContext(ctx, `
-		SELECT html_template FROM content_components
+		SELECT html_template, id::text FROM content_components
 		WHERE name = 'article_grid'
 		  AND is_active = true
 		  AND html_template LIKE '%range%'
 		LIMIT 1
-	`).Scan(&tmpl)
+	`).Scan(&tmpl, &idStr)
 	if err == nil && tmpl != "" {
-		logger.Info("RebuildBlogListingAction: Using article_grid template as fallback")
-		return tmpl
+		parsed, _ := uuid.Parse(idStr)
+		logger.Info("RebuildBlogListingAction: Using article_grid template as fallback",
+			zap.String("component_id", idStr))
+		return tmpl, parsed
 	}
 
-	// Last resort — minimal template
-	logger.Warn("RebuildBlogListingAction: No listing template found, using built-in default")
-	return defaultBlogListingTemplate
+	// Last resort — minimal template. No DB row, so no honest component id.
+	logger.Warn("RebuildBlogListingAction: No listing template found, using built-in default (row will carry a NULL component_id)")
+	return defaultBlogListingTemplate, uuid.Nil
 }
 
 // ensureArticleLinks checks rendered HTML for article titles that lack
