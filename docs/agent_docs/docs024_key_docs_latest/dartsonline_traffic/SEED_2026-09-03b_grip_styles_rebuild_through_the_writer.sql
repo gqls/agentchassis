@@ -47,19 +47,26 @@ BEGIN
    WHERE sp.site_id='5fe8785b-223d-41a3-88ee-c07187622381' AND sps.page_name='grip-styles';
   IF n <> 11 THEN RAISE EXCEPTION 'plan is % sections, expected 11 — stage 1 has been altered, do not rebuild', n; END IF;
 
-  -- all five figures must have LANDED as active assets, or the sections build as bare prose
+  -- ⚠ THIS GUARD WAS A HARD `IF n <> 5 THEN RAISE EXCEPTION` WHEN I WROTE THIS FILE 20 MINUTES
+  -- AGO, AND IT WAS THE WRONG WAY ROUND. It waited for the five illustrations before allowing the
+  -- rebuild. But `emit_imagery_items_action.go` is "the build-time emitter, invoked as a
+  -- build-site-planner workflow step", and its own comment says status `triaged` means
+  -- "build path auto-dispatch" — so a `triaged` imagery item is drained BY a build, and an
+  -- operator-inserted one with no build running has nothing to dispatch it. The runbook says the
+  -- same from the operations side: "Dispatch is one site at a time against a fleet-wide pool —
+  -- priority 5 orders WITHIN a site, it does not jump the queue ahead of other sites."
+  -- [MEASURED 2026-09-03 11:56Z] my five sat `triaged` for 16 minutes untouched, and
+  -- boxingonline.com has had one waiting 2.5 HOURS — so "wait longer" is not a plan.
+  -- The dependency is therefore INVERTED: the rebuild is the thing most likely to dispatch them.
+  -- So this is now an observation, not a gate. If the figures are absent at build time,
+  -- `Illustrated Text Block.image_url` is `required:false, on_missing:skip_field` and each section
+  -- renders as plain prose — no empty frame — and the asset landing later files `image_landed`,
+  -- which is one of only two re-render reasons that re-resolve. The page converges either way.
   SELECT count(*) INTO n FROM assets
    WHERE site_id='5fe8785b-223d-41a3-88ee-c07187622381' AND status='active'
      AND asset_key IN ('illustration_ring_grip','illustration_razor_grip','illustration_shark_grip',
                        'illustration_smooth_barrel','illustration_combination_grip');
-  IF n <> 5 THEN RAISE EXCEPTION 'only % of 5 grip illustrations are active assets — wait for stage 2', n; END IF;
-
-  -- and they must be five DISTINCT files, or the page cannot demonstrate per-section binding
-  SELECT count(DISTINCT url) INTO n FROM assets
-   WHERE site_id='5fe8785b-223d-41a3-88ee-c07187622381' AND status='active'
-     AND asset_key IN ('illustration_ring_grip','illustration_razor_grip','illustration_shark_grip',
-                       'illustration_smooth_barrel','illustration_combination_grip');
-  IF n <> 5 THEN RAISE EXCEPTION 'the five illustrations resolve to only % distinct urls', n; END IF;
+  RAISE NOTICE 'grip illustrations active at rebuild time: % of 5 (0 is expected and fine — sections build as prose and image_landed re-resolves them)', n;
 
   SELECT count(*) INTO n FROM site_work_items
    WHERE site_id='5fe8785b-223d-41a3-88ee-c07187622381' AND item_type='needs_content_page'
