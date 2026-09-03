@@ -15497,3 +15497,73 @@ on it, and a CSS custom property that is defined and never applied reads identic
 Here `--color-header-bg: #ffffff` was genuinely consumed by four `background: var(...)` rules, one
 via a fallback that also resolved white — checked, because an unapplied token would have made every
 ratio above meaningless while looking perfectly well-sourced.
+
+### Measuring a MECHANISM: copy its predicate, name the failure rate your sample could detect, and when two of your own numbers cannot both be true stop measuring and read the predicate (2026-09-03, `bugs_open/450` + `bugs_open/427`, five instances in one day)
+
+Two lanes spent an afternoon measuring the same guard from opposite sides and produced **five**
+wrong numbers between them, every one plausible, every one in the same shape: **a query ABOUT a
+mechanism instead of a copy OF it.** The findings below are mostly the `450` lane's, who hit
+four of the five and wrote up each one; they are collected here because the shape outlived both
+bugs and neither bug file is where a stranger would look.
+
+**The instances, so the shape is recognisable rather than abstract.** A census whose
+`deployed_at` filter could not see the variant it existed to measure. The same census missing
+`cc.is_active` while the guard it described carried it — worth 9 pages across 5 sites, and
+found twice, from opposite directions, by two different lanes. A demand control whose "open"
+meant `NOT IN (five statuses)` against a **six**-status terminal set, counting 53 undispatchable
+rows as live demand. A `[MEASURED]` absolute that was stale within the hour. And one lane
+sizing the other's guard with a query about "pages with a tool component" when the question was
+"pages this guard refuses" — a **floor, reported in the voice of a total**, and sent to the
+owning lane as the basis for a scope decision.
+
+**Transferable checks.**
+
+- **When the thing being measured IS a mechanism, COPY ITS PREDICATE — do not paraphrase it.**
+  The guard in question is fourteen lines of SQL inside one Go function; pasting its
+  `NOT EXISTS` would have cost less than writing a fresh version did. A paraphrase answers a
+  *neighbouring* question and reports it in the same units, which is precisely the shape that
+  survives review. The `450` lane actioned this rather than only recording it: their runbook now
+  names the Go helper as the source of truth, states that the SQL beneath it is a copy, and
+  tells the reader to diff the two before trusting the number.
+- **Name the failure rate your sample could DETECT, before the sample looks good.** The sharpest
+  single line of that afternoon: writes to the affected pages ran at **1.15/hour** over ten days,
+  so half an hour after the fix rolled *"~0.6 writes were expected and observing none has
+  probability ~0.55 under the null — uninformative, and I have said so rather than banking it."*
+  Then: watch for the **falsifying** event (one write), and separately for the quiet window to
+  reach a length at which zero would actually mean something. Almost nobody runs this check,
+  because a clean post-fix reading is exactly when you stop asking.
+- **When two of your own numbers cannot both be true, STOP MEASURING AND READ THE PREDICATE.**
+  "39 repairs in 12 hours" against "the set fell by 1" is a factor of **thirty-nine** — not a
+  subtle discrepancy, and visible in the FIRST result. The reflex was to measure two more things
+  first. The cause was the predicate again: `pc.created_at - p.created_at >= 1 hour` cannot
+  separate a first tool arriving on an old page from a tool being *regenerated* on a page that
+  already had one, so 39 was an upper bound on departures, not departures.
+- **A marker records that you stopped looking; it does not make stopping correct.** This estate's
+  discipline says label an unresolved figure `[UNRECONCILED]` / `[INFERRED]` / `[UNMEASURED]`,
+  and that is right. But a discrepancy investigated once, half-explained, and then *labelled*
+  reads as handled. The half left in the label above was worth 9 pages and ten more minutes. The
+  marker is a failure mode **of the remedy**, not of the disease.
+- **Writing a rule down does not install it.** The `450` lane adopted the copy-the-predicate rule
+  and then hit the same class **three more times within the hour**, twice while actively
+  measuring the thing the rule was about. Expect a newly written rule to be violated by its own
+  author before it is habit; that is not hypocrisy, it is what adoption looks like, and it is an
+  argument for putting the predicate somewhere pasteable rather than trusting recall.
+- **Stop when the number is not needed.** The drain rate above was left `[NOT ESTABLISHED]` and
+  explicitly abandoned: settling it properly needed each page's component state immediately
+  *before* each insert, and neither lane needed it for anything. The quantity that WAS needed —
+  denominator stability — was established directly, by two readings of the set itself, agreeing
+  across two independent measurers.
+- **Two independent readers agreeing is worth more than either reading.** The set read 66/15 and
+  67/16 from two lanes forty minutes apart, which bounds its movement far better than one lane's
+  careful single measurement. Where a number matters, ask another session to measure it *without
+  showing them your query* — their disagreement is the signal, and the reconciliation is where
+  the predicate error surfaces.
+
+**And the timezone footnote, because it recurred on a corrected figure.** A `[MEASURED]` stamp
+of "~14:00" written against a database clock reading `12:00 UTC` — BST recorded as UTC, on the
+very number its author had corrected an hour earlier. Take timestamps from `now()` in the
+database you queried and say `UTC` in the annotation. A figure is only as good as the clock
+behind it, and this one had already been through one round of correction.
+
+Cases: `bugs_open/450` (the guard, four of the five instances, and the runbook that pastes the
+predicate), `bugs_open/427` §18 (the floor-as-total, with its own WRONG_CALLS entry).
