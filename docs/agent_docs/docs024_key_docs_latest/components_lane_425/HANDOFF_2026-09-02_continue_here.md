@@ -63,6 +63,26 @@ correct everywhere while the pages still serve the old image.
 > `--since 2026-09-02` re-derives it. **A census does not go wrong; it goes stale, and yours can
 > be stale because of you.**
 
+## 0l. NEW BUG FILED FROM THIS LANE — `bugs_open/457`, and it is live
+
+`rebuild_blog_listing_action.go:403-407` appends an orphan `page_components` row on **every run**
+where `findBlogListingSlot` fails: `position` hard-coded to `3`, `component_id` never set,
+unconditional INSERT with no upsert or existence check.
+
+`[MEASURED 2026-09-03]` boxingonline `articles-index` carries **6 NULL-component rows at position
+3** accumulated 08-31→09-02, beside a legitimate `call-to-action` at the same position. Fleet-wide:
+8 such rows on 3 pages; **12 pages carry more than one row at one position**.
+
+**It only surfaced now because migration 316's `uq_page_components_no_byte_identical_duplicate`
+refuses the insert once the listing renders to bytes an orphan already holds. The constraint is
+not the bug — it is what finally reported two days of silent accumulation.** Before it, the action
+appended junk and returned success.
+
+**Live blast radius:** the failure aborts the action *before* `create_rerender_items`, so a
+boxingonline chrome refresh created **none** of its ~18 child rerenders and retries identically.
+Same file, same carelessness about component identity as `425` fix-candidate 5 (`loadListingTemplate`
+looks its template up by NAME rather than following the `component_id` it is writing).
+
 ## 0k. 688 RAN — and it is INCONCLUSIVE, by a flaw I flagged when choosing the page
 
 `[MEASURED 2026-09-03 10:45:53Z]` batch `688` (`template_changed`, `guides-index`) **completed and
