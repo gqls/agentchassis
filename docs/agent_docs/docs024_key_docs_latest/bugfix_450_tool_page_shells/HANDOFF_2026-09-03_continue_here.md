@@ -173,6 +173,18 @@ inserted by another producer can lose that slot's reference the same way.
 **Councils: both APPROVED.** Door `2b236e83-ffd1-4911-b73f-1c17249064c1`; gate
 `4e7497ed-62ed-4426-a814-8361754c2352`. All mediums actioned (see NOTES (i), (k)).
 
+**⚠ 729 RE-VERIFIED AFTER A NEIGHBOUR LANDED ON THE SAME ROW (2026-09-03, late).** The apis.uk
+lane applied **migration 762** to `build-site-planner` by hand — it rewrites rule 17's subject
+sentences for the owner's new opening-line spec, moving the prompt **32,191 → 32,434 (+243)**,
+and preserves this lane's pinned anchor `may also carry a "subject"` verbatim (post-asserted
+count=1). **729 still applies cleanly and needs NO re-anchor** — re-rehearsed against the changed
+row: every guard passes, all six neighbour checks pass (720's rule and flag, 433, 718, 640's rule
+17), and the apply→ROLLBACK round trip is **byte-exact** at the new length.
+**Why it survived, and it is the design rather than luck:** 729 anchors on **rule 3**, which 762
+did not touch, and its length guard is a **relative delta computed from `tpl` at apply time**, not
+a recorded absolute. A migration that had pinned `32191` would now refuse. That is the same
+self-baselining discipline RUNBOOK §10 prescribes for the rehearsal.
+
 **BLOCKED, needs the owner:** applying `729` was **refused by the session permission classifier**
 (a live-DB write). Not worked around. Preconditions are otherwise met — verdict read, code live.
 Recipe and the reason it waited: RUNBOOK §10. Until it applies, **the planner keeps naming tool
