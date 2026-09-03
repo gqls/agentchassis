@@ -1203,6 +1203,21 @@ type llmFieldSpec struct {
 	// component template reads, instead of guessing item field names (e.g.
 	// title/body) that render empty against a template reading name/description.
 	ItemFields []string `json:"item_fields,omitempty"`
+	// ValueShape and ItemNotes carry the NESTED element shape that ItemFields
+	// cannot express (bugs_open/437). A name list flattens
+	// `steps[].branches: array of {body,label}` to the bare name `branches`, and
+	// the prompt's exemplar then rendered it `"branches": "..."` — instructing a
+	// string, which the writer duly produced and the render gate duly refused,
+	// 119 times across six sites in a fortnight. ValueShape is the whole field
+	// value as a JSON skeleton; ItemNotes states each structured property's shape
+	// and its own schema description. Both are produced by
+	// datahelpers.StructuredItemShape, in the same package as the gate that
+	// judges the result, and both are EMPTY unless an element property is itself
+	// a collection — which is what keeps every other component's prompt
+	// byte-identical, and what makes the Go and template halves of the fix safe
+	// to deploy in either order.
+	ValueShape string   `json:"value_shape,omitempty"`
+	ItemNotes  []string `json:"item_notes,omitempty"`
 }
 
 type sectionPlanItem struct {
@@ -2700,6 +2715,11 @@ func planSection(ctx context.Context, sectionName string, section sectionRef, co
 		// LLM-generated fields — always available
 		if source == "llm" {
 			llmFields = append(llmFields, fieldName)
+			// bugs_open/437: the nested half of the same question ItemFields
+			// answers flatly. Zero values for every field whose elements are
+			// scalars, so the emitted spec — and the prompt built from it — is
+			// unchanged for all but the nesting components.
+			valueShape, itemNotes := datahelpers.StructuredItemShape(fieldDef)
 			llmFieldSpecs = append(llmFieldSpecs, llmFieldSpec{
 				Name:        fieldName,
 				Type:        fieldType,
@@ -2708,6 +2728,8 @@ func planSection(ctx context.Context, sectionName string, section sectionRef, co
 				OnMissing:   onMissing,
 				Fallback:    fallback,
 				ItemFields:  extractArrayItemFields(fieldDef),
+				ValueShape:  valueShape,
+				ItemNotes:   itemNotes,
 			})
 			continue
 		}

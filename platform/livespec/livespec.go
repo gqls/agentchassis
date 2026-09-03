@@ -463,7 +463,65 @@ var Declarations = []Declaration{
 			"making a retraction self-undoing (bugs_open/098's mechanism; 16 of 60 live tool-cta " +
 			"instances sat on archived pages, measured 2026-08-25).",
 	},
+	{
+		// bugs_open/437. The live prompt is where a schema becomes an
+		// INSTRUCTION, and the instruction was wrong: built from a flat list of
+		// element names, the exemplar rendered mechanism-flow's nested
+		// `steps[].branches` as `"branches": "..."`, the writer produced the
+		// string it was shown, and the render gate refused the page — 119 times
+		// across six sites in the fortnight to 2026-09-02.
+		//
+		// Declared here because the fix has a Go half and a DB half that deploy
+		// independently, and the DB half is the one nothing else watches: the Go
+		// side's own tests pass whether or not the live row was ever migrated.
+		Key:  "workflow.page-content-writer.prompt_item_shape",
+		Kind: "workflow",
+		// #>> the prompt path rather than default_config::text: this returns the
+		// template UNESCAPED, so the fragments below are the template's own
+		// spelling — byte-identical to the migration's replacement text and to
+		// what the Go test renders. Probing the ::text form would force a
+		// JSON-escaped restatement of a quote-heavy fragment, i.e. a third
+		// spelling to keep in step.
+		ProbeSQL: "SELECT default_config #>> '{workflow,steps,process_sections_loop,config," +
+			"sub_workflow,steps,generate_content,config,prompt_template}' FROM agent_definitions " +
+			"WHERE type = 'page-content-writer' AND is_active " +
+			"AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL",
+		Mode:  FragmentMatch,
+		Phase: PhaseGoSide,
+		Fragments: []Fragment{
+			{Text: WriterPromptNestedExemplar, Min: 1, Max: 1},
+			{Text: WriterPromptItemNotesTail, Min: 1, Max: 1},
+			{Text: WriterPromptFlatExemplarPre437, Forbidden: true},
+		},
+		Provenance: "migration 724 wrote both sites; seed 023 carries the pre-437 spelling and is " +
+			"history, not the system. The Go tie is writer_prompt_item_shape_437_test.go, which " +
+			"renders these fragments through the real datahelpers.RenderPromptTemplate in both " +
+			"deploy states. Note that path runs under text/template's DEFAULT missingkey (invalid), " +
+			"not missingkey=zero: an absent value_shape is still falsy in {{if}}, which is what makes " +
+			"the two halves order-free, but a bare print of either new key would emit a literal " +
+			"<no value> into the prompt — hence both keys appear only inside their guards.",
+	},
 }
+
+// The page-content-writer prompt's rendering of a field spec's element shape
+// (bugs_open/437). These are the exact template directives migration 724 writes
+// into the live row; the Go render test quotes them from here rather than
+// spelling them a second time, so a change to the live contract has one place to
+// be made and one place to be read.
+const (
+	// WriterPromptNestedExemplar is the Output Format exemplar's opening: prefer
+	// the nested skeleton the planner computed, fall back to the flat item-name
+	// rendering, and only then to a scalar.
+	WriterPromptNestedExemplar = `"{{$f.name}}": {{if $f.value_shape}}{{$f.value_shape}}{{else if $f.item_fields}}`
+	// WriterPromptItemNotesTail appends the per-property shape sentences to the
+	// "What To Write" field list.
+	WriterPromptItemNotesTail = `{{if .item_notes}}{{range $n := .item_notes}} {{$n}}{{end}}{{end}}`
+	// WriterPromptFlatExemplarPre437 is the spelling this fix removes — the one
+	// that rendered `"branches": "..."` and told the writer a nested array was a
+	// string. Declared Forbidden so a revert is caught by the daily auditor
+	// rather than by six sites' builds failing again.
+	WriterPromptFlatExemplarPre437 = `"{{$f.name}}": {{if $f.item_fields}}`
+)
 
 // Get returns the Declaration with the given key.
 func Get(key string) (Declaration, bool) {

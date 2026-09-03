@@ -344,6 +344,14 @@ var gainBlindnessWaivers = map[string]string{
 		"A REAL RESIDUAL: a rewrite that ADDS a predicate — narrowing the fan-out further — is invisible " +
 		"here. That direction is the safe one for this query (it files fewer re-renders, never more), and " +
 		"the dangerous direction is LOSS, which the Min:1 fragments catch. bugs_open/404.",
+	"workflow.page-content-writer.prompt_item_shape": "two template SITES, not a vocabulary: there is no " +
+		"set here whose size could grow, so no count could be written. Each is bounded Min 1 Max 1, so a " +
+		"second copy of either directive stops the auditor, and the pre-437 flat spelling is declared " +
+		"Forbidden, which catches the one regression that matters (a revert re-teaching the writer that a " +
+		"nested array is a string). ⚠ STATED PLAINLY BECAUSE IT IS A REAL RESIDUAL: prompt text ADDED " +
+		"elsewhere in this template — including another exemplar for another field shape — is invisible " +
+		"here. The prompt is prose and cannot be counted; what is countable, and IS counted by " +
+		"structured_item_shape_test.go, is the Go side that decides when these directives fire.",
 	"workflow.page-content-writer.slot_name_from": "bounded Min 2 Max 2 as of 2026-08-25, so a third render " +
 		"step setting slot_name_from stops the auditor. That is the growth direction that matters here; the " +
 		"live object is two workflow steps, not an open-ended list of values.",
