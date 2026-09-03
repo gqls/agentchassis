@@ -206,10 +206,21 @@ separate register files).
   running, which is the `LANDMINES.md` "a register STATUS line is a snapshot that outlives its
   truth" trap — and it nearly stopped a lane relying on a control that was working. It was
   caught by a peer probing the artefact rather than believing this entry.
-  **Pending, owner-decided 2026-09-02, not yet applied:** migration `722` sets the
-  `sites.settings` column DEFAULT so a NEW site is born holding. Existing rows untouched by
-  design. Opt-in shape and unsafe-side-OFF still describe the per-site key; they no longer
-  describe the birth default.
+  **LIVE 2026-09-03 — migration `722` APPLIED: a NEW site is BORN HOLDING.** A BEFORE INSERT
+  trigger (`trg_sites_born_holding_growth`), **not** the column default the first drafts used:
+  a default is bypassed by an INSERT that names `settings`, and 2 of the 15 site-creation paths
+  do — including the `SEED_*.sql` shape CLAUDE.md instructs every lane to use. Council trail
+  `070347dd-c410-4cf2-b5e6-8c87e568a792`, APPROVED at round 5 after four REVISE rounds.
+  Verified at the artefact: trigger enabled in `pg_trigger`; **1** site carries a posture
+  (gamedesign.uk, hand-set), so no existing row moved; 39 active sites unchanged.
+  ⚠ **BEFORE INSERT does NOT make existing rows safe under an UPSERT** — `EXCLUDED` is the
+  post-trigger row, so a `DO UPDATE SET settings = EXCLUDED.settings` would re-hold a released
+  site. None of the four upserts on `sites` does; `check_sites_upsert_excluded_settings`
+  (pattern-check.py) refuses one at commit time, and LANDMINES carries the induction recipe.
+  ⚠ **ADOPTED sites are born held too** — adoption inserts through this path. Wider than the
+  words "a brand-new site"; the owner's to narrow.
+  ⚠ **Nothing reports "held longer than N days"** — a site nobody releases stops growing
+  silently. Owed by the improvement_loop lane.
 - **what:** `sites.settings->'maintenance_profile'->>'growth_posture' = 'hold'` makes the
   two HEADS of the tool growth chain file their items in the RECORD SHAPE — born
   `status='deferred'`, `handler_agent=''` (the promoter excludes a handler-less row from its

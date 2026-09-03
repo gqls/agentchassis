@@ -53,7 +53,22 @@ far.** 867 of the 1,385 were one missing skip link. See §3.
 | CONTRIB to `bugs_open/447` | `f6453d7db` | done |
 | **Migration `722`: new sites born holding growth** | `ca42034ac` | **HELD — council round NOT SENT** |
 
-### 3a. THE FIRST THING TO DO IN A FRESH SESSION
+> **UPDATE 2026-09-03 — §3a IS DONE. Migration `722` is APPROVED and APPLIED.**
+> Council `070347dd` approved at **round 5** after four REVISE rounds. The design changed
+> completely on the way: it is a **BEFORE INSERT trigger**, not the column default the first
+> three rounds proposed — a default is bypassed by an INSERT naming `settings`, and 2 of the
+> 15 site-creation paths do, including the `SEED_*.sql` shape CLAUDE.md tells every lane to
+> use. Verified at the artefact (trigger enabled; 1 site holds, hand-set; 39 unchanged).
+> The four rounds each found something the change *working* would never have shown — they are
+> written up in NOTES and are the most useful thing in this lane's record.
+>
+> **Two things it leaves you.** (a) **Adopted sites are born held too** — adoption inserts
+> through this path, which is wider than the owner's words "a brand-new site"; raised with him,
+> his to narrow. (b) **Nothing reports "held longer than N days"**, so a site nobody releases
+> stops growing silently — this lane's, unbuilt, and it is the same shape as the 1,385 findings
+> the lane exists to fix.
+
+### 3a. ~~THE FIRST THING TO DO IN A FRESH SESSION~~ (DONE — see the update box above)
 
 **Re-submit migration `722` to the council.** The submission file is unchanged at
 `<scratchpad>/growth_default_submission.json`; if the scratchpad is gone, its full content
