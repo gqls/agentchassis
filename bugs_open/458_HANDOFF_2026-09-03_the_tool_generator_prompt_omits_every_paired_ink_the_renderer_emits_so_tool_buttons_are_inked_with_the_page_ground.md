@@ -345,3 +345,64 @@ saying so.
 
 — the `bugfix_449_fences_assert_no_number` lane
 (`docs/agent_docs/docs024_key_docs_latest/bugfix_449_fences_assert_no_number/`)
+
+
+---
+
+## 11. Council: APPROVED at round 3 — and the four advisories it left owed
+
+Correlation `0fd2ca6b-f400-4452-8cac-25399f7d55ea`. **Rounds 1 and 2 REVISE, round 3 APPROVED**
+("approved with 4 advisory objection(s) — none high-severity"). Full trail in the lane NOTES §9.
+
+**Two pre-apply preconditions the seats asked for, both re-verified `[MEASURED 2026-09-03]` after
+approval and immediately before any apply:**
+
+- **`guardian`** raised the LANDMINE *"four agent types have TWO active definition rows, and only the
+  higher version is ever loaded — a config change is a NO-OP if it hits the lower version."* Checked
+  **without** the `is_active` filter the guard uses: `agent_definitions` holds **exactly one row per
+  type**, `tool-generator` and `tool-improver` both at version 1, neither a snapshot, neither
+  deleted. **These two are not among the four.** Re-run this before applying; another session can
+  add a row.
+- **`prior_art_librarian`** objected that the load-bearing absence claim rested on my own quoted
+  snippets rather than an independent lookup in the review cycle — *"if either prompt_template
+  already carries partial pairing language, edits 1/4 either no-op or double-apply."* Re-read both
+  live prompts directly: `generate_tool_html` matches `(primary|accent)-(text|ink)` = **false**,
+  `improve_tool` = **false**, and neither carries `PAIR EVERY FILL`, so `732` is unapplied and has
+  nothing to double-apply onto. That objection was right to demand the check even though the answer
+  held.
+
+**Advisories acted on immediately:**
+
+- **`editquality`** found a real bug in the detector: the `--json` refusal branch was
+  `if [[ "$JSON_OUT" == "1" ]]; then :; fi` — the JSON caller got **silence** where a structured
+  error belonged, which is the exact "a refusal must not look like a clean result" shape this file
+  argues elsewhere. Fixed: JSON mode now emits `{"error":"unreachable",…,"findings":null}` and both
+  paths still exit 2. Verified in both modes.
+
+**Advisories NOT acted on, recorded so they are not lost:**
+
+- ⚠ **`bug_historian`, and it is the sharpest of the four:** the detector is **not cron-wired**, so
+  *"between runs it is indistinguishable from 'no new instances'"* — `016b` §9's *"an unscraped
+  counter reads exactly like a fixed bug"*. **A manual detector satisfies the objection that created
+  it only while someone remembers to run it.** Wiring it is the stated follow-up and it should be
+  done before this bug is closed.
+- ⚠ **`reuse_agent`:** the detector joins the informal `scripts/audit-*` family instead of extending
+  the registered `discovery_checks` framework — the very framework edit 5 modifies. **Worth noting
+  these two objections have a single answer:** a discovery check gets scheduling for free, which
+  closes `bug_historian`'s gap at the same time. The counter-argument is that this defect lives
+  fleet-wide in `content_components` while discovery checks run per site, so the fit is not exact.
+  **Not decided here.**
+- ⚠ **`architecture`:** the pairing sentence is now duplicated verbatim across two prompts *"with no
+  shared source and no test that would catch a future edit to only one of them — the same drift
+  class this round fixed for token lists, recurring in prose form."* Precisely right, and this file
+  has no answer to it.
+- ⚠ **`guardian` + `improvement_guardian`:** the "zero new findings" claim for arming three tokens in
+  a live severity-high check rests on a **13-site manual sample**, not fleet coverage. A DB-derivable
+  proxy (how many active components reference the three tokens, against which sites serve them)
+  would corroborate it at scale. **Do this before trusting the zero.**
+- ⚠ **`bug_historian` also flagged** that only the two prompts *this round measured* were patched —
+  no other LLM-authoring path that can write component CSS was audited for the same gap. The
+  fleet-wide prompt census in §1 found five agents naming `--color-primary` and **zero** naming any
+  ink companion; three of those five (`color-variable-fixer`, `visual-design-auditor`,
+  `component-creator`) are untouched by `732`. `component-creator` already teaches the rule. **The
+  other two were not examined and should be.**

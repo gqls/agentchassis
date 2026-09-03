@@ -91,7 +91,13 @@ rows=$(psql_q "
 # separately rather than reading an empty rowset as 'nothing wrong'.
 probe=$(psql_q "SELECT count(*) FROM content_components WHERE is_active;")
 if [[ -z "$probe" ]]; then
-    if [[ "$JSON_OUT" == "1" ]]; then :; else echo "could not reach the database" >&2; fi
+    # Council round 3, editquality: the JSON caller must SEE the refusal, not an
+    # absence it could mistake for a clean result. Emit a structured error on
+    # stdout and the human line on stderr; both paths still exit 2.
+    if [[ "$JSON_OUT" == "1" ]]; then
+        printf '{"error":"unreachable","detail":"could not reach %s/postgres-clients-0","findings":null}\n' "$NAMESPACE"
+    fi
+    echo "could not reach the database" >&2
     exit 2
 fi
 
