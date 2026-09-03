@@ -454,7 +454,7 @@ live change. In priority order:
 
 | | what | corr | state |
 |---|---|---|---|
-| `740_..._HOLD.sql` | `info-card-grid`'s `carousel` defaults ON at resolution time | `2ac895f3-ca82-4dbe-8f4e-3335a04b8925` | **round 3 pending.** r1 REVISE (9/11 approving, `bug_historian` HIGH), r2 REVISE (`editquality`) |
+| `740_..._HOLD.sql` | `info-card-grid`'s `carousel` defaults ON at resolution time | `2ac895f3-ca82-4dbe-8f4e-3335a04b8925` | **r3 APPROVED 16:02:39Z** (r1 REVISE, r2 REVISE). Still `_HOLD`, still unapplied |
 | `747_..._HOLD.sql` | `offer-analyser`: price may LEAD, and the exemplar names it | `aeaf9f88-4348-4453-8c9e-213e7fd548a7` | **r1 APPROVED 16:01:45Z — NOT CLAIMED, see below. r2 pending** |
 
 > **⚠ BOTH ARE NOW `_HOLD.sql`, AND THE RENAME IS THE POINT.** An unapplied migration sitting in
@@ -560,10 +560,56 @@ that survives is theirs, sharpened: **"answers the same doubt head-on", not "top
 explanation. Where the remaining stretches come from is a question my own instrument raises. **Not
 folded into either migration.**
 
+## ⚠ 740 IS APPROVED — AND TWO OF ITS ADVISORIES CORRECT CLAIMS I HAD MADE
+
+Both are folded into the migration header and into `doc_notes`
+(`subject_type='component'`, `subject_key='info-card-grid'`, 2026-09-03 16:12:33Z).
+
+**1. "The existing `page_rerender` queue lands it" was THE WRONG DENOMINATOR, and a seat had to tell
+me.** `render_guardian`: **assemble-mode** `page_rerender` (a `page_id` with no `spec.reason`)
+re-embeds each section's existing stored HTML and never re-renders the template against a re-resolved
+schema — **so it can never apply this fallback.** I grounded the claim only on
+`rerender_page_sections_action.go:1450`, the SCOPED path, and never checked the split.
+`[MEASURED 2026-09-03]`
+
+| status | items | scoped (`spec.reason`) | assemble-only |
+|---|---|---|---|
+| complete | 9,781 | 1,264 | **8,517 — 87%** |
+| unresolved | 1,751 | **1,712 — 98%** | 39 |
+
+**87% of the completes I cited are a mode that cannot land the change.** The queue's busy-ness was
+real and was the wrong evidence. **The forward-looking news is better and is a DIFFERENT fact — the
+pending queue is 98% scoped. Quote that; never quote the completes.** The mixed carousel/grid
+interim's length therefore depends on scoped rerenders reaching each of the 21 sites, not on
+throughput.
+
+**2. I named the wrong vehicle for the fence run, then measured it.** Three seats asked for a work
+item to force it, and my r3 called `acceptance_run` "the right vehicle (277 rows)" — **named from the
+type name and a row count without checking what the rows are.** `[MEASURED 2026-09-03]` **all 277 are
+`handler_agent='tool-acceptance-agent'` with `spec.check` of `tool_acceptance_due`/`manual` — a TOOL
+vehicle** — and this component's own 2026-08-05 fence run was driven by **no work item at all**.
+**So none was filed, deliberately:** routing a component fence at a handler I cannot show runs one is
+what `bugs_open/395`'s routing rule 3b exists to stop, and an unhandled row is worse than a recorded
+gap. ⚠ **Still owed: a component-capable acceptance vehicle, or a hand-run of the fence against
+`leopardessconsulting.co.uk/services.html`** — the one live carousel placement, so **this can be
+answered BEFORE apply.**
+
+> **That is the fourth time today I asserted from a name or a count instead of the thing itself** —
+> a served count without the template, a missing ruling without the ruling headings, a model output
+> without its prompt, and now a work-item type without its rows. **Same check every time: open the
+> thing.**
+
 ## What the next session owes, in order
 
-1. **Read both verdicts** (`2ac895f3…` r3, `aeaf9f88…` r1) and act on them. Both commits carry
-   `Council-Submitted:`, so `098` credits them automatically on approval.
+1. **`740` is APPROVED and its advisories are folded in — it is ready to apply.** Do the fence run
+   first (above); it needs no apply. **Read `747`'s r2 verdict** when it lands.
+   ⚠ **Do not hand-write `Council-Reviewed:` anywhere.** Both migrations' commits carry
+   `Council-Submitted:`, and `098` resolves a correlation to its **LATEST** verdict at report time —
+   which is exactly why both rounds went back on the SAME correlation. **Had `747`'s r2 opened a NEW
+   correlation, the committed trailer would have gone on resolving to r1's APPROVED — a review of
+   superseded wording — while the real review sat on a correlation no commit names, and the coverage
+   report would have shown a clean credit with no mismatch flag.** Same-correlation resubmission is
+   what keeps the trailer honest when the file moves under an in-flight round.
 2. **Apply `747`** once approved — it is the owner's ruling and nothing moves until it applies.
    Then **run the pre-registered check** in its header. ⚠ It edits the same prompt as `723`; `723` is
    NOT idempotent (§2.1), so never model a future edit on it.
