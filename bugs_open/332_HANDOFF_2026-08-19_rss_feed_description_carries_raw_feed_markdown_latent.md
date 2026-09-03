@@ -141,3 +141,137 @@ correct, and the population it measured has since changed.
   correctly**. So status codes ARE usable — **probe the slug, never the customer domain.**
   `probe-page-url.sh` reports CONTROL-FAIL if handed the customer domain, and that verdict is
   about the argument, not about the site.
+
+---
+
+# ADDENDUM 2026-09-03 — FIXED at the producer; what shipped, what did not, and the surface this file never named
+
+**Added by the `332` lane**, which picked this up after
+`site_delivery_and_editor/HANDOFF_2026-09-03_boxingonline_owner_review_continue_here.md`
+listed it **unstaffed** and `bugfix_184` closed with "nothing owed unless 332's trigger
+fires". It had fired. Lane docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_332_feed_display_markdown/`.
+
+**Status: fix COMMITTED, not yet live** — Go, so inert until a chassis roll. This file stays
+OPEN until the served artefacts are re-measured after that roll.
+
+## 1. The 09-02 addendum's `[UNVERIFIED]` is ANSWERED, and the answer is that the half-patterns are ours
+
+`internal/adapters/websearch/providers/firecrawl.go:143-150`:
+
+```go
+if len(snippet) > 200 { snippet = snippet[:197] + "..." }
+```
+
+Hardcoded, no config key, and a **byte** slice. 941 rows sit at exactly 200 characters. So we
+cut the link in half ourselves and then asked a complete-link regex to clean it up.
+
+**Not edited by this lane.** Routed to `news_feed_ingestion`, who own that file, with the
+measurements — and who **fixed the producer side themselves the same day** (`6f0a246de`): the
+cut now backs off a genuine link opening, and is rune-safe. They independently declined the
+strip-before-truncate for the reasons this lane gave: it writes an irreversible loss to a
+record `DISABLE_NEWS_MARKDOWN_STRIP` cannot undo, on a path shared with web search, feeding
+`cmd/reasoningset`'s training corpus. Two lanes reached that seam from opposite ends and
+agreed. **Their fix is inert until the web-search-adapter image rolls, which is the owner's
+call, not theirs.**
+
+## 2. THE SURFACE THIS FILE NEVER NAMED, and it is the one that wins in the browser
+
+This file's §"The mechanism" lists **three** readers of `source_summary`. There are **four**,
+and the missing one carried most of the damage:
+
+`render_news_section_action.go:367-390 loadNewsItems` writes `/data/latest-news.json` and
+`/data/news-archive.json` — **public** — from `r.Title` and `r.Summary` **raw**. No strip, no
+escaping, only a truncate.
+
+Measured at the artefact 2026-09-03, boxingonline.ugg2.com's archive JSON (200, 11,074 bytes,
+20 items): **7 ATX headings, 4 complete markdown links, 5 truncated links, 1 list marker, 1
+image, 1 bold**. The server-rendered HTML of the **same query** carried **zero** headings.
+
+**And every news page overwrites itself with it.** `<script src="/tools/assets/news-listing.js">`
+is a published 200 on all five affected hosts; it fetches the archive JSON and runs
+`container.innerHTML = html` **unconditionally** on a successful fetch. So for a JS-enabled
+visitor the August fix was **cosmetic**. Full trap, and why a `grep` of the page cannot find
+it: LANDMINES, *"The served news page HTML is OVERWRITTEN in the browser"*.
+
+## 3. Surface 1's status, corrected precisely
+
+The 09-02 addendum proposed re-marking surface 1 from `**Fixed.**` to *"fixed for complete
+links; blind to pre-truncated ones"*. That is right, and the control makes it sharper: the
+affected pages carry **zero** ATX headings while 1,177 feed rows have them. **The strip runs
+and succeeds. It was blind, not broken** — `MDLinkRe` requires the closing `)`, `MDBoldRe` the
+closing `**`, and every one of the 14 occurrences live across five sites was an unclosed
+half-pattern.
+
+## 4. IT WAS NEVER ONE SITE
+
+Five news pages served literal markdown, each verified with its own per-host 404 control:
+
+| host | `](http` | `![` | `**A` |
+|---|---|---|---|
+| boxingonline.ugg2.com | 5 | 1 | 1 |
+| fundamentallyai.com | 3 | 0 | 0 |
+| robot-hands.com | 2 | 0 | 0 |
+| ai-agent-orchestration.com | 2 | 1 | 0 |
+| idea.uk | 2 | 1 | 0 |
+
+Eleven sites carry dirty feed rows. All damage is `source_type='news_search'`; **`rss` (834
+rows) carries ZERO markdown**, which is exactly why relojistas measured clean in August and
+this file read as latent.
+
+## 5. What shipped
+
+1. **One display projection** — `queryresolve/feed_display_text.go`
+   (`FeedDisplayTitle`/`FeedDisplaySummary`), called by all three display readers. It kills
+   the duplicated `truncateSummary`/`truncateNewsSummary` pair (identical bodies in two
+   packages, both byte-slicing; 2 rows already carry U+FFFD) in favour of
+   `datahelpers.SafeCut`. **`DISABLE_NEWS_MARKDOWN_STRIP` moved into it, so ONE LEVER NOW
+   DISARMS ALL THREE PRODUCERS** — this file's own fix candidate asked for that and the old
+   arrangement could not deliver it. Proven, not asserted:
+   `TestLoadRSSItemsHonoursTheKillSwitch`.
+2. **The vocabulary learned the truncated shapes** — one new detection pattern
+   (`MDLinkTruncatedRe`), an image strip-order change with no new pattern name, and a **tier 2**
+   feed-display strip (list markers, bracket tails, bold tails) that enters no detector.
+3. **The strip re-emits the truncation marker.** This is the finding no check could have made:
+   deleting the `...` along with the URL turns a severed fragment into a grammatical sentence
+   the source never wrote. `TestStripNeverInserts` asserts only length; the result scans clean
+   by construction.
+4. `feed_normalize_action.go`'s 500-char scrape cut now strips first (inert today, guarded
+   anyway).
+5. `sweep_site_defects.sh` §1.4 gained `/data/*.json` and `feed.xml` arms — **the check that
+   would have caught this in August and did not, because it read only the page**.
+
+## 6. THE RSS SURFACE — this file's original scope — is fixed, and the artefact CANNOT prove it
+
+`loadRSSItems` now calls the projection for both title and description, with the
+`(Fuente: X)` attribution appended **after** the cut so it can never be truncated away.
+
+**But relojistas is still the only `rss_feed` site and its rows still carry zero markdown**, so
+a clean `feed.xml` after the roll is a **no-regression control, not evidence**. It read clean
+before. The evidence is `TestLoadRSSItemsStripsLiteralMarkdown`, the unit test this file's own
+fix candidate asked for. The signal to actually watch on the live feed is the **opposite**
+direction: **a drop in `<item>` count, or any empty `<description>`, means the strip emptied a
+live feed.** Pre-fix baseline for that comparison: **30 items, 24,437 bytes, 0 markdown, 0
+empty** (2026-09-03 — and note it is 30, not the 25 this lane's plan first assumed).
+
+## 7. The re-review trigger in §"When it stops being latent" never fired, and should be retired
+
+It watches for a **second** site enabling `rss_feed`. Still one. The trigger was aimed at the
+surface with the least traffic and no detector, and the damage arrived on the two surfaces the
+file assumed were safe. Kept here as a record of a reasonable watch pointed the wrong way.
+
+## 8. Still open, and what closes this file
+
+- **The roll.** Go changes are inert. Re-measure the five-host table (expect zero), both
+  `/data/*.json` files (**the load-bearing check** — 20 dirty items today), and relojistas'
+  `feed.xml` for the item-count/empty-description signal.
+- **The self-heal premise, which is falsifiable.** All 9 affected `page_components` were
+  rewritten within 19 hours, three within the hour [MEASURED 2026-09-03 16:20Z], so a
+  producer-side fix should repair every page unaided within about a day. **Falsifier: re-run
+  the five-host census after the roll and expect it to reach zero on its own. If it does not,
+  the self-heal premise broke, not the fix.**
+- **Council `803f0d81-02be-4bb6-9e65-363439ff87ba`** — submitted, verdict owed and to be read.
+- Two things routed out rather than folded in: **`bugs_open/472`** (the same JSON inserted into
+  `innerHTML` unescaped — 14/5,863 rows carry markup, none executable; an exposure, not a
+  vulnerability) and **`bugs_open/473`** (a stripped summary can still be ESPN's navigation
+  menu — a clean `](http` count on that page is NOT evidence this is fixed).
