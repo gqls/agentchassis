@@ -132,6 +132,12 @@ def main():
         # stock — checked FIRST, because it outranks every other reason.
         if r['registrar'].startswith('NOT-OWNED'):
             keen_out, sell = '', r['registrar']
+        elif r.get('quote_with'):
+            # Owner-ruled quote-together group: a standalone price for one of
+            # these is the exact mistake the ruling exists to prevent, so the
+            # model refuses to produce one rather than producing one with a
+            # caveat attached that a consumer may not read.
+            keen_out, sell = '', 'QUOTE-AS-PAIR:' + r['quote_with']
         elif r.get('keep_override'):
             keen_out, sell = '', 'KEEP:' + r['keep_override']
         else:

@@ -1,0 +1,9 @@
+# Domains that must be quoted TOGETHER, one combined figure — never priced
+# independently. Format: comma-separated group, one group per line.
+#
+# 2026-09-03 OWNER RULING: webdesign.uk + webdesign.co.uk. He plans to make them
+# "the same endpoint one day", so after consolidation one is canonical and the
+# other redirects into it; selling either alone takes traffic and brand
+# adjacency from the business that remains. Two independent prices would
+# under-price the pair and over-price the part.
+webdesign.uk,webdesign.co.uk

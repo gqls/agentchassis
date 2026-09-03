@@ -53,7 +53,7 @@ def main():
                 'live_ask_marketplace': '', 'live_ask_price': '', 'live_ask_date': '',
                 'afternic_min_offer': '', 'afternic_price_source': '',
                 'keep_override': '', 'trademark_flag': 'Y' if d in TRADEMARK_FLAGS else '',
-                'category_comps_median': '',
+                'category_comps_median': '', 'quote_with': '',
             }
 
     for f in glob.glob(os.path.join(HERE, 'inbound', '*_domains_*.csv')):
@@ -199,13 +199,29 @@ def main():
         print(f'⚠ WITHDRAWN_owner.txt names {len(missing)} domain(s) not in the '
               f'estate — check for typos: {", ".join(missing)}')
 
+    # Quote-together groups: a domain here can never carry a standalone price.
+    # Recorded as a COLUMN rather than a doc line so a downstream consumer that
+    # never reads the prose still cannot lift one price out of a pair.
+    qp = os.path.join(HERE, 'QUOTE_PAIRS.txt')
+    if os.path.exists(qp):
+        for line in open(qp):
+            line = line.split('#')[0].strip().lower()
+            if not line:
+                continue
+            group = [d.strip() for d in line.split(',') if d.strip()]
+            for d in group:
+                if d in rows:
+                    rows[d]['quote_with'] = ';'.join(x for x in group if x != d)
+                else:
+                    print(f'⚠ QUOTE_PAIRS.txt names {d}, which is not in the estate')
+
     out = os.path.join(HERE, 'WORKING_table.csv')
     cols = ['domain', 'registrar', 'category', 'subcategory', 'tld', 'sld_length',
             'expiry', 'ns_class', 'dynappraisal', 'dynappraisal_date',
             'appraisal_kind', 'appraisal_proxy_domain',
             'live_ask_marketplace', 'live_ask_price', 'live_ask_date',
             'afternic_min_offer', 'afternic_price_source',
-            'category_comps_median', 'keep_override', 'trademark_flag']
+            'category_comps_median', 'quote_with', 'keep_override', 'trademark_flag']
     with open(out, 'w', newline='') as fh:
         w = csv.DictWriter(fh, fieldnames=cols)
         w.writeheader()
@@ -216,7 +232,7 @@ def main():
     print(f'{out}: {n} rows')
     for c in ['expiry', 'ns_class', 'dynappraisal', 'live_ask_price',
               'afternic_min_offer', 'afternic_price_source',
-              'category_comps_median', 'keep_override', 'trademark_flag']:
+              'category_comps_median', 'quote_with', 'keep_override', 'trademark_flag']:
         print(f'  {c:22s} filled {filled(c):5d}/{n}')
 
 
