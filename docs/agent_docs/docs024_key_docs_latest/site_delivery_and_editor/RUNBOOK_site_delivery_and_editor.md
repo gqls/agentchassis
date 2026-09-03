@@ -309,3 +309,107 @@ probe alone, and the handler's own comment block says why it is not. Read the ha
 
 ⚠ **Use GET, not `curl -I`.** HEAD on `/c/` is refused (`renderSpeculativeRefusal`) and answers 404 —
 so a HEAD probe reports the route as missing when it is live.
+
+## The delivery rehearsal on a NON-customer site (started 2026-09-03, owner-authorised)
+
+Authorised as a **full** rehearsal — the whole chain including the email — on a site we own, in the
+knowledge that it burns that site's once-only handover stamp and sends a real message through the
+live SMTP account.
+
+**Site chosen: `idea.uk`** (`1244516d-014d-421c-88c6-090bb1e9552a`). Ours, 38 pages, never handed
+over, not the `webdesign.uk` shopfront and not a lane another session is actively working.
+
+**What burning the stamp actually costs, checked before firing rather than assumed.** `handed_over_at`
+is read in exactly one file — `platform/delivery/handover.go` — and its own comment states the scope:
+*"IsHandedOver is the gate Phase 5's editor session exchange uses. It is the ONLY thing handover
+gates: not deploys, not rewrites, not locks, not reconciliation."* So the cost is: this site can
+never be delivered through the chain again, and its editor-session gate flips open. Nothing about how
+it is built or served changes. `[MEASURED 2026-09-03]` **0 of 60** sites are stamped, so nothing on
+the fleet depends on the column today either.
+
+### ⚠ AN OPERATOR CANNOT RUN THIS CHAIN ALONE, AND THAT IS THE DESIGN
+
+Step 2 is the owner's APPROVE button and there is no operator path around it. `POST
+/api/v1/admin/work-items/:item_id/approve` sits behind `AuthMiddleware` + `AdminOnly()`
+(`internal/core-manager/api/server.go:338,364`), and `HandleApproveWorkItem` is the **only** writer of
+`result.approved_by`, which is the entire predicate `platform/delivery.Reviewed()` gates on. There is
+no seed, no dispatch and no SQL shortcut that is not forgery. **Do not invent one** — plan the
+rehearsal around a real click, and expect to wait for it.
+
+### The four steps, in order
+
+```bash
+. "$PWD/scripts/kafka-publish-lib.sh"     # OPP-009: publishes with an ASSERTED receipt
+SITE=1244516d-014d-421c-88c6-090bb1e9552a
+DOMAIN=idea.uk
+```
+
+**1 — file the review** (done 2026-09-03, correlation `45e3c679-cecb-45db-9d1e-ec6f9b44d3c3`):
+
+```bash
+CORR=$(cat /proc/sys/kernel/random/uuid)
+PAYLOAD=$(jq -c -n --arg s "$SITE" --arg d "$DOMAIN" '{action:"orchestrate",
+  config:{agent_type:"delivery-review-filer"},
+  input_data:{site_id:$s,domain:$d,site_url:("https://"+$d),brief:"…"}}')
+kafka_publish_checked --topic system.agent.generic.requests --payload "$PAYLOAD" \
+  --correlation "$CORR" --header message_type=request --header action=orchestrate \
+  --header from_agent_type=user
+# exit 0 = published AND the receipt was seen. 10 = never published, retry now.
+# 11 = indeterminate, VERIFY — do not retry, a duplicate costs a whole round.
+```
+
+Then wait. `[MEASURED 2026-07-20]` publish→run start was **29 minutes** under normal load, so a
+missing orchestration row is latency, not a dropped dispatch.
+
+**2 — THE OWNER APPROVES** the `needs_delivery_review` item on admin.apis.uk. Not resolve — **approve**;
+resolve writes `resolved_by`, which the gate deliberately ignores. Confirm it landed before step 3:
+
+```sql
+SELECT status, result ? 'approved_by' AS gate_open, result->>'approved_by'
+  FROM site_work_items WHERE item_type='needs_delivery_review' AND site_id='<SITE>';
+-- gate_open must be TRUE. That key, not the status, is what delivery.Reviewed() reads.
+```
+
+**3 — cut the zip:**
+
+```bash
+CORR=$(cat /proc/sys/kernel/random/uuid)
+PAYLOAD=$(jq -c -n --arg d "$DOMAIN" '{action:"orchestrate",
+  config:{agent_type:"zip-deliverable-dispatch"},input_data:{domain:$d}}')
+kafka_publish_checked --topic system.agent.generic.requests --payload "$PAYLOAD" \
+  --correlation "$CORR" --header message_type=request --header action=orchestrate \
+  --header from_agent_type=user
+```
+
+Note `presigned_url` and `expiry_minutes` from its output — step 4 needs both.
+
+**4 — send it.** ⚠ `customer_email` comes from `input_data` and **nowhere else** — the action never
+reads `sites.email`, and since the 420 contract split that column is the PUBLISHED contact, legitimately
+NULL on a post-420 site. `idea.uk` has no `build_queue.direction->>'customer_email'` either
+(`[MEASURED 2026-09-03]`), so for the rehearsal it must be an address we control and it must be typed
+in deliberately:
+
+```bash
+CORR=$(cat /proc/sys/kernel/random/uuid)
+PAYLOAD=$(jq -c -n --arg s "$SITE" --arg d "$DOMAIN" --arg e "<an address we control>" \
+  --arg z "<presigned url from step 3>" --arg m "<expiry minutes from step 3>" '{action:"orchestrate",
+  config:{agent_type:"delivery-email-sender"},
+  input_data:{site_id:$s,customer_email:$e,live_site_url:("https://"+$d),
+              zip_presigned_url:$z,zip_presign_minutes:$m}}')
+```
+
+**This step is irreversible.** It stamps the handover once and only once, mints the customer tokens,
+and sends. A second dispatch for the same site is REFUSED by the stamp — that refusal is the
+double-send guard working, not a fault. Recovery for stamped-but-unemailed is in
+`sql_for_agents/651_delivery_review_and_email_agents_HOLD.sql`'s header.
+
+### Prerequisites, all re-checked 2026-09-03
+
+| thing | state |
+|---|---|
+| migration 650 (`customer_access_tokens.stored_url`) | applied — both columns present |
+| `DELIVERY_SMTP_*` on `agent-chassis` | present; `DELIVERY_SMTP_PASS` → secret `delivery-smtp-secrets`, which **exists** |
+| ⚠ that secretKeyRef | `optional: true` — a missing secret is silently EMPTY, not a start failure. The action builds the sender before the claim, so it fails loudly with nothing stamped, but do not read "the pod started" as "the password is there" |
+| the four agents | all `is_active`; `zip-deliverable-dispatch` and `zip-deliverer` are `status: experimental` |
+| `links.webdesign.uk` | verified — see the section above |
+| DKIM/DMARC at the mail host | **still unchecked from here** (absent as of 2026-08-26). This is the one that decides whether the message lands in an inbox or a junk folder |
