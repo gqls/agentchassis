@@ -315,3 +315,38 @@ One smaller thing worth knowing, no action needed. Because the site has no artic
 homepage's "featured article" panel had every one of its six pieces of information come back empty
 — picture, summary, category, author, reading time, date. It does not break the page; it just
 quietly leaves the panel hollow. A re-plan that creates real articles fills it.
+
+## 2026-09-03, early afternoon — your ruling is in, the site is re-planning
+
+Done, and the re-plan is running.
+
+**Your contact decision is applied.** The contact page stays, and the address is now
+gamedesignuk@contactforsales.com. I also had to lift two rules the site was carrying from
+yesterday's opposite decision — one banned any mention of a contact page or form, the other banned
+any email address anywhere. Those were what stopped the homepage building this morning, so with
+them gone that blockage is cleared. I left the third rule from yesterday alone: the site still says
+plainly that it is written by an AI, and still may not invent a human editorial team. You did not
+ask me to change that, so I did not.
+
+**The site is now re-planning from scratch.** This matters more than usual, because the plan it
+had was written about twenty minutes before the fix for the missing-articles problem went live.
+This new plan is the first one written with that fix in place, so it is also the first real test of
+whether the fix works. If articles come back this time, that is the whole morning's problem solved
+at the source. If they do not, I will know within the hour and the lane that shipped the fix needs
+to hear it straight away.
+
+**One thing I will have to check afterwards, and I want to flag it rather than quietly fix it
+later.** The About and Contact pages already exist and were not marked for rebuilding, and their
+current text still contains the old email address. Because we have just removed the rule that
+banned email addresses, nothing will now flag the old one as wrong. So it could sit there looking
+fine. I will read the actual pages once the rebuild finishes and get it corrected if it has stuck.
+
+**And I have written up the loose end from this morning as a proper bug.** The second, older
+mechanism for writing a site's articles ran thirteen times in March and April and then stopped dead
+on 24 April. Nothing has noticed in four months. I have not tried to work out why — that is a real
+investigation and it is not this site's job — but I have recorded everything I measured, including
+the most likely innocent explanation so whoever picks it up tests that first. It is worth someone's
+time because if that mechanism were working, the whole problem you spotted this morning might not
+arise at all.
+
+Nothing needs a decision from you right now. Your other questions from last night still stand.

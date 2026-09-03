@@ -264,3 +264,48 @@ was written 10:40:21Z, ~20 minutes before rule 20 existed. A re-planned site run
 (content imagery), 720 (listing gate) **and** 730/731 (launch posts) — the article half arrives
 free. **Settle the contact-page decision first**, or the same banned claim blocks the rebuilt
 homepage too.
+
+---
+
+## UPDATE BLOCK 3 — 2026-09-03 ~11:45Z. Owner reversed the contact ruling; specs v4 live; RE-PLAN ENQUEUED.
+
+**Owner ruling (midday):** the contact page **STAYS**; the address is
+**`gamedesignuk@contactforsales.com`**; re-plan. This supersedes the 09:45Z no-contact ruling and
+**closes §5 decision 1** and UPDATE BLOCK 2's blocker.
+
+**Applied, both clean, both with ROLLBACK companions:**
+- `SEED_2026-09-03c` (11:42:28Z) — `mission_brief` v4 (anchored replace, not re-pasted);
+  `evidence_base` v4 with the two contact/email bans removed (**18 → 16**; the AI-masthead ban
+  deliberately retained and post-condition-asserted); `writer_block` CONTACT paragraph replaced;
+  address updated in `submission` + `briefing`.
+- `SEED_2026-09-03d` (11:44:45Z) — cancelled the blocked `needs_page` `ac76ec54`, then enqueued
+  `needs_briefing` **`5cce64a6`** (`triaged`, key `briefing_gamedesign.uk`).
+
+⚠ **The trap in the re-plan, worth carrying to any lane that re-plans a site with a blocked item:**
+`ac76ec54` held `item_key='needs_page:index'` at status `needs_human_review`, which is **NOT
+terminal** (`workItemTerminalStatuses`, `work_items_common.go:42`). `idx_swi_dedup` keys on
+non-terminal rows, so **the re-plan's own `needs_page` would have been silently deduped away and
+the homepage would never have rebuilt** — no error, no missing-row warning. Cancel the stale row
+FIRST, and assert the key is free before enqueuing (09-03d does both).
+
+**What to expect from this plan, and what to check** — §6 remains the checklist, plus:
+- **Article pages under `/articles/`.** This plan is the FIRST written under rule 20 (migrations
+  730/731, live 10:59:59Z/~11:03Z). The previous plan `c920da7a` (10:40:21Z) predated it by ~20 min
+  and had zero. If this one ALSO has zero, that is a rule-20 failure and the `bugs_open/428` /
+  `designblog.co.uk` lanes need telling immediately — it would be the first evidence against a fix
+  built on this lane's measurements.
+- **The contact page must survive and carry the NEW address.** ⚠ `about` and `contact` are
+  `deployed` (not `needs_rebuild`) and their stored copy still holds
+  `gamedesign@contactforsales.com` in 4 component rows. **The email ban is gone, so nothing will
+  flag it.** Grep the served bytes; if stale, file a targeted rewrite. `recompose_pages` on
+  `needs_site_plan.spec` is the sanctioned re-composition lever (mig 385) but the briefing agent
+  creates that item, so it could not be pre-set here.
+- **The homepage's `featured-content` slot** had all 6 fields resolve empty last time for want of an
+  article (UPDATE BLOCK 2). If rule 20 delivers articles, it should fill; check the `plan_sections`
+  finding row, because `on_missing=skip_field` degrades **silently**.
+
+**New bug filed from this lane's work: `bugs_open/460`** — the OTHER blog-post producer,
+`blog-content-planner`, ran 13 times between 2026-03-14 and 2026-04-24 and has been silent for four
+months. Unowned, no root cause asserted. It matters here because it is what `bugs_open/444`'s
+`builder_needed=blog_posts` gaps name, and because rule 20's text now asserts its dormancy **with a
+date** — revive it and that text goes stale.

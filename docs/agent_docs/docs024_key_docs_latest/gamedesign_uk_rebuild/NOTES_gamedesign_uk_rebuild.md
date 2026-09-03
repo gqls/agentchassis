@@ -856,3 +856,50 @@ resolved** — check this row after any build on a site with an empty content ty
 Both findings predate any fix from migration 730/731 (rule 20), which went live 10:59:59Z /
 ~11:03Z — i.e. AFTER this plan was written at 10:40Z. **A re-plan is what picks rule 20 up; this
 build cannot.**
+
+## 2026-09-03, ~11:45Z — owner ruling: contact page STAYS; specs v4 applied; re-plan enqueued
+
+**Owner, midday:** *"ok leave the contact page, the email can be gamedesignuk@contactforsales.com.
+Replan please."* This REVERSES the 09:45Z ruling that `SEED_2026-09-03b` encoded.
+
+**`SEED_2026-09-03c` applied 11:42:28Z, clean, all post-conditions passed** (`+ROLLBACK` companion
+written). What it changed, and only this:
+- `mission_brief` **v4** — the no-contact sentence replaced by *"There is a contact page and it
+  stays. The address is gamedesignuk@contactforsales.com…"*. **Built by anchored `replace()` on the
+  live v3 text, NOT re-pasted**, so the other ~3,900 chars are byte-identical and cannot drift.
+- `evidence_base` **v4** — the TWO bans 09-03b added removed (`[a-z0-9._%+-]+@…` any-email;
+  `contact (form|page)|…`). **18 → 16.** The THIRD ban it added (human-masthead) **survives** — a
+  post-condition asserts it, because this seed reverses two rules and must not touch the AI
+  authorship ruling.
+- `writer_block`'s CONTACT paragraph replaced in place; `submission.email` and
+  `briefing.contact.contact_email` updated.
+- Guards are `DO`/`RAISE`, anchors required EXACTLY once — per LANDMINES, `ON_ERROR_STOP` does not
+  stop a `COMMIT` on a non-empty `SELECT`.
+- ⚠ **`\set` + `:'VAR'` does NOT interpolate inside a dollar-quoted `DO` block.** Written that way
+  first; the guards would have been silently wrong. Literal UUID throughout instead — 21 occurrences.
+
+**`SEED_2026-09-03d` applied 11:44:45Z — the re-plan, and step 1 is the one that is easy to miss.**
+`needs_page` `ac76ec54` was sitting at `needs_human_review` holding `item_key='needs_page:index'`,
+and **`needs_human_review` is NOT in `workItemTerminalStatuses`** (`work_items_common.go:42` —
+complete/failed/verified/rejected/wont_fix/unresolved/cancelled). `idx_swi_dedup` therefore still
+held that key, so **a re-plan's fresh `needs_page` for index would have been SILENTLY DEDUPED AWAY
+and the homepage would never have rebuilt.** Cancelled it (preserved, not deleted; reason recorded
+in `error`), with a post-condition asserting 0 non-terminal rows hold the key. Then enqueued
+`needs_briefing` `5cce64a6` in the strategist's own shape (prior `briefing_gamedesign.uk` row is
+`complete`, so dedup allows it).
+
+**Observed at 11:42–11:43Z, unprompted:** `index` and `articles-index` flipped to
+`build_status='needs_rebuild'` within a minute of the seed committing, and two `needs_page` rows
+appeared keyed `page_rerender:index` / `page_rerender:articles-index`. The framework reacted to the
+spec change on its own. **I did NOT hand-set `build_status`** — `page_build_failure_guard.go` and
+`maintenance_actions.go:961` own that column, and hand-setting a status the framework owns is how
+you get a state nothing else agrees with.
+
+**OPEN, to check after the plan lands:** `about` and `contact` are `deployed`, not `needs_rebuild`,
+and their stored copy still contains the OLD address (`gamedesign@contactforsales.com` — 4
+component rows: contact ×3, about ×1). The email ban is gone, so **nothing will flag the stale
+address**. If the rebuild does not regenerate those two pages' copy, file a targeted rewrite. The
+sanctioned lever to force re-composition is `recompose_pages` on the `needs_site_plan` item's
+`spec` (migration 385; `v3_site_actions.go:7892`) — **but the briefing agent creates that item, so
+it cannot be pre-set from here.** Note `v3_site_actions.go:4455` warns the redesign can silently
+no-op if the planner re-emits the realised composition anyway.
