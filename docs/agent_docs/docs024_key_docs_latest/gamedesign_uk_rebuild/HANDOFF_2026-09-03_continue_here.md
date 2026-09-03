@@ -309,3 +309,57 @@ FIRST, and assert the key is free before enqueuing (09-03d does both).
 months. Unowned, no root cause asserted. It matters here because it is what `bugs_open/444`'s
 `builder_needed=blog_posts` gaps name, and because rule 20's text now asserts its dormancy **with a
 date** — revive it and that text goes stale.
+
+---
+
+## UPDATE BLOCK 4 — 2026-09-03 ~15:50Z. RE-PLAN RAN. Rule 20 worked; `validate_site_plan` deleted its output. Root cause = `bugs_open/463`.
+
+**The chain completed 13:42Z → 15:02:57Z.** New plan **`005fb393`** (14:15:25Z). **Still four pages,
+still zero articles.**
+
+**DO NOT read that as "rule 20 failed" — I nearly reported exactly that and it is wrong.**
+`llm_call_log` `00fe50c7` (14:15:16Z): rule 20 present in `prompt_rendered`, and the planner
+planned **five** launch articles, saying so in `strategy_notes`. Subjects came from the briefing's
+own four strands, with real games named in the section subjects (Hades, Slay the Spire, Dead Cells,
+Baldur's Gate 3, Divinity: Original Sin 2, Cyberpunk 2077, Elden Ring, Disco Elysium, The Witcher 3,
+God of War Ragnarök, Horizon Forbidden West), each grounded in what a player can observe. **The
+planner half of this lane's problem is SOLVED.**
+
+**`plan_site` = 9 pages; `validate_plan` = 4.** Silent: `capability_gaps_emitted: 0`, no
+`agent_error_log` row, orchestration COMPLETED. **Pass C** (`v3_site_actions.go:7599`) drops any
+LLM page whose `slugOf` matches a realised section stem, and both `slugOf` (`:6467`) and
+`sectionStemOf` (`:6447`) reduce to **the first path segment** — so a child at
+`/articles/<slug>.html` is indistinguishable from a flat page colliding with `/articles/index.html`.
+Live since 2026-05-21, invisible because `Pass A: union` restores **realised** pages afterwards and
+a NEW child has nothing to restore it. **So a section index that is empty today can never be
+filled.** Full case, controls and fix candidates: **`bugs_open/463`**.
+
+**⇒ DO NOT re-plan again for the articles.** A fourth plan will be deleted by the same pass. The
+articles are blocked on 463, which this lane does not own (the `428` session is mid-build inside
+that same action and has been told).
+
+**THE CHECK THAT LOCALISES THIS CLASS, and the one I should have run first** — read the STEP
+BOUNDARY, never `site_plan_pages` alone:
+```sql
+SELECT jsonb_array_length(collected_data->'plan_site'->'result'->'pages') AS proposed,
+       jsonb_array_length(collected_data->'validate_plan'->'pages')       AS survived
+  FROM orchestration_states WHERE correlation_id='<corr>';
+```
+`proposed > survived` means validation ate pages. The served page cannot tell you whether the
+planner never proposed them or validation dropped them, and those have opposite fixes.
+
+**Contact address: SPECS updated, PAGES were not — now delivered by `SEED_2026-09-03e`.**
+`about` and `contact` were `deployed` (not `needs_rebuild`), so the re-plan preserved them and their
+copy still carried `gamedesign@contactforsales.com`. Confirmed at the served bytes 15:45Z, not
+inferred. ⚠ **The address is inside LLM-written PROSE** (`hero-contact.subheadline`,
+`generic-text-block.content` ×2), not a resolved field — **no re-render can fix it**, including
+post-454. Filed 3 × `section_edit` → `section-editor` (`edit_type=content_edit`, `field_updates`),
+which IS a live dispatching path (158 completed fleet-wide in 3 days); `content_rewrite` is NOT
+(all 182 recent rows are record-mode under RFC_056 and would have parked silently). **Verify at the
+served bytes**, and note `about` carries it too, not just `contact`.
+
+**⚠ MY WATCHER WENT BLIND 13:01–13:57Z — the window the chain ran in.** I re-armed the monitor with
+a "better" query carrying a fleet-wide `GROUP BY` for queue position; it consistently exceeded the
+60 s timeout. It said so only because I had added a consecutive-failure counter; with the usual
+`|| true` + `2>/dev/null` it would have rendered as "no change". **Keep a watcher's probe cheap, and
+make its silence prove itself.**

@@ -350,3 +350,49 @@ time because if that mechanism were working, the whole problem you spotted this 
 arise at all.
 
 Nothing needs a decision from you right now. Your other questions from last night still stand.
+
+## 2026-09-03, late afternoon — the articles were written, and then deleted by our own machinery
+
+Result of the re-plan, and it is a genuinely useful one even though the site still has no articles.
+
+**The fix worked.** The part of the system that decides what pages a site has planned five real
+articles this time — on the sign-off problem, abandoned design documents, the design-to-engineering
+handoff, narrative design in the pipeline, and the step up to principal designer. Those are your
+brief's own subjects, and each one is built around real games a reader would know: Hades, Baldur's
+Gate 3, Elden Ring, Disco Elysium, God of War. That is exactly what you asked for in the morning and
+it is the first time the site has produced it.
+
+**Then a different, older piece of our machinery deleted all five before they were saved.** Nine
+pages went in, four came out, and nothing recorded the loss — no error, no warning, the job reported
+success. I found it by comparing the two halves of the same job rather than looking at the finished
+site, which is the only way it is visible.
+
+**The cause, in plain terms.** The site has an articles section at /articles/. When the system
+checks a proposed new page, it compares only the first part of the web address. So an article at
+/articles/the-sign-off-problem is compared as "articles" — which is identical to the section itself.
+The check is meant to catch a page pretending to *be* the section; it cannot tell that apart from a
+page that legitimately *belongs in* it, so it throws every new article away.
+
+It has been like that since May and nobody noticed, because on a site that already has articles they
+get put straight back from the existing set. It only bites when a section is empty and you need new
+articles created — which is precisely our case, and precisely why this hub has been empty since the
+day it was built.
+
+**So the morning's problem had two causes stacked on top of each other**, and fixing the first
+revealed the second. I have written the second up properly for whoever fixes it. I am not fixing it
+myself: it sits in shared machinery that another thread is already working inside, and two of us
+editing it at once is how things break.
+
+**What this means for the site: do not ask for another re-plan for the articles.** A fourth attempt
+would be deleted the same way. The articles are blocked until that fix lands.
+
+**One thing of yours I did finish.** Your new contact address had reached the site's settings but not
+the actual pages — the About and Contact pages were left untouched by the rebuild, so both were still
+showing the old address. I checked the live page rather than assuming. It is written into the
+sentences themselves, so no amount of re-rendering would have corrected it; I have queued three
+targeted text corrections instead. Worth knowing the About page carried it too, not just Contact.
+
+**And one honest note about my own work.** I twice nearly reported the wrong thing today — first that
+the fix had failed, when it had worked; then that plans across the whole estate were damaged, when it
+was my own query that was wrong. Both times what saved it was checking the thing itself instead of
+trusting the summary. I have written both down where the next person will see them.
