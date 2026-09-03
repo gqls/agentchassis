@@ -107,6 +107,57 @@ md=$(count_of '\]\(http'); el=$(count_of '\.\.\.')
 echo "      markdown links '](http': ${md}   ellipses: ${el}"
 [ "$md" -gt 0 ] && finding "literal markdown on served pages (1.4 / bugs_open/332)"
 
+# THE PAGE WAS NEVER THE ONLY SERVED SURFACE (added 2026-09-03, bugs_open/332).
+# The grep above reads the server-rendered HTML. Beside every news page we also
+# publish /data/latest-news.json and /data/news-archive.json — public, and
+# FETCHED by the published news-listing script, which assigns them into
+# innerHTML unconditionally on a successful fetch. So on a JS-enabled visit the
+# JSON is what is actually read, and this check could not see it: measured
+# 2026-09-03, boxingonline's archive JSON served 7 ATX headings while the
+# server-rendered HTML of the same query served ZERO. That gap is why 332 sat
+# unstaffed for a fortnight looking latent.
+for j in data/latest-news.json data/news-archive.json; do
+  jf="${TMP}/_$(echo "$j" | tr '/' '_')"
+  jc=$(curl -s -m 20 -o "$jf" -w '%{http_code}' "${BASE}/${j}?cb=${RANDOM}")
+  if [ "$jc" != 200 ]; then
+    # A 404 here is normal on a site with no news page. It is still BLIND, not
+    # clean: this check did not run, and `none` would read as a pass.
+    blind "${j} -> ${jc}, not scanned (1.4 / bugs_open/332)"
+    continue
+  fi
+  # ": *" — NOT ":". The JSON is json.MarshalIndent output, so every key is
+  # followed by a colon AND A SPACE. The first cut of this line used ":" and
+  # scored 0 on a file measured minutes earlier as carrying 7 headings and 9
+  # links. Caught only by running the check on its own motivating case.
+  jn=$(grep -oE '"(summary|title)": *"[^"]*"' "$jf" \
+       | grep -cE '\]\(|!\[|\*\*[A-Za-z]|(^|\\n)#{1,6} |(^|\\n)[-*+] ' || true)
+  echo "      ${j}: ${jn} field(s) carrying markdown"
+  [ "${jn:-0}" -gt 0 ] && finding "raw markdown in ${j} — the JSON overwrites the page client-side (1.4 / bugs_open/332)"
+done
+
+# feed.xml, the surface 332 was originally FILED on. Gated per site, so the
+# check must distinguish "clean" from "not applicable" — and say BLIND for the
+# second, because a skipped check printing `none` is this bug's own history.
+if [ "$(q "SELECT deploy_config->'rss_feed'->>'enabled' FROM sites WHERE id='${SITE_ID}';" | tr -d ' ')" = "true" ]; then
+  fc=$(curl -s -m 20 -o "${TMP}/_feed.xml" -w '%{http_code}' "${BASE}/feed.xml?cb=${RANDOM}")
+  if [ "$fc" = 200 ]; then
+    fn=$(sed -n 's/.*<description>\(.*\)<\/description>.*/\1/p' "${TMP}/_feed.xml" \
+         | grep -cE '\]\(|!\[|\*\*[A-Za-z]|^#{1,6} ' || true)
+    fi_=$(grep -c '<item>' "${TMP}/_feed.xml" || true)
+    fe=$(grep -c '<description></description>' "${TMP}/_feed.xml" || true)
+    echo "      feed.xml: ${fi_} item(s), ${fn} description(s) carrying markdown, ${fe} EMPTY"
+    [ "${fn:-0}" -gt 0 ] && finding "raw markdown in feed.xml <description> (1.4 / bugs_open/332)"
+    # The OTHER direction, and the one that matters more here: this site's feed
+    # rows carry no markdown, so a zero above is a no-regression control rather
+    # than evidence. An EMPTY description means the strip ate a live feed item.
+    [ "${fe:-0}" -gt 0 ] && finding "feed.xml has ${fe} EMPTY <description> — the strip emptied a live item (1.4 / bugs_open/332)"
+  else
+    blind "rss_feed is enabled but feed.xml -> ${fc} (1.4 / bugs_open/332)"
+  fi
+else
+  echo "      feed.xml: rss_feed not enabled for this site — not applicable, not clean"
+fi
+
 echo "--- 1.5 AI tells — CONTEXT printed, because 'honest'/'plainly' are weak needles and need a reader (checklist 1.2's rule)"
 tl=$(count_of 'plainly|honest|starting point, not the final word|before your [a-z]+ have to')
 if [ "$tl" -gt 0 ]; then echo "      ${tl} hit(s), judge each:"; body_all | grep -ohiE '.{40}(plainly|honest|starting point, not the final word|before your [a-z]+ have to).{40}' 2>/dev/null | sort -u | sed 's/^/        /' | head -8

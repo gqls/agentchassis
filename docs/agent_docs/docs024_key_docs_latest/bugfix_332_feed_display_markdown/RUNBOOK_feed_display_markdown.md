@@ -76,6 +76,14 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user 
 SQL
 ```
 
+### ⚠ The served JSON is `MarshalIndent` output — match `": *"`, never `":"`
+
+`grep -oE '"(summary|title)":"[^"]*"'` scores **0** on a file measured minutes earlier as
+carrying 7 headings and 9 links, because every key is followed by a colon AND A SPACE. The
+first cut of the sweep's JSON arm had exactly this bug and reported a clean site as clean for
+the wrong reason. Caught only by running the new check on its own motivating case — which is
+the general rule, not a note about this regex.
+
 ### The shape census
 
 ```sql
@@ -216,8 +224,21 @@ grep -c '<item>' "$S/feed.xml"
 
 **This reads 0 today as well**, because relojistas' own rows carry no markdown. So a clean
 result here is a **no-regression control, not evidence**. The real signal is the opposite
-direction: **an `<item>` count below 25, or an empty `<description>`, means the strip emptied a
-live feed.**
+direction: **a drop in the `<item>` count, or any empty `<description>`, means the strip
+emptied a live feed.**
+
+**PRE-FIX BASELINE, recorded so the post-roll comparison has something to compare against**
+(2026-09-03, before the projection shipped): `HTTP 200, 24,437 bytes, 30 items, 0 descriptions
+carrying markdown, 0 empty`, and the `(Fuente: …)` attribution present. ⚠ **30, not 25** — my
+plan said 25 from the action's item cap and the live feed serves 30
+(`max_items` default). Read the baseline, never a remembered literal.
+
+⚠ **Both controls, because the arm is otherwise untestable on this site.** The extractor must
+actually extract (`sed -n 's/.*<description>…/p' | head -2` must print real Spanish prose, not
+nothing), and an injected defect must be COUNTED:
+`sed 's|<description>|<description>## [x](https://e.com/y) |' feed.xml | …` → 31, i.e. 30 items
+plus the channel description. Without those two, "0 markdown" is indistinguishable from a
+regex that can never match.
 
 ---
 
