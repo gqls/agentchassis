@@ -34,12 +34,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -351,21 +349,13 @@ func resolveNewsArchive(ctx context.Context, db *sql.DB, siteID uuid.UUID, limit
 	return projectNewsItems(items, true, logger), nil
 }
 
-// newsMarkdownStripDisabledEnv is the redeploy-free kill switch for the
-// markdown strip in projectNewsItems. Set to any non-empty value on the
-// agent-chassis deployment to disarm the strip fleet-wide without a binary
-// roll; the projection then returns to HTML-escaped raw feed text, the exact
-// pre-strip behaviour. Same pattern and same reasoning as
-// DISABLE_UNREGISTERED_HANDLER_DEMOTION (load_work_item_actions.go): ships
-// ARMED — the owner has ruled against default-OFF switches that rot
-// unexercised — and exists because council 060bcc0a round 5 (guardian)
-// objected that an unconditional, fleet-wide lossy transform with no
-// off-switch short of a deploy is a posture this estate does not accept.
-const newsMarkdownStripDisabledEnv = "DISABLE_NEWS_MARKDOWN_STRIP"
-
-// newsMarkdownStripEnabled reads the kill switch. A func, not a package var,
-// so a test can set the env and see the change without process restart.
-func newsMarkdownStripEnabled() bool { return os.Getenv(newsMarkdownStripDisabledEnv) == "" }
+// The kill switch DISABLE_NEWS_MARKDOWN_STRIP and its reader MOVED 2026-09-03
+// to feed_display_text.go (bugs_open/332). Its reasoning is unchanged and lives
+// there: council 060bcc0a r5 (guardian) required an off-switch for an
+// unconditional fleet-wide lossy transform, and it ships ARMED. What moving it
+// buys is that it now reaches all THREE display readers — while it lived here it
+// could not touch the JSON or RSS producers, so "one lever disarms both
+// producers", which 332's own fix candidate asks for, was simply not true.
 
 // projectNewsItems shapes raw items for template rendering: HTML-escaped
 // text, truncated summaries, display-ready dates. includeTopics mirrors the
@@ -418,21 +408,22 @@ func newsMarkdownStripEnabled() bool { return os.Getenv(newsMarkdownStripDisable
 // item honestly.
 func projectNewsItems(items []NewsItem, includeTopics bool, logger *zap.Logger) []map[string]interface{} {
 	out := make([]map[string]interface{}, 0, len(items))
-	strip := newsMarkdownStripEnabled()
 	stripped := 0
 	for _, it := range items {
-		title, summary := it.Title, it.Summary
-		if strip {
-			var didT, didS bool
-			title, didT = datahelpers.StripLiteralMarkdown(it.Title, !datahelpers.HTMLMarkupRe.MatchString(it.Title))
-			summary, didS = datahelpers.StripLiteralMarkdown(it.Summary, !datahelpers.HTMLMarkupRe.MatchString(it.Summary))
-			if didT || didS {
-				stripped++
-			}
+		// The strip, the truncation and the kill switch all moved to
+		// feed_display_text.go on 2026-09-03 (bugs_open/332) so that this
+		// resolver, the JSON producer and the RSS producer cannot disagree about
+		// what display means — the two of them that never stripped at all are
+		// what made 332 live. Escaping stays HERE, because it is the one thing
+		// the three readers legitimately differ on.
+		title := FeedDisplayTitle(it.Title)
+		summary := FeedDisplaySummary(it.Summary, FeedSummaryMaxBytes)
+		if title != it.Title || summary != it.Summary {
+			stripped++
 		}
 		m := map[string]interface{}{
 			"title":   html.EscapeString(title),
-			"summary": html.EscapeString(truncateSummary(summary, 200)),
+			"summary": html.EscapeString(summary),
 			"url":     html.EscapeString(it.URL),
 			"source":  html.EscapeString(it.Source),
 			"date":    newsDisplayDate(it.PublishedAt),
@@ -487,15 +478,7 @@ func newsDisplayDate(t time.Time) string {
 	}
 }
 
-// truncateSummary trims to maxLen at a word boundary with an ellipsis —
-// the JSON path's truncation semantics, so both projections agree.
-func truncateSummary(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	idx := strings.LastIndex(s[:maxLen], " ")
-	if idx < maxLen/2 {
-		idx = maxLen
-	}
-	return s[:idx] + "..."
-}
+// truncateSummary MOVED 2026-09-03 to feed_display_text.go as feedSummaryCut
+// (bugs_open/332). It was byte-identical to render_news_section_action.go's
+// truncateNewsSummary, and both sliced BYTES — a cut through a multi-byte rune
+// emits invalid UTF-8. The replacement delegates to datahelpers.SafeCut.

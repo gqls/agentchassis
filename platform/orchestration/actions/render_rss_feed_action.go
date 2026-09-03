@@ -43,6 +43,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -264,7 +265,21 @@ func loadRSSItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxAgeHours
 		}
 		seen[url.String] = true
 
-		desc := truncateNewsSummary(summary.String, 500)
+		// STRIPPED 2026-09-03 (bugs_open/332) — this is the surface the bug was
+		// originally FILED on. XML escaping keeps the feed well-formed and passes
+		// the markdown MARKER characters through as text, so a reader shows
+		// "# Heading" and "[text](url)" literally.
+		//
+		// ORDER IS LOAD-BEARING: strip and cut FIRST, attribution AFTER. The
+		// "(Fuente: X)" suffix must never be inside what gets truncated, or the
+		// source credit is what the cut eats.
+		//
+		// Still gated to ONE site (relojistas.com, re-verified 2026-09-03), whose
+		// own feed rows carry ZERO markdown — so a clean feed.xml after this is a
+		// NO-REGRESSION CONTROL, not evidence the strip works. The signal to watch
+		// is the other direction: an <item> count below 25, or an empty
+		// <description>, would mean the strip emptied a live feed.
+		desc := queryresolve.FeedDisplaySummary(summary.String, 500)
 		if sourceName.String != "" {
 			if desc != "" {
 				desc += " "
@@ -278,7 +293,9 @@ func loadRSSItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxAgeHours
 		}
 
 		items = append(items, rssItemXML{
-			Title:       title.String,
+			// Titles were emitted verbatim; 2 of 834 rss-sourced rows carried
+			// markdown in their title [MEASURED 2026-09-03].
+			Title:       queryresolve.FeedDisplayTitle(title.String),
 			Link:        url.String,
 			Description: strings.TrimSpace(desc),
 			PubDate:     pubTime.UTC().Format(time.RFC1123Z),

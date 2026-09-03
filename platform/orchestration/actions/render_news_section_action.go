@@ -372,9 +372,22 @@ func loadNewsItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxAgeHour
 
 	var items []newsJSONItem
 	for _, r := range raw {
+		// STRIPPED 2026-09-03 (bugs_open/332). This projection took title and
+		// summary RAW, so /data/latest-news.json and /data/news-archive.json —
+		// both public, both fetched and assigned into innerHTML by the published
+		// news-listing script — served the markdown the page resolver had just
+		// removed. Measured at the artefact that day: the archive JSON on a paid
+		// customer site carried 7 ATX headings while the server-rendered HTML of
+		// the SAME query carried zero.
+		//
+		// Escaping deliberately stays absent here: the JSON is DATA, and its
+		// consumer escapes at render. HTML-escaping it would double-escape for
+		// any correct consumer. (The published script's unescaped innerHTML
+		// insertion is a separate defect in content_components.js_content, filed
+		// on its own — an escaping bug, not a markdown one.)
 		item := newsJSONItem{
-			Title:   r.Title,
-			Summary: truncateNewsSummary(r.Summary, 200),
+			Title:   queryresolve.FeedDisplayTitle(r.Title),
+			Summary: queryresolve.FeedDisplaySummary(r.Summary, queryresolve.FeedSummaryMaxBytes),
 			URL:     r.URL,
 			Source:  r.Source,
 		}
@@ -389,17 +402,12 @@ func loadNewsItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxAgeHour
 	return items, nil
 }
 
-// truncateNewsSummary truncates at a word boundary.
-func truncateNewsSummary(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	idx := strings.LastIndex(s[:maxLen], " ")
-	if idx < maxLen/2 {
-		idx = maxLen
-	}
-	return s[:idx] + "..."
-}
+// truncateNewsSummary MOVED 2026-09-03 to queryresolve.feedSummaryCut
+// (bugs_open/332). It was byte-identical to news_items.go's truncateSummary —
+// the same function in two packages — and both sliced BYTES, which cuts a
+// multi-byte rune in half; 2 content_feed_items rows already carry U+FFFD from
+// that defect one layer upstream. The replacement delegates to
+// datahelpers.SafeCut, the estate's one truncation primitive since 2026-07-20.
 
 // formatNewsDate formats a time for display. Relative for recent items.
 func formatNewsDate(t time.Time) string {

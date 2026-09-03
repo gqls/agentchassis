@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"go.uber.org/zap"
 )
@@ -122,18 +123,72 @@ func TestNewsDisplayDate(t *testing.T) {
 	}
 }
 
+// truncateSummary became feedSummaryCut in feed_display_text.go (2026-09-03,
+// bugs_open/332) — one cut for all three display readers instead of two
+// byte-identical copies in two packages. The assertions are unchanged, because
+// this is a refactor: if any of them moves, it is not one.
 func TestTruncateSummaryWordBoundary(t *testing.T) {
 	long := strings.Repeat("palabra ", 40) // ~320 chars
-	got := truncateSummary(long, 200)
+	got := feedSummaryCut(long, 200)
 	if len(got) > 204 {
 		t.Errorf("truncated summary too long: %d chars", len(got))
 	}
 	if !strings.HasSuffix(got, "...") {
 		t.Errorf("expected ellipsis suffix, got %q", got[len(got)-10:])
 	}
-	if short := "corto"; truncateSummary(short, 200) != short {
+	if short := "corto"; feedSummaryCut(short, 200) != short {
 		t.Error("short summary must pass through unchanged")
 	}
+}
+
+// The cut is now RUNE-SAFE, which the two functions it replaces were not: both
+// sliced bytes, and 2 content_feed_items rows already carry U+FFFD from the
+// same defect one layer upstream [MEASURED 2026-09-03]. Sweep every boundary
+// across a run of multi-byte runes rather than trusting one lucky alignment.
+func TestFeedSummaryCutIsRuneSafe(t *testing.T) {
+	s := strings.Repeat("café ", 60) // é is two bytes; boundaries land inside it
+	for n := 4; n <= 200; n++ {
+		got := feedSummaryCut(s, n)
+		if !utf8.ValidString(got) {
+			t.Fatalf("feedSummaryCut(_, %d) produced invalid UTF-8: %q", n, got)
+		}
+	}
+}
+
+// A refactor must be byte-identical on the inputs the originals handled, or it
+// is a redesign wearing a refactor's commit message. This is the old body,
+// inlined, compared against the new one across the whole ASCII budget range.
+func TestFeedSummaryCutMatchesTheOriginalOnASCII(t *testing.T) {
+	oldCut := func(s string, maxLen int) string {
+		if len(s) <= maxLen {
+			return s
+		}
+		idx := strings.LastIndex(s[:maxLen], " ")
+		if idx < maxLen/2 {
+			idx = maxLen
+		}
+		return s[:idx] + "..."
+	}
+	inputs := []string{
+		strings.Repeat("palabra ", 40),
+		"short",
+		strings.Repeat("x", 400), // no spaces at all — the hard-cut branch
+		"one two three four five six seven eight nine ten",
+	}
+	for _, in := range inputs {
+		for n := 10; n <= 250; n++ {
+			if got, want := feedSummaryCut(in, n), oldCut(in, n); got != want {
+				t.Fatalf("divergence at n=%d on %q:\n got  %q\n want %q", n, in[:min(20, len(in))], got, want)
+			}
+		}
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // bugs_open/184 (council 060bcc0a r5/r6): the projection strips literal

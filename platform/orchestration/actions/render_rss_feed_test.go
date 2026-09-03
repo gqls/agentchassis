@@ -142,3 +142,114 @@ func TestRenderRSSFeedGate(t *testing.T) {
 		t.Fatalf("skip result must not carry files: %+v", m)
 	}
 }
+
+// bugs_open/332: the RSS surface is the one this bug was FILED on, and it was
+// the one place with no test and no detector — the file's own fix candidate
+// asks for "a unit test on loadRSSItems' projection mirroring
+// TestProjectNewsItemsStripsLiteralMarkdown". This is it.
+//
+// IT IS ALSO THE ONLY REAL EVIDENCE FOR THIS ARM. relojistas.com is still the
+// only site with rss_feed enabled and its own feed rows carry ZERO markdown
+// [MEASURED 2026-09-03], so a clean live feed.xml after this ships proves
+// nothing at all — it read clean before. The fixtures below are what actually
+// exercise the strip, and each is a shape taken from the live corpus.
+func TestLoadRSSItemsStripsLiteralMarkdown(t *testing.T) {
+	t.Setenv("DISABLE_NEWS_MARKDOWN_STRIP", "")
+	logger := zap.NewNop()
+	ctx := context.Background()
+	siteID := uuid.New()
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	created := time.Date(2026, 9, 3, 8, 0, 0, 0, time.UTC)
+	cols := []string{"source_title", "source_summary", "source_url", "source_published_at", "created_at", "source_name"}
+	mock.ExpectQuery("FROM content_feed_items").
+		WillReturnRows(sqlmock.NewRows(cols).
+			AddRow("## [Novedades](https://example.com/n) de Rolex",
+				"# Titular\nTexto con **negrita** y [un enlace](https://example.com/x).",
+				"https://example.com/1", nil, created, "Tiempo de Relojes").
+			// the live shape: a link severed mid-URL by the 197-byte snippet cut
+			AddRow("Sin markdown",
+				"Itauma punched himself out and [lost in the ninth round](https://sports.yahoo.com/boxing/live/moses-...",
+				"https://example.com/2", nil, created, "Yahoo"))
+
+	items, err := loadRSSItems(ctx, db, siteID, 336, 30, logger)
+	if err != nil {
+		t.Fatalf("loadRSSItems: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items, got %d", len(items))
+	}
+
+	for _, it := range items {
+		for _, marker := range []string{"](http", "**", "# ", "!["} {
+			if strings.Contains(it.Title, marker) {
+				t.Errorf("marker %q survived in title: %q", marker, it.Title)
+			}
+			if strings.Contains(it.Description, marker) {
+				t.Errorf("marker %q survived in description: %q", marker, it.Description)
+			}
+		}
+	}
+
+	// The visible text must SURVIVE — a strip that emptied a live feed would
+	// pass a "no markers" assertion perfectly.
+	if !strings.Contains(items[0].Title, "Novedades de Rolex") {
+		t.Errorf("title lost its visible text: %q", items[0].Title)
+	}
+	if !strings.Contains(items[0].Description, "negrita") || !strings.Contains(items[0].Description, "un enlace") {
+		t.Errorf("description lost its visible text: %q", items[0].Description)
+	}
+
+	// The truncation marker must survive the severed link, or the feed asserts a
+	// complete sentence the source never wrote.
+	if !strings.HasSuffix(strings.TrimSuffix(items[1].Description, " (Fuente: Yahoo)"), "...") {
+		t.Errorf("truncation marker lost: %q", items[1].Description)
+	}
+
+	// ATTRIBUTION ORDER: the suffix is appended AFTER the cut, so it can never be
+	// what the truncation eats. Assert it survives on both items.
+	for i, it := range items {
+		if !strings.Contains(it.Description, "(Fuente: ") {
+			t.Errorf("item %d lost its source attribution: %q", i, it.Description)
+		}
+	}
+}
+
+// The kill switch must reach THIS reader too — that is the whole point of moving
+// it into the shared projection. If this test passes while the strip test above
+// also passes, one lever genuinely disarms this producer.
+func TestLoadRSSItemsHonoursTheKillSwitch(t *testing.T) {
+	t.Setenv("DISABLE_NEWS_MARKDOWN_STRIP", "1")
+	logger := zap.NewNop()
+	ctx := context.Background()
+	siteID := uuid.New()
+
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	created := time.Date(2026, 9, 3, 8, 0, 0, 0, time.UTC)
+	cols := []string{"source_title", "source_summary", "source_url", "source_published_at", "created_at", "source_name"}
+	mock.ExpectQuery("FROM content_feed_items").
+		WillReturnRows(sqlmock.NewRows(cols).
+			AddRow("Sin markdown", "Texto con **negrita**", "https://example.com/1", nil, created, "TR"))
+
+	items, err := loadRSSItems(ctx, db, siteID, 336, 30, logger)
+	if err != nil {
+		t.Fatalf("loadRSSItems: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	if !strings.Contains(items[0].Description, "**negrita**") {
+		t.Errorf("kill switch did not reach the RSS producer — raw text should have survived, got %q",
+			items[0].Description)
+	}
+}
