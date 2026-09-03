@@ -1721,3 +1721,39 @@ Housekeeping from their side: all four of our technical points (double-copy byte
 probe re-key rule, 450/anchor terms incl. the LIKE trap, no absolutes) are in their RUNBOOK as
 checks, not prose. Guards stay byte-for-byte; every option-A candidate keeps the opening
 `{{if .current_section.subject}}` literal, so the applied probe still discriminates.
+
+### 2026-09-03 ~17:00 UTC — the latent revert of the illustrated swap is CLOSED: migration 754 applied
+
+The 427 lane warned (urgent-ish, correctly) that our index's illustrated swap would be destroyed
+by the next ordinary page BUILD: tier 1 (current plan) still named generic-text-block ×6 while
+pages.sections serves illustrated ×6, the page is `needs_rebuild` with `built_from_plan_version`
+NULL (decideEmit → stale → WILL rebuild), and the loader SYNCS THE TIER-1 WINNER DOWN over the
+cache (`load_page_sections_from_spec_action.go:558-570`, read, not trusted). NOT the re-plan
+path — a re-plan is safe (reconcilePlanWithRealised snaps realised onto the proposal); the
+ordinary build was the danger.
+
+Every safety premise verified in code/data before acting, because the correction touches the
+very rows our protections hang off:
+- **Lock pairing survives BOTH spellings**: the shared relation (`slot_pairing.go`) pairs our 7
+  permanent locks via arm 1 (slot_name='generic-text-block', the old name) OR arm 4
+  (component_function='illustrated-text-block', the new one) — one-to-one either way, so the
+  rename cannot orphan them. This also answers the 427 lane's stated [NOT ESTABLISHED] about
+  component survival, at least for the pairing half.
+- **IMG-075 bindings key on ordinals** (`scope_ref` 'index:1'..'index:6'), never names.
+- One site_plans row (no superseded-plan cohort), no tier-2 site_plan aspect (0 rows — and per
+  750's 153-lesson we did NOT create one), subjects/facts all NULL on the six rows.
+
+**Migration 754** (in-place rename at six pinned ids, 750's shape, 154's precedent): rehearsed
+under BEGIN/ROLLBACK with a post-rollback control, council `227986ba` submitted
+(Council-Submitted on the commit), applied by hand, hand-verified via the loader's own query
+(tier 1 now reads hero, illustrated ×6, site-footer), `--record-only` in the ledger with the
+verification note. The `section_source_drift:index` item (626c9c5d) is CLOSED by the migration —
+it was real, not stale, and the 427 lane's message was the human review it was waiting for.
+
+**Residuals, deliberate:** build_status stays `needs_rebuild` / built_from_plan_version stays
+NULL — whether this page should ever rebuild is the standing wedge question (locks + prune_floor),
+NOT a drift question, and folding it into 754 would have widened a data fix into a lifecycle
+decision. The subject backfill for these six rows (now illustrated-text-block, still repeated,
+still subjectless) stays HELD pending the phrasing spec. A future genuine re-plan minting a NEW
+plan row is out of any per-plan migration's reach — that is the 427 lane's framework fix (typed
+action, architecture review), with our case as one of its two live customers.
