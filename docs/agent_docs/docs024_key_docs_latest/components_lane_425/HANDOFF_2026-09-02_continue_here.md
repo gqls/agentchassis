@@ -359,7 +359,17 @@ Its own hero asset is `hero_about`.
 by three lanes, and it means a 57-item wave would have completed, stamped fresh timestamps and
 changed nothing.
 
-⚠ Queue: 192 triaged, 164 older than my 08:26 item, draining ~29 per half-hour. Expect hours.
+⚠ **QUEUE POSITION — rank with the SELECTOR'S OWN QUERY, never a proxy census.** A proxy count
+(`status='triaged' AND pipeline='build'`) said 21 sites / 270 items ahead and "hours". Replicating
+the trigger's full eligibility SQL puts **boxingonline 2nd** and `remortgagecalculator` (batch 690)
+**~10th** — minutes, not hours. The proxy was wrong because it ignored the eligibility CTE's first
+clause: `s.locked_at IS NULL OR wi.id = ANY(lock_except_item_ids)`. `adversecreditmortgage.co.uk`
+held the fleet's oldest window minimum (09-01) and is **LOCKED** (`locked_at` 2026-08-18,
+`locked_by` "portfolio_positioning: owner HALT"), so its 22 items are invisible to the trigger —
+which is why it sat untouched for two days while 99 build items an hour completed elsewhere.
+**A census that omits one clause of the selector's WHERE ranks you against a population the
+selector cannot see.** (Found by handing the delivery lane a measured inconsistency rather than
+planning around their estimate; they resolved it in one query and logged the check.)
 
 ## 0c. A FLEET FINDING made while measuring this bug — 30 rerenders carrying PROSE as their reason
 
