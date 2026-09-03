@@ -559,3 +559,51 @@ func TestApproveResultAlwaysCarriesTheKeyTheDeliveryGateReads(t *testing.T) {
 		t.Errorf("the appended object does not carry follow_on_items: %v", rhs)
 	}
 }
+
+// Council round 3, editquality (medium, and the only advisory on an APPROVED
+// verdict worth code): the batch_id grouping was ASSERTED and not covered. A
+// mechanism nothing asserts on is a log line — the estate has a landmine about
+// exactly that shape — so here is the assertion.
+//
+// All children of one approval must carry ONE shared batch_id, because that is
+// the whole point: site_work_items.batch_id is how "these N items came from one
+// event" is answered without counting. [MEASURED 2026-09-03] 25,880 of 29,851
+// rows carry one across 4,161 batches, and every producer mints its own inline —
+// there is no shared helper to call, so minting here IS the convention, not a
+// deviation from it.
+func TestApproveGivesAllChildrenOfOneApprovalTheSameBatchID(t *testing.T) {
+	h, mock, db := newApproveMock(t)
+	defer db.Close()
+
+	batches := &capture{}
+	mock.ExpectQuery("SELECT site_id, spec, status").WillReturnRows(reviewRow(fanOutSpec))
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
+	mock.ExpectQuery("INSERT INTO site_work_items").
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), batches).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("bbbbbbbb-1111-1111-1111-111111111111"))
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
+	mock.ExpectQuery("INSERT INTO site_work_items").
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), batches).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("bbbbbbbb-2222-2222-2222-222222222222"))
+	mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
+
+	code, body, _ := doApprove(t, h, twoEditReviewData)
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, body = %v", code, body)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+	if len(batches.got) != 2 {
+		t.Fatalf("captured %d batch_ids, want 2", len(batches.got))
+	}
+	if batches.got[0] != batches.got[1] {
+		t.Errorf("children carry DIFFERENT batch_ids (%s vs %s) — the grouping buys nothing if each child gets its own",
+			batches.got[0], batches.got[1])
+	}
+	// And it must be a real id, not the zero uuid or an empty string: a shared
+	// nothing would pass the equality check above while grouping nothing.
+	if batches.got[0] == "" || batches.got[0] == "00000000-0000-0000-0000-000000000000" {
+		t.Errorf("batch_id is %q — equal-but-empty passes an equality test and groups nothing", batches.got[0])
+	}
+}
