@@ -210,3 +210,16 @@ The sitemap also caught up overnight: all nine calculators now listed, thirty pa
 One item left from Tuesday: the 47 stale link reports. They turned out to have missed being
 cleared yesterday by forty-four seconds — the daily sweep ran just before the repaired pages got
 their stamps. Today's sweep, mid-afternoon, should clear them; I'm watching it.
+
+**2026-09-03, afternoon — the last of Tuesday's items closed itself, properly.**
+
+The 47 stale link reports are gone. Not deleted by hand — the same automated check that filed them
+re-examined each one this afternoon against the now-published calculators and closed all 47 with
+its own reasoning written on each: "target page has shipped; the link now resolves." That's the
+system correcting its own paperwork on evidence, which is how it should end.
+
+Everything from Tuesday's list is now done and verified. What lendzy has that it didn't have two
+days ago: nine working calculators all properly published, no wrong rule numbers anywhere, a facts
+register checked against the FCA's live handbook every morning, tripwires against predatory
+phrasing, and a paper trail for every step. The one loose end in the wider programme remains
+loancash — no session, no register, your call when.

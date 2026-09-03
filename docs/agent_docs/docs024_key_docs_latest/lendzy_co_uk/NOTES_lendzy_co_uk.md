@@ -620,3 +620,23 @@ its first eligible tick:
   a blind zero.
 
 Remaining tail: the 47 at today's ~16:05Z revalidation tick (monitor armed).
+
+## 2026-09-03 (c) — the last tail closed: all 47 resolved by the VERIFIER, none hand-closed, none expired
+
+`[MEASURED 2026-09-03 16:0xZ]` Today's revalidation sweep (16:06:07Z) judged every one of the 47:
+all now `complete`, and each closing record is the verifier's own —
+`"arm": "verifier_resolved", "verdict": "resolved"`, naming the target page id and
+*"has shipped; href … now resolves"*. The deliberate decision in 693 round 3 (leave them to
+`VerifyUnbuiltInternalLinkResolved` rather than hand-close 47 rows) paid off exactly as designed:
+the mechanism that filed them retracted them, on evidence, with the evidence in the row.
+
+Diligence note: today's new `bugs_open/456` (**resolve by slug** — the number is ambiguous same-day)
+`one_undecodable_fact_disarms_a_whole_evidence_register` affects two OTHER sites; lendzy's eight
+facts carry no `value` keys, so the `*float64` disarm trap has nothing to bite on here. Checked,
+not assumed.
+
+**Every ask from the owner's 2026-09-02 brief is now closed at artefact or verifier strength.**
+The lane's standing state: register live under its daily custodian (first pass 8/8 green) · site
+fully healthy (30 pages, 9 tools, zero orphans, zero wrong citations fleet-wide) · sentence gated
+on the Q6 checker (claims lane building) · mirror designed with its host-admission constraint ·
+loancash the fleet's one empty seat.
