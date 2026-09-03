@@ -2393,3 +2393,17 @@ model on the in-cluster ollama. Plus `deploy_config.capabilities += backend` for
 cost, a sample model) vs booked-hours only (the page shows the chat but it is live only in a
 booked window). Lane recommends BOTH: demo for the public, GPU box for the paid hour.
 Phased in PLAN (to add); nothing built yet; no hand-authored HTML.
+
+**Copy lane's answer (2026-09-03, ~10:20Z), recorded because it changes the homepage plan:** rebuild
+YES, but as a CONTENT rebuild through page-content-writer; a rerender cannot fix one tell
+(`rewrite_negations` is a per-section sub-step after `generate_content`; the tells live in
+`content_data`). 23 of 26 register hits on the live homepage are already covered by BANNED_REGISTER
+v2; the gate has simply never run on this page (copy written 09-02 23:59Z, no finetuning.uk
+orchestration since the 08:58Z roll). My CONTRIB's claim that the trailing ", not X" passes the
+detector was WRONG (corrected there). **Trap they flagged:** your-own-model and technical-details
+still carry 8 and 7 "rather than" post-roll, and that is NOT the gate failing: an `updated_at`
+bump is not a writer run, and neither page has been through a post-roll orchestration. Two owner
+questions raised: rebuild the homepage now (23/26 go; 3 new-shape survive until register v3), and
+which reading of *"We only need the first bit, not the 'not'"*: (a) truncate at the comma, keeping
+"We're not tied to one provider"; (b) the "not" out of the first bit too (positive form). Put to the
+owner 2026-09-03; awaiting his word.

@@ -44,3 +44,16 @@ so a rule keyed on sentence openings passes it. His fix is a truncation, not a r
   not yours: `technical-details.html` is "an unhelpful page listing on 3 types of model" (the
   brief asked for exactly that; brief to be rewritten), and `playground.html` "has no
   playground" (a tool, not copy).
+
+> **CORRECTED 2026-09-03 (by the copy lane's reply, same morning):** the table's last row is
+> wrong. The trailing ", not X" does NOT pass the detector: the comma-anchored form has been in
+> `negXNotYRe` and the register's `x_not_y` all along, and the owner's own sentence fires it today
+> (`x_not_y` matches ", not t"). Measured by that lane against BANNED_REGISTER v2: **26 hits across
+> 78 visible sentences on the live homepage, 23 already named** (x_not_y 14, instead_of 3,
+> rather_than 3, not_just 2, plain_words 1). The page reads that way because the gate has never
+> run on it: the homepage copy was written 2026-09-02 23:59Z and `rewrite_negations` is a
+> per-section sub-step inside page-content-writer's loop, so only a CONTENT rebuild through the
+> writer repairs it; a page-rerender regenerates HTML from `content_data` and never enters that
+> loop. Of the six tells the owner named, two are new: "Nothing … unless" (0 hits in 1,849 live
+> sentences; safe as a regex) and "so" (fires on 6.60% of ordinary English; a judgement, not a
+> pattern). Their full account: `copy_quality_two_stage/NOTES_two_stage_copy.md` (commit `e4ebbafb1`).
