@@ -378,3 +378,54 @@ First run of the report: `tool-generator` **116** blind, not the 115 I measured 
 standing stock is a per-site repair job, but the intake is a framework defect and it is open.
 
 ---
+## 2026-09-03 13:3x — THE ROLL HAPPENED AND DID NOT CARRY MY CHANGE. P1+P2 are still inert.
+
+The owner said mid-session that a fresh chassis was building. It shipped: `agent-chassis` moved
+**v1.0.1356 → v1.0.1358**, pods restarted ~13:07 BST. My P1+P2 commit `0b9a5c9e1` landed 12:47 and
+is in HEAD's ancestry, so the arithmetic looked right and I was one step from writing "it shipped".
+
+**It did not.** `[MEASURED 2026-09-03 13:3x]`
+
+| probe | result | |
+|---|---|---|
+| `fence_asserts_no_value` | **absent** | under test — my P2 doc_note category |
+| `liveness_only` | **absent** | under test — my P1 `verdict_scope` value |
+| `Tier-4 acceptance PASSED` | **PRESENT** | control + — must be present, and is |
+| `zzz_invented_string_449_check` | absent | control − — must be absent, and is |
+
+Both controls sat on **opposite sides** of the answer, so the probe could discriminate and the two
+absences mean what they say: **v1.0.1358 was cut from a commit earlier than 12:47.** P1 and P2 are
+committed, reviewed-in-flight, and **not running**. They need the *next* roll.
+
+⚠ **Whoever builds next must bump `IMAGE_TAG`** (makefile ~line 22, currently `v1.0.1358` — now
+deployed). A same-tag rebuild serves the node's cached binary and every downstream check reads green.
+
+### The method here is NOT the one CLAUDE.md prescribes, and that matters
+
+CLAUDE.md says to ask the service what it is running:
+`kubectl logs -l app=<service> --tail=300 | grep -m1 'build provenance'`, warning that an empty
+result means "not in range, it is a startup line and it scrolls".
+
+**There is no such line.** `LANDMINES.md` records it `[MEASURED 2026-08-25]`: `grep -rn 'build
+provenance'` over the Go source returns **zero**, and a grep over a whole 4.6 MB pod log returns
+nothing either. **The documented failure mode perfectly explains the real one**, so you conclude you
+need more scrollback and go looking for it. I ran the prescribed command, got a 2.7 MB result of
+unrelated JSON, and only found the correction because the landmine's own text was echoed *inside*
+those logs — agents read it out of `doc_notes` — and the phrase caught my eye.
+
+**That is luck, not method.** The method that would have worked is the standing one I had already
+been reminded of at session start: **grep LANDMINES for the symbol you are about to trust**, before
+running the command, not after it returns something confusing.
+
+The correct check is the landmine's: **probe the CAPABILITY, not the commit, with a control on BOTH
+sides in the same breath.** Its second layer is the sharper warning — the fallback binary probe
+"produces an ANSWER": three absent results read exactly like "the fix did not ship", and if every
+control is on the same side of the answer the set cannot discriminate at all. Mine were not, which
+is the only reason today's two absences are evidence rather than three uninterpretable readings.
+
+**The general form, and it is the one to carry:** *a roll is not evidence your fix shipped* — but
+the sharper half is that **an image tag advancing, a pod restarting, and your commit being an
+ancestor of HEAD are three true facts that jointly imply nothing.** All three held here and the
+binary still does not carry the change.
+
+---
