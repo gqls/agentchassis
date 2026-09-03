@@ -101,6 +101,18 @@ BEGIN
     IF nrows <> 1 THEN
         RAISE EXCEPTION '641: expected exactly 1 active page-content-writer row BEFORE writing, found %', nrows;
     END IF;
+    -- Guardian advisory (council 6c92d154): the estate has documented cases of a
+    -- type carrying two active rows where only the higher version loads. Today
+    -- page-content-writer has ONE row total (v2, measured 2026-09-03); this
+    -- assertion keeps the apply refusing if that ever changes underneath.
+    PERFORM 1 FROM agent_definitions
+    WHERE type = 'page-content-writer' AND is_active
+      AND COALESCE(is_snapshot, false) = false AND deleted_at IS NULL
+      AND version = (SELECT max(version) FROM agent_definitions
+                     WHERE type = 'page-content-writer' AND deleted_at IS NULL);
+    IF NOT FOUND THEN
+        RAISE EXCEPTION '641: the active page-content-writer row is not the max version - a higher-version row would shadow this edit; investigate before applying';
+    END IF;
     SELECT default_config->'workflow'->'steps'->'process_sections_loop'->'config'
            ->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template',
            default_config#>'{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,input_fields}'

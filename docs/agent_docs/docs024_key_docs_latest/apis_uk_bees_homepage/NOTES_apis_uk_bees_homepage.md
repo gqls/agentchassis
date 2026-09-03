@@ -1575,3 +1575,30 @@ commits in the minutes before `7da6c6a46` (`293936bea` carries the WRONG_CALLS e
 lane's register commit carries the addendum). Both verified complete in HEAD; nothing lost,
 nothing owed — recorded so an auditor of council corr `6c92d154` looking for the register
 change in this lane's commit finds this line instead of a puzzle.
+
+### 2026-09-03 ~10:40 UTC — council verdict on the 641 rewrite: APPROVED round 1; both advisories acted on, not banked
+
+Corr `6c92d154`: 11 seats fired — 9 approve, 2 object advisory (none high). Verdict read in
+full from `diagnosis_artifacts`. Dispositions:
+
+- **guardian MEDIUM (duplicate-active-row / version shadowing):** measured — `page-content-writer`
+  has ONE row total (version 2, active); no shadowing state exists today. Acted anyway because it
+  closes a documented estate door: pre-flight now also asserts the active row IS the max version
+  (RAISEs otherwise), and the full DO block was RE-REHEARSED under BEGIN/ROLLBACK — still green,
+  census 9 unchanged.
+- **guardian LOW (other callers of generate_content):** confirmed no-op by the code already read
+  this session — `extractSingleField` returns nil for an absent key and nil keys are SKIPPED (the
+  `if value != nil` guard), and the sibling range only renders inside
+  `{{if .current_section.subject}}`, which only the loop path sets; `sections_for_render` is that
+  same loop's own `iterate_over` source, so any caller inside the loop has it and any caller
+  outside it never reaches the range. Fixture B (all subjects null) is the byte-identical proof.
+- **guardian LOW (operation label):** noted for future submissions — a config-only seed edit
+  should be `config_change`, not `modify`.
+- **bug_historian MEDIUM (the class has no lint):** filed `bugs_open/453` — the template-variable
+  vs `input_fields` cross-check, with the three closed priors (resolve by slug: 085/039/054), the
+  sibling LANDMINE (~7777, no-input_fields randomised search), fix candidates ordered by
+  door-closing, and the stated 090 substitution per the 2026-07-31 ruling. Grep found no prior
+  class file.
+
+State unchanged otherwise: 641 remains `_HOLD`; the one gate is the owner reading the EXACT
+block in the seed, carried by the finetuning lane.
