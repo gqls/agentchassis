@@ -188,3 +188,60 @@ four sites, not just satisfied on this one.
 **1.000 on a 0.0%-transparent failure** and on an 87.4% success alike, because it counted
 border-flood REACHABILITY rather than transparency. **Verify a logo at the PNG bytes — colour type
 6 or 4, OR a `tRNS` chunk, testing for both — never at the adapter's own confidence signal.**
+
+---
+
+# VERIFICATION 2026-09-03 18:00Z — the owner's two approved edits, checked at the served bytes
+
+Measured against `https://boxingonline.ugg2.com/index.html`, **Last-Modified 17:32:30Z**,
+cache-busted, `<body>` control non-zero, invented paths 404 while the page is 200.
+
+## Both edits he approved at 16:21 are LIVE and correct
+
+| his ruling | on the page now |
+|---|---|
+| *"The line can just be: News, previews and results from across the sport."* — he cut the model's trailing clause as slop | **verbatim, 1 occurrence**; the old *"odd strong opinion"* phrasing is **0** |
+| **CUT IT** — the call-to-action's *"the calendar below"* line | `grep -ci 'calendar below'` → **0**; the subheadline is **emptied**, not reworded, and renders no element |
+
+**The closing block is 96 visible characters**, from 1,347 at the start of the day (and 210 at
+midday): a heading and two button labels — *Stay on top of every fight that matters · Catch the
+latest boxing news · See the full fight calendar.* Every clause speaks to the reader; none describes
+what the section below contains. **Against his item 1 this is a repair, not an abbreviation.**
+
+His item 14 holds alongside it: 6 cards, **6 filled decks, 0 empty**, and **0 template-suffixed**
+headlines or alt texts — the two agree character-for-character, which is the property that proves a
+suffix has not crept back into either.
+
+Regression guards, **20 of 20 served pages**: email **0** · contact links **0** · `/contact.html`
+**404** · one fight-calendar reference in the header · GTM on every page.
+
+## ⚠ How his approval reached the page is NOT how it was supposed to
+
+The job his approval filed — `5edadfbe section_edit` — **failed three times and is still marked
+failed**, last attempt 17:56Z:
+
+```
+step load_edit_context failed: need either page_component_id or both page_name + slot_name
+```
+
+The edits are on the page because **a person applied them by hand at 16:26 / 16:27**, five minutes
+after he pressed approve. `page_components` 322ce532 and e5b848fa carry those timestamps.
+
+This is the approve-button defect already diagnosed in this lane and fixed in `33dfeed3a`: the
+`page_component_id` **is** in the spec, nested inside `approved_data.edits[]`, while the top-level
+`copy_edit` and `page_target` that `load_edit_context` reads are `null` — and two edits in one job
+also exceeds the one-target-per-job limit. **Both halves are fixed in code and inert until a roll.**
+
+**Nothing is lost and he need do nothing.** But the record should say plainly: *his approval did not
+apply itself.* And `5edadfbe` should be reconciled — it is a failed row standing for work that is
+complete, and it will read as outstanding until someone closes it.
+
+## Still wrong on the site, re-measured 17:32Z
+
+- **`/articles/index.html` serves the six articles six times** — **36 cards**, 2 without decks, 14
+  without a category label. `bugs_open/457`, **staffed** (7+ commits today, two lanes). Code fix plus
+  a rebuild; no re-render clears it. The most visible remaining blemish.
+- **Items 7, 9, 10** — articles carry no news, comparator ships no data, calendar has no calendar.
+  One root cause, `bugs_open/427`; restate its title before building, because its writer half now
+  works (`evidence_base` 1 → 7 cited facts) and nothing consumes them.
+- **Item 12b** news feed residue · **3b** guides unrewritten · **8** imagery logo-only.

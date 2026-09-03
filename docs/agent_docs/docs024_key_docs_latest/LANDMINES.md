@@ -21940,3 +21940,19 @@ END $$;
 - **the general shape, which is the reusable part:** a checker that reports its SUBJECT as broken when its own INPUT was malformed is worse than one that crashes, because it produces a plausible finding instead of an obvious error — and this one hands you a root cause as well. Whenever a tool's failure message names a cause you did not supply evidence for, re-run it in its least-parameterised form first.
 - **relations:** `OPP-008` · CLAUDE.md "Checking that committed HEAD still builds" · MEMORY [[a-shared-tree-commit-can-break-head]] (the real failure this is mistaken for)
 - **added:** 2026-09-03, static_site_form_endpoint lane — hit while verifying the forms receiver commit
+
+### A card-headline "suffix" check that matches any dash flags EDITORIAL em-dashes as template suffixes — on a page that is correct
+
+- **footprint:** `article-card__title` · `card__title` · `alt=` on listing cards · `site_delivery_and_editor/HANDOFF_2026-09-03_boxingonline_owner_review_continue_here.md` §2.1 check 6 / §2.2
+- **the trap:** the defect being hunted is a **template-appended** suffix — the site or category name glued onto a headline (`… | Boxing Online`, `… - Fight Calendar`), which appears identically in the card headline and its alt text because both interpolate the same value. The natural check is "a separator followed by more text", i.e. `\s[|\-–—]\s*\S`. **That also matches every em-dash an editor legitimately wrote inside a headline.** `[MEASURED 2026-09-03]` on boxingonline `/index.html`, served 17:32Z: it reported **3 of 6 alts suffixed** — *"Cruiserweight Is Boxing's Best-Kept Secret — And It Won't Stay That Way"*, *"The Flyweight Division Deserves Your Attention — Here's Why"*, *"Women's Boxing Is Having a Moment — And It's About Time"*. The correct answer for that page is **0 and 0**.
+- **why it survives a careful reader:** the count comes out **plausible and alarming at once** — a partial hit (3 of 6, not 6 of 6) reads exactly like a half-propagated regression, which is the live hypothesis on this estate, so it confirms what you already suspect. And it lands asymmetrically: headlines came back clean while alts came back "suffixed", which is precisely the *"suffix-free headlines with suffixed alts would be a third outcome nobody predicted — report it as a new finding"* case that §2.2 tells you to escalate. **The trap is not that the check is noisy; it is that its false positive wears the shape of the rarest and most reportable outcome.**
+- **the check:** anchor on the **suffix vocabulary at end-of-string**, not on the separator —
+
+  ```python
+  SUF = re.compile(r'(?i)\s[|\-–—:]\s*(boxing online|boxingonline|fight calendar|news|guides|articles|blog|tools?)\s*$')
+  ```
+
+  and confirm with the property that actually defines the defect: **headline and alt interpolate the same value, so they must agree character-for-character.** If the alts carry something the headlines do not, compare the two lists before believing either — a real template suffix moves both.
+- **the general shape, which is the reusable part:** when you write a regex for "X plus junk on the end", the junk is what you must enumerate, not the joint. Matching the *punctuation* makes prose that happens to be well-written indistinguishable from machine-appended boilerplate — so the check penalises exactly the copy you were hoping to find.
+- **relations:** MEMORY [[measurement-discipline-index]] ("your measurement answers the question you ENCODED") · `bugs_open/457` (the same page's real, unrelated defect) · sibling error the same hour: `grep -oEi` applied `-i` to an ALL_CAPS_UNDERSCORE placeholder pattern, matching lowercase BEM classes and reporting 50 placeholders on a clean page — **split a mixed-case alternation into two greps rather than one `-i`.**
+- **added:** 2026-09-03, boxingonline owner-review thread — hit while re-running §2.1's seven checks after the owner's CTA edit landed

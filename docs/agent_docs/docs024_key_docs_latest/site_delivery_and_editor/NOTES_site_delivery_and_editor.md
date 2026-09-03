@@ -1585,3 +1585,89 @@ carries 7 unstripped ATX headings against the server HTML's 0. Fleet-wide, five 
 fix; I told them to use the script's own `blind()` helper rather than printing the word, because
 `blind()` is what makes the **exit** non-zero — printing "blind" while exiting 0 would reproduce the
 very shape one layer down.
+
+---
+
+## 2026-09-03 ~17:50–18:00Z — owner-review thread: the seven checks re-run, and the approval chain reconciled
+
+Ran `HANDOFF_2026-09-03_boxingonline_owner_review_continue_here.md` §2.1's seven checks against the
+**served** site after `needs_copy_edit a930e70c`. All 22 deployed pages enumerated from `pages`
+(`deployed_at IS NOT NULL`), fetched cache-busted, control `<body>` non-zero on every 200.
+
+### Result: seven checks PASS. Served `/index.html`, Last-Modified 17:32:30Z.
+
+| check | result |
+|---|---|
+| 1 CTA reads like a control | **96 visible chars** (was 1,347 → 210 → 96); heading + 2 button labels, all imperative |
+| 2 register tells | **0** (`we write\|we'd rather\|we cover\|gets checked\|we update\|the list below`) |
+| 3 AI tells | **0** (`plainly\|honest\|before your … have to\|starting point, not the final word`) |
+| 4 placeholders | **0** word placeholders, **0** ALL_CAPS_UNDERSCORE, **0** `EXAMPLE` |
+| 5 listing class | 6 distinct `/blog/`, 6 occurrences; the 2 `/guides/` hrefs are **FOOTER only**, listing is pure `/blog/` |
+| 6 deck slots | **6 excerpt elements, 0 empty**, inner lengths 103–153 — filled, not collapsed |
+| 7 regression | email **0**, contact links **0**, `/contact.html` **404**, **1** fight-calendar ref in `<header>`, GTM ×2 — all on **20/20** served pages |
+
+Invented-path control: `/definitely-not-a-real-page-zzz.html`, `/guides/invented-guide-zzz.html`,
+`/blog/nope-zzz.html` all **404** while `/index.html` is **200** — so the 404s discriminate.
+
+Deck keys **verified, not inherited** (the handoff asked for this rather than trusting batch 691):
+6 card titles and 6 card alts interpolate the same values and agree character-for-character;
+**0 template-suffixed** headlines, **0** alts.
+
+### The one live defect from the handoff is FIXED, and the CTA judgement is PASS not "abbreviated"
+
+`grep -ci 'calendar below'` → **0**. The subheadline was emptied, not reworded. The CTA is now
+`Stay on top of every fight that matters / Catch the latest boxing news / See the full fight
+calendar` — user-directed imperatives, no description of what the section below contains. Against
+the owner's item 1 this is a repair, not a shortening.
+
+### The approval chain — the handoff's action 1 was chasing the wrong object
+
+Handoff said: *"Watch the owner's admin queue for `a930e70c` — the CTA rewrite needs his
+approve/request-changes."* Reconstructed from the DB, that was already three hours stale:
+
+```
+a930e70c needs_copy_edit    complete  14:24  approval_mode=auto   (detection — correctly auto)
+   └─ 1cb907ee copy_edit_proposed complete 14:24 → 16:21          (the review the owner saw)
+        └─ OWNER APPROVED 16:21  spec.approved_by='admin', 2 edits, both with owner_ruling text
+             └─ 5edadfbe section_edit  FAILED 3/3, last 17:56Z
+                error: step load_edit_context failed: need either page_component_id
+                       or both page_name + slot_name (CHILD_ORCHESTRATION_FAILED)
+```
+
+**The owner's edits are on the page anyway** — `page_components` 322ce532 (`content-listing`) and
+e5b848fa (`call-to-action`) updated **16:26 / 16:27**, five minutes after the approval and while
+`5edadfbe` was failing. That is the hand-application this lane describes in `README_where_we_are`.
+
+So: **outcome correct, mechanism failed, and the failed row is still sitting there at attempt 3/3
+representing work that is actually done.** It should be reconciled or it will read as outstanding.
+The `spec` shows why it failed and it matches this lane's own diagnosis exactly — `page_component_id`
+is present but nested inside `approved_data.edits[]`, while top-level `copy_edit` and `page_target`
+are `null`, which is where `load_edit_context` looks. Two edits in one job also hits the
+one-target-per-job limit. Both halves are what `33dfeed3a` fixes; **inert until a roll**.
+
+### `/guides/tool-fight-calendar-guide.html` 404s — latency, NOT a defect
+
+`pages` says `deployed`, `deployed_at 17:51`, but `last_built_at` is **NULL** and the site 404s it.
+The page row was **created 17:35**; the whole site's served publish is **17:32**. Published object
+older than the change ⇒ wait, per §0's own rule. Watch it on the next tick rather than filing.
+(`build_status='deployed'` on a page with `last_built_at IS NULL` and no served object is worth a
+second look if it survives the next publish.)
+
+### Unchanged, re-measured
+
+`/articles/index.html` still serves **36 cards / 36 decks / 2 empty** — `bugs_open/457`, which is
+now **staffed** (7+ commits today across two lanes); the handoff's "unstaffed" line was stale within
+the hour. Needs the code fix + rebuild; no re-render clears it.
+
+### My own missteps today — both caught before anything durable was written
+
+1. **`grep -oEi` made an ALL_CAPS_UNDERSCORE placeholder pattern case-INSENSITIVE**, so it matched
+   lowercase BEM class names (`grid__card`, `card__excerpt`) and reported 50 "placeholders" on a
+   clean page. The `-i` was for the *word* half of the alternation and I let it cover the whole
+   expression. **Split the two: words case-insensitive, the ALL_CAPS shape case-sensitive.**
+2. **A suffix regex of `\s[|\-–—]\s*\S` flagged 3 of 6 alt texts as template-suffixed** — they were
+   editorial headlines containing an em-dash (*"Cruiserweight Is Boxing's Best-Kept Secret — And It
+   Won't Stay That Way"*). Had I written that up it would have read as a live regression on a page
+   that is correct. **The defect shape is a trailing SITE/CATEGORY name after a separator**, so
+   anchor it: `\s[|\-–—:]\s*(boxing online|fight calendar|news|guides|…)\s*$`. Logged to LANDMINES —
+   the seven checks are a procedure other sessions will re-run, and this fires on a correct page.

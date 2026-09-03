@@ -381,3 +381,87 @@ boxingonline 80.10%. §3's row is re-pointed.
    nothing consumes them.
 4. **`bugs_open/332`** — news feed residue (5 md links / 12 truncations / 11 UFC). Unstaffed.
 5. **Nobody re-seeds this site** until `420`'s class fix rolls.
+
+---
+
+# UPDATE 3 — 2026-09-03 18:00Z. The seven checks are RE-RUN and PASS. Action 1 is CLOSED.
+
+## Do not go looking for `a930e70c` in the owner's admin queue — he already acted, at 16:21.
+
+UPDATE 2's action 1 (*"the CTA rewrite awaits his approve / request-changes"*) was **stale when it
+was written**. Reconstructed from the DB:
+
+```
+a930e70c needs_copy_edit     complete 14:24  approval_mode=auto   ← detection, correctly auto
+  └─ 1cb907ee copy_edit_proposed complete 14:24→16:21             ← the review he actually saw
+       └─ OWNER APPROVED 16:21   spec.approved_by='admin', 2 edits, each with owner_ruling text
+            └─ 5edadfbe section_edit  FAILED 3/3, last attempt 17:56Z
+               "step load_edit_context failed: need either page_component_id
+                or both page_name + slot_name (CHILD_ORCHESTRATION_FAILED)"
+```
+
+**His edits are live on the page regardless** — `page_components` 322ce532 (`content-listing`) and
+e5b848fa (`call-to-action`) were updated **16:26 / 16:27**, by hand, five minutes after he pressed
+approve and while the job was failing. That is this lane's own hand-application, described in
+`README_where_we_are.md`.
+
+⚠ **`5edadfbe` is still sitting `failed` at attempt 3/3 while representing work that is DONE.**
+Someone should reconcile it or it reads as outstanding for ever. Its `spec` is the textbook case of
+the approve-button defect this lane fixed in `33dfeed3a`: `page_component_id` **is** present but
+nested inside `approved_data.edits[]`, while top-level `copy_edit` and `page_target` are `null` —
+which is where `load_edit_context` looks. Two edits in one job also hits the one-target-per-job
+limit. **Both halves are fixed and inert until a roll.**
+
+## §2.1's seven checks — PASS. Served `/index.html`, Last-Modified 17:32:30Z, cache-busted.
+
+| # | check | result |
+|---|---|---|
+| 1 | CTA reads like a control | **96 visible chars** (1,347 → 210 → **96**); heading + 2 imperative button labels |
+| 2 | register tells | **0** |
+| 3 | AI tells | **0** |
+| 4 | placeholders | **0** / **0** / **0** |
+| 5 | listing class | 6 distinct `/blog/`, 6 occurrences; both `/guides/` hrefs are **FOOTER**, listing is pure `/blog/` |
+| 6 | deck slots | **6 elements, 0 empty**, inner 103–153 chars — filled |
+| 7 | regression | email **0** · contact links **0** · `/contact.html` **404** · **1** header fight-calendar ref · GTM ×2 — on **20/20** served pages |
+
+Controls: three invented paths **404** while `/index.html` is **200**; `<body>` non-zero on every
+200. Pages enumerated from `pages WHERE deployed_at IS NOT NULL` (22 rows).
+
+**The judgement no grep does — owner item 1: REPAIRED, not abbreviated.** `grep -ci 'calendar
+below'` → **0**; the subheadline was *emptied*, not reworded, which is what he ruled. The block now
+reads *"Stay on top of every fight that matters / Catch the latest boxing news / See the full fight
+calendar"* — every clause addressed to the reader, none describing what the section below contains.
+The listing subtitle is his verbatim line, *"News, previews and results from across the sport."*
+
+**Owner item 14 — deck keys VERIFIED, not inherited** (UPDATE 2 asked for this rather than trusting
+batch 691): 6 card headlines and 6 card alts agree character-for-character, **0 template-suffixed**
+either side. ⚠ **Use an anchored suffix pattern** — see the new LANDMINES entry; a `\s[|\-–—]\s*\S`
+test reports **3 of 6 alts suffixed** on this correct page, because the headlines contain editorial
+em-dashes, and that false positive wears the exact shape §2.2 tells you to escalate as a third
+outcome.
+
+## Two corrections to UPDATE 2's own action list
+
+- **`bugs_open/457` is NOT unstaffed** — 7+ commits today across `site_delivery_and_editor` and the
+  components lane; `scripts/who-owns.py 457` names the owning lane. Contribute into the bug file,
+  do not compete. Re-measured 17:32Z: `/articles/index.html` still **36 cards / 36 decks / 2 empty**,
+  unchanged, as expected for a defect needing a code fix + rebuild.
+- **`bugs_open/332` and `bugs_open/427` are both being worked** — 332 has a commit at HEAD and 427's
+  file was written at 17:39Z. Check `git log` on the file paths before adopting either.
+
+## New for §0's trap list
+
+**`/guides/tool-fight-calendar-guide.html` 404s while `pages` says `deployed`** — this is **latency,
+not a defect.** The row was **created 17:35**; the site's served publish is **17:32**. Published
+object older than the change ⇒ wait. Worth a second look only if it survives the next publish, since
+`build_status='deployed'` sits on a row whose `last_built_at` is **NULL**.
+
+## Immediate next actions, replacing UPDATE 2's
+
+1. ~~Watch the admin queue for `a930e70c`~~ — **DONE, approved 16:21, applied by hand, verified at
+   the served bytes.** Nothing to watch.
+2. **Reconcile `5edadfbe`** (failed 3/3, work actually complete) — or it misreports for ever.
+3. **`bugs_open/457`** — the 36-card duplication, still the most visible defect on the site. Staffed;
+   join, don't duplicate.
+4. **`bugs_open/427`** — root of owner items 7, 9, 10. Restate the title first (§6).
+5. **Nobody re-seeds this site** until `420`'s class fix rolls.
