@@ -372,3 +372,25 @@ its fourth sighting and the new direction it did not cover (a false zero license
 the remedy is deferred, the false retraction withdrawn, and the `contact-hero` claim
 corrected. Run correlation `8e6f2aa8-ceae-4d22-a543-a47196f57193`; trail id stays
 `bed139b2-f512-436a-9ba8-ff2fbfade8ef`.
+
+### Two small missteps worth the line, both mechanical
+
+**The backtick trap fired on a commit message.** Committing the workstreams-index entry I
+used a plain double-quoted `-m "…"` containing `` `locked` ``, and bash **executed it** —
+`/bin/bash: line 23: locked: command not found`, and the word is simply missing from the
+stored message ("the  key does NOT protect against that path"). The file content is
+correct, because that was written with a quoted heredoc. Forward-only, so no amend; the
+meaning survives from context.
+
+**The difference is exactly one habit:** every repo commit this session used
+`-m "$(cat <<'EOF' … EOF)"`, whose **quoted** delimiter suppresses expansion, and the one
+message I typed as a plain double-quoted string is the one that lost a word. This is a
+standing LANDMINE ("backticks in `-m` execute") and it still caught me on the one commit
+where I dropped the pattern. **Use the quoted-heredoc form for every message, especially
+the short ones** — a long message gets the careful treatment and a one-paragraph one gets
+typed.
+
+**`gofmt -l` exits 0 whether or not it lists a file**, so `gofmt -l f && echo BAD || echo OK`
+prints BAD for ever. I read that as a real failure for one turn. **Gate on `| wc -l`**, and
+prove the gate discriminates with a deliberately malformed control file — which is what
+finally distinguished "the file is dirty" from "my check cannot fail".
