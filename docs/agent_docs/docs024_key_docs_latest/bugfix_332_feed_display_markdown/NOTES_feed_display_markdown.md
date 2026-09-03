@@ -179,3 +179,126 @@ at 23. And state *why* the exposure number is low — the RSS ingest path calls 
 (`feed_actions.go:248`) and the search path does not — so that a future non-zero reads as the
 same bug arriving rather than as a new one. That asymmetry is the thing that can change
 without anyone noticing, because a new ingest source inherits whichever path it is wired to.
+
+## 2026-09-03 ~18:00Z — the feed lane took the ingest half, and declined the contested one
+
+I routed the firecrawl findings rather than editing their file. They came back having **fixed
+the producer side themselves** (`6f0a246de`): rune-safe cut, and the cut now backs off a
+genuine link opening so the producer stops manufacturing the shape my strip is blind to.
+
+Three things from their reply worth keeping:
+
+- **They verified my measurements first-hand before acting, and one differs**: 943 rows at
+  exactly 200 bytes where I had 941. That is the feed running between two reads, and it is the
+  direction that makes sense. 288 unclosed tails and 2 U+FFFD match exactly. A census that
+  moves by 2 in an hour is the same census; one that moved by 200 would not be.
+- **They declined `SafeCut` for a layering reason I had not considered and accept**:
+  `datahelpers` imports `database/sql`, and nothing under `internal/adapters` does. Making a
+  small adapter binary depend on `platform/orchestration` to borrow four lines is the wrong
+  trade when `unicode/utf8` is stdlib and is the whole of `SafeCut`'s body.
+- **They disagreed with my "the cheaper instrument for a budget problem is the budget"**, and
+  they are right: *any* budget can land mid-link, so a config key fixes frequency while the
+  boundary rule fixes the class. They also noted `web_search` has no `ActionInputSpec`
+  registered at all, so an optional key there would land where the RFC_022 audit reports "NOT
+  COUNTED, unknowable" rather than under budget.
+
+They declined strip-before-cut for exactly the reasons I gave, having reached them
+independently. Two lanes arriving at one seam from opposite ends and agreeing is the strongest
+evidence available that the reasoning is not just mine.
+
+## 2026-09-03 ~18:20Z — my own new sweep check was blind, and only the motivating case caught it
+
+Added the `/data/*.json` arm to `sweep_site_defects.sh` §1.4, ran it on boxingonline, and it
+reported **0 fields carrying markdown** on a file I had measured half an hour earlier as
+carrying 7 headings and 9 links.
+
+The JSON is `json.MarshalIndent` output, so every key is followed by a colon **and a space**.
+My `'"(summary|title)":"[^"]*"'` could not match anything, on any file, ever.
+
+**A green result from a new check reads as a fix working.** Had I not had an independent
+measurement of the same file in front of me, "0 fields" would have been indistinguishable from
+success — and the check would have gone into the fleet's acceptance sweep certifying every
+site clean for ever. → WRONG_CALLS. The rule I now keep: **a new detector's first run belongs
+on the case that caused it, with a positive control.** Post-fix: latest-news.json 5,
+news-archive.json 10, both flagged.
+
+The site_delivery lane also caught something mechanical I would have got wrong: use the
+script's own `blind()` helper rather than printing the word. `blind()` increments `BLIND`, and
+line 312 exits non-zero on `FINDINGS+BLIND` — so a hand-rolled print would have left the
+script exiting 0 on a site with `rss_feed` off, reproducing this bug's own shape one layer
+down.
+
+## 2026-09-03 ~18:40Z — a guard test that failed for the wrong reason
+
+`TestFeedBoldTailGuards` asserted `"in Python use **kwargs and **args here"` passes through
+unchanged. It failed. The obvious response is to tighten the new bold-tail rule.
+
+That would have been wrong. A four-line probe applying the two regexes separately showed the
+strip came from the **pre-existing complete-bold pattern** — the text between the two `**`
+pairs, `kwargs and `, is itself a valid `**…**` match. My new rule never fired. Tightening it
+would have weakened a correct new pattern to fix an unrelated live one, and left the actual
+residual untouched. → WRONG_CALLS.
+
+The residual the rule genuinely has is now **stated in the test**: `"pass **kwargs to the
+function"` does fire. Measured over all 5,112 live rows, it occurs in **none** of them, and
+the rule changes exactly 7 rows — every one a genuinely truncated bold opening.
+
+## 2026-09-03 ~19:00Z — council APPROVED, and two of the four objections were right
+
+`803f0d81-02be-4bb6-9e65-363439ff87ba` — **approved, 4 advisory objections, none high**. I
+acted on all four rather than banking the approval, because the code was already on the shared
+branch.
+
+**`reuse_agent`, MEDIUM, and the sharpest one:** *"why does `feed_normalize` call
+`TruncateString` rather than the `FeedDisplaySummary` this plan just built? This is precisely
+the question this seat exists to force."* Answered in the code, because it is a real design
+boundary: the projection is gated on `DISABLE_NEWS_MARKDOWN_STRIP`, a **display** kill switch,
+so calling it on an **ingest** path would put a display lever in charge of what gets written to
+the database — the exact irreversibility I refused at firecrawl. Its premise was also wrong in
+a useful way: `TruncateString` is not a third primitive, `data_helpers.go` defines it **as**
+`SafeCut` plus the ellipsis.
+
+**`bug_historian`, MEDIUM, and I had genuinely not done it:** *"the corpus validation is scoped
+to `content_feed_items`; neither check enumerates and re-validates EVERY caller of the shared
+function against its own corpus. This is the exact recurring shape where one call site of a
+shared judgement gets the rigorous fix."* Fair — and pointed, given that is the shape this bug
+is *about*. Done: **40,318** `content_data` string leaves from every unlocked page_component
+fleet-wide, run through the widened strip and diffed against the verbatim pre-332 body.
+
+```
+0 blanked · 0 contract breaks · 15 values newly changed
+```
+
+All 15 are truncated markdown links inside stored news summaries — the defect being fixed. No
+authored prose touched.
+
+**Its LOW — "pull the precedent, don't cite it from memory" — changed what I could claim.** The
+`render_guardian`'s actual words in `060bcc0a` are that *"a strip that reduces a field to empty
+(e.g. a bare image-markdown token) could slip through as silently-blank content"*. The concern
+was **emptiness**, not the stray `!`. So `!alt` → `alt` preserves exactly the property the seat
+asked for. My argument was right; it is now grounded in the text rather than my recollection.
+
+Reading it also surfaced a **second** low from that round I had not carried forward: no check
+that a stripped result still clears the assembler's ≤10-visible-char section-drop floor. My
+widening strips more, so it inherits that. Measured on the same 40,318: **4,697** values
+already sit at or under 10 chars and **zero** are newly pushed under.
+
+`tooling_provenance`'s low — query `doc_notes` for a news-feed subject before restructuring
+three producers — returns only landmine-sync rows about the news-feed **seeder**, a different
+seam. An absence, but now a measured one rather than an assumed one.
+
+`editquality`'s "missing" note asked a human to confirm the deferred innerHTML fix is actually
+tracked. It is: `bugs_open/472`, with the components lane's full library census.
+
+## 2026-09-03 ~19:30Z — the 472 migration, and why it is held
+
+Wrote `758_..._HOLD.sql` converting both news scripts to element construction. Rehearsed under
+`BEGIN/ROLLBACK` on the live rows (2 UPDATEs, 1 row each, all three post-conditions true), then
+**induced the verify to fail** by removing the second UPDATE — it aborted with *"1 component(s)
+still concatenate markup"*, exit 3. So the guard bites rather than decorating.
+
+**`_HOLD` rather than runner-queued, for a specific reason:** this rewrites DOM construction on
+five live customer sites, and the usual verification **cannot see the result** — a static curl
+reads the server HTML, which this very script replaces on load. Every check available to an
+automated apply would pass on a page that renders empty. My own LANDMINES entry says so, which
+is exactly the kind of moment an entry is for. Council `17a61f16-852d-47bd-947f-b0046e565abf`.
