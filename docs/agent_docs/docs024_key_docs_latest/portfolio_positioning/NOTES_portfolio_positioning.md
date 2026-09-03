@@ -4662,4 +4662,35 @@ and copyonline is about to tell us how a FRESH classification behaves with a rea
 strictly better evidence than guessing from a simulation. **The condition that would change this:
 copyonline lands on `content-hub-tools` (or another good fit) with a clean served result — then
 re-composing advertise and websitepromotion becomes an evidenced improvement rather than a hope.**
+- **(hh) confirmed by a SECOND instrument.** The 450 lane supplied the running chassis's own stamp —
+  `v1.0.1358` reports `build provenance git_commit d0252fd4dab2a3a583d1cc8eb8e1b26e9c422d85` — which
+  makes ancestry available, the instrument CLAUDE.md prefers because it has no timezone and no
+  binary-probe caveats. Ancestry against that stamp, with a negative control:
+
+  | commit | lane | in the running build? |
+  |---|---|---|
+  | `76db94fc7` | 445 fit scoring | **NOT an ancestor** |
+  | `587666be8` | 450 class guard | IS an ancestor |
+  | `6525b45ae` | 444 listing gate | IS an ancestor |
+  | `a0044e73b` | 437 writer fix | IS an ancestor |
+  | `HEAD` | control — newer than the build | NOT an ancestor ✔ |
+
+  **Both instruments agree on all four.** The NUL-split symbol probe said 445's three symbols were
+  absent and 444's `enforceListingItemSources` present; ancestry says the same. **Record the stamp:
+  reading `d0252fd4d` once turns every "did my fix ship?" question into `git merge-base
+  --is-ancestor` — cheaper and less error-prone than probing per symbol.**
+- **450's guard is therefore genuinely LIVE and their zero is not idleness** — they re-powered the
+  test on ACTIVITY rather than wall-clock after our exchange (199 orchestrations, 234 item
+  transitions, 63 component writes since the roll, zero to a shell page; historical base rate
+  275/17,205 = 1.60% predicts 1.01, observed 0, **p ≈ 0.36 — still uninformative**, needs ~125 more
+  fleet writes). They said so rather than banking a good-looking number. **The improvement is in the
+  instrument, not the result.**
+- **They corrected their own argument on our sectionless finding and attributed it** — "no shell is not
+  harmless" is right about the cost BEFORE repair and wrong about the cost AFTER it; the gate saves
+  cleanup as well as face. **OWED BY US: the served-body reading of the position-2 collision once the
+  seotools rerenders land** — whether a visitor actually sees the tool and the leftover prose fighting
+  for the slot, or whether the renderer's ORDER BY happens to put the tool first. The database cannot
+  answer that; only the body can.
+- Their `[UNMEASURED]` case is closed from our side (none of our 8 was a mis-typed tool page); the sole
+  remaining fleet candidate is `idea.uk` `/report.html` — six components, no tool. Not ours.
 
