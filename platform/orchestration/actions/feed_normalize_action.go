@@ -259,10 +259,29 @@ func normalizeScrapeResults(collectedData map[string]interface{}, field string, 
 			zap.String("page_title", pageTitle),
 		)
 
+		// STRIP BEFORE THE CUT (bugs_open/332, 2026-09-03). `content` is
+		// firecrawl's raw markdown_content, so cutting it at 500 bytes can sever
+		// a link mid-URL and leave "[text](https://…" — a half-pattern that the
+		// display strip could not match until this bug, and that nothing
+		// downstream can repair once written.
+		//
+		// INERT TODAY, deliberately shipped anyway: source_type='scrape' is 472
+		// rows in 30 days with EMPTY summaries [MEASURED 2026-09-03], because
+		// Strategy 1 above sets summary:"" and this Strategy-2 branch rarely
+		// fires. Inert-today is the cheapest moment to close a manufacturing
+		// site, and this is the only guard Strategy 2 has.
+		//
+		// The sibling cut at websearch/providers/firecrawl.go — the one that
+		// produced the 288 severed links this bug is about — is NOT touched here.
+		// It was routed to the news_feed_ingestion lane, which owns that file and
+		// fixed it themselves (6f0a246de): editing an ingest record is
+		// irreversible, unreachable by DISABLE_NEWS_MARKDOWN_STRIP, and feeds
+		// cmd/reasoningset's training corpus.
 		summary := content
-		if len(summary) > 500 {
-			summary = summary[:500] + "..."
+		if cleaned, _ := datahelpers.StripFeedDisplayMarkdown(summary, !datahelpers.HTMLMarkupRe.MatchString(summary)); cleaned != "" {
+			summary = cleaned
 		}
+		summary = datahelpers.TruncateString(summary, 500)
 
 		externalID := pageURL
 		if externalID == "" {
