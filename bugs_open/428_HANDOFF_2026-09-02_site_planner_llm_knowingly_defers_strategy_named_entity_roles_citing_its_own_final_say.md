@@ -564,3 +564,44 @@ can see each other.
 > the layer that would IMPLEMENT a capability (`platform/orchestration/actions/`, `registry.go`),
 > not the layer that would REQUEST it (`site_work_items.item_type`) — `grep -rn "INSERT INTO pages"
 > platform/orchestration/actions/` returns it in one command. `WRONG_CALLS.md` 2026-09-03 entry.
+
+### Downstream, same day: migration 730's rule 20, and the open question nobody owns
+
+The `designblog.co.uk` lane shipped a planner rule on this material while the above was being
+established, and then corrected it within minutes when the dormant-producer finding reached
+them. Recorded here because it is now the live steering on this class, and because the
+correction is the more instructive artefact.
+
+`730_planner_plans_the_launch_posts.sql` applied at **10:59:59Z** with rule 20 opening
+*"THERE IS NO LATER EDITORIAL PASS."* On the finding above that is false as stated — a real,
+wired, dormant mechanism is not the absence of one, and the flat assertion goes actively wrong
+the day `blog-content-planner` is revived. The live row was reworded at **11:03:58Z**, four
+minutes later. `[MEASURED 2026-09-03]`, read at the row the model actually consumes
+(`default_config #>> '{workflow,steps,plan_site,config,prompt_template}'`, the single active
+non-snapshot `build-site-planner`):
+
+> "20. NO LATER EDITORIAL PASS **RUNS** — do not defer posts to one. The one mechanism that
+> could create posts later (`blog-content-planner`, via `create_blog_posts`) has been DORMANT
+> since 2026-04-24 (10 LLM calls all-history, none since; measured 2026-09-03), so a deferral
+> such as 'posts are created editorially' or 'satisfied by the blog infrastructure' plans an
+> EMPTY articles hub that rule 3 will hold back, and in practice nothing fills it…"
+
+**RUNS rather than EXISTS, the mechanism named, the dormancy dated and marked.** The steering
+is unchanged and the false assertion is gone — and the corrected rule is *stronger* than the
+overstatement, because a named dormant mechanism is checkable and "there is no such thing" is
+not.
+
+⚠ **A grep trap this created, for anyone verifying 730 later:** the literal
+`THERE IS NO LATER EDITORIAL PASS` now appears in **zero** rows of `agent_definitions`. A
+reader greping 730's own text to confirm it landed gets a false negative and may conclude the
+migration failed or re-apply it. It did not fail; it was superseded four minutes later. Check
+by reading the rendered `prompt_template`, not by matching the migration's literal — and note
+that "recorded in `schema_migrations`" and "live in the row the model reads" are two facts,
+not one.
+
+**OPEN, UNOWNED, and now the load-bearing unknown in this area: why did `blog-content-planner`
+stop running on 2026-04-24?** Neither this lane nor `gamedesign.uk` has investigated it and
+neither is taking it. It matters because it decides which problem the 687 residual actually is:
+if the producer were driven, the planner's refusal would cost those sites nothing and the false
+justification would be a truth-telling defect; if it stays dormant, the refusal is an outage
+with a stale citation attached. `[NOT ESTABLISHED]` — do not assert either.
