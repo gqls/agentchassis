@@ -1,3 +1,7 @@
+> ## ⚠ SUPERSEDED — the bug is CLOSED. Read `HANDOFF_2026-09-03_closed.md` in this directory.
+>
+> Nothing in this file's open list remains. What is left is three DECISIONS, laid out there.
+
 > ## ⚠ SUPERSEDED 2026-09-02b — read `HANDOFF_2026-09-02b_continue_here.md` in this directory.
 >
 > Its open list is shorter than this one's: exactly ONE item remains (the CronJob firing on its

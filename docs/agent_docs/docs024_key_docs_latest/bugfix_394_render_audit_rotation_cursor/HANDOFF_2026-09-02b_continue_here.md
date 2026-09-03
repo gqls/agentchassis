@@ -1,3 +1,7 @@
+> ## ⚠ SUPERSEDED — the bug is CLOSED. Read `HANDOFF_2026-09-03_closed.md` in this directory.
+>
+> Nothing in this file's open list remains. What is left is three DECISIONS, laid out there.
+
 # HANDOFF — 2026-09-02b — `bugs_open/394`: ONE verification from closing
 
 **Supersedes `HANDOFF_2026-09-02_continue_here.md` and `HANDOFF_2026-08-26_continue_here.md`.**
