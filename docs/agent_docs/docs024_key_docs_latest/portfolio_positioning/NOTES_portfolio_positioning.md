@@ -4804,3 +4804,32 @@ re-composing advertise and websitepromotion becomes an evidenced improvement rat
   HTML without its ComponentID nulls the reference on re-insert. The 450 lane has made this their
   lane's first job ahead of their blocked migration; measurements sent.
 
+### (jj) 2026-09-03 14:32:42Z — ALL 8 TOOLS SERVING, and the position-2 "collision" turned out not to be one
+
+- **All 8 verified serving** by the sound test (the tool's own `id="c-tool-<function>-"`, which
+  nothing else emits): 11–19 occurrences per seotools page, 40 on websitepromotion's
+  channel-prioritiser. The last to land was `tool-serp-snippet-previewer`, whose rerender finally
+  drained. Deliverable complete: the owner's ruling of this morning is executed end to end.
+- **The owed reading for the 450 lane, as OBSERVED not reasoned.** Served byte offsets on all seven
+  seotools pages: `hero-tool` ≈ 51,0xx → `generic-text-block` ≈ 54,6xx → the tool ≈ 61–63,xxx.
+  **Order is hero → prose → tool, consistently, on all seven.**
+- **And the prose is not debris — it now correctly INTRODUCES the tool below it.** Read on
+  robots-txt-tester: *"The Robots.txt Tester reads that file the way a crawler does, then shows which
+  of your URLs are blocked, which are allowed, and where two rules contradict each other… Paste in a
+  URL or the robots.txt content itself, and the tester works through the disallow and allow
+  directives in the order a crawler applies them."* That is accurate copy about a tool that is
+  present.
+- **So the 13:05–13:24Z generic writes IMPROVED these pages, and the inversion is the finding.**
+  The original shell prose (written 2026-09-02, before any tool existed) promised a tool that was not
+  there — 444's exact symptom. The rewrite happened AFTER our repair put a real tool on the page, so
+  the builder had the tool in context and wrote prose that describes it truthfully. **The only
+  casualty of those writes was the `component_id` reference, which is now repaired.** My earlier
+  framing — "debris the repair cannot remove", "the tool and the prose fighting for the slot" — was
+  wrong on both counts: they do not share a rendered position, and the prose is not leftover.
+- **Corrected for the record, because I said the opposite twice:** to the 450 lane at ~12:4xZ ("each
+  repaired page will serve both the tool and the prose describing it, in an order nothing declares")
+  and to the owner. The order IS stable across seven pages, and "the prose describing it" is a
+  feature here rather than a fault. What nothing declares is the DB `position` (two rows shared
+  position 2 before the rewrite); the rendered order came out right, and I should not have inferred
+  the served order from the stored position in the first place.
+
