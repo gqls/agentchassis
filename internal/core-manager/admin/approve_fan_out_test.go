@@ -35,6 +35,15 @@
 //     parked in needs_human_review already point at a row that is gone. Filing
 //     one produces an item that dies at load_edit_context and tells the approver
 //     nothing — which is the bug, not a fix for it.
+//   - A target that still EXISTS but MOVED since the proposal was written must be
+//     refused too. Checking only deletion is the weaker half: `field_updates` is a
+//     full-field replacement frozen at proposal time, so applying a stale one
+//     reverts whatever changed since, and on a single-field component that is the
+//     whole component (LANDMINES 2026-08-17).
+//   - An EMPTY fan_out array must file nothing AND say so. This was the gating
+//     objection of council round 1: filing zero items while the review row reads
+//     `complete` is the exact silent-completion failure this change exists to fix,
+//     reproduced one level down.
 //   - Provenance fields are applied LAST, so an element carrying its own
 //     `approved_by` cannot overwrite who approved it.
 
@@ -47,7 +56,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
@@ -80,10 +91,19 @@ func newApproveMock(t *testing.T) (*SiteAdminHandlers, sqlmock.Sqlmock, *sql.DB)
 	return NewSiteAdminHandlers(db, zap.NewNop()), mock, db
 }
 
-// reviewRow is the SELECT the handler opens with.
+// reviewRow is the SELECT the handler opens with. created_at is the moment the
+// proposal was written — the reference point the staleness arm compares against.
+var fanReviewCreatedAt = time.Date(2026, 9, 3, 14, 24, 53, 0, time.UTC)
+
 func reviewRow(specJSON string) *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"site_id", "spec", "status"}).
-		AddRow(fanSiteID, []byte(specJSON), "needs_human_review")
+	return sqlmock.NewRows([]string{"site_id", "spec", "status", "created_at"}).
+		AddRow(fanSiteID, []byte(specJSON), "needs_human_review", fanReviewCreatedAt)
+}
+
+// targetRow is the address check: one bool, "did the target move after the
+// proposal was written". No row at all means the address is gone.
+func targetRow(movedSince bool) *sqlmock.Rows {
+	return sqlmock.NewRows([]string{"moved"}).AddRow(movedSince)
 }
 
 func doApprove(t *testing.T, h *SiteAdminHandlers, reviewData string) (int, map[string]interface{}) {
@@ -151,14 +171,12 @@ func TestApproveFansOutOnePerEdit(t *testing.T) {
 
 	specs := &capture{}
 	mock.ExpectQuery("SELECT site_id, spec, status").WillReturnRows(reviewRow(fanOutSpec))
-	// Both addresses live.
-	mock.ExpectQuery("SELECT EXISTS").
-		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	// Both addresses live and unmoved.
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
 	mock.ExpectQuery("INSERT INTO site_work_items").
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), specs, sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("11111111-1111-1111-1111-111111111111"))
-	mock.ExpectQuery("SELECT EXISTS").
-		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
 	mock.ExpectQuery("INSERT INTO site_work_items").
 		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), specs, sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("22222222-2222-2222-2222-222222222222"))
@@ -226,13 +244,11 @@ func TestApproveSkipsDeadComponentAddressAndSaysSo(t *testing.T) {
 	defer db.Close()
 
 	mock.ExpectQuery("SELECT site_id, spec, status").WillReturnRows(reviewRow(fanOutSpec))
-	mock.ExpectQuery("SELECT EXISTS").
-		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
 	mock.ExpectQuery("INSERT INTO site_work_items").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("11111111-1111-1111-1111-111111111111"))
-	// Second element's component row is gone.
-	mock.ExpectQuery("SELECT EXISTS").
-		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	// Second element's component row is GONE — no row comes back at all.
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnError(sql.ErrNoRows)
 	mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
 
 	code, body := doApprove(t, h, twoEditReviewData)
@@ -357,5 +373,84 @@ func TestApproveFanOutFromMissingKeyFallsBackAndReports(t *testing.T) {
 	}
 	if body["fan_out_note"] == nil {
 		t.Errorf("no fan_out_note; a misnamed fan_out_from must be visible, not silent")
+	}
+}
+
+// The address rots TWO ways and the council round was right that checking only
+// deletion is weaker than it reads. A target that still EXISTS but changed after
+// the proposal was written must be refused too: `field_updates` is a full-field
+// replacement frozen at proposal time, so applying it reverts everything since.
+// [MEASURED 2026-09-03] 0 of 31 parked edits are stale today — this arm costs
+// nothing now, which is exactly when to add it.
+func TestApproveRefusesAnEditWhoseTargetMovedAfterTheProposal(t *testing.T) {
+	h, mock, db := newApproveMock(t)
+	defer db.Close()
+
+	mock.ExpectQuery("SELECT site_id, spec, status").WillReturnRows(reviewRow(fanOutSpec))
+	// First target moved since the proposal was written.
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(true))
+	// Second is fine and must still be filed — one bad element does not sink the batch.
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
+	mock.ExpectQuery("INSERT INTO site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("66666666-6666-6666-6666-666666666666"))
+	mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
+
+	code, body := doApprove(t, h, twoEditReviewData)
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, body = %v", code, body)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+
+	ids, _ := body["follow_on_item_ids"].([]interface{})
+	if len(ids) != 1 {
+		t.Fatalf("follow_on_item_ids = %v, want 1 — the moved target must not be filed", body["follow_on_item_ids"])
+	}
+	skipped, _ := body["skipped_edits"].([]interface{})
+	if len(skipped) != 1 {
+		t.Fatalf("skipped_edits = %v, want 1", body["skipped_edits"])
+	}
+	s0, _ := skipped[0].(map[string]interface{})
+	reason, _ := s0["reason"].(string)
+	if !strings.Contains(reason, "changed after this proposal was written") {
+		t.Errorf("reason = %q; the approver must be told it went stale, not merely that it was skipped", reason)
+	}
+	if s0["page_component_id"] != fanPCLive {
+		t.Errorf("skipped entry names %v, want the moved address %s", s0["page_component_id"], fanPCLive)
+	}
+}
+
+// THE GATING OBJECTION of council round 1 (bug_historian, high): a fan-out that
+// silently proceeds on an EMPTY array files zero items while the review row still
+// reads `complete` — the very silent-completion failure this whole change exists
+// to fix, reproduced one level down. It must file nothing AND say so.
+func TestApproveFanOutFromEmptyArrayFilesNothingAndSaysSo(t *testing.T) {
+	h, mock, db := newApproveMock(t)
+	defer db.Close()
+
+	// No INSERT is expected at all: sqlmock fails the test if one is issued.
+	mock.ExpectQuery("SELECT site_id, spec, status").WillReturnRows(reviewRow(fanOutSpec))
+	mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
+
+	code, body := doApprove(t, h, `{"edits": [], "no_change_needed": true}`)
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, body = %v", code, body)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+
+	ids, _ := body["follow_on_item_ids"].([]interface{})
+	if len(ids) != 0 {
+		t.Fatalf("follow_on_item_ids = %v, want [] — an empty proposal must file nothing", body["follow_on_item_ids"])
+	}
+	// The key must be PRESENT and empty, not absent: an absent key reads as success.
+	if _, present := body["follow_on_item_ids"]; !present {
+		t.Errorf("follow_on_item_ids absent; 'nothing was filed' must be a visible [], not a missing key")
+	}
+	note, _ := body["fan_out_note"].(string)
+	if !strings.Contains(note, "EMPTY") {
+		t.Errorf("fan_out_note = %q, want it to name the empty array — filing zero items silently IS the bug", note)
 	}
 }

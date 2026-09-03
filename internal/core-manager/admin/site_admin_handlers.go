@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -1138,12 +1139,18 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 	var siteID uuid.UUID
 	var specJSON []byte
 	var currentStatus string
+	// created_at is the moment the proposal was WRITTEN, and it is the only
+	// reference point a staleness check can use: a parked `field_updates`
+	// payload is a full-field replacement frozen then, so anything that touched
+	// the target since is silently reverted by applying it (LANDMINES,
+	// copy_quality_two_stage 2026-08-17).
+	var reviewCreatedAt time.Time
 
 	err = h.db.QueryRowContext(ctx, `
-		SELECT site_id, spec, status
+		SELECT site_id, spec, status, created_at
 		FROM site_work_items
 		WHERE id = $1
-	`, itemID).Scan(&siteID, &specJSON, &currentStatus)
+	`, itemID).Scan(&siteID, &specJSON, &currentStatus, &reviewCreatedAt)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "work item not found"})
 		return
@@ -1235,6 +1242,48 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 	// Both new keys default ABSENT: an on_approve naming neither behaves
 	// exactly as it did before (owner ruling 2026-08-02 §2 — new authority on a
 	// shared seam ships opt-in, with the unsafe side OFF).
+	//
+	// FOUR THINGS THE COUNCIL ROUND ON THIS CHANGE ASKED TO BE MEASURED RATHER
+	// THAN ASSERTED (correlation d04c1bc1, REVISE round 1). All four are
+	// recorded here because each is the kind of claim that goes stale by
+	// ADDITION and reads as current for ever:
+	//
+	//  1. BLAST RADIUS. [MEASURED 2026-09-03] Across EVERY live, non-snapshot,
+	//     undeleted agent_definition, exactly ONE workflow step configures
+	//     on_approve: copy-editor's `request_review`. Not "one other consumer" —
+	//     zero others. (fork_theme_from_site_action.go writes an on_approve from
+	//     Go, but with no item_type, no include_fields and no checkpoint:true,
+	//     so HandleApproveWorkItem 400s it before this block.) Re-measure with:
+	//       SELECT d.type, s.key FROM agent_definitions d,
+	//              jsonb_each(d.default_config->'workflow'->'steps') s
+	//        WHERE d.is_active AND COALESCE(d.is_snapshot,false)=false
+	//          AND d.deleted_at IS NULL AND s.value->'config' ? 'on_approve';
+	//
+	//  2. RFC_022 REOPENS ON THE SECOND CONSUMER. The architecture seat's point,
+	//     recorded so the next author does not have to re-derive it: this ships
+	//     WITHOUT the RFC_022 exemption because migration 750 wires a live
+	//     consumer in the same commit, and it is defensible as a point fix for
+	//     ONE wired consumer. A SECOND checkpoint producer setting fan_out_from
+	//     is a different question and should come back as needs_rfc, not as
+	//     another same-commit wiring.
+	//
+	//  3. N CHILDREN CANNOT COLLIDE ON THE DEDUP INDEX. idx_swi_dedup is
+	//     UNIQUE(site_id, item_key) WHERE item_key IS NOT NULL AND status NOT IN
+	//     (the terminal set). This handler has never set item_key, so every child
+	//     is NULL and the partial index excludes it. Deliberately left that way:
+	//     minting a per-element key would convert a cannot-happen into a
+	//     can-fail-at-insert, and the endpoint already refuses a second press
+	//     (the review row is no longer needs_human_review). The two hand-built
+	//     precedents DID carry per-element keys (`section_edit:be23d897:hero`,
+	//     `…:call-to-action`) — that is uniqueness WITHIN one approval, which
+	//     NULL gives for free.
+	//
+	//  4. NO EXISTING PRIMITIVE WAS PASSED OVER. There is no generic
+	//     one-item-fans-into-N helper on the admin side; `create_work_item` is a
+	//     workflow ACTION, reachable by an agent step and not by an HTTP handler.
+	//     `createFollowOn` below is the SINGLE creation path — the fan-out calls
+	//     the same closure the single-item branch calls, N times, rather than
+	//     forking a second inserter.
 	var followOnID *string
 	followOnIDs := []string{}
 	skippedEdits := []map[string]interface{}{}
@@ -1361,28 +1410,52 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 					continue
 				}
 
-				// A parked proposal's address goes stale by DELETION as well as
-				// by drift: a rerender REPLACES the component row with a new id
-				// (LANDMINES, copy_quality_two_stage 2026-08-18). [MEASURED
-				// 2026-09-03] 3 of 31 edits parked in needs_human_review already
-				// point at a row that is gone. Filing a section_edit at a dead
-				// address yields an item that dies at load_edit_context and tells
-				// the approver nothing — the very shape 466 is about. Refuse it
-				// here and report it back instead.
+				// A parked proposal's address rots TWO ways, and the council
+				// round on this change was right that checking only the first is
+				// a weaker guard than it reads as:
+				//
+				//   DELETED — a rerender REPLACES the component row with a new
+				//   id, so the proposal's address stops existing (LANDMINES,
+				//   copy_quality_two_stage 2026-08-18). [MEASURED 2026-09-03]
+				//   3 of the 31 edits parked in needs_human_review already point
+				//   at a row that is gone.
+				//
+				//   MOVED — the row survives but its content changed after the
+				//   proposal was written. `field_updates` is a FULL-FIELD
+				//   replacement frozen at proposal time, so applying it reverts
+				//   every change to that field since, and on a single-field
+				//   component that is the whole component (LANDMINES 2026-08-17).
+				//   [MEASURED 2026-09-03] 0 of 31 today — so this arm costs
+				//   nothing now and closes the class before it costs something.
+				//
+				// Either way: refuse and REPORT. Filing an edit the approver
+				// cannot see is the shape 466 is about, and the fan-out must not
+				// manufacture more of it while fixing it.
+				//
+				// ⚠ Known and accepted: the check and the INSERT are not one
+				// transaction, so a rerender landing between them is not caught.
+				// That window is milliseconds and its outcome is today's
+				// behaviour (the item dies at load_edit_context), not a new
+				// failure — so it is stated rather than engineered around.
 				if pcID, _ := el["page_component_id"].(string); pcID != "" {
-					var exists bool
+					var movedSince bool
 					qErr := h.db.QueryRowContext(ctx, `
-						SELECT EXISTS (
-							SELECT 1 FROM page_components pc
-							JOIN pages p ON p.id = pc.page_id
-							WHERE pc.id = $1::uuid AND p.site_id = $2
-						)
-					`, pcID, siteID).Scan(&exists)
-					if qErr != nil || !exists {
-						reason := "page_component_id no longer exists on this site — a rerender replaces the row with a new id"
-						if qErr != nil {
-							reason = "could not verify page_component_id: " + qErr.Error()
-						}
+						SELECT pc.updated_at > $3
+						FROM page_components pc
+						JOIN pages p ON p.id = pc.page_id
+						WHERE pc.id = $1::uuid AND p.site_id = $2
+					`, pcID, siteID, reviewCreatedAt).Scan(&movedSince)
+
+					reason := ""
+					switch {
+					case qErr == sql.ErrNoRows:
+						reason = "page_component_id no longer exists on this site — a rerender replaces the row with a new id, so this proposal's address is gone. Re-run the proposer"
+					case qErr != nil:
+						reason = "could not verify page_component_id: " + qErr.Error()
+					case movedSince:
+						reason = "the target section changed after this proposal was written — field_updates is a full-field replacement frozen at proposal time, so applying it now would revert whatever changed since. Re-run the proposer"
+					}
+					if reason != "" {
 						skippedEdits = append(skippedEdits, map[string]interface{}{
 							"index":             i,
 							"page_component_id": pcID,
