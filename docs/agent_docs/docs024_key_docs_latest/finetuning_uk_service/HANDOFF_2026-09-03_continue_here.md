@@ -69,7 +69,28 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
 7. **Bug number 456 is duplicated.** This lane's is
    `456_…_writer_emitted_a_malformed_closing_tag…`; cite by slug.
 
-## 443 (repeated sections) — Stage A CLOSED, Stage B waits on 641
+## 443 (repeated sections) — Stage A CLOSED; **Stage B RAN 19:29Z: half a win, and the mechanism is now known**
+
+- **641/A4 live 19:26:46Z.** Stage B dispatched on both pages (`d630f6df` technical-details, `11e1e8ed`
+  your-own-model), acceptance in `stage_b_assert.sh`.
+- **technical-details served 19:35Z (orch `89059f29`):** six h2s DISTINCT, no `</strom>`, no family
+  listing, em dashes unchanged (4, all chrome), controls byte-identical. **BUT sections 2/3/4 all open on
+  "small open-weight model… we choose the model" under three different h2s** — the repetition moved
+  from the headings into the bodies. Read at `llm_call_log`: the A4 block rendered CORRECTLY in all six
+  prompts (own subject + five siblings, right assignment); what overrides it is (1) the block has no
+  instruction (a sentence and a list, no verb; "## What To Write" never names the subject) and (2)
+  "## Rewrite Guidance (IMPORTANT: incorporate this into the content)" hands the WHOLE six-section brief
+  to every section. Sent to the prompts lane (their edit; owner re-reads bytes) and the 443 lane.
+- **your-own-model REFUSED at save** (attempt 1, 19:40Z): the writer followed its A4 hero subject and
+  wrote a 212-char hero; the existing is 429 (padded by the 08-26 tool cross-link); `save_page_sections`
+  refused the page at 49% kept vs the 50% shrink floor (bugs 178/293) and filed `save_refused_incomplete`
+  `3034678c`. **The floor is STEP CONFIG on page-build-handler (`section_shrink_floor`), not per item** —
+  do not tune it fleet-wide for one page. Retry 2 of 3 at 20:10:48Z; if all three fail, the choice is the
+  owner's (options: accept the old hero by editing the brief to keep its length; or a one-off floor
+  override migration with snapshot; or leave the page as is). A4 short opening lines + short heroes vs
+  the 178 floor is a class, flagged to the prompts lane.
+
+### (superseded heading) 443 — Stage A CLOSED, Stage B waits on 641
 
 - **Stage A PROVEN** on `technical-details` (corr `6e8eadaa`, writer `ce514ce0`): all six
   `sections_ready[].subject` populated from `pages_table` (tier 3), carried to the writer's row;
@@ -119,10 +140,21 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
 
 ## Next session, in order
 
-0. ~~If the owner has done 2b + 2c~~ **BOTH DONE 19:08Z, probes green.** Start step 3 on whichever
-   path the owner chose (README 2026-09-03 evening; default (a) if he has not said). First probe
+0. ~~If the owner has done 2b + 2c~~ **BOTH DONE 19:08Z, probes green. Owner chose PATH (a)** (generated
+   through tool-generator; hand-written is the fallback). Start step 3: an `add_tool` item, function
+   `tool-playground`, `library_source: null`, the route contract in the description (multi-turn
+   `{messages}`, ≤12×1000, SSE `token`/`done{truncated}`/`error`, 403 on wrong Origin), landing on the
+   EXISTING `/playground.html` — check first whether the live tool-generator's create step carries
+   `adopt_existing_page` (TL-044; step config, default OFF) or the build mints `/tools/…`. First probe
    the route is still up (`curl … -H 'Origin: https://finetuning.uk'` → 200 text/event-stream) — the
    demo box's ufw rule and the island's compose are the two things that can silently take it down.
+0b. **your-own-model Stage B**: read item `11e1e8ed` (attempts, error) and `save_refused_incomplete`
+   `3034678c`; if it failed 3×, take the choice to the owner (443 section above). Then re-run
+   `stage_b_assert.sh <before-dir>` (before-snapshots are in the 2026-09-03 session's scratchpad ONLY —
+   re-take them from `pages.content_hash` + served bytes if needed).
+0c. **Owner's evening answers** (PLAN "Direction, DECIDED"): catalogue shape drafted
+   (`DESIGN_2026-09-03_examples_catalogue_shape.md`) — wants his line-by-line reaction; leopardess told
+   (`docs/leopardessconsulting/CONTRIB_2026-09-03_…`); pricing by GPU class as a CHOICE, number open.
 1. **641 is OPTION A4 (19:15Z, prompts lane)** — the subject prints verbatim as the section's OPENING
    LINE in page voice. **DONE 19:20:58Z: the three `section_subjects` arrays are RE-AUTHORED and
    APPLIED** against the spec (`CONTRIB_2026-09-03b_…_subject_phrasing_spec.md`) by

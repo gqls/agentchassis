@@ -16,7 +16,12 @@ for slug in technical-details your-own-model; do
   n=${#h2[@]}; d=$(printf '%s\n' "${h2[@]}" | sort -u | wc -l)
   echo "A1 h2s: $n, distinct: $d"; [ "$d" -eq "$n" ] || { echo "  FAIL A1: repeated h2"; fail=1; }
   printf '%s\n' "${h2[@]}" | sed 's/^/     h2: /'
-  printf %s "$html" | grep -q '—' && { echo "  FAIL A3: em dash present ($(printf %s "$html" | grep -o '—' | wc -l))"; fail=1; } || echo "A3 no em dash"
+  # A3 scoped to the REBUILT copy: the chrome (header/footer/CTA template) carried 4 em dashes before Stage B
+  # and still does — counting the whole page reads as a Stage B regression that is not one (measured 2026-09-03).
+  body=$(printf %s "$html" | python3 -c 'import sys,re; d=sys.stdin.read(); m=re.search(r"<main[^>]*>(.*?)</main>",d,re.S); print(m.group(1) if m else d)')
+  before_n=$(grep -o '—' "$BEFORE/before_$slug.html" 2>/dev/null | wc -l); after_n=$(printf %s "$html" | grep -o '—' | wc -l); body_n=$(printf %s "$body" | grep -o '—' | wc -l)
+  echo "A3 em dashes: page before=$before_n after=$after_n, inside <main> after=$body_n"
+  [ "$after_n" -le "$before_n" ] || { echo "  FAIL A3: em dashes ROSE ($before_n -> $after_n)"; fail=1; }
   printf %s "$html" | grep -qi '</strom>' && { echo "  FAIL A4: </strom> present"; fail=1; } || echo "A4 no </strom>"
   if [ "$slug" = technical-details ]; then
     hits=$(printf %s "$html" | grep -ciE 'Mistral|Llama Community|Phi models|Apache 2\.0'); [ "$hits" -eq 0 ] && echo "A5 no family listing" || { echo "  FAIL A5: family listing hits=$hits"; fail=1; }

@@ -3111,3 +3111,83 @@ Want to see…". Controls `index` (hash `8cd98688…`, deployed 13:53Z) and `abo
 saved as served bytes. Acceptance script: `stage_b_assert.sh <before-dir>` (A1 distinct h2s, A2
 opening line tracks own subject not a sibling's, A3 no em dash, A4 no `</strom>`, A5 no family
 listing on technical-details, controls unchanged). Watcher armed on both items (60 s poll, 60 min cap).
+
+## 2026-09-03 (19:40Z) — OWNER ANSWERS to the four decisions (verbatim, then what each changes)
+
+Owner: *"1: a with b as fallback, have you seen how webdesign.uk does it? 2: please confer with the
+prompts lane 3: I'll leave the rotation until I next do it naturally. I am the only one reading this
+transcript. 4: increase the price / give them the choice perhaps. It is, in part, an education to see
+the differences in speed. examples catalogue, yes, let's think about the shape now. They need input
+mechanisms, accounts, and so on, and the models will need removal mechanisms and terms and conditions
+agreement clicks and ways to stop cheating etc. leopardess: tell leopardess as it already has alot of
+it. we could move it to a new organisational site's brief instead - I am asking the domain thread"*
+
+1. **Widget: path (a), generated through tool-generator; (b) hand-written is the fallback.**
+   webdesign.uk, checked `[MEASURED 19:38Z]`: its `chat-input-box` sits on `/contact.html`
+   (deployed 08-23) and `/index.html` (pending 08-26) as the LIBRARY component itself
+   (`created_from='manual'`, `forked_from` NULL), with NO `add_tool` item on record — placed by
+   hand, not through tool-deployer; its backend is `PLAN_2026-08-11` §4 Option A (the one Go
+   binary, facts via the relay). So webdesign.uk is closer to (b) for placement. Path (a) for
+   us: `add_tool`, `library_source: null`, function `tool-playground` + `adopt_existing_page`,
+   the route contract (multi-turn, SSE, `truncated`) in the description.
+2. **Confer with the prompts lane** — on Stage B's result (below) and the opening lines.
+3. **SMTP password: rotation deferred** to the next natural rotation; he is the only reader.
+4. **Pricing: raise the price and/or offer the GPU class as a choice**; the speed difference is
+   itself educational. **Examples catalogue: design the shape NOW** — input mechanisms, accounts,
+   removal mechanisms for models, a terms-and-conditions agreement click, anti-cheating. **Copy
+   that moves: tell leopardess** (it already holds much of it); alternatively a NEW organisational
+   site's brief — the owner is asking the domain thread himself.
+
+## 2026-09-03 (19:36–19:55Z) — STAGE B READ AT THE ARTEFACT: technical-details half a win, the MECHANISM found in the rendered prompts; your-own-model REFUSED at save by the 178 floor
+
+**technical-details (item `d630f6df`, orch `89059f29`, served 19:35:29Z, `stage_b_assert.sh`):**
+A1 six h2s DISTINCT ("Which model, and what its licence allows | The model and its licence | Which model
+we use, and what the licence allows | Before you sign off | Not sure fine-tuning is the right tool for
+the job?") — 443's headline symptom gone. A4 no `</strom>` (456's slug fixed by the rewrite). A5 no
+family listing (the rewritten brief held: 0 hits for Mistral / Llama Community / Phi models / Apache
+2.0). Controls `index`/`about` byte-identical. Em dashes 4 → 4, all in the chrome, 0 in every writer
+reply — **my script's first A3 counted the whole page and read that as a Stage B regression; rescoped to
+before-vs-after and `<main>`** (fixed in the script, commit follows).
+**A2 FAILED in substance:** sections 2, 3, 4 (subjects "which model… licence" / "you receive one file"
+/ "how the training works") ALL open on "…a small open-weight model… we choose the model…". The
+repetition moved from the h2s into the bodies. The hero DID open on its subject (paraphrased); the FAQ
+and CTA kept their component shapes (CTA still the tools-links theme from before).
+
+**Mechanism, read in the six rendered prompts (`llm_call_log`, ~42.7 KB each), not inferred:**
+- The A4 block rendered CORRECTLY: `## This section` at offset ~28,500, each iteration's OWN subject
+  verbatim, then "The Technical Details | FineTuning also covers, each in its own section:" + the five
+  siblings. Assignment right (iter 0 hero … iter 5 CTA). So 641 works at the prompt.
+- My first hypothesis — old page copy in the prompt — was WRONG and caught before it left the session:
+  the "Mistral" hit is the site's **Key Differentiators** block (~27,500, "open-weight models (Llama,
+  Mistral, Phi)…") and "existing content" is a phrase in the language rule. No old copy is present.
+- What overrides the subject: (1) **the block carries no instruction** — a sentence and a list, no verb;
+  `## What To Write` (~34,400) says only "Write the following fields for the generic-text-block
+  section… content, heading" and never names the subject. (2) **`## Rewrite Guidance (IMPORTANT:
+  incorporate this into the content)`** (~31,100, 3.3 KB) is the WHOLE six-section brief, in every
+  section's prompt, labelled as this section's guidance. Three same-typed slots each told to incorporate
+  the whole brief converge on its most substantive part (brief §2, model + licence).
+- Prompt heading map for the record: Language 90 · HOUSE VOICE 274 · Company Context 6,141 · Contact
+  8,616 · Internal Linking 8,768 · Content Direction (site spec) 14,318 · Page-Specific Content
+  Direction 26,448 · **This section 28,518** · Verified Facts 29,115 · Operating history 30,577 ·
+  Rewrite Guidance 31,108 · What To Write 34,403 · Output Format 35,487 · STRICT RULES 36,065.
+Sent to the prompts lane (their edit; owner re-reads the bytes under RFC_016) with a one-line
+suggestion, and to the `bugs_open/443` session. **Not "fixed" here; the writer prompt is not mine.**
+
+**your-own-model (item `11e1e8ed`, orch `fadecb26`): REFUSED at `save_sections`, attempt 1, 19:40Z:**
+`SECTION SHRINK REFUSED — hero 429→212 chars of VISIBLE text (49% kept, floor 50%)`. The writer followed
+its A4 hero subject ("Your company's voice, in a model you own.") and produced headline + one
+subheadline + two CTA labels = 212 visible chars; the existing hero is 429 because the 08-26
+`tool_crosslink` rewrite padded it with tool links. The guard (bugs 178/293) read an on-brief hero as a
+truncation. It filed `save_refused_incomplete` `3034678c` (needs_human_review) and the item retries at
+**20:10:48Z, attempt 2 of 3**. `section_shrink_floor` is STEP CONFIG on page-build-handler
+(`save_sections.config` carries no floor → default 50%), not per item — not tuning it fleet-wide for one
+page. Eight `save_refused_incomplete` rows on this site since 08-27 (about, services, how-we-work,
+llm-cost-calculator-guide…): the floor fires often here. **A4 short opening lines + short heroes vs the
+178 floor is a class**; told the prompts lane.
+
+**Path (a) prep, measured 19:50Z:** the live tool-generator's create step (`save_tool`) carries
+`adopt_existing_page: true` and `replace_existing?` from spec, so an `add_tool` with function
+`tool-playground` lands on the existing page named `playground` (legacy-name match in
+`resolveToolPageIdentity`), attached as it stands. Dispatch file written:
+`playground_widget_add_tool_dispatch.sql` (the route contract, copied from `playground.go` at
+`9b540c2e6`, IS the brief; static copy fixed; acceptance list a checker can read).

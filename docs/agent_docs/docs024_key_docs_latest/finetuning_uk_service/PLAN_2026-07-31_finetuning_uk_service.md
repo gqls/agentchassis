@@ -399,3 +399,29 @@ our own."*
   is a later flow (what a submitter provides, how the artefact is checked before hosting, licence
   and liability, who sets the price). Nothing designed yet; recorded so the catalogue is not
   built ours-only.
+
+### Direction, DECIDED (owner, 2026-09-03, evening) — the four answers
+
+Owner, verbatim: *"1: a with b as fallback, have you seen how webdesign.uk does it? 2: please confer with
+the prompts lane 3: I'll leave the rotation until I next do it naturally. I am the only one reading this
+transcript. 4: increase the price / give them the choice perhaps. It is, in part, an education to see the
+differences in speed. examples catalogue, yes, let's think about the shape now. They need input
+mechanisms, accounts, and so on, and the models will need removal mechanisms and terms and conditions
+agreement clicks and ways to stop cheating etc. leopardess: tell leopardess as it already has alot of it.
+we could move it to a new organisational site's brief instead - I am asking the domain thread"*
+
+- **Phase P step 3, the widget: path (a) DECIDED** — generated through tool-generator from a brief that
+  carries the route contract; hand-written (b, the gripper/gauntlet/webdesign.uk shape) only as the
+  fallback if the generator cannot produce a working streaming client. webdesign.uk's own box is the
+  library component placed by hand (`created_from='manual'`, no `add_tool` item) with an Option-A
+  backend, so it is a precedent for (b), not (a).
+- **Pricing: raise the price and/or offer the GPU class as a CHOICE.** The speed difference between
+  classes is part of the education. So the booking shape gains a class selector (small GPU ~£1.40/hr at
+  ×5, big GPU ~£4/hr at ×5), and the number is still `[NOT DECIDED]`.
+- **Examples catalogue: design the shape NOW** (DESIGN doc in this dir). Named requirements: input
+  mechanisms for submitters, accounts, a removal mechanism for a hosted model, a terms-and-conditions
+  agreement click, ways to stop cheating.
+- **Copy that leaves finetuning.uk:** leopardess told (`docs/leopardessconsulting/CONTRIB_2026-09-03_…`);
+  the alternative, a NEW organisational site's brief, is with the domain thread (the owner's own ask).
+  Nothing moves from this lane until one of those lands.
+- SMTP password rotation: deferred by the owner to the next natural rotation.
