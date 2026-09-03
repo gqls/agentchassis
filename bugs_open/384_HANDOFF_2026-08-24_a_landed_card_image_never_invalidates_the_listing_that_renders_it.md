@@ -1021,3 +1021,60 @@ has been asserting that we do.
 writes the image, and why is it not the re-resolve that was filed to do it".** The intake fired at
 09:41:56 is still `awaiting_diagnosis` (queue latency; **do not re-fire** — the trigger's own
 guidance and `bugs_open/124`).
+
+## UPDATE 2026-09-03 11:0xZ — **THE DEFECT, MEASURED: the re-resolve repairs a blank listing only ~37% of the time**
+
+This supersedes both of today's earlier framings — it is neither "the seam never repairs" (my 10:0x
+alarm) nor "the seam works" (this lane's standing claim). `[MEASURED 2026-09-03 11:0xZ]`
+
+**Method** (stated first, because two earlier attempts at this were invalid — see the trap below):
+every `page_component_history` row from the archive TRIGGER carrying an `articles` array in the last
+7 days, partitioned by `(page_id, slot_name)`, with `LEAD` giving the value each write PRODUCED
+(falling back to the live row for the newest write). A write "repaired" if its pre-image had blanks
+and the value it produced had none. Attribution by pairing each trigger row with the
+`save_page_sections_overwrite` audit row the action writes ~42 ms earlier.
+
+**24 writes landed on a blank listing array in 7 days. 9 repaired it. 15 left it blank.**
+
+| writer | writes over a blank array | repaired | left blank |
+|---|---|---|---|
+| `save_page_sections` (the seam's own path) | 21 | **8** | **13** |
+| `action:rebuild_blog_listing` | 3 | 1 | 2 |
+
+**So the re-resolve is UNRELIABLE, not absent — ~37% success over a blank array.** That is the
+defect, and it explains every observation this lane has collected: pages do eventually repair (a
+later write succeeds), the fleet shows no standing damage (618/618 past 24h), and yet two cases
+examined closely showed completed re-renders that changed nothing.
+
+**The failures cluster, and repeated attempts on one page keep failing:**
+- `boxingonline.com/index` — 4 consecutive writes left blank (08-31 14:12, 14:21, 14:27, 16:57),
+  then **repaired** 09-01 01:34.
+- `advertise.co.uk/index` — 3 writes left blank (09-02 16:17, 16:31, 16:53).
+- `designblog.co.uk/index` — **5 writes left blank** (09-02 20:51, 21:07, 21:11; 09-03 05:06,
+  05:25) and still blank at 11:0x.
+- The 8 `save_page_sections` repairs are homegarden.uk ×6 and idea.uk ×1 on **2026-08-27**, plus
+  boxingonline ×1 on 09-01.
+
+**⚠ A TEMPORAL PATTERN worth a look, stated as a LEAD and NOT a finding:** the successes are mostly
+2026-08-27 and the failures mostly 08-31 → 09-03. That is consistent with a regression in that
+window, and equally consistent with which sites happened to receive card landings. **Do not treat
+it as a regression without controlling for site and for card-landing volume** — this lane has
+already published one conclusion built on exactly that kind of uncontrolled split.
+
+**TRAP, paid for twice in twenty minutes — read before re-measuring this.** Two prior attempts at
+this table were invalid and I nearly published the first:
+1. *"Pre-image had blanks"* is NOT a repairing write — it includes blank→blank rewrites, which are
+   the majority here (15 of 24). You must compute the value the write PRODUCED.
+2. **`page_component_history.component_id` IS NULL on these rows**, so `PARTITION BY (page_id,
+   component_id)` silently collapses every slot on the page into ONE series and `LEAD` returns a
+   DIFFERENT component's `content_data`. That produced a clean-looking table showing
+   `save_page_sections` with 0 repairs, which is false. **Partition by `(page_id, slot_name)`, and
+   only trigger rows carry `slot_name`.**
+3. One write is recorded TWICE — an explicit `save_page_sections_overwrite` audit row (no
+   slot_name, no html) and an `artefact_archive_trigger` row (slot_name + html) ~42 ms later.
+   Counting both double-counts; the pairing is also what makes attribution possible.
+
+**This is the sharpest statement of the defect the lane has produced, and it is the right input to
+the `090` now running** (`198a7b12-f465-4cc0-a414-cec69e5f3392`): not "why did this page fail" but
+**"why does the same re-resolve succeed on some runs and fail on others, on the same page, hours
+apart"**.
