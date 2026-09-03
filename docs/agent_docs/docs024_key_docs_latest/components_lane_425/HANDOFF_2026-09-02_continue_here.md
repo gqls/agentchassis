@@ -63,6 +63,41 @@ correct everywhere while the pages still serve the old image.
 > `--since 2026-09-02` re-derives it. **A census does not go wrong; it goes stale, and yours can
 > be stale because of you.**
 
+## 0k. 688 RAN — and it is INCONCLUSIVE, by a flaw I flagged when choosing the page
+
+`[MEASURED 2026-09-03 10:45:53Z]` batch `688` (`template_changed`, `guides-index`) **completed and
+wrote**: `excerpt` key **present**, title **suffix-free**, 4 items, new instance id (the path
+DELETE/re-INSERTs).
+
+**It does not discriminate.** The baseline was already NEW-shape, so *"re-resolved through the
+fixed projection"* and *"never touched `articles`, stored survived"* produce the **same** result.
+I noted that risk when selecting the page and accepted it because it was the only new-shape
+baseline available; it has now cost the experiment. **`690` — old-shape baseline, key absent — is
+the one that discriminates, and it is still queued.**
+
+### ⚠ AND IT CORRECTS AN INSTRUMENT I GAVE ANOTHER LANE
+
+I told the delivery lane: *"`page_component_history` row present = content changed; absent = it did
+not."* **The first half is wrong.** `save_page_sections_action.go:875-889` snapshots
+**unconditionally** before every overwrite:
+
+```sql
+INSERT INTO page_component_history (...) SELECT ... 'save_page_sections_overwrite', $2
+  FROM page_components pc JOIN pages p ON pc.page_id = p.id
+ WHERE pc.page_id = $1 AND pc.rendered_html IS NOT NULL AND LENGTH(pc.rendered_html) > 0
+```
+
+No `IS DISTINCT FROM`. **A history row proves a SAVE RAN, not that content CHANGED.** The trigger-written
+rows (`artefact_archive_trigger`) *are* change-gated; the code-written ones are not, and they are
+the ones carrying `source_item_id`.
+
+**And the same read explains my earlier zero.** That INSERT writes `pc.id` — the
+**`page_components` row id** — into the column named `component_id`. So
+`page_component_history.component_id` does **not** hold a `content_components` id, and filtering
+it by one returns nothing. My "join on `page_id`, not `component_id`" advice was right; the reason
+is sharper than "the column is mostly NULL" — **the column holds a different entity than its name
+suggests.**
+
 ## 0j. ⭐ START HERE — the consolidated elimination list and the one pair to work from
 
 **The open question, stated exactly:** two `page_rerender` items with `reason='section_data_resolved'`
