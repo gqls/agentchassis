@@ -103,3 +103,67 @@ Not one tool on that site is verified for both correctness and health at once. T
 sentence I would not want the owner to learn from a customer.
 
 ---
+
+## 2026-09-03, early afternoon — what shipped, and what I deliberately did not fix
+
+Three things are done, and one important thing is deliberately still undone.
+
+**What is done.**
+
+The first is the one I care most about. When a calculator passes its automated check, the record
+now says *what kind of pass it was*. If the fence never compared a number, the verdict says so, in
+the note a person reads and in the field a program reads. Nothing changes about which tools pass —
+a tool that passes today still passes. What changes is that "PASSED" can no longer be quoted as "the
+arithmetic is right" when nobody checked the arithmetic.
+
+That is worth more than it might sound, because it fixes **every existing calculator at once**.
+There are 186 of these test plans; 116 check no number. Repairing them one at a time is weeks of
+work per site. Making the verdict honest took one change and covers all of them today, and it can't
+rot: the label is worked out from the test plan each time the check runs, so a plan that gets weaker
+automatically gets a weaker verdict, with nobody having to remember anything.
+
+The second: the single door that every automatically-written test plan goes through now leaves a
+note when a plan fills in a calculator's boxes and then checks nothing about what comes out. It
+**records** rather than **refuses** — refusing would leave the tool with no test plan at all, and a
+tool with no plan is checked by nothing, which is worse than being checked badly.
+
+The third: a standing report, so nobody has to run my query by hand again. It deliberately leads
+with *how many blind plans were written in the last week*, not the total — because the old ones
+don't repair themselves, so a total would read as "no improvement" for a month after a fix that
+worked, and would get quietly abandoned.
+
+**What I deliberately did not fix, and this is the real decision of the day.**
+
+I did not teach the system to write better test plans. That is the obvious move and it is the one
+thing I have held back, for two reasons.
+
+The check that compares numbers works by recording what a calculator printed when it was known to
+be working, and defending that. At birth, nothing is known to be working — so recording today's
+answer just carves today's mistake into stone and then guards it. We have done that twice, once for
+sixteen months on a stamp-duty calculator using an expired threshold.
+
+And separately: another open bug means test plans are currently pointing at page elements that have
+moved. A number check that can't find its element **fails**, by design. So switching number checks
+on today wouldn't make wrong calculators fail — it would make *right* ones fail, loudly, and send an
+automated fixer to rewrite arithmetic that was never wrong.
+
+So the order is: make the record honest first (done), fix the moved elements (another lane, in
+flight), then teach the generator — with a firm rule that if it cannot work out the right answer
+from something other than the calculator's own code, it must write **no** number check rather than
+a guessed one.
+
+**Two mistakes of mine, both written down.** One was a shell slip that silently re-pointed my
+searches at the wrong folder — dangerous because the quiet version of it returns "nothing found"
+rather than an error, and I had been using exactly that kind of search to prove a *negative*. The
+other is more interesting: I built a self-check into the new report, to stop it reporting "all
+clear" when it had actually gone blind — and then wired that self-check to a team's name, which
+changed a few hours earlier. It survived by luck. It is now wired to the thing it is actually
+testing instead.
+
+**One thing found for someone else.** While checking my own work against the shared codebase I
+found a test that another lane's change had left failing this morning. I have not fixed it — it sits
+inside their work — but I have told them, including the part they couldn't see: the verification
+step they wrote down for themselves doesn't select that test, so their own check passes while the
+shared build is red.
+
+---

@@ -300,3 +300,81 @@ in `CONTRIB_2026-09-03_from_the_449_lane_…`, not yet answered. If it lands aft
 gated rather than merely sequenced.
 
 ---
+## 2026-09-03 (afternoon) — P1+P2+P3 shipped; two missteps, one of them my own control
+
+### What landed
+
+| | commit | live? |
+|---|---|---|
+| P1 verdict states its own scope | `0b9a5c9e1` | **inert until the roll** (Go) |
+| P2 door records a fence born blind | `0b9a5c9e1` | **inert until the roll** (Go) |
+| P3 standing report, windowed | `23c8a7d71` | live now (script) |
+| register TP-009 + index row | `e27aa00bb` | n/a |
+| LANDMINE + verifier armed | `d58658d31` | synced to `doc_notes` |
+| bug file §8 | `e9ef673a5` | n/a |
+
+Council: `Council-Submitted: 8745ad9e-1802-4e08-a9b0-eb493cd11243`, dispatched 11:5x, seen at
+`review_prior_art` then `review_tooling_provenance`. **Verdict not read at time of writing** — the
+trailer asserts nothing, so 098 credits the commit automatically once approved. Still owed: READ it
+and act on a REVISE.
+
+⚠ **The owner told us mid-session that a fresh chassis was building within the hour**, which is why
+P1/P2 were written and committed before the docs were finished rather than after. On this tree
+`make build-*` builds from committed HEAD, so the difference between committing at 12:47 and
+committing at 14:00 is the difference between shipping today and waiting for the next roll.
+
+### The verification, and why "the tests pass" was not enough
+
+All three mutations were RUN:
+
+| mutation | expected red | result |
+|---|---|---|
+| delete the judge's `Scope of this verdict:` line | liveness-only + pattern tests | **RED** |
+| delete the door's 449 block | door records test | **RED** |
+| credit `computed_values` by TYPE, not by having expectations | empty-`expect_values` subtest | **RED** |
+
+Then restored and proved restored with `diff -q` against pre-mutation copies — not by eye.
+
+⚠ **The package is ALREADY RED from other lanes' dirty files, and non-deterministically so.** Two
+full-package runs with my change absent failed on *different* tests
+(`TestValidateTemplateDataStillReportsAGenuineAbsence`, then `TestOneAttractorTagIsAWeakFit`).
+**That is the confound, and running the dirty tree again would never have resolved it.**
+`scripts/verify-head-builds.sh --with <4 files> --test` against HEAD `48bd6c5b6` returns **`ok`**
+for `platform/orchestration/actions` — which is the whole point of that script and I should have
+reached for it first instead of arguing from which files were dirty.
+
+It also surfaced a genuine red at HEAD that is nobody's fault but wants an owner:
+`discovery_checks/TestStylesheetGutted_TokenSetMatchesCanonicalCSSTokens`, from the 458 lane's
+`0325ddebb` (12:10 today) — four paired-ink tokens added to `canonicalCSSTokens` and not to
+`rendererGuaranteedTokens`. Reported into `bugs_open/458` §11 with the two things they cannot see
+from where they stand: their own §9 verification runs `-run TokenAudit`, which does not select that
+test, and the failure is in a **different package** from the one they edited.
+
+### Misstep 1 — a `cd` in one Bash call re-pointed every later relative path
+
+Logged in `WRONG_CALLS.md`. Caught only because I named a file and got ENOENT, which I first read as
+*another session has moved it*. The quiet form — `grep -rn … .` from the wrong directory — returns
+zero matches, exit 0, no message, and I had used exactly that shape to establish a **negative**
+(that `write_doc_plan_action.go` is the only Go writer of `doc_plans`).
+
+### Misstep 2 — my own demand control was pinned to a name that changed the same morning
+
+Also logged. `audit-fence-value-assertions.sh` had a built-in demand control (right instinct: a
+census returns the same comfortable number whether the corpus is clean or the query is blind), and I
+implemented it as two hard-coded `created_by` values on the reasoning that a *specific* control is
+stronger. **`created_by` is a free-text lane label, not an identity.** The mcalc lane re-keyed its
+eight fences hours earlier — `operator:mortgagecalculator-lane-a4` had become
+`operator:mortgagecalculator-lane-2026-09-03-701-rekey` — and my control passed only on the other
+name. It **fails closed**, which is precisely why I would not have questioned it: a false exit 2
+reads as "be careful", and repeated, it teaches everyone to ignore the control.
+
+Rewritten over the PROPERTY ("some author still shows a non-zero `uses_computed_values`") and it now
+**prints which author satisfied it**, so a reader sees the evidence rather than the word PASSED.
+
+### The number moved again while I was working
+
+First run of the report: `tool-generator` **116** blind, not the 115 I measured at 11:4x. And
+**10 blind fences created in the last 24 hours**. That is the strongest single argument for P1: the
+standing stock is a per-site repair job, but the intake is a framework defect and it is open.
+
+---
