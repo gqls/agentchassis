@@ -1014,3 +1014,11 @@ precision). Max migration is now 730; 729 exists TWICE (collisions continue).
 designblog's compounding position: a future re-plan runs under 718 (content
 imagery) + 730 (launch posts) + 720 (listing gate) + page_archetypes — four
 mechanisms that did not exist when it was built two days ago.
+
+> **CORRECTION (445 session, self-caught): `needs_new_layout_candidate` = 2
+> items ever, not 1** — the second sat in `site_work_items_archive` (the
+> rolling-window trap catching its own chronicler; robot-hands.com 07-08,
+> wont_fix, same zero-tags degenerate arm). Corrected figure: **2 of 63,007
+> work items ever, both the degenerate arm — the mechanism has assessed the
+> library and found it short ZERO times out of two.** "The owner's eye was
+> the only detector" survives, stronger.
