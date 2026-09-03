@@ -817,3 +817,91 @@ the check I should have run: read both the page and whatever the page fetches, w
 
 **Still with you, unchanged:** the logo, and whether to rehearse the delivery chain on one of our own
 sites before it ever runs on a customer's.
+
+---
+
+## 2026-09-03, early evening — I re-checked the front page after your two edits, and they are on it
+
+**Your two edits are live on the site.** I checked the actual page the public gets, not the
+database and not a job status, because on this site those have disagreed before.
+
+The article list now says exactly what you said it should: *"News, previews and results from
+across the sport."* Your words, no trailing clause. The closing call-to-action no longer claims
+there is a calendar below it — that line is gone entirely, which is what you ruled.
+
+That closing block used to run to about 1,350 characters of explanation. It is now 96, and all of
+it talks to you rather than about the site: a heading, then two buttons — *catch the latest boxing
+news*, *see the full fight calendar*. That was your first complaint about this site, and I think
+this one is genuinely fixed rather than just shortened.
+
+I ran the full agreed check-list over the page and everything else held: no email address anywhere,
+nothing links to the deleted contact page, the six article cards all carry their short summaries,
+and the analytics tag is on all twenty of the published pages.
+
+**But the way your approval reached the page is worth telling you about, because it was not the
+way it was supposed to.**
+
+When you approved those two edits at 16:21, the system filed a job to apply them. That job failed,
+three times, the last attempt at 17:56 this evening. It is still sitting there marked failed. The
+edits are on the page anyway because somebody applied them by hand five minutes after you pressed
+the button.
+
+So the outcome is right and the mechanism is not. This is the same broken approve button the other
+thread wrote to you about further up this page — they have already fixed it in code, and that fix
+goes live with the next build. I am flagging it only so the picture is complete: **your approval
+did not apply itself, a person did it.** Nothing is lost, and you do not need to do anything.
+
+**One thing still visibly wrong on the site.** The articles index page shows the six articles six
+times over — thirty-six cards where there should be six. That is a known fault with a bug file
+open against it and a thread working on it. It needs a code change and a rebuild; re-running the
+page will not clear it. It is the most obvious remaining blemish a visitor would notice.
+
+**Still not fixed, unchanged from this morning:** the articles contain no actual news, the fighter
+comparator ships without data, and the fight calendar has no calendar in it. Those three are one
+root cause and the thread that owned it has stopped; it needs picking up again.
+
+---
+
+## 2026-09-03, later — your two copy edits are live, and there is a button waiting for you
+
+**The copy edits are on the page.** The site published at 18:32 our time and I checked the page a
+visitor actually gets, not the system's opinion of it. Your line — "News, previews and results from
+across the sport." — is there. The false promise about "the calendar below" is gone. The call-to-action
+lost its subheading cleanly rather than leaving an empty gap where the sentence was. The six article
+cards are untouched. That is five of your fourteen points now closed at the site itself.
+
+One thing I want to flag because it nearly caught me. The instruction I inherited said to check for
+"zero cta-subtitle elements". The page contains that phrase twice, and the two are different things:
+the sentence itself, and the styling rule that says how the sentence should look. Removing the
+sentence quite correctly leaves the styling rule behind. So the obvious check — count the phrase —
+reads "one" for ever and looks like the edit failed. An older automatic check reported exactly that
+about this publish, and it was wrong. I measured it both ways: no sentence, styling rule only.
+
+**Now the button.** You chose the full rehearsal of the delivery chain on one of our own sites rather
+than meeting it for the first time on a customer, and I have started it on **idea.uk**. It is ours,
+it has thirty-eight pages, and it is not the shopfront.
+
+I got as far as I can get on my own, and here is the honest reason why. The chain has four steps. I
+can fire the first, third and fourth. **The second one is your APPROVE button and there is no way
+round it that isn't forgery.** The delivery gate does not check a status or a flag — it checks that
+the approval was recorded by the admin login, and the only thing in the whole system that writes that
+record is you pressing the button. I could not have automated that step even if I had wanted to, and
+I think that is right: the gate exists so that a person looked.
+
+So when a review item for **idea.uk** appears in your queue — it was dispatched at 18:47 and the
+queue usually takes about half an hour — please **approve** it. Not resolve; the two buttons look
+alike and only approve opens the gate. Then I will cut the zip and send the email, and we will know
+whether the whole chain works before a paying customer ever depends on it.
+
+Two things you should know before you press it. It will burn that site's one-and-only handover stamp,
+so idea.uk can never be delivered through this chain again — I checked what that actually costs and
+it is nothing we use: the stamp gates one editor feature and nothing about how the site is built or
+served. And it will send a real email through the live account, so I will need an address from you to
+send it to.
+
+**One more thing I found while getting ready, which was luck rather than diligence.** The fix I made
+this afternoon rewrites the same record the delivery gate reads to decide whether you approved a site.
+Two small changes to that line — either of which a future tidy-up could make without noticing — would
+have erased your approval silently, and the symptom would have been a delivery refusing weeks later
+for no visible reason. I have closed one of them so it cannot happen at all, and put a test round the
+other. Neither was broken today. Both were one edit away.
