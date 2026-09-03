@@ -297,3 +297,63 @@ than just principled.
 write number-checks — is now the next real piece of work and no longer blocked. The main open
 judgement is how well the "where may an expected number come from" rule generalises beyond mortgages
 and stamp duty, where there happen to be published formulae and a legal register to check against.
+## 2026-09-03, early evening — the actual fix is now written, and I have deliberately not switched it on
+
+Since the last entry I've written the thing that fixes the cause rather than labelling the symptom.
+It's a small database change — migration 749 — and it does two things to the instructions we give the
+agent that writes each calculator's test plan.
+
+**First, it tells the agent the number-check exists.** The current instructions list a handful of
+tests it may use and then say, in as many words, "no other check type exists". That sentence is why
+187 test plans in a row have never once compared a number: the tool that does compare numbers was
+built, works, and has been sitting there unused because nobody told the writer about it.
+
+**Second — and this is the part I care about — it tells the agent when to refuse.** I could have
+stopped at the first half, and it would have been worse than doing nothing. The number-check was
+designed to *defend* a figure captured from a calculator while it was known to be working. At the
+moment a calculator is born nothing is known to be working, and the only thing the writer is shown is
+the calculator's own code. So "just record the expected answer" means "record whatever this brand-new
+code happens to print", which turns a bug into the official specification. We have paid for that
+exact mistake before: an expired £625,000 stamp-duty threshold was certified correct for sixteen
+months.
+
+So the new instruction says: only write a number-check if you can work the answer out **yourself**,
+from a published rule — a standard financial formula, a tax rate, a unit conversion, or arithmetic
+that follows from the brief — and you must state the rule and show your working. Otherwise write no
+number-check at all and say plainly what was missing. Most calculators will fall in the second group,
+and that's the correct outcome, not a failure. Anything that *scores* or *rates* something on a
+scale we invented has no independent right answer to check against, so pinning one would just be
+pinning our own code.
+
+The migration refuses to install itself if the instructions have been edited since I read them, and
+refuses to finish if the refusal half has gone missing — so it can't accidentally ship the power
+without the brake.
+
+**I tested it properly rather than assuming.** I ran the whole thing against the real live settings
+inside a transaction I then threw away: it applied, I applied it a second time to check it does
+nothing on a repeat, then I reversed it, and the text came back byte-for-byte identical to where it
+started. Worth mentioning that my first attempt at the *reversal* was broken and reported success —
+it claimed to have changed a row while actually changing nothing. The only reason I caught it is that
+I'd written the check to raise an error rather than just print a result. That's a lesson I've written
+into the runbook, because "it said it worked" was exactly the failure.
+
+**What I have NOT done: I have not switched it on.** A database change like this is live the instant
+it's applied, there's no version to roll back to, and it changes what *every* calculator built from
+now on does. It's gone to the review council and I'm waiting on their verdict. Two questions I'd
+genuinely like a human answer to, and I've put both in front of the reviewers:
+
+1. **Is "the agent must derive it independently" a strong enough rule when the agent is looking
+   straight at the working calculator?** It would be very easy for it to convince itself it worked
+   something out when it actually read the answer off the page. I've required it to show its working
+   so a person can see the difference — but I can't force that in a database migration.
+2. **Should I allow tax and statutory rates at all?** A formula doesn't go out of date; a VAT band or
+   a threshold does. If the agent confidently "remembers" a rate that changed last April, we'd pin a
+   wrong answer with a straight face — which is the same failure as the stamp-duty one, arriving by a
+   different door. It may be safer to allow only formulae and conversions.
+
+Neither is a reason to hold the work; both are reasons not to let me be the only one who decided.
+
+**One housekeeping note.** Another session claimed the migration number I was using while I was
+writing it, so mine moved from 748 to 749. Nothing was lost — but it's a good illustration of what
+this shared setup is like, and it's why I re-checked the file byte-for-byte afterwards rather than
+assuming a rename is harmless.
