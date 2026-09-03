@@ -416,3 +416,62 @@ is fixed.** Refusing those saves cost nothing observable while 454 meant the sav
 back unchanged bytes anyway. The guard's arrival and the repair vehicle's return to working
 landed in the same image, so a latent cost became a real one in a single step — and neither lane
 could have seen it from its own side.
+
+## 14. Independent corroboration from a second symptom — an OUTCOME census, dated, and it reproduces
+
+The `bugs_open/384` lane (page-list card-image invalidation) hunted this mechanism from the other
+end and, at the owner's prompting, sent their measurement across. **It is a different kind of
+evidence from anything in this file**: §4 is a population census of what *could* be affected;
+this is an outcome census of what *did* fail, partitioned at the regression commit.
+
+**Re-run here from their committed SQL rather than quoted from their message**
+(`docs/agent_docs/docs024_key_docs_latest/bugfix_384_page_list_invalidation/scripts/census_repair_rate.sql`,
+commit `f8110df1e`) — 144 rows, and it reproduces their headline exactly:
+
+| era (split at `94f81cc60`, 2026-09-02 11:27:53Z) | writes | repaired | left blank |
+|---|---|---|---|
+| **before** | **132** | **132** | **0** |
+| **after** | **12** | 5 | **7** |
+
+Their attribution of the 7, each write joined to the last orchestration on its page within 20
+minutes:
+
+| route | writes | repaired | blank |
+|---|---|---|---|
+| `page-rerender`, `reason=section_data_resolved` (**the light re-render**) | **7** | 0 | **7** |
+| `page-build-handler` (full build) | 1 | 1 | 0 |
+| no run in window (full-build chains, keyed differently) | 4 | 4 | 0 |
+
+**Every light re-render failed; everything that took the full-build route repaired.** That is
+§3's "the only observable is a NEGATIVE" turned positive — and it lands on a **second component
+family** (`content-listing`, `blog-listing`, `tool-cta`, `tool-list`; fields `articles` and
+`items`) and a **second set of non-LLM sources** (`query.blog_posts`,
+`query.pages_where_type:*`), so it corroborates §4's blast-radius argument rather than
+re-showing the `event-list` case. Visible in the tail of the run: designblog.co.uk's `index`
+and three tool pages, plus oxenunity.com, all `left blank` from 05:06Z onward.
+
+**Two caveats their lane asked to travel with the figures, and they are both real:**
+
+1. **It is a LOWER BOUND on 454's failures.** The archive triggers
+   (`trg_page_component_artefact_archive_upd` on `rendered_html`,
+   `trg_page_component_content_archive_upd` on `content_data`) fire on a **change**. A
+   byte-identical no-op — precisely what 454 produces — writes no history row at all. This
+   census can only see the 454 failures that happened to move *some* bytes.
+2. **The 132 pre-regression writes cannot be attributed to a code path.** `orchestration_states`
+   holds `[MEASURED 2026-09-03]` **25.1 hours** (`2026-09-02 11:44Z → 2026-09-03 12:48Z`), so
+   those runs have aged out. 132/132 is an **outcome** over whatever mix was running, not proof
+   that the light re-render did the repairing before the regression.
+
+**Also worth recording as method rather than result:** two lanes reached the same mechanism from
+opposite ends within 90 minutes of each other, and the second one's own note is that it did not
+grep `/bugs_open/` when it *formed* the hypothesis, only when it went to file. CLAUDE.md's "grep
+before you file" is aimed one step too late for that case — the cheaper rule is **grep when you
+form the hypothesis**, because that is when a duplicate is still free to abandon.
+
+**A second post-fix proof point is in flight**, filed by that lane at designblog.co.uk/index
+(12:35:51Z, `created_by='bugs_open/384_postfix_verify'`): a `content-listing` with
+`query.blog_posts`, 4 entries all blank since 05:25:29Z, four cards active and correct. It is
+`page_type=landing` / `rebuild_policy=generic`, so **`bugs_open/450`'s `pageRefusesGenericBuild`
+does not fire on it** — which makes it a clean run of this fix through `save_page_sections`
+without the confound that blocked the boxingonline page (§12–13). If it repairs, this file has a
+post-fix positive that does not depend on the roll of `29b40e8bc`.
