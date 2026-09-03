@@ -846,9 +846,42 @@ deduplication begins; the "raw extractions" count above and the per-concept
 
 ### DES-085 — `theme_kits`: a named, listable bundle over the composable-theme system (Phase 1)
 
-- **status:** **BUILT AND COMMITTED, NEVER EXERCISED — not applied, not rolled.**
-  Phase 1 scope only (registry + apply + page structure; nav patterns, voice
-  presets and "create from example" designed but not built, see the plan).
+- **status:** **LIVE AND UNEXERCISED, verified 2026-09-02/03 — applied AND
+  rolled, and adopted by NOTHING.** Phase 1 scope only (registry + apply +
+  page structure; nav patterns, voice presets and "create from example"
+  designed but not built, see the plan).
+  > **CORRECTED 2026-09-03 — this line read "NEVER EXERCISED — not applied,
+  > not rolled" for a day after both halves became true.** That is this
+  > register's own stale-status landmine firing a second time on the same
+  > entry, in the opposite direction: the first correction (below) removed a
+  > false "deployed", and then the replacement outlived ITS truth too. Both
+  > halves now verified:
+  > - **Binary: LIVE.** `agent-chassis` on `v1.0.1355`. The `build provenance`
+  >   startup line had already scrolled, so this is a `/proc/1/exe` capability
+  >   probe **with both controls**: `apply_theme_kit` PRESENT,
+  >   `page_archetypes` PRESENT, `fork_theme_from_site` PRESENT (positive
+  >   control, pre-existing action), `zzz_not_a_real_action_zzz` ABSENT
+  >   (negative control — the probe discriminates).
+  > - **Schema: APPLIED 2026-09-02**, migrations 689 + 691, via a **scoped**
+  >   run (`MIGRATIONS_DIR` pointed at a temp dir holding only those two
+  >   files, because `--apply` takes EVERY pending file and would have swept a
+  >   dozen other lanes' migrations). `to_regclass` returns both tables; 4
+  >   kits and 14 fleet archetypes seeded.
+  > - **Adoption: 0.** `SELECT count(*) FROM site_specs WHERE
+  >   aspect='theme_kit_adoption' AND is_current` → 0 as of 2026-09-03. So
+  >   every kit-conditional branch is live, reachable, and has never run.
+  >   **Cite this entry as "built and reachable", never as "working".**
+- **council verdict — READ THIS BEFORE THE `what:` LINE.** Round 1
+  (correlation `bed139b2-f512-436a-9ba8-ff2fbfade8ef`) came back
+  **`complete_revise`**, `decided_by: gating objection from guardian`. The
+  objection was about the SUBMISSION, not the code, and it was right: the
+  rationale claimed a fixed typography cascade asymmetry that the plan's
+  sketch never showed, so it was unverifiable from the submission. Resubmitted
+  on the same correlation 2026-09-03 with the guard sketched, every
+  predicate-dependent figure carrying a runnable query, and one of round 1's
+  own evidence claims retracted as false (see the landmine bullet below).
+  **Verdict of round 2 unread at the time of writing** — do not upgrade this
+  bullet without reading it.
   > **CORRECTED 2026-09-02, same day as filing.** This entry first read
   > "deployed … live since commit `0902039c0`". **Both halves were false and
   > the check took one command each**, which is exactly the shape this
@@ -918,15 +951,118 @@ deduplication begins; the "raw extractions" count above and the per-concept
   is three-way scoped (site > theme kit > fleet, `CHECK` mutual-exclusive) so
   a site can declare its own durable structure default WITHOUT adopting any
   kit — "sites don't necessarily have to be created from a theme."
-- **landmine avoided, not hit**: `content_components.function` is NOT unique
-  after the canonical-row predicate (measured 2026-09-02, `components`
-  session: 3 collisions of 364 distinct functions, incl. `site-header`/
-  `site-footer`), and `chromePinEligibleSQL` (`component_level IN ('site',
-  'header','footer','head')`) EXCLUDES the confusingly-named `site-header`/
-  `site-footer` rows (`component_level='section'`) entirely — the actually-
-  eligible rows are `header-theme-chrome`/`footer-theme-chrome`. The 686
-  seed hardcodes verified UUIDs rather than a function-name subquery for
-  exactly this reason.
+- **landmine avoided, and the reason given for it was WRONG — corrected
+  2026-09-03 by re-measuring.** The CONCLUSION stands: the seed (migration
+  **689**, not 686 — it was renumbered after the collision noted above)
+  hardcodes verified chrome UUIDs rather than a function-name subquery. Two of
+  the three claims supporting it did not survive a check.
+  > **~~`chromePinEligibleSQL` EXCLUDES the confusingly-named `site-header`/
+  > `site-footer` rows (`component_level='section'`) entirely — the
+  > actually-eligible rows are `header-theme-chrome`/`footer-theme-chrome`.~~**
+  > **FALSE, both halves.** `site-header` has a `section` row AND active
+  > `component_level='site'` rows, so it is chrome-eligible; and
+  > `header-theme-chrome`/`footer-theme-chrome` **do not exist in any state**
+  > (`SELECT … WHERE function LIKE '%theme-chrome%'` → 0 rows). The entry
+  > named non-existent components as the eligible ones.
+  >
+  > What is actually true, under the predicate as written
+  > (`chromePinEligibleSQL` = `is_active AND component_level IN ('site',
+  > 'header','footer','head')`, with **no `forked_from` filter** —
+  > `component_library.go:334,375`):
+  > ```sql
+  > SELECT function, count(*) FROM content_components
+  >  WHERE is_active AND component_level IN ('site','header','footer','head')
+  >  GROUP BY function ORDER BY 2 DESC;
+  > ```
+  > **10 chrome-eligible functions as of 2026-09-03**, of which `site-header`
+  > is the ONLY ambiguous one (**2** rows — one forked, one not, and the
+  > predicate filters neither); the other nine return exactly 1. So a
+  > function-name subquery is ambiguous **precisely for the chrome function
+  > the seed most needs**, which supports hardcoding UUIDs better than the
+  > false reason did.
+  >
+  > The collision figure was true but **unverifiable as written and its
+  > denominator was stale**: "3 collisions of 364" is right only under
+  > `is_active AND forked_from IS NULL`; raw it is **84**, and distinct
+  > functions are **425 raw / 410 canonical as of 2026-09-03**, not 364. A
+  > council reviewer reconstructed the predicate from prose, got a different
+  > number, and reviewed that instead. **A figure that is only true under a
+  > predicate must carry the predicate as a RUNNABLE query in the same
+  > breath.**
+- **⚠ ALL FOUR SEEDED KITS PIN THE CHROME THE DEFAULT ALREADY PICKS, so a kit
+  delivers NO chrome differentiation** [MEASURED 2026-09-03, and it is the
+  third dimension to fall the same way]. Every kit's
+  `header_component_id`/`footer_component_id` resolves to
+  `site-header`/`site-footer` at `component_level='site'` — and
+  `ChromeSlotFunction()` (`component_library.go:386`) hardcodes
+  `header → "site-header"`, `footer → "site-footer"`, so that is exactly what
+  a site with no pin gets. The pins are no-ops. This is the same
+  indistinguishability already recorded for the six pre-existing
+  `style_collections.header_component_id` pins (all six point at the
+  default's own pick); the kits add four more.
+  ```sql
+  SELECT tk.name, hc.function, hc.component_level, fc.function, fc.component_level
+    FROM theme_kits tk
+    LEFT JOIN content_components hc ON hc.id = tk.header_component_id
+    LEFT JOIN content_components fc ON fc.id = tk.footer_component_id;
+  ```
+  **The consequence is the honest summary of this whole entry: of the four
+  dimensions a kit bundles, three cannot change what a site looks like.**
+  Palette cannot reach the stylesheet (the render overlay is spec-wins on all
+  8 core slots — MEASURED at the artefact on gamedesign.uk, which resolved a
+  hand-chosen palette and served none of its eight core colours);
+  `page_archetypes` governs at most 1 live page in 18 (94.4% of 1,083 live
+  pages match no `defaultSectionsForPage` output, so 5.6% is an UPPER bound);
+  and chrome is the no-op above. **Layout is the only dimension where
+  adopting a kit changes anything at all** — and see the seed-set bullet
+  below, where two of the four kits pick a layout the tag matcher would have
+  picked anyway.
+- **the seed set: two of four kits are REDUNDANT WITH THE MATCHER, and
+  `soft-editorial` is a deliberate route to an otherwise unreachable layout.**
+  Because `apply_theme_kit` names a layout id and bypasses tag matching
+  entirely, **a kit's marginal value is inversely proportional to how
+  reachable its layout already is by tags.**
+  - `tool-portal-light` — **near-worthless**: 14 sites already reach that
+    layout by tags.
+  - `brochure-formal` — **near-worthless and worse in kind**: it is the
+    resolver's hard-fallback layout, so a kit there dresses the default up as
+    a choice.
+  - `soft-editorial` — **the most valuable thing in the set, and it must be
+    recorded for what it is: a workaround for a tag-vocabulary defect, not a
+    design choice.** [MEASURED 2026-09-03, `bugs_open/445`] it scores above
+    zero on 27 of 33 sites but only at **0.50, the same-scheme bonus ALONE,
+    zero tag hits**, and is one of **nine of eighteen** layouts no site's tags
+    reach at all. Its tags (`wellness, lifestyle, bakery, artisan,
+    personal-brand, long-form`) are a designer's industry dialect; `long-form`
+    is emitted raw by **0** sites. The kit is the only existing route to that
+    look.
+  - `docs-sidebar` — **pre-positioned, not demanded.** 445 buckets it
+    "correctly unused" (never scores above zero for any current site); that
+    argument is weaker for kits specifically, since nobody's tags reaching a
+    layout does not mean nobody would CHOOSE it. Speculative and cheap (an
+    unselected kit is inert) — honest only because this says so.
+  **The mechanism underneath is tag DIALECT, not tag count**: layouts tagged
+  with form/capability words the classifier emits (`interactive-platform`,
+  `tool-portal`, `publication`) get selected; layouts tagged with industry
+  words (`law`, `boxing`, `bakery`) do not. `social-lobby` carries the most
+  tags of any layout — 15 — and has one site. **DO NOT CURATE BY TASTE**:
+  445 is building a fleet scorer as a shared package, and a kit candidate
+  should be simulated against the live fleet before it is seeded. Adoption is
+  0, so reseeding is free today.
+- **a kit-chosen layout records NO candidate and NO fit evidence.** Fixed
+  2026-09-03 (`28aeb4ca0`): the layout rung returned
+  `candidates: ["<kit layout>"]`, which `install_site_composition_action.go`
+  writes through as `lineage.layout_candidates` — reading as "one candidate
+  was considered and won" when the matcher never ran. Now an empty slice,
+  which the consumer's `len(cands) > 0` guard omits entirely, leaving
+  `layout_source: 'theme_kit_default'` to carry the story. Same
+  false-structured-fact class as the `layout_source: 'library_match'` defect
+  fixed one field over in the same original edit. **The related blind spot is
+  deliberate and unfixed:** because this arm returns before the matcher,
+  DES-086's compose-time fit measurement never runs for a kit-chosen layout,
+  so **a kit site's layout fit is unmeasured**. Recorded by that lane in
+  DES-086's relations with no change asked here; fixing it inside the rung
+  would mean scoring candidates we then ignore.
 - **known gap, not yet closed**: a themed site's exact colours can still
   drift on a LATER `needs_design` pass — `design_intent.palette.
   reference_values` is correctly consulted at composition-install time but
