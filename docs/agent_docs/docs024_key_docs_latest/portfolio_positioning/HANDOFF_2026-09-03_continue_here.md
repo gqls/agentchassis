@@ -59,7 +59,12 @@ cannot read the brief directly.** It also renders the WRONG classification, so c
 
 ## 1y. ⚠ ADDED ~20:35Z — RETIREMENT IS DONE; §1z's re-fire task is CLOSED. What is live now:
 
-- **Migration 764 is HOLD, in council ROUND 2 (same correlation `888e7319…`, run orch `b07fdcdd…`), NOT applied.**
+- **Migration 764 is council-APPROVED (round 2, `888e7319…`, 4 advisory/none high; `Council-Reviewed:` on `a5dbbffab`) and HELD — NOT applied. THE OWNER SAYS WHEN.**
+  Apply: `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/764_classifier_and_planner_render_the_brief_object_when_it_has_no_text_HOLD.sql`
+  (refuses on md5 drift — re-pin if either template moved). Then MAKE IT RUN ONCE before claiming
+  anything (header steps); the classification.reasoning sentence is the pass/fail. Rollback file beside it.
+  Decision records: `SELECT subject_key, body FROM doc_notes WHERE categories ? 'migration-764';`
+- ~~**Migration 764 is HOLD, in council ROUND 2 (same correlation `888e7319…`, run orch `b07fdcdd…`), NOT applied.**~~
   Round 1 was REVISE (bug_historian gating); every objection is answered in the file header and the
   proof now runs through the fleet's own renderer (`tplproof/`, `go test -tags tplproof`, README).
   ⚠ PRC-003 (`681b0ee65`, rides the next roll) STRIPS `<no value>` inside `RenderPromptTemplate` —

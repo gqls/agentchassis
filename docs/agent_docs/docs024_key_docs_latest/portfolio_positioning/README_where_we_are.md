@@ -1736,3 +1736,18 @@ that is your moment to pick, and the file itself says what to check afterwards: 
 classification for copyonline and read what the classifier says about the brief. This morning a
 change to the same classifier passed every shape check and still broke it for four hours, which is
 why I am not calling this done until it has run once.
+
+**Twenty-five to ten — the brief fix is approved, and it is now waiting on you.**
+
+The review council sent it back once, for two good reasons, both of which made the work better. My
+proof had used a template engine I built myself rather than the fleet's own, and my count of how many
+places needed the change had only looked at the top level of each agent's configuration. I redid
+both. The proof now runs through the real renderer and the fleet's own missing-value scanner, and the
+count was redone by the method the estate prescribes; it came back the same four places. Second
+round: approved, with four advisory notes and none serious. Two of those asked for a written decision
+record against each agent so the next person does not have to rediscover all this. Written.
+
+I have not applied it and will not without your word. It changes what two shared agents see on every
+run across the whole fleet, and a change to one of those same agents broke it for four hours this
+morning. When you say go, I apply it, run one classification for copyonline, and read what the
+classifier says about the brief. If it still says no brief was supplied, it comes straight back out.

@@ -5690,3 +5690,30 @@ duplicate all of it; the fallback is the same principle at the aspect level).
 
 **Round 2 submitted** ~21:00Z on the same correlation: envelope `71de0014…`, run orch
 `b07fdcdd-b278-4bca-baf3-c205aa1ec357`. Watcher `bd8lefmyq` armed. Still NOT applied.
+
+### (aaa) 2026-09-03 ~21:35Z — council round 2 on 764: APPROVED (4 advisory, none high). Held for the owner.
+
+Verdict `complete_approved` on `888e7319`, run `b07fdcdd`. `Council-Reviewed:` trailer on `a5dbbffab`
+(read the verdict first — never write that trailer on one you have not read). Advisories and how each
+stands are on the file header; two asked for something real and got it:
+
+- **tooling_provenance ×2:** a decision record per agent in `doc_notes` so the next fix on either
+  agent does not re-derive this. **Written**: `subject_type='decision'`, `subject_key` = the agent,
+  categories `migration-764 / bugfix-453 / prompt-template / decision / held-not-applied`, ~2.2 KB
+  each — what/why/evidence/guards/the 734 relation/the run-once obligation/files.
+- **editquality (anchor uniqueness):** already asserted per anchor in the body plus an exact
+  length-delta check; the "identical `{{else}}` arms" landmine does not bite because the anchors are
+  the `.text` expressions, not the else-arms. Stated on the file.
+- **guardian (734 postmortem):** pointed at (ll)/(mm)/(nn), the WRONG_CALLS row and RFC_037's
+  correction; 764 differs in kind (734 was a runtime binding no shape check could see; 764 is text
+  the fleet's own renderer executes in the proof) and still mandates the post-apply run.
+- **bug_historian (generic root):** PRC-003 is the read-side half, built the same day; 764 is the
+  content-side complement. Not a substitute for either.
+- **reuse_agent:** no existing HOLD-migration render harness exists — the other lanes' `render_test`
+  dirs are standalone engines, which is what round 1 rightly objected to.
+
+**NOT APPLIED.** Two shared agents, fleet-wide, on the day 734 broke one of them; the owner picks the
+moment. When he does: apply the HOLD file by hand → make it run once (header steps: fire a
+classification for a `.text`-less brief, confirm COMPLETED, read the rendered `## Pre-Defined Mission`
+block for the JSON object, confirm the new `classification.reasoning` no longer says the brief was
+missing) → only then call it live. Owner notified.
