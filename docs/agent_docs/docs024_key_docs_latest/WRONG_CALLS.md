@@ -61253,3 +61253,30 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   names it, especially when you are about to tell another lane something about their work.
   Tally: **coincident-timestamp-read-as-causation** ×2 (both 2026-09-03),
   **inferred-cause-propagated-to-six-documents-before-checking** ×1.
+
+- **2026-09-03 — bugfix_329_takeover_claim — I ran an ownership tool over all 166 open bugs, got
+  ZERO unowned, and the number was so clean I nearly wrote it down.** Asked to pick up an unowned
+  bug, I looped `scripts/who-owns.py` over every file in `bugs_open/` and filtered for its
+  *"no activity in Nd and no owning workstream found"* verdict. **Zero hits, no errors, exit 0** —
+  which reads as a finding ("the backlog is fully owned") and is in fact an instrument used outside
+  its design. `who-owns.py` resolves a bare 3-digit number by counting *mentions* across lane docs,
+  and on a tree with ~365 workstream directories a number like `205` or `329` appears in prose
+  everywhere, so it finds an owner for **everything**. Its own docstring scopes it to the
+  single-bug question CLAUDE.md asks it ("before routing work AT an existing bug"); nothing about
+  it is a census, and CLAUDE.md never suggests it is.
+  ⚠ **The tell was the shape of the answer, not an error.** A clean zero across 166 files with no
+  failures is the same output a correctly-working filter would produce, and I only doubted it
+  because "not one unowned bug in 166" is implausible on its face. Had the true answer been three,
+  I would have had no signal at all.
+  **What actually answered the question** was three cheap facts the tool cannot combine: last commit
+  age on the bug FILE (`git log -1 -- <path>`), whether a `bugfix_<n>_*` lane directory exists and
+  how cold it is, and — the one no commit-reading tool can ever supply — **the live session list**.
+  `ListAgents` showed 160 peers, 14 of them named after a bug number; that is what proved
+  `bugs_open/450` was actively held (session busy, commits nine minutes old) and 329 was not.
+  CLAUDE.md already says `who-owns.py` "reads COMMITS, so a session mid-fix is invisible" — I read
+  that line, used the tool anyway for a job it does not do, and got a plausible number back.
+  **The cheap check:** before believing an aggregate from a per-item tool, run it on ONE item whose
+  answer you already know and confirm the verdict discriminates. Here, `who-owns.py 450` on a bug I
+  had just proved was actively owned, and `who-owns.py` on something genuinely cold, would have
+  shown both returning the same "owned" verdict in about four seconds.
+  Tally: **per-item-tool-used-as-a-census** ×1, **a-clean-zero-from-a-tool-outside-its-design** ×1.
