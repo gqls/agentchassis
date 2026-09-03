@@ -61280,3 +61280,78 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   had just proved was actively owned, and `who-owns.py` on something genuinely cold, would have
   shown both returning the same "owned" verdict in about four seconds.
   Tally: **per-item-tool-used-as-a-census** ×1, **a-clean-zero-from-a-tool-outside-its-design** ×1.
+
+- **2026-09-03 — bugfix_361_render_check_ratchet — I wrote a mutation-proof test that could not
+  fail, and only found out because I ran the mutation.** Fixing `component-render-check`'s ratchet
+  I added `TestWriteBaseline_RecordsCanonicalCoverageIncludingCleanComponents`, asserting that the
+  baseline records clone components under their *canonical* name. It passed. Then I mutated the
+  write side — `cn := canonicalName(name)` → `cn := name`, i.e. record raw names, the exact defect
+  the test is named for — and **the test still passed**.
+  ⚠ **The cause was two guards in SERIES, and the round-trip is what hid it.** I asserted through
+  `loadBaseline`, which *re-canonicalises everything it reads*. So the write side could emit raw
+  names and the read side silently repaired them before my assertion ever saw them. The test was
+  vouching for the pair, not for the half it was named after — and the half it was named after was
+  the one I had just changed.
+  **What was NOT wrong:** three other mutations (drop the `covered[]` branch, force it true, never
+  set the legacy flag) each failed exactly the tests they should. The suite was mostly sound; one
+  case in it was decorative, and nothing about reading it would have told me which.
+  **The cheap check, and it is the only one that works:** *for every guard you add, mutate the
+  guard itself and watch its own test go red.* Not the feature — the guard. A test that passes
+  under the mutation it was written to catch is not weak evidence, it is zero evidence, and it
+  reads identically to a strong one in the run output (`ok`, green, fast).
+  ⚠ **And prefer asserting on the ARTEFACT over the round-trip** when the thing under test is what
+  gets *written*: I now read the emitted JSON and assert on `components` directly, and that version
+  fails under the same mutation. A round-trip assertion can only ever prove the pair agrees with
+  itself — which is exactly what a self-comparison proves, the trap this very tool's own register
+  entry warns about (*"do not verify with a self-comparison: 0 NEW, 0 fixed is the no-op case"*).
+  I reproduced that documented trap one layer up, in the test rather than in the tool.
+  Tally: **test-passes-under-the-mutation-it-was-written-to-catch** ×1,
+  **round-trip-assertion-masks-the-half-under-test** ×1, **guards-in-series** ×2 (this and the
+  2026-08 `a-mutation-that-passes-may-have-hit-a-guard-in-series` entry it repeats).
+
+- **2026-09-03 — bugfix_329_takeover_claim — I asserted which binaries run a symbol from the file it
+  is CONSTRUCTED in, measured something adjacent instead, and the rich adjacent measurement made the
+  whole paragraph read as evidence.** I wrote that because `SagaCoordinator` is constructed in
+  `platform/agentbase/agent.go` — the shared chassis library — "both arms run in **every** agent
+  binary", and listed eight Deployments with their replica counts (auth-service 3, reasoning-agent 3,
+  web-scrape-adapter 3, core-manager 2, git-adapter 2, github-actions-runner 2,
+  image-generator-adapter 2, admin-dashboard 2) as unguarded exposure. **None of them runs the arms.**
+  **Only `cmd/agent-chassis` imports `platform/agentbase`**; `cmd/reasoning-agent/main.go:13` imports
+  `internal/agents/reasoning`, which has no `SagaCoordinator` at all.
+  ⚠ **What made it convincing was a real measurement of the wrong thing.** I did go to the cluster —
+  and censused `CHASSIS_INTAKE_MODE` across every Deployment, which is a genuine, dated, disconfirmable
+  reading. But **an env census over Deployments cannot tell you which binary contains a symbol**, and
+  having one in the paragraph made the untested sentence beside it inherit its authority. This is the
+  `[MEASURED]`-marker failure in a new costume: the marker was honest, the measurement was real, and it
+  was not a measurement *of the claim*.
+  ⚠ **It reached four places before the refutation** — the lane NOTES, the `bugs_open/329` update, the
+  commit message `108791548`, and a message to another live session — inside about forty minutes. A
+  reach claim is the propagating kind, exactly like a causal one.
+  **The cheap check, one line, which I never ran:**
+  `for d in cmd/*/; do grep -rq platform/agentbase $d && echo $d; done` → one directory.
+  ⚠ **And the sting: the CONCLUSION was right.** The intake claim really does cover a minority of
+  orchestration drivers — because spawned Job pods run the chassis image inline (`intake.go` refuses
+  the mode when `a.spawned`), and my own `processing_node` census already showed spawned pods are the
+  majority. So the evidence I had supported the conclusion and **the sentence I wrote to justify it did
+  not**. A right answer with a wrong reason survives review, and the next reader inherits the reason.
+  Tally: **constructed-in-a-shared-library read as "every binary runs it"** ×1,
+  **a real measurement of an adjacent thing lending authority to an unchecked claim beside it** ×1,
+  **right-conclusion-wrong-reason propagated** ×1.
+
+- **2026-09-03 — bugfix_329_takeover_claim — the bug I picked up had a false mechanism in it for
+  fifteen days, and the check was to open a one-line wrapper.** `bugs_open/329` stated
+  `[MEASURED 2026-08-19]` that `SetExecutingStep`/`ClearExecutingStep` "end in `r.UpdateState(ctx,
+  state)` — **not** `UpdateStateWithVersion`. So the write … does **no** version check", and offered
+  "version the write instead" as fix candidate (2). `state.go:883-885` is
+  `func (r *StateRepository) UpdateState(...) error { return r.UpdateStateWithVersion(ctx, state,
+  state.Version) }` — **`UpdateState` IS the version CAS**, and candidate (2) was a no-op that would
+  have changed nothing.
+  The real defect is a **check-then-act across two reads**: the arm judges staleness on the caller's
+  snapshot and the following write re-reads and CASes without ever re-evaluating the predicate.
+  ⚠ **This one is worth carrying because it inverts the obvious test.** Exactly-simultaneous takers do
+  NOT double-execute on the unfixed code — the loser's CAS fails — so a `sync.WaitGroup` start-line
+  test shows the broken code passing. The disconfirming case is the **sequential** interleaving.
+  **The cheap check:** a delegating one-line wrapper is exactly where a name stops describing
+  behaviour — when a claim rests on "it calls X, not Y", open X.
+  Tally: **a name read as behaviour without opening the wrapper** ×1,
+  **a filed [MEASURED] mechanism false for 15 days** ×1.

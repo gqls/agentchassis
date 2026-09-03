@@ -200,3 +200,86 @@ attribute it to them. **[UNVERIFIED]** whether the ordering was ever chosen rath
 - `claim_work_item_action.go` is **another lane's seam** (it now carries an opt-in
   `honour_spend_governor` pre-claim read, default OFF, live on `build-dispatch-loop` only). Not to be
   edited from here; they have asked to be told if the claim primitive the arms use changes.
+
+---
+
+# CORRECTIONS 2026-09-03 — the filed mechanism is wrong, and so was part of my own update above
+
+Both verified first-hand at the code before being written here.
+
+## A. `UpdateState` IS the version CAS — so this file's fix candidate (2) is a no-op
+
+> **CORRECTED 2026-09-03.** The section "Why there is no lock today `[MEASURED 2026-08-19]`" states
+> that `SetExecutingStep` and `ClearExecutingStep` end in `r.UpdateState(ctx, state)` — "**not**
+> `UpdateStateWithVersion`. So the write that marks a step executing does **no** version check."
+> **False.** `state.go:883-885`:
+>
+> ```go
+> // UpdateState updates an existing orchestration state with optimistic locking
+> func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationState) error {
+> 	return r.UpdateStateWithVersion(ctx, state, state.Version)
+> }
+> ```
+>
+> Both helpers already write under the version CAS. **Fix candidate (2) above — "have
+> `SetExecutingStep`/`ClearExecutingStep` use `UpdateStateWithVersion`" — is already the case and
+> would change nothing.** Do not implement it.
+
+**The defect is better than the one filed: it is a check-then-act across two reads.** The arm judges
+"stale" on the **caller's snapshot** (`coordinator.go:761`, `:796`); the write that follows performs a
+**fresh** `GetState` → mutate → CAS which **never re-evaluates the staleness predicate**. Two takers
+arriving seconds apart both win, because each CASes against the version it has just read. The
+version CAS is present and is simply answering a different question.
+
+⚠ **This inverts the obvious test, so read it before writing one.** Exactly-simultaneous takers do
+**not** double-execute today: the loser's CAS fails and the arm returns the error. A
+`sync.WaitGroup` start-line test therefore shows the UNFIXED code behaving correctly. **The
+disconfirming case is the sequential interleaving.**
+
+How the original reading went wrong, recorded because it is cheap to repeat: the last line of both
+helpers says `UpdateState`, and the one-line wrapper was never opened. A delegating wrapper is
+exactly where a name stops describing behaviour.
+
+## B. My own update §3 above was wrong about WHO runs the arms — retracted
+
+> **CORRECTED 2026-09-03 ~12:1xZ**, by the session that wrote it. §3 above says that because
+> `SagaCoordinator` is constructed in `platform/agentbase/agent.go`, "both arms run in **every** agent
+> binary", and lists eight Deployments (auth-service 3 replicas, reasoning-agent 3, web-scrape-adapter
+> 3, core-manager 2, git-adapter 2, github-actions-runner 2, image-generator-adapter 2,
+> admin-dashboard 2) as unguarded exposure. **They are not exposure — they do not run the arms.**
+>
+> **Only `cmd/agent-chassis` imports `platform/agentbase`.** `cmd/reasoning-agent/main.go:13` imports
+> `internal/agents/reasoning`, which has no `SagaCoordinator` and no `ExecuteWorkflow`. Only
+> `cmd/test-spawning` (a dev tool) and `internal/core-manager` import `platform/orchestration`
+> directly, and core-manager only scans state and publishes to `system.commands.workflow.resume`.
+> The one-line check that settles it, which I did not run before asserting:
+> `for d in cmd/*/; do grep -rq platform/agentbase $d && echo $d; done`.
+
+**§3's CONCLUSION stands, on a corrected and narrower basis.** The population that runs the arms
+**without** the intake serialisation claim is **spawned Job pods of the chassis image** — `intake.go`
+refuses the mode when `a.spawned` — plus any chassis pod without `CHASSIS_INTAKE_MODE`. And the
+`processing_node` census in §3 already showed spawned pods are the **majority** of orchestration
+creators (`agent-chassis` 3,332 against 4,900+ from `agent-page-rerender` 2,215,
+`agent-build-dispatch-loop` 660, `agent-page-build-handler` 412 and the rest — every family below the
+first confirmed absent from `kubectl get deploy`).
+
+So: the measurement supported the conclusion; **the sentence written to justify it did not.** Treat
+the replica counts of those eight Deployments as retracted, and the spawned-pod population as the
+reason.
+
+## C. Two smaller corrections to this file's own citations
+
+- **"migration `465`" did not add the RUNNING arm.** A SQL migration cannot add Go. The arm came from
+  commit `e34d44f26` (2026-08-19), the same lane's commit that shipped the reaper migration.
+- **`465` is an ambiguous migration number** — both `465_promoter_reads_archived_history.sql` and
+  `465_reaper_invariant_and_cleanup_convergence.sql` exist. Cite by slug.
+
+## D. The ceiling that bounds what any coordinator-side claim can achieve
+
+`defaultLocalActionTimeout = 7200 * time.Second` (`coordinator.go:1246`), and **nothing refreshes
+`last_activity` during a local action** — every refresh site is a step transition. So a live driver
+inside a nine-minute council seat is "stuck" by this file's five-minute clock while doing exactly
+what it should. **No claim taken by the takeover side can exclude a driver that holds nothing.** A
+claim closes taker-versus-taker; closing driver-versus-taker needs a driver heartbeat, which is a
+separate seam and deliberately not in this bug's scope. Any fix here should say so rather than imply
+it has closed more than it has.

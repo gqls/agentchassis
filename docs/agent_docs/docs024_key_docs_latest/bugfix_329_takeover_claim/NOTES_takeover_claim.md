@@ -165,3 +165,139 @@ footprint — repeated step names within one row's `execution_path`, 7 days — 
 there is weak evidence either way (a takeover need not leave a duplicate entry), so I am claiming a
 **reachable correctness gap**, not an observed incident, and the fix candidates are ranked by
 representability rather than by incident count.
+
+## (g) 2026-09-03 ~11:4xZ — the throughput lane answers, and there are THREE guards, not two
+
+Messaged the `dispatch_throughput` lane (live session `throughput`) because the 180s/300s ordering
+looked like it might be theirs. Their reply corrected me twice and cost me nothing:
+
+- **The ordering is NOT theirs and stays in 329.** Their concurrency ground is the **work-item claim**
+  seam (`site_work_items`, selector/loader/claim), not the intake serialisation lease. They have never
+  measured `intakeLeaseDefault` and have no reason to think `180 < 300` is deliberate. They asked me
+  explicitly not to let it land in their lane by default. **So it is a 329 finding, cited to nobody.**
+- **There is a THIRD guard in series and I had listed two.** `claim_work_item_action.go` claims via an
+  atomic conditional UPDATE on `site_work_items` that only succeeds while the row is still
+  `triaged`/`approved`. Layers, outermost in: (i) the intake serialisation claim (chassis only);
+  (ii) **the coordinator arms — the defect**; (iii) the work-item claim CAS on the dispatch path.
+  **A coordinator double-takeover cannot double-execute a work item on that path even with (i) and my
+  fix both removed.** My "guard in series" instinct was right and my count was wrong, which is the
+  more useful correction — I had stopped counting at the layer I happened to be reading.
+
+### The census that bounds the blast radius, and it came out clean
+
+Ran their DOUBLE-HANDLE CENSUS (their RUNBOOK §"Concurrency meters that actually measure
+concurrency") over 24 h `[MEASURED 2026-09-03 ~11:4xZ]`:
+
+| handlers | distinct items | items with ≥2 handlers | **overlapping pairs on one item** |
+|---|---|---|---|
+| 3,044 | 2,911 | 71 | **0** |
+
+The 71 are sequential retries (handlers = attempt_count, not overlapped). **The outcome 329 predicts
+is not occurring on the busiest path** — because guard (iii) absorbs it.
+
+⚠ Their caveat, which cuts against their own lane and is the reason it is worth quoting: this census
+bounds 329 **only where a CAS exists**. On a path with external side effects and no claim it says
+nothing. ⚠ And a shape not to misread on a re-run: a stale-reaped handler's `updated_at` is the REAP
+stamp, not end-of-life, so a legitimate successor re-claim inside the reap window reads as an
+overlapping pair (discriminator: status FAILED + `error LIKE 'Orchestration stale%'` on the
+first-started member, second started minutes not seconds later).
+
+### What this does to the case for fixing it, stated straight
+
+**The justification is no longer "stop an active fire", and I am not going to write it as one.** It is:
+where a path happens to sit behind a CAS the defect is absorbed; where it does not, nothing stands
+between a five-minute clock and a double execution with external side effects. The fix's value is that
+it stops depending on a backstop that is **not present on every path**, that **nobody chose as this
+defect's mitigation**, and that **no one maintains as such** — guard (iii) exists to make work-item
+claiming exclusive, and its protection of 329 is a by-product that any future refactor may remove
+without knowing it was load-bearing.
+
+That is a real argument, and it is a *smaller* one than the bug file's framing. Recorded here before
+the design lands so the plan is judged against it rather than against the version of the bug I
+believed at 11:00.
+
+### One more thing they gave me, filed so it does not get lost
+
+`claim_work_item_action.go` now carries a pre-claim read for a spend governor (opt-in
+`honour_spend_governor`, default OFF, live on `build-dispatch-loop` only) returning
+`claimed:false, reason:"spend_governor_shed"` — a distinct non-claim outcome from
+`ai_endpoint_unavailable`. **Not mine to touch**, and they have asked to be told if the claim
+primitive the arms use changes. Also: **`398` is one of the ambiguous numbers** — two unrelated files,
+and most recent commits saying "398" mean the CTA-gradient one. The single-flight bug is
+`bugs_open/398_HANDOFF_2026-08-25_scheduled_tasks_row_is_not_single_flight.md`. Resolve by slug.
+
+## (h) 2026-09-03 ~12:1xZ — TWO CORRECTIONS, one of them mine and already propagated
+
+The design agent came back and refuted a premise in the bug file **and** a premise of mine. I
+verified both myself before writing either down — an agent's report is another doc, not a
+measurement.
+
+### CORRECTION 1 — the bug file's stated mechanism is wrong, and fix candidate (2) is a no-op
+
+> **CORRECTED 2026-09-03:** `bugs_open/329` says `[MEASURED 2026-08-19]` that `SetExecutingStep` and
+> `ClearExecutingStep` "end in `r.UpdateState(ctx, state)` — **not** `UpdateStateWithVersion`. So the
+> write that marks a step executing does **no** version check." **That is false.** `state.go:883-885`:
+>
+> ```go
+> // UpdateState updates an existing orchestration state with optimistic locking
+> func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationState) error {
+> 	return r.UpdateStateWithVersion(ctx, state, state.Version)
+> }
+> ```
+>
+> `UpdateState` **is** the version CAS. So the bug file's fix candidate (2) — "have
+> `SetExecutingStep`/`ClearExecutingStep` use `UpdateStateWithVersion`" — is **already the case** and
+> would change nothing.
+
+**What the defect actually is,** which is a better bug than the one filed: a **check-then-act across
+two reads**. The arm judges "stale" on the *caller's snapshot* (`coordinator.go:761`, `:796`), and
+the write that follows does a *fresh* `GetState` → mutate → CAS that **never re-evaluates the
+predicate**. Two takers arriving seconds apart therefore both win, because each CASes against the
+version it just read. ⚠ And the corollary inverts the intuitive test: **exactly-simultaneous takers
+do NOT double-execute today** — the loser's CAS fails and the arm returns the error. So a
+`sync.WaitGroup` start-line test would show the unfixed code behaving correctly. The disconfirming
+case is the **sequential interleaving**, not the simultaneous one.
+
+**How the filing lane got it wrong, and it is a cheap check I would also have skipped:** they read
+the last line of the two helpers, saw the name `UpdateState`, and did not open it. One-line
+delegating wrappers are exactly where a name stops describing behaviour.
+
+### CORRECTION 2 — MINE. "Every agent binary runs the arms" is FALSE, and I put it in four places
+
+> **CORRECTED 2026-09-03 ~12:1xZ:** in NOTES (d), in the `bugs_open/329` update §3, in the commit
+> message `108791548`, and in a message to the `throughput` lane, I wrote that because
+> `SagaCoordinator` is constructed in `platform/agentbase/agent.go`, **"both arms run in every agent
+> binary"**, and I listed eight Deployments (auth-service 3 replicas, reasoning-agent 3,
+> web-scrape-adapter 3, core-manager 2, git-adapter 2, github-actions-runner 2,
+> image-generator-adapter 2, admin-dashboard 2) as unguarded exposure. **They are not exposure. They
+> do not run the arms at all.**
+>
+> Verified by me, not taken from the agent: **only `cmd/agent-chassis` imports
+> `platform/agentbase`.** `cmd/reasoning-agent/main.go:13` imports `internal/agents/reasoning`, which
+> contains no `SagaCoordinator` and no `ExecuteWorkflow`. Only `cmd/test-spawning` (a dev tool) and
+> `internal/core-manager` import `platform/orchestration` directly, and core-manager's use only scans
+> state and publishes to `system.commands.workflow.resume`.
+
+**What I did wrong**, precisely: I read "constructed in `platform/agentbase/agent.go`", observed that
+agentbase is the shared chassis library, and inferred "therefore every agent binary". I then went and
+measured something adjacent and easy — `CHASSIS_INTAKE_MODE` across Deployments — and the fact that
+*that* census came back rich made the whole paragraph feel measured. **An env census over
+Deployments cannot tell you which binary contains a symbol**, and I never ran the one-line check that
+could: `for d in cmd/*/; do grep -rq platform/agentbase $d && echo $d; done`.
+
+### ⚠ The conclusion SURVIVES, and I am not going to quietly enjoy that
+
+The claim "the intake serialisation claim covers a minority of the processes that drive
+orchestrations, so the fix belongs in the coordinator" is **still true**, on a **different and
+narrower basis** than I gave:
+
+- Not "eight other Deployments run it unguarded" — they do not run it at all.
+- But **spawned Job pods run the chassis image inline**, because `intake.go` refuses the mode when
+  `a.spawned`. And my own `processing_node` census already showed those are the **majority** of
+  orchestration creators: `agent-chassis` 3,332 against 4,900+ from `agent-page-rerender` (2,215),
+  `agent-build-dispatch-loop` (660), `agent-page-build-handler` (412) and the rest — every one a
+  spawned pod, confirmed against `kubectl get deploy`.
+
+So the evidence I actually gathered supported the conclusion; **the sentence I wrote to justify it
+did not.** That is the more embarrassing shape, because a right answer with a wrong reason survives
+review and propagates, and the next reader inherits the reason, not the answer.
