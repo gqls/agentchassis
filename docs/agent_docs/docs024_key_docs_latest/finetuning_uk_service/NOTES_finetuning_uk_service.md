@@ -2448,3 +2448,24 @@ the owner's ruling: **"We're not tied to one provider" is now sanctioned copy AN
 opening frame**, which the house voice rule forbids; a v3-vintage question for the owner, recorded
 in the baseline, not acted on. The audit-verdict-row misstep is filed as a landmine
 (`LANDMINES.md`, "A `needs_content_page` row can be an audit VERDICT, not a brief").
+
+**10:30Z — pass criteria for the two rebuilds, corrected by the copy lane before either ran** (their
+homepage baseline, commit `2e2c7e0eb`, carries the correction marked as one). Three things:
+1. **The gate does not truncate.** "Truncate" is the register's treatment STRING;
+   `rewrite_negations_action.go` asks the model once to rewrite the offending sentences and judges
+   each proposal with `AcceptNegationRewrite`, which **fails closed** (a rejected rewrite leaves the
+   sentence untouched). So the owner's sentence may come back rephrased, cut, or unchanged.
+   **Whether it lands on his ruling is empirical; do not record it as expected-and-confirmed.**
+2. The repair reaches the render: `rewrite_negations.output_field = copy_gate` and
+   `render_section.content_from = copy_gate.result` (read at the path
+   `steps.process_sections_loop.config.sub_workflow.steps.*`; the path without `config.sub_workflow`
+   returns `(unset)` for every key and reads exactly like "unwired"). `page_budget: 2` is inert
+   because only MILD shapes spend it and `mildNegationShapes` has been empty since Decision A.
+3. **A surviving hit has exactly two legitimate causes:** an exemption (brief-supplied via the
+   seven `defaultBriefFields` paths, or regulatory) or a rejected rewrite. So the after-pass reads
+   the **rejection reasons**, not just a re-count: a count cannot separate exemption / rejection /
+   never-ran, and those three want different responses. The action's own header calls the
+   rejection log "the instrument".
+So for both items: `llm_call_log` rows for `rewrite_negations` per correlation (ran at all), the
+`content_data` shape count against the pinned baseline (repaired), and the rejection reasons
+(why anything survived). Correlations still owed to the copy lane; both items triaged at 10:30Z.
