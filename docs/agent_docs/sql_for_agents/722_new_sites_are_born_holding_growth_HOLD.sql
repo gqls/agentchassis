@@ -144,7 +144,7 @@ CREATE TRIGGER trg_sites_born_holding_growth
 DO $$
 DECLARE
   v_id_a uuid; v_id_b uuid; v_id_c uuid;
-  v_a text; v_b text; v_c text; v_untouched bigint; v_existing_posture text;
+  v_a text; v_b text; v_c text; v_untouched bigint; v_existing_posture text; v_unset_posture text;
 BEGIN
   -- ARM 1: the Go path — INSERT naming no settings at all.
   INSERT INTO sites (domain, name, network_id, status)
@@ -191,19 +191,66 @@ BEGIN
     RAISE EXCEPTION '722 ARM 4: % existing sites carry a posture, expected at most 1 (gamedesign.uk, by hand)', v_untouched;
   END IF;
 
+  -- ARM 5, PROBE-SCOPED. Council round 4, debug_historian (HIGH): the first version
+  -- of this arm UPSERTed cookly.uk — a REAL production site — and the cleanup below
+  -- only matches 'zz-722-probe-%', so on COMMIT it would have permanently bumped that
+  -- site's updated_at. That is not a cosmetic leak: `improvement-sweep`'s pre_query is
+  -- ORDER BY s.updated_at ASC NULLS FIRST LIMIT 1, so bumping it sends the site to the
+  -- BACK of the improvement loop's own rotation. A verify block would have silently
+  -- degraded the subsystem this migration belongs to. It never showed up in testing
+  -- because every test run was rolled back; only an APPLY would have committed it.
+  --
+  -- The probe-scoped version also tests the RIGHT scenario. What matters is not "an
+  -- already-open site stays open" but "a site the owner RELEASED is not re-held by the
+  -- next routine UPSERT" — so release it first, then upsert it with upsertSite's REAL
+  -- clause (site_db_actions.go:1111, `ON CONFLICT (domain) DO UPDATE SET updated_at =
+  -- NOW()`), and assert the release survived.
+  UPDATE sites
+     SET settings = jsonb_set(settings, '{maintenance_profile,growth_posture}', '"open"'::jsonb, true)
+   WHERE id = v_id_a;
+
   INSERT INTO sites (domain, name, network_id, status)
-  VALUES ('cookly.uk', 'cookly.uk', (SELECT network_id FROM sites WHERE domain='cookly.uk'), 'active')
+  VALUES ('zz-722-probe-a.invalid', 'zz-a',
+          (SELECT network_id FROM sites WHERE id = v_id_a), 'active')
   ON CONFLICT (domain) DO UPDATE SET updated_at = now();
+
   SELECT COALESCE(settings->'maintenance_profile'->>'growth_posture','open') INTO v_existing_posture
-    FROM sites WHERE domain='cookly.uk';
+    FROM sites WHERE id = v_id_a;
   IF v_existing_posture <> 'open' THEN
-    RAISE EXCEPTION '722 ARM 5: an UPSERT of an existing site changed its posture to % — the trigger fired on the UPDATE arm', v_existing_posture;
+    RAISE EXCEPTION '722 ARM 5: a RELEASED site was re-held (reads %) by a routine UPSERT '
+      '— the trigger fired on the UPDATE arm', v_existing_posture;
+  END IF;
+
+  -- ARM 6, AND IT IS THE ONE THAT ACTUALLY DISCRIMINATES. Arm 5 above is necessary but
+  -- NOT sufficient, and I only found that by mutating: changing the trigger to
+  -- `BEFORE INSERT OR UPDATE` leaves arm 5 PASSING, because a released site carries the
+  -- key with value 'open' and this trigger only stamps when the key is ABSENT.
+  --
+  -- The population an UPDATE-firing trigger would actually damage is the 38 sites that
+  -- carry NO posture key at all [MEASURED 2026-09-02] — they would be silently held on
+  -- their next routine UPSERT, i.e. within ~15 minutes, fleet-wide. So arm 6 builds
+  -- exactly that shape: a site with the key REMOVED, upserted the way ensure_site_record
+  -- does. It fails if the trigger has acquired an UPDATE arm.
+  UPDATE sites SET settings = settings #- '{maintenance_profile,growth_posture}'
+   WHERE id = v_id_b;
+
+  INSERT INTO sites (domain, name, network_id, status)
+  VALUES ('zz-722-probe-b.invalid', 'zz-b',
+          (SELECT network_id FROM sites WHERE id = v_id_b), 'active')
+  ON CONFLICT (domain) DO UPDATE SET updated_at = now();
+
+  SELECT COALESCE(settings->'maintenance_profile'->>'growth_posture','open') INTO v_unset_posture
+    FROM sites WHERE id = v_id_b;
+  IF v_unset_posture <> 'open' THEN
+    RAISE EXCEPTION '722 ARM 6: a site with NO posture key was stamped % by a routine UPSERT '
+      '— the trigger has an UPDATE arm and would hold all 38 unset sites within one sweep',
+      v_unset_posture;
   END IF;
 
   DELETE FROM sites WHERE domain LIKE 'zz-722-probe-%';
 
-  RAISE NOTICE '722 OK: no-settings=%, seed-names-settings=%, explicit-opt-out=%, existing-upsert=%, existing rows carrying a posture=%',
-    v_a, v_b, v_c, v_existing_posture, v_untouched;
+  RAISE NOTICE '722 OK: no-settings=%, seed-names-settings=%, explicit-opt-out=%, released-survives-upsert=%, unset-stays-open=%, existing rows carrying a posture=%',
+    v_a, v_b, v_c, v_existing_posture, v_unset_posture, v_untouched;
 END $$;
 
 COMMIT;

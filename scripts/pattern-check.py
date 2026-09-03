@@ -2376,6 +2376,75 @@ def check_kcat_stdin_race(files, ref, findings):
 # these produce are ever acted on (RFC_008's decisive question — this script's own
 # output is the thing being measured). Hoisted out of `main()` 2026-08-22; keeping a
 # second copy in the auditor is exactly the drift this estate keeps paying for.
+
+# ── an UPSERT on `sites` that writes `settings` from EXCLUDED ───────────────
+#
+# Migration 722 puts a BEFORE INSERT trigger on `sites` that stamps
+# `maintenance_profile.growth_posture = 'hold'` on a new site (owner decision
+# 2026-09-02, bugs_open/447). The trigger is INSERT-only on purpose, because
+# ensure_site_record UPSERTs every site on every improvement-loop pass — roughly
+# 50 times a day fleet-wide — and a trigger with an UPDATE arm would silently
+# re-hold every released site.
+#
+# THE HOLE THAT LEAVES, and it is not the trigger's to close. Postgres fires a
+# BEFORE INSERT row trigger for EVERY row a statement PROPOSES, before the
+# conflict is detected, and `EXCLUDED` is that POST-TRIGGER row. So an UPSERT
+# whose DO UPDATE branch writes `settings = EXCLUDED.settings` carries the
+# trigger's stamp onto a row that already existed. INDUCED 2026-09-03:
+# `DO UPDATE SET updated_at = now()` leaves a released site open;
+# `DO UPDATE SET settings = EXCLUDED.settings` re-holds it.
+#
+# WHY A CHECK AND NOT A COMMENT: the council raised this on migration 722 across
+# THREE seats (guardian medium, architecture medium, bug_historian low) with the
+# same point in three forms — the control was prose, and 722's own test arm pins
+# only today's clause, so it keeps passing after somebody widens it. A landmine
+# tells the reader who goes looking; this tells the author who does not.
+#
+# PRECISION: `sites` only, DO UPDATE branch only, and only where the settings
+# write reads EXCLUDED. A merge into the EXISTING row — `settings = sites.settings
+# || <jsonb>` — never carries the stamp and is the recommended form, so it does
+# not fire. MEASURED over the tree 2026-09-03: 4 UPSERTs on `sites`
+# (site_db_actions.go:1111 `updated_at = NOW()`; one seed
+# `email = COALESCE(sites.email, EXCLUDED.email)`; two `DO NOTHING`) — 0 hits,
+# which is the point: this is a ratchet on a clean tree, not a backlog.
+SITES_UPSERT_RE = re.compile(
+    r"INSERT\s+INTO\s+sites\b(?P<insert>.*?)"
+    r"ON\s+CONFLICT(?P<conflict>.*?)DO\s+UPDATE\s+SET(?P<set>.*?)(?:;|\Z)",
+    re.I | re.S)
+
+
+def check_sites_upsert_excluded_settings(files, ref, findings):
+    """722 — a DO UPDATE that writes settings from EXCLUDED re-holds a released site."""
+    for path in files:
+        if not (path.endswith(".go") or path.endswith(".sql") or path.endswith(".sh")):
+            continue
+        if path.endswith("_test.go"):
+            continue
+        content = file_content(path, ref)
+        if not content or "INSERT INTO sites" not in content.replace("insert into sites", "INSERT INTO sites"):
+            continue
+        for m in SITES_UPSERT_RE.finditer(strip_comments(content)):
+            setclause = m.group("set")
+            if not re.search(r"\bsettings\b", setclause, re.I):
+                continue                      # does not write settings at all
+            if not re.search(r"\bEXCLUDED\s*\.\s*settings\b", setclause, re.I):
+                continue                      # writes settings, but not from EXCLUDED
+            findings.append((
+                "sites-upsert-excluded-settings", path,
+                f"`ON CONFLICT … DO UPDATE SET` on {BOLD}sites{RESET} writes "
+                f"{BOLD}settings{RESET} from {BOLD}EXCLUDED{RESET}",
+                "Migration 722's BEFORE INSERT trigger stamps growth_posture='hold' on the "
+                "proposed row BEFORE the conflict is detected, and EXCLUDED is that "
+                "post-trigger row — so this clause carries the stamp onto a site that "
+                "already exists and RE-HOLDS one the owner released. Nothing errors; growth "
+                "just stops. ensure_site_record upserts every site ~50x/day, so the blast "
+                "radius is the fleet. Merge into the existing row instead: "
+                "`settings = sites.settings || <your jsonb>`, which never carries the stamp. "
+                "Induced both ways 2026-09-03 — see LANDMINES.md, 'A BEFORE INSERT trigger "
+                "fires on the INSERT half of an UPSERT'.",
+            ))
+
+
 CHECKS = (check_untouched_twin, check_gofmt, check_stdin_eater, check_kcat_stdin_race,
           check_declared_pairs,
           check_unguarded_migration_insert, check_append_only_docs,
@@ -2389,6 +2458,7 @@ CHECKS = (check_untouched_twin, check_gofmt, check_stdin_eater, check_kcat_stdin
           check_dynamic_item_type, check_scan_swallow,
           check_partial_page_upsert, check_silent_reply_drop,
           check_handrolled_shipped_predicate, check_flexless_hamburger,
+          check_sites_upsert_excluded_settings,
           check_unlisted_release_overlay)
 
 
