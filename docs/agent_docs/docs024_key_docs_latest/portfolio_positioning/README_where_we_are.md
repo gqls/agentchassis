@@ -1707,3 +1707,11 @@ replacement composition job does get filed, about six hours later, on at least o
 found the mechanism myself. A check fires whenever a site has no style collection assigned, and
 copyonline still has none, so the job will be re-filed when that check next visits the site. I have
 not prodded it.
+
+**Twenty-five to eight — an update on the retirement.** Four of the ten repair jobs finished within
+minutes and I checked the pages themselves rather than the job statuses: the footer, the header, and
+every button-style link to the three retired tools are gone. The title-tag scorer had nothing left
+pointing at it, so I ran its retraction again and it went through cleanly this time, file removed
+and its menu entry switched off. The other two are waiting on three links inside the body text of two
+guides. Those are handled by rebuilding the guide pages, which is in progress. That route works most
+of the time but not always, so if it stalls I will tell you rather than edit the text by hand.

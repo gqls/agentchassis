@@ -5563,3 +5563,32 @@ block a re-file. **Prediction, conditional:** copyonline's composition re-files 
 
 **Also today:** `sites.status` for copyonline read `active` at 17:38Z and `deployed` at 19:0xZ —
 something flipped it between; not chased.
+
+### (ww) 2026-09-03 ~19:35Z — retraction two-thirds through, and the repairs proven at the artefact, not the status
+
+Re-ran the three-source inbound audit after the four completed repairs (control `website-brief-starter`
+still shows full inbound, so the query sees links) `[MEASURED 19:2xZ]`:
+
+| retired URL | body inbound | chrome | nav |
+|---|---|---|---|
+| `/tools/title-tag-scorer/index.html` | **none** | **none** (header+footer regenerated 19:08) | 1 |
+| `/tools/serp-snippet-previewer/index.html` | `tool-insight-injector-guide:article-body` | none | 1 |
+| `/tools/keyword-intent-classifier/index.html` | both guides' `article-body` | none | 1 |
+
+So the `cta_links_stale` rerenders cleared hero/call-to-action AND `tool-cta` (insight-injector's tool-cta
+went from 3 refs to **0**, `updated_at` 19:07:16 — the rerender's tool-crosslink path drops archived
+targets even though `tool-cta` is not in `ctaFieldNames`; my three tool-cta `phantom_internal_link`
+items are therefore moot and will resolve as no-ops), and the chrome refresh cleared the footer. **Only
+three prose links remain, in two guides' `article-body`** — the surface no resolver touches, now with
+`page-build-handler` (route live: **65 complete / 7 failed / 37 unresolved** in 7 days `[MEASURED]`,
+so the outcome is not guaranteed; one item claimed 19:10Z).
+
+**Re-fired the retraction for `tool-title-tag-scorer` alone** (run `98cdfeaa`): **RETRACTED** — 1 file
+removed from `gqls/sites`, commit `44da691f8845684a0bec4417f2eb4ef040694d3e`; its nav row is now
+`inactive` (the action's structural half, verified at the row). SERP and Keyword Intent nav rows stay
+`active` until their retractions pass.
+
+**Owed:** when the three `article-body` items are terminal, re-audit; if zero, re-fire for
+`3ae2096f…` (serp) and `09fdbca9…` (keyword-intent). If page-build-handler leaves them `unresolved`,
+the honest options are a content regeneration of the two guides or accepting archived-not-retracted
+on an unpublished site — the owner's call, not a hand edit.
