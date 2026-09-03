@@ -61480,3 +61480,62 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   a-closer-census-cannot-see-what-it-succeeded-at) · **ignored-a-warning-in-my-own-tool-output** ×1 ·
   **independent-agreement-treated-as-independent** ×1 (new; family:
   a-claim-about-behaviour-is-not-the-behaviour).
+
+- **2026-09-03 — bugfix_361 lane, picking up bugs_open/366 — I ran the census query the bug file
+  supplied, got 882, and started reasoning from a number measured against the wrong population.**
+  366 asks "how many corpus rows are in the hole?" and supplies
+  `SELECT count(*) FROM llm_call_log WHERE success AND (output_tokens IS NULL OR output_tokens = 0)`.
+  Run as given it returns **882**, and I had already characterised the split by provider and agent
+  before checking what the tool actually ingests. `cmd/reasoningset` reads only
+  `step_name ~ '^(verdict|review_|propose|repropose|reframe)$'` plus `score_relevance`
+  (`extract.sql:48,215`). Scoped correctly the answer is **ZERO** — the 882 are
+  `med-price-collector` and `business-intel` rows that never reach the corpus at all.
+  ⚠ **The bug file WARNED me, in the same paragraph as the query:** *"the query's shape depends on
+  which corpus build is authoritative, and a number produced against the wrong extract would be
+  worse than no number."* I read that sentence, ran the query it was attached to, and did not
+  notice that the warning was **about** the query. A caveat sitting next to a runnable command
+  loses to the command every time — the command is the thing that produces output.
+  ⚠ **And the wrong number was not merely too big, it pointed the FIX the wrong way.** The 882
+  split into a large benign population and 58 suspicious rows, which made "exclude all
+  unknown-usage rows" look costly-but-necessary. The correct population inverts it: the filed hole
+  is **empty**, and a blanket exclusion would have deleted **161** real rows (8% of the corpus,
+  averaging 3,092 output tokens) to guard nothing. I would have shipped a corpus regression while
+  believing I was closing a hole.
+  **The cheap check, and it took one grep:** before quoting any population for a tool, read the
+  tool's own selection predicate — `extract.sql`, the `WHERE`, the registry filter — and re-run
+  the count inside it. "How many rows are wrong?" and "how many rows that this tool READS are
+  wrong?" are different questions, and only the second one sizes a fix.
+  Tally: **census-run-against-a-wider-population-than-the-tool-reads** ×1,
+  **read-the-caveat-attached-to-the-command-and-ran-the-command-anyway** ×1.
+
+- **2026-09-03 — bugfix_449 lane — I pinned a demand control to a lane NAME, and the name changed
+  under me the same morning, in the same table I was censusing.**
+  I wrote `scripts/audit-fence-value-assertions.sh` with a built-in demand control, because a
+  census of "how many fences assert nothing" returns the same comfortable number whether the corpus
+  is clean or the query has gone blind. Good instinct. Then I implemented it as a hard-coded pair of
+  `created_by` values — `operator:mortgagecalculator-lane-a4` and `operator:bugfix224-session` —
+  known to carry `computed_values` on every fence, reasoning that a SPECIFIC control is a stronger
+  one than a generic one.
+  **It is stronger, and `created_by` is a free-text lane label, not an identity.** The very first
+  run printed `operator:mortgagecalculator-lane-2026-09-03-701-rekey` where I expected
+  `…-lane-a4`: that lane had re-keyed its eight fences hours earlier, which its own handoff says
+  plainly and which I had read. My control passed only because the *other* hard-coded name happened
+  to still exist. Had they re-keyed both, the check would have exited 2 and reported a **broken
+  census on a day when nothing was wrong** — a control that fails when a lane renames itself does
+  not detect a blind query, it detects a rename.
+  ⚠ **The direction of the failure is what makes this worth logging rather than just fixing.** It
+  fails CLOSED, which feels safe and is the reason I would not have questioned it: an exit 2 reads
+  as "be careful", so a false exit 2 buys a session's confusion and, repeated, teaches everyone to
+  ignore the control. A control nobody trusts is worse than none, because its green is still quoted.
+  **The cheap check:** a demand control must be phrased over the PROPERTY it is testing, never over
+  an identifier that names a row's author. Rewritten as "SOME author still shows a non-zero
+  `uses_computed_values`" — which still exits 2 on a genuinely blind query (a changed fence shape, a
+  renamed column, a `LIKE` that stopped matching) and cannot be broken by anyone renaming a lane.
+  The passing control now PRINTS which author satisfied it, so the reader can see the evidence
+  rather than take "PASSED" on trust.
+  **And the general form, which I had already written into the same file's header and then violated
+  four lines later:** anything in a check that is stable-by-convention rather than
+  stable-by-construction is a future false alarm. Author strings, display names, slugs and
+  human-typed labels are all the same class.
+  Tally: **control-pinned-to-a-mutable-identifier** ×1,
+  **fail-closed-treated-as-inherently-safe** ×1.
