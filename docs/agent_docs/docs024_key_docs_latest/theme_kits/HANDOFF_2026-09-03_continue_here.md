@@ -124,6 +124,23 @@ automatically if the correlation approves. **Do NOT write `Council-Reviewed:` un
 have read an approved verdict** — 098 buckets that as MISMATCH. Resolve with the queries in
 the RUNBOOK §4.
 
+⚠ **`scripts/verify-head-builds.sh --test` is RED at HEAD, and NOT for this lane.**
+`[VERIFIED 2026-09-03]` two failures, both other lanes', both proven not ours (each
+mechanism appears **0** times in all three files this lane touched):
+
+- `render_seam_one_spelling_test.go` — UNDECLARED template executor
+  `renderFailWorkItemMessage`, introduced by `83407cd37` (the `bugs_open/440` lane's
+  phase 3, "BUILT and HELD"). Their guard firing exactly as designed: a new executor is a
+  new dialect and must be declared with its language.
+- `check_stylesheet_gutted_test.go` — `canonicalCSSTokens` declares four tokens the check
+  does not police (`--color-accent-ink`, `--color-accent-text`, `--color-cta-bg-ink`,
+  `--color-primary-ink`).
+
+**This lane's own tests pass at HEAD** (`go test -run 'ClassifierDesignIntentState|SupersedeRiskConstants'`
+→ ok), and the **build** half of `verify-head-builds.sh` is green. Do not spend time
+debugging these, and do not patch another lane's guard to make your run go green — the
+first one is asking its author a question only they can answer.
+
 ---
 
 ## 5. What was committed today
