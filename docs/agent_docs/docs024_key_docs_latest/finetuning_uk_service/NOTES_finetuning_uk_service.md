@@ -2892,3 +2892,14 @@ with 389; recorded in the handoff's "Reported by peers" section. Told them the s
 (editor route safe on slot 2).
 
 `HANDOFF_2026-09-03_continue_here.md` written at the owner's request; supersedes 09-02.
+
+**17:10Z — 384 lane closed the loop on `/llm-cost-calculator`:** my slot-level fact holds on all
+three affected pages (ours + two on leopardessconsulting.co.uk: `tool-cta` is `section`-level
+everywhere, the tool fork is slot 1). Following that landmine's relations chain they found the
+`bugfix_277` entry ("ownership is the correlate; the operative property is whether the content is
+reachable from `content_data`") and ran its check: **`can_regenerate = true` on all three pages**
+(the template's fields exist as `content_data` keys; items 5/4/5). So here ownership really IS the
+operative blocker — the unusual case — and routing around it via the section-editor WOULD repair
+something. In 389's CONTRIB, credited. Takeaway they named and I second: **a mechanism claim does
+not license a consequence claim** ("the seam cannot reach it" ≠ "it cannot be repaired"). Nothing
+further owed; the handoff's "Reported by peers" entry stands as written.
