@@ -184,3 +184,41 @@ to be covered, because its verify block asserts the flat arm and the field-list 
 survive, and the applied live row confirms it. That was fortunate rather than designed. The
 next anchored-replace migration on this estate should assert the anchor text is still
 present after the splice.
+
+## 2026-09-03 — the mixed state, observed at the artefact; and the control found somebody else's bug
+
+The background poll finally caught writer calls under the new template (first at 10:35:54Z,
+51 minutes after the migration — the writer is busy but bursty).
+
+**Result, and it was alarming for about ninety seconds:** 2 of the first 3 prompts contained
+`<no value>` — the exact string my own test asserts must never appear, and the thing my
+whole deploy-order argument rests on not happening.
+
+**The control settled it decisively, and it is the reason to always have one.**
+`[MEASURED 2026-09-03]` `<no value>` appears in **420 of 643** page-content-writer prompts
+from BEFORE migration 724 (65%), against 3 of 5 after (60%). It is long-standing, unrelated
+to this change, and if anything marginally less frequent after. Had I checked only the
+post-migration rows — which is the natural thing to do when verifying your own change — I
+would have concluded I had broken the writer prompt and rolled back a correct migration.
+
+**What it actually is:** `Location: {{.reviewed_brief.headquarters}}` rendering into the
+block headed *"Official Contact Information (USE ONLY THESE - DO NOT INVENT)"*. So the
+writer is told the business's location is the literal string `<no value>`, inside the one
+block it is instructed to treat as authoritative — structurally `bugs_open/387`'s
+stand-in-token class, except manufactured by the renderer rather than authored by a human.
+Live damage today is **zero** (0 of 3,228 `page_components` carry it, against a writer that
+ran 648 times today), so the writers are declining to copy it — a behaviour we rely on and
+never asked for.
+
+**Contributed into `bugs_open/453`** (filed this morning by the `apis_uk_bees_homepage`
+lane; `who-owns.py` names them, so contribute rather than compete) rather than filed as a
+new bug. The contribution's substance is a correction to their fix candidate 1: their lint
+diffs template ROOT identifiers against `input_fields`, and **this instance's root
+(`reviewed_brief`) IS in `input_fields`** — it is the SUB-FIELD that is absent, in the data,
+per site. So there is a third failure shape their candidate cannot see, and it is the
+highest-volume one. The cheap cover already exists: `RenderPromptTemplate` detects and counts
+`<no value>` at render time and then logs a Warn nobody reads — 260 §9b's pattern exactly.
+
+**Nothing about 437 changed.** My two new directives are inside `{{if}}` guards and neither
+prints a bare key; none of the three observed calls was a mechanism-flow page, so the nested
+exemplar has still not been exercised in production. That remains owed after the roll.

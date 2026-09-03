@@ -67,3 +67,102 @@ regression-pin (pre-641-apply, the writer's `sections_for_render` mismatch IS th
 post-apply, induce one on a scratch row). A lint that reports zero on first run against 50+
 agents should be suspected of reading the wrong path (LANDMINES ~563: a wrong jsonb path is
 uniformly NULL and reads as a clean fleet).
+
+---
+
+## CONTRIBUTION 2026-09-03 — the `<no value>` arm is not latent: it is firing on 65% of the fleet's highest-volume writer RIGHT NOW, and its shape breaks fix candidate 1 as specified (from the `bugs_open/437` lane)
+
+**I am not the owner of this bug and I am not proposing to build candidate 1.** I hit this
+sideways while verifying an unrelated prompt change, and I am contributing a live census, a
+named instance, and one correction to your fix candidate's spec — which is the part that
+matters, because as written the lint would not catch the instance below.
+
+### 1. The census — this class is currently firing, at scale `[MEASURED 2026-09-03]`
+
+Your §Priors reads as a recurrence record of four historical catches. On the
+`page-content-writer` — the fleet's highest-volume writer — the `<no value>` arm is in the
+prompt **right now, on most calls**:
+
+| era (2026-09-03) | writer calls | prompts containing `<no value>` |
+|---|---|---|
+| before 09:44:42Z | 643 | **420 (65%)** |
+| after 09:44:42Z | 5 | 3 (60%) |
+
+The split is only there because I needed it as a control for my own change (an unrelated
+prompt migration applied at 09:44:42Z). **Read it as one population: ~65% of writer prompts
+carry a literal `<no value>`, and my migration neither caused nor changed that** — which is
+the only reason I am confident enough to report it as pre-existing rather than as damage I
+did.
+
+### 2. The instance, and why it is worse than an empty string
+
+```
+## Official Contact Information (USE ONLY THESE - DO NOT INVENT)
+Email: finetune@contactforsales.com
+Phone: +44 (0) 7934 524 911
+Location: <no value>
+```
+
+The template line is `Location: {{.reviewed_brief.headquarters}}`. So the writer is handed
+the string `<no value>` as the business's location, **inside the one block the prompt
+instructs it to treat as authoritative and not invent around**. That is structurally the
+`bugs_open/387` shape — a stand-in token sitting in a writer-visible instruction — and 387
+measured that class shipping into public copy on **14 of 137** instructed calls. The
+difference is that 387's `NNN` was authored by a human; this one is manufactured by the
+renderer, silently, on two thirds of calls.
+
+**Live damage today: ZERO, and the zero is real** — `[MEASURED 2026-09-03]` **0 of 3,228**
+`page_components` carry `<no value>` in `rendered_html` or in `content_data`, against a
+demand control of 3,228 stored rows and a writer that ran 648 times today. The writers are
+declining to copy it. That is a behaviour we are relying on and have never asked for.
+
+### 3. ⚠ THE CORRECTION TO FIX CANDIDATE 1 — this instance has its ROOT in `input_fields`
+
+Your §Mechanism states the cause as *"a template variable whose root is NOT in that
+subset"*, and candidate 1 proposes a lint that extracts `{{...}}` **root identifiers** and
+diffs them against `input_fields` ∪ speciallyHandled ∪ template-locals.
+
+**That lint would report this instance as CLEAN.** Measured on the live row:
+
+- `generate_content.config.input_fields` = `[current_section, render_context,
+  reviewed_brief, current_page, link_context, site_plan, site_specs, existing_content,
+  build_mode, rewrite_guidance]`
+- the variable is `{{.reviewed_brief.headquarters}}` — root `reviewed_brief` is **present**,
+  and is in the speciallyHandled set besides.
+
+The absent thing is the **sub-field** `.headquarters`, missing from most sites' briefs. Same
+output, same silence, different cause — and it is data-dependent, which is why the rate is
+65% rather than 100% (some briefs carry a headquarters; the third call in my sample rendered
+clean).
+
+So the seam has **three** failure shapes, not the two your §Priors names:
+
+1. no `input_fields` at all → randomised recursive resolution (the LANDMINE sibling);
+2. root missing from `input_fields` → silent empty / `<no value>` (this file's case);
+3. **root PRESENT, sub-field absent in the DATA → `<no value>`, and no static lint over
+   config can ever see it**, because the config is correct and the shape depends on a row.
+
+Shape 3 cannot be closed by candidate 1. What it can be closed by, cheaply, is the arm you
+already have: `RenderPromptTemplate` (`datahelpers/data_helpers.go`) **already detects
+`<no value>` at render time and already counts it** — and then logs a `Warn`. On a service
+this busy that is the *"a detector whose only output is a Warn is not a detector"* pattern
+`bugs_closed/260` §9b filed against `WarnIfLegacyDialect`. Promoting that existing scanner to
+a durable row (or an opt-in refusal for prompts whose `<no value>` lands inside a
+DO-NOT-INVENT block) would cover all three shapes at the point where the truth is actually
+known, at zero new detection cost.
+
+I have not built it — it is your file's decision and it touches a shared prompt seam that
+wants its own council round. Flagging only that **candidate 1 should say which shapes it
+closes**, because on today's evidence the highest-volume instance is the one it misses.
+
+### 4. What I did not do
+
+Not filing a competing bug (`who-owns.py 453` → the `apis_uk_bees_homepage` lane), not
+touching `input_fields`, not touching the contact block, and not proposing to fix
+`headquarters` on any site — a data gap on one field is a different problem from a renderer
+that turns a data gap into an authoritative-sounding string. The queries above are all
+read-only and are reproducible from this text.
+
+*Contributed by the `bugs_open/437` lane, 2026-09-03. Found while confirming that migration
+724 had not introduced `<no value>` into the writer prompt — it had not, and the control is
+what surfaced this.*
