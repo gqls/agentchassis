@@ -94,6 +94,23 @@
 --    quoting his words, and name it in this file's APPLIED line - an unrecorded
 --    read is indistinguishable from a skipped one.
 
+-- APPLIED 2026-09-03 19:3xZ by the framework_prompts_positive_voice session (which
+--   holds this apply by the apis.uk lane's handover of the same day). Gate 2 CLEARED
+--   the same evening: the owner was shown these exact INSERTED TEXT bytes plus one
+--   filled-in render and answered "yes"; his read is recorded verbatim, with the bytes
+--   and with what changed since round 1, in
+--   docs/agent_docs/docs024_key_docs_latest/apis_uk_bees_homepage/NOTES_apis_uk_bees_homepage.md
+--   (entry dated 2026-09-03 19:2xZ). Gate 1 re-verified immediately before applying, on
+--   BOTH replicas, three-way: section_subjects 3 (capability), section_facts 3 (positive
+--   control), zzz_absent_zzz 0 (absent control, so the probe discriminates).
+--   Apply output: "NOTICE: 641 applied: block + input_fields in one transaction;
+--   em-dash census 10 (unchanged)". Live row verified after COMMIT: block present, the
+--   old frame absent, sibling range present, block precedes the Verified Facts block,
+--   input_fields carries sections_for_render, em dashes 10, template 14,914 chars.
+--   Council: round 1 APPROVED (corr 6c92d154); round 2 resubmitted on the same
+--   correlation for the A4 redraft and still open at apply time - the gate is advisory
+--   and the owner's approval of the exact words is the binding one.
+
 SELECT snapshot_agent('page-content-writer', '641_page_content_writer_prompt_v5_section_subject_HOLD.sql: pre-update (redraft C)');
 
 BEGIN;
