@@ -648,3 +648,24 @@ across; I am watching for that and will check the served file the same way.
 The home-page rebuild is running at last, and this time the relaxed guard was in place when the
 job started, so the call-to-action should be allowed to shrink. I will have the result within
 a few minutes and the boxingonline thread will read the new copy against your review.
+
+## 2026-09-03 (early afternoon) — the home page is rebuilt: cards fixed, call-to-action shortened, one wrong word to come to your review queue
+
+The rebuild went through on its second attempt at 12:10, with the relaxed guard genuinely in
+place this time; the guard reset itself six seconds after the job finished, and no other site's
+build ran inside the window. At the stored page: all six cards now carry their one-line summaries,
+all six headlines have lost the "| Boxing Online" tail, and the empty "featured content" block has
+gone. That is your item 14, done at the source; it reaches the live page at the next publishing
+pass, which I am watching.
+
+The call-to-action is now a headline, one sentence and two buttons instead of eleven hundred
+characters walking through four tools, which is the repair of your item 1. The boxingonline
+review thread read the new sentence and found one thing that should not ship: it says "the
+calendar below tells you what's coming up next", and there is no calendar below it, the block is
+the last thing on the page and the calendar is its own page, reached by the second button. A
+small false claim of the same family as the old padding. I have not corrected it myself; the
+framework's copy editor will rewrite that one sentence and, by design, put the proposal in your
+review queue on the admin site for you to approve or send back. Expect that item there shortly.
+
+The logo is verified at the file itself, transparent, one mark, no lettering; the live site picks
+it up at the same publishing pass.
