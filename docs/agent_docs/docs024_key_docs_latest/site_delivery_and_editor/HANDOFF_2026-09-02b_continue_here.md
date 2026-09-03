@@ -295,7 +295,8 @@ EXPECTED pre-convergence shape, not a failure).
    > `GTM-PQ3WCTBD` + `cc_v1`, header GTM) then FAILED at `rebuild_blog_listing`
    > (duplicate-key on articles-index — `findBlogListingSlot` finds no listing slot and INSERTs
    > a fresh position-3 row each run; 7 such rows exist; 316's constraint now refuses the
-   > unchanged one) → 0 assemble children; retries 11:12 will fail the same way. Interim:
+   > unchanged one — **filed as `bugs_open/457` by the components lane; this lane's finder
+   > fall-through + census are a CONTRIB section in it**) → 0 assemble children; retries 11:12 will fail the same way. Interim:
    > **18 `_assemble` items hand-filed 10:47:56Z, batch `000622a9`** (index + guides-index
    > excluded), the exact shape `create_rerender_items` would have produced. Logo `d71b7877`:
    > Gemini **429 "prepayment credits are depleted"** (bugs_open/455, 424 lane) — deferred to

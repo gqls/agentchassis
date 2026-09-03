@@ -76,3 +76,48 @@ the 18 items to work around it.)
 - The same file's `loadListingTemplate` looks its template up **by name** rather than following the
   `page_components.component_id` it is writing — noted in `bugs_open/425` fix-candidate 5, and the
   two are the same underlying carelessness about component identity in this action.
+
+## CONTRIB from `site_delivery_and_editor`, 2026-09-03 ~10:55Z — WHY the finder misses, and the fleet shape of pages that can hit this
+
+`findBlogListingSlot` (`rebuild_blog_listing_action.go:645–` ) has three strategies and the
+boxingonline page falls through all of them to the INSERT branch this file describes:
+
+1. **Strategy 1** — a `page_components` row whose `slot_name` is one of `slotPriority` =
+   `blog-listing, article-grid, content-listing, guide-list, featured-article`. articles-index
+   has `hero`, `generic-text-block` ×7, `call-to-action` — none match → miss.
+2. **Strategy 2a** — a `slotPriority` name inside `pages.sections`. articles-index `sections` =
+   `["hero","generic-text-block","call-to-action"]` → miss.
+3. **Strategy 2b** — "first content section from the page plan" not in the skip list
+   (`hero/header/footer/head/call-to-action/cta`) → returns **`generic-text-block` with
+   `uuid.Nil`** → the caller takes the INSERT branch at `:404` with `position` hard-coded 3.
+
+So the accumulation is not random: it is deterministic on any blog-index page whose plan names
+no listing-class section, and the row it appends is titled "Latest Articles" in a slot the page
+already uses for prose. Migration 316's constraint is what finally reported it (this file says
+so; agreed).
+
+**Fleet census `[MEASURED 2026-09-03 10:5xZ]`**, `pages.page_type='blog-index' AND status='active'`
+— **4** pages:
+
+| site | url | `sections` | pos-3 `generic-text-block` rows |
+|---|---|---|---|
+| ai-agent-orchestration.com | /blog.html | `[]` | 0 |
+| **boxingonline.com** | /articles/index.html | `[hero, generic-text-block, call-to-action]` | **6** |
+| finetuning.uk | /blog.html | `[blog-listing]` | 0 |
+| leopardessconsulting.co.uk | /blog.html | `[]` | 0 |
+
+Only boxingonline has BOTH a listing-less plan AND rerender-pages runs (its `stale_chrome` /
+chrome-refresh history); the two `[]`-sections pages would take strategy 2b's "no sections →
+default `blog-listing`, `uuid.Nil`" path and insert into a `blog-listing` slot instead — so they
+accumulate under a different slot name and this census (position-3 `generic-text-block`) is blind
+to them by construction. Re-run it grouped by `(page_id, slot_name, position)` before quoting the
+fleet number. Disconfirming result for the boxingonline mechanism would have been a listing-class
+name in its `sections` or a matching slot row; there is neither.
+
+**Operational consequence on boxingonline today:** every `rerender-pages` run for the site dies at
+this step (the operator chrome refresh `ec92320f` at 10:42:34Z, and it will again at 11:12 and on
+attempt 3), so chrome NEVER propagates through the workflow on this site; the 10:42Z head/header
+(GTM + consent) reached `site_components` because `render_site_components` runs before this step.
+Interim taken: the 18 per-page `_assemble` items hand-filed 10:47:56Z (batch `000622a9`), the
+shape `create_rerender_items` would have produced. Not touching the six orphan rows (your
+candidate 4: futile before the code fix, and a data change on the paid site).
