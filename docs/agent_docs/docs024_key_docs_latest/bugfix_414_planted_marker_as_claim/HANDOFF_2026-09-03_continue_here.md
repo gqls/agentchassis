@@ -183,7 +183,7 @@ back out.
 | RFC_060 — all 7 questions | **FULLY RULED** 2026-09-02/03 | owner: done |
 | RFC_060 Q5/Q6/Q7 builds | not written; none rode today's roll | **claims-verification** |
 | Q7 `banned_claims` half | **BUILT, APPROVED, LIVE** — demand control **PLANTED 09:34 UTC, not yet dispatched** (§3) | **claims-verification** |
-| `loancash.co.uk` register | **the one genuine gap, re-confirmed 09:49 UTC 2026-09-03**: no `evidence_base` row at all (not an empty one) beside 14 other current specs, on a **deployed** finance site serving **30 pages**. RFC_060 Q1 makes a register required here; owner informed; **still unowned** | unowned |
+| `loancash.co.uk` register | **the one genuine gap, re-confirmed 09:49 UTC 2026-09-03**: no `evidence_base` row at all (not an empty one) beside 14 other current specs, on a **deployed** finance site serving **30 pages**. RFC_060 Q1 makes a register required here; owner informed; **still unowned**. **It is the LAST of RFC_060 §1d's five — the other four are done** (`lendzy` landed, `farmerinsurance` 09-02 18:34), so §3c track 1 is now one site. Wider frame recorded in the RFC: **13 of 39 `deployed` sites hold no register**, and **nothing can ever raise the absence** — the sweep's target list is built from the sites that HAVE one | unowned |
 | ~~`farmerinsurance.uk` — 0 `banned_claims`~~ | **DISCHARGED 2026-09-02 18:34 UTC** by migration 713 (lendzy relay), *before* this table was written; today's 09:11 refresher carried 7 facts + 5 patterns forward unchanged. Spec history, not the current row, is what shows this — the current row alone reads as "the daily sweep fixed it", which is false | — |
 | `lendzy.co.uk` migration 695 | written + council-reviewed, blocked on rolls | lendzy lane |
 

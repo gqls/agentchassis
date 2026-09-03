@@ -368,3 +368,38 @@ the second — here the LIVE row is the misleading one and the history is the fa
 **4. `loancash.co.uk` re-confirmed as the one genuine gap**, and it is unchanged: **no**
 `evidence_base` row at all — not an empty one — beside 14 other current specs, on a `deployed`
 finance site serving **30 pages**. RFC_060 Q1 makes a register required there. Still unowned.
+
+## (r) 2026-09-03, 09:57 UTC — "the one genuine gap" was the one gap this lane was LOOKING at
+
+Chasing §4's `loancash.co.uk` row produced a bigger number than the row implies, and one structural
+finding that is worth more than either.
+
+**Four of RFC_060 §1d's five register-less finance sites are done.** `lendzy.co.uk` now carries 8
+facts and 5 `banned_claims` (its table row still says "not yet applied … 0 (pending)", true on 09-02
+afternoon); `farmerinsurance.uk` 7 facts and 5 patterns. Only `loancash.co.uk` remains, so RFC_060
+§3c's track 1 — *"populate the five register-less finance sites"* — is now **one site**. Re-measured
+into the RFC at §1d (`ce71ab6bd`), because that instruction is what a session picking up track 1
+reads, and it would have sent them at four sites that no longer need it.
+
+**The population is 13, not 1.** `[MEASURED 2026-09-03]` **13 of 39 `deployed` sites hold no current
+`evidence_base`**. Q1's requirement is finance-scoped so most are not violations today — but
+`vetcomparison.uk` is on the list, and Q5's ruling was decided *on the owner's own fact* that vet and
+legal are next. **The sector presets Q5 approved will land on a site with no register to apply them
+to.**
+
+**And nothing can raise the absence.** `resolveEvidenceSites` (`:290`) builds the daily sweep's
+target list as `SELECT site_id FROM site_specs WHERE aspect='evidence_base' AND is_current` — the
+sites that **have** a register. **The target set is defined by the presence of the very thing whose
+absence is the defect.** So a register-less site is invisible to the freshness sweep, the fact
+checks, and this lane's own new `invalid_banned_claim_pattern` detector alike — silently and for
+ever. Q1 requires registers; no reader enforces or reports the requirement.
+
+That is the same family as everything else this lane found, one turn further out. §3's `omitempty`
+blindness hides a *clean result*. This hides an *absent subject*. In both cases the instrument
+reports nothing and nothing is what a healthy system also reports — but here it is not a logging
+choice, it is the population filter, and no amount of running the check more often would ever reach
+these sites. **A detector whose target list is drawn from the population it is checking cannot find
+what is missing from that population.**
+
+Recorded in RFC_060 rather than built. It is that RFC's build and the `claims-verification` lane's
+seam; this lane measured it and handed it over, which is where §2b's lesson landed.
