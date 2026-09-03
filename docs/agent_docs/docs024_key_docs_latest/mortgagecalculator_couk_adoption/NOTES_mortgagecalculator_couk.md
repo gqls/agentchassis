@@ -5289,3 +5289,32 @@ completed work items — and `instance_scope_conversion` rows sitting there at 0
 visible the whole time and I never looked.** I inferred the cause from which migration had run most
 recently. That is coincidence in time read as mechanism, and it is the second time today I have done
 it (see the fleet-outage near-miss above). Both logged in `WRONG_CALLS.md`.
+
+### Why nothing has run: the site has not been dispatched for 2h50m, and it is rotation, not a fault
+
+Measured 11:38–11:40Z. The 6 rerenders and 5 acceptance runs are all still `triaged`. **Last claim
+on this site: 08:49:48.** Checked, in order, the things that would make it OUR problem — and none
+of them holds:
+
+- site **not locked**; **no `claimed` row** held (the selector's
+  `NOT EXISTS (… status='claimed')` arm excludes a site entirely, and would have been the answer);
+- no `retry_after`; `governor_admits` true for both item types;
+- ran the live `find_dispatchable_site` query by hand: **we rank 5th and are eligible**, behind
+  vetcomparison (06:57), finetuning (08:25), ai-agent-orchestration (08:32), boxingonline (08:35).
+
+And `build-dispatch-loop` is emphatically alive: **21 claims in the trailing 15 minutes**, with
+**68 of ~110 claims over 90 minutes going to finetuning.uk (40) and vetcomparison.uk (28)** — the
+two sites that also hold ranks 1 and 2 and **remain there afterwards**.
+
+⚠ **I did NOT file this**, and the restraint is deliberate. It is a known shape the
+`dispatch_throughput` lane already owns — their directory holds a CONTRIB from 2026-08-26,
+*"a site whose eligible rows are YOUNG waits unboundedly behind sites with hours-old backlogs"*,
+which even names `finetuning` as *"your pinned case, which may itself have been soaking cycles"*.
+Eight days on it is still top of the list. **Contributed as data only:**
+`dispatch_throughput/CONTRIB_2026-09-03_from_mcalc_lane_third_starvation_instance_and_finetuning_is_still_the_soaker.md`,
+with an explicit note that heavy service plus persistent top rank is a **correlation** and I am not
+naming a mechanism from it — having already made that mistake twice today on this very site.
+
+**Nothing here is blocked in a way that matters.** No customer-visible work is waiting; the queue
+will reach us. The one thing with a clock on it is §4a of the handoff: when the rerenders land, the
+three held fences must be re-pointed **before** their runs are re-fired.

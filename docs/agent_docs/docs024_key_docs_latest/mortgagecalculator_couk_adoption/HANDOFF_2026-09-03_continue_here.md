@@ -162,6 +162,13 @@ fence it is about to be judged by, and neither item knows about the other.
    is ordering, not failure. **I nearly filed a fleet-wide dispatch outage over this** — see
    `WRONG_CALLS.md` 2026-09-03; the agent was fine (all 202 agents shape `workflow.steps` as an
    object) and the governor admits `acceptance_run`.
+   **Update 11:40Z — still queued, and the reason is rotation.** Last claim on this site was
+   **08:49:48 (2h50m)**. Site unlocked, no `claimed` row held, no `retry_after`, governor admits
+   both types, and the live `find_dispatchable_site` query ranks us **5th and eligible**. The loop
+   is alive (21 claims in 15 min) but **68 of ~110 claims over 90 minutes went to two sites that
+   stay top-ranked**. Known territory for the `dispatch_throughput` lane — contributed as data
+   only, no mechanism claimed. **Do not re-file this and do not re-dispatch the runs to hurry
+   them**; a duplicate costs a round and changes nothing.
 2. **`bugs_open/441` candidate 1** — the platform fix. Council gate; it is `platform/` code.
 3. **`bugs_open/448`** — 62% of every failed `improve_tool` on the estate. Small fix, sound code
    already 300 lines below in the same file.
