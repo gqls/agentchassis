@@ -66,3 +66,35 @@ S = A3_elsewhere_on_the_page
 The four templates are in `render_test/main.go`; the renders in `render_test/OUTPUT.txt`. Under option A every
 candidate prints the subject verbatim, so on planner-written subjects (fixture A) they all show the capitalised,
 em-dashed planner phrase as the section's line: the planner nudge is required data work, not a block choice.
+
+## 2026-09-03 (~15:30Z) — the owner read the four blind, leaned R (the committed control), and the frame's cost is now MEASURED
+
+He picked **R**, which is the currently committed candidate C, his own 2026-09-02 pick chosen again without
+knowing it. His words: *"I think R because it is a bit more verbose and friendly, but not sure."*
+
+The "not sure" is well placed, and the harness answers it. R's first sentence is a frame with a hole, and only
+one shape of subject fits the hole. Both renders below are real harness output, not composed:
+
+- On the REAL gamedesign.uk planner subjects (fixture A): *"You'll want to know Brief description of the
+  sister-site relationship with gamesdesign.co.uk and what each site covers. That's what this section is for."*
+- Carrying HIS OWN example sentence (fixture G): *"You'll want to know If you'd like to prepare in advance of
+  your hour, you might want to get these things ready.. That's what this section is for."* (note the doubled
+  full stop, which no rule catches).
+
+**So R's frame and his own sentence idea are mutually exclusive**, and that is the decision put back to him:
+keep the frame and subjects are permanently short lower-case "what/how" clauses on every site including
+planner-written ones, or drop the frame (A4 = R's second half unchanged, subject printed verbatim) and the
+opening line can be written per section in his words. A4 was added to the harness for this and renders clean
+on every fixture. Awaiting his answer.
+
+**Whatever he picks, this lane owes a PHRASING SPEC for subjects**, because two other lanes author that data:
+finetuning's backfill arrays and apis.uk's index page (generic-text-block ×6 with zero subjects on the plan
+rows, per the 443 lane's exposure CONTRIB). The 443 CONTRIB's "must complete 'You'll want to know ___'" rule
+is stale under the rework and must not be followed until the spec lands.
+
+**From apis.uk, recorded in the RUNBOOK because they are traps, not preferences:** the block's text lives
+twice in 641 (header comment and the `E'...'` string) and must be byte-compared after decoding; the pre-flight
+"already applied" probe keys on the opening `{{if .current_section.subject}}` literal; `::text LIKE` on the
+planner row returns a clean false for any literal containing a double quote (JSON stores `\"`); that prompt
+moved 169 chars in an hour, so no absolute offsets; and the 450 lane's migration 729 pins the same rule-17
+anchor and is blocked on an owner permission decision, so they re-anchor on top of the nudge, not the reverse.

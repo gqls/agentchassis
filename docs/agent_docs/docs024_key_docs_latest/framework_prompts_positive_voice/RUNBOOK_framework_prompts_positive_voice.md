@@ -65,3 +65,40 @@ EMPTY with no error). Fixtures are real `orchestration_states` rows. Copied from
 `scripts/who-owns.py` resolves BUG numbers and slugs only; a prompt name returns "No bug file matches",
 which reads as unowned and means "not a bug". For a prompt: `git log --oneline -5 -- docs/agent_docs/sql_for_agents/NNN_*`
 on its latest seed, then the lane HANDOFF that commit names.
+
+## Editing migration 641's block (from apis.uk, 2026-09-03, and it is the whole ballgame)
+
+**The text lives TWICE in the file**: the header's `INSERTED TEXT` comment block (what the owner reads)
+and the `E'...'` string inside the `UPDATE` (what applies). They can disagree silently. Prove they do not,
+programmatically, every time:
+
+```bash
+# decode the E-string ('' -> ', \n -> newline) and byte-compare against the harness's tested template
+python3 - <<'PY'
+import re
+sql=open('docs/agent_docs/sql_for_agents/641_page_content_writer_prompt_v5_section_subject_HOLD.sql',encoding='utf-8').read()
+e=re.search(r"E'((?:[^']|'')*)'", sql[sql.index('jsonb_set'):]).group(1)
+applied=e.replace("\\n","\n").replace("''","'")
+header="\n".join(l[3:] for l in sql.split('__ INSERTED TEXT')[1].split('__ END INSERTED TEXT')[0].splitlines() if l.startswith('-- '))
+print("MATCH" if applied.split('{{if .current_section.facts_scoped}}')[0].strip()==header.strip() else "DIVERGED")
+PY
+```
+The apis.uk lane ran this on both their cuts and it caught nothing precisely because it ran.
+
+**The pre-flight "already applied" probe keys on `{{if .current_section.subject}}`** plus the `input_fields`
+containment. Every candidate under option A keeps that opening literal, so the probe still discriminates.
+If an edit ever changes it, re-key the probe in the SAME edit.
+
+**Keep the guards byte-for-byte**: the em-dash census is pre/post EQUALITY, so it self-enforces (a new block
+only has to add zero em dashes); the both-halves verify needs no touch.
+
+## Anchoring on `build-site-planner` (the planner nudge)
+
+- **`default_config::text LIKE '%…"subject"…%'` returns a clean FALSE for any literal containing a double
+  quote**, because JSON serialisation stores `\"`. It reads as "the rule is gone". Extract with `#>>` first,
+  then match on the extracted text.
+- **Record no absolute positions or lengths of that prompt**: it moved 169 chars in one hour between two
+  lanes' measurements on 2026-09-02. Anchor on verbatim sentences only.
+- **Tell the `bugfix_450_tool_page_shells` lane before landing anything on that row**: their migration 729
+  pins the same rule-17 anchor as a neighbour-check and is blocked on an owner permission decision, so they
+  re-anchor on top of ours, not the reverse. Rehearse with their temp-table baseline shape (their RUNBOOK §10).

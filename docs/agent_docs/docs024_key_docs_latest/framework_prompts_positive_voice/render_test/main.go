@@ -39,6 +39,14 @@ The rest of {{.current_page.title}}, section by section:
 {{range $s := .sections_for_render.sections_ready}}{{if $s.subject}}- {{$s.subject}}{{if eq $s.subject $.current_section.subject}} (this section){{end}}
 {{end}}{{end}}
 {{end}}`,
+	"A4_R_second_half_no_frame": `{{if .current_section.subject}}## This section
+
+{{.current_section.subject}}
+
+{{.current_page.title}} also covers, each in its own section:
+{{range $s := .sections_for_render.sections_ready}}{{if and $s.subject (ne $s.subject $.current_section.subject)}}- {{$s.subject}}
+{{end}}{{end}}
+{{end}}`,
 	"A3_elsewhere_on_the_page": `{{if .current_section.subject}}## This section
 
 {{.current_section.subject}}
