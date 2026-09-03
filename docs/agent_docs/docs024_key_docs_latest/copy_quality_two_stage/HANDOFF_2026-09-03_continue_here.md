@@ -16,8 +16,30 @@ tail (09-02/09-03 entries are the full trail). The owner does NOT want this lane
   right worked pair).
 - **BEST-IN-CLASS PROPAGATION STEP 1**: carrier 675 applied · injector aboard · opt-ins
   677/678/679 applied (single-row-guarded, snapshotted). Register CQ-033.
-  **⚠ THE ONE OWED READ — the planner prompt canary — is STILL OPEN, and it is the first
-  thing to check:** no planner/designer has produced an LLM call since the opt-ins.
+  > **✅ ANSWERED 2026-09-03 14:20Z — THE CANARY IS CLOSED FOR `build-site-planner`. Do not
+  > re-run it as "the first thing to check"; that instruction below is spent.** It rendered the
+  > block twice — `10:40:15Z` (planning gamedesign.uk) and `14:15:16Z` — both `has_standard=t`,
+  > `unrendered=f`, read at the artefact: the live prompt contains *"Plan a website for
+  > gamedesign.uk.\n\n## BUILD STANDARD (applies to every site, regardless of inputs). Aim
+  > for…"*. So carrier → injector → live planner prompt works end-to-end and `677` is proven.
+  > **Still unobserved: `678`** (content-gap-planner has not run since the opt-ins — it will
+  > answer itself on any organic run). **Never observable: `679`** (dead row, see below).
+  > ⚠ Two agents carry the carrier form and one is NOT a consumer — `diagnose-agent` (14:01Z) is
+  > our own investigative traffic reading configs. The census question is who RENDERS it.
+  > ⚠ **A `zero rows since T` result here can turn non-zero LATER without anything new running**:
+  > the 10:40Z row was absent from an 11:00Z check of the same window. Whatever `created_at`
+  > records, rows arrive after it, so an early zero is "not yet logged", not "did not happen" —
+  > this cost two false "still open" readings today.
+  >
+  > **⚠ NEW, OPEN: the whole 897-char block renders as ONE MARKDOWN H2.** `[MEASURED]` 897 chars
+  > from `##` to the next newline. The opt-ins insert `## {{.build_standard}}`, correct against
+  > the SOURCE block's shape (title · newline · body), but carrier `675` rewrote that into a
+  > run-on sentence and replaced the line break with a full stop. **That is the SECOND structural
+  > thing 675's transcription lost** — the first being the entire scope paragraph (owner item 8).
+  > Low severity: every word is present, only the structural signal is gone. **The fix has a
+  > lockstep:** restoring the carrier's line break breaks the canary needle, which keys on exactly
+  > that run-on form — so the needle in `NOTES`, in this file, and in
+  > `scripts/fire-content-gap-planner.sh` must move in the SAME commit.
 
   > **⚠ IT IS TWO READS, NOT THREE — `679` OPTED IN A DEAD AGENT (measured 2026-09-03 10:45Z).**
   > `visual-designer` has **zero** `llm_call_log` rows in ALL history, has never appeared in
@@ -75,6 +97,40 @@ tail (09-02/09-03 entries are the full trail). The owner does NOT want this lane
   (residue = one disclaimer sentence twice — see the no-answer item below). Farmer /about
   SERVES the released stage-2 edits (labels + FCA typo) — **the stage-2 release path is
   proven end-to-end**.
+
+## LANDED 2026-09-03 afternoon — two owner rulings, BOTH LIVE and verified
+
+Read this before the queue below: it changes what the writer and the gate do on every page.
+
+1. **Rule 18 is now "say less or leave it out"** (migration `739`, applied 12:34Z, verified on the
+   loaded row; council **APPROVED** on round 2, corr `498080d9`). His words: *"say less (but keep
+   it honest and user helpfulness focused) or leave it out"*, and *"we don't want vacuous content,
+   absolutely"*. The old rule made **general** the preferred answer when nothing is verified, which
+   matters because `[MEASURED]` **33 of 60 live sites carry no `evidence_base` at all**.
+   ⚠ **It edits TWO rules** — 19 restates 18, so changing 18 alone leaves 19 instructing the
+   forbidden behaviour four lines later. Both anchors must hit exactly once or the migration aborts.
+2. **The copy gate's `gutted` floor now accepts his truncations** (`7cc16a5d0`, council APPROVED,
+   live in **chassis v1.0.1359**, probed PRESENT at the binary via `datahelpers.wordCount` with
+   both controls). It was a **proportion** (`<40%`), which is backwards for a repair whose method
+   IS truncation — it measured how verbose the discarded tail was. **His own worked example scored
+   29.5% and would have been refused.** Now a 5-word floor plus a slack 25% backstop.
+
+**The gap both leave open, unchanged and NOT started:** a section can now carry less text, but it
+still cannot be handed back EMPTY without tripping the completeness/shrink/component floors, which
+exist to catch content that was LOST. Making "declined" distinguishable from "lost" is the real
+engineering. The licence to decline already exists at page level (planner: "too thin to describe"),
+at one section type (his 2026-08-25 ruling) and at field level (optional → `""`) — the writer was
+the only rung with no way out, and rule 18 addressed what it SAYS, not whether it may say nothing.
+
+**About-page commercial / Sedo, as of 2026-09-03:** the `about-commercial-block` is live on **3**
+sites (relojistas.com, advertise.co.uk, finetuning.uk) and its destination is a config field,
+`site_specs.commercial.marketplace_url` — **not** a template literal, so pointing it anywhere is
+config, not code. Owner ruled **"Yes, point to Sedo"** (settles D1's on-site CTA half). **Blocked,
+and not on us:** relojistas is the only site with `for_sale_requested=true`, it has never been
+listed on Sedo, and the listing now waits on the valuation lane producing a real high-value price.
+Keep the working GoDaddy/Afternic lander live meanwhile — do not compose a Sedo URL, none is
+documented. **`leopardessconsulting.co.uk` is PERMANENTLY excluded** (owner, verbatim: *"no
+leopardessconsulting need not be listed"*, confirming D4's paying-client case by name).
 
 ## Waiting on the OWNER (raise, don't re-derive; ledger has verbatim)
 
