@@ -61355,3 +61355,52 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   behaviour — when a claim rests on "it calls X, not Y", open X.
   Tally: **a name read as behaviour without opening the wrapper** ×1,
   **a filed [MEASURED] mechanism false for 15 days** ×1.
+
+## 2026-09-03 — a negative test that asserted nothing, and whose comment said it could not (session bugsweep 2, `bugs_open/442` candidate 1)
+
+- **The claim.** In `save_page_meta_description_refusal_item_test.go`, the arm proving "a refusal
+  that is NOT a copy judgement files nothing" registered **no** sqlmock expectations and asserted
+  `mock.ExpectationsWereMet() == nil`. The comment above it read: *"NO expectations are
+  registered, so any Begin, any query, any exec fails … which cannot pass by accident."*
+- **Why it was false.** `ExpectationsWereMet` reports **UNFULFILLED EXPECTATIONS**. With none
+  registered it returns nil unconditionally, whatever the code does. An unexpected call is
+  returned as an *error to the caller*, and the caller here logs it and returns — by design, since
+  the filing must never break a correct refusal. So the two behaviours the test was meant to
+  separate produced identical results.
+- **What caught it.** The mutation, and only the mutation: deleting the classifier's early return
+  so that *every* reason files. The suite stayed **green**. Re-reading the test had not caught it;
+  writing a confident comment about it had actively concealed it.
+- **The mistake, precisely.** I asserted on the absence of a *failure signal* rather than on the
+  presence of a *fact*. The fixed version **inverts** it: register `ExpectBegin()` and require it
+  to be UNFULFILLED, so the assertion is "a transaction was never opened" — a fact that can come
+  out either way. **A test whose expected result is "nothing happened" needs something registered
+  that would have happened.**
+- **And note WHICH arm it was.** `bugs_open/442` §6 says "induce both arms, or the test proves
+  nothing", and I wrote it. The arm I got wrong was the **negative** one — always the easier one
+  to write vacuously, because a passing empty assertion looks exactly like a passing real one.
+- **The cheap check that would have.** The one I eventually ran: mutate the guard and watch the
+  test go red. Non-negotiable for a negative assertion — a green negative test is not evidence
+  until a mutation has made it red.
+- **Cost.** None escaped; the defect was in the test, found before the commit. Logged because the
+  comment claiming rigour is the part that would have fooled the next reader, including me.
+
+## 2026-09-03 — a mutation run that never executed, and would have read as "not killed" (session bugsweep 2)
+
+- **The claim.** To avoid dirtying a shared tree I staged a mutated copy in the scratchpad and ran
+  `verify-head-builds.sh --test --with /abs/path/scratch/mut5.go`, then grepped the output for
+  `FAIL`.
+- **Why it was false.** The run exited **2** — *"could not run the check"* — because `--with`
+  takes a **repo-relative** path. Nothing was built, nothing was tested. The grep for `FAIL`
+  found none, which is exactly what a **killed** mutation and a **never-executed** one look like
+  in that filter.
+- **What caught it.** Reading the exit code, which I had captured but nearly skimmed past.
+- **The mistake, precisely.** Same shape as this session's earlier `merge-base` row and the same
+  family as the 09-03 handoff's §2 warning: **a control keyed on the wrong signal cannot
+  discriminate.** There, a must-be-absent control "passed" because the command errored; here, a
+  must-be-red mutation "showed no failure" because the harness never ran. Grepping for the
+  presence of a failure string treats *not running* as *passing*.
+- **The cheap check that would have.** Assert the harness's own exit code before reading its
+  output: 0 = the mutation SURVIVED (bad), 1 = it was KILLED (good), **2 = you learned nothing**.
+  A mutation harness needs a three-way check, not a grep.
+- **Cost.** One repeated run, ~3 minutes. The mutation was genuinely red when actually executed,
+  and the file was restored byte-identical (verified with `diff -q`).

@@ -287,3 +287,70 @@ Active pages: **37** blank (avg 8 chars visible text), **0** of them clearing th
 `page_visible_text_len > 200` gate; **1,171** described (avg 4,381), **1,137** clearing it. So no
 page is currently both eligible and blank — both silent paths are latent, not costing anything.
 That is an argument about priority, not about whether the mechanism is broken.
+
+---
+
+## 2026-09-03 (later still) — the owner ruled "make them loud", and the design turned on one query
+
+### The question I had to answer before building
+§5 candidate 1 says "file a work item"; §9c said the obvious queue is a graveyard (66 parked, 5
+ever closed). The owner ruled build it anyway. So the real question was not *whether* but *where*,
+and it was answerable in one query: **is the graveyard about humans, or about the shape of the
+row?**
+
+`[MEASURED 2026-09-03, site_work_items UNION site_work_items_archive]` items **WITH** a
+`handler_agent`: 56,315, **83%** complete. Items with **NO** handler: 6,699, **17%** complete, 989
+parked. And `voice_tells` is **69 rows, every one `handler_agent = ''`**.
+
+**It is the shape of the row.** Filing at `needs_human_review` with no handler would have looked
+like a fix and been one more row in the 17%. I had been about to treat "the queue is a graveyard"
+as a fact about people; it is a fact about whether anything is pointed at the row.
+
+### What got built
+Commit `776511e70`. Migration `734` seeds `meta-description-repair` (live now); the Go files
+`meta_description_refused` at it (inert until the roll). The repair agent re-asks with the refusal
+**quoted back** and saves through the **same gated action** — the reason the first attempt failed
+is the one thing the hourly backfiller never had. Second refusal parks at `needs_human_review`
+with both attempts on the row.
+
+Config was applied BEFORE the Go was committed, deliberately: a refusal filed at a handler that
+does not exist is demoted to `deferred` by `writeWorkItem`'s registration probe. Safe, never a
+livelock (078), but a parked row nobody asked for.
+
+### MISSTEP 8 — my own negative test was vacuous, and its comment said it could not be
+The arm asserting §6's "a clean candidate must file nothing" registered **no** sqlmock
+expectations and asserted `ExpectationsWereMet() == nil`. That is nil **unconditionally** —
+`ExpectationsWereMet` reports UNFULFILLED expectations, and there were none. Deleting the
+classifier's early return, so every reason filed, left the test **green**: the unexpected
+`BeginTx` just returned an error to the code, which logged it and returned.
+
+The comment I had written said it "cannot pass by accident".
+
+Fixed by **inverting** the assertion: register `ExpectBegin()` and require it to be UNFULFILLED.
+Now red for all six reasons. **Only running the mutation found this** — and the arm I got wrong
+was the NEGATIVE one, which is always the easier one to write vacuously. That is §6's own warning
+("induce both arms, or the test proves nothing") landing on the person who wrote it.
+
+### MISSTEP 9 — I ran a "mutation" that never executed and would have reported green
+To avoid dirtying the tree I staged mutation 5 in the scratchpad and passed
+`--with /abs/path/scratch.go` to `verify-head-builds.sh`. It exited **2** — "could not run the
+check" — because the overlay wants a repo-relative path. Had I been grepping only for `FAIL` I
+would have seen none and recorded the mutation as **not killed** (or worse, skimmed it as fine).
+**Exit 2 is not exit 0 and is not exit 1; a mutation harness needs its own exit-code check**, for
+the same reason the 09-03 `merge-base` misstep did: a control keyed on the wrong signal cannot
+discriminate. Re-run in-tree afterwards: RED, and the file restored byte-identical.
+
+### The tree does not compile, and it is not mine
+Another session has an **untracked** `criteria_value_assertions.go` whose `itoa` collides with the
+one in `provocation_gate_action_test.go` at HEAD. So `go test ./platform/orchestration/actions/`
+fails in this tree and proves nothing about HEAD. Everything above was run through
+`scripts/verify-head-builds.sh --test --with …`. Worth remembering that the working tree being red
+is not evidence your own change is red — and that the reverse (green tree, red HEAD) is the
+dangerous direction the script exists for.
+
+### Stated gaps rather than surprises
+No verifier for `meta_description_refused` (five build guards + a live claimed-item-timeout
+migration merged with other lanes — a named follow-up). `voice_gate_unreadable` still silent, and
+correctly so for a rewrite handler, but it is a residual. §9d's writer-omission path still open.
+And nothing has exercised any of it: zero pages are currently both blank and eligible, so there is
+no page to refuse — read "no rows" with that demand control or it reads as failure.
