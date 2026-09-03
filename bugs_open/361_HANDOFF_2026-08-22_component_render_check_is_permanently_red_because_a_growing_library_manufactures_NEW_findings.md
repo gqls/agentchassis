@@ -187,3 +187,94 @@ banking them is what makes the job able to go green. That is a debt decision, no
   success anyway. Bump `newTag` in the same commit as the rebuild, then read the artefact:
   `kubectl -n ai-persona-system get cronjob component-render-check -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}'`.
   Full trap in `LANDMINES.md`.
+
+---
+
+## 2026-09-03 — FIX BUILT AND COMMITTED, NOT YET LIVE. Status: OPEN (rides the next fleet release)
+
+Picked up unowned by `docs/agent_docs/docs024_key_docs_latest/bugfix_361_render_check_ratchet/`.
+Ownership re-checked three ways before starting, because no single instrument answers it:
+this file's own status line, `who-owns.py 361` (originating lane `bugfix_140` last commit
+**2026-08-07**, 27 days cold) and — the check no commit-reading tool can make —
+**`ListAgents`: 65 live sessions, none on 361.**
+
+### The bug is worse than filed, re-measured first-hand `[MEASURED 2026-09-03]`
+
+| | at filing (08-22) | today |
+|---|---|---|
+| `lastSuccessfulTime` | 2026-08-09 (12 red days) | 2026-08-09 — **25 red days** |
+| NEW findings | 227 | **478** |
+| active components | 282 | **497** |
+
+Instrument: the live library dumped to a fixture and run offline; **478 NEW matched the
+cluster's own `doc_notes` row for this morning exactly**, which is what licenses the rest.
+⚠ The plain `kubectl exec … psql` dump **truncates at ~6.5 MB** and fails as a JSON parse
+error, not a non-zero exit — pipe through `gzip | base64`. RUNBOOK in the lane.
+
+### ⚠ §4 CANDIDATE 1 IS NOT SUFFICIENT — and this file's own artefact proves it
+
+Candidate 1 scopes by *"a finding whose component owns **zero keys** in the baseline"*.
+`baseline.json`'s note says **"1023 findings across 139 analysed components"** while its keys
+span only **115** ⇒ **24 components were analysed and CLEAN** at cut time. A keys-derived
+covered set cannot see them, so **a component that was clean and later regresses would be
+filed as unbaselined and fail nothing** — the exact event a ratchet exists for.
+`[MEASURED]` none of the 24 regresses today: latent, not live damage.
+
+**A SECOND blind spot of the same shape, found in review and larger:** a template with no
+actions is skipped *before* `checked++`, so a covered set derived from "analysed" misses every
+**static** template — **27 today, 37 at cut**. A static component later rewritten to render a
+hole is this check's own stated signal (`:868`).
+
+**So the fix is not "scope by component" but "record what the baseline COVERED, not only what
+it FOUND"** — which makes the bad state unrepresentable rather than unlikely.
+
+### What shipped (`051c73d1e`, revised by `d716c837a`)
+
+- `baselineFile` gains `"components"`: every component whose template **parsed** — **raw**
+  names, clones and static templates included. Raw because an **edited clone** loses its
+  representative by design, so only its own name can vouch for it; `covers()` reads raw first,
+  then the representative, so a clone *born* after the baseline still inherits coverage.
+- Three buckets: **regression** (covered component gained a key) FAILS · **unbaselined**
+  (never covered) reported with its own count, does NOT fail · **uncovered** unchanged.
+- Legacy baselines (no `"components"`) still **load** — refusing would exit 2 *before*
+  `writeDocNote`, turning "red for a visible reason" into **silence**, which is worse — and
+  derive coverage from keys while announcing the blind spot in the first line of the daily row.
+  `"components"` present-but-**EMPTY** is refused: that is a ratchet switched off by hand.
+- `--write-baseline --component` refused: a covered set of one reads everything else as
+  unbaselined and passes **quietly green**. That is the "fix that turned the check off" shape.
+
+**Result:** `478 NEW → 18 REGRESSION across 5 components + 460 unbaselined across 62`, **exit 1**.
+
+### It is still RED, deliberately, and that is the honest outcome
+
+The job is now red for **18 findings in 5 named components** instead of 478 it manufactured:
+`blog-listing_pre_037` (§2(c) already establishes its template was **rewritten**),
+`social_proof`, `tool-ab-test-calculator_pre_037`, `tool-equity-release_pre_037`,
+`tool-gas-unit-converter-gaswholesalers-com`. Under the new semantics a rewrite that adds a key
+**is** a regression by definition, so before calling these decay, read
+`content_components.updated_at` for the five. **§4's "regenerating banks N real findings" debt
+decision is unchanged but is now 18, not 478 — and it is still the owner's.**
+
+⚠ **A full `--write-baseline` REFUSES today: 2 components fail to parse.** That guard predates
+this fix and is correct. So the green run needs those two templates fixed first; suppressing
+the guard to get a green baseline is the same shape this file warns about.
+
+### Tests, and the guarantee change
+
+First tests this tool has ever had — 12 cases, both §6 arms **mutation-proved** (six mutations,
+each failing only the arms it should; table in the lane RUNBOOK). §5's two cheap fixes are
+done: the `000_concept_index.md` CGV-030 row and CGV-030's `verify-later` are rewritten with
+the 25-day history and the **narrowed guarantee** — a hole in a component born *after* the
+baseline now fails **nothing**, and CGV-029 does **not** cover it (it sees only
+`on_missing:"skip_field"`), so that is an **open gap, not a delegation**. Told, not merely
+measured, per the 2026-07-29 ruling: the manifest comment states it too.
+
+**Not an RFC** (single binary, single CronJob consumer, no other reader of the artefact; the
+guarantee that narrowed is the check's own, not a shared seam). **Out of council scope** —
+`in_council_scope` refuses `cmd/component-render-check/` with `cmd/config-key-audit` and
+`platform/` as passing controls, so no submission was owed and none would have spent credits.
+
+**Closing this needs:** the fleet release (`component-render-check` IS in `RELEASE_IMAGES`,
+makefile:95, so it rebuilds from committed HEAD), then the daily row's first line gaining
+`REGRESSION`/`unbaselined`, then the 18 dispositioned and a regeneration for
+`lastSuccessfulTime` to move.

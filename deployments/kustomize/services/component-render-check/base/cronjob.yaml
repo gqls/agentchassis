@@ -72,10 +72,19 @@ spec:
               image: docker.io/aqls/component-render-check:latest
               # The image's CMD is already
               #   --compare --report
-              # so the job fails ONLY on a NEW finding or an UNCOVERED one (a component
+              # so the job fails ONLY on a REGRESSION or an UNCOVERED finding (a component
               # that stopped parsing, whose findings would otherwise read as "fixed" —
-              # a pass bought by going blind, found by mutation 2026-08-04). The ~1,000
-              # known findings never fail it; a permanently-red job is a job everybody
+              # a pass bought by going blind, found by mutation 2026-08-04).
+              #
+              # A REGRESSION, since 2026-09-03 (bugs_open/361), is a finding in a component
+              # the BASELINE COVERED. It used to be any finding not in the baseline, which
+              # meant every component born after the baseline was cut manufactured one — and
+              # this job was red for 25 consecutive days as the library grew 282 -> 497,
+              # which is exactly the outcome the comment below was written to prevent.
+              # Growth in an unbaselined component is now REPORTED with its own count and
+              # does not fail the run. The cost, stated: a hole in a brand-new component
+              # fails nothing here, and no other check covers that today.
+              # The ~1,000 known findings never fail it; a permanently-red job is a job everybody
               # learns to ignore, which is the mistake this check was sequenced to avoid.
               # --report writes ONE doc_notes row per run, clean or not, so "looked and
               # found nothing" stays distinguishable from "stopped running".
