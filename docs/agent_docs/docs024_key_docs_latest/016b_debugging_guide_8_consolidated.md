@@ -15262,6 +15262,23 @@ The transferable rules:
 
 Case detail, spread census, fix candidates: `bugs_open/450`.
 
+**UPDATE 2026-09-03 — the fix is committed (`587666be8`, PBP-053) and INERT until the next
+roll, and it adds a fifth transferable rule that is the general one:**
+
+- **A guard's question can be narrower than its name, and the name is what stops you
+  checking.** `pageIsOwnedForGuard` answered "is `rebuild_policy='owned'`" while every caller
+  needed "may the generic builder write this page" — so a whole class walked through a guard
+  that was working perfectly, and the file's own doctrine ("the ONLY place ownership policy is
+  read") made it look thoroughly covered. **When a guard misses a case, read what it ASKS, not
+  what it is called.** The fix renames it (`pageRefusesGenericBuild`, returning a class) rather
+  than adding a sibling, precisely so the rename compile-forces every call site to be re-read.
+- **Corollary, for anyone about to add a marker column instead:** prefer a predicate DERIVED
+  from the artefact over a flag someone must clear. `rebuild_policy` looked like the obvious
+  place to record "not yet buildable" until a census showed **nothing in the estate has ever
+  UPDATEd that column** — two INSERT-time writers, no transition anywhere. A flag with no
+  clearing event is a page held for ever. Derived state has no such failure mode; it lifts when
+  the world changes. Before adding a state flag, grep for who would ever unset it.
+
 
 ### A refactor that hoists a computation behind a struct can stop carrying its RESULT, and Go says nothing — a field read once and written nowhere is a legal zero value, and the extraction's own line-count audit cannot see it (2026-09-03, `bugs_open/454`)
 
