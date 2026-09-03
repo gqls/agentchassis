@@ -229,3 +229,48 @@ they have been told; a contributor's error that reaches a closure note is the co
 and re-ran the census before changing anything, exactly as I had asked the `384` lane to do with my
 correction to them an hour earlier. Adopting a peer's correction on assertion is the same failure as
 asserting it yourself.
+
+---
+
+## 2026-09-03 15:35Z — three lanes read one symptom as one bug, and it was two producers
+
+**The finding.** All three of us (this lane, `bugs_open/384`, `site_delivery_and_editor`) censused
+`component_id IS NULL` this afternoon, all three saw the count climb, and all three initially read
+it as *"457's orphan append is running continuously."* It is not. Chased at the code:
+
+- **457** is `rebuild_blog_listing_action.go:402-407` — position **hard-coded 3**, `component_id`
+  **not in the INSERT's column list at all**, fires only when a blog-index page's
+  `findBlogListingSlot` misses. All six of its rows are on boxingonline `/articles-index` and the
+  newest is **09-02 16:28:02**. Nothing in 23 hours, exactly as 457's own file predicts.
+- **Today's row** is `save_page_sections_action.go:1124-1127` — `component_id` from
+  `componentIDPtr`, NULL when the section metadata carries none, at `position = i+1`.
+  advertise.co.uk `/tool-cpm-cpc-benchmark-comparator`, `page_type=tool`, position 5, and the tell:
+  **all five rows on that page created in the same second** by one build, four siblings resolved.
+
+**Why this matters more than the attribution:** a rising NULL-`component_id` count is not evidence
+457 is accumulating, so a session watching that predicate to decide the fix's urgency reads the
+wrong signal in the wrong direction. The census that does track 457 is the duplicate-position one.
+
+**The method note, and it is the third of the day in the same family.** A predicate that catches
+two producers reads as one population, and a *count* over it cannot distinguish them however
+carefully dated — the discriminator was `position` and the sibling-row timestamps, both of which
+were in the rows I was already selecting and neither of which I had projected. Same shape as this
+morning's attribution error (the before-state was in the row I was reading) and as the inherited
+`[MEASURED]` figure (the number was someone else's census of a narrower predicate). **Three
+instances in one day of the same underlying thing: I was reading the aggregate and the answer was
+in the columns.**
+
+**What I did right this time:** I checked the code before contradicting two peers, and I told both
+of them before either had committed the wrong version into a file. That cost about four minutes and
+saved two lanes chasing a stopped action.
+
+**Declined, and why.** `site_delivery_and_editor` offered a free test bed for my untested migration
+316 inference — re-render one of the resolving orphan pages that is not held for delivery. I worked
+out it cannot answer the question and told them instead of spending the dispatch: 316 refuses a row
+**byte-identical to one already present**, which needs ≥2 orphan rows on one page rendering the
+same bytes, and boxingonline `/articles-index` is the only page on the estate that has that. Five
+other orphan pages carry exactly one row each; the one with three holds different slots with
+different content. So the inference stays `[INFERRED, untested]` and whoever implements 457's
+candidate 4 should handle a refusing save defensively rather than wait for a test only the held page
+can run. **An experiment that cannot distinguish the branches is not worth its dispatch — the same
+rule that cost this lane two dispatches this morning, applied before spending a third.**
