@@ -184,7 +184,11 @@ needs the composition half.
   deliberately. **I withdrew my own offer of it as the "existing declared field" control and told
   that lane their test had failed** (nothing about the failure is visible on the item).
   **The existing-field half of the experiment therefore has NO VENUE yet** — any page with a
-  resolver-sourced field declared *before* its last build, with values stored, would serve. They seeded six
+  resolver-sourced field declared *before* its last build, with values stored, would serve.
+  ⚠ **PARK THAT HUNT UNTIL BATCH 690 LANDS** (agreed with `designblog.co.uk`, 2026-09-03): if 690
+  writes the newly-declared field, the pairing question mostly dissolves and no control is needed;
+  only if it fails is the venue worth finding, and the components lane's census machinery is the
+  fastest way to derive that population. **Do not spend the query before the discriminator runs.** They seeded six
   section-scope illustration rows at **16:47:03Z** on my CONTRIB (`apis_uk_bees_homepage/CONTRIB_2026-09-02_…`).
   But that page's `page_components` still read `updated_at = 2026-08-24` — **nothing has
   re-resolved, so the branch has never actually run.** Evidence arrives at its next re-resolving
