@@ -6134,3 +6134,25 @@ bf889c9d=tool-pricing-signal-checker); rounds 2 (`60ec64ac`/`d69821d0`, 14:0x) s
 > "never", and not "reach for it to get past a refusal you have not read".** Our guides-index refusal
 > itself is unaffected: the cards are mostly unfed, and the real fix remains the producer filling
 > the slots (their 425 diagnosis, in progress).
+
+## §X.69 — 2026-09-03: bugs_open/469's heads-up on guides-index — `guide-list` lost to plan-sync; the page is NOT visibly damaged; decision routed to the owner
+
+- The 427/469 lane measured (live, 2026-09-03): the 08-04 `section_source_drift` item recorded
+  cache `["hero","guide-list"]`; all three stores now agree `["hero","content-listing"]` — the plan
+  AUTHORITY won via `load_page_sections_from_spec_action.go` syncing tier-1 `site_plan_sections`
+  down over `pages.sections` on every BUILD. Any pages.sections-only edit is destroyed by the next
+  build. The warning sat open since 08-04 (flag-only check, nothing closes items) and — worse —
+  **the open item SUPPRESSED re-filing of any NEW drift on the page via `idx_swi_dedup` for a
+  month**. Their migration 753 closed it with `direction='authority_won'` (deliberately not a
+  success receipt), freeing the dedup key; fresh drift can re-file within a day. Case:
+  `bugs_open/469`.
+- **Verified at the artefact today**: `/guides/index.html` 200 / 90,042 B, 19 card elements, 10
+  unique guide links; components hero + content-listing, both deployed (rebuilt 2026-09-03). So the
+  one-for-one slot change reads as a RENAME/replacement — the listing function survived; nothing is
+  visibly missing. This lane's records carry no memory of a distinct `guide-list` section differing
+  from the current listing.
+- **If the owner wants `guide-list` back as a distinct section**: fix the CURRENT plan's
+  `site_plan_sections` rows, never `pages.sections`; migration **750** is the worked template
+  (DO/RAISE guards + induced failure), and the discipline is **rename in place at the same
+  `ordering`** — ordering is a positional join key for `assigned_fact_ids`, `subject`,
+  `page_components.position` AND `site_plan_imagery.scope_ref`.

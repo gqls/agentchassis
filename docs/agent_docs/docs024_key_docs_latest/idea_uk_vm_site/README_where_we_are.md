@@ -2579,3 +2579,15 @@ refresh pass demonstrated the fault one final time exactly as predicted — our 
 by 39 seconds — and the fix that stops that is now running. The one-line change I had left in the
 runbook for you this afternoon is withdrawn; applying it now would just double the site's fetch
 costs for no benefit. From tonight the news feed refreshes every six hours as designed.
+
+**2026-09-03 — a month-old warning about the guides page was finally read, and the news is
+good-with-a-caveat.** In early August the system noticed that the guides page's section list had
+been changed in one place but not another, filed a warning nobody was assigned to read, and — a
+design flaw now written up as bug 469 — that open warning silently blocked any newer warning about
+the same page for a month. Another session has now closed it properly. The substance: a section
+called "guide-list" was replaced by the current "content-listing" on that page, and the planning
+layer's version won, as it always does on rebuild. I checked the live page today: it lists all ten
+guides correctly with a proper hero — nothing a visitor would miss. **Only you can answer:** was
+there ever meant to be a distinct "guide-list" section different from the listing the page has now?
+If yes, say so and it goes back the durable way (through the plan, with the worked template from
+bug 469's lane). If the current page is what you intended, there is nothing to do.
