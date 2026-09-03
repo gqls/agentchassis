@@ -63,6 +63,46 @@ correct everywhere while the pages still serve the old image.
 > `--since 2026-09-02` re-derives it. **A census does not go wrong; it goes stale, and yours can
 > be stale because of you.**
 
+## 0i. ⛔ THE PATH-SPLIT MODEL IS REFUTED — a rerender DID produce the new shape
+
+**Read this before §2 and §0h; both are framed on a model this refutes.**
+
+The boxingonline lane built a fleet discriminator — all 17 `content-listing` instances with an
+`articles` array — and noted the split is **not chronological**: `boxingonline/index` (old shape)
+was written LATER than two new-shape instances. They asked me to attribute each write, since that
+is the side of the line I can reach. `[MEASURED 2026-09-03]`, via
+`page_component_history.source_item_id`:
+
+| shape | instance | wrote_via | handler | reason |
+|---|---|---|---|---|
+| **NEW** | designblog.co.uk/index | **page_rerender** | **page-rerender** | **section_data_resolved** |
+| **NEW** | websitepromotion.co.uk/index | **page_rerender** | **page-rerender** | **section_data_resolved** |
+| NEW | garden-tools.uk/index | empty_section | page-build-handler | (no reason) |
+| NEW | boxingonline/guides-index | needs_page | page-build-handler | rebuild_cleared_component |
+| NEW | advertise.co.uk/index | needs_page | page-build-handler | image_landed |
+| old | **boxingonline/index** | **page_rerender** | **page-rerender** | **section_data_resolved** |
+| old | homegarden ×6, dartsonline ×2, garden-tools/care, idea.uk | page_rerender | page-rerender | template_changed / cta_links_stale / section_data_resolved |
+
+**Two `page_rerender` items with `reason='section_data_resolved'` produced the NEW shape, and a
+third produced the OLD one.** Verified tightly on designblog: history row `05:25:28` matching
+`page_components.updated_at` exactly, item `03304c6a`, complete, and the row now carries the key.
+
+**So the rerender path CAN re-resolve.** It is not "the sections path never resolves listings".
+The difference is **per-instance, not per-path**, which is the "completely different hunt" the
+boxingonline lane named as the alternative — and it is the one we are in.
+
+**Also eliminated in the same measurement:** it is not the component or the source. `content-listing`
+with `articles ← query.blog_posts` appears on **both** sides — 4 of the 5 new-shape instances and
+all 12 old ones. And `garden-tools.uk` has one of each (`/index` NEW, `/care` old).
+
+**Everything built on the path split needs re-reading**, including §0h's "the rerender renders the
+current template against stale data" — which remains true *of boxingonline/index* but is not a
+property of the path.
+
+**What is NOT yet eliminated:** whatever differs per instance. Not the component, not the source,
+not the reason, not the handler, not the ordering in time. Both the 12:28 and 20:56 rolls predate
+several instances on each side, so it is not the binary either.
+
 ## 0h. ⭐ THE SHARPEST NARROWING YET — the template renders FRESH while the data stays STALE
 
 `[MEASURED 2026-09-03, verified independently at the stored artefact]` boxingonline
