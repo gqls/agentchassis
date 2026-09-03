@@ -51,14 +51,16 @@ parking) by Claude sessions, via Sedo's API.
 - **P2b — bulk-import sheet (web route, added 2026-09-02 evening, owner
   request).** Sedo's web importer takes the same data with NO API
   credentials — the owner uploads the xlsx in the dashboard. Built:
-  `scripts/domains/sedo-importer-xlsx.py` (self-test 9/9) +
-  `outbound/SEDO_IMPORT_2026-09-02_draft1.xlsx` — **1,318 domains** as of
-  2026-09-02 (Dynadot 451 + Porkbun 683 + Spaceship 203, minus 19
-  live-site exclusions, minus 0 cross-registrar dupes). Interim shape
-  agreed with the domain_valuation lane: MAKE_OFFER / for-sale yes / no
-  price; prices arrive as a second import from their canonical
-  `OUTPUT_prices_<date>.csv` (their lane, their column freeze). The
-  Nominet ~1,500 .uk names join on the owner-run walk.
+  `scripts/domains/sedo-importer-xlsx.py` (self-test 9/9). **Superseded by
+  draft2, 2026-09-03: full portfolio, 2,895 domains** — Dynadot 453 +
+  Porkbun 683 + Spaceship 203 + Nominet 1,606, 0 cross-source dupes, minus
+  a **50-domain live-site fence** (widened from 19 — union of Nominet's
+  Cloudflare zone list, the live `sites` table, and the original NS-based
+  check; RUNBOOK §7 has the method and why one source alone is not
+  enough). `outbound/SEDO_IMPORT_2026-09-03_draft2.{xlsx,csv}`. Interim
+  shape agreed with the domain_valuation lane: MAKE_OFFER / for-sale yes /
+  no price; prices arrive as a second import from their canonical
+  `OUTPUT_prices_<date>.csv` (their lane, their column freeze).
 - **P3 — first credentialed calls.** `--check-secret`, then
   `DomainList 'results=100'`: inventory what (if anything) the account
   holds, and reconcile against the estate's domains. First writing call

@@ -194,10 +194,28 @@ python3 scripts/domains/sedo-importer-xlsx.py build \
 ```
 
 Gotchas, each earned:
-- **The fence is live-site protection**: the exclude file is the
-  Cloudflare-NS domains extracted from the same inbound CSVs
-  (`awk -F, 'FNR>1{gsub(/"/,""); if (tolower($4) ~ /cloudflare/) print $1}'`).
-  Regenerate it with the sheet — the live set changes as sites launch.
+- **The fence is live-site protection, and it is a UNION of two independent
+  sources, not one** (widened 2026-09-03 after Nominet flagged the gap):
+  1. **NS-based**: Cloudflare-NS domains from the registrar CSVs
+     (`awk -F, 'FNR>1{gsub(/"/,""); if (tolower($4) ~ /cloudflare/) print $1}'`)
+     — only catches domains whose CSV carries a `nameservers` column
+     (dynadot/porkbun/spaceship; Nominet's walk does not).
+  2. **DB-based**: `SELECT domain FROM sites WHERE status IN ('deployed','test')
+     AND domain NOT LIKE '%.internal'` against `clients_db` — the
+     authoritative "is this actually a site" signal, registrar-independent.
+  3. **Nominet's own Cloudflare zone list** (their lane tracks cutover
+     state directly) — messaged on request, not queryable by this lane.
+  **Take the union of all three you can obtain; do not pick one.** Nominet's
+  own words, 2026-09-03: "I'd treat a domain as managed, fence it out, if
+  it's in EITHER my zone list OR has a sites row" — a zone can exist with
+  no site behind it (apis.uk, ugg2.com had a worker route, no site row) and
+  a site row can exist before its zone is cut over; either alone misses
+  cases the other catches. Measured 2026-09-03: the NS-based method alone
+  found 19; the union found **50** — 31 were invisible to the NS check,
+  including `adversecreditmortgage.co.uk` (sits on MARKETPLACE nameservers
+  despite being `status='deployed'` — a known cross-lane case, improvement-
+  loop D2; the DB is what catches it, NS cannot). Regenerate the whole
+  union with each sheet — the live set changes as sites launch.
 - Without `--prices`, every row is MAKE_OFFER / yes / no price — the
   agreed interim; prices come from the valuation lane's canonical
   `OUTPUT_prices_<date>.csv` (their column freeze; do not build against it

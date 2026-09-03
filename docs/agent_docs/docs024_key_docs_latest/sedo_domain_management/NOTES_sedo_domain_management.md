@@ -167,3 +167,56 @@ today; the price-agreement constraint recorded for every priced draft and
 relayed to the valuation lane. 394/451 Dynadot domains on Afternic NS —
 existing Afternic asks must join the same sweep once the owner's export
 lands.
+
+## 2026-09-03 — Nominet delivered (1,606 .uk); fence WIDENED from 19 to 50; draft2 = 2,895 domains
+
+Nominet CSV: `nominet_domains_2026-09-03.csv` (`f8ca8389d`), 1,606 domains,
+`domain,expiry_month`. Their own caveat: the walk had **never succeeded
+before tonight** — 3 EPP-client bugs fixed same evening, verified against
+the registry's own count — so treat 1,606 as first-proven, not
+long-established.
+
+Their message also raised the exact gap this lane's own PLAN had flagged:
+the raw walk includes the ~40 domains they cut over to Cloudflare, and
+"cross-reference against that list before building the sheet, not after."
+
+**Investigated properly rather than trusting one source:**
+- Asked Nominet for their live-cutover list. Their first answer ("~40")
+  was already stale by the time it arrived — a live re-query mid-reply
+  found 4 more zones cut over in the interim (advertise/designblog/
+  seotools/websitepromotion.co.uk) → **46** zones, corrected same message.
+- Independently queried `clients_db.sites` (schema read first,
+  `\d sites`): `status='deployed'` = **39** rows — corroborates their
+  original "~40" almost exactly, good cross-check. Two more rows at
+  `status='test'` are real domains (buytoletcalculator.uk,
+  indoorplanters.co.uk) — included; the `pool-*`/`system.internal` rows are
+  placeholder slots, not real domains, excluded.
+- **Nominet's own framing settled the method**: fence a domain if it is in
+  EITHER source, not just one — a Cloudflare zone can exist with no site
+  row (apis.uk, ugg2.com: zone + worker route, no site behind it) and a
+  site row can predate its zone (mid-cutover). Neither list alone is
+  sufficient; this is now RUNBOOK §7's documented method.
+- Union of {46 zones, 41 sites-table domains, the old 19-item NS fence} =
+  **50** unique domains (`EXCLUDED_live_2026-09-03.txt`, superseding the
+  09-02 file). 31 were invisible to the NS-based method alone — most
+  visibly `adversecreditmortgage.co.uk`: `status='deployed'` in the DB yet
+  sitting on MARKETPLACE nameservers (a known state, improvement-loop D2)
+  — exactly the kind of case that proves NS-only fencing is not enough,
+  since its own delegation reads as "not live."
+
+**Draft2 built and verified:** all four registrar/registry sources (dynadot
+451 + porkbun 683 + spaceship 203 + nominet 1,606 = 2,945 raw, **0 dupes**
+confirmed by direct grep with the `FNR>1` guard — plain `NR>1` across
+multiple awk input files undercounts by treating only the first file's
+header as a header, the same misstep as 09-02) minus the 50-domain fence =
+**2,895** domains. Verified at the artefact: sheet XML carries 2,896
+`<row` occurrences (header + 2,895, `grep -o | wc -l` not `grep -c`); all
+four spot-checked fenced domains (idea.uk, webdesign.uk, relojistas.com,
+wykefarm.uk) confirmed ABSENT from the output CSV by direct grep.
+Files: `outbound/SEDO_IMPORT_2026-09-03_draft2.{xlsx,csv}` +
+`_provenance.csv` + `EXCLUDED_live_2026-09-03.txt`.
+
+Outstanding: prices import once the valuation lane freezes/ships
+`OUTPUT_prices`; owner still owes the §2 API-access email + §3 secret for
+the API route; dynadot's remaining 151 appraisals resume on their own
+schedule.

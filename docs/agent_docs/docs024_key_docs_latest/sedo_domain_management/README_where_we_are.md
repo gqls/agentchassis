@@ -79,12 +79,37 @@ for every domain you add — that changes nothing at Afternic unless
 nameservers move (which nobody is doing), but you'll see them all as
 "parked" in your Sedo dashboard.
 
-Your three remaining moves, whenever suits: upload the sheet (or wait for
-the priced version), run the Nominet walk, and send the API-access email
-(RUNBOOK §2) so future changes don't need manual uploads at all.
-
 Small update, same evening: the Dynadot count was double-checked against
 your control panel — complete, and grew to 453 with the two domains you
 added today (overhead-cranes.com, paper-cups.com). The sheet now holds
-1,320. Since you add domains from time to time, we'll re-pull all the
+1,320.
+
+## 2026-09-03 — the full portfolio is in: 2,895 domains, live sites double-checked
+
+The Nominet list arrived — 1,606 .uk names (their first-ever successful
+pull; they fixed three bugs in their tooling to get it, so treat tonight's
+count as freshly proven rather than long-settled). That's now folded into
+the sheet, which is why the numbers below are bigger than last time.
+
+Before folding it in, I went back and checked which domains are actually
+live sites more carefully than the first pass. Last time I only caught
+sites by looking at which nameservers pointed at Cloudflare — that missed
+anything registered through Nominet directly, plus a couple of odd cases
+(one domain, adversecreditmortgage.co.uk, shows as a live site in our own
+records but its nameservers currently point at a marketplace — the
+nameserver check alone would have called that "safe to list", which would
+have been wrong). So this time I checked two sources and combined them:
+Nominet's own record of which domains they've switched over to Cloudflare,
+and a direct read of which domains our system has actually built and
+deployed a site for. Together that's **50 domains** now kept off the
+sheet, not 19.
+
+**New sheet total: 2,895 domains** — everything at Dynadot, Porkbun,
+Spaceship and Nominet, minus those 50 live sites. Still all set to "make
+offer, for sale, no price" until the valuations land.
+
+Your three remaining moves, whenever suits: upload the sheet (or wait for
+the priced version), send the API-access email (RUNBOOK §2), and — if you
+want to double-check my live-site list before uploading — it's
+`EXCLUDED_live_2026-09-03.txt` next to the sheet, one domain per line. Since you add domains from time to time, we'll re-pull all the
 registrar lists right before any version you actually upload.
