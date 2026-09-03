@@ -377,6 +377,30 @@ and **this session does not have its user's authorisation to make live writes on
 peer accepting a split is not that authorisation. Both are named to the peer, who is relaying the
 route choice to the owner.
 
+**THE CRITIQUE LANDED (21:38Z) and its two imagery findings are MEASURED, not accepted:**
+
+1. **Hero reuse is 7× what the critic could see.** It named five pages; the site has **35 of 38 hero
+   components on `/assets/images/hero.jpg`** and **2 distinct hero images in total**, across 58
+   component-bearing pages `[MEASURED 2026-09-03]`. The critic was right in direction and bounded by
+   its instrument — `design_critique_run` captures ≤8 pages × 2 viewports, so a site-wide claim in
+   its prose is a **sample statistic**, and nothing marks which claims are sampled. Worth knowing
+   before quoting any figure out of one of those reports.
+2. **10 pages already hold a generated, deployed hero that nothing renders.** IMG-077 fired on this
+   site today: 4 `unwired` + 6 `no_image_slot`, both items at `needs_human_review`. **So the cheapest
+   imagery win here is WIRING, not generation.** ⚠ The six `no_image_slot` pages are the
+   `article-body` shape — do NOT fix them by giving the component its own image field without first
+   checking for a hero component on the page; that is migration **686**, applied and rolled back,
+   because it renders the same image twice on 292 of 301 pages fleet-wide.
+3. **The orange-left-border device stays.** The critic calls it "the strongest section of the site",
+   so the comparison graphic sits WITH it, not instead of it — a crisp £99 against a **banded**
+   $5,000, the banding forced by `ft-market-anchor`'s `approximate` tolerance.
+
+⚠ **A stale detection that would have misdirected the peer's canary.** 11 `image_url_404` rows sit at
+status `detected` on this site, dated 2026-07-26 → 2026-08-03, naming `/assets/images/case-study-*.jpg`
+— the exact slot being canaried. **Probed before relaying: they return 200, and an invented-URL
+control returns 404**, so the domain is not a catch-all and the 200s are real. The images are fine;
+the ROWS are the defect. A month-old `detected` row is not evidence of current state.
+
 **Papers:** the ask and its constraints —
 `editorial_design_uplift/CONTRIB_2026-09-03_from_finetuning_owner_asks_for_more_imaginative_card_structures_on_the_homepage.md`;
 this lane's answer — `finetuning_uk_service/CONTRIB_2026-09-03_from_editorial_design_uplift_answer_on_the_homepage_cards_and_infographics.md`

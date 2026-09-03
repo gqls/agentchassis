@@ -1646,3 +1646,75 @@ crisp $5,000 bar asserts a precision the registry itself declines** — so the d
 imprecision (banded, or "from ~$5,000"), while `ft-price-99` is `exact` and may be crisp. The
 asymmetry between the two sides is the honest picture and the more interesting one. That is the kind
 of constraint this lane exists to supply, and it is invisible unless someone opens the fact.
+
+### 2026-09-03 (late) — the finetuning critique's two imagery findings, measured: one understated 7×, one stale detection saved a canary
+
+The `design_critique_run` (204f1ff7) completed 21:38Z. Read the report itself
+(`finetuning_uk_service/DESIGN_CRITIQUE_2026-09-03_finetuning_uk.md`), not the peer's summary of it.
+Two findings sit in this lane's half.
+
+**FINDING 1 — hero reuse. The critic said five pages; the site has effectively ONE hero image.**
+`[MEASURED 2026-09-03]`, aggregated in SQL so no pipe could truncate it (the same night's landmine):
+
+| heroes | image |
+|---|---|
+| **35** | `/assets/images/hero.jpg` |
+| 1 | `/assets/images/content-hero-careers.jpg` |
+| 2 | no `background-image` extracted |
+| **38 total, 2 DISTINCT** | across 58 component-bearing pages |
+
+The critic named five pages and cited "index 9, 11, 13, 15". It was **right in direction and bounded
+by its instrument**: `design_critique_run` screenshots ≤8 pages × 2 viewports, so *"the same hero on
+five pages"* is a **sample statistic reported as a site property**. That is worth carrying as a
+general caution — a screenshot critique's site-wide claims can only be as wide as its capture set,
+and nothing in the report's prose marks which claims are sampled.
+
+**And the cheap half of the fix already exists.** IMG-077 (`unrendered_page_imagery` — the detector
+the 114 lane built FROM this lane's 189-page census) fired on this site today and filed two items,
+both at `needs_human_review`:
+
+- *"4 page(s) hold a deployed content-hero the page never renders (state **unwired**)"*
+- *"6 page(s) hold a deployed content-hero the page never renders (state **no_image_slot**)"*
+
+**So 10 pages already have a generated, deployed hero that nothing displays** — the boxingonline
+shape, detected automatically, on a live customer site. For those pages "make the site less
+templated" is **wiring, not generation**. The two states decide the work, and the second carries this
+lane's own scar: `no_image_slot` is the `article-body` shape, and the obvious remedy — give the
+component its own image field — is what migration **686** did before being rolled back, because it
+renders the same image twice on any page that also has a hero component (292 of 301 pages
+fleet-wide). **Anyone fixing those six must check for a hero component first.**
+
+**FINDING 2 — the orange-left-border blocks are "the strongest section of the site".** Accepted, and
+it sharpens rather than constrains: the £99 vs ~$5,000 comparison sits WITH the device rather than
+replacing it. Combined with `ft-market-anchor`'s `tolerance: "approximate"`, the drawing is a crisp
+£99 against a **banded** $5,000 — and the asymmetry suits a device whose whole character is a hard
+left edge.
+
+### The stale-detection catch, which went the opposite way to how it looked
+
+The site carries **11 `image_url_404` rows at status `detected`**, dated 2026-07-26 → 2026-08-03,
+naming `/assets/images/case-study-*.jpg` — the exact slot the peer lane is about to canary. The
+tempting move is to relay that as "eleven broken images on your canary slot".
+
+**Probed first, with a control, because a month-old `detected` row is not evidence of current state:**
+
+```
+200  https://finetuning.uk/assets/images/case-study-financial-data.jpg
+200  https://finetuning.uk/assets/images/case-study-logistics-strategy.jpg
+200  https://finetuning.uk/assets/images/hero.jpg
+404  https://finetuning.uk/assets/images/zzz-invented-control-not-a-real-asset.jpg   ← control
+```
+
+The invented-URL control 404s, so the domain is **not** a parked catch-all that 200s everything
+(this lane's own landmine) and the 200s are real. **The images are fine; the ROWS are the defect** —
+stale detections nobody closed, a month old, sitting on a slot someone is about to change. Reporting
+them unprobed would have sent a peer chasing repairs to files that are not broken, and might have
+stopped a canary that should proceed.
+
+**Two schema misses on the way, both caught by checking rather than by a wrong answer** (and both are
+the same lesson as the night's `tail` landmine — ask the schema, do not assume it): `site_assets` is
+**not a table** (`to_regclass` → MISSING), despite this lane's own 09-02 handoff referring to a
+"`site_assets.hero` key"; and `site_work_items` has **no `page_name` column** — it is `page_id` +
+`affected_url`, and a query naming the wrong column returns nothing through a `grep`, which looks
+exactly like an empty result. Both were caught by reading `information_schema` before believing an
+empty answer.
