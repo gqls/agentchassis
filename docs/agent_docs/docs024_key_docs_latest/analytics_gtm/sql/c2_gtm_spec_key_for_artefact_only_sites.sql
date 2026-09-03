@@ -53,6 +53,10 @@ SELECT s.id AS site_id, s.domain,
    AND EXISTS (SELECT 1 FROM site_components sc WHERE sc.site_id=s.id AND sc.slot_name='head')
    AND NOT EXISTS (SELECT 1 FROM site_specs ss WHERE ss.site_id=s.id AND ss.aspect='site_config' AND ss.is_current
                      AND ss.data->'analytics'->>'gtm_container_id' = 'GTM-PQ3WCTBD')
+   -- an explicit opt-out (analytics.mode='none') outranks every backfill — added 2026-09-03 with
+   -- the mode vocabulary (STY-061); without this line a future UNTAGGED=1 run would re-tag it
+   AND NOT EXISTS (SELECT 1 FROM site_specs ss2 WHERE ss2.site_id=s.id AND ss2.aspect='site_config' AND ss2.is_current
+                     AND ss2.data->'analytics'->>'mode' = 'none')
    AND ( :UNTAGGED = 1
          OR COALESCE((SELECT sc.rendered_html LIKE '%GTM-PQ3WCTBD%' FROM site_components sc WHERE sc.site_id=s.id AND sc.slot_name='head'), false) );
 
