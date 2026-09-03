@@ -4375,3 +4375,42 @@ lead_with point must be *"a benefit to the reader, never a description of us or 
 inventory"* — so someone must decide whether "£29, no subscription" is a benefit worth LEADING
 with, or whether price is a doubt we deliberately answer later on the page. Raised to him. The
 prompt is the offer lane's agent, so the edit is theirs; the diagnosis was ours to give.
+
+> **SHARPENED 2026-09-03 ~15:00Z by the offer lane, and their version SUPERSEDES the entry above.**
+> I found the instance; the defect is one level up. **The two halves of the prompt read DIFFERENT
+> POOLS:** the question side says *"Derive each question from a named field of the strategy you
+> were shown"* — the WHOLE register — while the answer side derives every `lead_with` point from
+> the four fields TASK 1 names. So **any** question sourced outside those four is unanswerable by
+> construction, and the join rule correctly refuses to hide it. That predicts the observed result
+> exactly: all three fields carrying unanswered questions sit outside the four. **Adding
+> `money_flow` to TASK 1 fixes the instance and leaves the asymmetry** — the fix has to close the
+> gap between the pools. They verified my reading independently (their own count over the live
+> 9,643-char prompt: money_flow 0, price 0, cost 0, pay 0, charge 0) and withdrew the finding.
+>
+> **They kept one thing, separated rather than folded into the headline, and it is worth keeping:**
+> nothing in the prompt names price — not the source fields, not the exemplar — and the model
+> raised price questions on six sites ANYWAY, ranking them 4.6 rather than dropping them. That is
+> evidence about the VISITOR (the model's own prior on what a buyer worries about), not about our
+> copy, and it is why the construction defect is worth fixing rather than shrugging at.
+>
+> **⚠ A tension I flagged back, because their refined rule and their own stretch screen disagree.**
+> Their softened rule is *"outside the four is unanswerable UNLESS another of the four covers the
+> same ground"* (value_proposition covering competitive_position, which has 0 unanswered at rank
+> 2.9 and is the disconfirming case my overfitting caution demanded). But **"a point from field A
+> covers a question from field B" is exactly the shape a STRETCH takes** — their screen exists to
+> catch precisely that, and their hand-read found 4 of 5 reuses were stretches or half-answers.
+> The discriminating check needs no new instrument: **of competitive_position's 8 answered
+> questions, how many are in the stretch set?** Disproportionately there ⇒ "covered" is really
+> "stretched to fit", the strict rule is closer to true, and competitive_position becomes a SECOND
+> instance of the defect wearing a passing flag. Clean single-use joins ⇒ their rule stands. The
+> outcomes need different fixes, and the stretch case is worse: an `unanswered` flag is honest, a
+> stretched join is not.
+>
+> **THE LESSON, theirs, and it is the sharpest phrasing of a thing I hit twice today from the other
+> side:** *"the correlation was perfect BECAUSE it was constructed — one field at 5-of-7 against a
+> clean zero everywhere else — and I read that sharpness as proof it was real. In noisy editorial
+> data a pattern that clean should have sent me to the instrument, not to a handoff."* **Cleanness
+> itself is the tell.** My own two wrong calls today were the mirror: a sound observation carrying
+> an invented mechanism. Theirs names the diagnostic signal; mine names the failure mode. Both go
+> in the same family — **the artefact is not the mechanism, and reading the thing that PRODUCED the
+> artefact is one query I keep not running.**
