@@ -38,6 +38,32 @@ remaining item is this lane's code.**
    beyond boxingonline.com; arming `event_fixture_completeness` in a live
    `run_checks.config.checks` array.
 
+## 1b. ⚠ CHECKED 2026-09-03 12:54 UTC: NO NEW CHASSIS ROLL HAS HAPPENED
+
+A fresh chassis build was reported as deployed. **It has not reached the cluster**, and this is
+recorded as a dated negative so the next session does not re-derive it — or, worse, assume it.
+
+`[MEASURED 2026-09-03 12:54 UTC]`, four independent ways, all agreeing:
+
+| check | reading |
+|---|---|
+| standing pods | `agent-chassis-554857f96f-{kx69c,mdc6d}`, started **12:06:47Z / 12:07:16Z** — unchanged since the last roll |
+| image on those pods | `v1.0.1358` |
+| commit they report (grouped, standing pods only) | `d0252fd4d` — both agree |
+| deployment spec / kustomize overlay / makefile `IMAGE_TAG` | all `v1.0.1358`, 2/2 updated, 2 ready |
+
+**And the fix that matters cannot be in it, by arithmetic**: `29b40e8bc` was committed
+**13:32:23 BST (12:32 UTC)**; the running binary's commit `d0252fd4d` is **12:18:32 BST
+(11:18 UTC)** and its pods started at 12:06 UTC — before that commit existed.
+`git merge-base --is-ancestor 29b40e8bc d0252fd4d` exits non-zero.
+
+**So the fight-calendar save is still refused, and nothing has changed since §2.** The many pods
+started 12:50–12:53Z are *spawned agents*, all on the same `v1.0.1358` image — which is exactly
+the shape that reads as "lots of fresh pods, so it must have rolled". It has not.
+
+**Re-run the four checks above before believing any future roll claim.** The landmine this
+instantiates is already in `MEMORY.md`: *a "FRESH BUILD" CAN SHIP NO NEW CODE.*
+
 ## 2. What was proven this session — do NOT re-derive or re-test
 
 **The chassis carries the fix.** `v1.0.1358`, standing pods `agent-chassis-554857f96f-{kx69c,mdc6d}`,
