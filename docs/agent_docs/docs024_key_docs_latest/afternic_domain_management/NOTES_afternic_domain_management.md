@@ -128,6 +128,18 @@ contradiction.
 currency cell `USD-assumed` throughout (the export carries no currency
 marking — the assumption stands).
 
+**Valuation lane's cross-check back (2026-09-03, after ingesting the
+feed):** **689** of the 1,634 Afternic rows are NOT in their **1,339**-domain
+retail-registrar estate (as of 2026-09-03) — 688 UK names (340 .uk,
+337 .co.uk, 10 .org.uk, 1 .me.uk) + 1 .us. So the Afternic export is also a
+**~half preview of the still-unenumerated Nominet portfolio, with minimum
+offers attached** — the registrar walk of Nominet (domains_cloudflare_rollout
+lane's EPP territory) will be the reconciliation. They hold the 689 as
+provisional rows pending that walk; the veterinarypractice.uk-vs-.co.uk flag
+is parked for the same reconciliation. Feed semantics confirmed applied:
+buy_now → their live_ask, min_offer kept as a floor-like column, all figures
+dated 2026-09-03.
+
 **Spec CONFIRMED by the valuation session (same day)**, with one refinement
 adopted: the currency ASSUMPTION must travel in the cell, not sit silently
 in our docs — so the default currency value is now the literal
