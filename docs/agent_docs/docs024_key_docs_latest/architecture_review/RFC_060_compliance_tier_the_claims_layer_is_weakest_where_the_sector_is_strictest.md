@@ -1,11 +1,14 @@
 # RFC_060 — a COMPLIANCE TIER: the claims layer is weakest exactly where the sector is strictest
 
-**Status: FULLY OWNER-DECIDED — NOTHING ON THIS RFC IS OPEN.** Q1–Q4 ruled 2026-09-02;
-**Q5, Q6 and Q7 all ruled 2026-09-03 (§3f)** — Q6 and Q7 build-as-proposed, and **Q5 decided WITH
-the sector presets its own section had offered as optional**, because the owner named veterinary and
-legal as imminent and that is the exact fact my "don't design ahead of a second consumer"
-recommendation turned on. What remains is BUILD, not decision — tracked in §3c and §3f, owned by the
-claims-verification lane. Historical statement of the questions follows.
+**Status: FULLY OWNER-DECIDED — NOTHING ON THIS RFC IS OPEN, AND Q5/Q6/Q7 ARE ALL BUILT.**
+Q1–Q4 ruled 2026-09-02; Q5/Q6/Q7 ruled 2026-09-03 (§3f) and built the same day: **Q6** (`ac670badf`,
+council `57a9939f`), **Q7 facts half** (`6ec879212`, council `17fb9105`), **Q5** (`939593e4c`,
+council `9b11752c`) — Q7's `banned_claims` half was already live from the day before (`e5b1a0f01`,
+confirmed running, first pass filed nothing but that zero is uninformative by construction — see
+§3e's caveat). **None of Q5/Q6/Q7 is deployed yet** — committed and council-submitted, awaiting a
+roll. What remains after that is the tier MECHANISM itself (the posture-ladder field + the
+register-required gate) — none of §2's design is code yet; everything built today is upstream of
+it, per §3c's own track order. Historical statement of the questions follows.
 ~~Open: **Q5** (§3b)~~ — citation-code recognition is finance-only, doesn't
 generalise to other regulated sectors. **Q6** (§3d) — a citation can be substantively true and still
 name the wrong rule; CONFIRMED STRUCTURAL — the FCA Handbook has no rule-level URL, so a fact
@@ -473,6 +476,21 @@ legal.** So the third bullet of §3b's proposed fix, offered as optional, is **I
 4. **A preset is shared vocabulary distributed to N sites**, which is the same distribution
    mechanism `LANDMINES` warns propagates one author's typo into N sites at once. Compile and
    probe-fire at distribution time, as migration 707 did.
+
+**Q5 BUILT 2026-09-03 (`939593e4c`), Council-Submitted: `9b11752c`.**
+`EvidenceBase.CitationCodes` (ad hoc) + `CitationCodePresets` (named: veterinary/legal/medical)
+union onto `regulatoryRulebookCodesBase`, compiled once per site at `ParseEvidenceBase` time —
+constraint 1 enforced in code (same regex shape, case-sensitive, digit-adjacent, two-letter codes
+silently dropped even when site-declared), asserted directly by a test comparing a bare site's
+compiled pattern to the fleet default byte for byte. 13 tests; three medical fixtures were rewritten
+mid-build after the file's own must-fire discipline caught them passing vacuously on the first
+draft. Mutation-verified: disabling preset/code expansion fails 8 of 13 tests — every one
+exercising the new mechanism — while the 5 mutation-independent tests correctly hold.
+**Constraints 2–4 (measure each preset against its sector's live copy before arming; probe-fire
+both directions; compile-and-probe at distribution time) are content-population-time obligations
+for whoever arms a preset on a real site — this commit builds the mechanism, it does not discharge
+them.** No site has `citation_codes`/`citation_code_presets` set today; behaviour is unchanged
+fleet-wide until a human opts one in.
 
 **Sequencing note, 2026-09-03:** none of Q5/Q6/Q7 is written yet, so none rides the chassis build
 rolling now. What that build DOES carry is `e5b1a0f01` — after which the pattern detector fires on
