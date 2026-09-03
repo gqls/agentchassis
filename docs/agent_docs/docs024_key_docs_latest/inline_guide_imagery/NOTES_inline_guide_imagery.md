@@ -1215,3 +1215,28 @@ adopting:**
 Their one question separates all three: *"can I say why each bound is where it is, and is the reason
 'outside this range the rows cannot exist' or 'that is when I expected it'?"* Adopted verbatim in
 `memory/measurement-discipline-index.md`.
+
+#### 22a. And a fourth family member, from a landmine this session was SHOWN at start-up
+
+Checking whether my ledger edit had clobbered a peer's entry, I ran
+`git show <sha> -- LANDMINES.md | grep '^-[^-]'` and got **nothing**, against a `--numstat` saying
+**1 deletion**. I had reached for the reassuring answer and got it.
+
+`^-[^-]` cannot see a deleted **markdown bullet**: the removed line is `- **⚠ …`, so in the diff it
+reads `-- **⚠ …` and the second character is the very dash the predicate excludes. **This is a
+LANDMINE, and the SessionStart hook printed it to me at the top of this session** — it was the first
+of the six matched entries, footprint `docs/agent_docs/docs026_concept_register/`. I read it, did
+not connect it to the check I was about to run three hours later, and reproduced it exactly.
+
+**The right form, from the entry itself:** gate on the COUNT, which no content can fool
+(`git diff --numstat <file>` → `added deleted path`), and only then read what went with
+`git diff <file> | grep '^-' | grep -v '^---'`. Done properly it showed the removed line was **my
+own** bullet from `b5b6fdd96` an hour earlier, no peer's entry touched.
+
+**So the tally for one day is four:** wrong artefact (§17b), format-assuming predicate (§21/§22),
+expectation-sized bound (theirs), and now a predicate whose reassuring answer is indistinguishable
+from the true one — the last of which I had been warned about *in this session, before I started*.
+**Reading a landmine is not the same as having it loaded when the moment comes**, and the moment
+never announces itself: I was not investigating a bullet, I was checking a diff. The transferable
+half is the entry's own advice and it generalises past git — **when a check's clean result is what
+you are hoping for, gate it on a count first.**
