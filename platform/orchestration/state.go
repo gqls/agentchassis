@@ -1543,7 +1543,13 @@ func (r *StateRepository) ClaimStaleOrchestration(ctx context.Context, orchestra
 		return nil, err
 	}
 
-	// UpdateStateWithVersion bumped Version and LastActivity on this pointer.
+	// UpdateStateWithVersion bumped Version on this pointer (state.go:1074) and
+	// stamped last_activity = now in the DATABASE (state.go:1051, a local `now`,
+	// not the caller's field). ⚠ It does NOT write LastActivity back onto the
+	// struct, so claimed.LastActivity is still the pre-claim value — do not read
+	// it as "when this row was claimed". The database is where the refresh lives,
+	// and the database is what the next taker's fresh read consults, which is all
+	// the exclusion needs.
 	return claimed, nil
 }
 
