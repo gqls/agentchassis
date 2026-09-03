@@ -1221,28 +1221,61 @@ func RenderPromptTemplate(templateStr string, data map[string]interface{}, logge
 	rendered := buf.String()
 
 	// ========================================================================
-	// NEW: Check for <no value> placeholders which indicate missing data
+	// A hole in the prompt: name it, strip it, and escalate when it landed
+	// somewhere the prompt had declared authoritative.
+	//
+	// bugs_open/453 shape 3 / the bugs_open/437 lane's contribution. Until
+	// 2026-09-03 this block COUNTED "<no value>" occurrences, logged 50
+	// characters of preceding context for up to five of them, and then sent the
+	// token to the model — so a prompt could tell a writer that the business's
+	// location was the string "<no value>", inside a block headed "USE ONLY
+	// THESE - DO NOT INVENT". Measured at roughly 65% of page-content-writer
+	// prompts.
+	//
+	// The three changes, each mirroring the component render seam's answer to
+	// the same problem (component_library.go, around missingBareFields) rather
+	// than inventing a second one:
+	//   - NAME the paths instead of counting occurrences. A count cannot be
+	//     acted on; "reviewed_brief.headquarters" can.
+	//   - STRIP the artefact, so the model never receives it. On a page an
+	//     empty string is worse than a visible break; in a prompt it is the
+	//     opposite, because "Location: " is true and "Location: <no value>" is
+	//     a false assertion the surrounding instruction vouches for.
+	//   - ERROR rather than WARN when an occurrence sat inside an
+	//     anti-invention block, which is this seam's analogue of the sibling's
+	//     dead href=/src= control.
+	//
+	// Report only, never refuse: refusing would be new authority over prompts
+	// that render successfully across the whole fleet today (owner ruling
+	// 2026-08-02 §2). What this closes is the silence.
 	// ========================================================================
-	if strings.Contains(rendered, "<no value>") {
-		// Count occurrences
-		count := strings.Count(rendered, "<no value>")
-		logger.Warn("TEMPLATE RENDERED WITH MISSING DATA - Found <no value> placeholders",
-			zap.Int("count", count),
-			zap.String("preview", rendered[:min(500, len(rendered))]),
-		)
+	if report := ScanMissingValues(templateStr, rendered, data); !report.Empty() {
+		stripped, _ := StripMissingValues(rendered)
+		rendered = stripped
 
-		// Find which fields are missing by checking context around <no value>
-		// This helps identify which template variables weren't populated
-		parts := strings.Split(rendered, "<no value>")
-		for i := 0; i < len(parts)-1 && i < 5; i++ {
-			// Show context before each <no value>
-			contextStart := len(parts[i]) - 50
-			if contextStart < 0 {
-				contextStart = 0
-			}
-			logger.Warn("Missing value context",
-				zap.Int("occurrence", i+1),
-				zap.String("before", parts[i][contextStart:]),
+		fields := zap.Strings("unresolved_paths", report.Fields)
+		if len(report.Fields) == 0 {
+			// Attribution came back empty while the output definitely had holes:
+			// every occurrence is inside a {{range}}/{{with}} body, where the dot
+			// is a loop item this scan cannot see. Say so, rather than logging an
+			// empty list that reads as "no fields affected".
+			fields = zap.String("unresolved_paths", "none at root scope — every occurrence is inside a range/with body")
+		}
+
+		if report.Authoritative > 0 {
+			// Error, not Warn: a manufactured stand-in inside a DO-NOT-INVENT
+			// block is the bugs_open/387 shape with no human author. Greppable
+			// and alertable by design.
+			logger.Error("PROMPT RENDERED A STAND-IN INSIDE AN AUTHORITATIVE BLOCK - stripped before send",
+				zap.Int("occurrences", report.Occurrences),
+				zap.Int("in_authoritative_block", report.Authoritative),
+				zap.Strings("authoritative_context", report.Contexts),
+				fields,
+			)
+		} else {
+			logger.Warn("PROMPT RENDERED WITH MISSING DATA - placeholders stripped before send",
+				zap.Int("occurrences", report.Occurrences),
+				fields,
 			)
 		}
 	}

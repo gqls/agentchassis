@@ -304,3 +304,79 @@ context for someone already reading a step, so a real finding is not surrounded 
 reported clean when the check could not decide. Making it actionable means making it
 DECIDABLE — narrowing `input_data`'s root promotion in `ExtractFields`, a different lane's
 change — not assigning a rota to an undecidable class.
+
+---
+
+## 7. SHAPE 3 IS NOW FIXED TOO — the `<no value>` arm, at the render, where the truth is known
+
+Owner instruction 2026-09-03: *"please fix the issue. Please think hard and put it through all
+the checks because we have considered this bug many times before."* Built by the
+`bugfix_453_template_input_fields_lint` lane. **Register: PRC-003. Diagnosis `92309b45` filed
+BEFORE the root cause was asserted (090, per the 2026-07-31 ruling); council alongside.**
+
+### What changed
+
+`RenderPromptTemplate` used to COUNT `<no value>` occurrences, log 50 characters of preceding
+context for up to five of them, and **send the token to the model**. Now it:
+
+1. **NAMES** the unresolvable paths — dotted (`reviewed_brief.headquarters`), not just the root;
+2. **STRIPS** the token before send, so the model never receives it;
+3. **ERRORS instead of WARNS** when an occurrence sat inside an anti-invention block.
+
+Report-only. It never refuses — refusing is new authority over prompts that render fleet-wide
+today (owner ruling 2026-08-02 §2), and the damage is a missing sentence, not a corrupt one.
+What this closes is the SILENCE the 437 lane named.
+
+### The prior art the owner was pointing at, and why the fix is a MIRROR rather than a new idea
+
+The **component page-render seam already solved this** — `missingBareFields` and the report
+around it in `component_library.go`: strip the artefact, name the fields rather than counting
+them, and escalate from Warn to Error when the blank landed somewhere dangerous (there, an
+`href=`/`src=` — a dead control; here, a do-not-invent block).
+
+⚠ **And it deliberately EXCLUDES nested access** (`{{.Foo.Bar}}`, *"whose top-level presence
+says nothing about whether the leaf renders empty"*) — which is precisely the failing case the
+437 lane reported. That exclusion is correct for its own question and is the gap this fills.
+
+### Why stripping is right here and would be wrong on a page
+
+LANDMINES warns that a stripped blank is *worse* than a visible break, because a human reader
+cannot see what is absent. In a prompt the reader is a MODEL and the two are not symmetric:
+`Location: ` says there is no location, which is true; `Location: <no value>` asserts the
+location IS that string, inside the block instructing the model to trust it.
+
+### The escalation rule is MEASURED, and that is the load-bearing part
+
+`[MEASURED 2026-09-03]` across all **139** live prompt templates: `exact` **161** occurrences,
+`verified` **73**, and **87 of 139 templates carry one or the other**. A marker set including
+them — or a document-level rather than block-level test — escalates nearly every render, and a
+severity that fires on two thirds of the fleet is not a severity. So the set is anti-INVENTION
+directives only (**64** occurrences), and the test is **block-scoped**, bounded by the nearest
+blank line, because a paragraph is the unit the instruction governs.
+
+### Exact vs best-effort, kept apart on purpose
+
+Occurrence and authoritative counts are read from the **rendered output** and cannot be wrong
+about whether it happened. Field attribution is read from template + data and is **short by
+design**: inside `{{range}}`/`{{with}}` the dot is a loop item the scan cannot see. So an empty
+field list **logs that it is empty because the scan could not see**, never a bare `[]` that
+reads as "no fields affected".
+
+### Checks run
+
+- **090 diagnosis `92309b45`** filed before asserting the cause; verdict recorded when it lands.
+- **Prior-art sweep first**, at the owner's instruction — 15 bug files, 016b §9 and LANDMINES.
+- **Five mutation proofs, each RED**: strip removed · block scope widened to the document ·
+  marker set widened to `verified|exact` · present-but-nil counted as resolved · range bodies
+  attributed. Positive fixture is the 437 lane's **verbatim** live contact block.
+- **Council** submitted alongside.
+
+### Still open on this file after this
+
+- **Shape 1** (no `input_fields` at all → randomised recursive search) — reported as context by
+  WFA-024, never convicted; convicting it needs a rule nobody has written.
+- The **19 `declared_unread`** advisories. Three spot-checked by hand and all genuine
+  (`brief-writer` gathers `search_results` while its template reads `scrape_results` and
+  `prepared_urls`; `content-writer` gathers `brief_data`; `site-architect` gathers
+  `domain_analysis`). Waste, not damage.
+- The **page-content-writer research decision** — wire the block up or delete it (§3).

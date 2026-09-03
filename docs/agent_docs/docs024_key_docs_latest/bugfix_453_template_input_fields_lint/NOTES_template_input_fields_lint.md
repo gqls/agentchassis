@@ -301,3 +301,60 @@ a rationale and a plan, never a commit, so the correlation can always exist firs
 `Council-Submitted:` guidance assumes you have a correlation in hand and does not say to get one
 first — which is exactly the order I got wrong. Forward-only forbids an amend, so this cannot be
 repaired; it is recorded so the next lane orders it the other way round.
+
+---
+
+## 2026-09-03 — SHAPE 3 FIXED at the render (owner instruction), and the prior art was the design
+
+Owner: *"please fix the issue. Please think hard and put it through all the checks because we
+have considered this bug many times before."* They were right that it had been round before,
+and the sweep is what produced the design rather than my own idea of one.
+
+### The prior-art sweep, done FIRST
+
+15 bug files mention `<no value>`, plus 016b §9 and several LANDMINES entries. Two mattered:
+
+- **`component_library.go`'s render seam already solves this for PAGE templates** — strip the
+  artefact, name the fields rather than counting them, Warn for a merely-missing word and
+  **Error** for a blank inside an `href=`/`src=` (a dead control). It replaced *"the previous
+  count-only Warn that named nothing, under which 30 dead controls shipped silently on
+  idea.uk"*. That sentence describes the prompt path's state exactly, three weeks later.
+- ⚠ **and it deliberately EXCLUDES nested access** — `bareFieldName` rejects `{{.Foo.Bar}}`,
+  *"whose top-level presence says nothing about whether the leaf renders empty"*. That is
+  precisely the 437 lane's failing case. Correct for its question; the gap for ours.
+
+So the fix is a MIRROR of an accepted answer, not a new mechanism. That is also why it is
+`datahelpers` and not a shared helper: `actions` imports `datahelpers`, so the dependency
+cannot run the other way — the same constraint `ContentDataCanFillTemplate`'s own comment
+records for its flat-scan sibling.
+
+### The one asymmetry worth stating, because it looks like a contradiction
+
+LANDMINES says a stripped blank is **worse** than a visible break. That is true for a page and
+false for a prompt, and the reason is who reads it. A human cannot see an absent word; a model
+reads `Location: <no value>` as an assertion that the location IS that string — vouched for by
+the instruction block around it. Empty is true; the token is a lie.
+
+### MISSTEP AVOIDED, and it would have been a bad one
+
+My first instinct for the escalation rule was "does the template contain a do-not-invent
+instruction". `[MEASURED 2026-09-03]` that fires on **87 of 139** live templates, because
+`exact` (161 occurrences) and `verified` (73) are everywhere. A severity that fires on two
+thirds of the fleet is not a severity — it is the noisy channel `bugs_open/054` was filed
+about. Measuring the corpus before writing the regex is what caught it; the rule is now
+block-scoped and restricted to anti-INVENTION directives (**64** occurrences).
+
+### And one API choice that is a trap in the other direction
+
+`ExtractNestedField` was the obvious helper to resolve a path with. **It must not be used
+here.** It is a RESOLVER with fallbacks — retries under `input_data`, unwraps `response`
+envelopes, indexes arrays — so it answers *"can this be found?"* while the template asked
+*"is this here?"*. It would report a path as resolvable that the template had already rendered
+as a hole: the single wrong answer this function must never give. `pathResolves` mirrors
+`text/template`'s own map indexing instead, and present-but-nil does NOT resolve.
+
+### Checks
+
+090 `92309b45` filed before asserting the cause (verdict pending; recorded when it lands).
+Five mutation proofs, all RED. Positive fixture is the 437 lane's verbatim live contact block.
+Council alongside.
