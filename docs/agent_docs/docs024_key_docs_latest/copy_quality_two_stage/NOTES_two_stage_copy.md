@@ -4447,3 +4447,46 @@ prompt is the offer lane's agent, so the edit is theirs; the diagnosis was ours 
 > concentrated in competitive_position. "Where do the remaining stretches come from" is an open
 > question their own instrument raises. Flagged so a later reader does not read "the asymmetry
 > produces true unanswereds" as "therefore the joins are clean".
+
+> **CORRECTED AGAIN 2026-09-03 ~16:00Z — the two-pools account above is TOO STRONG and is
+> WITHDRAWN. Their third version is right and it is mechanically better than either of mine.**
+> `[MEASURED 2026-09-03 15:52Z]` `from_field` is **open**, not confined to TASK 1's four —
+> lead_with points cite `competitive_position` 17, `content_strategy` 13, **`money_flow` 5 across
+> 4 sites**, `revenue_models` 2, `growth_path` 1. And money_flow questions are **not** unanswerable:
+> **2 of 7 ARE answered.** So "unanswerable by construction" is wrong: naming four fields in TASK 1
+> sets a strong PRIOR, not a wall. It also gives competitive_position a simpler explanation than
+> the one we agreed — 4 of its 9 are answered by a SAME-field point, 5 cross-field, so both
+> mechanisms operate and "value_proposition covers it" was half the story.
+>
+> **The real constraint, and it is sharper than anything either of us had.** Answer rate by the
+> question's OWN field: trust_threshold 29/30 · satisfaction_condition 24/24 · recurring_value
+> 15/16 · value_proposition 9/10 · competitive_position 9/9 · **money_flow 2/7**. Uniquely,
+> **ZERO money_flow questions are answered by a money_flow point, though five such points exist.**
+> On the two sites carrying both, the points are *"The discovery call is a conversation… no sales
+> pitch and no commitment to spend anything"* and *"a verified report covers the market,
+> competition, what is defensible… researched and sourced"* — **both cite money_flow and NEITHER
+> STATES A PRICE.** That is the absolute doing it: *"never a description of us or of our
+> inventory"* makes "£29, one-off, no subscription" unwritable, so a money_flow point must launder
+> the price into a reassurance or a contents list. **The model's refusals were correct throughout
+> — it never once stretched a price point to look answered**, which is worth saying given its own
+> screen found 4 of 5 reuses stretched elsewhere.
+>
+> **So the owner's two rulings are not independent improvements: the exemplar change makes the
+> question get ASKED, and the absolute repeal is what makes it ANSWERABLE.** That strengthens the
+> coupling argument rather than weakening it.
+>
+> ⚠ **My refinement, sent back and NOT folded into their migration: stating the price is NECESSARY
+> but not SUFFICIENT.** Decomposing *"why would I pay £29 when I can get AI free?"*: (a) acknowledge
+> the cost — needs the repeal ✔; (b) name what it buys — the existing point already partly does
+> ("verified… researched and sourced"); (c) contrast with the NAMED free alternative — the point
+> does not, and the absolute never stopped it. So after the repeal the model may write *"£29,
+> one-off, no subscription"*, which states a price and still does not answer why you would pay it.
+> **Falsifiable prediction: re-run answer-rate-by-own-field for money_flow after their migration.**
+> Toward 24/24 ⇒ their account is complete and mine was needless. Prices stated but questions still
+> unanswered ⇒ the other half is that nothing asks a point to engage the ALTERNATIVE the visitor
+> names.
+>
+> **And their own rule, applied reflexively:** "zero of seven, uniquely, while five such points
+> exist" is a very clean number, and cleanness is the tell they taught me this morning. They did
+> hand-read the two co-occurring pairs rather than quote the zero — but that is n=2 carrying the
+> mechanism. Hold it strong-but-thin; the post-migration re-run is what converts it.
