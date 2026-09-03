@@ -670,3 +670,33 @@ Invest listing data, which is **2021**. Each is flagged inline at the point of
 use. All UK monthly aggregates and all §1 tables are 2024–2026 unless a row says
 otherwise.
 
+
+---
+
+## ADDENDUM 2026-09-03 — the best comparable is the owner's own, and it is large
+
+**`free.co.uk` sold for approximately £160,000** (owner, stated 2026-09-03,
+"some years ago" — no exact date). `[REALISED]`, owner-reported.
+
+This is the **only realised sale price known anywhere in this estate**, and it
+is a one-word English dictionary generic in `.co.uk` — precisely the class §1.1
+covers. It sits **above** the 2026 public-record UK ceiling (~£42,000) and
+between the two historic outliers this research found: crypto.co.uk £100,000
+(Aug 2024) and tyres.co.uk £300,000 (Jan 2025). So it is entirely consistent
+with the published record while showing that the £6,000–£35,000 band for
+one-word generics is **not** the top — the very best words clear six figures.
+
+**Consequences for the model:**
+
+1. It confirms the premium tier is real and large, and that an algorithmic
+   appraisal cannot see it. The estate holds **144 single dictionary words**,
+   of which the model had valued `free.uk` at **$215**.
+2. `free.uk` is the retained sibling of a £160,000 sale. Standalone `.uk`
+   generally realises a third to a fifth of `.co.uk` (§1.3c) — but that band was
+   derived from names in the £2,000–£5,000 range, and nothing in the public
+   record tests the ratio at six figures. **Do not mechanically apply 0.25 to
+   £160,000.** It is the owner's most valuable retained name on current
+   evidence and needs an individual view, not a multiplier.
+3. It is a **years-old** figure. The 2026 market is measurably thinner at the
+   top (no UK domain in DNJournal's 2026 global top 100, cutoff $90,000), so it
+   should not be read as today's achievable price for a comparable name.

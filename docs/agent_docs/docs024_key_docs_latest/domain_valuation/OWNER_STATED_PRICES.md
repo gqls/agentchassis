@@ -9,6 +9,8 @@ must travel labelled as his statement, never as a valuation.
 | `relojistas.com` | **$12,000** | Afternic minimum-offer floor, set by him | 2026-07-28 (confirmed after I misread a paste as $0 — `WRONG_CALLS.md`) |
 | `cartoon.co.uk` | **£5,000+** | **acquisition cost** — *"I paid over 5000 pounds for cartoon.co.uk so don't underprice that one"* | 2026-09-03, via the sedo lane |
 | `webdesign.uk` | **">£1,000,000"** | aspirational, forward-looking — *"probably going to be worth that in a year or so"* | 2026-09-03, via the sedo lane |
+| `free.co.uk` | **~£160,000 REALISED** | **an actual completed SALE**, his own, some years ago — the only realised sale price known anywhere in this estate | stated 2026-09-03 |
+| `free.uk` | *(still owned)* | the retained sibling of the £160k sale | — |
 | `webdesign.co.uk` | same tier | confirmed in scope for the high-value tier alongside `.uk` | 2026-09-03 |
 
 ## The general lesson from cartoon.co.uk, which is bigger than one domain
