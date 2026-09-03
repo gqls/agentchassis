@@ -38,11 +38,25 @@ while IFS= read -r d; do
     printf '%s\n' "$resp" | tail -3
     break
   fi
-  price=$(printf '%s' "$resp" | sed -n 's/.*"appraisal_price":"\$\{0,1\}\([^"]*\)".*/\1/p' | tr -d ',')
-  if [[ -z "$price" ]]; then
+  raw=$(printf '%s' "$resp" | sed -n 's/.*"appraisal_price":"\([^"]*\)".*/\1/p')
+  if [[ -z "$raw" ]]; then
     echo "UNPARSED response for $d — stopping rather than writing junk:" >&2
     printf '%s\n' "$resp" >&2
     break
+  fi
+  price=$(printf '%s' "$raw" | tr -d '$,')
+  if [[ ! "$price" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    # Dynappraisal answers HTTP 200 with appraisal_price "$--" for TLDs it does
+    # not cover (measured 2026-09-03: .co.uk/.org.uk/.me.uk, vs working .com/
+    # .net/.uk) — a real, distinct outcome, not a parse failure. Write an
+    # explicit marker (empty valuation+currency) so the domain still counts as
+    # "present" for the resume skip, instead of writing the literal "--" as a
+    # price or retrying it forever.
+    echo "$d,,,dynadot_dynappraisal_no_appraisal_$today" >> "$out"
+    echo "no appraisal for $d (raw '$raw') — marked, not retried"
+    fetched=$((fetched+1))
+    sleep 1.2
+    continue
   fi
   echo "$d,$price,USD,dynadot_dynappraisal_$today" >> "$out"
   fetched=$((fetched+1))
