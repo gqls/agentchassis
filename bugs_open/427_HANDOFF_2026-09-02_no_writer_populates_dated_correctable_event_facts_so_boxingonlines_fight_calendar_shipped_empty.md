@@ -1003,3 +1003,87 @@ is not yet `deployed`. They adopted that split; the more inclusive form is the h
 > than harm — and the 450 lane notes the same `is_active` seam was found from the opposite
 > direction by the portfolio lane four hours earlier, which they read as an argument for keeping
 > it (it is also what `create_tool_component` probes with).
+
+## 19. Round 3 APPROVED — and checking the objection I had conceded twice refuted its premise AND found that migrations 719/727/728 are TRANSIENT
+
+`ff91e666` round 3: **APPROVED** at 2026-09-03 12:41:09Z,
+`decided_by: "approved with 6 advisory objection(s) — none high-severity"`, 4 abstained, no
+truncation. Seven seats approved; six objected, none above MEDIUM.
+
+**Five separate seats** (`reuse_agent`, `guardian`, `constitution`, `prior_art_librarian`,
+`architecture`) repeated one objection: that 719/727/728 should have gone through
+`save_page_sections_action.go`, *"the platform's typed writer for exactly this field"*, or
+`ReconcileSitePlanAction`. Round 2 and round 3 both recorded it as an objection I was not
+answering. **This time I checked it, and the check refuted its premise — and then found
+something much worse.**
+
+### 19.1 The named remedy does not exist
+
+`[MEASURED 2026-09-03]`, read at the source:
+
+- **`save_page_sections_action.go` contains no `UPDATE pages` at all** and never writes the
+  `sections` column. Its own first line says what it owns: *"saves rendered HTML sections to
+  **page_components** table"*. Its `sections` locals are `[]SectionData` — page_components rows.
+  It is the typed writer for a **different table**.
+- **`ReconcileSitePlanAction` is site-scoped** (`target_site_id`), reads `site_plan_sections`,
+  and emits rebuild decisions. Its own comment states the comparison is *"deliberately NOT
+  plan-to-`pages.sections`"*. It cannot make a one-page section-array correction.
+
+The real writers of the column are `apply_gap_plan_action.go` (×2),
+`load_page_sections_from_spec_action.go`, `ensure_page_section_layout_action.go`, and
+`site_db_actions.go`'s upsert. **None takes an arbitrary array for one page**; each is bound to
+its own workflow.
+
+> **The correction is mine to own twice over.** `reuse_agent` named the file in round 2; I quoted
+> it respectfully in round 3's `grounded_in` **without grepping it**, and four more seats then
+> objected on my own quotation. I manufactured the consensus I was conceding to. This is
+> MEMORY's *"a CITATION is not a READ — quote the deciding ARM"* and *"an objection naming one
+> file is naming a CATEGORY"*, and I had both lessons in front of me.
+
+### 19.2 But the seats' INSTINCT was right, for a reason none of them stated
+
+Chasing the real writer found this, and it is the most consequential thing in this bug file:
+
+**`pages.sections` is a CACHE. `site_plan_sections` is the authority — and the plan still names
+the old composition.** `site_db_actions.go:1276` (`sync_pages`) writes
+`sections = EXCLUDED.sections` whenever the incoming plan's proposal is non-empty; the
+non-empty→empty transition is the only one it intercepts.
+
+`[MEASURED 2026-09-03]` the current plan for this page (`site_plans bba66eda`, 2026-08-31) is:
+
+| ordering | component_name |
+|---|---|
+| 0 | `hero-tool` |
+| 1 | **`generic-text-block`** ← the slot `719` swapped away |
+| 2 | **`advertising`** ← the entry `728` removed |
+
+**So the next `sync_pages` run for boxingonline.com overwrites `pages.sections` back to
+`["hero-tool","generic-text-block","advertising"]` in one write — undoing 719, 727 AND 728
+together, and re-arming `check_unresolved_sections` on both names.** Three guarded, rehearsed,
+induced-failure-proven migrations, all transient, because every one of them wrote the cache and
+none wrote the authority.
+
+**This is the same class as `bugs_open/443`** (*"`create_blog_posts` writes `pages.sections`, the
+cache, never `site_plan_sections`, the authority"*) — the 450 lane flagged 443 as required
+reading and they were right for a reason none of us had connected.
+
+### 19.3 What I did NOT do, and why
+
+**I did not write a fourth migration against `site_plan_sections`.** That table is relied upon as
+**immutable per plan** — `reconcile_site_plan_action.go`'s `decideEmit` comment says
+`site_plan_sections` *"is per-plan and immutable, so it can"* tell an unchanged page from a
+re-composed one. Mutating it would silently break the one mechanism that distinguishes those, on
+every page of the site, to fix one page's array. That is a bigger decision than this lane should
+take at the end of a session, and it belongs in front of the council or the owner rather than in
+a hand-applied migration.
+
+**So this is filed, not fixed**, and it is now this lane's top open item:
+
+- [ ] **719/727/728 are transient.** Either the plan's proposal for `tool-fight-calendar` must be
+  corrected (needs a decision about `site_plan_sections`' immutability), or a re-plan of
+  boxingonline.com must be expected to revert all three. **Do not close 427 believing the
+  section array is durable.** Cross-reference `bugs_open/443`.
+- The council advisories that stand un-actioned, recorded rather than dressed up: the
+  `jsonb_agg(DISTINCT)` anti-pattern still has only a LANDMINES entry and no lint (four seats);
+  `bug_historian`'s point that 18 pages carry the identical `advertising` arming condition and
+  this lane filed the number without filing the work.
