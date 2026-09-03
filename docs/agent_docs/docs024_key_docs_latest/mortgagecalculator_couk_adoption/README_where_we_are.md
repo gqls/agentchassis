@@ -1894,3 +1894,20 @@ exactly this: tests pointing at old element names and recording false failures a
 Then I produced five more of them by hand, inside the repair for it. Knowing the trap did not help,
 because my error was a level below it — I never checked where the test format actually keeps those
 references.
+
+**Result, twenty minutes later: eight out of eight passed.** Every one of the tests I repaired now
+runs green in a real browser, on the same calculators that "failed" this afternoon. Nothing about
+the calculators changed between the two runs — only the addresses in the tests. So that settles it
+properly rather than by my say-so: the calculators were right all along, the repair is right, and
+this afternoon's five failures were mine.
+
+**Eleven of the eighteen calculators now hold a passing test result**, against four this morning and
+one yesterday.
+
+**One honest caveat, and it is the same one as before.** These eight tests check the *arithmetic* —
+the stamp-duty one, for instance, compares four figures worked out independently from the site's
+thirteen registered tax facts rather than from anything the page says. They check nothing about
+whether the page loads cleanly, logs errors, or works on a phone. The other three passing
+calculators are the exact mirror: they check it loads and responds, and nothing about whether the
+numbers are right. **Still not one calculator on the site is checked for both.** That is the fault
+another team now owns, and it is the single most useful thing left to fix here.
