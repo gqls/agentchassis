@@ -161,6 +161,49 @@ the overlay (structure tokens are layout-only). Best visible-difference-per-effo
 available today, and it needs no theme kit — it is driven by classification tags and
 `design_intent.style_direction` prose in the brief.
 
+## 3a. KNOWN DEFECTS IN WHAT SHIPPED — found after apply, none yet fixed
+
+**(i) The seed set narrows toward the layouts that are already dominant.** The four
+seeded kits name `brochure-formal`, `docs-sidebar`, `soft-editorial`,
+`tool-portal-light`. [MEASURED 2026-09-03] `tool-portal-light` is on 14 sites,
+`brochure-formal` 6, and `magazine-grid` (8) sits outside the set; **six layouts have
+zero sites and none is in a kit.** So if adoption rises, layout selection narrows from
+"18, tag-matched" to "4, kit-selected" — *toward* the concentration the owner's sameness
+directive is complaining about. **As seeded, the kits are a sameness risk wearing a
+differentiation label.** Free to fix (adoption is 0, nothing depends on the seeds), but
+*which* looks become kits is curation, not mechanics — it is an owner/design call, not
+something to pick by taste. **`bugs_open/445` is producing the input that makes it a
+real decision**: splitting the never-used layouts into "correctly unused, no site of
+that shape exists" versus "reachable but losing". Only the second kind is worth a kit.
+Wait for that list rather than guessing; seeding a kit for a layout nothing needs would
+repeat this defect in the opposite direction.
+
+**(ii) The layout rung records a candidate that was never scored.**
+`resolve_composition_layout_action.go` returns `"candidates": []string{kitLayoutName}`,
+and `install_site_composition_action.go:637` writes it through as
+`lineage.layout_candidates`. A themed site would therefore record
+`layout_candidates: ["soft-editorial"]` — reading as *"one candidate was considered and
+won"* when **no candidate was scored at all**. This is the same false-structured-fact
+class I fixed for `layout_source` in this very session, reintroduced one field over in
+the same edit. The honest record is an empty list, with `source: "theme_kit_default"`
+carrying the story. **Not yet emittable** (adoption 0), needs a one-line change plus a
+roll; rides the next one. `bugs_open/445` has been told to design their fit-evidence
+against this being empty/absent, not a one-element list.
+
+**(iii) "A chrome pin is an available-now lever" was half wrong — RETRACTED to both
+lanes that received it.** A pin **selects** a component; nothing **populates** it.
+Measured: `header-with-categories` needs ~12 template variables including
+`action="{{.search_action_url}}"`; `header-minimal-tool` needs tool vocabulary
+(`tool_status_label`, `avatar_initials`); `header-with-cart-or-nav` needs cart
+vocabulary — and designblog.co.uk's header `content_data` is **empty, zero keys**. An
+unsupplied variable renders blank: a form action that posts to the current page, empty
+aria-labels, missing nav. **So the truer explanation of "36 of 37 sites render identical
+chrome" is not that nobody selected — it is that nobody ever supplied the data for
+anything else.** That is a bigger job than a per-site UPDATE and the 18 remakes should
+be sized on it. Correction sent to `portfolio_positioning` (whose RUNBOOK §5 carried the
+incomplete version) and to `designblog.co.uk` (who were about to pin one on a live site
+today).
+
 ## 4. Commits (all on `087_towards_multiple_domains`)
 
 | commit | what |
