@@ -448,3 +448,50 @@ instead of a bare label. That is a migration on the fleet's highest-volume write
 it wants its own round. Options: (a) ship the Error and fix the template promptly, so the rate
 collapses to near-zero and the severity stays meaningful; (b) ship at Warn and lose the
 alertability this was built for; (c) hold the renderer change until the template gate lands.
+
+### 7b. Council `8384acb0` returned **REVISE** — gating objection from `bug_historian`, and it is right
+
+`decided_by: gating objection from bug_historian`, 4 abstained, no truncation.
+
+**HIGH (edit 6) — "improving the log message does not by itself fix the surfacing gap".**
+
+> *"chassis pod logs are ephemeral … and the OLD code already had a count-only Warn for this
+> exact string that went unactioned across ~65% of calls for weeks … Without a durable record
+> (agent_error_log row or a work item) this remains functionally close to silent."*
+
+**Accepted without reservation.** It is the 437 lane's own words back at me — *"a detector whose
+only output is a Warn is not a detector"* (`bugs_closed/260` §9b) — and I mirrored the component
+seam's design without noticing the seam shares the weakness. I improved the message and left the
+surface. Being revised, not defended.
+
+**MEDIUM (no edit) — the fix is scoped to call sites, not to the mechanism.** Also right, and the
+census is worse than the objection assumed `[MEASURED 2026-09-03]`. Go template executions in
+the tree, excluding tests, vendor and SQL:
+
+| seam | guarded? |
+|---|---|
+| `datahelpers/data_helpers.go:1217` (`RenderPromptTemplate`) | **yes — this change** |
+| `actions/component_library.go` (the page render seam) | yes — pre-existing |
+| `actions/git_deployer_actions.go:657` | **no** — and this is the LANDMINE'd `git_commit` case: the commit_message template resolves only `{domain, file_count, filename}`, anything else renders the token, and the commit succeeds |
+| `actions/render_css_from_spec_action.go:253` | **no** |
+| `actions/fail_work_item_message_template.go:86` | **no** |
+| `actions/workflow_actions.go:561` | **no** |
+| `actions/web_search_action.go:269` | **no** |
+| `actions/storage_actions.go:461` | **no** |
+| `actions/rerender_pages_actions.go:833` | **no** |
+| `actions/call_agent.go:1216` | **no** |
+| `actions/rebuild_blog_listing_action.go:824` | **no** |
+| `internal/core-manager/handlers/delivery.go:474` | **no** |
+| `cmd/content-data-recover/main.go:202` | **no** |
+
+**Two of twelve are guarded.** The class is open and this file should say so rather than read as
+closed. Filed as a residual below rather than swept into this change: several of those render
+CSS, storage keys and commit messages, where "strip the token" is not obviously the right answer
+and each wants its own reasoning.
+
+**LOW (edit 1) — two independent detectors with nothing keeping them in lockstep.** Fair.
+`ScanMissingValues` and `missingBareFields` answer deliberately different questions (nested
+paths vs bare root fields; block-scoped anti-invention vs `href=`/`src=`), and the divergence is
+intentional — but "intentional" is what every drift starts as. Being addressed by a
+cross-reference test that pins the divergence WITH ITS REASON, the shape
+`render_seam_absent_required_test.go` already uses.
