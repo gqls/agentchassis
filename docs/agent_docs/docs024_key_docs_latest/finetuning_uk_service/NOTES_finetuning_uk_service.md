@@ -2746,3 +2746,28 @@ opt-in exception is the closer fit"). Objections and what changed:
 | debug_historian (note) | post-ship verification | added to risks: probe the island container binary for the route literal with controls; curl with a good and a bad Origin |
 Round 2 first attempt was refused by the trigger at **9 edits > 8** (the two new test files as separate
 edits); folded into the existing test edits (7) and resubmitted on the same correlation.
+
+## 2026-09-03 (13:40Z) — council round 2: REVISE again (guardian, gating: migration placement) — and the objection turned out to be a MEASURED fact, not a hypothetical
+
+Round 2 verdict: revise; 7 abstained; approve from editquality (2 low), render_guardian, llm_reliability,
+debug_historian (1 low), constitution, mission, prior_art_librarian, architecture; object from
+reuse_agent (medium) and guardian (high + low).
+- **Guardian (gating):** 737 sat in `sql_for_agents/` with a plain name; the shared runner sweeps
+  that directory against `clients_db`. **Measured:** `198_tools_api_gauntlet_rounds.sql` IS in
+  `clients_db.schema_migrations` (`run-migrations.sh`, 2026-08-08 18:14:54) and `gauntlet_rounds`
+  exists in the core DB — the "precedent" already misfired once. 276/436 are not in the core
+  ledger (unmeasured why). A plain 737 would have inserted a garbage `sites` row in the core (no
+  other NOT NULL-without-default columns). **Fix:** renamed `737_…_ISLAND.sql` — the runner's
+  `SIDECAR_RE` treats an UPPERCASE suffix as a sidecar (reported, never applied); the council still
+  reviews it. Committed both paths (`git ls-tree HEAD` shows exactly one 737). LANDMINES entry
+  filed and verifier armed. My probe INSERT under `BEGIN…ROLLBACK` on the core table was cut by
+  a dropped kubectl connection mid-transaction; verified afterwards `zzz-guardian-probe.invalid`
+  rows = 0 (the server rolled it back).
+- **reuse_agent (medium):** why not `box/chat-service` (the webdesign.uk visitor chat)? Answered
+  in round 3: it is an Anthropic-backed INTAKE chat (spec → email), systemd per VM-hosted domain
+  on the webdesign box, server-side transcripts; the demo's whole point is the self-hosted model,
+  finetuning.uk has no VM, and the demo is stateless. The reuse that IS planned: the
+  `chat-input-box` WIDGET forked onto the page (step 3), repointed at this route.
+- Lows: config validation shown in the sketch; `NewRouter` callers enumerated (main.go:92 + 3
+  test files); rollback line already in the header; directory question answered by the suffix.
+Round 3 submitted on the same correlation. Submission: `council_submission_playground_route_r3.json`.
