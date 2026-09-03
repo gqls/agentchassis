@@ -664,5 +664,7 @@ SELECT w.site_id, w.page_id, w.source, w.pipeline, w.item_type, w.severity, :sum
 
 Gotchas: check the page's open items first (a `page_rerender` is harmless, a second
 `needs_content_page` is not); dispatch ≥300 s after any chassis pod start; measure your queue
-POSITION (oldest triaged item per site) rather than eligibility. `[UNVERIFIED]` the handler's
-`load_existing_content` may put the writer into Edit Mode on a page that already has components.
+POSITION (oldest triaged item per site) rather than eligibility. The handler's `load_existing_content` and
+`load_current_section_content` are opt-in on `spec.mode` (`recreate` / `edit_live`); an item whose spec
+has NO `mode` key gets full regeneration (verified 2026-09-03 at `load_existing_content_action.go:64-69`).
+Assert `NOT (spec ? 'mode')` before dispatching.

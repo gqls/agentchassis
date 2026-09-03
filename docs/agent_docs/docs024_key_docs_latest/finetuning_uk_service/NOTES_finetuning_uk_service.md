@@ -2334,3 +2334,13 @@ every ~4 min. Watch armed (Monitor `bhs0wb272`, 60 s poll, exits on terminal sta
 row for this build, `sections_for_render.sections_ready[].subject` populated for the three
 `generic-text-block` slots; `agent_error_log` has NO `REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT`
 row for this page after 09:30Z; served h2s STILL repeat (expected; report as Stage A, not failure).
+
+> **RESOLVED 2026-09-03 (09:35Z) — the Edit Mode caveat above is CLOSED, by the 443 session and
+> re-verified at the arms.** Both loaders are opt-in on `spec.mode`:
+> `load_existing_content_action.go:64-69` no-ops unless `mode == "recreate"` (adoption only), and
+> `load_current_section_content` no-ops unless `mode == "edit_live"` (the `bugs_open/178` rewrite
+> channel, opt-in-default-OFF per the 2026-08-02 ruling). Item `896bb245`'s spec carries **no
+> `mode` key** (keys: title, reason, source, purpose, sections, page_name, page_type, suggestion),
+> so this rebuild is a full regeneration and the Stage B distinct-h2s assertion is sound. The 443
+> lane pinned "assert the item's spec carries no `mode` key before dispatching" in their
+> `HANDOFF_2026-09-03_continue_here.md` §Stage B.
