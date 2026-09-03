@@ -596,3 +596,48 @@ func TestParkedGapCarriesRecordModeAndNoRoute(t *testing.T) {
 		t.Fatalf("strategy_reasoning not bounded (%d runes) — the whole of it already lives in site_specs", len([]rune(r)))
 	}
 }
+
+// THE STATED BLIND SPOT, pinned so it stays stated. This check is TYPE-level: a
+// recommended type whose pages were partly dropped is still PRESENT, so it is
+// not an omission and must not be flagged — the preserve/union machinery
+// reshapes page sets on every re-plan and a per-page rule would be noise. But it
+// must not vanish either: this is the population the check cannot see, and it is
+// why bugs_open/463's defect hid from 2026-05-21 (an established site restores
+// its children via Pass A and looks healthy). Counted in the audit row so a
+// fleet census can find it.
+func TestTypePresentButFewerPagesIsCountedNotFlagged(t *testing.T) {
+	sqlDB, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer sqlDB.Close()
+	mock.MatchExpectationsInOrder(false)
+
+	siteID := uuid.New()
+	params := recoParams(t, siteID, recoTypes("index", "blog-post"))
+	params.DB = sqlDB
+	expectFindings(mock, 1) // audit row only — no omission
+
+	proposed := recoPages("index", "index",
+		"post-a", "blog-post", "post-b", "blog-post", "post-c", "blog-post")
+	final := recoPages("index", "index", "post-a", "blog-post") // two children lost, type survives
+
+	res := reconcileRecommendedPageTypes(context.Background(), params, map[string]interface{}{}, proposed, final, final)
+
+	if len(res.Omissions) != 0 {
+		t.Fatalf("omissions = %v, want none — the type IS in the plan", res.Omissions)
+	}
+	if res.GapsFiled != 0 {
+		t.Fatalf("gaps filed = %d, want 0", res.GapsFiled)
+	}
+	got, ok := res.PresentButFewer["blog-post"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("present_but_fewer = %v, want blog-post recorded — an admitted blind spot that is not counted is an unmeasurable one", res.PresentButFewer)
+	}
+	if got["proposed"] != 3 || got["final"] != 1 {
+		t.Fatalf("recorded %v, want proposed 3 / final 1", got)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet: %v", err)
+	}
+}

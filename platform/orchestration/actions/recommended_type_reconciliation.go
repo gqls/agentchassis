@@ -18,11 +18,11 @@
 // A recommended type can be missing from the final plan for THREE different
 // reasons that are indistinguishable if you only look at the output:
 //
-//   1. the planner never proposed it            → planner_omitted
-//   2. the planner proposed it and one of this action's own identity/truncation
-//      passes deleted it                        → dropped_in_validation
-//   3. a source gate (444's listing arm, 450's tool arm) held it, having already
-//      filed its own capability_gap             → held_by_gate
+//  1. the planner never proposed it            → planner_omitted
+//  2. the planner proposed it and one of this action's own identity/truncation
+//     passes deleted it                        → dropped_in_validation
+//  3. a source gate (444's listing arm, 450's tool arm) held it, having already
+//     filed its own capability_gap             → held_by_gate
 //
 // Class 2 is not hypothetical and is the reason this reads three snapshots
 // rather than one. [MEASURED 2026-09-03, gamedesign.uk re-plan, orchestration
@@ -269,7 +269,10 @@ type recommendedTypeReconciliation struct {
 	Recommended   []recommendedType
 	Omissions     []recommendedTypeOmission
 	Substitutions []string
-	GapsFiled     int
+	// PresentButFewer: recommended types still in the plan whose page count fell.
+	// The blind spot of a type-level check, kept countable rather than implied.
+	PresentButFewer map[string]interface{}
+	GapsFiled       int
 	// FindingsAttempted/FindingsRecorded mirror LogActionFindings, so a lost
 	// durable row never reads as a written one.
 	FindingsAttempted int
@@ -327,9 +330,27 @@ func reconcileRecommendedPageTypes(ctx context.Context, params ActionParams, pla
 	liveness := map[string]producerLiveness{}
 	var omissions []recommendedTypeOmission
 	var substitutions []string
+	shrink := map[string]interface{}{}
 
 	for _, rec := range recommended {
-		if len(finalTypes[rec.PageType]) > 0 {
+		if n := len(finalTypes[rec.PageType]); n > 0 {
+			// THE STATED BLIND SPOT, made measurable rather than merely admitted.
+			// This check is TYPE-level: it asks whether the type reached the plan,
+			// not whether every proposed page of that type did. So on an
+			// ESTABLISHED site — where Pass A's union restores realised pages the
+			// LLM omitted — a type keeps its presence even when new children of
+			// it were dropped, and this loop goes quiet. That asymmetry is
+			// precisely why bugs_open/463's defect hid from 2026-05-21: an
+			// established site restores its children and looks healthy, and only a
+			// site with none (gamedesign.uk) shows the drop at type level.
+			// Recording the shrink here does not turn it into a finding — the
+			// preserve/union machinery legitimately reshapes page sets on every
+			// re-plan, so a per-page rule would be noise — but it puts the number
+			// where a fleet census can find it, so the population this check
+			// cannot see is countable instead of hypothetical.
+			if proposedN := len(proposedTypes[rec.PageType]); proposedN > n {
+				shrink[rec.PageType] = map[string]interface{}{"proposed": proposedN, "final": n}
+			}
 			continue
 		}
 		// A section-index-family sibling standing in for the recommended type is
@@ -405,7 +426,7 @@ func reconcileRecommendedPageTypes(ctx context.Context, params ActionParams, pla
 
 	sort.Slice(omissions, func(i, j int) bool { return omissions[i].PageType < omissions[j].PageType })
 
-	findings := []agenterrors.Finding{recommendedTypeAuditFinding(recommended, omissions, substitutions)}
+	findings := []agenterrors.Finding{recommendedTypeAuditFinding(recommended, omissions, substitutions, shrink)}
 	for _, om := range omissions {
 		findings = append(findings, om.finding())
 	}
@@ -432,6 +453,7 @@ func reconcileRecommendedPageTypes(ctx context.Context, params ActionParams, pla
 		Recommended:       recommended,
 		Omissions:         omissions,
 		Substitutions:     substitutions,
+		PresentButFewer:   shrink,
 		GapsFiled:         filed,
 		FindingsAttempted: attempted,
 		FindingsRecorded:  recorded,
@@ -594,7 +616,7 @@ func (om recommendedTypeOmission) context() map[string]interface{} {
 // the same evidence — the failure mode this whole file is about, one level up.
 // `info` severity is sanctioned for exactly this shape by agenterrors.Finding's
 // own contract.
-func recommendedTypeAuditFinding(recommended []recommendedType, omissions []recommendedTypeOmission, substitutions []string) agenterrors.Finding {
+func recommendedTypeAuditFinding(recommended []recommendedType, omissions []recommendedTypeOmission, substitutions []string, shrink map[string]interface{}) agenterrors.Finding {
 	types := make([]string, 0, len(recommended))
 	for _, r := range recommended {
 		types = append(types, r.PageType)
@@ -616,6 +638,12 @@ func recommendedTypeAuditFinding(recommended []recommendedType, omissions []reco
 	}
 	if len(substitutions) > 0 {
 		ctx["family_substitutions"] = substitutions
+	}
+	if len(shrink) > 0 {
+		// Types still PRESENT whose page count fell between the planner's
+		// proposal and the final plan — the population this type-level check
+		// cannot flag, kept countable. See the loop for why it is not a finding.
+		ctx["present_but_fewer_pages"] = shrink
 	}
 	return agenterrors.Finding{
 		ErrorCode: findingRecommendedTypeReconciled,
