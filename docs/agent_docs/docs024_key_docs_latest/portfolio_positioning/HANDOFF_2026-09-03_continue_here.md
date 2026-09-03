@@ -57,7 +57,35 @@ the webdesign.uk referral). So a plan produced now should be broadly right **eve
 cannot read the brief directly.** It also renders the WRONG classification, so check the plan against
 `BRIEF_2026-09-03c_copyonline_co_uk_REV3_for_review.md` rather than assuming.
 
-## 2. THE TWO DECISIONS THE OWNER STILL OWES
+## 1z. ⚠ ADDED ~19:30Z — the owner ANSWERED (evening), and these are now the first tasks
+
+Both §2 decisions below are MADE and executed; §2 is kept for the record. What is live and owed:
+
+- **Ten repair items on copyonline** (`created_by LIKE 'portfolio_positioning lane 2026-09-03%'`,
+  types `page_rerender`×3 `cta_links_stale`, `needs_rerender`×1 chrome refresh, `phantom_internal_link`×6
+  → page-build-handler). Watcher `b14z2xpln` was armed; if this session is gone, check them yourself:
+  ```sql
+  SELECT item_type, status, COALESCE(spec->>'page_name','(site)') FROM site_work_items
+   WHERE site_id='3d965325-519a-4515-b79f-50c886954a80' AND created_by LIKE 'portfolio_positioning lane 2026-09-03%' ORDER BY 1,3;
+  ```
+  **When all are terminal, re-run the three-source inbound audit (RUNBOOK_unpublish_primitive §"Audit")
+  for the three tool URLs; if it reads zero, RE-FIRE the tools' retraction:**
+  ```sh
+  SITE_ID=3d965325-519a-4515-b79f-50c886954a80 PAGE_IDS='["3ae2096f-98c6-4589-92cd-b2f343140fbb","9fae1345-84a3-42dd-aa7b-b22ca314d335","09fdbca9-4d88-4011-907b-b5adf1206a82"]' ./docs/agent_docs/sql_for_agents/216_TRIGGER_page_retraction.sh
+  ```
+  Expected on success: 3 files removed from `gqls/sites`, 3 nav rows → `inactive`. The first run
+  (`45a7eba9`, 18:58Z) was REFUSED on 13 named links — correct behaviour, see NOTES (vv).
+- **The three retracted guides still carry `pages.deployed_at`** (`bugs_open/315`/`359` shape). Not
+  fixed; if a census of "archived-and-deployed" pages is run, these three are expected members.
+- **Brief revision 5 is the owner's record, not yet a live input** — the classifier/planner cannot read
+  it (`bugs_open/453`) and the strategist has run. When 453 ships, or if the strategist re-runs, verify
+  the lead route renders as "list of companies primary, enquiry secondary".
+- **Analytics:** copyonline now carries `GTM-PQ3WCTBD` in `site_config.analytics`; expect one
+  `stale_chrome` → `needs_rerender` at its next discovery run, then `check_gtm_state.sh --db` bucket D → 0.
+- **Composition:** re-files itself when `design-discovery-agent` next selects the site
+  (`MissingStyleCollectionCheck`, `sites.style_collection_id IS NULL`). Cadence unmeasured. Do not prod.
+
+## 2. THE TWO DECISIONS THE OWNER STILL OWES — ~~still owes~~ ANSWERED 2026-09-03 evening (kept for the record)
 
 - **Retire or keep three tool pages that duplicate seotools** — `serp-snippet-previewer`,
   `title-tag-scorer`, `keyword-intent-classifier`. ⚠ **These are now BUILT and deployed** (16:22:43Z,
