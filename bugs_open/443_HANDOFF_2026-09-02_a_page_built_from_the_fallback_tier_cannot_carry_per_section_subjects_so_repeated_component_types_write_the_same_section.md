@@ -276,3 +276,26 @@ columns), copy_quality_two_stage (their subjects-precondition gains a second sou
 bugs_open/114 lane (tier geometry shared; RFC_063 names IMG-078).
 
 Working docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_443_fallback_tier_subjects/`.
+
+## 9. Stage A: PROVEN at plan time on a live build (2026-09-03, first-hand)
+
+Canary `technical-details` (finetuning.uk — the verbatim "The model and its licence" ×3 page),
+item `896bb245` (spec verified mode-less by both lanes ⇒ full regeneration), dispatched via
+page-build-handler (the only workflow containing `load_page_sections_from_spec`), claimed
+10:34Z on v1.0.1356. Read directly from orchestration row
+`28610ba3-1d53-4bff-b1da-6f386a504c2f` (corr `6e8eadaa`), not from a report
+`[MEASURED 2026-09-03]`:
+
+- `spec_sections`: source **`pages_table`**, count 6, `section_subjects` length **6** — the
+  fallback tier attached the backfilled arrays. **The state §2 called structurally
+  unreachable is populated on a real build.**
+- `sections_ready[]`: all six slots carry subjects; the three `generic-text-block` slots
+  carry three DISTINCT ones ("exactly what the £99 fine-tune contains" / "how the training
+  works and what we handle" / "what a technical reader asks", with hero/faq/cta scoped too).
+- Detector: **0** rows for this page post-dispatch, against a fleet demand control of **7**
+  rows since the roll (it demonstrably fires where subjects are absent — quiet here means
+  covered, not blind).
+
+Served h2s still repeat, as predicted: the writer is v4 until the redrafted 641 lands
+(§8's stated dependency — that is Stage B, unchanged). Remaining Stage A confirmation
+(writer-row carry at run completion) is on the finetuning lane's watch.

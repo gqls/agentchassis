@@ -237,3 +237,9 @@
   orchestration row is `input_data.current_page.name = 'technical-details'`, created_at >
   09:30Z. Their RUNBOOK now carries "assert NOT (spec ? 'mode') before dispatching" as a
   standing line. Channel closed pending the build.
+- **09-03 ~10:40Z — STAGE A PROVEN AT PLAN TIME, first-hand** (bug file §9 has the full
+  read-out): my own query of orchestration row `28610ba3…` — tier `pages_table`, 6/6 subjects
+  attached, three distinct subjects on the three gtb slots; detector 0 rows for the canary vs
+  7 fleet-wide (demand control in the same breath). finetuning's report corroborated, not
+  taken on trust. Remaining: writer-row carry at completion (their watch), then Stage A is
+  fully closed and the lane waits only on 641 for Stage B.
