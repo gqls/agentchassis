@@ -851,3 +851,30 @@ PLAN) actually says "client" or whether that framing was added
 downstream is for the owning lane to check — domain_valuation flagged it
 to them directly. This lane's job was only to correct its own record,
 which is done.
+
+## 2026-09-03 (later still) — leopardessconsulting.co.uk, third movement: extra scrutiny REINSTATED, by the owner's own ruling this time
+
+Full arc, worth keeping visible rather than collapsed into one final
+answer, per copy_quality_two_stage's own reasoning: an inherited gloss
+(client site, taken from a D4 quote unverified) → refuted from the live
+site (it's the owner's own consultancy) → **reinstated by explicit
+ruling**: "we can work as if leopardess is a paying client if that
+helps, I do pay through the nose for these tokens."
+
+**Both things are true at once, and neither contradicts the other**:
+the FACT (his own consultancy, no external client harmed) stands as
+corrected above; the RULING (treat it with the D4 client-protection
+standard regardless) is separate and controlling. He is opting IN to the
+stricter standard by his own choice, not because a third party would be
+harmed — the earlier correction downgraded to "ordinary live-site
+standard" on the assumption the stricter standard only made sense if a
+real client existed; that assumption was wrong. **Restoring: any future
+"yes, list it" needs the same extra scrutiny (his explicit word, by
+name, not inferred from a broader instruction) as before** — the
+standard, not the original justification for it, is what this lane
+actually needs to enforce. The exclusion itself was never in question
+through any of the three movements; only the correct standard for
+handling a future reversal was.
+
+No sheet action — draft8 already excludes this domain, unaffected by
+any of the three corrections.

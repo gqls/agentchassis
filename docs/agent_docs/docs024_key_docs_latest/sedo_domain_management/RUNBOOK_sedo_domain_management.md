@@ -247,26 +247,33 @@ Gotchas, each earned:
 - **`leopardessconsulting.co.uk` is PERMANENTLY EXCLUDED — confirmed by
   the owner's own explicit word, 2026-09-03 ("no, leopardessconsulting
   need not be listed").** Treat this exclusion as independent of the
-  fence mechanism (same durability class as copyonline and wykefarm),
-  regardless of the reasoning below.
-  > **CORRECTED 2026-09-03**, caught by the valuation lane: it is
-  > **NOT a third-party client's site** — it is the owner's OWN
-  > consultancy (live copy: "we run 22 of our own sites… before we build
-  > anything for you"; owner confirmed directly, "a representation of my
-  > own services"). The claim below, that D4 names it as a paying
-  > client, was taken from D4's own wording and repeated here unverified
-  > — check with `about_page_commercial` before citing D4's "client"
-  > framing as fact; this lane cannot confirm whether that text is wrong
-  > or the framing was added downstream. The correct standard for this
-  > domain is the ORDINARY live-site one (same as webdesign.co.uk,
-  > idea.uk) — his call alone, no third-party-harm weight. This does not
-  > change the exclusion, only why it holds.
+  fence mechanism (same durability class as copyonline and wykefarm).
+  **Any future "yes, list it" needs the D4-level standard — explicit,
+  by name, extra scrutiny — not the ordinary live-site standard.**
+  > **THIRD CORRECTION 2026-09-03** (kept in sequence, not collapsed —
+  > the arc is the useful part for a later reader):
+  > 1. Original claim: "PRIOR owner ruling — a paying client's site.
+  >    Source: `about_page_commercial/PLAN_2026-07-24…`, D4: 'buy this
+  >    site/ads/built-by on a paying client's site (leopardess) is a
+  >    relationship breach.'" Taken from D4's wording, never checked
+  >    against the live site.
+  > 2. **Refuted** by the valuation lane: it is NOT a third party — it's
+  >    the owner's OWN consultancy (live copy: "we run 22 of our own
+  >    sites… before we build anything for you"; owner: "a
+  >    representation of my own services"). Downgraded the standard to
+  >    "ordinary live site" on the assumption the stricter D4 standard
+  >    only made sense if a real client existed.
+  > 3. **Reinstated by explicit ruling**, same day: "we can work as if
+  >    leopardess is a paying client if that helps, I do pay through the
+  >    nose for these tokens." The FACT from step 2 stands (no third
+  >    party); the RULING is separate and controlling — he is opting IN
+  >    to the D4 standard by choice, not because a client would be
+  >    harmed. That assumption in step 2 was the actual error, not the
+  >    fact itself.
   >
-  > Original (uncorrected) claim, kept for the record: "PRIOR owner
-  > ruling — not merely 'currently fenced.' Source:
-  > `about_page_commercial/PLAN_2026-07-24_about_page_commercial.md`,
-  > D4: 'buy this site/ads/built-by on a paying client's site
-  > (leopardess) is a relationship breach.'"
+  > The exclusion never moved through any of the three steps — only the
+  > standard for handling a FUTURE reversal did, and it is now back
+  > where it started, correctly grounded this time.
 - **`webdesign.uk` and `webdesign.co.uk` are two different domains — do
   not conflate them, ever, in pricing or docs.** `webdesign.uk` (18
   pages) was the owner's own example of a domain that "could be worth
