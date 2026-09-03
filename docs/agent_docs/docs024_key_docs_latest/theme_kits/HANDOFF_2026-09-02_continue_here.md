@@ -45,8 +45,48 @@ source), and 689 widened the validator before any kit could exist. ⚠ **An imag
 to before this build is safe; a DATABASE rollback past 689 while this binary runs would
 break composition installs for themed sites.**
 
-**Council gate: SUBMITTED**, correlation **`bed139b2-f512-436a-9ba8-ff2fbfade8ef`**.
-Verdict not read (~30 min queue). Resolve it with:
+**Council gate: VERDICT IS IN — REVISE, not approved.** Correlation
+**`bed139b2-f512-436a-9ba8-ff2fbfade8ef`**, round 1, `complete_revise`,
+`decided_by: gating objection from guardian`, 4 reviewers abstained (only
+`editquality`'s body is stored in the note; the guardian's text is not in the
+`doc_notes` row — do not go looking for it there).
+
+**⚠ A RESUBMIT IS OWED, and the objection is about my SUBMISSION, not the code.**
+`editquality`, edit 3:
+
+> *"Diagnosis cites a fixed 'cascade asymmetry where writing kit fonts into
+> design_intent silently outranked a human's mission.preferred_typography' as one of
+> the eight pre-apply defects, but the apply_theme_kit_action.go sketch only shows a
+> lock/presence guard for palette (`paletteLocked`, `hasPalette`). No
+> typography-specific guard against mission.preferred_typography is shown anywhere in
+> the plan's sketch."*
+
+**They are right and the fix is cheap.** The code *does* have it —
+`missionPrefersTypography()` and `typoMissionLocked` in `apply_theme_kit_action.go`.
+My **sketch** only showed the palette lines, so the claim in the rationale was
+unverifiable from the plan. A reviewer can only judge what is in the submission.
+**Resubmit on the SAME correlation** (`RESUBMIT_CORR=bed139b2-…`) with the sketch
+showing the typography guard; per the RUNBOOK, update the `sketch`, not just the
+`rationale`.
+
+**A second lesson from the same round, worth more than the objection.** The reviewers
+ran their own verification of my `grounded_in` claim *"content_components.function is
+NOT unique after the canonical predicate (3 collisions of 364)"* — and their query
+returned **dozens** (`tool-automation-savings-estimator` 5, `tool-llm-cost-calculator`
+5, `site-header` 3, a long tail). Settled here:
+
+| predicate | colliding functions |
+|---|---|
+| raw, all rows | **84** |
+| `is_active AND forked_from IS NULL` | **3** |
+
+**My figure was right as qualified and unverifiable as written.** I said "after the
+canonical predicate" in prose and gave no query, so the reviewer reconstructed a
+different one and got a number 28× larger. **A figure that is only true under a
+predicate must carry the predicate in a form the reader can RUN, in the same breath** —
+otherwise the reader's reconstruction becomes the thing that gets reviewed.
+
+Resolve the verdict yourself with:
 ```sql
 SELECT current_step, status FROM orchestration_states
  WHERE collected_data->'input_data'->>'fix_correlation_id' = 'bed139b2-f512-436a-9ba8-ff2fbfade8ef';
@@ -61,6 +101,39 @@ an approved verdict** — 098 buckets an unread claim as MISMATCH.
 (`theme_kit_adoption` specs: 0). The four seeded kits exist and are selectable; no site
 uses one. Findings §3(a)-(d) all still hold — in particular a kit still cannot deliver
 colour to a site.
+
+### 0a. What moved UNDERNEATH this lane while it was being written (2026-09-03)
+
+**`bugs_open/445` shipped migration 736 — a 19th layout, `content-hub-tools`**
+(category `editorial`, scheme `light`, tags `content-hub, interactive-tools,
+editorial-publication, long-form, …`). **No site has been moved onto it** (owner: fix
+forward only), so kit adoption is still 0 and nothing of this lane's changed. Its tags
+were chosen by *simulation against the live fleet*, not by taste — the method this
+handoff tells you to wait for, now demonstrated once. Their migration also **refuses to
+seed an unreachable layout**: a DO block aborts unless ≥2 current classification specs
+emit its tags (14 do).
+
+**They also committed to a file this lane owns** — `76db94fc7` adds their fit
+measurement to `resolve_composition_layout_action.go`. Not a conflict; my theme-kit
+rung is intact and my `candidates` defect (§3a(ii)) is still there at line ~175.
+
+**Their finding STRENGTHENS the `soft-editorial` kit case** (§3a(i)): after 736 the
+`editorial` category holds one layout reachable by tags (`content-hub-tools`) and one
+reachable **only by kit** — `soft-editorial`, whose tags are `wellness, lifestyle,
+bakery, artisan, personal-brand, long-form`, and `long-form` is emitted raw by **0**
+sites. So the kit remains the only existing route to that look. Say exactly that in the
+register entry: **a deliberate route to an otherwise unreachable layout — a workaround
+for a tag-vocabulary defect, not a design choice.**
+
+**⚠ KNOWN INTERACTION, recorded by them in DES-086's relations, no change asked of me:**
+**a site that adopts a kit gets NO fit evidence recorded.** My layout short-circuit
+returns before the matcher by design, so DES-086's compose-time fit measurement never
+runs for kit-chosen layouts. Until their fleet sweep exists, **a kit site's layout fit
+is unmeasured.** That is a real and deliberate blind spot to state when kits are
+adopted, not a bug to fix in the rung.
+
+Register entries to read alongside this: **DES-086** (fit evidence), **DES-087** (the
+new layout), and **DES-037 corrected in place** — all in `design-composition.md`.
 
 ## 1. ⚠ (superseded by §0, kept for the method) FIRST ACTION: establish liveness. I could not.
 
@@ -272,8 +345,14 @@ today).
 ### Owner decisions
 1. ~~**Apply 689 + 691, and roll?**~~ **DONE 2026-09-02 — owner said go ahead.** Applied
    scoped, verified at the artefact. See §0.
-2. ~~**Council round**~~ **DONE — submitted**, correlation
-   `bed139b2-f512-436a-9ba8-ff2fbfade8ef`, verdict unread. See §0.
+2. ~~**Council round**~~ **SUBMITTED AND ANSWERED — verdict is REVISE.** Correlation
+   `bed139b2-f512-436a-9ba8-ff2fbfade8ef`. **A resubmit is OWED** on the same
+   correlation, fixing the *sketch* (the typography guard exists in code and was absent
+   from the plan). Full objection and the second lesson in §0. **Not blocking anything**
+   — the code is live and the gate is advisory — but leaving it un-resubmitted means the
+   098 coverage report lists this work as unreviewed, and the trailer on the commits is
+   `Council-Submitted:`, which credits automatically only if the correlation eventually
+   *approves*.
 3. **`bugs_open/438`: retire or build?** ← **STILL OPEN** Both lanes agree the capability does not exist
    and neither will choose. Retire the dead rung, or give `082` a structured preference
    input (`--palette`). **Note (a) above: even building it would not put a colour on a
@@ -345,6 +424,18 @@ caught by someone else.
    (four tables here).
 7. **I diagnosed the chrome bottleneck from the wrong end** — measured the library and
    the pins, never the *data*. See §3a(iii).
+8. **I claimed a fix in a council rationale that my own sketch did not show** — the
+   typography guard exists in the code and the reviewer had no way to see it. Verdict:
+   REVISE, correctly. **A reviewer judges the submission, not the repository.**
+9. **I quoted a predicate-dependent figure without a runnable predicate** — "3
+   collisions" is true under `is_active AND forked_from IS NULL` and the raw number is
+   **84**. Stating the predicate in prose was not enough; the reviewer reconstructed a
+   different query and reviewed *that*.
+10. **I recorded a seed-set defect with the right conclusion and the wrong reason** —
+    corrected in §3a(i) after `bugs_open/445`'s split inverted it. Being right about
+    *that something is wrong* is not the same as understanding *why*, and the wrong
+    reason would have produced the wrong fix (swapping in unused layouts wholesale
+    rather than dropping the two kits redundant with the matcher).
 
 The through-line: **a confirmed diagnosis is not a working fix, and a successful test
 makes the wrong fix look safer.** Both lessons are in
