@@ -1,11 +1,11 @@
--- 722 ROLLBACK — restore the previous sites.settings default
+-- 722 ROLLBACK — remove the born-holding trigger
 --
 -- Written because the council's debug_historian seat noted (round 1, low) that the
 -- house style for sql_for_agents is a separate, checked rollback file, and that a
 -- future operator reverting a change should run one rather than reconstruct it from
 -- a plan document.
 --
--- WHAT REVERTING DOES AND DOES NOT DO. It restores the default only. Any site
+-- WHAT REVERTING DOES AND DOES NOT DO. It removes the trigger only. Any site
 -- ALREADY CREATED while 722 was in force keeps `growth_posture='hold'` on its own
 -- row — a column default is not retroactive in either direction. That is correct:
 -- those sites were deliberately born held, and silently opening them would dispatch
@@ -17,28 +17,22 @@
 
 BEGIN;
 
-ALTER TABLE sites
-  ALTER COLUMN settings
-  SET DEFAULT '{}'::jsonb;
+DROP TRIGGER IF EXISTS trg_sites_born_holding_growth ON sites;
+DROP FUNCTION IF EXISTS sites_born_holding_growth();
 
 DO $$
 DECLARE
-  v_default text;
   v_born_held bigint;
 BEGIN
-  SELECT column_default INTO v_default
-    FROM information_schema.columns
-   WHERE table_name = 'sites' AND column_name = 'settings';
-
-  IF v_default IS NULL OR v_default NOT LIKE '{}%' THEN
-    RAISE EXCEPTION '722 ROLLBACK: default is % — expected the empty object', COALESCE(v_default, '(null)');
+  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_sites_born_holding_growth') THEN
+    RAISE EXCEPTION '722 ROLLBACK: the trigger is still present';
   END IF;
 
   SELECT count(*) INTO v_born_held
     FROM sites
    WHERE settings->'maintenance_profile'->>'growth_posture' = 'hold';
 
-  RAISE NOTICE '722 ROLLBACK OK: default restored. % site(s) still hold growth on their own row '
+  RAISE NOTICE '722 ROLLBACK OK: trigger removed. % site(s) still hold growth on their own row '
     'and are UNAFFECTED by this rollback — release each one deliberately if that is what you want.',
     v_born_held;
 END $$;
