@@ -390,3 +390,40 @@ known-good run. Not this lane's item to own or reset, but since the adapter logs
 sit in the same time window on the same pods, capturing boxingonline's `border_keyed`/
 `pixels_keyed`/`source_format` line alongside the three while reading logs anyway, and sharing it
 back — cheap, asked for, no extra access needed.
+
+## 2026-09-03 — a verification trap caught before it was walked into, and two new, unfiled quality findings
+
+`bugfix_420_417` flagged, before any of the three retries completed, that **`assets.updated_at`
+cannot tell you whether a regeneration happened.** Verified directly, not taken on trust:
+`gamedesign.uk`'s asset row was bumped 2026-09-03 00:55:58Z with the storage key still dated
+`20260902` — something touched the row without a regeneration behind it (`created_at` is worse,
+since UPSERT never moves it at all). **The sound instrument is the storage key's date directory**
+(`dynamic_adapter.go:717` mints `images/<client>/<YYYYMMDD>/<fresh uuid>.png` on every upload, so a
+regeneration can never reuse an old key):
+```sql
+SELECT s.domain, a.updated_at, substring(a.storage_path from 'images/[^/]+/([0-9]{8})/') AS key_date
+FROM assets a JOIN sites s ON s.id = a.site_id WHERE a.asset_key='logo';
+```
+Adopted for verifying the three retries — checked at the time of this note, none had a fresh
+(`20260903`) key yet: designblog `claimed` (in progress), seotools and gamedesign still `triaged`.
+
+**Baselines for the three, from the peer's own read of the served bytes** (before any retry
+lands): all currently serve 200 with 0.0% fully transparent pixels (seotools: guard said 0.9998,
+actual 0.0%). Success shape: a fresh key date, real border alpha, no veil. **A refusal is ALSO a
+pass** — `border_keyed` near 0 with nothing stored is the guard working, not a regression. The
+shape that would mean the round-2 fix itself still has a residual bug: a STORED artefact at 0%
+transparent.
+
+**Two new findings, real, measured, and explicitly left unfiled/unowned by the reporting session
+rather than filed over this lane:**
+- **Residual magenta halo**: websitepromotion (the one known-good pre-reset run) still shows 0.69%
+  magenta pixels on white — despill is not fully clean even on a success, consistent with the
+  "despill fringe" already flagged and not yet fixed.
+- **Contrast against a white header**: websitepromotion's mark measures a **1.43:1 median contrast
+  ratio** against a white background — against this estate's own WCAG floor of 3.0:1
+  (`platform/colour.AALarge`). Technically present, close to invisible. **This is a genuinely
+  different problem from 424**: transparency working correctly says nothing about whether the
+  resulting mark's own colours are legible against an arbitrary site background — nothing in the
+  generation pipeline currently considers that. Not filed this session (mid-watch on the three
+  retries); flagged here so it isn't lost. Candidate for its own bug file if not picked up by the
+  time this lane closes.
