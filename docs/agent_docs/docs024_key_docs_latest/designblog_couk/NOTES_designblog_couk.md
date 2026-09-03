@@ -1022,3 +1022,34 @@ mechanisms that did not exist when it was built two days ago.
 > work items ever, both the degenerate arm — the mechanism has assessed the
 > library and found it short ZERO times out of two.** "The owner's eye was
 > the only detector" survives, stronger.
+
+## 2026-09-03 — 730's absolute CORRECTED same-day as 731; the producer is DORMANT, not absent
+
+> **CORRECTION to the 730 entry above (evidence-author's retraction, verified
+> first-hand by them; my share logged in WRONG_CALLS `566e56d28`):** "no later
+> editorial pass" was TOO STRONG. **A blog-post producer EXISTS and is wired**
+> (`create_blog_posts_action.go`, registered registry.go:720; one live agent
+> definition `blog-content-planner`) — **DORMANT since 2026-04-24** (10 LLM
+> calls all-history, measured in `llm_call_log`; ⚠ `orchestration_states` is
+> a ~24h ROLLING WINDOW and cannot carry all-history claims). The planner's
+> "satisfied by the blog infrastructure" named a real, wired, non-running
+> mechanism — undriven, not hallucinated. **Migration 731 LIVE** (corr
+> `783a27b0`, commit `72e3938dc`, ledgered): rule 20 now says it RUNS not it
+> EXISTS, dormancy DATED. ⚠ 730_ROLLBACK refuses until 731_ROLLBACK runs
+> first (both headers state it). OPEN THREAD, unclaimed: WHY
+> blog-content-planner stopped 2026-04-24 — driven-then-stopped ≠
+> never-driven; revival is an alternative/complementary route to launch posts.
+
+**Theme kits closed the header question with the sharpest form** (recorded
+verbatim-worthy): populated-pointing-at-404 is WORSE than empty ("it looks
+like it works"); for the three candidate headers on designblog **there is no
+correct value for those variables — supplying one would be fabricating an
+affordance** (a second gate their empty-render finding does not cover; the
+dead-control class §6.2). designblog's distinct header = the chrome
+differentiation programme, no shortcut. **The pin experiment has its honest
+venue: remake №5 (copyonline, header-minimal-tool, vocabulary supplied FIRST
+— that site genuinely ships four tools, so the tool vocabulary can be filled
+honestly)** — portfolio positioning has taken it in exactly that shape. Their
+same rolling-window caution (union `site_work_items_archive` before any
+"ever" figure) matches 445's self-correction — twice in one hour from two
+lanes.
