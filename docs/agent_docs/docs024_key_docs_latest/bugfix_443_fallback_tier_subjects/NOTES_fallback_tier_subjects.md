@@ -192,3 +192,26 @@
   accepted as theirs as a pre-apply obligation WITH falsifier (a skipped sibling must DROP
   from the enumeration; missingkey=zero makes both failure arms silent — 443's shape one hop
   later, their own framing). Stage B chain is now safe end-to-end: no path applies old 641.
+
+## 2026-09-03 — THE ROLL LANDED; fix verified in the pod; detector live-firing on sites the census never saw
+
+- **Deploy verified at the artefact** (pod `agent-chassis-75b987cbd7-mqrnj`, fresh):
+  `subjects_attached`=1, `REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT`=1 (the discriminating
+  literals), present-control `section_subjects`=3, absent-control 0. The provenance stamp had
+  already scrolled (startup-line trap, known) — the capability probe is the deciding evidence
+  and the empty-sha guard refused a vacuous ancestry pass rather than faking one.
+- **The detector is ALREADY WORKING, and it widened the known damage class:** 7 rows within
+  ~2h of the roll (`occurred_at` 23:24Z–01:18Z), across FOUR pages on THREE sites — none of
+  them in the plan-less six: leopardessconsulting.co.uk (case-study… ×3 rebuilds), seotools.co.uk
+  (keyword-research-tools-compared, technical-seo-crawlers-compared ×2), vetcomparison.uk
+  (how-it-works). So plan-CARRYING sites are minting subjectless repeats on fresh builds —
+  either pages from pre-640 plans, or tier-2/3 pages on planned sites, or rule 17 not biting.
+  `[UNVERIFIED]` which of those three; and serve-state of the four pages NOT yet curled — do
+  that before calling them damage (invented-URL control per domain, as ever). Also unexplained:
+  case-study… rebuilt 3× in 2h — possibly a retry loop, not investigated.
+- **RUNBOOK read-back query was WRONG** (`created_at` — the column is `occurred_at`; errored
+  on first live use). Fixed in place with the gotcha attached. That is the runbook doing its
+  job one use too late.
+- **Finetuning pinged** (owed ping delivered; note their previous session ended — bare-name
+  send reached the NEW session under the same name): backfill is go, ~300s dispatch caution
+  flagged, Stage A assertions restated.

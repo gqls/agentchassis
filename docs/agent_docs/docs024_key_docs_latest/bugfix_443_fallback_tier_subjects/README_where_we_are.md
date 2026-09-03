@@ -55,3 +55,20 @@ the planning tables properly (fixes hero imagery for them too; suggest trying it
 smallest site first), or keep adding per-capability fallbacks like today's? Today's fix is
 correct either way, so there is no urgency — but the imagery lane is blocked on exactly this
 for those sites.
+
+## 2026-09-03 — the new build is live and the fix is in it; the quiet alarm caught its first four pages within two hours
+
+Verified directly against the running service (not the deploy log): the fix shipped. The
+per-section topic plumbing now works end to end for the six older sites, and the recorded-note
+alarm is already doing its job — within two hours it flagged four pages on three OTHER sites
+(leopardess, seotools, vetcomparison) building repeated sections with nothing to tell them
+apart. Those are sites that DO have planning-table entries, so the problem is broader than the
+six sites we started with; the next session will check whether those pages actually look wrong
+to a visitor before treating them as new damage.
+
+What's left before we can call this bug closed, in order: the finetuning lane writes the
+topics for their four pages and rebuilds (they have the green light as of this morning); your
+rewritten writer-prompt (the positive-prompting redraft you asked for) lands via the apis.uk
+lane once you pick a framing; then we rebuild the test page and check the headings really
+differ; then the same treatment for the seven pages on gaswholesalers and
+ai-agent-orchestration. The full checklist is in HANDOFF_2026-09-03_continue_here.md.

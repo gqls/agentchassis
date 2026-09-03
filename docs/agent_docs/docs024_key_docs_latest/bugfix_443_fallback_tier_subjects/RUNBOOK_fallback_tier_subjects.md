@@ -78,9 +78,14 @@ WHERE site_id = :site_id AND name = :page
 ## Detector read-back
 
 ```sql
-SELECT created_at, context->>'page', context->>'component', error_message
-FROM agent_error_log WHERE error_code='REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT'
-ORDER BY created_at DESC LIMIT 20;
+-- ⚠ the timestamp column is occurred_at, NOT created_at (this file said created_at until
+-- 2026-09-03 and the query errored); context key is page_name; domain column is often blank —
+-- join sites on site_id for the domain.
+SELECT ael.occurred_at, s.domain, ael.context->>'page_name', ael.context->>'component',
+       ael.context->>'repeats', ael.context->>'without_subject'
+FROM agent_error_log ael LEFT JOIN sites s ON s.id = ael.site_id
+WHERE ael.error_code='REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT'
+ORDER BY ael.occurred_at DESC LIMIT 20;
 ```
 
 ## Deploy verification (debug_historian advisory, council b7c59309)
