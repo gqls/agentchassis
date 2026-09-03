@@ -79,6 +79,101 @@ func TestVerifyCitationLiveClassification(t *testing.T) {
 	}
 }
 
+// RFC_060 §3d/Q6: the CONC 6.7.23-vs-6.7.17 fixture (a whole page, several
+// rules, one genuinely mis-attributable quote), served over httptest rather
+// than the live FCA Handbook — offline, deterministic, and it lets a wrong
+// attribution be asserted as a FAILURE rather than merely observed once.
+const conc67HandbookFixture = `<html><body><p>CONC 6.7 Post contract: business practices</p>
+<p>CONC 6.7.17 01/04/2014 R</p>
+<p>In CONC 6.7.18 R to CONC 6.7.23 R "refinance" means to extend or vary a high-cost
+short-term credit agreement or to enter into a further such agreement.</p>
+<p>CONC 6.7.18 01/04/2014 R</p>
+<p>A firm must not exercise forbearance in a way that disguises problem debt.</p>
+<p>CONC 6.7.23 01/04/2014 R</p>
+<p>A firm must not refinance high-cost short-term credit (other than by exercising
+forbearance) on more than two occasions.</p>
+</body></html>`
+
+func TestVerifyCitationLiveForRule_CorrectAttributionVerifies(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(conc67HandbookFixture))
+	}))
+	defer srv.Close()
+
+	cit := &datahelpers.Citation{URL: srv.URL,
+		Quote: "must not refinance high-cost short-term credit (other than by exercising forbearance) on more than two occasions"}
+	out := verifyCitationLiveForRule(t.Context(), cit, "CONC 6.7.23")
+	if !out.Found {
+		t.Fatalf("correctly-attributed citation must verify, got %+v", out)
+	}
+}
+
+// This is the load-bearing test in this file: the SAME quote, the SAME
+// fetch, attributed to the WRONG rule — exactly the live defect this
+// mechanism exists to catch. verifyCitationLive (the un-ruled function)
+// would pass this, because the quote genuinely IS on the page.
+func TestVerifyCitationLiveForRule_WrongAttributionFails(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(conc67HandbookFixture))
+	}))
+	defer srv.Close()
+
+	cit := &datahelpers.Citation{URL: srv.URL,
+		Quote: "must not refinance high-cost short-term credit (other than by exercising forbearance) on more than two occasions"}
+
+	// Control: the whole-page function DOES pass this — proving the fixture
+	// is realistic and the failure below is CitationRuleSpan's doing, not an
+	// artefact of a broken fixture.
+	whole := verifyCitationLive(t.Context(), cit)
+	if !whole.Found {
+		t.Fatalf("control failed: whole-page verifyCitationLive should find this quote (it IS on the page); "+
+			"got %+v — the fixture itself is wrong, fix it before trusting the rule-scoped result below", whole)
+	}
+
+	out := verifyCitationLiveForRule(t.Context(), cit, "CONC 6.7.17")
+	if out.Found {
+		t.Fatalf("the quote belongs to CONC 6.7.23, not 6.7.17 — this MUST fail, and the whole-page control " +
+			"above proves it isn't failing for the wrong reason (a broken fetch, an empty quote, etc.)")
+	}
+	if out.FailClass != "citation_lost" {
+		t.Fatalf("expected FailClass=citation_lost (a human-reviewable finding), got %+v", out)
+	}
+}
+
+func TestVerifyCitationLiveForRule_EmptyRuleIDMatchesWholePageBehaviour(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(conc67HandbookFixture))
+	}))
+	defer srv.Close()
+
+	cit := &datahelpers.Citation{URL: srv.URL,
+		Quote: "must not refinance high-cost short-term credit (other than by exercising forbearance) on more than two occasions"}
+	out := verifyCitationLiveForRule(t.Context(), cit, "")
+	if !out.Found {
+		t.Fatalf("empty ruleID must fall back to whole-page matching (found on this page), got %+v", out)
+	}
+}
+
+func TestVerifyCitationLiveForRule_NonChapterPageFallsBackToWholePage(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<html><body><p>Consumer Credit Act 1974 Section 97. The debtor may request a settlement figure.</p></body></html>`))
+	}))
+	defer srv.Close()
+
+	cit := &datahelpers.Citation{URL: srv.URL, Quote: "the debtor may request a settlement figure"}
+	// A legislation.gov.uk-shaped page (no CONC-style headings) with a rule
+	// name that doesn't match the FCA pattern at all — must fall through to
+	// ordinary whole-page verification rather than reporting a false failure.
+	out := verifyCitationLiveForRule(t.Context(), cit, "Consumer Credit Act 1974 s.97")
+	if !out.Found {
+		t.Fatalf("a non-chapter page must fall back to whole-page matching, got %+v", out)
+	}
+}
+
 func TestCitationDateStale(t *testing.T) {
 	now, _ := time.Parse("2006-01-02", "2026-07-20")
 	cases := []struct {

@@ -66,6 +66,56 @@ func verifyCitationLive(ctx context.Context, cit *datahelpers.Citation) citation
 	}
 }
 
+// verifyCitationLiveForRule is verifyCitationLive plus RFC_060 §3d/Q6: on a
+// page shaped like an FCA Handbook chapter (many rules, one page, no
+// rule-level URL), "the quote is on this page" is not enough — the quote
+// must be within the SPAN belonging to the rule ruleID names, or a citation
+// can verify perfectly while pointing at the wrong rule (measured live:
+// CONC 6.7.23's own wording verified against a citation labelled 6.7.17,
+// same fetch, same bytes).
+//
+// A SEPARATE function, deliberately, rather than a parameter added to
+// verifyCitationLive — that function has three other call sites
+// (directory_claims.go x2, evidence_citations.go's own registration path)
+// whose citations carry no rule-attribution concept at all; changing its
+// signature would force every one of them to pass an empty string for
+// something that means nothing there. ruleID == "" here behaves byte-
+// identically to verifyCitationLive (CitationRuleSpan reports
+// applicable=false and this falls through to the same whole-page check).
+func verifyCitationLiveForRule(ctx context.Context, cit *datahelpers.Citation, ruleID string) citationVerifyOutcome {
+	text, err := fetchCitationDocument(ctx, cit.URL)
+	if err != nil {
+		return citationVerifyOutcome{FailClass: "fetch_error", FailDetail: err.Error()}
+	}
+	if ruleID != "" {
+		if found, applicable := datahelpers.CitationRuleSpan(text, ruleID, cit.Quote); applicable {
+			if found {
+				return citationVerifyOutcome{Found: true}
+			}
+			// Headings exist on this page but none of them is ruleID's own —
+			// do NOT fall through to whole-page matching. That is precisely
+			// the bug: the quote may verify perfectly against a NEIGHBOURING
+			// rule's span, which is what made this file necessary.
+			return citationVerifyOutcome{
+				FailClass: "citation_lost",
+				FailDetail: fmt.Sprintf(
+					"the quote does not appear within %s's own span on the page — RFC_060 Q6: this page holds "+
+						"multiple rules, and the quote may belong to a DIFFERENT one; the citation may name the wrong rule",
+					ruleID),
+			}
+		}
+	}
+	// No rule-heading structure on this page (e.g. legislation.gov.uk, one
+	// rule per page already) — whole-page matching is already correct here.
+	if datahelpers.QuoteFoundInText(cit.Quote, text) {
+		return citationVerifyOutcome{Found: true}
+	}
+	return citationVerifyOutcome{
+		FailClass:  "citation_lost",
+		FailDetail: "the source fetched successfully but the verbatim quote no longer appears in its visible text",
+	}
+}
+
 // fetchCitationDocument GETs a cited URL and returns its visible text.
 func fetchCitationDocument(ctx context.Context, url string) (string, error) {
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {

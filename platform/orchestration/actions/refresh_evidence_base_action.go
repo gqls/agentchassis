@@ -859,7 +859,14 @@ func refreshCitationFact(ctx context.Context, fact map[string]interface{}, today
 		return entry
 	}
 
-	outcome := verifyCitationLive(ctx, cit)
+	// RFC_060 §3d/Q6: `rule` is a fact-level field today's registers already
+	// write by convention ("CONC 6.7.23", etc. — e.g. 699_loancalculator's
+	// CCA/SI facts, all of lendzy's 695) but which EvidenceFact does not
+	// model (deliberately — see the round-trip protection in
+	// evidence_base_field_loss_test.go). Read it off the raw map, same as
+	// every other unmodelled key this file already reads this way.
+	ruleID := datahelpers.GetStringField(fact, "rule", "")
+	outcome := verifyCitationLiveForRule(ctx, cit, ruleID)
 	switch {
 	case outcome.FailClass == "fetch_error":
 		entry.Outcome = "error"
