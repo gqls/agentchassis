@@ -134,6 +134,24 @@ runs to `./platform/orchestration/actions/` if you want an unambiguous green.
 
 ---
 
+## 5b. Both fleet-wide append-only files were swept by peers within two minutes — nothing lost
+
+Recorded because it is the shared-tree trap CLAUDE.md documents, observed twice in one hour, and
+because it means **the prescribed check does not survive a busy tree.** Today's LANDMINES entry went
+into HEAD inside `4ffe30f0f` (the 427 lane) and the WRONG_CALLS row inside `e76129bf0` (the 450
+lane) — both same-file passengers, both while this lane's own commits were being prepared. Both are
+in HEAD and complete.
+
+⚠ **The consequence for a reader:** commit `c9b95eb44`'s message lists a WRONG_CALLS row that the
+commit does not contain, because the file was swept between `git diff --numstat` (which showed 39
+added lines) and `git commit`, seconds later. `git log --follow` on the FILE finds the content;
+`git log` on this lane's commits does not. **So resolve an append-only doc by grepping the file, not
+by trusting the commit that claims it** — and note that "check numstat immediately before
+committing", the remedy WRONG_CALLS itself prescribes for this class, is a race on a tree this busy
+rather than a guarantee. Forward-only: not amended, corrected here.
+
+---
+
 ## 6. Identifiers
 
 - commit `1007be27d` (direction 2 wiring); council corr `cab931b1-8b45-461e-8a37-0dbdfa6aa928`
