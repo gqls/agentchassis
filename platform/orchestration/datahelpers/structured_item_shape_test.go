@@ -126,8 +126,8 @@ func TestStructuredItemShape_FlatAndScalarDialectsEmitNothing(t *testing.T) {
 			"item_schema":{"title":{"type":"string"},"description":{"type":"string"}}}`,
 		"json-schema items, scalars only": `{"type":"array","source":"llm",
 			"items":{"type":"object","properties":{"title":{"type":"string"},"body":{"type":"string"}}}}`,
-		"array of scalars": `{"type":"array","source":"llm","items":"string"}`,
-		"not an array at all": `{"type":"text","source":"llm"}`,
+		"array of scalars":                     `{"type":"array","source":"llm","items":"string"}`,
+		"not an array at all":                  `{"type":"text","source":"llm"}`,
 		"array with no declared element shape": `{"type":"array","source":"llm"}`,
 	}
 	for name, raw := range cases {
