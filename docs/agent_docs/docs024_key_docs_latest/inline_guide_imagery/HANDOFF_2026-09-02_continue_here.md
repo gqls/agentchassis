@@ -148,9 +148,27 @@ site_plan_sections.page_name` — **0 of 33 sites have zero joining pages**, so 
 naming-mismatch confound does not apply anywhere in this population. The `landing` row at 2%
 absent is a second built-in control: a broadly broken join could not produce it.
 
-**Their mechanism:** `create_blog_posts_action.go:183` holds the canonical article layout
-`["hero","article-body","call-to-action"]` in the action and builds from it **without writing plan
-rows**. `[UNVERIFIED BY ME]` — code claim relayed, not read.
+**The mechanism, now READ FIRST-HAND `[MEASURED 2026-09-03]`** (the relayed version had a stale
+line number, an overstatement and an unchecked inference — all three corrected by that lane when
+asked whether they had opened the file; the claim survived, in a better form):
+
+- `create_blog_posts_action.go:212` — the triple is a **FALLBACK, not a hardcoded layout**:
+  `sections := post.Sections; if len(sections) == 0 { sections = []string{"hero","article-body","call-to-action"} }`.
+  A caller MAY supply its own.
+- `grep -n site_plan_sections` on that file: **no occurrence.** It writes
+  `INSERT INTO pages (…, sections, page_spec)` — **tier 3, the materialised cache** — and never
+  tier 1, the authority.
+- **And the positive half, which I added:** `INSERT INTO site_plan_sections` has exactly **TWO**
+  writers fleet-wide — `write_site_plan_action.go:668` (the full plan write) and
+  `apply_gap_plan_action.go:1067` (the gap plan). **Neither is on the article-creation path.** So
+  an article born this way can only acquire a plan row if some LATER full re-plan or gap-plan run
+  happens to include it.
+
+⚠ **THE SENTENCE THAT STOPS PHASE ONE BEING MISTAKEN FOR A CHEAP FIX** (theirs, and it is the
+reason separating fallback-from-inference mattered): **"just pass richer `post.Sections`" is NOT a
+fix.** It changes what the page is composed OF and leaves the plan empty — so the `scope_ref`
+ordinal still has nothing to name, and this lane's binding stands down exactly as before. **Any
+fix must write the authority**, i.e. go through one of those two writers or add a third.
 
 ⚠ **AND IT CORRECTS SOMETHING I PUBLISHED.** I reported "9 of dartsonline's 13 `/blog/*` pages bind
 today" and implied that was the framework working. **Confirmed here:** all 27 plan rows for those
