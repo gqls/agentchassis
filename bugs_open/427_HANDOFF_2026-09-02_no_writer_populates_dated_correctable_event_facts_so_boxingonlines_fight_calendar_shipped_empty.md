@@ -1554,3 +1554,79 @@ had not been.
 placement `removed`, so nothing can re-ship it; and `[MEASURED]` zero active stores hold the
 fabricated text. The *mechanism* is still the right shape and is still the shell to rewrite
 against `query.upcoming_events` — see §23.
+
+## 23. The verified-facts plan, corrected by review — owner requirement: "we can't have invented fights, ever"
+
+The draft plan below was put through a `Plan` review instructed to critique rather than agree.
+**It found the draft would have caused a second incident**, so the corrections are recorded
+before the plan, not after it.
+
+### 23.1 What the review overturned
+
+- **Tools ARE data-bound, but only on one path.** At birth and on the tool-birth deploy the
+  template ships verbatim. On a **sections-branch** rerender (`reason` ∈ `image_landed`,
+  `section_data_resolved`, `cta_links_stale`, `template_changed`, `literal_markdown`),
+  `rerenderFlatSections` walks every stored row — tool rows included — through
+  `planSection` → `RenderTemplate`, and **no `component_level` predicate exists anywhere in
+  that path**. `queryresolve.ConsumerPages` has no level filter either, so a tool declaring
+  `query.upcoming_events` *would* receive the daily evidence-refresh rerender.
+  `content_components.data_sources` has **zero Go readers** — `input_schema` is the mechanism.
+- **⚠ The draft's "just give the tool an `input_schema`" step was a latent full-rebuild
+  trigger.** `rerender_page_sections_action.go:428-460` escalates any non-self-contained row
+  with empty `content_data` to `page-build-handler` and returns *before rendering*. A schema
+  makes the tool non-self-contained (`isSelfContainedSection` requires an empty schema); birth
+  writes `content_data='{}'`. So the first such rerender would have triggered **a full LLM
+  rebuild of a paid page** — which is exactly what produced the 17:39 incident. Seeding
+  `content_data` non-empty at birth is not a detail; it is what makes the change safe.
+- **The JSON-in-`<script>` idea was wrong twice over.** `RenderTemplate`'s FuncMap has **no
+  JSON encoder**, and the resolver HTML-escapes strings (right for text, wrong inside JSON).
+  Worse, it would keep the fixtures **outside** the claims perimeter — §22.5's whole point.
+  The correct shape renders fixtures as **visible elements carrying `data-*` attributes**
+  (`data-date`, `data-fact-id`, …) with JS reading `dataset`: inside the perimeter, and a
+  no-JS fallback for free. `event-list`'s template is the idiom to mirror.
+- **The brief I wrote invited the fabrication.** Orchestration `77bbab58`'s spec says verbatim
+  *"The fixture data ships inline in the component as a JSON array"*, and the
+  `generate_tool_html` prompt (5,115 chars) has 22 rules about colours, ids and IIFEs and
+  **nothing** about provenance, `evidence_base` or not inventing facts. **Any fix that starts
+  with "re-dispatch" without changing the prompt reproduces this.**
+- **Re-dispatch currently fails loudly anyway**, because of my own containment: the
+  already-exists probe requires `cc.is_active`, so it misses → the CREATE arm runs → `INSERT`
+  dies on `content_components_name_key`. Worth knowing before anyone tries.
+
+### 23.2 The three checker layers
+
+1. **Arm `check_event_fixture_completeness`** — built, council-reviewed, and armed on **zero**
+   of five discovery agents. Its commit `d6a952249` **is** an ancestor of the live `v1.0.1359`,
+   so arming cannot fail the run step. `[MEASURED 2026-09-03]` blast radius: 12 sites carry
+   dated facts, 64 dated facts fleet-wide, **0 unevidenced** — so it fires ~nothing today and
+   establishes the baseline. **And it retracts**: it is one of only three `capability_gap`
+   producers that populate `CheckResult.Resolved` (`:160`), which matters because
+   `capability_gap` is the estate's least-closed type — `[MEASURED]` **334 filed, 1 closed**
+   across `site_work_items` UNION its archive. Arming a *retracting* check into that pile is
+   safe; arming a non-retracting one would not be.
+2. **Refuse literal facts at tool BIRTH** — in `create_tool_component_action.go` beside
+   `HasToolDocHeader`, before the already-exists branch so both arms are covered. Narrow shape:
+   inside `<script>`, an array literal of objects carrying an ISO-date-valued key and ≥2
+   name-like string fields, where the declared schema has no `query.*` source. `[MEASURED
+   2026-09-03]` 333 active tools, 31 with a date literal (**all comments/provenance**), **0**
+   with this shape — so the measured false-positive rate is **zero** and the owner's "never" is
+   satisfiable now. **Sequencing: the generator must be able to express the good shape first**,
+   or the refusal makes calendars unbuildable.
+3. **The checker the requirement actually implies, on the artefact:** every `data-fact-id` in a
+   served component must resolve to a current `evidence_base` fact carrying citation url AND
+   quote. That closes "invented fights" *whatever produced them* — generator, hand-migration,
+   or tool-improver — and `query.upcoming_events` already emits `fact_id`, so the data side is
+   free. This is the one that would have caught the incident.
+
+**Explicitly NOT in scope here:** widening `ExtractAssertionText` to script bodies. It changes
+what the shared claims gate guarantees → architecture-scope under the 2026-07-29 ruling. Route
+as its own RFC citing §22.5. And `bugs_open/449` is the **numeric sibling**, not the same fence
+— share its REGISTER vocabulary (`data-fact-id` is exactly "derives from a fact id"), cross-file,
+do not extend it (`scripts/who-owns.py 449` first; its lane is active).
+
+### 23.3 Status
+
+Not built. Awaiting the owner's go-ahead, and layer 2 depends on layer 1 of the *generator*
+change landing first. The verified record is ready: `CIT-5b2cc9894bfc475f`, `event_date`
+2026-10-31, `participants`, full citation, `verified_at` — one real fight, which is the honest
+content for this page today.
