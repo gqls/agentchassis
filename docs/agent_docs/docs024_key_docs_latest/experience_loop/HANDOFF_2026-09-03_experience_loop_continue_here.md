@@ -175,6 +175,46 @@ currently cries wolf on every scoped run. Fix: report `N/A (control case not in 
 the control from the site filter. **Until then every `--site` clean result is UNTESTED, not clean**
 — I said exactly that to two peer lanes, so the caveat is on their record too.
 
+### 5b-bis. ⚠ RULE B IS FALSE-CLEAN WHEN A REPAIR IS STORED BUT NOT SERVED — added 2026-09-03 10:15Z, do this with 5b
+
+**Found live, on the case the owner was complaining about.** SQ-005 fired on schedule for the
+first time ever at **07:40 on 2026-09-03** (its `lastScheduleTime` had been empty — CronJob created
+09-02 10:30Z, after its own slot) and rule B correctly reported **8** findings, **seven of them
+seotools.co.uk tool pages** including `/tools/serp-snippet-previewer/index.html`, ~2.5h before the
+owner's critique arrived.
+
+Then somebody repaired those seven in the database between **09:34 and 09:54**, and **none of the
+repairs is being served**. Re-running rule B at 10:09Z returned **0 findings, "14 interactive"** —
+a **FALSE CLEAN** that I nearly relayed as good news.
+
+`[MEASURED 2026-09-03 ~10:1xZ]` all 14 seotools tool pages:
+
+| component last written | stored has control | SERVED control count |
+|---|---|---|
+| 09-02 22:34–23:00 (7 pages) | yes | 2, 11, 14, 17, 4, 1, 2 |
+| **09-03 09:34–09:54 (7 pages — the flagged ones)** | yes | **0 × 7** |
+
+```
+/tools/serp-snippet-previewer/  build_status=deployed  deployed_at=09-03 00:08:16  newest_component=09:43:18  -> component NEWER
+/tools/seo-schema/              build_status=deployed  deployed_at=09-03 00:19:57  newest_component=09-02 22:48 -> deploy after build, serving fine
+```
+
+**`build_status='deployed'` records that a deploy once happened, not that the CURRENT components
+have been deployed.** Rule B reads STORED `rendered_html`, so it goes quiet exactly when stored and
+served diverge — i.e. **it certifies a page at the moment that page is most misleading**: the fix
+is in, everyone believes it, the visitor still gets a description page.
+
+**The fix, one join, no HTTP:** refuse to report a tool page clean when
+`max(page_components.updated_at) > pages.deployed_at` — report **"unknown — repair not yet served"**
+instead of clean. Comparing served bytes is better still, but the predicate is free and catches the
+same class. **Do this at the same time as 5b**; both are "my clean results are not trustworthy" bugs
+and they should land together.
+
+**Debt it creates:** every clean rule B result already given to another lane is valid only where
+stored and served agree — including **the vetcomparison promise-ledger pass of 09-02**, which must
+be re-checked against served bytes on the post-701 re-run and corrected to that lane if it moves.
+Both peer lanes have been told.
+
 ### 5c. The ORIGINAL task: route the seat into the new-build path
 
 Deliberately held until a post-694 audit is observed on a real build (§2). Then:

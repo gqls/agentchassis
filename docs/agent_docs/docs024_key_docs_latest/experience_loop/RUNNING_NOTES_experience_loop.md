@@ -1712,3 +1712,69 @@ is exactly the shape that gets written up as a regression. It is not one.
 Self-contained, so the next chat reads one file rather than chasing a chain of three. It carries
 the 24h-reaping trap (§4) that invalidated the previous handoff's own verification method, the two
 outstanding peer promises, the empty-index rule, the SQ-004 control bug, and the routing still owed.
+
+---
+
+## 2026-09-03 10:15Z — SQ-005's FIRST scheduled run fired correctly, and then my own rule went FALSE-CLEAN on the same pages 2 hours later
+
+The `designblog.co.uk` lane relayed a new owner critique: seotools.co.uk's tool pages are
+description pages, one of which says *"Paste in your title and description…"* over zero inputs.
+Owner: *"many tools are just description pages… it is a major error."*
+
+### The good half — the rule already had it
+
+**SQ-005 fired on schedule for the first time ever this morning.** Its `lastScheduleTime` was
+EMPTY until today (CronJob created 09-02 10:30Z, after its own `40 7 * * *` slot), so
+**2026-09-03 07:40** is its first unattended run. Receipt 07:41:01Z: **Rule B: 8**, of which
+**seven are seotools**, including the exact page the owner named —
+`/tools/serp-snippet-previewer/index.html: 6474 chars rendered, no control, no inline data, no
+runtime fetch — a page about a tool, not a tool.` Detected ~2.5h before the critique reached me.
+(Also Rule C: 1 — dartsonline's `/guides/index.html`, the case my own earlier census refuted me on.)
+
+### The bad half, and it is mine
+
+I re-ran rule B on seotools at 10:09Z to answer the peer and got **0 findings, "14 tool pages,
+14 interactive"**. I nearly sent that as good news. **It is a false clean**, and the peer's
+served-bytes reading was right.
+
+`[MEASURED 2026-09-03 ~10:1xZ]` across all 14 seotools tool pages:
+
+| component last written | stored has control | SERVED control count |
+|---|---|---|
+| 09-02 22:34–23:00 (7 pages) | yes | 2, 11, 14, 17, 4, 1, 2 |
+| **09-03 09:34–09:54 (7 pages)** | yes | **0, 0, 0, 0, 0, 0, 0** |
+
+The second row is **exactly the seven rule B flagged at 07:41**. They were repaired in the DB
+between 09:34 and 09:54 and **none of the repairs is being served**. The timestamps say why:
+
+```
+/tools/serp-snippet-previewer/  build_status=deployed  deployed_at=09-03 00:08:16  newest_component=09:43:18  -> component NEWER
+/tools/robots-txt-tester/       build_status=deployed  deployed_at=09-03 00:09:01  newest_component=09:34:09  -> component NEWER
+/tools/title-tag-scorer/        build_status=deployed  deployed_at=09-03 00:09:20  newest_component=09:40:35  -> component NEWER
+/tools/seo-schema/              build_status=deployed  deployed_at=09-03 00:19:57  newest_component=09-02 22:48 -> deploy after build, serving
+```
+
+**`build_status='deployed'` records that a deploy once happened, not that the CURRENT components
+have been deployed.** All seven repairs sit behind a deploy that ran ~9 hours before them.
+
+### The lesson, which is about my detector and not about seotools
+
+**Rule B is false-clean in precisely the window where a repair has been written but not shipped.**
+It fired correctly at 07:41 when stored and served agreed; it went quiet at 09:54 when they
+diverged; it would only speak again if someone reverted the database. **So it certifies a page at
+the exact moment that page is most misleading** — the fix is in, everyone believes it, and the
+visitor still gets a description page.
+
+This is the lane's own documented caveat ("the phantom check reads STORED html, not served")
+arriving as a live false negative rather than a footnote. I had written it down and still read the
+zero as good news for a few minutes.
+
+**The cheap guard, and it is one join:** refuse to report a tool page clean when
+`max(page_components.updated_at) > pages.deployed_at`. That predicate is what caught this, it needs
+no HTTP, and it converts the blind window into an explicit "unknown — repair not yet served".
+Better still is to compare served bytes, but the predicate is free and catches the same class.
+
+**Debt this creates:** every clean rule B result I have handed anyone is valid only for pages where
+stored and served agree. That includes **the vetcomparison pass I sent 09-02** — its promise ledger
+came back clean and I must re-check it against served bytes when I re-run post-701, and correct it
+to that lane if it moves. Told the designblog lane the same in the same message.
