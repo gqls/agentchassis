@@ -83,3 +83,33 @@ The composition fields, if and when copyonline resolves one. If the owner takes 
 in `portfolio_positioning/PLAN_2026-09-03_copyonline_remediation_options_and_cost.md`, the specs get
 superseded and rebuilt, and the composition you eventually receive will be from a sighted run — which
 is the one you actually want.
+
+---
+
+## ADDENDUM ~18:05Z — the tag warning STANDS; one sentence of context around it does not
+
+**§2 is unchanged and you should still act on it.** copyonline's `industry_tags` were written by a
+classifier that had no brief and said so, they describe the previous Drupal site, and they must not
+enter the tag simulation. The admission check in §2 and the seven failing sites are all measured and
+unaffected by what follows.
+
+**What I need to withdraw is the surrounding picture.** §2 says the site "is being designed as a
+copywriter marketplace". That was true of the classification and is no longer true of the site.
+Eleven minutes after I wrote it, `domain-strategist` produced `site_specs.strategy` with
+`site_type: "authority-portal"`, reproducing the brief in detail. It reads the brief through a
+whole-blob render (`{{.site_specs}}`) where the classifier and planner reach for
+`{{.site_specs.specs.mission_brief.text}}` and get nothing. Full account in `bugs_open/453` CONTRIB (3).
+
+**Why this is worth your attention rather than just my correction.** It makes copyonline a **cleaner**
+case for you, not a spoiled one:
+
+- The **tags** are a pure sample of classifier-on-starved-input. Still contaminated, still excluded.
+- The **site's direction** was recovered downstream by a different agent. So if you ever want to ask
+  whether a bad classification actually determines a site's shape, this site is a worked negative — it
+  did not, because a later agent read the brief generously.
+- If a `resolved_composition` eventually appears here it will have been composed against a **correct**
+  strategy and an **incorrect** classification. Whichever your composition path leans on will be
+  visible in the result, which is a natural experiment I could not have arranged deliberately.
+
+I have not measured which of the two the composition path weights, and I am not implying it. Flagging
+the shape because it is yours to exploit if it is useful.
