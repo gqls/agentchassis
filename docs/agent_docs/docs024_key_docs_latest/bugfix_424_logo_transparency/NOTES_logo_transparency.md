@@ -331,3 +331,52 @@ own wording: not repeated here** — this NOTES file stayed in one timezone (BST
 "53 minutes after the build... was cut" line is directionally and numerically consistent with their
 corrected figure (fix committed 20m26s after the roll, ~53min after the build's own commit — two
 different reference points, both correct). Nothing to fix in this lane's own docs.
+
+## 2026-09-03 — the roll landed (v1.0.1356); verified independently; the three sites reset with the owner's explicit authorisation
+
+`site_delivery_and_editor` reported the roll (stamp `7bf1ff674021f2d57dfd0aa41324541070646c3a`,
+pods from ~08:56–08:58Z). **Verified independently before acting on anything**, not taken on
+trust: fresh pods on both services (ages 51–72s at check time), build-provenance log line read
+directly off `image-generator-adapter` matching the reported stamp, `agent-chassis` binary-probed
+with the full positive/target/negative control set (all correct). `git merge-base --is-ancestor`
+for all three fix commits (`6440ec968`, `b2322a203`, `fcbe6071c`) against that stamp — all YES —
+plus a negative control (current session HEAD, which postdates the build) — correctly NO. Every
+fix is genuinely live on both services.
+
+**The owner was asked before resetting the three sites, explicitly** — this was flagged as an
+owner decision in the previous handoff and stayed one; a peer saying "it's yours" was treated as
+coordination, not authorisation. The owner said: reset all three at once, and check with other
+threads first. Did both — messaged `site_delivery_and_editor` and `bugfix_420_417` with the exact
+row IDs before running anything; both confirmed clear (`site_delivery_and_editor`: "nothing of
+mine is in flight on designblog, seotools or gamedesign — proceed", and noted the fleet's own
+~300s no-dispatch window after a pod start closed at ~09:03Z — the reset ran at 09:23:49Z, well
+clear of it).
+
+**Found the exact rows first, rather than guessing at the mechanism.** `site_work_items`, joined on
+`sites.domain`, `item_type='needs_imagery'` (not `needs_logo` — that item type exists in the schema
+but these entries used `needs_imagery` with `item_key='needs_imagery:site:-:logo'`, a landmine for
+next time a session assumes the type name from the queue's shorthand). All three: `status=complete`,
+`attempt_count=1` of `max_attempts=3`, `handler_agent='image-build-handler'`. Confirmed
+`idx_swi_dedup` only constrains INSERTing a second row with the same `(site_id, item_key)` while one
+is in an open state — updating the SAME existing row back to `triaged` cannot collide with it.
+Confirmed the shape of the reset against this repo's own established convention for exactly this
+operation (`docs/agent_docs/sql_for_agents/430_detected_item_promoter_task.sql`,
+`453_held_pair_canary_escalation.sql`: `SET status='triaged', triaged_at=now()`), not invented.
+
+Ran, in one transaction, at 2026-09-03 09:23:49 UTC:
+```sql
+UPDATE site_work_items
+SET status = 'triaged', triaged_at = now(), claimed_at = NULL, claimed_by = NULL,
+    completed_at = NULL, result = '{}'::jsonb, error = NULL, updated_at = now()
+WHERE id IN ('24dff15c-1989-4332-aeaa-62b0929a8a88', 'b178ca1b-b1bc-411b-ae3b-d63b8424dad0',
+             '2a4408aa-800b-443d-aa2e-32e919978ecb');
+```
+Deliberately did NOT reset `attempt_count` — this is genuinely each site's second attempt, not a
+fresh one, and the ladder (max 3) should reflect that honestly. `result`/`error` cleared so nothing
+downstream reads the stale, wrong "success" payload from the first run while the retry is pending.
+
+Watching the three items via a background poll (Monitor) for what the now-fixed guard actually
+produces. `site_delivery_and_editor` asked to be sent the per-run readings (adapter log
+`border_keyed`/`pixels_keyed`, PNG chunk scan / fully-transparent % at the stored bytes) once they
+land — boxingonline's own regeneration decision rests on them. Will append results here and pass
+them on.
