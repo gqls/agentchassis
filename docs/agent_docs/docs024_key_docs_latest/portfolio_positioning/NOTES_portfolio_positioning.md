@@ -4741,3 +4741,37 @@ re-composing advertise and websitepromotion becomes an evidenced improvement rat
   `resolve_composition_layout_action.go` are all `platform/orchestration/actions/`, i.e. chassis — so
   the chassis stamp was the right instrument for their commit and the not-rolled result stands.
 
+### (ii) 2026-09-03 13:0x–14:0xZ — the repair SURVIVED but its component LINK was destroyed; and my own watcher's test was unsound
+
+- **Six of the seven seotools tool pages took generic writes 13:05–13:24Z** (`needs_content_page` →
+  `page-build-handler`, minted by our own repair wave's downstream). The 450 lane spotted it and
+  reported their guard had not refused and had left no receipt. **Their alarm was right about the
+  writes and wrong about the outcome, and so was mine.**
+- **MEASURED at rows AND bodies.** `save_page_sections` deleted all three rows at 13:05:14.988Z and
+  re-inserted ~80 ms later. **The tool's `rendered_html` SURVIVED** (17,938–23,953 B per page) and all
+  six serve working tool controls now, with instance-scoped ids
+  (`id="c-tool-robots-txt-tester-fetch-domain-input"`), 78–85 KB bodies, 6 scripts.
+  **What died is `component_id` — NULL on exactly those six tool rows.** Control group with the id
+  intact: the seven suggester-built tools plus `tool-serp-snippet-previewer`, the one page that never
+  took a generic write. The library component is untouched and still `is_active`.
+- **Three consequences. The middle one is the dangerous one.**
+  1. Serving is correct today.
+  2. **Any predicate joining `page_components → content_components` on `component_id` cannot see these
+     six** — so 450's shell census counts six serving tools as shells, and their 67-page population
+     now over-reports by six. That is a SECOND instance of the census-versus-predicate divergence they
+     wrote up this morning, inside their own instrument.
+  3. **The real exposure is the next rebuild**: anything regenerating from `component_id` rather than
+     from stored HTML has nothing to regenerate. These pages are one rerender from losing their tools
+     for real, and nothing in their appearance would warn anyone.
+- **MY OWN WRONG CALL, and it is the kind I have been correcting in others all day.** My URL watcher
+  declared a page LIVE on `forms > 0 OR fields > 2`. **Two of the six serve a working tool with ZERO
+  `<form>` elements**, so the rule passed them on a field count that a prose page with a search box
+  would also satisfy — and it reported "TOOL LIVE" for `robots-txt-tester` at 13:06:41Z with
+  `forms=0 fields=4`. It was right by luck. **A test that would pass a prose page cannot certify a
+  tool page**, and I built it after spending the morning telling other lanes to control their checks.
+  The sound test is the tool's own instance-scoped id (`c-<function>-`), which nothing else emits.
+- **First alarm was mine too:** I read `tool_rows = 0` off a join and briefly believed six tools had
+  been destroyed. The join was failing, not the data. **A LEFT JOIN that silently drops a row reports
+  absence indistinguishably from deletion** — the check that separated them was `component_id IS NULL`
+  versus `points_at_missing_row`, and it took one query.
+
