@@ -914,10 +914,29 @@ deduplication begins; the "raw extractions" count above and the per-concept
   new one — the inverse of the owner's *"by default it can start with a
   theme"*.** Recorded with three costed remedies as **`bugs_open/438` §6d** (a
   CONTRIB, because 438 §6a-bis already owns the mechanism), and documented in
-  the action's own header. **Not fixed:** the preferred remedy — refuse or warn
-  when no classifier-written `design_intent` exists yet — is a behaviour change
-  to a live shared action and owes its own council round; the other two are
-  architecture-scope or build on 438's defect.
+  the action's own header.
+  **PARTLY FIXED 2026-09-03 (`b18091066`) — the loss is now RECORDED, not
+  silent.** Council round 3 gated on the fact that I had diagnosed this,
+  accepted it and shipped nothing, so the remedy was built rather than deferred
+  a third time. `classifierDesignIntentState()` asks whether
+  `domain-research-classifier` has ever written this site's `design_intent`; if
+  not, the apply writes `design_intent_supersede_risk` into **three** surfaces —
+  a WARN naming the mechanism, the `theme_kit_adoption` spec (durable and
+  queryable: a reader asking *"why has this themed site not got the kit's
+  fonts?"* finds the answer on the adoption row), and the action's result. A
+  three-state STRING, never a bool, so a read failure cannot be recorded as "no
+  risk". **It REPORTS and does not REFUSE** — layout survives on a different
+  aspect and is the only dimension a kit moves, so refusing would throw away the
+  working part to protect the broken one.
+  **Proven by two mutations** (the guard going blind; a confident wrong answer
+  on error), both red, restored green, evidence in the test header; the
+  predicate discriminates **38 of 39** live sites, and 39 or 0 would have made
+  it decoration.
+  ⚠ **The ORDERING is still unfixed and stays `bugs_open/438`'s** — the
+  classifier still supersedes and the kit's typography is still lost on the
+  fresh path. The guard makes the loss visible, not impossible. The other two
+  candidates remain architecture-scope (make the classifier respect `locked`) or
+  build on 438's own defect. **Inert today: adoption is 0.**
   > **CORRECTED 2026-09-02, same day as filing.** This entry first read
   > "deployed … live since commit `0902039c0`". **Both halves were false and
   > the check took one command each**, which is exactly the shape this
