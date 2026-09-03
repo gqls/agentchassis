@@ -555,7 +555,46 @@ func workItemKey(itemType, target string) string {
 // Before this, exactly one check (backend_unreachable) could retract, via its
 // own inline query.
 //
+// workItemFromSpec maps a check's WorkItemSpec onto the runner's workItem.
+//
+// Extracted from the discovery runner's inline literal because there are now TWO
+// places a check-authored spec becomes a row: the runner's insert loop, and the
+// RECEIPT resolveWorkItems writes below. Two hand-kept copies of one field
+// mapping is the drift class this estate keeps paying for — a field added to the
+// spec and mapped in only one of them is silently dropped on the other path, and
+// nothing would fail.
+func workItemFromSpec(wi checks.WorkItemSpec) workItem {
+	return workItem{
+		siteID:             wi.SiteID,
+		pageID:             wi.PageID,
+		source:             wi.Source,
+		pipeline:           wi.Pipeline,
+		itemType:           wi.ItemType,
+		severity:           wi.Severity,
+		summary:            wi.Summary,
+		spec:               wi.SpecJSON,
+		priority:           wi.Priority,
+		handlerAgent:       wi.HandlerAgent,
+		status:             wi.Status,
+		createdBy:          wi.CreatedBy,
+		itemKey:            wi.ItemKey,
+		batchID:            wi.BatchID,
+		recurrenceExpected: wi.RecurrenceExpected,
+	}
+}
+
 // It never infers. It closes what it is told to close, and only that.
+//
+// ── THE RECEIPT COUPLING (bugs_open/469) ────────────────────────────────────
+// When ResolvedFinding.Receipt is set, this function writes that item FIRST and
+// REFUSES the retraction if it cannot make it durable. See the field's own
+// comment for why: for a divergence check, "the finding no longer reproduces"
+// and "the damage completed" can be the SAME observation, and closing on the
+// first while it means the second launders a destroyed page into "resolved".
+//
+// The refusal is a returned error, which the runner already logs and counts —
+// deliberately NOT a silent skip, because a retraction that quietly did not
+// happen is indistinguishable from one that did.
 func resolveWorkItems(
 	ctx context.Context,
 	tx *sql.Tx,
@@ -585,6 +624,44 @@ func resolveWorkItems(
 			"different things; pick one", r.ItemKey, r.ItemType)
 	}
 
+	// ── The receipt, BEFORE the close, in the SAME transaction. ─────────────
+	// Order is the whole point: a run that dies between the two must leave the
+	// finding OPEN, never the loss unrecorded. Postgres gives that for free
+	// inside one tx; writing the receipt second would not.
+	if r.Receipt != nil {
+		rc := workItemFromSpec(*r.Receipt)
+		if rc.itemKey == "" {
+			return 0, fmt.Errorf("resolve %s/%s: receipt has no item_key — it could never be found again; retraction WITHHELD",
+				r.ItemType, r.ItemKey)
+		}
+		inserted, rErr := insertWorkItem(ctx, tx, rc, logger)
+		if rErr != nil {
+			return 0, fmt.Errorf("resolve %s/%s: receipt %q could not be written — retraction WITHHELD: %w",
+				r.ItemType, r.ItemKey, rc.itemKey, rErr)
+		}
+		if !inserted {
+			// insertWorkItem reports FALSE for several different reasons — an
+			// open row already holds the key (ON CONFLICT DO NOTHING), the
+			// anti-churn brake held it back, the two-strike rule dropped it. Only
+			// the first means "a durable record already describes this loss".
+			// CONFIRM it; never assume, because assuming turns a dropped receipt
+			// into a silent close, which is the exact failure this guard exists
+			// to prevent.
+			var present int
+			if qErr := tx.QueryRowContext(ctx, fmt.Sprintf(`
+				SELECT 1 FROM site_work_items
+				 WHERE site_id = $1 AND item_key = $2 AND status NOT IN (%s)
+				 LIMIT 1`, sqlInList(workItemClosedStatuses)),
+				siteID, rc.itemKey).Scan(&present); qErr != nil {
+				return 0, fmt.Errorf("resolve %s/%s: receipt %q was neither inserted nor found open (%v) — retraction WITHHELD",
+					r.ItemType, r.ItemKey, rc.itemKey, qErr)
+			}
+			logger.Info("Retraction receipt already open — reusing it rather than filing a duplicate",
+				zap.String("check", checkName),
+				zap.String("receipt_item_key", rc.itemKey))
+		}
+	}
+
 	// `batch_id IS DISTINCT FROM $batch` — never close what THIS run just
 	// raised. A check that both files and resolves the same key in one run is
 	// contradicting itself; without this it would thrash an item open/closed on
@@ -594,6 +671,22 @@ func resolveWorkItems(
 	// workItemTerminalStatuses: `unresolved` and `failed` are retractable on
 	// purpose (owner ruling, Decision 2 — see that list's comment). This is a
 	// plain UPDATE and infers no partial index, so it cannot raise 42P10.
+	//
+	// `evidence` is appended CONDITIONALLY rather than always-with-NULL: the
+	// six-argument statement below is byte-identical to the one every existing
+	// caller's test asserts, so a check that sets no Evidence cannot be broken by
+	// this field existing.
+	evidenceSQL, args := "", []interface{}{checkName, r.Reason, siteID, r.ItemType, r.ItemKey, batchID}
+	if len(r.Evidence) > 0 {
+		blob, mErr := json.Marshal(r.Evidence)
+		if mErr != nil {
+			return 0, fmt.Errorf("resolve %s/%s: evidence is not marshalable — retraction WITHHELD rather than closed without it: %w",
+				r.ItemType, r.ItemKey, mErr)
+		}
+		evidenceSQL = " || $7::jsonb"
+		args = append(args, string(blob))
+	}
+
 	res, err := tx.ExecContext(ctx, fmt.Sprintf(`
 		UPDATE site_work_items
 		   SET status       = 'complete',
@@ -602,13 +695,13 @@ func resolveWorkItems(
 		       result       = COALESCE(result, '{}'::jsonb) || jsonb_build_object(
 		                          'resolved_by', $1::text,
 		                          'reason',      $2::text,
-		                          'resolved_at', now()::text)
+		                          'resolved_at', now()::text)%s
 		 WHERE site_id   = $3
 		   AND item_type = $4
 		   AND ($5::text = '' OR item_key = $5::text)
 		   AND status NOT IN (%s)
-		   AND batch_id IS DISTINCT FROM $6::uuid`, sqlInList(workItemClosedStatuses)),
-		checkName, r.Reason, siteID, r.ItemType, r.ItemKey, batchID)
+		   AND batch_id IS DISTINCT FROM $6::uuid`, evidenceSQL, sqlInList(workItemClosedStatuses)),
+		args...)
 	if err != nil {
 		return 0, fmt.Errorf("resolve %s/%s: %w", r.ItemType, r.ItemKey, err)
 	}

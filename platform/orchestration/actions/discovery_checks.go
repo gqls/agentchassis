@@ -236,22 +236,7 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 
 		// Insert work items
 		for _, wi := range result.WorkItems {
-			ok, err := insertWorkItem(ctx, tx, workItem{
-				siteID:       wi.SiteID,
-				pageID:       wi.PageID,
-				source:       wi.Source,
-				pipeline:     wi.Pipeline,
-				itemType:     wi.ItemType,
-				severity:     wi.Severity,
-				summary:      wi.Summary,
-				spec:         wi.SpecJSON,
-				priority:     wi.Priority,
-				handlerAgent: wi.HandlerAgent,
-				status:       wi.Status,
-				createdBy:    wi.CreatedBy,
-				itemKey:      wi.ItemKey,
-				batchID:      wi.BatchID,
-			}, logger)
+			ok, err := insertWorkItem(ctx, tx, workItemFromSpec(wi), logger)
 			if err != nil {
 				logger.Warn("Failed to insert work item",
 					zap.String("check", checkName),
@@ -273,9 +258,15 @@ func RunDiscoveryChecksAction(ctx context.Context, params ActionParams) (interfa
 		for _, r := range result.Resolved {
 			n, err := resolveWorkItems(ctx, tx, dctx.SiteID, checkName, batchID, r, logger)
 			if err != nil {
+				// A receipt-bearing retraction that fails here was WITHHELD on
+				// purpose, not merely unlucky: resolveWorkItems refuses to close a
+				// finding whose resolution destroyed something unless the record of
+				// what was destroyed is durable first (bugs_open/469). The flag is
+				// what lets a reader tell the two apart in the logs.
 				logger.Warn("Failed to resolve work items",
 					zap.String("check", checkName),
 					zap.String("item_type", r.ItemType),
+					zap.Bool("receipt_required", r.Receipt != nil),
 					zap.Error(err))
 				continue
 			}

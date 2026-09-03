@@ -289,7 +289,8 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// own precedent for the five structural checks directly below.
 	"stylesheet_gutted":           {catMechanical, "bugs_open/198 + /211; live-probe check (GET every same-host <link rel=stylesheet> the deployed corpus references, then compare the custom properties DEFINED there against those REFERENCED without a fallback by page_components/site_components CSS, plus css_snippets). Deliberately NOT a verifier candidate — verification would put an outbound HTTP probe in the completion path, the standing objection shared with asset_reference_404, image_url_404, page_content_divergence and backend_entry_orphaned. It does not NEED one on two independent grounds: the item is flag-only by design (no handler agent — the repair is restore-from-git or a webdesign-agent run, both judgements, and auto-routing at webdesign-agent would re-roll the palette), so nothing on the completion path claims it done; and the check self-clears through CheckResult.Resolved on a positive re-observation (every referenced property defined, every stylesheet 2xx), which is the SAME comparison a verifier would make, taken on the discovery path where the probe is already precedented. Note it declines to judge — filing AND retracting nothing — whenever a same-host stylesheet fails to fetch or returns non-2xx, so a blinded run can never be mistaken for a healthy one"},
 	"contact_form_undeliverable":  {catMechanical, "needs_human_review queue — since cc2cff79b only the address-less branch files this type (resolvable sites route to page_rerender). Predicate re-runs on DEPLOYED html, which re-renders only after a fix lands, so a completion-time re-check would false-fail during the render lag; resolve delivery timing before writing one"},
-	"section_source_drift":        {catMechanical, "predicate is check_section_source_drift"},
+	"section_source_drift":        {catMechanical, "predicate is check_section_source_drift. Self-clearing since 2026-09-03 (bugs_open/469): the check re-observes its own open items and retracts on a POSITIVE re-read, so the completion path is not where this type is resolved. Note the retraction is DIRECTION-AWARE — see section_composition_lost below for why a naive one would have been worse than none"},
+	"section_composition_lost":    {catJudgement, "check_section_source_drift's retraction receipt (bugs_open/469). Records that a section-source divergence resolved BY DESTROYING what pages.sections held — filed only in the same transaction as the retraction it justifies (ResolvedFinding.Receipt), so a loss can never be laundered into `resolved`. needs_human_review with NO handler, and that is the design: a machine cannot tell a deliberate removal from this bug's completion, and BOTH are valid endings (469 §5.1 — one of the two 2026-09-03 cases was judged a benign rename by its owning lane, the other real damage). DELIBERATELY NOT a verifier candidate: the only mechanical re-observation available is `the section is back`, and its negation is equally `the removal was intended and accepted`, so a verifier would fail-closed on correctly-resolved items for ever. The receipt carries copied evidence (both frozen lists, today's list, the lost multiset) rather than a pointer, because site_work_items is a rolling window and the drift row it describes is closed in the same breath"},
 	"page_component_status_drift": {catMechanical, "predicate is check_page_component_status_drift"},
 	"generic_theme":               {catMechanical, "site-scoped theme marker check"},
 	"nav_drift":                   {catMechanical, "site-scoped nav comparison"},
@@ -834,6 +835,11 @@ var liveItemTypes = []string{
 	// union rule and same reason as dark_section_audit above.
 	"ported_tool_fix",
 	"required_fields_missing", "responsive_fix", "section_edit",
+	// section_composition_lost is listed from the moment it is minted
+	// (bugs_open/469), same union rule and same reason as dark_section_audit
+	// above: the ratchet protects it from day one rather than from whenever
+	// somebody next refreshes this snapshot.
+	"section_composition_lost",
 	"section_source_drift",
 	"silent_failure", "spacing_fix", "tone_shift", "truncated_component",
 	"undeployed_asset",

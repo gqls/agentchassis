@@ -68,6 +68,17 @@ type WorkItemSpec struct {
 	CreatedBy    string
 	ItemKey      string // dedup key
 	BatchID      uuid.UUID
+
+	// RecurrenceExpected marks an item whose RE-REQUEST is normal rather than a
+	// sign the previous attempt failed, so the anti-churn brake must not brand or
+	// drop it. Mirrors workItem.recurrenceExpected, which the runner sets from
+	// this field; false keeps exactly today's behaviour for every other check.
+	//
+	// Set it when each finding is a NEW EVENT rather than a repeat of the same
+	// one — the page_divergence_overwritten precedent: a second destroyed
+	// hand-patch is a second loss, and without this the brake silently drops the
+	// third same-key finding.
+	RecurrenceExpected bool
 }
 
 // CheckResult is what a check returns.
@@ -139,6 +150,47 @@ type ResolvedFinding struct {
 	// closes itself with no stated cause is indistinguishable later from one a
 	// human closed by hand.
 	Reason string
+
+	// Receipt, when set, is a work item that MUST be durably present before this
+	// retraction is applied. resolveWorkItems writes it FIRST, in the SAME
+	// transaction, and REFUSES the retraction if it can neither insert it nor
+	// confirm an open one already holds its key.
+	//
+	// WHY THIS EXISTS (bugs_open/469). Resolved's safety property is that a
+	// retraction fires only on a positive observation. That is necessary and it
+	// is not sufficient, because for one class of check the observation that the
+	// finding no longer reproduces IS the observation that the damage completed.
+	// check_section_source_drift files "the authoritative section list disagrees
+	// with pages.sections; the next build will overwrite the cache". When the
+	// build duly does so, the two stores agree again — the finding stops
+	// reproducing precisely BECAUSE a human's composition was destroyed. A
+	// retraction on agreement alone would therefore close, automatically and
+	// fleet-wide, exactly the cases that most need a human. It ran once by hand
+	// (migration 753, three of six pages) and one of the three had lost a section
+	// a human deliberately added five weeks earlier.
+	//
+	// So the rule this field enforces is: A CHECK MAY RETRACT A FINDING WHOSE
+	// RESOLUTION DESTROYED SOMETHING ONLY BY RECORDING WHAT WAS DESTROYED, IN THE
+	// SAME TRANSACTION. Not by convention — the owner's 2026-08-02 ruling is that
+	// a comment is not a control on a tree this many sessions share.
+	//
+	// It lives on the SEAM rather than in any one check because resolveWorkItems
+	// has two callers today (the discovery runner and work_item_retraction) and a
+	// control in either one protects only that one.
+	//
+	// OPT-IN, unsafe default OFF, per the same ruling: nil is exactly today's
+	// behaviour, so no existing check is affected until it is edited deliberately.
+	Receipt *WorkItemSpec
+
+	// Evidence is merged into the closed row's `result` jsonb alongside
+	// resolved_by/reason. It exists so a machine close and a hand-written
+	// migration close record the SAME shape: migration 753 wrote
+	// result->>'direction' by hand, and a reader must not have to know which
+	// closed a row in order to ask which side won.
+	//
+	// Nil omits the key entirely, leaving the statement byte-identical to before
+	// this field — which is what keeps every existing caller's test unchanged.
+	Evidence map[string]interface{}
 }
 
 // DiscoveryCheck is the interface every check implements.

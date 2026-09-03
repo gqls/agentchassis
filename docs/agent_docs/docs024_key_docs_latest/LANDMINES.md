@@ -22067,3 +22067,76 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 - **relations:** LANDMINES *"a migration verify block of `SELECT`s cannot stop the `COMMIT`"* (same family — a verify that cannot fail) · MEMORY [[mutate-the-code-to-prove-the-guard]] and [[a-mutation-that-passes-may-have-hit-a-guard-in-series]] — this is a third way a passing mutation lies: not a guard in series, but a comparison that is neither true nor false · WRONG_CALLS 2026-09-03
 - **source:** 2026-09-03, `bugfix_414` register-programme lane, migration 761. Found by mutation-testing a guard I had just written; fixed in 761 and the corrected form carried into 763.
 - **added:** 2026-09-03, `bugfix_414_planted_marker_as_claim` lane
+
+### A `section_source_drift` item that CLOSED is not proof the page is fine — read `result->>'direction'`, and from 2026-09-03 read `lost_sections`
+
+- **footprint:** `site_work_items` where `item_type='section_source_drift'`, its
+  `result` jsonb, `check_section_source_drift.go`, `docs/agent_docs/sql_for_agents/753_close_resolved_section_source_drift_items.sql`,
+  `ResolvedFinding.Receipt`, `section_composition_lost`
+- **fires when:** you triage the drift backlog, or quote "the drift items are all
+  closed" as evidence a site's composition is healthy
+- **the tell:** there is none, and that is the entry. A closed drift item looks
+  identical whether the plan was corrected to keep what a human wanted, or the
+  build overwrote the cache and destroyed it. **For this check, "the finding no
+  longer reproduces" and "the damage completed" are the SAME OBSERVATION** — the
+  stores agree again precisely BECAUSE the sync-down ran. On
+  `robot-hands.com/gripper-catalog` that closed a page which had silently lost a
+  section a human deliberately added five weeks earlier, and it was the very
+  component migration `154` was written to rescue in July.
+- **the check:** never read `status='complete'` alone.
+  ```sql
+  SELECT summary, result->>'direction'       AS direction,
+         result->'lost_sections'             AS lost,
+         result->'gained_sections'           AS gained
+    FROM site_work_items WHERE item_type='section_source_drift' AND status='complete';
+  ```
+  `cache_held` is benign. `authority_won` and `third_list` are **not verdicts** —
+  they say which list won, never whether what it won *with* was equivalent.
+- **⚠ AND `direction` IS NOT THE SAFETY TEST — `lost_sections` is.** Two real
+  cases carry the SAME direction and opposite meanings: on `oufe.com/contact` the
+  authority **restored** a section the cache had dropped (`authority_won`, nothing
+  destroyed); on `robot-hands.com/gripper-catalog` it **deleted** one
+  (`authority_won`, a live section gone). Anything keying on the label alone
+  grades those identically. Since 2026-09-03 the check computes the loss itself
+  and a non-empty `lost_sections` files a `section_composition_lost` item **in the
+  same transaction as the close** — so `SELECT * FROM site_work_items WHERE
+  item_type='section_composition_lost'` is the list of pages that lost something,
+  and it cannot be empty while a lossy close happened.
+- **⚠ AND DO NOT WRITE A NAIVE CLOSER FOR A CHECK OF THIS SHAPE.** "The stores
+  agree again, so retract" is the obvious closer and it is **worse than no closer
+  at all**: it converts a silence into a certificate, automatically, fleet-wide.
+  If you are adding a `Resolved` arm to any check whose finding is "two stores
+  disagree", the question is not *do they agree now* but *what did agreement
+  cost*. `ResolvedFinding.Receipt` is the seam that makes recording the answer a
+  precondition of the close (register WII-039).
+- **related:** the write-side entry above (`pages.sections` is a materialised
+  CACHE) — the mechanism that destroys · `bugs_open/469` · `RFC_064` (the typed
+  writer, open with the owner)
+
+### An old flag-only work item is not ONE defect — a check with a WORKING closer and a check with none produce the same-looking stale row
+
+- **footprint:** `site_work_items` with `handler_agent = ''` and a stale
+  `created_at`; any "clear the backlog" or "close resolved items" sweep;
+  `CheckResult.Resolved`
+- **fires when:** you triage a backlog by age and treat every long-open
+  handler-less item as the same kind of neglect
+- **the tell:** two rows that look identical in every column you would sort on.
+  `[MEASURED 2026-09-03]` `archived_page_still_serving` had **9** open items, the
+  oldest 8 days — and its check DOES populate `Resolved` (one of only 19 of 71
+  that can). Its items are open because **the finding is still TRUE**: the pages
+  really are serving. `section_source_drift` had **6**, the oldest 37 days, open
+  because nothing could ever close them — and by then most of them described a
+  state that **no longer existed**.
+- **the check:** before acting on a stale item, ask whether **its own predicate
+  still holds**, by re-deriving it — not whether the row is old and not whether a
+  handler exists. Nothing on the estate does this for you: the item's `spec` is
+  frozen at filing time and reads as current. The two shapes want opposite
+  remedies — a still-true finding wants **triage/routing**, a no-longer-true one
+  wants a **closer**, and closing the first or triaging the second is wasted work
+  in the first case and destroyed evidence in the second.
+- **⚠ the count that matters is not the backlog's age but its DIRECTION of error.**
+  A stale item that is still true costs attention. A stale item that is no longer
+  true costs the dedup key — `idx_swi_dedup` is UNIQUE `(site_id, item_key)` over
+  non-terminal statuses, so while it sits there **the detector cannot re-file on
+  that page at all**. The second kind blinds the very check that raised it.
+- **related:** `bugs_open/469` §3 · `bugs_closed/359` · register WII-039/WII-040
