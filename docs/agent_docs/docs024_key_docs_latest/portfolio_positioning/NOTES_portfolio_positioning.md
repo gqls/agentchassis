@@ -5041,3 +5041,40 @@ longer thing. Do not promise the owner a retry time from `retry_after` alone —
   outside the section prefix) because it would trade a dropped page for an orphaned one and break the
   `section_children` resolver.
 
+### (nn) 2026-09-03 16:54:12Z — the taxonomy fix is PROVEN LIVE, and the first result is 10/10 matchable tags that describe the WRONG SITE
+
+**Proof, at the rendered artefact** (`llm_call_log`, the run that classified copyonline 16:54:12Z):
+the prompt now carries `Current library tags (…):` followed by a **populated JSON array**, and
+**"The library currently has 19 active layouts"** — against `null` and `<no value>` in every prompt
+before today. **This is the first classification in the platform's history to see the tag library**;
+the step was built in April and has never delivered its payload. The 445 lane's reworded sentence is
+live in the same prompt ("Prefer a tag from the list above whenever one describes this site… Coin a
+new tag only when…"). **The rollback is proven too: 1 run, 0 errors.**
+
+**The headline number, and why I am not celebrating it. Copyonline emitted 10 tags and ALL 10 are
+matchable against an active layout — 100%, against the historical baseline of 28 of 216 distinct
+terms (13%) that the 445 lane measured.** n=1, one site, so it is a datum and not a rate.
+
+**⚠ THE TAGS ARE MATCHABLE AND THEY DESCRIBE THE WRONG SITE.** Emitted:
+`marketplace, directory, community-platform, b2b, professional-services, content-platform,
+creative-agency, interactive-platform, practitioner-platform, industry-hub`, with
+`category=hub`, `site_type=interactive-platform`.
+Copyonline's brief positions it as **an editorial authority on writing commercial copy, with tools**,
+whose directory is ONE page and whose **marketplace is explicitly "a PREPARED later slot, never
+claimed" and a must_not**. The classifier has typed it as a **marketplace / directory / community
+hub** — the old 2015 site, not the one the brief describes. Not one tag says copywriting, editorial,
+guides or long-form.
+
+**So the honest reading is that the fix worked and may have made accuracy WORSE, in exactly the way
+the instruction now invites:** "prefer a tag from the list above whenever one describes this site"
+rewards reaching for a library tag, and a loose fit from the list scores better than an accurate coined
+one. **Matchability is not accuracy, and coverage cannot tell them apart** — a site typed entirely in
+borrowed vocabulary scores 100% coverage.
+**This matters most to the 445 lane**, whose fit metric will look spectacular from this run onward and
+whose pre-registered disconfirmation band was about coverage rising. Told them: the rise is real, its
+cause is my fix, and it is not evidence of better fit.
+**Alternative explanation I cannot exclude at n=1:** the brief itself leads with the old marketplace
+heritage and the new directory, so the classifier may be reading the brief correctly and the BRIEF may
+be over-weighting the directory. That is testable on the next remake and on this one's re-classify.
+**No `resolved_composition` yet** — composition has not run, so the layout prediction is still open.
+
