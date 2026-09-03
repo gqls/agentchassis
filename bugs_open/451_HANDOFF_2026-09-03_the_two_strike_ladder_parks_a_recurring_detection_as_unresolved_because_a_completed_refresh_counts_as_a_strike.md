@@ -11,8 +11,9 @@ as the discriminator, so it could have come out otherwise (rows without the pref
 
 ## What the owner sees
 
-boxingonline.com (`d2aa5206-73bc-4707-a69c-2702c1eb9152`): `analytics.gtm_container_id`
-was written into `site_specs.site_config` on 2026-09-02 (~20:xxZ, analytics lane) and the
+boxingonline.com (`d2aa5206-73bc-4707-a69c-2702c1eb9152`): `analytics.gtm_container_id = GTM-PQ3WCTBD`
+was written into `site_specs` (aspect `site_config`, `data->'analytics'`, `is_current=true`,
+`updated_at` 2026-09-02 20:10:33Z — one row; the `sites` row carries no GTM id) by the analytics lane and the
 consent-banner block (STY-060) into all three head templates at 20:55:43Z. Both reach a site
 only when its chrome is re-rendered. As of 2026-09-03 08:3xZ the served pages and all three
 `site_components` rows (updated 16:27:55Z on 09-02, before either write) carry neither.
@@ -139,3 +140,31 @@ candidate 3 it must fall.
 - `bugs_open/149` — the discovery checker-layer queue.
 - The rebuild_blog_listing duplicate-key failure in `b6c4eded` is a separate defect (an
   idempotency gap in the rerender-pages workflow) and is NOT filed here — grep before filing.
+
+## Diagnosis loop verdict (read 08:49Z, 2026-09-03) — UNVERIFIABLE, stopped `scope-not-narrowing`; both stated gaps answered first-hand here
+
+Row `0639080d` ran 08:40→08:47Z: **NOT CONFIRMED (stopped: scope-not-narrowing)**, no fix
+proposed, "hand to a human with the full trail". Not a refutation — the loop cited
+`check_integrity.go:(*StaleSiteComponentsCheck).Run` filing `needs_rerender`/`stale_chrome` and
+then could not widen its bundle to the two things it named as still needed. Both are in this
+file now, read at the code and the rows rather than asserted:
+
+1. *"cannot verify check_integrity.go uses `WorkItemSpec` rather than building `workItem`
+   directly"* — the check appends a `WorkItemSpec` to `result.WorkItems`
+   (`check_integrity.go` ~:420–434), and the ONLY consumer,
+   `platform/orchestration/actions/discovery_checks.go:238–255`, copies it into
+   `insertWorkItem(ctx, tx, workItem{siteID, pageID, source, pipeline, itemType, severity,
+   summary, spec, priority, handlerAgent, status, createdBy, itemKey, batchID}, …)` — **no
+   `recurrenceExpected` in the literal**, so it is the zero value for every discovery check.
+   The exemption is unreachable at the call site, not merely absent from the struct.
+2. *"no `site_components`/`site_specs` rows for the site in the bundle"* — `site_components`
+   for `d2aa5206`: three rows (head 41,421 B / header 2,271 / footer 2,289), all `updated_at`
+   2026-09-02 16:27:55–56Z, none containing `GTM-PQ3WCTBD` or `cc_v1` `[MEASURED 2026-09-03
+   08:35Z]`; `site_specs`: exactly one row for the site contains the container id (aspect
+   `site_config`, `data->'analytics'->>'gtm_container_id'`, `updated_at` 20:10:33Z on 09-02),
+   i.e. the render input moved AFTER the last chrome render and BEFORE the parked detection.
+
+This is the fourth `UNVERIFIABLE`/`scope-not-narrowing` on a well-posed symptom in two days
+(the components lane's three on `bugs_open/425` §2 are the others) — recorded as a signal
+about the loop's reach on symptoms whose evidence spans a producer, a converter, a loader and
+two tables, not as doubt about the mechanism.
