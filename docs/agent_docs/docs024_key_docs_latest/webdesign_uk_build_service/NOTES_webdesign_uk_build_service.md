@@ -8056,3 +8056,13 @@ lane's per the ownership ruling.
   reading. ⚠ My watcher `buyp8fxz3` exits when the PARENT `ec92320f` completes (which is when the
   children are CREATED); its guides-index history read at that moment is the child-creation
   checkpoint, NOT the result. A second watcher on the child for `2e738efd` is owed then.
+- **Diagnosis `0639080d` came back (08:49Z): UNVERIFIABLE, `scope-not-narrowing`, no fix.** Its two
+  "still needed" items were real gaps in MY verification too, and are now closed at the code and
+  the rows (bug 451 §"Diagnosis loop verdict"): (1) the WorkItemSpec→workItem converter is
+  `discovery_checks.go:238–255` and sets no `recurrenceExpected` — the flag is unreachable at
+  the call site, not just missing from the struct; (2) the GTM id lives in ONE `site_specs` row
+  (aspect `site_config`, `data->'analytics'`, updated 09-02 20:10:33Z) — NOT in a column called
+  `site_config`, which my bug file and the handoff had repeated from the analytics lane's
+  wording and which my own 21:0xZ query had already reported as "column does not exist" without
+  my noticing. Corrected in the bug file. Fourth scope-not-narrowing on a well-posed symptom in
+  two days (components lane ×3).
