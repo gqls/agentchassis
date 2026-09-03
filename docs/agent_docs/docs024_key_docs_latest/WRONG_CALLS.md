@@ -61404,3 +61404,30 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   A mutation harness needs a three-way check, not a grep.
 - **Cost.** One repeated run, ~3 minutes. The mutation was genuinely red when actually executed,
   and the file was restored byte-identical (verified with `diff -q`).
+
+- **2026-09-03 — bugfix_361_render_check_ratchet — I shipped a fix whose distinguishing arm was
+  UNREACHABLE on today's data, so my end-to-end run could not have told me it was wrong.** Two
+  defects went into `051c73d1e`: the covered set was collected after the static-template `continue`
+  (so 27 components today / 37 at baseline cut were exempt — *larger* than the 24-component hole the
+  fix exists to close), and coverage was stored canonicalised (so an EDITED clone, which by design
+  loses its representative, was vouched for by nothing and silently stopped being watched). A plan
+  review caught both; I verified each at the code before acting.
+  ⚠ **The trap is that the live run agreed with me before AND after the correction** — 18
+  regressions, 460 unbaselined, exit 1, identical. Not a coincidence: today's baseline is the
+  *legacy* format, where coverage is derived from the keys either way, so the raw-vs-canonical
+  branch is **not executed at all** and can only bite once a baseline is regenerated. I had run the
+  tool against the real library, seen the number I predicted, and taken it as confirmation of a code
+  path the run never entered.
+  **The cheap check:** for every branch you add, ask *what artefact makes this branch execute?* —
+  and if today's data cannot reach it, say so out loud and test it synthetically. My unit tests DID
+  cover the classifier, which is why the mutations discriminated; what neither the tests nor the
+  live run covered was the *collection point*, and that is the half where both defects lived.
+  ⚠ **Second lesson, about the review itself:** the same review corrected a figure I had written
+  into my PLAN — "analysed-and-clean is the healthy majority" — which was **17% (24 of 139)**, and
+  which I had never measured. It was a plausible-sounding quantity in a document whose entire
+  argument is that quantities must be measured, and it survived because it was decorative: nothing
+  depended on it, so nothing tested it. **An unmeasured figure that load-bears nothing is the one
+  most likely to reach a reader unchallenged.**
+  Tally: **shipped-a-branch-today's-data-cannot-execute** ×1,
+  **live-run-agreed-before-and-after-so-proved-nothing** ×1,
+  **decorative-figure-invented-in-a-measurement-document** ×1.
