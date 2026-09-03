@@ -149,6 +149,15 @@ becomes an invalid bearer header.
   NOT registered at Dynadot — `aakn.com` (Porkbun) appraised at $4,554 with no
   special handling. So the whole retail estate is appraisable via this one
   account's quota, not just the Dynadot-registered slice.
+- **⚠⚠ NOT AN INVENTORY LOOKUP — it's a keyword valuer, MEASURED 2026-09-03**
+  (domain_valuation lane, taken further): appraises ANY domain string, owned
+  or not, registered anywhere or nowhere — `mortgagecalculator.com` $64,597,
+  `chicklets.com` $22,753, neither ours. **This is the mechanism, not a side
+  effect**: it prices the STRING in that TLD's market, so it can proxy-value a
+  `.co.uk` name by appraising its `.com` equivalent (with a TLD multiplier and
+  labelled as a proxy — never presented as a direct appraisal). One curiosity:
+  `google.com` returns **HTTP 400** `"The price is too high"`, its own kind of
+  answer rather than a number.
 - **⚠ TLD COVERAGE gap, MEASURED 2026-09-03** (domain_valuation lane): covers
   `.com`/`.net`/`.uk` — confirmed working (`adapting.uk` $8,138,
   `gardening-tools.net` $197). Does **NOT** cover `.co.uk`/`.org.uk`/`.me.uk` —
