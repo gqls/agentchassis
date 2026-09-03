@@ -532,3 +532,67 @@ its own once 454 ships". 454 shipped, the data resolves, and the page still show
 state. Corrected in place there. The lesson is one this lane has now hit twice in a day:
 **"it will work once X lands" is a prediction about a chain, and I had verified only my own
 link.**
+
+---
+
+## 2026-09-03 (15:10 UTC) — the fixture is on the page, and a shared-tree race taught the sharpest lesson of the day
+
+**Both prerequisites finally lined up.** `29b40e8bc` (450's guard fix) rolled in a second chassis
+build (`v1.0.1359`), and this time the check that mattered was NOT "did the pods restart" — it
+was "did the guard fix's commit actually get shipped, checked by arithmetic against the running
+commit's own timestamp", because the FIRST reported "fresh build" this afternoon (`v1.0.1358`)
+turned out to be no roll at all: same standing pods, same commit, started before `29b40e8bc` even
+existed. Recorded that as a dated negative in the handoff rather than acting on the claim.
+**This time it was real** — new pods, new commit, `merge-base --is-ancestor` clean on both fixes.
+
+Re-dispatched immediately. `COMPLETED`, all the way through `save_sections` (the step that had
+refused twice today) into `render_page` and `deploy_page`. `items` 0→1, html 1,813→2,498 bytes.
+Traced the deploy past the job status to the actual GitHub Actions "Sync to B2" step —
+`delete .../index.html (old version)` then `upload .../index.html` — which is the standard this
+lane set for itself yesterday and should not have been tempted to skip today given the time
+pressure of a "wrap up for a new chat" request.
+
+**Closed `bugs_open/454`.** Genuinely fixed, live, and its effect proven through the real
+production pipeline rather than a test — that meets CLAUDE.md's bar cleanly. Moving it to
+`bugs_closed/` produced the most instructive incident of the whole day, worth recording in full
+because every step of it was a real trap, not padding.
+
+**The race, exactly.** I appended a closure section and ran `git mv` to relocate the file.
+Unbeknownst to me, the `components` lane — working `bugs_open/425`, an unrelated two-day-old
+regression that turned out to BE this bug — had appended their own CONTRIB to the same file
+**seconds before** my move, so `git mv` correctly carried their content along with mine to the
+new path. Then their own commit, independently in flight, named the OLD path as its pathspec.
+By the time it executed, the file no longer existed there (I'd moved it), so a pathspec commit —
+which reads the **working tree**, not the index — recorded a clean 477-line **deletion** with no
+corresponding add anywhere. For a few minutes, `HEAD` held **zero** copies of a file two
+sessions were actively writing to.
+
+**Nobody's fault, and nobody made it worse.** The `components` lane did exactly the right thing:
+noticed via `git ls-tree -r HEAD`, diagnosed it precisely (parent commit has the content, my
+index still holds the full file staged), and **declined to fix it themselves** — "the move is
+your close decision" — flagging it instead. That restraint is what kept it a two-minute repair
+instead of a second collision. I restored by naming only the surviving path (the old one no
+longer matches anything git knows, so naming it errors) and verified at `HEAD`, not the tree,
+before saying anything was fixed.
+
+**The transferable shape, distinct from the already-logged same-file-passenger landmine**: that
+landmine is about a `git mv`'s OWN two-sided commit dropping half of itself. This is different —
+a THIRD PARTY's ordinary, correctly-formed pathspec commit, aimed at a path that used to be
+correct, executing during the exact seconds a `git mv` invalidated it. Worth its own line in
+LANDMINES rather than folded into the existing entry, because the fix is different: the existing
+entry says "name both paths on your own move commit"; this one says "a pathspec commit can be
+made wrong by SOMEONE ELSE'S concurrent move, and the tell is `git ls-tree -r HEAD` returning
+zero rows for a file you know exists somewhere."
+
+**Two content corrections folded into the closed file, both from the same peer, both real:** my
+§14 had framed a still-unconfirmed canary as evidence for a question it could never have
+answered (the value predated the regression entirely, planted by a build, not a re-render) —
+caught before it could mislead a future reader into citing an unconfirmed line as settled. And
+the closure claim needed one enumerated exception (`component_id NULL` rows, structurally
+unreachable by this fix) rather than reading as an unqualified "every light re-render now
+works".
+
+**427 itself**: everything upstream of the artefact is now proven. What is left is not code —
+it is a decision about `site_plan_sections`' immutability (§19) and a downstream detector's own
+schedule (the nightly `experience_loop` reclassification). Written up as the lane's actual
+remaining state rather than left implicit.
