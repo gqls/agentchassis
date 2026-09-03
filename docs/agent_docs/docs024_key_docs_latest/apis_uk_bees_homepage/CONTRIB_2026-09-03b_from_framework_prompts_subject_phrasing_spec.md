@@ -80,3 +80,30 @@ would be a fabricated claim:
 
 Before swapping them, grep for other readers of 640's applied example strings ("What the platform does",
 "How a team adopts it"); the apis.uk lane holds that due-diligence step.
+
+---
+
+## Addendum, 2026-09-03 evening, from the first live build under A4 (finetuning.uk/technical-details)
+
+Two things the first real run showed, both of which bind anyone writing subjects.
+
+**7. A short subject invites a short section, and the shrink floor reads short as truncated.** On
+`your-own-model` the writer followed a 46-character hero subject and produced a 212-character hero
+against an existing 429-character one, so `save_page_sections` refused the WHOLE PAGE at 49% kept
+against the 50% floor (`bugs_open/178`). The floor exists to catch a truncated rewrite and cannot
+tell that apart from a deliberately tighter opening. **So when re-authoring subjects for a page that
+already has long copy, either keep the subject substantial enough to carry a comparable section, or
+expect the floor to refuse and plan for it.** This is a real interaction between A4 and the floor,
+not a fault in either.
+
+**8. The subject is NOT the loudest instruction in the prompt, and on a page with several same-typed
+sections it currently loses.** Measured on the first build: the A4 block rendered correctly in all six
+prompts, each carrying its own subject and its five siblings, and three of the generic-text-blocks
+still opened on the same topic. The reason is upstream of anything in this spec: the page's whole brief
+is rendered into EVERY section's prompt under "## Rewrite Guidance (IMPORTANT: incorporate this into
+the content)", byte-identical across the six (md5 `b4fd73f0…`, 3,295 chars each), and it is 2.6 KB
+later in the prompt than the subject block. Each section is therefore told, in the prompt's most
+emphatic register, to incorporate material the same brief assigns to its siblings. Filed as a diagnosis
+run rather than patched here, because the cause is not in the block and a second edit to the block
+would paper over it. **Until that is resolved, a well-written subject is necessary and not sufficient**,
+and a page whose sections converge is not evidence that its subjects were written badly.
