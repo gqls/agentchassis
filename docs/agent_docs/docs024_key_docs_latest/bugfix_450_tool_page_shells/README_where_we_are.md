@@ -105,3 +105,48 @@ planner from inventing these pages in the first place — is designed but not wr
 offered it to the session whose framework I would be borrowing, since it is their design and they
 may prefer to own it. Meanwhile the seven seotools tools have all been built by the other session
 and are queued to publish, so the pages you were told about are being fixed on their own track.
+
+---
+
+**2026-09-03, afternoon — both halves are done and approved. Still nothing live, and I want to be precise about that.**
+
+The second piece is written too: the planner will stop inventing tool pages whose tools do not
+exist, rather than us catching them downstream. Both pieces went through the platform's automated
+review council and both were approved.
+
+**The approvals are the least interesting part, and I would rather tell you what the reviewers
+caught.** On the first piece, all four of their substantive objections pointed at something I had
+asserted rather than checked — and one of them was simply false: I had written that a particular
+database field had never been changed by anything, and six older maintenance scripts change it.
+The conclusion I had drawn from it still holds for a narrower and better reason, but the claim was
+wrong and it was sitting in the code where the next person would have believed it. On the second
+piece, a reviewer asked for the riskiest behaviour to be pinned by a test — and the comment in my
+code already claimed that test existed. It did not. I had written the description of the test and
+not the test. Both are now written up in the fleet's log of wrong calls under my name, and the
+missing test exists, along with a second one proving the first is not vacuous.
+
+**What is live: nothing.** The server image running today was built before any of this. The
+database change is written, rehearsed against the real system inside a transaction I rolled back,
+and deliberately **not applied** — because the sentence it installs tells the planner that a
+validation is running, and that will not be true until the code ships. I would rather hold it than
+ship a prompt that asserts something false.
+
+**Three other sessions were involved and all three made the work better.** One caught that my
+count of affected pages was a floor rather than a total — the query I had repeated five times
+could not see the very case I had been calling my best evidence. One asked me to protect a
+sentence in a shared configuration row that their live detector depends on; without it, a change
+of mine could have made their detector look like it was reporting a different problem entirely.
+One confirmed a detail from its own source and warned me not to record any fixed position or
+length — which caught a figure in my own file that was already out of date within the hour,
+because three sessions edit that row.
+
+**The honest weak point, written down rather than buried.** The second fix rests on a measurement
+that nothing in the system reads these planned pages. That is a statement about absence, and
+statements about absence quietly stop being true when someone adds something. If a future process
+starts reading them, my gate would starve it silently. Turning that assumption into a standing
+check is the most valuable next thing to build here, and it is named as such.
+
+**Next:** when the next server roll happens, prove the fix by watching a real piece of queued work
+be refused with a receipt — not by observing that no new bad pages appeared, which would prove
+nothing unless something had tried. Then apply the database change. The seven seotools pages are
+being fixed on the other lane's track and are queued to publish.
