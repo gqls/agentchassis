@@ -42,8 +42,29 @@ TIERS = [
 
 # Categories whose commercial demand is thin on the evidence we have.
 # Marked, not auto-sold — the cut is by whole blocks and is the owner's.
-THIN_EVIDENCE = {'foreign-language', 'names-places', 'generic-word', 'misc',
-                 'packaging-print'}
+# ⚠ 'generic-word' was in this set until 2026-09-03 and that was BACKWARDS.
+# A single English dictionary word is the most valuable class in a domain
+# portfolio, not a thin-demand one: it was penalising cartoon.co.uk -25% (the
+# owner paid £5,000+ for it) and 52 others. Removed on evidence, not taste.
+THIN_EVIDENCE = {'foreign-language', 'names-places', 'misc', 'packaging-print'}
+
+# A single dictionary word with no hyphen or digit. These are the estate's
+# premium end and the model cannot price them: only 4 of 144 have an appraisal,
+# and the two we have owner figures for (cartoon.co.uk £5,000+ paid,
+# free.co.uk "sold for a lot of money") are both far above anything the model
+# would produce. So they are HELD OUT of the keen tail for the owner's eye
+# rather than auto-priced — the same treatment as a name that looks bought.
+try:
+    _DICT = {w.strip().lower() for w in open('/usr/share/dict/british-english')
+             if "'" not in w and len(w.strip()) > 2}
+except OSError:
+    _DICT = set()
+
+
+def is_single_word(domain):
+    sld = domain.split('.')[0].lower()
+    return ('-' not in sld and not any(c.isdigit() for c in sld)
+            and sld in _DICT)
 
 
 def quality(row):
@@ -141,6 +162,8 @@ def main():
         # stock — checked FIRST, because it outranks every other reason.
         if r['registrar'].startswith('NOT-OWNED'):
             keen_out, sell = '', r['registrar']
+        elif is_single_word(d) and not r['dynappraisal']:
+            keen_out, sell = '', 'PREMIUM-REVIEW:single-word'
         elif r.get('quote_with'):
             # Owner-ruled quote-together group: a standalone price for one of
             # these is the exact mistake the ruling exists to prevent, so the
