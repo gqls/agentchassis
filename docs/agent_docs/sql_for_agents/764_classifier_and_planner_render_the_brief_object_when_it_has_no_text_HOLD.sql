@@ -3,6 +3,27 @@
 -- bugs_open/453 (the 453 lane's SUMMARY: "the fix lives at the opposite end of the system and belongs
 -- to whoever takes it" — taken by portfolio_positioning, 2026-09-03 evening).
 --
+-- COUNCIL ROUND 2 (same correlation, run b07fdcdd, 2026-09-03 ~21:2xZ): **APPROVED** — 4 advisory
+-- objections, none high-severity. Each, and how it stands:
+--  * editquality: per-replacement anchor uniqueness — ASSERTED in the body (a_m and a_r counted
+--    separately, each must be exactly 1) plus an exact length-delta check that fails if either anchor
+--    matched more than once; the "identical {{else}} arms" landmine does not bite because the anchors
+--    are the .text expressions, not the else-arms.
+--  * editquality: rollback picks DISTINCT ON (type) ORDER BY snapshot_taken_at DESC among rows whose
+--    snapshot_reason LIKE '764_%' — the two-arg snapshot_agent(type, reason) overload writes that column.
+--  * editquality: three files in one submission — admitted and approved server-side; moot.
+--  * tooling_provenance ×2: a doc_notes decision record per agent — WRITTEN (see the doc_notes rows
+--    tagged 'migration-764', same evening) so the next fix on either agent inherits this context.
+--  * guardian: the 734 postmortem — portfolio_positioning NOTES entries (ll)/(mm)/(nn), WRONG_CALLS
+--    2026-09-03 "testing a query with a literal substituted for the parameter", RFC_037 corrected.
+--    764 differs in kind: 734 added a query_database step whose $1 was never bound (a RUNTIME failure
+--    no shape check could see); 764 changes only the text of a template that is parsed and executed
+--    by the fleet's own renderer in the proof, and the header still mandates a post-apply run.
+--  * bug_historian: the generic root (missingkey renders a hole silently) — PRC-003 is that fix's
+--    read-side half, built the same day; this file is the content-side complement.
+--  * reuse_agent: no existing HOLD-migration render harness was found (the other lanes' render_test
+--    dirs are standalone engines, which is precisely what round 1 objected to).
+--
 -- COUNCIL ROUND 1 (888e7319, 2026-09-03 19:47Z): REVISE — gating objection from bug_historian. Every
 -- objection answered below with evidence, and the file revised; resubmitted on the SAME correlation.
 --
