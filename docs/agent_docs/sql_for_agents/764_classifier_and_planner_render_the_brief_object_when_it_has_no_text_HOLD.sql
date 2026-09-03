@@ -3,6 +3,8 @@
 -- bugs_open/453 (the 453 lane's SUMMARY: "the fix lives at the opposite end of the system and belongs
 -- to whoever takes it" — taken by portfolio_positioning, 2026-09-03 evening).
 --
+-- COUNCIL: submitted 2026-09-03 ~20:1xZ, SUBMISSION_CORR 888e7319-01ae-4371-846d-76fe227a1ebc (run orch 33a3f8e0…).
+--   Verdict: SELECT body FROM doc_notes WHERE categories ? 'council-gate' AND body LIKE '%888e7319%' ORDER BY created_at DESC LIMIT 1;
 -- _HOLD: applied BY HAND after the council verdict and at a moment of the owner's choosing — it changes
 -- what two shared agents see on every run. Nothing about ordering; the guard checks DRIFT (md5 pins).
 --
