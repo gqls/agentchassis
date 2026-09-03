@@ -25,21 +25,43 @@ redrafted 641 applies. So served h2s still repeat everywhere. That is expected, 
 
 ## What is LEFT before this lane can close (the bar is fixed AND LIVE — served pages no longer repeating)
 
-1. **Stage A (unblocked now, days not weeks).** finetuning lane backfills subjects for
-   `your-own-model` (+ their other 3) — THEIRS, agreed twice, ping delivered 09-03 with the
-   ~300s post-restart dispatch caution. Then THIS lane verifies: `sections_ready[].subject`
-   populated in the orchestration row for the three generic-text-block slots, and the
-   detector QUIET on that page. The demand control (a subjectless repeat still firing) is
-   already satisfied by the live rows below. If finetuning stalls, the backfill query
-   template is in the RUNBOOK and the briefs are in each page's `needs_content_page` item
-   (`spec.suggestion`).
+1. **Stage A (IN FLIGHT as of 09-03 morning).** Backfill DONE for 3 of 4 pages (playground,
+   your-own-model, technical-details — three `UPDATE 1`, read-back 6/6 each, finetuning
+   09-03; phrased to complete "You'll want to know ___" per the CONTRIB in this dir).
+   `our-position-on-ai` left NULL — no needs_content_page brief to derive from — RESIDUAL for
+   item 4. **Canary is `technical-details`, NOT your-own-model** (finetuning's call:
+   same defect shape, verbatim ×3, and not the £99 page the owner is currently reading;
+   your-own-model is reserved for Stage B's before/after). Dispatching at time of writing.
+   THIS lane then verifies: `sections_ready[].subject` populated for the three
+   generic-text-block slots in the orchestration row, and the detector QUIET on that page
+   (demand control already satisfied by the live rows below).
+   **⚠ PIN THE PATH on any rebuild you dispatch: page-build-handler via a triaged
+   `needs_content_page` item (build_status flipped to `planned`) — that is the ONLY workflow
+   containing `load_page_sections_from_spec`. The page-rebuild agent (`spawn_content_writer`
+   path) has no such step and structurally CANNOT exercise this fix** (finetuning, verified
+   against the workflow configs 09-03).
 2. **Redrafted 641 lands** — NOT ours (apis.uk's file, owner's framing pick pending,
    finetuning test-renders incl. the untested sibling-range arm). We only wait. Nudge the
    apis.uk lane if a week passes.
-3. **Stage B (after 641):** rebuild the canary; assert served h2s DISTINCT
-   (curl + invented-URL control); tier-1 control page passes same assertion; **SAVE the
-   before/after served-HTML pair and point to it from 443's close-out — OWED to
+3. **Stage B (after 641):** rebuild `your-own-model` via the SAME pinned path; assert served
+   h2s DISTINCT (curl + invented-URL control); tier-1 control page passes same assertion;
+   **SAVE the before/after served-HTML pair and point to it from 443's close-out — OWED to
    copy_quality_two_stage** (they cancelled their proposal on this page for us; NOTES 09-02).
+   **⚠ VERIFIED CONDITION (09-03, at the deciding arms): the rebuild item must leave
+   `spec.mode` UNSET.** finetuning flagged that Edit Mode might preserve the old h2s; checked:
+   `load_existing_content` no-ops unless `mode=="recreate"` (adoption only,
+   load_existing_content_action.go:64-69) and `load_current_section_content` no-ops unless
+   `mode=="edit_live"` (the 178 rewrite channel; opt-in per the 2026-08-02 ruling). Mode
+   unset ⇒ full regeneration ⇒ the assertion is sound. Assert the item's spec carries no
+   `mode` key before dispatching, and quote both no-op arms if anyone doubts it.
+   **641 render facts** (finetuning → apis.uk CONTRIB, 09-03): owner picked framing C
+   ("You'll want to know {subject}"); `sections_for_render` is NOT in the writer's
+   `generate_content.input_fields`, so the sibling list renders silently EMPTY unless 641's
+   seed adds that key AND asserts it in its verify block; current-section exclusion is BY
+   SUBJECT (names repeat) — hence the distinct-subjects rule in the RUNBOOK. The prompt
+   redraft itself now has its own lane:
+   `framework_prompts_positive_voice/HANDOFF_2026-09-03_continue_here.md` (lists 443 as
+   in-flight, ours).
 4. **The other 7 damaged pages** (gaswholesalers 4, ai-agent-orchestration 3 — no owning
    lanes known): after Stage B proves the mechanism, write their subjects (briefs exist per
    page) + rebuild, or hand to the sites' next lanes explicitly. finetuning's remaining 3 are

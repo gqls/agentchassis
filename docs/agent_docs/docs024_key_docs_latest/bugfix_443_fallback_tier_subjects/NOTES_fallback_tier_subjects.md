@@ -215,3 +215,16 @@
 - **Finetuning pinged** (owed ping delivered; note their previous session ended — bare-name
   send reached the NEW session under the same name): backfill is go, ~300s dispatch caution
   flagged, Stage A assertions restated.
+- **09-03 mid-morning, from finetuning (new session):** backfill 3/4 done (playground,
+  your-own-model, technical-details; UPDATE 1 ×3, read-back 6/6; `our-position-on-ai` NULL —
+  no brief). **Canary switched to `technical-details`** (owner is reading the £99 page right
+  now; your-own-model reserved for Stage B). Their phrasing CONTRIB is in this dir → RUNBOOK
+  template gained the "You'll want to know ___" + distinct-subjects rules. **Path pin
+  (theirs, load-bearing): only page-build-handler contains load_page_sections_from_spec — a
+  spawn_content_writer "rebuild" cannot exercise the fix.** Their Edit-Mode caution CHECKED
+  by me at the deciding arms: both loaders are opt-in (`mode=recreate` / `mode=edit_live`),
+  so Stage B is sound iff the rebuild item leaves spec.mode unset — pinned in HANDOFF §Stage B.
+  641: owner picked framing C; two render findings with apis.uk (sections_for_render missing
+  from input_fields → silent empty sibling list; exclusion by subject); redraft now owned by
+  the new framework_prompts_positive_voice lane. They also independently re-probed both
+  v1.0.1355/1356 pods — my probe corroborated.

@@ -68,7 +68,12 @@ WHERE type='page-build-handler' AND is_active AND COALESCE(is_snapshot,false)=fa
 
 ```sql
 -- subjects must be SAME LENGTH and SAME ORDER as pages.sections, one entry per slot,
--- null for slots that need none. Verify alignment in the same statement you write:
+-- null for slots that need none. Verify alignment in the same statement you write.
+-- PHRASING (owner's chosen 641 text, CONTRIB in this dir): every entry must complete
+-- "You'll want to know ___" — lower case, no em dash ("how the hour works", not
+-- "Hour structure"). And keep subjects DISTINCT within one array: the 641 sibling
+-- list excludes the current section BY SUBJECT, so duplicates silently drop both
+-- from each other's lists. null drops out of the list cleanly (render fixture E).
 UPDATE pages SET section_subjects = :subjects::jsonb
 WHERE site_id = :site_id AND name = :page
   AND jsonb_array_length(sections) = jsonb_array_length(:subjects::jsonb);
