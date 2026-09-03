@@ -227,6 +227,25 @@
 --    acceptance vehicle, or a hand-run of the fence against
 --    `leopardessconsulting.co.uk/services.html`** — the one live carousel placement, which
 --    means this can be answered BEFORE apply.
+--    ⚠⚠ **THAT PAGE IS A PAYING CLIENT'S LIVE SITE**, flagged by the copy_quality_two_stage
+--    lane and confirmed in the owner's own record (`about_page_commercial/
+--    PLAN_2026-07-24_about_page_commercial.md` D4, verbatim: *"a paying client's site
+--    (leopardess)"*). **It remains the correct target, on measured grounds: THE FENCE WRITES
+--    NOTHING.** `internal/adapters/browserrunner/` contains zero `INSERT INTO`/`UPDATE … SET`;
+--    `check_tool_acceptance.go` files no work item and triggers no rerender on failure;
+--    screenshots go to the runner's own store. What it does to the site is an HTTP GET of an
+--    already-served page.
+--    **AND THE RISK ORDERING INVERTS.** [MEASURED 2026-09-03 16:15:50Z] leopardess/services is
+--    the ONLY live placement with the `carousel` key set at all, so a "safer" portfolio target
+--    (finetuning.uk has one `info-card-grid` instance and no flag) would first require a
+--    `content_data` write plus a rerender — **choosing the portfolio site to avoid touching a
+--    client site means performing the very write the concern is about, aimed elsewhere.** The
+--    client page is lower-impact precisely because nothing has to change for it to be testable.
+--    ⚠ **This grounding EXPIRES if the fence gains a write** (screenshot store wired on, a
+--    failure path filing a repair item, an acceptance flow triggering a rerender). **Re-run
+--    those two greps before hand-running it**; if either stops coming back empty, create a
+--    carousel placement on a portfolio site and accept the write there. Full reasoning:
+--    `doc_notes` subject_type=`component`, subject_key=`info-card-grid`, 2026-09-03 16:16Z.
 --
 -- 3. `bug_historian` (medium/low) and `debug_historian` (low) are registered, not disputed:
 --    a shared-component default with no staged rollout fans out to every dependent instance
