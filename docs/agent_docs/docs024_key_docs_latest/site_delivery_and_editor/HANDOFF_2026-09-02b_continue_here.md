@@ -74,6 +74,7 @@ EXPECTED pre-convergence shape, not a failure).
 > A refusal (guard) leaves the interim mark in place — not a failure of this test, a data
 > point. Watcher armed; 424 lane + boxingonline session told. The three portfolio resets
 > (424 lane, 09:23:49Z) run in the same window — read all four.
+   > **ALL FOUR READ, and the incident is CLOSED (14:33Z, the 424 lane reporting their three):** seotools colour type 6 / 92.21% transparent · websitepromotion 87.4% · designblog (final retry) colour type 6 / 88.5%, dark-marked so no light-background legibility risk · boxingonline colour type 6 / 80.10% at the SERVED bytes. Four of four verified at the bytes, none at a guard score. The incident's own cause — a guard that scored a 0%-transparent failure 1.000 — is fixed in `fcbe6071c` and live since v1.0.1356; the mid-incident blocker (Gemini prepayment credits depleted, `bugs_open/455`) was the owner's top-up. Closing `bugs_open/424` is the 424 lane's call, not this lane's.
    > **RESULT 12:10Z: THE LOGO GENERATED, AND IT IS RIGHT — at the bytes and by eye.**
    > `d71b7877` COMPLETED 12:06:58Z (its `error` column still shows the earlier 429 text; the
    > `result` says `asset_stored: true`). Asset `20ce80fb` now points at
