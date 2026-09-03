@@ -18,22 +18,34 @@ tail (09-02/09-03 entries are the full trail). The owner does NOT want this lane
   677/678/679 applied (single-row-guarded, snapshotted). Register CQ-033.
   **⚠ THE ONE OWED READ — the planner prompt canary — is STILL OPEN, and it is the first
   thing to check:** no planner/designer has produced an LLM call since the opt-ins.
-  `SELECT id, agent_type, created_at, position('stands comparison with the strongest sites'
-  IN prompt_rendered)>0 AS has_standard, position('{{.build_standard}}' IN prompt_rendered)>0
-  AS unrendered FROM llm_call_log WHERE agent_type IN ('content-gap-planner',
-  'build-site-planner','visual-designer') AND created_at > '2026-09-02 18:45Z';`
-  Expected: has_standard=t, unrendered=f. ANY organic run answers it (a new site build fires
-  build-site-planner). Hand-fire history: THREE receipted publishes of a content-gap-planner
-  envelope at finetuning.uk (scratchpad recipe adapted from fire-copy-editor.sh; corrs
-  f7dcbe80 / c1a52052 / **5dcc3476** — the last published ~09:20Z 09-03, NOT MINTED at
-  handoff, monitor bfn4yet8k watching). Drop taxonomy: drop 2 = the documented ~300s
-  post-restart spawn window (08:58Z roll); **drop 1 is UNDIAGNOSED and family-specific** —
-  receipted publish, zero mint, zero consumer trace, while **16 cli-copyedit envelopes minted
-  through the same topic the same day** (`SELECT client_id, count(*), max(created_at) FROM
-  orchestration_states WHERE client_id LIKE 'cli-%' GROUP BY 1`). If fire 3 also fails to
-  mint: FILE the dispatch bug (symptom + that census, cause undiagnosed, 090 candidate) and
-  note the corroborating 28h-unclaimed `missing_mortgage_lender_directory_section` item for
-  content-gap-planner. Do NOT keep re-firing.
+
+  > **CORRECTED 2026-09-03 ~10:30Z — the drop taxonomy below was WRONG, and so was the
+  > canary's needle. There is NO dispatch bug; do not file one.** All three fires were
+  > published, consumed and **REFUSED AT INTAKE** within seconds, durably recorded:
+  > `agent_error_log` → `INCOMING_MESSAGE_REJECTED`, *"missing required header(s): client_id,
+  > orchestration_id"* (20:14Z→20:15:21Z · 08:23Z→08:23:50Z · 09:14Z→09:14:10Z). Those two
+  > fields are required as **Kafka headers**; the scratchpad envelope carried them only in the
+  > payload's `headers` object, which intake does not read. `fire-copy-editor.sh` sends them as
+  > `--header` flags — hence "16 cli-copyedit minted, gapplanner never": **script**-specific,
+  > not family-specific, and indistinguishable from `orchestration_states`. "Zero consumer
+  > trace" was measured with a blind grep (`-l app=agent-chassis` = 2 pods; 93
+  > `app=dynamic-agent` pods do the work) — a correlation that provably landed also returns 0.
+  > **Use `scripts/fire-content-gap-planner.sh`** (sends the headers, refuses rather than
+  > dropping, re-checks `agent_error_log` after publishing). ⚠ It is NOT yet run: `apply_plan`
+  > → `apply_gap_plan` **writes to the live site**, so spending a run is the owner's call.
+  > Full trail: `NOTES` tail, `WRONG_CALLS.md` 2026-09-03, `016b` §9. Commit `726a9586c`.
+
+  **The canary needle — use the carrier-only form, NOT the phrase below:**
+  `SELECT agent_type, created_at, position('BUILD STANDARD (applies to every site, regardless
+  of inputs). Aim' IN prompt_rendered)>0 AS has_standard, position('{{.build_standard}}' IN
+  prompt_rendered)>0 AS unrendered FROM llm_call_log WHERE created_at > '2026-09-02 18:38Z';`
+  Expected: has_standard=t, unrendered=f. `[MEASURED 2026-09-03 ~09:50Z]` **0** rows carry the
+  carrier form and **0** carry an unrendered placeholder, fleet-wide. ⚠ **Do NOT use
+  `stands comparison with the strongest sites`** (the superseded needle): it also matches
+  `domain-research-classifier`'s own hard-coded copy of the block — seeded 2026-06-21, ten weeks
+  before carrier 675, and named in 675's `source` as where the wording came from — so it returns
+  hits that say nothing about injection. ANY organic run answers the canary (a new site build
+  fires build-site-planner).
 - **BANNED_REGISTER v2 live end-to-end**: cut `0c11a8818` (council `fa9744cb` — **APPROVED
   UNANIMOUS**), CLI v1.0.1354 nightly carries it, chassis 1356 carries the Go half. First v2
   nightly (09-03 07:41Z): 11 of 39 brief-supplies; **plain_words' first finding is a MANDATED
@@ -65,6 +77,25 @@ tail (09-02/09-03 entries are the full trail). The owner does NOT want this lane
 6. Whether banned WORDS get a page-side REPAIR arm (today: shapes repair, words detect).
 7. The spec-fed class (any collection-backed section bypasses writer+gate — 706 fixed the
    instance; constitution's medium named the class).
+8. **NEW, and the sharpest of these — CARRIER 675 IS MISSING THE BUILD STANDARD'S SCOPE
+   PARAGRAPH.** Its header asserts the wording is *"verbatim … confirmed byte-identical …
+   with ONE deliberate trim, recorded here"*. There are **two** omissions: the recorded
+   4-word one, and — unrecorded — the entire second paragraph of the source block
+   (`049_domain_research_classifier.sql:2593`; the block runs to the next `##`, so the
+   paragraph is inside it): *"This standard governs QUALITY and FIT, not scope. Do not invent
+   services, pages, features, or facts beyond what the evidence supports; where research is
+   thin, say so honestly… Treat aspirational ideas as direction to be realised at the pace the
+   site's fidelity allows… not as things to force into the first build."* So the three rows
+   that opted in — `build-site-planner/plan_site`, `content-gap-planner/plan_gaps`,
+   `visual-designer/design`, i.e. **exactly the agents that decide what pages and sections
+   exist** — now get "aim best-in-class / favour interactive elements / do what is most useful
+   and interesting" **without** its scope limit. This lane's own ledger describes the block by
+   quoting the missing sentence. **The canary's 0 renders means no planner has consumed it yet
+   — there is a clean window to fix it first.** Not fixed unilaterally: the dropped text is
+   partly classifier-specific (`confidence fields`, `adopted sites`) so it needs generalising,
+   and rewording a live block three planners read is his call. One live migration either way
+   (675's header says as much for the other trim). Trail: `WRONG_CALLS.md` 2026-09-03,
+   commit `c3c96a98e`.
 
 ## The build queue (all sized/scoped, none started)
 
