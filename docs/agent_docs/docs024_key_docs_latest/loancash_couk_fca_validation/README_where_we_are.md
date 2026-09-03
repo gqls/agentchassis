@@ -106,3 +106,67 @@ to now have one. The job I flagged this morning as the last outstanding item is 
 gap is the one I described earlier: a third of our live sites have no register at all, and nothing in
 the system can notice a site that is missing one, because the nightly check builds its list from the
 sites that already have one. That is not this site's problem any more, but it is still somebody's.
+
+## 2026-09-03, later — your four decisions, and where each of them got to
+
+You made four calls this afternoon. Three are done and running; one is waiting on another thread.
+
+**"Fix the loancash wrong sentences" — dispatched.** I have not edited the pages by hand, because
+that is not how this estate is meant to work and you have ruled on it twice. Instead the three
+corrections are now four work items (the £15 one appears on two pages), each carrying the exact
+sentence that is wrong, the rule that governs it, what must be **kept** as well as what must change,
+and a test anyone can run against the live page afterwards. The framework rewrites the copy; I
+supplied the instruction.
+
+Two things about that are worth your knowing, because both would quietly mislead anyone who checks
+later. First, a page re-render was already queued on all four pages twenty minutes before I filed the
+repairs — and a re-render rebuilds the page from its stored content, so it will ship the *same wrong
+words* and report success. Second, there is no automatic verifier for this kind of item at all, so a
+work item saying "complete" is not evidence the sentence changed. Both facts are written into every
+item and into the handoff. There is also a 48-hour clock: if nothing picks these up by Friday
+afternoon, a housekeeping job will mark them "unresolved", which reads like they were processed rather
+than ignored.
+
+**"Build the missing check" — built, live, and I watched it work.** It went in at half past three and
+fired within a minute, filing twelve items — one for each live site with no register. It runs daily.
+
+It is deliberately not a piece of program code but a database job, for a reason worth stating: code
+here does nothing until somebody rebuilds and redeploys the system, and we have a case on record of a
+check sitting switched off for nine days after the thing blocking it was cleared. A database change is
+live the moment it is applied. This also follows a rule you approved earlier for exactly this
+situation.
+
+One design choice I want to flag because it is the same mistake we spent this morning fixing
+elsewhere: the job reports **three numbers every single time it runs** — how many sites are missing a
+register, how many it filed, how many were already queued. The shorter version would have said nothing
+when there was nothing to do, and then "nothing wrong" and "the job never ran" would look identical
+from outside. That is precisely the trap we hit this morning with the other check. Now a missing line
+means it did not run, and a zero is a positive statement of health.
+
+**"A register for each site, but a lower bar for normal ones" — designed, and your instinct matched
+something we had already agreed.** We ruled back on Tuesday that sites sit on one of three rungs
+depending on whether their claims are about themselves or about the world. What you asked for changes
+one line of that: the bottom rung used to mean "no register needed", and now it means "a register, but
+the cheap kind".
+
+I worked out what "cheap" should mean by reading the code rather than guessing, and it comes out
+better than I expected. The anti-slop protection you are after comes from a check that flags any
+number on a page that no registered fact supports — and that check **does not look at sources at
+all**. It only compares the number. So an ordinary site's register can just be its own figures with
+who vouched for them and when: no citations, no nightly fetching, no risk of false alarms, and it
+takes hours rather than half a day. Only sites making claims about the outside world need the
+expensive version with a link and a quoted sentence for every fact.
+
+The honest limit, so nobody discovers it after building twelve of them: that numeric check is
+switched off on guides, blog posts and tool pages, because their body text is instruction rather than
+a claim about the business. It covers landing pages, ordinary content pages and section indexes. That
+exclusion was measured, not guessed, and I would leave it alone.
+
+**"A register for vetcomparison" — asked, no answer yet.** I put two questions to that thread: is it
+theirs or nobody's, and is a register even the right tool for a comparison site, whose numbers may be
+other people's claims rather than its own. That second question could change the whole approach, so I
+would rather wait for the answer than guess. Its item is in the queue either way.
+
+**What is left is a programme, not a decision.** Twelve sites need registers. That is days of work
+rather than an afternoon, and every lane that has done one so far has found real mistakes in its own
+site's live copy — four out of four. The queue now exists and nothing gets lost.

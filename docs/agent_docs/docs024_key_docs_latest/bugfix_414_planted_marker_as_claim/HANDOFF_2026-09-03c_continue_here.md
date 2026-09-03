@@ -24,7 +24,7 @@ previously-ruled table row, so it is struck through in place rather than changed
 | | ruling | state |
 |---|---|---|
 | **D1** | *"we'd want a register for vetcomparison"* | **NOT STARTED — and read §2 before starting.** |
-| **D2** | *"fix the loancash wrong sentences"* | **DISPATCHED.** Migration **739**, 4 items. ⚠ two clocks — §3. |
+| **D2** | *"fix the loancash wrong sentences"* | **DISPATCHED 14:18:45 UTC.** Migration **739**, 4 items. ⚠ two clocks — §3. |
 | **D3** | *"build the missing check and fill the missing data"* | **CHECK LIVE AND OBSERVED RUNNING** (mig **742**, CLM-033). **POPULATION QUEUED, not done: 12 items.** |
 | **D4** | *"a register for each site … but the bar can be lower for normal sites somehow"* | **DESIGNED (§3g(i)), UNEXERCISED.** |
 
@@ -79,14 +79,14 @@ first. Budget half a day. Its `missing_evidence_register` item is already queued
 
 ## 3. ⚠ THE TWO CLOCKS ON D2 — the part most likely to go wrong unattended
 
-Migration **739** filed four `content_rewrite` items (~14:35 UTC), `status='triaged'`,
+Migration **739** filed four `content_rewrite` items at **14:18:45 UTC** (verified from `created_at`, not estimated), `status='triaged'`,
 `handler_agent='page-build-handler'`, on `/guides/the-payday-loan-price-cap.html`,
 `/guides/jargon-buster.html`, `/guides/loan-sharks-and-illegal-lending.html` and
 `/guides/check-your-lender-is-authorised.html`.
 
 1. **48 HOURS.** `stale-work-item-reaper` flips `triaged` + `pipeline='build'` items with
    `claimed_at IS NULL` and `updated_at` older than 48h to **`unresolved`**, prefixing the summary
-   `[stale: triaged 48h+]`. All four are exactly that shape. **Deadline ~2026-09-05 14:35 UTC.** A
+   `[stale: triaged 48h+]`. All four are exactly that shape. **Deadline 2026-09-05 14:18:45 UTC** — but the predicate is on `updated_at`, not `created_at`, so ANY write to the row resets the clock (`trg_site_work_items_updated_at` bumps on every write; a periodic write would make an item unreapable for ever, which is its own documented landmine). A
    reaped item reads as *processed*, not *ignored* — that is the trap.
 2. **A `page_rerender` was already queued on all four pages at 13:18 UTC**, before the repairs. A
    rerender regenerates from `content_data`, so it **re-ships the wrong wording byte for byte and
