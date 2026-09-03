@@ -125,3 +125,46 @@ looks point at the same header and footer a site gets anyway, so that part of a 
 nothing — is still true, and I have now double-checked it from two directions. So is
 everything above about colours not reaching the page and page shapes barely applying. The
 two questions I asked you for a decision on stand exactly as written.
+
+---
+
+## 2026-09-03, end of the session — a third question, and it was nobody's
+
+There is a design question this work keeps running into that no one has actually written
+down, and I would rather hand it to you than leave it in a handoff again. It was raised
+when we built gamedesign.uk and has been sitting unowned since.
+
+**Should the record of a site's design describe colours the public never sees?**
+
+Here is the shape of it in plain terms. When we compose a site we write down a formal
+record of its design — which layout, which palette, which fonts, and where each of those
+choices came from. That record is validated: it will reject an unknown value, and it
+insists we say how each decision was reached. It is, deliberately, the trustworthy
+account of what the site is.
+
+The problem is that for the eight main colours, it isn't true. The rendering step writes
+those itself and overwrites whatever the record says. So we maintain a careful, validated,
+audited description of colours that never reach anybody's screen. We proved that on a real
+site: the record said one thing, the site served another, and both were behaving correctly.
+
+Three ways out, and I am not going to pick one for you.
+
+Leave it, and accept that the record describes intent rather than outcome — which is
+defensible, but then something should say so, because today it reads as fact and other
+lanes have quoted it as fact.
+
+Stop recording core colours there at all, so the record only claims what it controls.
+Cheap and honest, and it loses the ability to ask "what did we intend here?" later.
+
+Make the record win, so the colours in it are the colours served. That is the change we
+drafted and then withdrew at your direction, and I am not reopening it. It would put the
+authority back where the record is, at the cost of the design step's freedom — and you
+have already ruled that the design step should keep that freedom.
+
+**My recommendation is the second one**, with a line in the record saying what it no longer
+claims. It is the only option that makes the document honest without taking authority away
+from the step you decided should have it.
+
+This does not block anything. Nothing is broken while it stays open. But it is the third
+time this question has come up in a week, and each time it costs somebody an afternoon
+discovering it for themselves.
