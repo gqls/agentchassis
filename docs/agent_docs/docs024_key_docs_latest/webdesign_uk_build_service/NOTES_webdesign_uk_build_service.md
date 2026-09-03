@@ -8223,3 +8223,9 @@ lane's per the ownership ruling.
      terminal; hard-close guard (`bk0axkiq4`) forces the ROLLBACK at 12:00Z.
   4. `06210ec6` components' discriminator (prio 80): COMPLETED 10:46:05Z — theirs to read.
 - Served pages unchanged until the assemble batch + the next mirror tick; index until attempt 2.
+- **11:03Z — the hard-close guard fired at 11:02:03Z, not 12:00Z:** `date -u -d '2026-09-03 12:00:00'`
+  parses the bare string in LOCAL time (BST) → epoch for 11:00Z. Window CLOSED 11:02:05Z (guard's
+  ROLLBACK; no run inside it), **RE-OPENED 11:02:38Z** by hand (HOLD; floor 0.1 verified), before
+  `2d1f9c51`'s `retry_after` 11:15:25Z. New guard `bn600im8h` with `'…T12:00:00Z'`, deadline
+  printed on arm. Claim-gated monitor `bpphsj4ji` still closes at terminal. LANDMINES addendum under
+  the kubectl/git timezone entry; WRONG_CALLS row (clock/zone tally 3→4).
