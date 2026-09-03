@@ -84,6 +84,27 @@ returns no name path (proves the test can fail).
 
 ## Scope note
 
-`cmd/brief-negation-check` imports the same walker for spec scanning — a fix here widens what
+> **⚠ CORRECTED 2026-09-03 by the `420 425` lane, verified independently before accepting — THE
+> CLAIM BELOW IS FALSE AND IT WOULD HAVE WASTED A MEASUREMENT.** `cmd/brief-negation-check` does
+> **NOT** import the walker. `grep -rn "WalkContentStrings\|nonProseFieldRe\|prosey"
+> cmd/brief-negation-check/` returns **nothing**. It has its own traversal (`assessValue`,
+> `flatten`) and reaches `datahelpers` only for text-taking scanners — `ScanDefineByNegation`,
+> `NegationExempt`, `ScanBannedRegisterWords`, `ScanPracticeClaims`, `SplitPlainAssertionText`,
+> plus the evidence/practice helpers. **None of them takes a field name, so none consults
+> `nonProseFieldRe`.** It scans SPEC text; the walker scans `content_data`. Different populations,
+> no shared filter.
+>
+> **So a before/after on the nightly is a CONTROL, not a measurement:** the prediction is NO
+> movement attributable to a walker change, and movement on 09-04 against the 09-03 baseline means
+> something ELSE moved and both lanes should want to know. Capture it as **N-of-M** — baseline
+> 2026-09-03 07:41Z = **11 of 39** brief-supplies — because the denominator grows as sites are
+> added and a bare count either side is uninterpretable.
+>
+> How the false claim arose: the two components sit next to each other, share the same scanners,
+> and both talk about negations — so "shares the walker" was an inference from adjacency that one
+> grep refutes. It went into a Scope note, which is the half of a bug file a later reader trusts
+> without re-checking.
+
+~~`cmd/brief-negation-check` imports the same walker for spec scanning — a fix here widens what
 that check sees on its next rebuild; expect its suppression/finding counts to move and do not
-read that movement as drift (its standing daily read is documented in the copy lane's handoff).
+read that movement as drift (its standing daily read is documented in the copy lane's handoff).~~
