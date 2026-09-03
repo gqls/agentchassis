@@ -63,6 +63,27 @@ correct everywhere while the pages still serve the old image.
 > `--since 2026-09-02` re-derives it. **A census does not go wrong; it goes stale, and yours can
 > be stale because of you.**
 
+## 0g. WHERE THE SESSION ENDS — two experiments queued, and the queue is getting WORSE
+
+| experiment | batch | reason | state |
+|---|---|---|---|
+| **deck discriminator** — `guides-index`, new-shape baseline | `…000688` | `template_changed` | **triaged**, filed 08:26 |
+| **hero test** — `remortgagecalculator.uk/about`, unpinned | `…000690` | `image_landed` | **triaged**, filed 08:55 |
+| ~~advertise.co.uk/about~~ | `…000689` | — | **cancelled for a WRONG reason** (see §0f); the row carries a dated correction |
+
+`[MEASURED 2026-09-03 ~09:0xZ]` **234 `page_rerender` triaged, and only 9 completed in the last 30
+minutes.** Earlier in the session it was 192 triaged draining ~29 per 30 minutes. **The backlog is
+growing faster than it drains**, so neither experiment is hours away — it may be considerably
+longer, and that is worth knowing before anyone re-files thinking the item was lost. **Both items
+are queued, not stuck; find them by batch id, do not duplicate them.**
+
+> **THE WATCHER FIX WORKED, which is worth one line.** After the first watcher timed out and
+> printed the unchanged baseline under the heading "DISCRIMINATOR RESULT", I added the item's
+> terminal status to the same output. The second watcher expired too — and printed
+> `item outcome: triaged` beside the reading, so the output labels itself as "did not run" rather
+> than presenting a baseline as a finding. **Any query that reads an artefact to judge a dispatch
+> should print the dispatch's status in the same breath.**
+
 ## 0f. ⚠ A RETRACTED FINDING — "33 of 57 are version-pinned and unreachable" WAS WRONG
 
 `[MEASURED 2026-09-03]` I found that 33 of the 57 repairable hero instances carry a
