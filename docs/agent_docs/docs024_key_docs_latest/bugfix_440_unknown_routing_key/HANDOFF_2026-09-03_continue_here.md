@@ -53,11 +53,18 @@ early would route ~3,100 items to assemble: this bug's own shape, fleet-wide, in
 
 ## What REMAINS (this is the close-out list)
 
-1. **Phase 2 — producer conversion.** Convert the 13 Go writers to stamp `routing_reason`
-   alongside `reason` (prefer the `livespec.Reason*` constants over new raw literals), plus the
-   agent/config producers; then the migration-authoring rule + `scripts/pattern-check.py`
-   advisory for the raw-SQL door. ⚠ pattern-check.py is IN council scope (2026-08-24). Expect
-   several small council rounds rather than one large one.
+1. ~~**Phase 2 — producer conversion.** Convert the 13 Go writers…~~ **PART 1 DONE
+   2026-09-03** (commit below, council `c7dab2c1`): the pair is defined ONCE in
+   `livespec.RerenderReasonFields` / `StampRerenderReason` / `RerenderReasonJSONPrefix`, and
+   **four** call sites converted. ⚠ The "13 Go files" figure was corrected the same day — only
+   **five** are `page_rerender` producers (the rest file `needs_page`/`needs_rerender`/
+   `literal_markdown`; enumerate item types, never sweep). **One deferred**:
+   `refresh_evidence_base_action.go` — another session had 245 uncommitted lines in it, so the
+   conversion was written and reverted rather than sweep their WIP; do it when their work lands.
+   **PART 2 STILL OPEN**: the raw-SQL migration door — authoring rule + `scripts/pattern-check.py`
+   advisory (⚠ that file is IN council scope, 2026-08-24), its own round.
+   ⚠ Config door measured EMPTY 2026-09-03 (no live `agent_definitions` stamps an in-vocabulary
+   reason via `spec_literal`) — a snapshot, re-run it at phase 3.
 2. **Phase 3 — the flip** (RFC_062, co-signed per D2): gate reads the transition clause
    (`TransitionRerenderModeConditionClause()`), refusal branch routes to `needs_human_review`
    (D1) via `CheckRoutingKnownConditionClause()`, plus the CHECK constraint (D3). **Blockers:**
@@ -96,5 +103,5 @@ early would route ~3,100 items to assemble: this bug's own shape, fleet-wide, in
 | design + rulings | `docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_062_routing_key_annotation_split.md` |
 | lane docs | this directory — PLAN (phases, consumers) · NOTES (evidence, dispositions, missteps; newest at bottom) · RUNBOOK (census, emission-counting, inert-verification) · README (owner-facing prose) |
 | code | `platform/livespec/rerender_routing_key{,_test}.go` · `platform/orchestration/actions/create_rerender_items_action.go` (`rerenderMode.RoutingKey`) + `…_routing_key_test.go` |
-| commits | `ec2efc06e` `a3758c399` `0600eb6b3` `5b5c669dd` `544de50e0` `35de364dd` `624d3d2e8` `ec66ed12b` `8657c3cb4` |
-| council | `55def842` (1a) · `934327db` (1b) — both APPROVED r1 |
+| commits | `ec2efc06e` `a3758c399` `0600eb6b3` `5b5c669dd` `544de50e0` `35de364dd` `624d3d2e8` `ec66ed12b` `8657c3cb4` `4e9d25caf` `866bba283` + phase 2 part 1 (this session's last) |
+| council | `55def842` (1a) · `934327db` (1b) — both APPROVED r1 · `c7dab2c1` (phase 2 part 1) — verdict pending at handoff time, READ IT |
