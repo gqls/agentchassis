@@ -103,7 +103,19 @@ becomes an invalid bearer header.
   cannot mistake an API error body for a success. Endpoint + error path proven
   2026-09-02 with a bogus key (`{"ResponseCode":"-1","Error":"invalid key"}`);
   **happy path PROVEN later the same day: `list_domain` returned the full
-  inventory, ResponseCode 0.** Writes (`set_ns`/`add_ns`) not yet exercised.
+  inventory, ResponseCode 0.** ~~Writes not yet exercised~~ **FIRST WRITES
+  PROVEN 2026-09-03**: `set_renew_option domain=<d> renew_option=auto|donot`,
+  verified by `domain_info` re-read (the receipt is not the proof). NS writes
+  (`set_ns`/`add_ns`) still unexercised.
+- **OWNER RULING 2026-09-03: ALL domains auto-renew, ALWAYS.** Enforcement:
+  `scripts/domains/dynadot-ensure-autorenew.sh [--apply]` (dry-run default;
+  flips + verifies each; **proven by induced probe 2026-09-03** — one domain
+  deliberately set `donot`, sweep caught, flipped, verified). Run it whenever
+  you are pulling `list_domain` anyway. The account default renew option is
+  also set to auto (2026-09-03) but is **RECEIPT-ONLY** — `account_info` does
+  not expose it, so whether it covers marketplace acquisitions (both 09-02
+  arrivals came in `manual renewal` via Atom) is unknown until the next
+  arrival: the sweep is the guarantee, the default is best-effort.
 - API key: control panel → Tools → API. Legacy API3: `https://api.dynadot.com/api3.json?key=…&command=…`.
 - If the API settings page offers an IP allowlist, leave it UNSET or allowlist
   the five cluster node IPs — NEVER the office line, which rotates both address

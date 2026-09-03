@@ -725,3 +725,23 @@ once the site serves — no cleanup needed.
   refresh of a same-day snapshot); both lanes notified. The two new names are
   not in the valuations CSV, so tomorrow's walker picks them up automatically
   (153 inventory + 1 cross-registrar test = 154 of 300).
+
+## 2026-09-03 — OWNER RULING: all domains auto-renew, always; FIRST DYNADOT WRITES PROVEN
+
+- Owner (in the dynadot session): "all domains to auto-renew always please."
+- The two 09-02 arrivals (overhead-cranes.com, paper-cups.com — both `manual
+  renewal` via Atom) flipped with `set_renew_option renew_option=auto` and
+  VERIFIED by `domain_info` re-read: both read `auto-renew`. These are the
+  first exercised writes on the Dynadot account.
+- Account default renew option set to auto (`set_default_renew_option`,
+  ResponseCode 0) — **receipt-only**: `account_info` exposes no renew fields,
+  so [UNVERIFIED] whether the default covers marketplace acquisitions; the
+  next arrival answers it (if it lands `manual renewal`, the default does NOT
+  cover that path and only the sweep protects us).
+- Enforcement: `scripts/domains/dynadot-ensure-autorenew.sh [--apply]` —
+  **proven by induced probe**: paper-cups.com deliberately set `donot`, sweep
+  detected it, flipped it back, re-read verified, exit 0. Current state
+  453/453 auto-renew.
+- Valuation session runs today's Dynappraisal window (test + resume + priority
+  list) — these API3 renew writes are a different command family and did not
+  touch the appraisal quota.
