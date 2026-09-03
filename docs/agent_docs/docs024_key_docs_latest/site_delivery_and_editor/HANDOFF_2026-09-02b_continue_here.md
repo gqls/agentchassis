@@ -644,3 +644,44 @@ Option C `sites.email` becomes a DERIVED VIEW of the published contact, so any r
 answer and wrong answer look identical at the call site — this RFC's own §5.2 trap in other clothes.
 The reader half of that census is still dated 2026-08-31 and is now a precondition rather than
 bookkeeping. **Do not quote a refreshed reader count: there isn't one.**
+
+---
+
+## CORRECTION + a NEW logo finding — 15:24Z, from the designer seat's CONTRIB (585c4b321) and verified here
+
+**TWO THINGS I TOLD THE OWNER TODAY WERE WRONG, and the ruling that corrects them was in THIS
+LANE'S OWN NOTES.** `webdesign_uk_build_service/NOTES…:6904-6910`, block headed **"Rulings (owner,
+via boxingonline thread)"**, 2026-09-02:
+
+- **"(5) palette: the cream/off-white STANDS — no flip; BUT logos must not bake a background."**
+  So the palette was NEVER an open decision. I presented it to the owner as outstanding and chased
+  the designer seat for values. The 08-31 review's *"he has effectively already made it by praising
+  the near-black comparison page"* was this lane's INFERENCE, and the 09-02 ruling supersedes it.
+  Also in `copy_quality_two_stage/OWNER_RULINGS_2026-08-25…:414` (commit `4c920e59d`): *"Palette
+  stays ('the cream off white decision is fine') — no design churn."*
+- **"(2) header stays LOGO-ONLY. Closed."** So this one IS a ruling, contrary to the designer
+  seat's reading that no owner words exist behind it. Their grep found only this lane's
+  APPROVAL_READOUT and handoff because the owner's words live in the webdesign NOTES under a
+  differently-worded heading. **Their recommendation to add the wordmark is therefore against a
+  closed ruling and must not be actioned without him reopening it.** The OWNER_REVIEW item 2 text
+  ("Should the site's name appear beside the logo?") predates the ruling and reads as open; it is not.
+
+**What the designer seat found that IS new, verified independently here `[MEASURED 15:24Z]`:**
+the logo carries **none of the site's brand colour and not the subject the prompt asked for.**
+
+| measurement | value |
+|---|---|
+| opaque pixels | 206,018 |
+| blue / neutral / other hue | 53.2% / 45.0% / 1.9% |
+| pixels within ±60 of brand red `#C0392B` | **0** |
+| pixels within ±60 of brand gold `#D4A017` | **0** |
+
+The prompt this lane sent asked for *"a stylised boxing glove or ring ropes"*; what came back is a
+raised fist inside a diamond in steel blue and grey. **A subject-fidelity miss, not a transparency
+one** — the 417 family, not 424. Ruling 5 covered only the baked background, which is now fixed, so
+**nothing ruled to date covers the logo's subject or its colour.** The designer seat adds, and this
+lane has not re-derived: served at `max-height:40px` the detail collapses, and against the near-black
+header 48.4% of its ink is at or below weak contrast. Their route: regenerate against the site's own
+palette row with a boxing subject. ⚠ **Do NOT re-seed to obtain it** (§9.5, `bugs_open/420`).
+
+**Put to the owner as a NEW question, not as a ruling to apply.**

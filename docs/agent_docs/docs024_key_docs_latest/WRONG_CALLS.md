@@ -116,6 +116,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **choose a negative control by the PROPERTY it must lack, not by convenience — "my latest commit" is only a not-aboard control if it postdates the stamp; derive it (`git log --format='%H %cI' | awk '$2 > <stamp time>'`)** | **1** |
 | **treat a NEW detector's first run as candidates, not findings — follow each hit to its source (and each zero to its needle) before reporting; one sweep produced 4 false positives and 1 false clean, and every one looked exactly like a real result** | **1** |
 | **verify an ATTRIBUTION before relaying it as fact — a peer's routing advice is a report, and `git log -- <file>` settles authorship in three seconds; relaying "they shipped X" unchecked misrouted an owner ruling twice** | **1** |
+| **grep YOUR OWN lane's rulings ledger before telling the owner a decision is open — an inference dated earlier reads exactly like an open question, and the ruling that closed it was in this lane's own NOTES under a differently-worded heading** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -62711,3 +62712,30 @@ fix (call the shared helper, delete both literals) is planned in
   predicate. **Put the predicate in the submission as a query the reader can run, in the same
   breath as the number** — and re-check the denominator, which had also gone stale (364 → 425 raw /
   410 canonical) by simple addition, exactly as the count-needs-a-date rule warns.
+
+## 2026-09-03 — told the owner a decision was open when he had already ruled it, and chased a peer lane for it (session site_delivery_and_editor)
+
+- **The claim.** In my presentation of outstanding decisions I listed "the palette, and pinned to
+  it, whether the site name shows beside the logo" as waiting on him, and messaged the designer
+  seat that he was waiting.
+- **Why it was false.** He ruled BOTH on 2026-09-02, and the record is in THIS LANE'S OWN NOTES
+  (`webdesign_uk_build_service/NOTES…:6904-6910`, "Rulings (owner, via boxingonline thread)"):
+  "(5) palette: the cream/off-white STANDS — no flip" and "(2) header stays LOGO-ONLY. Closed."
+  The palette ruling is also in `copy_quality_two_stage/OWNER_RULINGS_2026-08-25…:414`, commit
+  `4c920e59d`, in his own quoted words.
+- **What caught it.** The designer seat, when I chased them: "Palette needs no decision from this
+  seat — the owner already ruled it on 09-02, the opposite way to the inference you're acting on."
+  They were right about the palette. They were WRONG that no owner words exist behind the
+  logo-only header, for the same structural reason I was wrong: they grepped for the phrase and
+  the owner's words sit under a different heading in a different lane's file.
+- **The mistake, precisely.** I carried forward the 08-31 review's *inference* ("he has
+  effectively already made it by praising the near-black page") because it was in the document I
+  was reading, and never grepped the rulings ledger that supersedes it. An inference and an open
+  question are indistinguishable in prose once the reasoning is a few days old — which is exactly
+  what the estate's own marker rule exists to prevent, and the 08-31 text carries no marker.
+- **The cheap check that would have.** Before listing ANY decision as outstanding to the owner:
+  `grep -rn -i "<the subject>" docs/agent_docs/docs024_key_docs_latest/*/OWNER_RULINGS*.md
+  */NOTES*.md | grep -i ruling`. Ten seconds. The rulings were two files away, one of them mine.
+- **Cost.** A false "waiting on you" put to the owner, a peer lane sent to answer a question that
+  was already answered, and their reply had to correct my lane rather than help it. Recovered
+  within the hour, and their own mis-grep of the header ruling shows the trap is symmetrical.
