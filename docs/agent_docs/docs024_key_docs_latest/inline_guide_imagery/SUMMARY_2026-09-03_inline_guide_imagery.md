@@ -117,6 +117,15 @@ the page the owner asked about.
 > about the served page. **What is void:** this lane's pre-registered prediction about the re-render
 > path, which can no longer be resolved on that page. **apis.uk is again the only armed page.**
 >
+> **RESOLVED the same evening, in this lane's favour and confirmed from both sides — see NOTES §20.**
+> That lane withdrew the objection, having found the fault in their own instrument (an `llm_call_log`
+> query bounded to the window where they expected the build to end, so the second writer run fell
+> outside it), and confirmed at their own 16:49Z page snapshot: five distinct illustrations, one per
+> section. **The durability property is proven, not merely the binding.** The one clause that
+> survives is that no item of type `content_rewrite` was ever fired, so that dispatch path is
+> untested; the register now says the phrase names the event, not the item type. The paragraph below
+> is left as written, because it is what was believed when the disagreement was open.
+>
 > **One claim above is disputed by that lane.** They hold that the durability property — figures
 > surviving a rewrite of the prose — remains unexercised, because they reverted before anything
 > rewrote over the figures. This lane's measurements say a second full writer run rewrote every

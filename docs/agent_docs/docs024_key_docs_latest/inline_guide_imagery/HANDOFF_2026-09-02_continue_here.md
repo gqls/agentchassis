@@ -12,8 +12,15 @@ figures were wrong, for a reason that is not this lane's code and has another ow
 > imagery was the only part that behaved. **§4's measurements stand as measurements — they happened
 > and were read at the artefact — but nothing in §4 or §5 describes a page you can go and look at
 > today.** The re-render pre-registration (§7.2) is now **void on that page**, neither confirmed nor
-> refuted. **apis.uk is again the only armed page.** Full account + the one disputed fact:
-> **NOTES §19**.
+> refuted. **apis.uk is again the only armed page.** Full account: **NOTES §19**.
+> ✅ **The one fact that was disputed is RESOLVED IN THIS LANE'S FAVOUR and confirmed from both
+> sides (NOTES §20): the durability property IS proven** — a full prose regeneration ran over the
+> built page 69 minutes after it and every figure re-derived from the plan. That lane found the
+> fault in their own instrument (an `llm_call_log` query bounded to `12:45–13:05`, so run 2 was
+> outside the window) and confirmed at their own 16:49Z snapshot: five distinct illustrations,
+> one per section. ⚠ **Still untested and now stated in the register: the
+> `item_type='content_rewrite'` DISPATCH PATH.** The phrase "survive a content_rewrite" names the
+> EVENT, not the item type.
 
 **Lane docs:** `docs/agent_docs/docs024_key_docs_latest/inline_guide_imagery/` —
 `PLAN_2026-08-14…`, `NOTES_…` (technical log, newest at the bottom; today is **§17**),
