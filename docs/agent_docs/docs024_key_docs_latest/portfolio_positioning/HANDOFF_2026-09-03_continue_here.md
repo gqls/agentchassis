@@ -84,6 +84,13 @@ cannot read the brief directly.** It also renders the WRONG classification, so c
   `pages.deployed_at` (315/359 shape) — expected members of any archived-and-deployed census.
 - Everything in §1z below about the re-fire is DONE; keep it for the record.
 
+## 1x. ⚠ ADDED ~21:40Z — a chassis roll was announced for ~22:00Z (baseline v1.0.1359)
+Nothing of this lane rides it. After it: (a) read the new pods' `build provenance` line and test
+`git merge-base --is-ancestor 681b0ee65 <stamp>` — PRC-003 live means `<no value>` censuses at
+`llm_call_log.prompt_rendered` read clean for the WRONG reason from then on; (b) confirm no `claimed`
+item is stranded on copyonline (`status='claimed'` older than ~30 min after the roll = stranded);
+(c) expect ~300s of silently dropped dispatch after the restart — do not re-file on that evidence.
+
 ## 1z. ⚠ ADDED ~19:30Z — the owner ANSWERED (evening), and these are now the first tasks — SUPERSEDED BY §1y for the retraction items
 
 Both §2 decisions below are MADE and executed; §2 is kept for the record. What is live and owed:

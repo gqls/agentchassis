@@ -5776,3 +5776,32 @@ already sighted via the strategist's whole-blob render) stands. The blind rows a
 
 **Status:** 764 LIVE for both agents since 20:55:27Z; the planner's own run-once is copyonline's next
 `plan_site` — read its rendered `## Mission` block then. `doc_notes` carry `proven` rows for both agents.
+
+### (ddd) 2026-09-03 ~21:40Z — owner: a fresh chassis is being built and will roll within the hour
+
+**Baseline before the roll `[MEASURED]`:** deployment image `docker.io/aqls/agent-chassis:v1.0.1359`,
+pods `agent-chassis-85c4984f77-{nrqf7,phgh2}` aged 8h. Run-once item `17bac4d6` **complete** at
+21:26:06Z; **0** claimed items on copyonline, so the roll cannot strand one (a stranded `claimed` item
+would block the site's dispatch until reaped). Open on copyonline: `needs_vertical_research:triaged`,
+`missing_conversion_path:detected` — both will be re-selected by the loop after the ~300s
+no-dispatch window that follows a chassis restart.
+
+**Nothing of this lane rides the roll.** Every commit today from this lane is SQL, docs, bug files,
+LANDMINES/WRONG_CALLS and memory; migration 764 is DB config, live since 20:55:27Z regardless of the
+binary. ⚠ `git log --author=cqls … -- cmd platform` lists Go touched today (`component-render-check`,
+`config-key-audit/templateinputfields`) — **that is the SHARED git user; those are other lanes'
+commits (the 453 lint lane's), not mine.** Recorded because I nearly read them as mine.
+
+**What the roll brings that touches this lane's reading:**
+- **PRC-003** (`681b0ee65`) goes live: `RenderPromptTemplate` strips `<no value>` before send and logs
+  the unresolved paths. From then on a `<no value>` census at `llm_call_log.prompt_rendered` reads
+  clean for the wrong reason — measure with `ScanMissingValues` on the raw execution (`tplproof/`).
+  The (ccc) before/after (1 → 0) was taken BEFORE the roll and stays valid.
+- **STY-061** goes live: future sites are tagged with the network's GTM container at birth; copyonline
+  was seeded by hand (c2) and is unaffected.
+
+**Post-roll checks armed** (watcher `boc0aqoq0`): detects the pod set changing, waits 90s, reads the
+new pods' `build provenance` startup line (fresh pods, so it is in range), tests
+`git merge-base --is-ancestor 681b0ee65 <stamp>` with the current HEAD as a must-be-false control
+(a stamp that current HEAD is an ancestor of would mean the build predates nothing — i.e. the
+control catches an empty/garbage sha), and re-reads copyonline's claimed/open items.
