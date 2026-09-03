@@ -241,3 +241,44 @@ I have written all of that into the design document rather than building anythin
 other team's area. Nothing here is waiting on a decision from you — but if you want that gap
 covered, the two candidates are `loancash.co.uk` (the last of the five) and a check that starts from
 the list of live sites rather than the list of registers.
+
+**Thursday 3 September, afternoon.** Three things closed out and one question opened.
+
+**loancash is done.** You asked for it to be populated; it is. Nineteen statements of what the law
+actually says, each with a link to the official source and a sentence quoted word for word, so the
+system re-checks them every night. It was reviewed by the council and approved on the first round by
+every reviewer. It found three mistakes on the site, the most important being that we understate the
+£15 default-fee protection — I have recorded all three and **not** touched the published wording,
+because that is your call and it is written up as such.
+
+That was the last of the five finance sites we set out to do, so that piece of work is finished.
+
+**A new build went out at half past two, and it quietly fixed something I had warned another team
+about this morning.** Their check for broken rules had no way of proving it had actually run — a
+clean result left no trace at all, so "ran and found nothing" and "never ran" looked identical. They
+wrote a fix for that this morning, but it wasn't in the running program yet, and I flagged that if
+their test came back quiet they'd go looking for a trace that wasn't installed and misread the
+silence. The new build carries it. I checked it directly on both copies of the running program, with
+control questions either side, and told them. They confirmed it independently.
+
+**Tomorrow morning's automatic run is now a proper experiment rather than a hopeful one**, and this
+was worth setting up. They had planted a deliberately broken rule on a throwaway site to see whether
+the alarm fires. loancash's new register gives a second, free half to the same test: it has six
+rules that are all *correct*, so the run should report "checked six, found nothing wrong" — and a
+number bigger than zero is the proof that the checker actually read real data, which is exactly what
+was missing before. If their broken one stays silent while loancash reports six, we will know the
+fault is in the alarm rather than the check, which is a much smaller thing to chase.
+
+**The open question is vetcomparison.** I have asked that thread directly whether its register is
+theirs to do or nobody's, and whether there is any reason a register would be the wrong tool for a
+comparison site — its numbers may be other people's claims rather than its own, which would change
+the answer. No reply yet. It matters because the vet and legal presets you approved this morning are
+built, and vetcomparison currently has no register for them to apply to.
+
+**What I still need from you** is written up properly in the handoff, but in short: whether to repair
+loancash's three wrong sentences, whether to do vetcomparison, and the bigger one — twelve of our
+live sites have no register at all and nothing in the system can notice a site that is missing one,
+because the nightly check builds its list from the sites that already have one. I think the cheap fix
+is to build the missing check first, then populate; but the scoping question inside that is genuinely
+yours, because most of those twelve are not finance sites and your ruling only required registers
+there.
