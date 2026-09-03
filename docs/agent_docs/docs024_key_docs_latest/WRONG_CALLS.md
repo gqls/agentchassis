@@ -60814,3 +60814,30 @@ you trust it next time.**
 
 Family: a-report-is-not-a-measurement, repro-regenerated-from-source-is-destroyed-by-the-render,
 a-post-fix-zero-needs-a-demand-control, a-bound-added-for-a-reviewer-narrows-your-detector.
+
+## 2026-09-03 — third instance of "a citation of a command is not its output", and this time a council seat caught it (session bugsweep 2, `bugs_open/442` §4/§9g)
+
+- **The claim.** The council submission for migration `728` justified its central asymmetry —
+  four refusal reasons findable by one grep, three needing a second — by quoting line numbers
+  (`:161/:175/:182/:233` and `:316/:334/:341`) in the rationale. The numbers were right. They were
+  carried as *the evidence*, when they are a *citation* of a command whose output the submission
+  never showed.
+- **Why it matters even though the numbers were right.** `prior_art_librarian` filed it as a
+  `missing` item on an otherwise unanimous approval: *"the plan's whole justification … rests on
+  that asymmetry existing in code today, not just in the rationale."* A reviewer cannot grade a
+  number they cannot see produced, and on this tree the file could have moved between the grep and
+  the submission.
+- **What caught it.** The council seat, not me — on a round where every one of ten seats approved.
+- **The tally is the point, and this is the third.** (1) 442 §4: I wrote a single-grep recipe into
+  the bug file that did not reproduce my own number. (2) The same file's own footnote logging (1).
+  (3) This. Same fault, three altitudes: the command, the citation of the command, the citation of
+  the citation.
+- **The cheap check that would have.** Paste the OUTPUT, from `git show HEAD:<file>`, with a
+  must-be-empty control. Three lines. Done in §9g, and it produced something better than the
+  original claim: the gate path writes `"reason":  reason` — a **variable** — so a grep shaped for
+  `"reason": "<literal>"` matches exactly the already-documented set and returns a
+  complete-looking list. **Auditing a vocabulary by grepping its MEMBERS instead of its WRITERS is
+  the general defect**; "it takes two greps" was the symptom.
+- **Cost.** None this round — the verdict was approved and the claim was true. Logged because the
+  tally is what makes a repeated skipped check worth automating, and because the answer was
+  strictly more informative than the assertion.
