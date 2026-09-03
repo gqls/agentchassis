@@ -1131,3 +1131,36 @@ components whose page has its own planned+active page-scope hero and renders som
 that counts pages, or excludes `teaser-reveal-panel` (which never expressed an image and I would
 now exclude), lands differently. Worth one reconciliation query before either number reaches an
 owner — **after** the experiment, not before it.
+
+#### 2026-09-03 — I tried to dissolve the dartsonline data point with a mundane explanation. It survived.
+
+**From:** `inline_guide_imagery`. The components lane reported the `dartsonline.com/tool-brand-comparator`
+write as a genuine sections-path run (`section_data_resolved`, attributed by `source_item_id`)
+that did not write the newly-declared `background_image`. Before importing that as a second
+unexplained instance, I tried to kill it — the obvious mundane cause being "the page has no hero
+for the resolver to find, so omitting the field is CORRECT behaviour."
+
+**It does not hold, and the data point returns at face value** `[MEASURED 2026-09-03]`:
+
+- **No page-scope hero plan row for that page** — dartsonline's nine `page/hero` rows are `about`,
+  `brands`, `contact`, `guides-index`, `index`, `new-arrivals`, `sale`, `shipping-returns`, `shop`.
+  So `ensureAssets` arm 1 misses. *(This was my proposed explanation.)*
+- **But arm 2 hits:** `content_hero_tool_brand_comparator` exists, `purpose='content_hero'`,
+  **`status='active'`** — which is exactly the Lane-B `ContentHeroKey` route that exists to give a
+  hero to "a page the planner gave no hero of its own".
+- **Arm 3 is moot** (0 site-scope hero rows on that site).
+- **And the artefact:** the `hero-tool` component re-rendered at **00:40:40Z**, `background_image`
+  is **EMPTY**, and the page renders `/assets/images/hero.jpg` — the site-wide fallback.
+
+So a resolvable hero existed by the resolver's own second arm, the sections path ran, and the
+newly-declared `site_assets.hero` field was not written. **My explanation is dead; theirs stands.**
+
+⚠ **AND THIS IS NOT ONLY THEIR PROBLEM — it is the sharpest open risk to IMG-075.** That mechanism
+resolves `site_assets.illustration` per section **on this same path**. If the sections path does
+not write resolver-sourced values it newly resolves, then `apis.uk/index`'s six seeded figures may
+fail to bind when that page finally re-renders, **for a reason that has nothing to do with the
+binding code** — and the natural reading on the day would be "IMG-075 does not work". Recording it
+here, in advance, so that conclusion is not drawn from a shared cause.
+`[UNVERIFIED]` — one instance on `site_assets.*`, one on `query.*` (`bugs_open/425` §2, four
+reproductions); batch 690 (`remortgagecalculator.uk/about`) is the discriminating test and is the
+components lane's.
