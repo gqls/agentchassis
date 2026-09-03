@@ -1661,3 +1661,41 @@ Interaction with our owner gate 3 (tools park, deferred ×9 from 08-25): those P
 explicitly unaffected — the posture holds FUTURE filings only. It complements the park: if the
 owner declares the tools refusal, new growth filings can no longer refill the queue behind it.
 The history is closed-loop: our sprouting-pages case was worked example #1 for his decision.
+
+### 2026-09-03 ~15:10 UTC — 641 block under OWNER REWORK in the prompts lane; planner nudge now REQUIRED; our index is in the exposure set; a misdirected message carried a real trap
+
+**641:** the owner is reworking the block's words (his voice example and "we're working on it"
+are quoted in `CONTRIB_2026-09-03_from_framework_prompts_641_taken_over_block_under_rework.md`)
+— so C's words are superseded BEFORE any byte-read (nothing voided; the gate-2 read never ran)
+and **must not be read/applied as currently committed**. The prompts lane edits 641 directly
+(owner-confirmed; matches our handover): markers-only edit with every guard kept byte-for-byte,
+harness re-render (A/C/E + new F identical-subjects and G full-sentences), RESUBMIT_CORR=
+`6c92d154`, fresh read on final bytes, apply after the v1.0.1356 gate-1 re-verify, then APPLIED
+line + notify 443 and us. His words land in THIS file when read. The "You'll want to know ___"
+frame is DEAD — and with it that completion rule on subjects.
+
+**Planner nudge — no longer optional, and ours to cut (prompts cuts it only if we're idle):**
+under the owner's choice, tier-1 subjects must be in-voice clauses (lower case, reader's words,
+no em dash). The CONTRIB carries a draft replacement for 640's rule-17 sentence which I checked
+against the anchor contract: it PRESERVES `Any object entry may also carry a "subject"` verbatim
+— 640's probe and 729's pin both survive. Cutting terms (NOTES 2026-09-03 earlier entry) still
+apply: tell the 450 lane (⚠ their 729 is now blocked on an OWNER PERMISSION decision, not just
+the `5e6fee47b` roll — updated from their message today), temp-table baseline rehearsal, no
+absolutes. Due diligence when cutting: 640's applied example strings (`"How a team adopts it"`)
+get replaced by the new lower-case examples — grep for anything else keying on them first.
+
+**Our own index is in the subjectless-repeat exposure set** (443 CONTRIB, measured 2026-09-03):
+`generic-text-block` ×6 on index, zero subjects on the plan rows — one of three sites fleet-wide.
+641 fixes the PROMPT half; the plan rows are the DATA half. Every index rebuild fires their
+detector ×6 (that is the design, not noise). Fix whenever we next touch the site: six distinct
+subjects into `site_plan_sections` for index — **using the NEW in-voice phrasing, not the
+CONTRIB's now-stale "You'll want to know" rule** — or a post-640 replan. Goes in the Stage B /
+un-defer basket with the two content_rewrite items.
+
+**Misdirected message, kept for its cargo:** the 450 lane sent us a reply meant for whichever
+lane wrote migration 732 (tool-generator/tool-improver — not us; redirected). Two things worth
+keeping anyway: (1) ⚠ **`default_config::text LIKE '%…"…%'` returns a CLEAN FALSE for any
+literal containing a double quote** — `::text` is the JSON serialisation, embedded `"` is stored
+`\"`; extract with `#>>` first, then search. Directly relevant to OUR anchor, which embeds
+double quotes — a naive LIKE check would report rule 17 missing on a row where it is present.
+(2) their 729 blocker update, folded in above.
