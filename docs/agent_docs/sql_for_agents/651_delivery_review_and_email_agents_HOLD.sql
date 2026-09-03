@@ -52,12 +52,46 @@
 --
 -- Dispatch (both agents; use scripts/kafka-publish-lib.sh — OPP-009 — and CHECK
 -- the receipt, don't just print it):
---   corr=$(uuidgen)
---   msg='{"action":"orchestrate","config":{"agent_type":"delivery-review-filer"},
---        "input_data":{"site_id":"<uuid>","domain":"<domain>",
---                      "site_url":"https://<domain>","brief":"<one-paragraph brief>"}}'
---   ... publish to system.agent.generic.requests with correlation_id=$corr,
---       headers message_type=request, action=orchestrate, from_agent_type=user
+--
+-- ⚠⚠ THE HEADER LIST BELOW WAS INCOMPLETE UNTIL 2026-09-03 AND THE OMISSION IS
+--    SILENT-BUT-FATAL. The old text named only message_type, action and
+--    from_agent_type. `client_id` and `orchestration_id` are ALSO REQUIRED: a
+--    message without them is consumed and REFUSED with
+--      INCOMING_MESSAGE_REJECTED :: missing required header(s): client_id, orchestration_id
+--    and the only symptom you see is NO ORCHESTRATION ROW — which is exactly the
+--    signature of ordinary queue latency, the thing CLAUDE.md tells you not to
+--    retry on. So the incomplete recipe and the correct do-not-retry guidance
+--    COMBINE into a trap: you follow this file, get a refusal, read CLAUDE.md,
+--    and wait for a message that will never run. It cost 37 minutes on
+--    2026-09-03 and would have cost longer without the library check below.
+--
+--    THE CHECK, and it is the whole reason kafka-publish-lib exists:
+--      kafka_verify_landing "$corr" 30
+--      # 0 = landed · 13 = published, not landed (wait) · 12 = CONSUMED AND
+--      # REFUSED — the error text names the missing headers. Run it BEFORE you
+--      # conclude latency; latency and refusal look identical from the DB.
+--
+--   . "$REPO_ROOT/scripts/kafka-publish-lib.sh"
+--   corr=$(cat /proc/sys/kernel/random/uuid)
+--   orch=$(cat /proc/sys/kernel/random/uuid)
+--   msg=$(jq -c -n --arg s "<site uuid>" --arg d "<domain>" '{action:"orchestrate",
+--        config:{agent_type:"delivery-review-filer"},
+--        input_data:{site_id:$s,domain:$d,site_url:("https://"+$d),brief:"<one paragraph>"}}')
+--   kafka_publish_checked --topic system.agent.generic.requests --payload "$msg" \
+--     --correlation "$corr" \
+--     --header "orchestration_id=$orch" \
+--     --header "orchestration_name=delivery-review-filer-$(date +%H%M%S)" \
+--     --header "client_id=demo_client" \
+--     --header "request_id=$(cat /proc/sys/kernel/random/uuid)" \
+--     --header "message_id=$(cat /proc/sys/kernel/random/uuid)" \
+--     --header "step_name=start" \
+--     --header "message_type=request" --header "action=orchestrate" \
+--     --header "from_agent_type=user" --header "from_agent_id=cli" \
+--     --header "responses_topic=system.agent.generic.responses"
+--
+--   PROVEN 2026-09-03 on idea.uk: this envelope landed and COMPLETED in under 25
+--   seconds — so the "budget 29 minutes of queue latency" figure did not apply to
+--   this dispatch at all, and a slow one is a reason to VERIFY, not to assume.
 --
 -- ====================== RECOVERY: stamped but unemailed =====================
 -- If the send fails AFTER the claim (SMTP died mid-conversation; a template
