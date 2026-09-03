@@ -1,0 +1,33 @@
+{
+  "submitter": "site_delivery_and_editor lane, bugs_open/474 — found on the first run of delivery-review-filer ever, during the owner-authorised delivery rehearsal.",
+  "rationale": "The owner cannot approve a delivery review. He opens the item, the \"Approve & Continue\" button is there, he presses it, and gets \"No review data to approve\" — nothing recorded, no error naming what is missing, delivery gate shut. Found BEFORE he clicked, because the rehearsal was run on a non-customer site first; on a paying customer this would have been discovered by the customer waiting.\n\nTHE MISMATCH. The admin screen derives everything it submits from `spec.review_data` (App.tsx:519 sets editedReviewData only if `spec.checkpoint && spec.review_data`; :762 handleApprove returns early without it). But the BUTTON's visibility condition is `isCheckpoint` alone (:1295) — so it renders for an item it cannot submit, which is what turns a shape mismatch into a dead end rather than an absence. HandleApproveWorkItem would refuse it a layer further back too (ReviewData is binding:\"required\").\n\nWHY ONLY THIS PRODUCER. Every other checkpoint item is filed by `checkpoint_for_review`, which always writes review_data. `delivery-review-filer` is the one that files a checkpoint through `create_work_item`, which does not. [MEASURED 2026-09-03, all history] across every row with `spec->>'checkpoint'='true'`: 26 carry review_data, exactly ONE does not, and it is the only delivery review ever filed. A second producer with the same gap would have shown in that census.\n\nOUR OWN CODE PREDICTED THIS AND DISMISSED IT. platform/delivery/prepare.go's ReviewItemRequiredSpec carries the parenthesis: \"(The approve endpoint additionally requires a non-empty review_data JSON body from the CALLER of the API — the admin screen's concern, not the producer's, so it is noted here and not encoded.)\" The observation is right and the conclusion is wrong: the screen has no source for review_data other than the item's own spec, so caller and producer are the same concern. That parenthesis is why the requirement was written down and still not met.\n\nSCOPE: one key on one agent's step config. No Go, no roll, live on apply. The frontend half (make the button's visibility match its action) is candidate 2 in the bug file and is deliberately NOT in this change.",
+  "plan": {
+    "summary": "Point delivery-review-filer's `spec_paths.review_data` at `input_data` — the map it was already given, holding exactly the site_id, domain, site_url and brief the owner is being asked to review. One key, no dispatcher has to remember anything, no placeholder value.",
+    "edits": [
+      {
+        "file": "docs/agent_docs/sql_for_agents/751_delivery_review_filer_files_review_data_so_the_owner_can_approve.sql",
+        "symbol": "delivery-review-filer file_review.config.spec_paths",
+        "operation": "config_change",
+        "rationale": "Chosen after READING create_work_item's resolver rather than guessing at it (create_work_item_action.go:266-305): `spec_data` copies a map's entries in FLAT, `spec_paths` assigns `specMap[key] = val` also FLAT, `spec_literal` is verbatim constants. None of the three can ASSEMBLE a nested object from separate input fields — but spec_paths can POINT a key at a map that already exists, because ExtractNestedField returns whatever is at the path, map included. Rejected alternative: `spec_paths: {review_data: input_data.review_data}` with every dispatcher composing the object. It has one real merit — an unresolved spec_path is a HARD ERROR, so a forgetful dispatcher would fail loudly at file time rather than silently produce an unapprovable item — but it moves work onto every future caller to fix a defect none of them caused.",
+        "sketch": "jsonb_set(default_config,'{workflow,steps,file_review,config,spec_paths}',\n  (…->'spec_paths') || jsonb_build_object('review_data','input_data'), false)\n-- plus a one-row patch of the already-filed item, built from ITS OWN spec:\n-- spec || jsonb_build_object('review_data', jsonb_build_object(\n--   'domain',spec->>'domain','site_url',spec->>'site_url','brief',spec->>'brief'))"
+      },
+      {
+        "file": "bugs_open/474_HANDOFF_2026-09-03_the_delivery_review_item_is_filed_in_a_shape_the_approve_screen_refuses_so_the_owner_cannot_open_the_gate.md",
+        "symbol": "bugs_open/474",
+        "operation": "add",
+        "rationale": "The case file: the census, the three App.tsx line numbers, the dismissed parenthesis in our own prepare.go, and four fix candidates ordered by what closes the door. Records that candidate 2 (the button's visibility condition must equal its submittability condition) is NOT taken here and why — without it, any future producer reintroduces this.",
+        "sketch": "evidence · root cause · [MEASURED] census · candidates 1-4 · interim · how to verify"
+      }
+    ],
+    "grounded_in": [
+      "App.tsx:519-520 — editedReviewData set only if spec.checkpoint && spec.review_data.",
+      "App.tsx:762-766 — handleApprove: `if (!editedReviewData) { setMessage(\"No review data to approve\"); return; }` — it posts nothing.",
+      "App.tsx:1295 — the Approve button renders on `isCheckpoint && status === 'needs_human_review'`, which does NOT include the condition that makes it work.",
+      "[MEASURED 2026-09-03, all history] rows with spec->>'checkpoint'='true' grouped by `spec ? 'review_data'`: copy_edit_proposed 21 with, needs_human_review 7 with, needs_delivery_review 1 WITHOUT. One gap in the estate, and it is the only delivery review ever filed.",
+      "checkpoint_for_review_action.go:157 — the other producer always writes review_data, which is why no other item type has this gap.",
+      "create_work_item_action.go:266-305 — the three spec layers, all flat; spec_paths resolves each value individually via ExtractNestedField, so it can point at a map but cannot build one.",
+      "platform/delivery/prepare.go, ReviewItemRequiredSpec — the parenthesis naming this requirement and assigning it to someone else.",
+      "Applied by hand 2026-09-03 with snapshot, anchor guard and DO/RAISE verify; recorded via run-migrations.sh --record-only because --apply takes EVERY pending file in the directory. Re-read afterwards from a separate query: item e370e0bb now carries checkpoint=true and review_data{brief,domain,site_url}."
+    ]
+  }
+}
