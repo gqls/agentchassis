@@ -4833,3 +4833,28 @@ re-composing advertise and websitepromotion becomes an evidenced improvement rat
   position 2 before the rewrite); the rendered order came out right, and I should not have inferred
   the served order from the stored position in the first place.
 
+### (kk) 2026-09-03 15:49Z — REMAKE №5 RELEASED: copyonline.co.uk
+
+Owner: *"otherwise the brief is good carry on"* — the release word. Per RUNBOOK §1:
+- **TX1 15:49:05Z**: review item `5f9fe299` → `complete`, `approved_by='owner'`, result records the
+  instruction verbatim, the brief revision in force, and that the lead-route destination is
+  deliberately undecided and NOT blocking. `needs_domain_research` created `triaged`, handler
+  `domain-research-classifier`, key `research_copyonline.co.uk`. Guards asserted: 1 held review item,
+  a complete-and-locked site row (the `ensure_site_record` trap), a free research key, exactly 1
+  current mission_brief.
+- **TX2, separate and last**: site `3d965325` `test`+LOCKED → `active`, `locked_at` NULL. Verified.
+- **PRE-ENABLEMENT DONE BEFORE THE PLAN, which is the whole lesson of 444/450**: scheduled task
+  `copywriter-directory-discovery` created (weekly, `directory-researcher`), so the kind compiles
+  entries before any page names it. ⚠ **Scope choice made deliberately and flagged to the owner: the
+  query targets ORGANISATIONS (agencies, studios, marketplaces, professional bodies), NOT named
+  individual freelancers.** A business listing carries no personal data, no consent question and no
+  removal obligation — the exposure he raised himself — and it matches his own instinct that a
+  competitor site will not complain. Widening to individuals is one line and his call. The query
+  demands named organisations explicitly (migration 423's precedent: two rows archived as
+  "category-shaped entity, not a named firm").
+- **№5's canary duties, still owed at the right moments:** §2b fire the one-shot design discovery
+  once classification exists and BEFORE the plan step (watcher armed to flag the window) · §5 chrome
+  experiment in its RE-SCOPED form (supply the header vocabulary first, then pin — 37 of 39 sites
+  supply zero header keys) · §5b check `imagery.sections` on the plan · and the pre-registered
+  three-arm layout prediction, with all five fields owed to the 445 lane.
+
