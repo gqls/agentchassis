@@ -711,3 +711,14 @@ verify is a hard equality that a smaller estate would trip; Guard 1 checks the c
 not the look-ahead *formula*; the inequality binds only at apply time; and the column default is
 scoped by measurement, not by constraint. **The first of those is worth acting on if 701 is ever
 re-run** — `<= 4` with a floor on the busiest slot would be the honest invariant.
+
+**Trail note, 2026-09-03 ~10:00Z — SECOND time today.** This lane's 2026-09-03 `WRONG_CALLS.md`
+row (the transient-baseline check) also landed under another session's commit — `641dba38c HANDOFF 2026-09-03: the roll landed, 338 shipped, and the lane is one owner decision from closing` — before
+my own `git commit` ran, so mine found nothing to commit and printed nothing. Combined with the
+2026-09-02 (b) row swept into `6bd26baf0`, **both** of this lane's WRONG_CALLS entries are in HEAD
+under other lanes' commit messages. Nothing lost; forward-only holds. **The generalisable bit:
+`WRONG_CALLS.md` and `LANDMINES.md` are the highest-traffic shared files on this tree, so an
+append to either is very likely to be swept before you can commit it** — a pathspec commit cannot
+prevent a same-file passenger in either direction. Do not re-append on seeing an empty commit
+output: **check HEAD first** (`git show HEAD:<file> | grep -c "<your heading>"`), or you will
+duplicate the entry.
