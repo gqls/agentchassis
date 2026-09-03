@@ -293,3 +293,67 @@ fortnight while nothing was delivered. Note also that `escalateRerenderToWriter`
 second refusal disposition (`skipped_tool_pending_page` alongside `skipped_owned_page`,
 commit `587666be8`, `bugs_open/450`), so any count of suppressed escalations that reads only
 the older value will undercount from the next roll onwards.
+
+
+---
+
+## Dispatching a page-rerender directly (the working script, 2026-09-03)
+
+The lane's own dispatcher, proven against `d0252fd4d`. Modelled on
+`scripts/fire-section-edit.sh` and subject to the same two traps (`client_id` becomes a schema
+name, so it must be `demo_client`; the workflow is pulled LIVE from `agent_definitions`, never
+hand-written). `page-rerender`'s `rerender_sections` step reads `input_data.spec.reason`,
+`input_data.spec.page_name` and `input_data.site_id`; `render_page` reads `page_id`, `site_id`,
+`domain` — so the envelope needs all of them.
+
+Scratch copy kept at `<scratchpad>/fire-page-rerender.sh`; the shape is:
+
+```bash
+$PSQL -tAc "SELECT default_config->'workflow' FROM agent_definitions
+  WHERE type='page-rerender' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;" > "$WF"
+# input_data: {site_id, domain, page_id, page_name,
+#              spec:{reason:"section_data_resolved", page_name, page_id}}
+. scripts/kafka-publish-lib.sh
+kafka_publish_checked --topic system.agent.generic.requests --correlation "$CORR" ...
+```
+
+**Read the OUTPUT, never the counts.** `rerendered:N carried:0 escalated:false` is exactly what
+a run produced for the fortnight `bugs_open/454` was live and delivering nothing. What
+discriminates is the per-section metadata:
+
+```sql
+SELECT jsonb_pretty(jsonb_build_object(
+  'slot', m->>'component_name',
+  'content_keys', (SELECT jsonb_agg(k ORDER BY k) FROM jsonb_object_keys(m->'content_data') k),
+  'n_items', jsonb_array_length(COALESCE(m->'content_data'->'items','[]'::jsonb)),
+  'html_len', length(m->>'rendered_html')))
+FROM orchestration_states os, jsonb_array_elements(os.collected_data->'rerender_sections'->'sections_metadata') m
+WHERE os.correlation_id='<CORR>';
+```
+
+⚠ **Capture a CONTROL before dispatching** — `content_data` keys, item count, `length()` and
+`md5()` of `rendered_html` — or "it looks populated" has nothing to be measured against.
+
+## Asking which commit the chassis is running (the trap that fires first)
+
+```sql
+-- WRONG: a bare newest-first read. On 2026-09-03 this returned six rows for a SPAWNED
+-- agent-image-build-handler pod still on the previous commit, minutes after the roll.
+SELECT pod_name, git_commit, last_seen_at FROM service_binary_capabilities
+WHERE service='agent-chassis' ORDER BY last_seen_at DESC LIMIT 6;
+```
+
+Filter to the STANDING pods and require them to agree:
+
+```bash
+kubectl -n ai-persona-system get pods -l app=agent-chassis \
+  -o custom-columns='NAME:.metadata.name,START:.status.startTime,IMAGE:.spec.containers[0].image'
+# then, with the replicaset hash from those names:
+#   WHERE service='agent-chassis' AND pod_name LIKE 'agent-chassis-<rs>-%'
+#   GROUP BY pod_name, git_commit
+git merge-base --is-ancestor <your-commit> <the commit they agree on>   # exit 0 = shipped
+```
+
+Two standing pods reporting the same commit is the signal; one row from an unfiltered query is
+not. `kubectl logs … | grep 'build provenance'` is the other route, but on a busy pod the line
+has already scrolled and an empty result means "not in range", not "unstamped".

@@ -233,3 +233,58 @@ I'm claiming nothing wider than that.
 
 The calendar page itself still can't show the fight until a new server image
 is rolled out. Nothing more to do on it here.
+
+---
+
+**2026-09-03, early afternoon.** The new server image went out, and the
+answer is: our part works. The fight now resolves.
+
+I ran the re-render as soon as I'd confirmed the new image actually contained
+this morning's fix — and I want to flag that confirming it was not a
+formality. The obvious way to ask "what is the server running?" gave me the
+wrong answer: it returned a temporary worker pod still running yesterday's
+code, and if I'd trusted it I'd have concluded the fix hadn't shipped and
+stopped. Asking the two long-running pods specifically, and checking they
+agreed with each other, gave the right answer.
+
+The re-render did what we've been waiting two days for. The calendar section
+picked up the Canelo/Mbilli fixture — one item where there had been none —
+and its HTML grew from 1,813 to 2,498 bytes. I checked that against a
+snapshot taken minutes before, not against memory.
+
+There was a bonus I wasn't looking for, and it's the more telling result.
+The hero banner section on the same page quietly regained its background
+image settings in the same pass. Nothing about our work touched hero images.
+That section had been losing its data to the same one-line bug, silently,
+along with everything else on the estate — so this is the "1,855 affected
+sections" claim from this morning showing up in front of me rather than in a
+spreadsheet. One line, two sections, two completely unrelated kinds of data.
+
+**But the page still hasn't changed, and I need to correct something I told
+you this morning.** I said it would fill in on its own once the fix shipped.
+It didn't. The last step — writing the result back — was refused by a
+different safety check that went live in the very same image, put there by
+another team working on a different problem. It blocks changes to pages that
+are marked as "tool pages" but have no tool component on them, on the
+grounds that rebuilding such a page would publish waffle about a tool that
+doesn't exist. Our calendar page technically matches that description, so
+the check is doing what it says.
+
+I have not tried to work around it, and I don't think we should. I measured
+how far it reaches — 53 live, currently-serving pages across 9 sites,
+including 16 on the loan-and-mortgage calculator site — and sent that to the
+team who own it, because they'd asked to be told if it got in our way. It's
+their decision, not mine.
+
+The unlucky part is pure timing and nobody's fault. Until this morning, a
+re-render on those pages ran, said "success", and quietly achieved nothing.
+So refusing to save its result cost nothing you could see. Both changes
+landed in the same image, and now the same refusal blocks a repair that
+would actually do something.
+
+So: everything we built is proven correct, the data flows, and one decision
+by another team stands between that and the page a visitor sees.
+
+The lesson I'm taking, having now hit it twice in one day: "it'll work once
+X lands" is a prediction about a whole chain, and I had only checked our own
+link in it.
