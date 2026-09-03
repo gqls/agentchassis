@@ -96,3 +96,72 @@ its safety checks, and held it. Say the word on RFC_064 and it becomes a one-com
 There is also a smaller question sitting behind it: this page is marked archived, and I do
 not know whether an archived page is even reachable by the rebuild machinery. If it is not,
 the repair needs a different last step. I have flagged that rather than assume.
+
+## 2026-09-03, later the same evening — the fix is built, and one thing it refuses to do
+
+The safety net is written and committed. It is inert until the next fleet rebuild, and then
+it starts working on its own.
+
+**The part I want to be clear about, because it is the whole design.** The obvious fix here
+is: "the two copies agree again, so the warning is resolved — close it." I did not build
+that, and building it would have been worse than leaving things as they are. The two copies
+agree again *precisely because* the rebuild destroyed somebody's work. A closer like that
+would have gone round every site turning silences into certificates, automatically, and
+nobody would ever have found out.
+
+So the closer asks a different question: not *do they agree now*, but *what did agreement
+cost*. If the page kept what the human wanted, the warning closes quietly. If something was
+destroyed, the warning can only close by first filing a permanent record naming exactly what
+went — written into the database *before* the warning closes, in the same transaction, so
+the two can't come apart. That record copies its evidence rather than pointing at anything,
+because the warning it replaces gets archived out of the table a reader would look in.
+
+I also made the original warning lead with the damage: instead of printing two lists and
+leaving you to spot the difference, it now says which sections the next rebuild is going to
+destroy.
+
+**How I know it works.** I sabotaged my own code fifteen times, each time expecting a
+specific test to fail. Fourteen did. One didn't — and that one taught me something. The test
+I thought was guarding a particular line was actually being rescued by a different guard
+further down the function. The protection was genuinely there; my *proof* of it was not. I
+sharpened the test rather than accepting the pass. I've written that up rather than tidying
+it away, because "I broke it and the test still passed, so the line must be fine" is exactly
+the wrong conclusion.
+
+**Something I nearly built that we already had.** I was one step from proposing a whole new
+archive so a lost section list could be recovered. One query showed we already keep the
+deleted blocks — names, positions, full contents — and have since early August. What we
+don't keep is the *ordering*. Much smaller gap. The fix now points at what exists.
+
+## What I need from you, and it is three questions about one page
+
+They're cheapest answered together, because the third one can make the other two irrelevant.
+
+1. **May we withdraw a page's "already built" stamp** so a composition repair actually
+   reaches a visitor? This is the second question in RFC_064, which another lane put in
+   front of you today — and on this page it stops being about tidiness. Without it the
+   repair doesn't merely lose its history; it doesn't happen at all.
+2. **Does the rebuild machinery reach an archived page?** I genuinely don't know. I'd rather
+   tell you that than guess.
+3. **Should the gripper catalogue page be serving at all?** It's marked archived and it
+   serves a normal page. There's already an untriaged warning about that from another
+   detector, eight days old, and eight more like it across the estate. If the answer is
+   "retire it properly", questions 1 and 2 stop mattering here.
+
+The repair itself is written, with all its safety checks, and rehearsed against the live
+database in a transaction I rolled back — including deliberately feeding it wrong data to
+confirm it refuses rather than ploughing on. It is sitting held. Say the word and it's a
+one-command job.
+
+## Two things I have deliberately not done
+
+**Nine other detectors** raise warnings that nothing ever closes. The mechanism built here
+works for them too, but each needs its own judgement about what closing *safely* means —
+and doing nine of them quickly is precisely how you end up with nine of the naive closers I
+just argued against.
+
+**The record this fix files goes into a queue we don't drain.** There are 331 warnings of
+another kind sitting open, the oldest six weeks. I'm not going to pretend this fixes that.
+What it guarantees is narrower and, I think, the important half: a page that lost something
+can never again be quietly marked "resolved". Whether anyone reads the record is a separate
+problem that already has its own bug number.
