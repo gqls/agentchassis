@@ -303,3 +303,13 @@
   the RUNBOOK's tier-2 query errors on scalar `sections` even with the typeof guard in
   WHERE (AND does not short-circuit) — CASE-wrapped variant added to the RUNBOOK;
   `orchestration_states` has no `id` column (`orchestration_id`).
+
+- **09-03 late afternoon — post-roll re-verification + state check.** v1.0.1359 rolled 14:28
+  (third roll today); fix RE-PROBED at the new pod `agent-chassis-85c4984f77-nrqf7`:
+  `subjects_attached`=1, detector literal=1, present-control 3, absent-control 0 — still
+  shipped. Detector unchanged at 7 rows (newest 01:18Z); live writer row still lacks the
+  framing-C literal ⇒ 641 unapplied, owner read still the only gate. First lane SUMMARY
+  written (`SUMMARY_2026-09-03_fallback_tier_subjects.md` — Stage A milestone). Deliberately
+  NOT backfilling the plan-less-six damaged pages yet: item 4 sequences that after Stage B,
+  and RFC_063 option B execution could put subjects into plan rows instead — "do NOT do
+  both" stands.
