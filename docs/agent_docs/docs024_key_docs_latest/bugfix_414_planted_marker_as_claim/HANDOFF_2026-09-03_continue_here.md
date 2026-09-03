@@ -122,6 +122,30 @@ live" is proven and "the detector works" is not. **Owner: the `claims-verificati
 own the code, the council round and the seam; they have been told, including the `omitempty`
 reasoning. **Do not do this from this lane.**
 
+**UPDATE, same day — the two obstacles to running it are both gone.**
+
+1. *"There is no scratch site"* is **false**, and both that lane and I got it wrong the same way
+   (searching by DOMAIN NAME). Non-production is marked by **`sites.status`**: `deployed` 39,
+   `pool` 17, **`test` 3**, `system` 1. The three test sites — `buytoletcalculator.uk`,
+   `copyonline.co.uk`, `indoorplanters.co.uk` — carry ordinary client-looking domains and have
+   **ZERO pages**, so nothing is served and there is no register to disturb. Now landmined
+   (`71b85fcc2`).
+2. *"It needs the daily tick"* is also false. `resolveEvidenceSites` (`:281`) takes an optional
+   single `site_id`, and its fleet-wide query (`:290`) has **no status predicate** — so a `test`
+   site with a register is swept like any other, and can be targeted directly.
+
+**So the reversible rehearsal is:** write an `evidence_base` on one test site containing a single
+deliberately non-compiling pattern → dispatch `refresh_evidence_base` at that one `site_id` →
+assert one `invalid_banned_claim_pattern` row appears → supersede the spec → cancel the row.
+
+⚠ **This exercises the arm the lane's own fix cannot reach.** Their follow-up (`996b40542`) adds an
+always-fired Info log with `patterns_checked`, which proves `:423` executes and — because a
+non-zero count means it read real data — is stronger than a bare "I ran" line. But it is **Go, so
+inert until the next roll**, and the **write** path (`:700` →
+`createInvalidBannedClaimPatternItems`) only fires on a non-empty finding, so it stays unproven
+outside mocks either way. A detector that detects and does not file looks identical to a clean
+fleet.
+
 ---
 
 ## 4. WHAT IS LEFT ON THIS LANE — nothing, and here is the accounting
