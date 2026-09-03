@@ -401,3 +401,42 @@ was never going to pass. You've decided we build a real calendar mechanism, whic
 right call, and I've made sure that work happens in the right order: correcting the master
 copy had to come first, because the only reason the page hadn't already reverted is a guard
 that switches itself off the moment a real tool is added to it.
+
+### 2026-09-03, later — we built the calendar, and it invented the fights
+
+Following your decision, I put the calendar through the tool pipeline rather than building
+anything by hand. The good news is that the machinery works and produced exactly the right
+*kind* of thing: a real interactive calendar with filters and a live countdown, attached to
+the existing page without duplicating it. That is genuinely what the nightly check has been
+asking for, and what the static list we shipped yesterday could never have been.
+
+The bad news is what it put *in* the calendar. Twelve fights, all invented — real fighters'
+names, with made-up dates, venues and broadcasters. Canelo against Charlo, Fury against Usyk,
+Wilder against Joshua. None of it checked against anything. And every single date is in the
+past: the newest is December 2025, and it is now September 2026. So the tool's own "hide
+fights that have already happened" behaviour would show a visitor **an empty calendar** —
+which is the exact complaint this whole piece of work started from.
+
+I have stopped it before it reached the site. Nothing has been published; the page is still
+serving yesterday's verified state, and I cancelled the queued rebuild with the reason
+recorded against it. I kept the tool itself, because the mechanism is right and only the data
+is wrong — throwing it away would lose the good half.
+
+**This is not a new problem, and I want to be plain about that: it is the original problem
+showing its face.** The whole reason 427 exists is that nothing on the estate turns a
+confirmed real-world event into a dated fact that can later be corrected. So when a generator
+is asked for a calendar's worth of fixtures, it has nothing to draw on and makes them up. We
+asked the machine for real upcoming fights and it did the only thing it could.
+
+**Your call, and there are three honest options.** One: actually build the missing piece —
+wire the calendar's fixture list to real, dated, correctable facts. That is the only option
+that finishes 427 rather than moving it, and the tool was deliberately briefed so its data can
+be swapped without touching the interface. Two: ship the mechanism with no fixtures and an
+honest "fixtures to follow" state — an empty calendar that says it is empty is not a false
+claim, whereas twelve invented ones are, and this is a customer's site with real people's
+names on it. Three: hand-check a small number of genuinely real upcoming fights into the
+evidence base first, then regenerate.
+
+My recommendation is one, with two as the interim if the site has to go out before that
+lands. What I would not do is re-run the generator and hope — it produced this from a brief
+that explicitly asked for real events, because there was nothing for it to be right about.
