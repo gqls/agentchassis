@@ -84,3 +84,119 @@ to use.
 - Related: `bugs_open/075` (why `processing_node` is inert), `bugs_closed/294`, migration `465`,
   council `1c212b15` for the objection verbatim, and
   `docs024_key_docs_latest/orchestration_status_lifecycle/` for the lane's runbook and notes.
+
+---
+
+# UPDATE 2026-09-03 — taken up by the `bugfix_329_takeover_claim` lane; still valid, and the reachability story is materially different from the one above
+
+Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_329_takeover_claim/`. Taken as an **unowned**
+bug on the evidence this file's filing lane left: `orchestration_status_lifecycle/HANDOFF_2026-08-19_continue_here.md:10`
+disclaims it in writing, no live session names it, and that lane's directory has been cold since
+2026-08-24.
+
+## 1. The mechanism above is unchanged — re-read at the code, not grepped
+
+`coordinator.go:758` (`StatusExecutingStep`) and `:780` (`StatusRunning`) both still gate on
+`time.Since(state.LastActivity) > StuckOrchestrationTimeout` (`:38`, 300 s) and then proceed with
+nothing claiming the row. `TakeOverOrchestration` still has exactly **one** caller — `:290`, the
+response-routing path, which deliberately proceeds win or lose. Neither arm uses it.
+
+## 2. Three facts this file predates, all measured at the live system
+
+**(a) The race is physically possible now.** `agent-chassis` is **2/2 replicas** on `v1.0.1356`
+`[MEASURED 2026-09-03 ~11:0xZ]`. This file states no replica count, so a reader could reasonably have
+assumed one pod and closed it.
+
+**(b) There is a guard IN SERIES that this file never mentions — and it would have passed a naive
+test of the fix.** `agent-chassis` runs `CHASSIS_INTAKE_MODE=worker_pool_all`. Under that mode
+(`platform/agentbase/intake.go`, `intake_workers.go`) messages are persisted and executed by a
+claim-worker pool that first acquires the message's **serialisation key** — `intakeSerialisationKey`
+(intake.go:215) derives it as the **orchestration_id** for requests and as the **parent**
+orchestration for responses — via `ClaimSerialisationKey` (intake_repo.go:136), an
+`INSERT … ON CONFLICT DO UPDATE … WHERE lease_expires_at <= NOW()` CAS on a table both pods share.
+That is one holder per orchestration **fleet-wide**. ⚠ **A "two callers, exactly one proceeds" test
+run on the chassis can therefore pass with the fix reverted.**
+
+**(c) It is a THIRD guard, not a second, and the outermost two do not cover the estate.** With
+thanks to the `dispatch_throughput` lane, who supplied the one I had missed. Layers, outermost in:
+
+| # | guard | where it applies |
+|---|---|---|
+| i | intake serialisation claim | `agent-chassis` **only** |
+| ii | **the coordinator arms — this defect** | every agent binary |
+| iii | work-item claim CAS (`claim_work_item_action.go`, conditional UPDATE valid only while `triaged`/`approved`) | the dispatch path |
+
+## 3. Why the fix belongs in the coordinator: the guard covers a MINORITY of the drivers
+
+`SagaCoordinator` is constructed in `platform/agentbase/agent.go`, so both arms run in **every** agent
+binary. `CHASSIS_INTAKE_MODE` is set on `agent-chassis` **only** — and `intake.go` disables the mode
+for **spawned** pods structurally (the `a.spawned` guard plus the `system.agent.` topic-prefix check).
+
+Who actually creates orchestrations, `orchestration_states.processing_node` over 14 d
+`[MEASURED 2026-09-03 ~11:3xZ]`, pod-family suffix stripped: `agent-chassis` **3,332** ·
+`agent-page-rerender` **2,215** · `agent-build-dispatch-loop` **660** · `agent-page-build-handler`
+**412** · `agent-internal-link-resolver` **392** · `agent-page-content-writer` **392** ·
+`agent-asset-deployer` **236** · 9 more families 82–142 each. **Every family below the first is a
+spawned pod, not a Deployment** (checked against `kubectl get deploy`; 8 `agent-page-rerender` pods
+were alive at the time of the reading). So the intake claim covers **under 40%** of the processes that
+drive orchestrations, and the remainder run the same two clock-only arms with no serialisation claim
+of any kind.
+
+⚠ This measurement could have come out `agent-chassis: 100%`, which would have pushed the fix toward
+the intake layer instead. It did not.
+
+## 4. Blast radius on the busiest path: **clean**, and that narrows the case honestly
+
+The `dispatch_throughput` lane's DOUBLE-HANDLE CENSUS (their `RUNBOOK_dispatch_throughput.md`,
+§"Concurrency meters that actually measure concurrency"), 24 h `[MEASURED 2026-09-03 ~11:4xZ]`:
+**3,044 handler orchestrations · 2,911 distinct work items · 71 items with ≥2 handlers · 0
+overlapping pairs on one item.** The 71 are sequential retries. Also **0** rows with a repeated step
+name inside one `execution_path` over 7 d `[MEASURED 2026-09-03 ~11:0xZ]`.
+
+⚠ Their caveat, which cuts against their own lane: that census bounds this bug **only where a CAS
+exists**; on a path with external side effects and no claim it says nothing. ⚠ And on a re-run, a
+stale-reaped handler's `updated_at` is the REAP stamp, not end-of-life, so a legitimate successor
+re-claim inside the reap window reads as an overlapping pair (discriminator: status FAILED +
+`error LIKE 'Orchestration stale%'` on the first-started member, second started minutes not seconds
+later).
+
+**So the justification is NOT "stop an active fire", and should not be argued as one.** It is: where a
+path sits behind a CAS the defect is absorbed; where it does not, nothing stands between a
+five-minute clock and a double execution with external side effects. The fix's value is that it stops
+depending on a backstop that is not present on every path, that nobody chose as this defect's
+mitigation, and that no one maintains as such — guard (iii) exists to make work-item claiming
+exclusive, and its protection here is a **by-product** a future refactor could remove without knowing
+it was load-bearing.
+
+## 5. A finding this lane owns, because no one else does
+
+`intakeLeaseDefault` is **180 s** (`intake_workers.go:43`) against a **300 s**
+`StuckOrchestrationTimeout`. **180 < 300**, so a serialisation key can change hands *before* the row
+is old enough to look stuck — the handover window and the takeover window are adjacent, not exclusive.
+And `drainKey` only tests `claimLost` **between events**, while `processMessage` takes no context
+(the file header says so), so after a handover the old holder **finishes the event it is already
+inside** while the new holder starts the next one on the same orchestration — a window bounded by the
+heartbeat period (`lease/3` = 60 s).
+
+The `dispatch_throughput` lane was offered this and declined it on the correct ground: their
+concurrency ground is the **work-item claim** seam, they have never measured `intakeLeaseDefault`, and
+they have **no evidence the ordering is deliberate**. Recorded here so a later reader does not
+attribute it to them. **[UNVERIFIED]** whether the ordering was ever chosen rather than defaulted.
+
+## 6. Notes for whoever reviews the fix
+
+- **Do not verify on the dispatch path.** Guard (iii) absorbs a double-takeover there even with (i)
+  and the fix both removed, so a pass proves nothing. Pick a locus with no CAS behind it and say why
+  it has none.
+- **No `090` run, and here is why rather than merely that** (owner ruling 2026-07-31): `LANDMINES.md`
+  records that a run on a symbol in a file over ~60 KB returns bundles and no verdict, looking exactly
+  like a run still in progress. `coordinator.go` is **199,136 bytes**, `state.go` **77,392**
+  `[MEASURED 2026-09-03]`. Substituted three artefact-level reads — both arms in full, the live
+  deployment env and replica counts, and the intake claim path end to end.
+- **`processing_node` intra-pod caveat for candidate (1).** The CAS is `WHERE processing_node = $3`.
+  Where the observed value already equals the acting pod's own name, two actors in that pod would both
+  match and both report `rowsAffected = 1`. Whether that is reachable depends on the claim layers
+  above; it must be stated either way, not assumed away.
+- `claim_work_item_action.go` is **another lane's seam** (it now carries an opt-in
+  `honour_spend_governor` pre-claim read, default OFF, live on `build-dispatch-loop` only). Not to be
+  edited from here; they have asked to be told if the claim primitive the arms use changes.
