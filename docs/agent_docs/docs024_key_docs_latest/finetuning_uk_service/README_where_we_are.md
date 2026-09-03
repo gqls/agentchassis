@@ -1454,3 +1454,17 @@ re-render to publish it. It also queued a rewrite of the page's text with its st
 which would have replaced the six booking sections you approved; I cancelled that before it ran. The
 box is visible on the site as soon as the re-render goes through, and I have a real-browser test ready
 that types a question into it and waits for the streamed answer.
+
+**2026-09-03, 21:35 BST: the playground answers.** The chat box is on the playground page, second
+section down under "Try the demo model", and it works: I drove the live page in a real browser,
+typed "In one sentence, what is fine-tuning?", pressed Send, and the model's answer streamed into the
+box word by word from your Hetzner server. Nothing on the page reaches anywhere except our own route.
+That is the whole chain you asked for this morning, live: the model, the route, the page.
+
+Three things for you to look at when you have a minute. The words on the chat box itself (the heading,
+the one-line intro, the disclosure) are the ones I put in the brief; change any you dislike and it is
+a small rebuild. The generator also wrote a companion page, "Understanding playground chat", at
+/guides/playground-guide.html; it reads sensibly but nothing links to it, so it is invisible until you
+say whether you want it. And the playground page's own text is still the booking copy from yesterday;
+folding the tool into it properly, as the centre of the page, is a rebuild I would want you to read
+the brief for first.

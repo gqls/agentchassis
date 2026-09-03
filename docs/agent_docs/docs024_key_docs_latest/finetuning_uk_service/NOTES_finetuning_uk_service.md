@@ -3317,3 +3317,40 @@ loop was busy with your-own-model until 20:22) — the widget is not served unti
   20:16:50) but 65 deep; the playground's own rerender `50c2a394` (20:11:24) has a handful ahead of it
   fleet-wide and the site's fan-out behind it. So the widget ships when the queue reaches it, not on
   a clock; watcher armed.
+
+## 2026-09-03 (20:26–20:35Z) — **THE PLAYGROUND DEMO IS LIVE END TO END**, proven in a real browser; the guide page read
+
+**Served 20:26:37Z** (`page_rerender` `50c2a394` complete; `pages.deployed_at` 20:26:37). The served
+`/playground.html` (55,579 bytes) carries the widget as the SECOND section ("Try the demo model",
+between the hero and the three booking sections): 1× the route URL, 1× `getReader`, `credentials:
+'omit'`, the static copy and disclosure, `aria-live`, "Start again". Foreign URLs on the page: ours,
+plus the chrome's pre-existing lucide (unpkg) and GTM — nothing new. The script addresses the
+renderer's PREFIXED ids (`c-tool-playground-playground-form` etc., 7 lookups, all present in the
+markup), `preventDefault()` present — the TL-032 orphan-ref trap did not fire.
+
+**Browser proof `[MEASURED 20:33Z]`, `cdp_chat_probe.py`** (headless snap Chromium driven over CDP
+with `--remote-allow-origins=*`, loading the LIVE URL so the Origin is `https://finetuning.uk`): title
+read; form + input + "Send" found; typed "In one sentence, what is fine-tuning?", clicked Send; no
+navigation (location unchanged, form still present); transcript then held TWO bubbles — the question
+and *"Fine-tuning is a process of fine-tuning a pre-trained language model's performance on a
+specific task by adjusting the model's parameters and training on a new"* — captured MID-STREAM
+(Send still disabled), which is the streaming proven, not inferred. RESULT PASS.
+Three probe iterations to get there, all reader-side: (1) Chromium refused the CDP websocket
+(`--remote-allow-origins`); (2) my selector wanted an ancestor with "playground" in its class; the
+form carries the class itself (`form.playground-form`); (3) the transcript is not inside a
+`<section>` in the live DOM, so `closest('section')` was null — read `[id$=-transcript]` instead.
+None of the three was a widget fault; each looked like one for a minute.
+
+**The generator-minted guide `/guides/playground-guide.html`** deployed 20:26:09 (1,302 words, 0 em
+dashes, on-topic in substance: "put real questions to a model trained on your own documents before
+you commit… mistakes people make reading too much into a single reply"; h2s "What playground chat
+actually is | Why a test run matters before you commit | Where people go wrong in the playground |
+Getting more out of a session | What the playground can't tell you | See it answer, then decide").
+NOTHING links to it (0 page_components, 0 templates, 0 nav rows, 0 on the playground page). Left
+deployed and unlinked; **owner's call whether a playground guide should exist** (README).
+
+**Not done, on purpose:** `deploy_config.capabilities` untouched (the generated tool carries no
+`requires-backend` tag; TL-043 did not fire); no criteria fence written for the tool yet (the
+acceptance list lives in the brief; a fence is the next-session item so the ladder can grade it); the
+merged playground brief (tool at the centre + booking copy) is a later, owner-read rebuild.
+Guide page prose carries NO numbers (0 sentences with digits; the earlier '95, 80, 10, 30…' were CSS values), no model names, no price — nothing to register or retract.
