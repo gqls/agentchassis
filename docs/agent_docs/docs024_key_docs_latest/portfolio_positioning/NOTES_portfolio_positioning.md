@@ -4274,4 +4274,17 @@ a layout bypass the tag matcher?* Measured instead.
   was never deployed, so it is **excluded from the census that measures its own class**. A count
   of shells cannot see a page that never shipped; the parked-HITL variant needs its own predicate.
   Sent to them.
+- **(aa) closed out — the 450 census was a floor TWICE.** The fixing lane re-measured all four
+  variants: filed predicate **54 / 9** today · +4 pages / 4 sites never-shipped (my finding,
+  incl. our `tool-channel-prioritiser`) · **+9 pages / 4 sites whose only tool component is
+  INACTIVE** (their own finding — the filed census never tested `cc.is_active` while their guard
+  does, so finetuning, robot-hands, ai-agent-orchestration and gaswholesalers were invisible
+  entirely) · **what the guard actually refuses: 67 pages / 16 sites**. Filed figure was 61 / 10.
+  They corrected the bug file's Verify block to carry attached-vs-published and the never-shipped
+  arm, superseded rather than deleted the old number, and are NOT retriggering a mid-flight
+  council round for it (directional evidence, not load-bearing on the design) — they carry the
+  correction into round 2 or record it against the verdict. **The root they name is the keeper:
+  the census that SIZES a bug was never the predicate the FIX uses, and the two drifted.** Folded
+  into the fleet memory `a-census-must-be-derived-from-the-code-it-models` as its fourth form,
+  with the go-green-early twin, both credited to the 450 lane.
 
