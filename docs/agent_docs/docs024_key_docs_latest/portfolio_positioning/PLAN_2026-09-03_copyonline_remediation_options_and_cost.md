@@ -166,3 +166,52 @@ morning and then forgot it this afternoon on the pages.
 **What does NOT change.** The brief still reaches nothing; six derived specs were still written blind;
 the site is still being designed as a marketplace against a brief describing an authority site; and
 the window still closes when the planner runs.
+
+---
+
+## 8. ⚠ CORRECTION 2026-09-03 ~18:00Z — §2's conclusion is REFUTED and the RECOMMENDATION IS WITHDRAWN
+
+§2 concluded that every derived spec was produced without the brief, and §5 recommended option B
+(hold the build, repair, re-run). **A seventh spec, written at 17:44:34Z — eleven minutes after §2's
+measurement — refutes the conclusion, and with it the recommendation.**
+
+`site_specs.strategy`, by `domain-strategist`, re-run through §2's own marker test:
+
+| spec | stance | lead route | `headline scorer` | `randomised listing` | `webdesign.uk` |
+|---|---|---|---|---|---|
+| `mission_brief` (control) | yes | yes | yes | no | yes |
+| the six specs of §2 | no | no | no | no | no |
+| **`strategy`** | no | **yes** | **yes** | **yes** | **yes** |
+
+`site_type: "authority-portal"`, the brief's four tools plus the fifth aspirational one, the lead route
+as the single converting page, the directory, the Copy Clinic, the glossary, the AI-first opening —
+**and two instructions the owner gave in chat that exist only inside the brief object.**
+
+**Mechanism** [MEASURED 17:53Z at the live `agent_definitions` rows]: `domain-research-classifier` and
+`build-site-planner` both render `{{.site_specs.specs.mission_brief.text}}` under a guard that opens on
+the parent. `domain-strategist` renders `{{.site_specs}}` — the whole blob, no brief-specific path. The
+data reached all three. Two templates ask for a child that brief-writer output does not carry.
+
+**Consequence for the planner, which is the step §3 called the deadline:** it renders
+`{{toJSON .site_specs.specs.strategy}}` — the strategy object whole. So the brief's content reaches it
+**second-hand and in full**, alongside the wrong classification it also renders. One good input against
+one bad one, not an absent input.
+
+**Therefore: option A is now the recommendation and option B is withdrawn.** Leave the build alone and
+judge the plan on its output. The pipeline partially self-corrected without intervention; holding it
+this afternoon would have interrupted a recovering run on the strength of a claim I had over-widened
+from two agents to all of them. **The owner's original instruction — do not change a running build —
+was the correct call on the evidence he had, and on the evidence I now have.**
+
+**The error, for the record.** §2 enumerated the readers of one FIELD (`mission_brief.text`) and I
+reported it as the readers of the INFORMATION. Those are different sets, and the second is reached by
+more than one route. The check that would have caught it: grep every active agent's prompt for a
+whole-object render (`{{.site_specs}}`, `{{toJSON …}}`) as well as for the specific path.
+
+**Unchanged:** the classifier ran blind and its classification is wrong; five tool pages were built
+that are not the brief's, three of them seotools duplicates on an open question; nothing is published;
+7 of 23 current briefs lack the key. The proper fix is two template expressions and belongs to
+`bugs_open/453` — contributed there with the reference implementation.
+
+**The held SQL should now NOT be applied.** It is a per-site data workaround for a defect whose real
+fix is smaller, fleet-wide and already patterned in the estate.

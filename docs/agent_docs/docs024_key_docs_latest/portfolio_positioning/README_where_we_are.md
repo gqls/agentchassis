@@ -1593,3 +1593,45 @@ The choice is still yours and it is still the same choice. I have written it up 
 each route costs, in the lane's plan document. The short version: let it finish and rebuild afterwards,
 or hold it now, repair the brief, re-run the classification and let it build the site you signed off.
 I would take the second. I have not done either.
+
+**Just before six, and this one reverses my advice. I was wrong, and the news is good.**
+
+An hour ago I told you your brief reaches none of the agents that decide what copyonline becomes, and
+I recommended holding the build. Both of those were wrong. I want to be plain about it because I
+pressed you twice on a decision you did not need to make.
+
+Eleven minutes after I wrote that, the pipeline produced its strategy document. I went and read it.
+It describes copyonline as an authority portal, not a marketplace. It names your four tools, by name.
+It calls the lead route the site's single converting page. It has the copywriter directory, the Copy
+Clinic, the glossary, and the AI-first opening argument. And it contains two things you said to me in
+conversation this afternoon and which exist nowhere except inside the brief: that the directory
+listings should be randomised to begin with, and that leads from webdesign.uk might be routed here.
+
+So one of the agents reads your brief perfectly well. I had checked the two that could not, and then
+told you none of them could. That is a bigger claim than the one I had actually tested, and it was the
+wrong one.
+
+The reason for the difference turns out to be small and slightly silly. Two of the agents are written
+to look for the brief in one specific spot inside it. Your brief does not fill that spot in, so they
+find nothing and carry on regardless. The third agent does not look for a spot at all. It is handed
+the whole thing and simply reads it. Same brief, same moment, same site. One could not see it, the
+other quoted it back in detail.
+
+That matters for the page planner, which is the step still to come. It cannot see your brief directly,
+for the same reason the classifier could not. But it is handed the strategy document whole, and the
+strategy document is faithful. So your brief reaches it second-hand and in detail. It will also see
+the wrong classification, so I would not call the risk zero. It is one good input against one bad one,
+rather than nothing at all.
+
+**My advice now is to leave it alone**, which is what you told me in the first place. The pipeline has
+largely corrected itself: the strategist caught what the classifier missed, because it reads
+generously. If I had held the build this afternoon I would have interrupted a run that was recovering
+on its own.
+
+The sensible thing is to wait for the plan and judge it on what it actually contains. If it comes out
+carrying your thirty pages, the only tidying left is the five tool pages that should not have been
+built, three of which are the seotools duplicates you already have a question sitting on.
+
+What is genuinely worth fixing is the underlying fault, and it is now a much smaller job than I
+thought. It is two lines of template, and there is already a working example of the right way to do it
+sitting in the same system. I have written that up for the thread that owns it.
