@@ -804,11 +804,28 @@ lane's standing practice, and it paid):
 | `parent_section` empty on 109 of 109 blog-post plan rows | `site_plan_pages` census | holds exactly |
 | Pass C compares first path segments | `bugs_open/463` §2 + its §5 | holds |
 
-**One number of mine is WIDER than theirs**, worth having in both files: `parent_section`
-is empty on **76 of 76** `section-index` and **4 of 4** `news-index` plan rows too, so the
-column is unpopulated **fleet-wide**, not merely for blog-posts. Nothing anywhere writes
-it. (Misstep on the way: I first queried `spec->>'parent_section'` — it is a real column,
-not jsonb. `\d` first, again.)
+~~**One number of mine is WIDER than theirs**, worth having in both files:
+`parent_section` is empty on **76 of 76** `section-index` and **4 of 4** `news-index` plan
+rows too, so the column is unpopulated **fleet-wide**, not merely for blog-posts. Nothing
+anywhere writes it.~~ (Misstep on the way: I first queried `spec->>'parent_section'` — it
+is a real column, not jsonb. `\d` first, again.)
+
+> **⚠ CORRECTED same day — the "wider" figure was WRONG, and it is the more
+> interesting mistake of the two.** The 463 lane caught it; I verified before accepting.
+> `CanonicalisePage` **deliberately ignores** `ParentSection` for the index family — a
+> section index *is* its own section — so those 80 rows being empty is **correct
+> behaviour**, not evidence of a gap. Read the switch to confirm: only `tool`, `guide`,
+> `game`, `blog-post` and `entity-page` have a `dir := parent` arm
+> (`page_canonical.go:181, 192, 203, 217, 233`); `section-index` and `news-index` appear
+> only in `normalisePageType` and an index-role predicate, never in a URL-building arm.
+> **What I actually did:** measured a column's emptiness across roles without first
+> checking whether the code *reads* that column for those roles — so my query answered
+> "is it empty?" when the load-bearing question was "is it empty where it is READ?".
+> Textbook "your measurement answers the question you ENCODED". The **109 of 109**
+> blog-post figure was always sufficient and is untouched; I widened a sound claim into
+> an unsound one and sent it to two lanes. `WRONG_CALLS.md` 2026-09-03; corrected in the
+> designblog CONTRIB and in `bugs_open/468` §3, which carries the carve-out as a warning
+> to the next reader.
 
 **The finding I sent back.** A census of every non-test `CanonicalisePage` call site:
 `write_site_plan_action.go:494` and `site_db_actions.go:314` thread
@@ -833,9 +850,23 @@ after reading `create_blog_posts`' doc header and its workflow steps, but not it
 `CanonicalisePage` call — a two-field struct literal was the whole difference between a
 live route and a dead one. Reading what a mechanism DOES is not reading what it PASSES.
 
-**Not asserted, and flagged as such to the peer:** whether Pass C also drops children
-written *directly* into `pages` rather than planned. Those are realised-but-unplanned; I
-expect a different pass governs them and did not read it.
+~~**Not asserted, and flagged as such to the peer:** whether Pass C also drops children
+written *directly* into `pages` rather than planned.~~ **ANSWERED by the 463 lane same
+day: it does NOT.** Pass C only ever inspects the LLM's proposed page list; rows already
+in `pages` arrive through `existingPages` and are governed by the preservation set and
+Pass A's union, which add and restore but never drop. My instinct that a different pass
+governs them was right, and flagging it unverified rather than asserting it is what got
+it answered instead of believed.
+
+**The `create_blog_posts` gap is now `bugs_open/468`, filed by this lane.** The 463 lane
+repeated my census independently, confirmed it, and gave the precise reason their fix
+cannot reach it: their change derives `parent_section` from the page's own **URL** inside
+`ValidateRoles`, and `create_blog_posts` has no URL to derive from because the URL is the
+**output** of canonicalisation. They recorded it in `463` §9 with attribution and offered
+that I file it; I did, because a residual inside another bug is forgotten when that bug
+closes — the estate's own "a closed blocker keeps being obeyed" landmine. `468` states
+its `090` substitution explicitly per the 2026-07-31 owner ruling: two independent code
+reads of an enumerable, closed call-site set, one of them a peer's.
 
 **Also tracking `bugs_open/457`** (`rebuild_blog_listing` appending orphan
 `page_components` rows), owned elsewhere, in flight — the hub-**render** half. A filled

@@ -90,9 +90,21 @@ neither is mine to pick alone.
 >    arm defaults the directory to `blog` when `parent_section` is absent
 >    (`page_canonical.go:218-220`), and nothing populates `parent_section`.
 >    `[MEASURED 2026-09-03, first-hand]` it is empty on **109 of 109** `blog-post`
->    plan rows — and also on **76 of 76** `section-index` and **4 of 4**
->    `news-index` rows, so the column is unpopulated **fleet-wide**, which is a
->    wider fact than the 463 lane's own measurement.
+>    plan rows. ~~And also on 76 of 76 `section-index` and 4 of 4 `news-index`
+>    rows, so the column is unpopulated fleet-wide, which is a wider fact than the
+>    463 lane's own measurement.~~
+>    > **⚠ CORRECTED 2026-09-03, same day, caught by the 463 lane and verified
+>    > here before accepting it: that wider figure was WRONG and it overstated the
+>    > case.** `CanonicalisePage` deliberately ignores `ParentSection` for the
+>    > index family — a section index *is* its own section — so those rows being
+>    > empty is **correct behaviour**, not evidence of the gap. Confirmed by
+>    > reading the switch: only `tool`, `guide`, `game`, `blog-post` and
+>    > `entity-page` read `parent` (`page_canonical.go:181, 192, 203, 217, 233`);
+>    > `section-index` and `news-index` never reach a `dir := parent` arm at all.
+>    > **The 109 of 109 carries the argument on its own.** My error was measuring
+>    > a column's emptiness across roles without first checking whether the code
+>    > reads that column for those roles — the estate's own "your measurement
+>    > answers the question you ENCODED" shape. `WRONG_CALLS.md`, 2026-09-03.
 >
 > **The third gap, which their fix as described does NOT reach, and which lands
 > squarely on route (1).** `[MEASURED 2026-09-03]` a census of every non-test
@@ -109,6 +121,22 @@ neither is mine to pick alone.
 > `deploy_tool_action.go:736` is the precedent: it hardcodes
 > `ParentSection: "guides"` and ships tool guides under `/guides/` today. Raised
 > with the 463 lane; not taken by this lane, and no file of theirs touched.
+>
+> **CONFIRMED by the 463 lane and now FILED as `bugs_open/468`.** They repeated my
+> census independently and gave the precise reason their fix cannot reach it:
+> their change derives `parent_section` from the page's own **URL** inside
+> `ValidateRoles`, and `create_blog_posts` has no URL to derive from, because the
+> URL is the **output** of canonicalisation rather than an input to it. So it needs
+> a different input entirely — the target section passed explicitly, following
+> `deploy_tool`'s precedent. They recorded it in `463` §9 with attribution; I filed
+> `bugs_open/468` as well, because a residual inside another bug is forgotten when
+> that bug closes and this estate has been bitten by exactly that.
+>
+> **And their second answer retires my open question (1) below:** Pass C would
+> **not** drop children written directly into `pages`. It only ever inspects the
+> LLM's proposed page list; rows already in `pages` arrive through `existingPages`
+> and are governed by the preservation set and Pass A's union, which add and
+> restore but never drop. So that half is safe for both routes.
 >
 > **Route (1)'s dormancy now has a bug number, and it is UNOWNED.**
 > `bugs_open/460` ("the blog-post producer ran 13 times then stopped dead on
