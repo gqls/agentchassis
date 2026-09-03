@@ -19930,3 +19930,36 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** 016b §9 "A detector must PARTITION its population by the handler's remit" (2026-07-26 — the out-of-remit sibling, where the label is arguably right) · `bugs_open/326` (the anti-churn deferral in the same block) · `bugs_open/397` · `bugs_closed/091` · MEMORY [[detection-works-schedule-and-dispatch-do-not]]
 - **source:** 2026-09-03, `site_delivery_and_editor` lane, asking why boxingonline.com's GTM tag had not arrived 26 h after the chrome rerender that carries it was "inbound"; `bugs_open/451`, diagnosis row `0639080d`
 - **added:** 2026-09-03, `site_delivery_and_editor` lane
+
+### A BEFORE INSERT trigger fires on the INSERT half of an UPSERT, and `EXCLUDED.<col>` carries its mutation into the DO UPDATE branch
+- **footprint:** `sites` (trigger `trg_sites_born_holding_growth`, function `sites_born_holding_growth`) · `sites.settings->'maintenance_profile'->>'growth_posture'` · `upsertSite` in `platform/orchestration/actions/site_db_actions.go` · any `INSERT … ON CONFLICT … DO UPDATE SET <col> = EXCLUDED.<col>` on a table carrying a BEFORE INSERT trigger · `ensure_site_record`
+- **fires when:** you add or widen an UPSERT's `DO UPDATE SET` clause to write a column that a BEFORE INSERT trigger stamps — `settings = EXCLUDED.settings`, or a `sites.settings || EXCLUDED.settings` merge with EXCLUDED on the winning side. You do not need a symptom, and the change looks entirely reasonable: "carry the caller's settings through on conflict too".
+- **the mechanism:** Postgres runs the BEFORE INSERT row trigger for **every row the statement proposes, before the conflict is detected**. `EXCLUDED` is that *post-trigger* row. So a trigger written to stamp a value on NEW ROWS ONLY has its stamp smuggled into the UPDATE branch, where it lands on a row that already existed. `trg_sites_born_holding_growth` stamps `growth_posture='hold'`; `ensure_site_record` UPSERTs every site on **every improvement-loop pass, ~50 times a day fleet-wide** — so the day someone widens that clause, **every site the owner has released is silently re-held on its next pass**, and growth stops estate-wide with nothing in an error log.
+- **why the wrong result looks exactly like the right one:** the trigger is correct, its `BEFORE INSERT` restriction is correct, and a test that upserts with today's clause **passes** — I wrote exactly that test and it passed. Nothing about the trigger changes; the defect is introduced by an edit to a different statement in a different file, and the trigger's own comments will still say "INSERT only".
+- **the check — INDUCE IT, both branches, in a rolled-back transaction:**
+  ```sql
+  BEGIN;
+  -- (a) today's shape: must stay 'open'
+  INSERT INTO sites (domain, name, network_id, status) VALUES ('cookly.uk', …)
+  ON CONFLICT (domain) DO UPDATE SET updated_at = now();
+  -- (b) the hazard: writes settings from EXCLUDED
+  INSERT INTO sites (domain, name, network_id, status) VALUES ('lampenkap.com', …)
+  ON CONFLICT (domain) DO UPDATE SET settings = EXCLUDED.settings;
+  SELECT domain, COALESCE(settings->'maintenance_profile'->>'growth_posture','open')
+    FROM sites WHERE domain IN ('cookly.uk','lampenkap.com');
+  ROLLBACK;
+  ```
+  `[MEASURED 2026-09-03]` (a) reads **open**, (b) reads **hold** — on a site that was released. If you are editing an UPSERT on `sites`, run this before and after your change.
+- **the standing rule this leaves:** **no `DO UPDATE SET` on `sites` may write `settings` from `EXCLUDED`.** `[MEASURED 2026-09-03]` none does — the four upserts set `updated_at`, `email = COALESCE(sites.email, EXCLUDED.email)`, or `DO NOTHING` — and there were **zero** non-internal triggers on `sites` before this one, so no ordering question either. Merge into the *existing* row instead (`settings = sites.settings || <your jsonb>`), which never carries the trigger's stamp.
+- **the general form, which is the part worth remembering:** *"my trigger is BEFORE INSERT, therefore it cannot affect existing rows"* is **false in the presence of an upsert.** That reasoning is what makes this invisible — it is correct about triggers and wrong about `ON CONFLICT`, and the two are usually written by different people months apart.
+- **relations:** migration `722` (the trigger, and its arm 5 which tests only today's clause) · WDS-020 growth posture · `bugs_open/447` · council trail `070347dd-c410-4cf2-b5e6-8c87e568a792` round 3, `guardian` seat — **this entry exists because that seat raised the mechanism as a high-severity objection and I could only answer it by inducing it; the answer was that the seat was right and my "unrepresentable" claim was too strong**
+- **added:** 2026-09-03, improvement_loop lane
+
+### A PROVEN LOGIN certifies the credentials, never the COMMANDS — an unexercised verb carries an unexercised WIRE SHAPE, and offline well-formedness cannot see it
+
+- **footprint:** `scripts/domains/epp.pl`, `scripts/domains/nominet.py`, `epp.nominet.org.uk:700`, EPP `std-list-1.0`, `<list:expiry>`, result code `2001`, `docs024_key_docs_latest/nominet_domain_management/`, `portfolio_positioning/RUNBOOK_domain_inventory_and_classification.md`
+- **fires when:** you run a staged recipe whose *connection* was proven earlier and whose *command* never was — any EPP verb beyond login, but the same shape applies to any XML/SOAP/JSON-RPC API where a doc records "✅ LOGIN PROVEN" and a session then trusts the whole runbook page under that heading.
+- **the tell is that the proof you have is real and the proof you need is missing.** `RUNBOOK_domain_inventory_and_classification.md` §1 has carried a genuine `LOGIN_CODE=1000` since 2026-08-19 under the heading *"the allowlist is good, the walk is next"* — and the walk directly beneath it sent `<list:expiry><list:month>YYYY-MM</list:month></list:expiry>`, which the registry refuses with **2001 Command syntax error**: `<list:expiry>` is a SIMPLE element holding the month directly (pattern `\d\d\d\d-\d\d`), so the nested form leaves its own content empty. **The XML was perfectly WELL-FORMED** — a `minidom.parseString` self-test passes it, and mine did (15/15) — it was wrong against a SCHEMA only the server holds. Two clients carried the identical defect for two weeks because the second was written from the first.
+- **the check:** before quoting a staged multi-step recipe as ready, ask which steps have ever received a SERVER response, and treat every other step as unwritten. Exercise the cheapest instance of each distinct verb once (here: one `list` for a single month, ~2 s, would have caught it on 08-19) — a verb, not the whole walk. When a client is written from a sibling, the sibling's unexercised verbs are inherited defects, not prior art: `git log` the sibling for evidence it ever RAN, not that it exists. And keep the transport fail-fast — this was cheap to find only because the client refused to continue past a non-1000 result and printed the registry's own message verbatim, which named the element, the pattern and the empty value.
+- **source:** 2026-09-03, nominet_domain_management lane — the owner's first real `walk` after `login` had been proven twice; fix `316d83c4c` (both clients); the 08-19 recipe had been cited as ready by three lanes since
+- **added:** 2026-09-03, nominet_domain_management lane

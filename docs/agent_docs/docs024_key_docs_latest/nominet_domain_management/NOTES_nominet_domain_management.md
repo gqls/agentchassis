@@ -227,7 +227,28 @@ column. The per-domain enrichment loop is DO-NOT-BUILD.**
 bulk-import sheet, needs the names only. Same deliverable, same location
 (`domain_valuation/inbound/nominet_domains_<date>.csv`); on commit, message
 BOTH "domain valuation" and "sedo". Two consumers now depend on the column
-shape `domain,expiry_month` — a format change needs both told. Told them the three retail-registrar inventories
+shape `domain,expiry_month` — a format change needs both told.
+
+## 2026-09-03 — the walk's first real run found the list XML was WRONG in both clients
+
+Owner ran the walk (late 09-02): login 1000, then `list 2026-09` →
+**2001 Command syntax error** — the registry's own message names it exactly:
+`<list:expiry>` is a SIMPLE element (pattern `\d\d\d\d-\d\d`) holding the
+month directly, and both clients sent the nested
+`<list:expiry><list:month>…</list:month></list:expiry>` form, so the simple
+element's own content was `''`.
+
+The nested form came from `epp.pl`, whose `list` mode was **never run live**
+— the 08-19 session proved LOGIN only, and the walk recipe has been staged
+ever since on XML nobody had sent. A proven login is not a proven list; the
+unexercised verb was carrying an unexercised WIRE SHAPE, which no offline
+well-formedness test can catch (the XML was perfectly well-formed — it was
+wrong against the registry's schema, and only the registry says so).
+
+Fixed in BOTH clients (`316d83c4c`), fail-fast behaviour did its job (2001
+surfaced verbatim, nothing further attempted). Walk re-run owed; `list` moves
+from "unexercised" to "exercised-and-refused-then-fixed" — still not proven
+until a run returns domains. Told them the three retail-registrar inventories
 (Dynadot 451 mostly-.com / Porkbun 683 / Spaceship 203, all measured 09-02)
 live in the domains_cloudflare_rollout lane with proven read clients — .com
 being in scope makes those their next asks, not ours.

@@ -23,9 +23,25 @@ LOGIN_MSG=Command completed successfully
 That was the only genuinely uncertain part — a session cannot run it (see below), and the
 greeting alone would have proved nothing.
 
+> **⚠ CORRECTED 2026-09-03 — "and the client works" overstated this, and the walk below was
+> BROKEN for two weeks.** The login proved the credentials and the allowlist; **no `list`
+> command had ever been sent.** When one finally was (2026-09-02, owner-run), the registry
+> refused it: **2001 Command syntax error** — `<list:expiry>` is a SIMPLE element holding
+> `YYYY-MM` directly, and `epp.pl` sent the nested `<list:expiry><list:month>…</list:month>`
+> form, so the element's own content was empty. Fixed in `epp.pl` and `scripts/domains/nominet.py`
+> (`316d83c4c`). The XML was well-formed throughout — only the registry's schema could catch it.
+> **Go-forward the walk is `python3 scripts/domains/nominet.py walk --months 120`** (§2 of
+> `docs024_key_docs_latest/nominet_domain_management/RUNBOOK_nominet_domain_management.md`),
+> which also carries the expiry month through. LANDMINES: "A PROVEN LOGIN certifies the
+> credentials, never the COMMANDS".
+
 **Estate size, per the owner 2026-08-19: ~1,500 `.uk` domains, not 2,000.**
 
-**Still to run — the twelve-month expiry walk**, which is what actually produces the list:
+**Still to run — the expiry walk**, which is what actually produces the list. ⚠ **The loop
+below is SUPERSEDED** (broken XML per the correction above, and twelve months under-counts a
+TLD that registers up to ten years) — use
+`python3 scripts/domains/nominet.py walk --months 120 > all_domains.txt` instead; kept here
+because other docs cite this block:
 
 ```sh
 for m in 2026-09 2026-10 2026-11 2026-12 2027-01 2027-02 2027-03 2027-04 2027-05 2027-06 2027-07 2027-08; do
