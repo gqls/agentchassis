@@ -1,7 +1,7 @@
 {
  "A_gamedesign_real_with_subjects": {
   "current_page": {
-   "title": "gamedesign.uk \u2014 The Practice of Game Design"
+   "title": "gamedesign.uk — The Practice of Game Design"
   },
   "current_section": {
    "name": "generic-text-block",
@@ -12,7 +12,7 @@
    "sections_ready": [
     {
      "name": "hero",
-     "subject": "Publication identity and editorial scope \u2014 what gamedesign.uk covers and who it is written for",
+     "subject": "Publication identity and editorial scope — what gamedesign.uk covers and who it is written for",
      "function": "hero"
     },
     {
@@ -141,6 +141,138 @@
     {
      "name": "faq",
      "subject": "questions people ask"
+    }
+   ]
+  }
+ },
+ "C2_playground_LIVE_array_2026-09-03": {
+  "current_page": {
+   "title": "The playground: an hour with your own model"
+  },
+  "current_section": {
+   "name": "generic-text-block",
+   "subject": "what to have ready before the hour",
+   "function": "generic-text-block"
+  },
+  "sections_for_render": {
+   "sections_ready": [
+    {
+     "name": "hero",
+     "subject": "what the playground is",
+     "function": "hero"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "what you actually do in the hour",
+     "function": "generic-text-block"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "when you can book it",
+     "function": "generic-text-block"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "what to have ready before the hour",
+     "function": "generic-text-block"
+    },
+    {
+     "name": "faq",
+     "subject": "what people ask about the hour",
+     "function": "faq"
+    },
+    {
+     "name": "call-to-action",
+     "subject": "how to book",
+     "function": "call-to-action"
+    }
+   ]
+  }
+ },
+ "F_two_sections_share_a_subject": {
+  "current_page": {
+   "title": "The playground: an hour with your own model"
+  },
+  "current_section": {
+   "name": "generic-text-block",
+   "subject": "what to have ready before the hour",
+   "function": "generic-text-block"
+  },
+  "sections_for_render": {
+   "sections_ready": [
+    {
+     "name": "hero",
+     "subject": "what the playground is",
+     "function": "hero"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "what to have ready before the hour",
+     "function": "generic-text-block"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "when you can book it",
+     "function": "generic-text-block"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "what to have ready before the hour",
+     "function": "generic-text-block"
+    },
+    {
+     "name": "faq",
+     "subject": "what people ask about the hour",
+     "function": "faq"
+    },
+    {
+     "name": "call-to-action",
+     "subject": "how to book",
+     "function": "call-to-action"
+    }
+   ]
+  }
+ },
+ "G_subjects_as_full_sentences_(fixture_text_not_copy)": {
+  "current_page": {
+   "title": "The playground: an hour with your own model"
+  },
+  "current_section": {
+   "name": "generic-text-block",
+   "subject": "If you'd like to prepare in advance of your hour, you might want to get these things ready.",
+   "function": "generic-text-block"
+  },
+  "sections_for_render": {
+   "sections_ready": [
+    {
+     "name": "hero",
+     "subject": "The playground is an hour on a GPU with a model fine-tuned on your own material.",
+     "function": "hero"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "In the hour you load your data, train a small adapter and try it out.",
+     "function": "generic-text-block"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "You can book any weekday hour, and the slot is yours alone.",
+     "function": "generic-text-block"
+    },
+    {
+     "name": "generic-text-block",
+     "subject": "If you'd like to prepare in advance of your hour, you might want to get these things ready.",
+     "function": "generic-text-block"
+    },
+    {
+     "name": "faq",
+     "subject": "The questions people ask before booking, answered.",
+     "function": "faq"
+    },
+    {
+     "name": "call-to-action",
+     "subject": "Booking takes a minute.",
+     "function": "call-to-action"
     }
    ]
   }

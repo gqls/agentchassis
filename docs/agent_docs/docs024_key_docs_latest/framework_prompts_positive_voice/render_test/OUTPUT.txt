@@ -1,0 +1,372 @@
+########## CANDIDATE A1_rest_of_the_page  (em dashes in template: 0)
+
+===== A_gamedesign_real_with_subjects =====
+## This section
+
+Brief description of the sister-site relationship with gamesdesign.co.uk and what each site covers
+
+The rest of gamedesign.uk — The Practice of Game Design, section by section:
+- Publication identity and editorial scope — what gamedesign.uk covers and who it is written for
+- The most recent or most significant published article, surfaced as the lead piece
+
+## Verified Facts (marker: next block)
+
+===== B_playground_real_null_subjects =====
+## Verified Facts (marker: next block)
+
+===== C2_playground_LIVE_array_2026-09-03 =====
+## This section
+
+what to have ready before the hour
+
+The rest of The playground: an hour with your own model, section by section:
+- what the playground is
+- what you actually do in the hour
+- when you can book it
+- what people ask about the hour
+- how to book
+
+## Verified Facts (marker: next block)
+
+===== C_playground_backfilled_intended =====
+## This section
+
+what to bring to the session
+
+The rest of The playground: an hour with your own model, section by section:
+- what the playground is
+- how the hour works
+- what you learn
+- questions people ask
+- booking
+
+## Verified Facts (marker: next block)
+
+===== D_siblings_NOT_in_input_fields_(today) =====
+## This section
+
+what to bring to the session
+
+The rest of The playground: an hour with your own model, section by section:
+
+## Verified Facts (marker: next block)
+
+===== E_one_sibling_missing_subject =====
+## This section
+
+what to bring to the session
+
+The rest of The playground: an hour with your own model, section by section:
+- what the playground is
+- questions people ask
+
+## Verified Facts (marker: next block)
+
+===== F_two_sections_share_a_subject =====
+## This section
+
+what to have ready before the hour
+
+The rest of The playground: an hour with your own model, section by section:
+- what the playground is
+- when you can book it
+- what people ask about the hour
+- how to book
+
+## Verified Facts (marker: next block)
+
+===== G_subjects_as_full_sentences_(fixture_text_not_copy) =====
+## This section
+
+If you'd like to prepare in advance of your hour, you might want to get these things ready.
+
+The rest of The playground: an hour with your own model, section by section:
+- The playground is an hour on a GPU with a model fine-tuned on your own material.
+- In the hour you load your data, train a small adapter and try it out.
+- You can book any weekday hour, and the slot is yours alone.
+- The questions people ask before booking, answered.
+- Booking takes a minute.
+
+## Verified Facts (marker: next block)
+
+########## CANDIDATE A2_page_in_order_this_one_marked  (em dashes in template: 0)
+
+===== A_gamedesign_real_with_subjects =====
+## This section
+
+Brief description of the sister-site relationship with gamesdesign.co.uk and what each site covers
+
+gamedesign.uk — The Practice of Game Design, in order:
+- Publication identity and editorial scope — what gamedesign.uk covers and who it is written for
+- The most recent or most significant published article, surfaced as the lead piece
+- Brief description of the sister-site relationship with gamesdesign.co.uk and what each site covers (this section)
+
+## Verified Facts (marker: next block)
+
+===== B_playground_real_null_subjects =====
+## Verified Facts (marker: next block)
+
+===== C2_playground_LIVE_array_2026-09-03 =====
+## This section
+
+what to have ready before the hour
+
+The playground: an hour with your own model, in order:
+- what the playground is
+- what you actually do in the hour
+- when you can book it
+- what to have ready before the hour (this section)
+- what people ask about the hour
+- how to book
+
+## Verified Facts (marker: next block)
+
+===== C_playground_backfilled_intended =====
+## This section
+
+what to bring to the session
+
+The playground: an hour with your own model, in order:
+- what the playground is
+- how the hour works
+- what to bring to the session (this section)
+- what you learn
+- questions people ask
+- booking
+
+## Verified Facts (marker: next block)
+
+===== D_siblings_NOT_in_input_fields_(today) =====
+## This section
+
+what to bring to the session
+
+The playground: an hour with your own model, in order:
+
+## Verified Facts (marker: next block)
+
+===== E_one_sibling_missing_subject =====
+## This section
+
+what to bring to the session
+
+The playground: an hour with your own model, in order:
+- what the playground is
+- what to bring to the session (this section)
+- questions people ask
+
+## Verified Facts (marker: next block)
+
+===== F_two_sections_share_a_subject =====
+## This section
+
+what to have ready before the hour
+
+The playground: an hour with your own model, in order:
+- what the playground is
+- what to have ready before the hour (this section)
+- when you can book it
+- what to have ready before the hour (this section)
+- what people ask about the hour
+- how to book
+
+## Verified Facts (marker: next block)
+!! MARKER DOUBLED
+
+===== G_subjects_as_full_sentences_(fixture_text_not_copy) =====
+## This section
+
+If you'd like to prepare in advance of your hour, you might want to get these things ready.
+
+The playground: an hour with your own model, in order:
+- The playground is an hour on a GPU with a model fine-tuned on your own material.
+- In the hour you load your data, train a small adapter and try it out.
+- You can book any weekday hour, and the slot is yours alone.
+- If you'd like to prepare in advance of your hour, you might want to get these things ready. (this section)
+- The questions people ask before booking, answered.
+- Booking takes a minute.
+
+## Verified Facts (marker: next block)
+
+########## CANDIDATE A3_elsewhere_on_the_page  (em dashes in template: 0)
+
+===== A_gamedesign_real_with_subjects =====
+## This section
+
+Brief description of the sister-site relationship with gamesdesign.co.uk and what each site covers
+
+Elsewhere on the page:
+- Publication identity and editorial scope — what gamedesign.uk covers and who it is written for
+- The most recent or most significant published article, surfaced as the lead piece
+
+## Verified Facts (marker: next block)
+
+===== B_playground_real_null_subjects =====
+## Verified Facts (marker: next block)
+
+===== C2_playground_LIVE_array_2026-09-03 =====
+## This section
+
+what to have ready before the hour
+
+Elsewhere on the page:
+- what the playground is
+- what you actually do in the hour
+- when you can book it
+- what people ask about the hour
+- how to book
+
+## Verified Facts (marker: next block)
+
+===== C_playground_backfilled_intended =====
+## This section
+
+what to bring to the session
+
+Elsewhere on the page:
+- what the playground is
+- how the hour works
+- what you learn
+- questions people ask
+- booking
+
+## Verified Facts (marker: next block)
+
+===== D_siblings_NOT_in_input_fields_(today) =====
+## This section
+
+what to bring to the session
+
+Elsewhere on the page:
+
+## Verified Facts (marker: next block)
+
+===== E_one_sibling_missing_subject =====
+## This section
+
+what to bring to the session
+
+Elsewhere on the page:
+- what the playground is
+- questions people ask
+
+## Verified Facts (marker: next block)
+
+===== F_two_sections_share_a_subject =====
+## This section
+
+what to have ready before the hour
+
+Elsewhere on the page:
+- what the playground is
+- when you can book it
+- what people ask about the hour
+- how to book
+
+## Verified Facts (marker: next block)
+
+===== G_subjects_as_full_sentences_(fixture_text_not_copy) =====
+## This section
+
+If you'd like to prepare in advance of your hour, you might want to get these things ready.
+
+Elsewhere on the page:
+- The playground is an hour on a GPU with a model fine-tuned on your own material.
+- In the hour you load your data, train a small adapter and try it out.
+- You can book any weekday hour, and the slot is yours alone.
+- The questions people ask before booking, answered.
+- Booking takes a minute.
+
+## Verified Facts (marker: next block)
+
+########## CANDIDATE C_control_as_committed_in_641  (em dashes in template: 0)
+
+===== A_gamedesign_real_with_subjects =====
+## This section
+
+You'll want to know Brief description of the sister-site relationship with gamesdesign.co.uk and what each site covers. That's what this section is for.
+
+gamedesign.uk — The Practice of Game Design also covers, each in its own section:
+- Publication identity and editorial scope — what gamedesign.uk covers and who it is written for
+- The most recent or most significant published article, surfaced as the lead piece
+
+## Verified Facts (marker: next block)
+
+===== B_playground_real_null_subjects =====
+## Verified Facts (marker: next block)
+
+===== C2_playground_LIVE_array_2026-09-03 =====
+## This section
+
+You'll want to know what to have ready before the hour. That's what this section is for.
+
+The playground: an hour with your own model also covers, each in its own section:
+- what the playground is
+- what you actually do in the hour
+- when you can book it
+- what people ask about the hour
+- how to book
+
+## Verified Facts (marker: next block)
+
+===== C_playground_backfilled_intended =====
+## This section
+
+You'll want to know what to bring to the session. That's what this section is for.
+
+The playground: an hour with your own model also covers, each in its own section:
+- what the playground is
+- how the hour works
+- what you learn
+- questions people ask
+- booking
+
+## Verified Facts (marker: next block)
+
+===== D_siblings_NOT_in_input_fields_(today) =====
+## This section
+
+You'll want to know what to bring to the session. That's what this section is for.
+
+The playground: an hour with your own model also covers, each in its own section:
+
+## Verified Facts (marker: next block)
+
+===== E_one_sibling_missing_subject =====
+## This section
+
+You'll want to know what to bring to the session. That's what this section is for.
+
+The playground: an hour with your own model also covers, each in its own section:
+- what the playground is
+- questions people ask
+
+## Verified Facts (marker: next block)
+
+===== F_two_sections_share_a_subject =====
+## This section
+
+You'll want to know what to have ready before the hour. That's what this section is for.
+
+The playground: an hour with your own model also covers, each in its own section:
+- what the playground is
+- when you can book it
+- what people ask about the hour
+- how to book
+
+## Verified Facts (marker: next block)
+
+===== G_subjects_as_full_sentences_(fixture_text_not_copy) =====
+## This section
+
+You'll want to know If you'd like to prepare in advance of your hour, you might want to get these things ready.. That's what this section is for.
+
+The playground: an hour with your own model also covers, each in its own section:
+- The playground is an hour on a GPU with a model fine-tuned on your own material.
+- In the hour you load your data, train a small adapter and try it out.
+- You can book any weekday hour, and the slot is yours alone.
+- The questions people ask before booking, answered.
+- Booking takes a minute.
+
+## Verified Facts (marker: next block)
+

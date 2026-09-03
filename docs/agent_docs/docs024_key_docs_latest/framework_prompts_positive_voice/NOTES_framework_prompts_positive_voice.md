@@ -44,3 +44,25 @@ writer prompt has no marker, with its volatile line first.
 **Missteps so far:** none of mine that reached a document, but the plan file carried "641 still carries
 draft 1" for about an hour on a stale agent report until the direct `git show HEAD:` check replaced it.
 The check that caught it: read the file at HEAD, not a report about the file.
+
+## 2026-09-03 (~15:00Z) — Step 1: four block candidates rendered; blind key sealed here before the owner sees them
+
+Harness: `render_test/` (this lane's copy), `go run . > OUTPUT.txt`. Fixtures added: C2 (the LIVE playground array,
+read back 2026-09-03), F (two sections share a subject: a data defect 640 forbids), G (subjects as full sentences,
+fixture text I wrote, not copy). All four candidates: 0 em dashes in the template, no `<no value>` on any fixture,
+B (null subjects) renders nothing, D (siblings absent from input_fields) renders an empty list SILENTLY as before,
+which is why 641's input_fields half stays. F: A2 marks BOTH duplicates (`!! MARKER DOUBLED`, visible); A1 and A3
+drop both from the list (silent). Either way the fix is the data.
+
+**Blind key (seed 20260903), sealed before presentation:**
+
+```
+R = C_control_as_committed_in_641
+P = A1_rest_of_the_page
+Q = A2_page_in_order_this_one_marked
+S = A3_elsewhere_on_the_page
+```
+
+The four templates are in `render_test/main.go`; the renders in `render_test/OUTPUT.txt`. Under option A every
+candidate prints the subject verbatim, so on planner-written subjects (fixture A) they all show the capitalised,
+em-dashed planner phrase as the section's line: the planner nudge is required data work, not a block choice.
