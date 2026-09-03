@@ -4331,3 +4331,47 @@ so the needle in this file, in `HANDOFF_2026-09-03_continue_here.md` and in
 `scripts/fire-content-gap-planner.sh` must move in the same commit. Same lockstep shape as rules
 18/19. Raised rather than applied: it is a live fleet-wide prompt change and the owner has been
 ruling on prompt shape all day.
+
+**2026-09-03 ~14:45Z — the offer lane handed over "the register answers everything except PRICE".
+It is not a fact about our sites. The ordering prompt CANNOT PRODUCE a price answer.**
+
+Their measurement (18 sites, 93 questions): `money_flow` 7 questions / **5 unanswered** / mean
+rank 4.6, every other field 0 unanswered. Their read: *"the model is ranking by how well it can
+ANSWER, not by how early the doubt arrives"*, and they explicitly did not accept the ordering.
+Ordering is this lane's half of that seam, so I read the deciding arm before judging it.
+
+**`money_flow` appears ZERO times in the 9,591-char `offer-analyser.run_offer_analysis` prompt.**
+So do `price`, `cost`, `pay`, `charge`, `£`. Not down-weighted — absent. The construction, verbatim
+from TASK 1: *"satisfaction_condition … value_proposition … trust_threshold … recurring_value …
+**Those are four prose paragraphs. Turn them into a RANKED list of what a page should lead
+with**"*. Every `lead_with` point comes from those four fields. THE JOIN then says *"set
+answered_by to the rank of the lead_with point that genuinely answers it"* and forbids the escape:
+*"do NOT stretch a point … and do NOT add a lead_with point merely to close a gap."*
+
+**So a money_flow question has nothing it could legitimately join to, and the model is forbidden
+from inventing one. `unanswered: true` on a price question is the CORRECT output of this
+instrument, not a discovery.** The result was guaranteed before any site was analysed.
+
+**Their measurement cannot separate "our sites don't address price" from "the instrument cannot
+represent a price answer"** — and the two want opposite responses (an editorial pass over 18 sites
+vs a one-clause prompt change). This is the same shape as the copyonline misdiagnosis earlier
+today: an effect consistent with two mechanisms, where the one you can imagine is not evidence.
+
+**BOTH proposed causes were wrong, theirs and mine.** Theirs: the rule already says the opposite,
+verbatim — *"Rank 1 is the FIRST doubt, not the one most important to us."* Mine (second guess):
+the exemplar omits price — true, and it is why EFFORT questions rank early and answer cleanly
+(*"what will this actually get me and how much work is it to get it"* names outcome and effort,
+never price) — but it is secondary to the join, which has the hard textual explanation.
+
+⚠ **Do not overfit "named in the prompt" to RANK.** `competitive_position` gets zero mentions yet
+has 0 unanswered and mean rank 2.9; `recurring_value` IS named yet sits at 4.7. What zero-mention
+predicts is UNANSWEREDNESS — all three fields carrying unanswered questions (`money_flow`,
+`growth_path`, `recommended_page_types`) have zero mentions. Hold the rank story loosely, the join
+story firmly.
+
+**The fix is a design question and it is the owner's, not a bug fix.** Making price answerable
+means adding `money_flow` to TASK 1's source fields and/or naming price in the exemplar. But a
+lead_with point must be *"a benefit to the reader, never a description of us or of our
+inventory"* — so someone must decide whether "£29, no subscription" is a benefit worth LEADING
+with, or whether price is a doubt we deliberately answer later on the page. Raised to him. The
+prompt is the offer lane's agent, so the edit is theirs; the diagnosis was ours to give.
