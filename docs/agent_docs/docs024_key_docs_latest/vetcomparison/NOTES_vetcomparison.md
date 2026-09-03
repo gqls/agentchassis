@@ -2003,3 +2003,24 @@ with copy; claimed checkmark-chip) need an owner content decision; the only zero
 (broadening the ::before tick to more headings) is deliberately HELD so the accent question isn't
 quietly closed with a token. Options go to the owner with the planner's long-term recommendation
 (chip) attached.
+
+## 2026-09-03 (later) — owner ruled the accent: CHECKMARK CHIP (symbol only); banner LEFT; council advisories dispositioned
+
+**Owner:** claimed chip = checkmark symbol, no visible word; independence banner left for now
+(palette values stay). Routed to the planner with rails: positive {{if .is_claimed}} branch beside
+the untouched negative one; NON-TEXT 3:1 for the mark (raw #10b981 glyph on card white FAILS at
+2.42 — use the chip pattern: #ecfdf5 bg + #10b981 border + dark-ink glyph); aria-label="Claimed
+listing" (accessible name, metadata not copy); tokens not literals; then ONE template_changed
+rerender of directory-index.
+
+**Claimed-first ordering: PROVEN IN THE RUNNING BINARY** (v1.0.1356, clause literal present in
+/proc/1/exe with positive + negative controls) and **council APPROVED r1** (corr 09cf68c2). The
+four advisories, read and dispositioned: (1) editquality/reuse "export unaffected rests on a doc
+comment" → VERIFIED in code: loadDirectoryEntries (directory_export_action.go:264) is its own
+function with its own SQL — genuinely separate; (2) guardian "snapshot vs re-resolve on rerender"
+→ OPEN, empirically discriminated by the chip rerender (VHC cards appear = re-resolved; old 60
+persist = snapshot — fallback proven: needs_page → directory-build-handler re-drive); (3)
+debug_historian "fleet-wide claimed-vs-cap unenumerated" → ENUMERATED: vetcomparison is the ONLY
+site fleet-wide with a directory export config AND claimed rows (51 claimed / 2,350 eligible,
+cap 60); (4) debug_historian "post-roll pod verification" → done (the binary probe above).
+One rerender now ships the complete accent outcome: chips + the 51 claimed listings at the front.
