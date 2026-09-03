@@ -50,6 +50,18 @@ EXPECTED pre-convergence shape, not a failure).
 > diagnosis row `0639080d` afterwards; a `failed`/reaped state there is the roll, not the
 > mechanism — re-file, do not diagnose; (c) no dispatch within ~300 s of the new pods; (d) the
 > pre-delivery sweep (§1.5) waits for the roll AND the chrome wave AND the mirror tick.
+> **ROLL LANDED 08:58Z: `v1.0.1356`**, chassis pods started 08:56:01/08:56:54/08:57:15Z (two
+> ReplicaSets, same tag), image-generator-adapter 08:56:08/08:56:20Z; provenance line read
+> from EVERY new pod = **`7bf1ff674`**. Ancestry: **`fcbe6071c` (424 guard fix) ABOARD**;
+> controls `b2322a203` + `6440ec968` ABOARD, `433179904` (post-stamp) NOT — the check
+> discriminates. So §1.1's unblock (a) is MET on both services. **Remaining before any
+> boxingonline logo generation: (b) the owner's decision on the first deliberate test site.**
+> This lane's recommendation: the 424 lane's post-roll reset of the three portfolio sites
+> carrying broken logos (designblog / seotools / gamedesign — theirs to do) IS the
+> lower-stakes calibration; read those results at the PNG bytes (424 RUNBOOK chunk scan +
+> `border_keyed` in the adapter log), and only then regenerate boxingonline's. Not fired.
+> Binary control probe on the new adapter pod: first attempt KILLED by the rollout (exit 137
+> / "container not found") — inconclusive, not "absent"; retried on a settled pod (NOTES).
 > **~21:18Z (yesterday):** two of §1's four premises are corrected below in place — §1.1 (logo
 > regen: DO NOT FIRE, owner decision) and §1.3 (cards: no HOLD pending; the rerender
 > path is the open defect and the roll does not touch it). §1.2 and §1.4 stand.

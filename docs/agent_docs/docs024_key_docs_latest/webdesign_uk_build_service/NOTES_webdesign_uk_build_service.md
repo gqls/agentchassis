@@ -8066,3 +8066,23 @@ lane's per the ownership ruling.
   wording and which my own 21:0xZ query had already reported as "column does not exist" without
   my noticing. Corrected in the bug file. Fourth scope-not-narrowing on a well-posed symptom in
   two days (components lane ×3).
+
+## 2026-09-03 (08:58Z, clock-read) — ROLL LANDED: v1.0.1356, stamp 7bf1ff674 on all five new pods; 424 guard fix ABOARD
+
+- Monitor caught the tag change at 08:56:57Z (both tags present mid-rollout). Provenance read
+  from EVERY new pod while the startup line was fresh (chassis `54848bfbff-5dtlh` 08:56:01Z,
+  `5554b8f557-zgg6w` 08:56:54Z, `-jcpp6` 08:57:15Z — two ReplicaSets on one tag, noted, not
+  chased; image-generator-adapter `7b78b5d948-j9b4j` 08:56:08Z, `-5vmgn` 08:56:20Z): all
+  `git_commit 7bf1ff674021f2d57dfd0aa41324541070646c3a` (= `7bf1ff674`, a vetcomparison commit,
+  09:24 BST = 08:24Z).
+- Ancestry `[MEASURED]`: `fcbe6071c` ABOARD · `b2322a203` ABOARD · `6440ec968` ABOARD ·
+  `433179904` (mine, after the stamp) NOT ABOARD. The guard fix is live on both services.
+  424 lane messaged (their item 3 — reset the three portfolio sites' logo items — is now
+  unblocked and theirs).
+- Binary control on the new adapter pod `5vmgn`: `grep -a KeyOutBackground /proc/1/exe` →
+  exit **137** and then `container not found` — the rollout replaced the container under the
+  probe. **Recorded as PROBE-KILLED, not "absent"** (exit code ≠ 1 is not an answer). Retry on a
+  settled pod: see next line.
+- In-flight items across the roll: `ec92320f` still `triaged` (never claimed → survives),
+  `06210ec6` `triaged` (same), diagnosis `0639080d` complete before it. No-dispatch window
+  08:56–09:02Z; nothing of ours needed dispatching.
