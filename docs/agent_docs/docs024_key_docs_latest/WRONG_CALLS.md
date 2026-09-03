@@ -62431,3 +62431,74 @@ in their RUNBOOK as a residual distinct from the staleness bug.
 
 Family: a-report-is-not-a-measurement, cite-the-arm-not-the-function,
 damage-confirmed-is-not-mechanism-confirmed, a-plausible-external-cause-is-when-to-doubt-your-instrument.
+
+---
+
+## 2026-09-03 — I applied a migration before reading its council verdict, and the verdict named the defect that then cost content
+
+**The claim I acted on:** that migration 739's four `content_rewrite` items were complete enough to
+dispatch, because the specs carried the exact wrong sentence, the governing rule, what to keep, and a
+served-bytes acceptance test. I applied at **14:18:45 UTC** with `Council-Submitted:`, on the standing
+reasoning that the gate is advisory and holding a fix for it is not available on this tree.
+
+**What caught it:** the council itself, ~20 minutes later. **APPROVED**, with a medium objection that
+named the defect precisely — *"page-build-handler's content writer only sees the page's own stored
+prose when spec.mode is set … If mode isn't set, the writer may regenerate the section without
+reference to the exact current_value quoted, undermining the whole 'exact required correction' design
+even though the spec text looks precise."*
+
+It was right, and worse than it claimed. `load_current_section_content_action.go`'s own header
+(`bugs_open/178`) says: *"content_rewrite items never set spec.mode … page-content-writer gets the
+item's guidance text and nothing to work from, so it fabricates a full replacement section … (measured:
+4439 → 1806 chars on one page, one paragraph in three preserved)."* `mode='edit_live'` is the opt-in
+that prevents it. My items had no `mode` key. `apply_gap_plan_action.go:224` sets it, for this reason.
+
+**The cost, measured at the served bytes against a pre-repair crawl:** three pages **wholly rewritten**
+rather than edited — price-cap 36 of 37 sentences replaced, jargon-buster 49 of 50, loan-sharks 47.
+The **site-identity disclaimer** ("does not lend money, broker loans, or take applications…", plus the
+not-advice and not-the-FCA lines) was **dropped from two pages**; it had been on 14 of 30 and survives
+on every untouched page. On loan-sharks the FSMA-2000 criminal-offence framing (a **registered fact**),
+the card/passport security prohibition, and the Illegal Money Lending Team's anonymity/free detail all
+went. Repaired by migration 743, with `mode='edit_live'` this time.
+
+**By the time I read the verdict there was no window.** `build-dispatch-loop` claimed the four items at
+14:25, 14:29, 14:34 and 14:38 — 7 to 20 minutes after filing. The corrective migration I had already
+written **could not run**: its own guard refused, correctly, because rewriting a spec underneath a
+running handler is worse than the defect. That guard was the only thing that worked as intended here.
+
+**The cheap check that would have caught it:** *before dispatching any `content_rewrite`, grep the
+handler's own loader for how it decides whether to edit or regenerate.* One command —
+`grep -rn 'spec.mode\|edit_live' platform/orchestration/actions/` — points straight at the action whose
+header describes this exact failure. I read `page-build-handler`'s **status vocabulary** carefully
+enough to pick `triaged`, and never read what it does with the spec once it has it.
+
+**Two things worth separating, because I nearly conflated them:**
+
+- **The corrections themselves LANDED, and landed well.** All three wrong strings went from 1 to 0, and
+  the new jargon-buster states the rule better than my brief asked: *"CONC 5A.2.14R(1) makes this a
+  cumulative limit, not a per-instance one: £15 is the most a lender can charge in default fees across
+  the whole agreement, however many payments you miss."* The instrument was wrong; the instruction was
+  right. **743 is a restoration, not a revert** — reverting would have thrown away a good repair.
+- **⚠ BYTE RETENTION HID THE REWRITE, and this is the transferable half.** The two pages I would have
+  called healthy retained **84%** and **88%** of their visible length — which reads as a mild edit and
+  was in fact near-total replacement at a similar length. **A length-retention check cannot detect a
+  rewrite; only a sentence-identity diff can.** I very nearly reported "84% retained, minor trim" and
+  moved on. The estate's text floors are all length-based (`visibleTextLength`, PBP-043/044), so this
+  blind spot is not mine alone.
+
+**And a smaller one in the same hour:** guard 3 of migration 743 queried `pages.rendered_html`, a column
+that does not exist — rendered html lives on `page_components`; `pages` carries only
+`rendered_header`/`rendered_footer`/`rendered_head`. It failed loudly rather than silently, which is the
+only reason it costs a line here rather than a paragraph. **`\d <table>` before writing SQL** is a rule
+in CLAUDE.md and I skipped it.
+
+**What I would do differently, stated as a rule rather than a resolution:** an ADVISORY gate is still
+worth waiting for when the thing you are about to do is **irreversible in practice** — and dispatching
+an LLM rewrite of published copy is irreversible in practice, because the old prose exists only in a
+crawl you may not have taken. The forward-only "commit the moment it is coherent" rule is about
+**commits**, not about **dispatches**. I applied the first to the second. For 743 I submitted and held
+the apply, which is the difference.
+
+Family: a-complete-work-item-is-not-a-repaired-artefact, a-revise-round-is-cheaper-than-the-defect-it-finds,
+an-objection-naming-one-file-is-naming-a-category, editing-one-file-is-not-knowing-the-package,
+repro-regenerated-from-source-is-destroyed-by-the-render.
