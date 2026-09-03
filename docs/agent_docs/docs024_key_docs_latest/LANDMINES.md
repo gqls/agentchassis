@@ -21649,3 +21649,161 @@ END $$;
 - **source:** 2026-09-03, `site_delivery_and_editor`, on the first real approve-to-apply. The
   owner pressed APPROVE, the review row read `complete`, and the work item died 17 seconds later.
 - **added:** 2026-09-03, `site_delivery_and_editor` lane
+
+## A detector's own fix can EXTINGUISH the state it detects — and then its correct silence looks exactly like blindness, because the runbook tells you a fleet-wide zero is a bug
+
+- **footprint:** `platform/orchestration/actions/discovery_checks/check_unrendered_page_imagery.go` · `unrendered_page_imagery` · `fragment_slot` · `site_work_items.item_type='unrendered_page_imagery'` · `docs/agent_docs/sql_for_agents/708_enable_unrendered_page_imagery.sql` (runbook step 3) · `InteractiveStructuralMarkers` · `collected_data->'run_checks'->'checks_run'`
+- **the trap.** `check_unrendered_page_imagery` files one rollup per (site, state) across three
+  states. Its enabling migration's runbook step 3 says, in terms: *"A zero across the fleet is an
+  unexercised detector, not a clean reading."* That is sound advice and it is **wrong for one of
+  the three states**. `fragment_slot` needs an image-capable component that ALSO carries an
+  interactive-fragment marker — i.e. both properties on the **same** `page_components` row.
+  Migration **701** and the instance-scope sweep (overnight 2026-09-02→03) split the tool shell
+  out of the image-capable component estate-wide, which is precisely that conjunction. The state
+  went extinct roughly **11 hours before the detector went live**. A session obeying step 3 will
+  file a bug against a check that is working perfectly.
+- **`[MEASURED 2026-09-03]`, with the controls that make the zero mean something:** **800** active
+  pages carry an image-capable component (`html_template` LIKE `%hero_url%`/`%background_image%`),
+  **45** carry a fragment marker (`<canvas`, `game-container`, `tool-page`, `data-tool` in
+  `rendered_html`), and **0** carry both on one component row. Like-for-like against the 09-02
+  census in `bugs_open/114`: **16** fragment-poisoned tool slots → **0**, with "genuinely capable"
+  up 88→113 against +24 tool pages — they were repaired, not deleted.
+- **the check, before you read ANY detector's zero as blindness — measure the population, not the
+  detector.** "Nothing fired" is a statement about the estate until you prove otherwise:
+  ```sql
+  -- does the state's PRECONDITION exist anywhere? controls in the same row, so a
+  -- vacuous query cannot pass as a clean fleet
+  SELECT count(DISTINCT p.id) FILTER (WHERE cc.html_template LIKE '%hero_url%' OR cc.html_template LIKE '%background_image%') AS img_capable_control,
+         count(DISTINCT p.id) FILTER (WHERE pc.rendered_html LIKE '%<canvas%' OR pc.rendered_html LIKE '%game-container%'
+                                        OR pc.rendered_html LIKE '%tool-page%' OR pc.rendered_html LIKE '%data-tool%') AS fragment_control,
+         count(DISTINCT p.id) FILTER (WHERE (cc.html_template LIKE '%hero_url%' OR cc.html_template LIKE '%background_image%')
+                                        AND (pc.rendered_html LIKE '%<canvas%' OR pc.rendered_html LIKE '%game-container%'
+                                          OR pc.rendered_html LIKE '%tool-page%' OR pc.rendered_html LIKE '%data-tool%')) AS the_state
+    FROM pages p
+    JOIN page_components pc ON pc.page_id=p.id AND pc.build_status IS DISTINCT FROM 'removed'
+    JOIN content_components cc ON cc.id=pc.component_id
+   WHERE p.status='active';
+  ```
+  Two large controls and a zero conjunction = extinct. Two zeros = your query is blind.
+- **⚠ AND PROVE THE CHECK RAN, WHICH IS A DIFFERENT QUESTION — never infer it from an absent
+  finding.** `collected_data->'run_checks'->'findings'` carries **only checks that found
+  something**, so a check that ran-and-found-nothing is indistinguishable there from one that was
+  never configured, never registered, or failed. The executed list is its own field:
+  ```sql
+  SELECT collected_data->'input_data'->>'domain',
+         collected_data->'run_checks'->'checks_run' @> '["unrendered_page_imagery"]'::jsonb AS ran,
+         collected_data->'run_checks'->>'checks_failed'        AS failed,
+         collected_data->'run_checks'->>'checks_unregistered'  AS unregistered
+    FROM orchestration_states
+   WHERE owner_agent_type='design-discovery-agent' AND created_at > now() - interval '24 hours';
+  ```
+  This is also how you earn a detector's **true negatives**: a site that ran the check, holds a
+  real candidate population, and correctly filed nothing (advertise.co.uk, oxenunity.com on
+  2026-09-03) is far stronger evidence than another site that fired. A detector that only ever
+  fires cannot be told from one that always fires.
+- **the general shape, which outlives this check:** a detector is usually specified from a census
+  taken *before* it ships, and the gap between census and enablement is exactly when other lanes'
+  fixes land. **Re-run the census at enablement, not at design time** — and when a predicted state
+  never appears, the first hypothesis is that somebody fixed it, not that you are blind.
+- **relations:** `bugs_open/114` (the detector, IMG-077, and its corrected closing bar) ·
+  `bugs_closed/357` / `RFC_046` (the fragment-identity defect 701 repaired) ·
+  `docs/agent_docs/docs024_key_docs_latest/bugfix_114_imagery_wiring/NOTES_imagery_wiring.md`
+  (2026-09-03 evening, full working) · `WRONG_CALLS.md` 2026-09-03 (the day spent waiting for it) ·
+  `MEMORY[a-post-fix-zero-needs-a-demand-control]` · `MEMORY[zero-adoption-means-read-the-mechanism]`
+- **source:** 2026-09-03, `bugfix_114_imagery_wiring`, on the last item of 114's closure gate.
+- **added:** 2026-09-03, `bugfix_114_imagery_wiring` lane
+
+## Correcting a page's composition by RENUMBERING `site_plan_sections.ordering` silently re-points its facts, its subjects AND its section imagery — four consumers read that integer positionally and none of them errors
+
+- **footprint:** `site_plan_sections` (`ordering`, `assigned_fact_ids`, `subject`) ·
+  `site_plan_imagery.scope_ref` · `load_page_sections_from_spec_action.go` ·
+  `plan_sections_action.go` · `imageryplan/imageryplan.go` · `page_components.position` ·
+  any migration or action that DELETEs and re-INSERTs a page's plan section rows
+  (migration `154`'s shape) rather than renaming in place
+- **fires when:** correcting one page's section list in the authoritative plan table — the
+  obvious shape is "delete the rows for this page and insert the right ones", which is what
+  the only in-tree precedent (`154`) does and therefore what the next author will copy
+- **the trap:** `ordering` is not a sort key, it is a **join key that four separate
+  mechanisms use positionally**, and every one of them fails silently:
+  1. `assigned_fact_ids` — read positionally alongside `component_name`
+     (`load_page_sections_from_spec_action.go:164-186`). ⚠ **`'[]'` and `NULL` are DIFFERENT
+     INSTRUCTIONS**: `plan_sections_action.go`'s `scopeItem` returns early only on
+     `facts == nil`, so `'[]'` means *"this section deliberately states no verified facts"*
+     and NULL means *unscoped, use the whole-site block*. A re-INSERT re-chooses that value,
+     usually to whichever the author found tidier.
+  2. `subject` — same positional read, same aisle.
+  3. **`site_plan_imagery.scope_ref`**, which for `scope='section'` is literally
+     `'<page_name>:<ordinal>'`. `[MEASURED 2026-09-03]` the live values are `index:1`,
+     `index:2`, `about:2` — **ordinals, never component names**. Renumber a page's sections
+     and every section figure on it now belongs to a different section. Nothing joins on the
+     name, so nothing can notice.
+  4. `page_components.position` ↔ `pages.sections` array index, used by
+     `section_editor_actions.go:1508-1514` as a slot-name fallback that **backfills
+     `page_components.slot_name` on a hit**.
+- **the tell:** there is none at write time. The `UPDATE`/`INSERT` reports the right row
+  counts, the plan reads correctly by name, the page rebuilds, and the figures are simply
+  attached to the wrong paragraphs.
+- **the check:** **rename in place at the same `ordering`; do not delete-and-reinsert.** A
+  component swap is a rename of one row, and a removal is a `DELETE` of the LAST ordinal —
+  both leave every other ordinal untouched. If you genuinely must renumber, enumerate the
+  four consumers above for that page first:
+  ```sql
+  SELECT ordering, component_name, assigned_fact_ids, subject FROM site_plan_sections
+    JOIN site_plans sp ON sp.id=plan_id WHERE sp.site_id=$1 AND sp.is_current AND page_name=$2
+   ORDER BY ordering;
+  SELECT scope_ref, key, kind FROM site_plan_imagery
+   WHERE plan_id=(SELECT id FROM site_plans WHERE site_id=$1 AND is_current)
+     AND scope='section' AND scope_ref LIKE $2 || ':%';
+  ```
+  and assert row identity afterwards (`WHERE id='<the row you meant to rename>'`), which is
+  the only assertion that distinguishes a rename from a replace.
+- **worked example:** migration `750` (2026-09-03) is the rename-only shape with `DO`/`RAISE`
+  guards, including a post-check that the renamed row still carries its ORIGINAL id.
+  Migration `154` (2026-07-15) is the delete-renumber-insert shape — correct on the day,
+  because `assigned_fact_ids`, `subject` and section-scoped imagery did not yet exist. **It
+  is the wrong template today and it is the one you will find first.** Independently
+  corroborated the same day by the `apis.uk` lane's migration `754`, which applied the
+  rename-only shape at six pinned row ids.
+- **relations:** `bugs_open/427` §19–§21 · `bugs_open/469` · the
+  "`pages.sections` is a materialised CACHE" entry above (that one is about which STORE to
+  write; this one is about how to write it once you are in the right store)
+- **added:** 2026-09-03, session "427" (`bugs_open/427` lane), with the imagery ordinal
+  verified first-hand after the `apis.uk` lane flagged it
+
+## A `section_source_drift` item is a FROZEN SNAPSHOT that nothing ever closes — and while it sits open it SUPPRESSES the very re-filing that would tell you the page drifted again
+
+- **footprint:** `site_work_items` where `item_type='section_source_drift'` ·
+  `discovery_checks/check_section_source_drift.go` · `idx_swi_dedup` ·
+  any triage that reads a work item's `spec` to decide what is true now
+- **fires when:** triaging the drift backlog, or concluding from an open item that a page IS
+  currently drifted — or from the absence of a NEW item that a page is fine
+- **the trap:** three properties compound.
+  1. The check is **flag-only** (`HandlerAgent: ""`, `Status: "needs_human_review"`) and
+     never populates `CheckResult.Resolved`, so **nothing ever closes an item**.
+     `[MEASURED 2026-09-03]` six were open, the oldest filed **2026-07-28** — 37 days.
+  2. `spec.authoritative` and `spec.pages_sections` are captured at **filing** time and read
+     as current. Four of those six described a drift that no longer existed.
+  3. `idx_swi_dedup` is `UNIQUE (site_id, item_key)` over **non-terminal** statuses, so an
+     open stale item **blocks re-filing** — a genuinely new drift on that page is invisible
+     behind the old one. The detector blinds itself on exactly the pages it has flagged.
+- **the tell:** the item reads as a live problem and the page looks fine, or vice versa.
+  Neither reading is safe, and the item cannot tell you which you have.
+- **the check:** **never act on the `spec`.** Re-derive both sides live, mirroring the
+  check's own precedence — `COALESCE(tier1, tier2)` vs `pages.sections`, ordered, where tier
+  1 is `site_plan_sections` for the `is_current` plan and tier 2 is the
+  `site_specs.site_plan` aspect's `data->'pages'` element. ⚠ **Joining only tier 1 reports a
+  tier-2-served page as divergent** (its tier-1 authority is NULL) — that mistake was made
+  and caught on `leopardessconsulting.co.uk/index` the day this entry was written.
+  Raw-equal implies merged-equal (`MergeLockedPageSlots` applies the same locked rows to
+  both sides), so a raw comparison is a sound pre-filter, never an over-close.
+- **and when it agrees again, ask WHICH SIDE WON.** Compare today's agreed list to the
+  item's two frozen lists: agreeing at `spec.pages_sections` means the live composition
+  held; agreeing at **`spec.authoritative` means the cache was OVERWRITTEN** and someone's
+  deliberate edit was destroyed. `[MEASURED 2026-09-03]` 3 of 4 resolved items were the
+  second kind, including `robot-hands.com/gripper-catalog` losing `gripper-spec-sheet` —
+  the very component migration `154` was written to rescue. **Closing such an item as a
+  plain success ratifies the loss.** Migration `753` closes by predicate and records a
+  `direction` in every receipt for exactly this reason; the losses are filed as
+  `bugs_open/469`.
+- **relations:** `bugs_open/469` · `bugs_open/427` · the renumbering entry above
+- **added:** 2026-09-03, session "427" (`bugs_open/427` lane)
