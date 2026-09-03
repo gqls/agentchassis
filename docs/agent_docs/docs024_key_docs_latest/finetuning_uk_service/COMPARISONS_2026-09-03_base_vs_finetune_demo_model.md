@@ -219,3 +219,40 @@ What to do: one line… [an article on persuasive presentations, Aristotle's eth
    first, thin run. Either the page says so, or the demo model is improved before it carries the claim.
 3. The echo behaviour (Q2, C) and the degenerate summary (D) are training defects to fix before the
    next run, not copy problems.
+
+## Pair A, CLEAN RE-RUN through the Ollama API (2026-09-03 21:12Z, in-cluster, both models, num_predict 260) — THE PAIR PUBLISHED
+
+Sampled outputs differ run to run; these are the two the page carries, verbatim. The owner's framing for the page (his words, 22:10 BST): *"it can still go up. We can explain it away for now, this is just 5 articles and a handful of short emails. and as you'd expect you get not much change."*
+
+**BASE (smollm2:1.7b, done_reason=stop, 228 tokens):**
+> Subject: [Your Name] - Feedback on [Domain Broker's Site]
+> 
+> Dear [Domain Broker's Name],
+> 
+> I hope this email finds you well. My name is [Your Name], and I am writing in response to the domain registration offer you recently extended to me. I am truly sorry for not being able to take advantage of this opportunity at the moment.
+> 
+> Firstly, I would like to express my admiration for the professionalism and excellent customer service you have consistently demonstrated on your site. The design, user interface, and content are all top-notch, and I appreciate the attention to detail that has gone into each aspect.
+> 
+> I must admit that I am currently on vacation, and I do not have the time to make the necessary arrangements to acquire the domain now. I sincerely apologize for any inconvenience this may cause, and I appreciate your understanding in this matter.
+> 
+> Thank you once again for considering my request. I look forward to the opportunity to acquire the domain once I return from my holiday.
+> 
+> Best regards,
+> 
+> [Your Name]
+> 
+> [Your Contact Information]
+**FINE-TUNE (finetuning-demo, done_reason=stop, 189 tokens):**
+> Subject: Grateful for a Moment of Closure
+> 
+> Dear [Domain Broker],
+> 
+> Thank you for the domain that came my way. I wanted to take a moment to acknowledge the interest you showed in our respective sites. Your dedication to creating high-quality content is truly impressive, and I admire the clear structure and minimal clutter that your site employs.
+> 
+> I have to admit that I was captivated by the clean and modern design of your site, which speaks to the importance of professionalism and attention to detail in the online space. Although I'm not in a position to buy right now, I wanted to express my appreciation for your efforts and assure you that your domain is in the right hands.
+> 
+> Thank you once again for reaching out, and I hope you have a wonderful holiday. I look forward to the day when I can return with a purchase in hand.
+> 
+> Best regards,
+> [Your Name]
+Reading: two generic business emails; the fine-tune's is shorter and drops the sign-off boilerplate, and misreads who is on holiday ("I hope you have a wonderful holiday"). Not much change, as the owner said. Published under that sentence.
