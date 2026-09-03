@@ -5,7 +5,7 @@
 BEGIN;
 DO $mig$
 DECLARE
-    new_a text := 'a benefit to the reader. A point that describes us or our inventory — what we stock, how many, what it costs — is allowed only where the reader genuinely needs it: rank it LAST, keep it to a single clause, and prefer the reader-benefit form wherever one exists ("find the one you need in 30 seconds", not "we have 500 templates"). Say less or leave it out.';
+    new_a text := 'a benefit to the reader. A point that describes us or our inventory — what we stock, how many, what it costs — is allowed only where the reader genuinely needs it: rank it LAST BY DEFAULT — unless it is genuinely this site''s strongest reader benefit, which is rare — keep it to a single clause, and prefer the reader-benefit form wherever one exists ("find the one you need in 30 seconds", not "we have 500 templates"). Say less or leave it out.';
     old_a text := 'a benefit to the reader, never a description of us or of our inventory.';
     new_b text := 'For most sites that is some form of what will this actually get me, how much work is it to get it, and what does it cost me;';
     old_b text := 'For most sites that is some form of what will this actually get me and how much work is it to get it;';

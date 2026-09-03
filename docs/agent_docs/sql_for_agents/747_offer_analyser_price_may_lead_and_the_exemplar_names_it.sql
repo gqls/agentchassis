@@ -21,7 +21,7 @@
 --
 --  ✗ FIRST ACCOUNT — "our sites do not address price" (WITHDRAWN). It was a property of
 --    this prompt, not of the sites: `money_flow`, `price`, `cost`, `pay`, `charge` and `£`
---    occur ZERO times in all 9,591 chars of it. That fix would have been an editorial
+--    occur ZERO times in all 9,590 characters (9,642 bytes) of it. That fix would have been an editorial
 --    campaign across 18 sites.
 --  ✗ SECOND ACCOUNT — "the question side reads the whole strategy register, the answer
 --    side reads only TASK 1's four fields, so a money_flow question is unanswerable BY
@@ -86,6 +86,37 @@
 -- (asserted mechanically below, not by eye). Anchors are 4,927 chars apart and each occurs
 -- exactly once.
 --
+-- ══ TWO NOTES FROM THE PEER REVIEW OF THIS FILE, BOTH ACTED ON ═══════════════════════
+-- `copy_quality_two_stage` read this migration on disk before it shipped (live prompt
+-- confirmed untouched at the time). Two points, neither blocking, both taken:
+--
+-- 1. **"rank it LAST" was an INSTRUCTION where the owner said "mostly".** His words were
+--    *"a deprioritise and mostly leave it very brief or out altogether"*, and "mostly" is
+--    doing work. As first written, a site whose actual differentiator IS price — a
+--    deliberately cheap alternative — would have had its strongest reader benefit forced to
+--    the bottom. **Changed to "rank it LAST BY DEFAULT — unless it is genuinely this site's
+--    strongest reader benefit, which is rare".** The escape hatch is narrow on purpose:
+--    "which is rare" is what stops it becoming the ordinary case.
+--
+-- 2. **`Say less or leave it out.` now appears in TWO live prompts** — here, and the
+--    page-content-writer's rule 18 via migration `739` (applied 2026-09-03 12:34Z). **That
+--    is deliberate, not accident:** it is the owner's house phrasing and both prompts should
+--    carry it identically. Recorded because a future session grepping that string will find
+--    two owners and needs to know neither is a stray copy of the other.
+--
+-- They also retracted half of their own "necessary but not sufficient" objection on reading
+-- the file: the *"prefer the reader-benefit form wherever one exists"* clause already pushes
+-- against the bare-price outcome they predicted (the reader-benefit form of "£29" is "£29 for
+-- a report that says what is defensible, sourced", not the naked figure). What survives is
+-- narrower and is the pre-registered check below.
+--
+-- ⚠ THE PROMPT'S LENGTH, because two figures were in circulation and BOTH were being quoted
+-- as "chars": it is **9,590 CHARACTERS and 9,642 BYTES**. The 52-byte difference is exactly
+-- 26 em dashes at two extra bytes each; `wc -c` reads 9,643 because psql adds a trailing
+-- newline. This is the estate's standing bytes-vs-chars trap in miniature — measure with
+-- `awk length()` or python `len()` and SAY WHICH, because a length quoted without its unit
+-- cannot be reconciled by the next reader.
+--
 -- ══ PRE-REGISTERED POST-APPLY CHECK — and it can come out AGAINST this migration ═══════
 -- Raised by `copy_quality_two_stage` before apply, and recorded here rather than argued,
 -- because it is cheap and decidable. Their point: **stating the price is NECESSARY but may
@@ -125,13 +156,30 @@
 -- close. If idea.uk's price question is still unanswered after this, the next move may be a
 -- PRODUCT change, and that belongs to idea.uk's lane, not to this prompt.
 --
+-- ══ ⚠ AND THE VERIFY CAUGHT ME, ON THIS FILE, AFTER THE PEER REVIEW ══════════════════
+-- Worth recording because it is the difference between a control and decoration, and it
+-- happened for real rather than in a mutant. Acting on note 1 above I changed `repl_a`'s
+-- wording ("rank it LAST" -> "rank it LAST BY DEFAULT — unless…") **and did not update the
+-- verify block's needle**, which still searched for the old phrase. The next clean dry run
+-- failed with `ABORT: the softened rule is not in the LIVE row — the write did not land`.
+-- The UPDATE had run and the NOTICE had printed; only the independent live-row read caught
+-- that what landed was not what the verify was written to expect. **A verify that re-reads
+-- the LIVE row catches an author's own half-finished edit; one that inspects the block's own
+-- in-memory copy cannot.** Needle re-pointed, re-run green.
+--
 -- ══ GUARDS PROVEN, NOT ASSERTED ═══════════════════════════════════════════════════════
 -- [MEASURED 2026-09-03] dry run against live data (COMMIT->ROLLBACK): both edits land, the
--- independent verify passes reading the LIVE row, prompt 9,591 -> 9,898 chars, step
+-- independent verify passes reading the LIVE row, prompt 9,590 -> 9,987 characters, step
 -- `run_offer_analysis`. THREE induced failures prove the guards are controls, not
 -- decoration:
 --   * replacement A made to re-embed its own anchor -> "ABORT: replacement A re-embeds
 --     anchor A — this is migration 723's defect"   (723's exact defect, caught)
+--   * ANCHOR A mistyped so it matches nothing       -> "ABORT: no live offer-analyser step
+--     carries anchor A — the prompt has moved"     (asked for by the peer review, because A
+--     is the anchor carrying the semantic change)
+--   * ANCHOR A set to a string occurring MANY times -> "ABORT: anchor A occurs 83 times,
+--     expected exactly 1"                          (the count guard in the other direction —
+--     a presence check would have passed here, which is exactly 723's defect)
 --   * anchor B mistyped so it matches nothing       -> "ABORT: anchor B occurs 0 times"
 --   * the verify's needle changed to one no write produces -> "ABORT: the softened rule is
 --     not in the LIVE row — the write did not land"
@@ -145,7 +193,7 @@ BEGIN;
 DO $mig$
 DECLARE
     anchor_a  text := 'a benefit to the reader, never a description of us or of our inventory.';
-    repl_a    text := 'a benefit to the reader. A point that describes us or our inventory — what we stock, how many, what it costs — is allowed only where the reader genuinely needs it: rank it LAST, keep it to a single clause, and prefer the reader-benefit form wherever one exists ("find the one you need in 30 seconds", not "we have 500 templates"). Say less or leave it out.';
+    repl_a    text := 'a benefit to the reader. A point that describes us or our inventory — what we stock, how many, what it costs — is allowed only where the reader genuinely needs it: rank it LAST BY DEFAULT — unless it is genuinely this site''s strongest reader benefit, which is rare — keep it to a single clause, and prefer the reader-benefit form wherever one exists ("find the one you need in 30 seconds", not "we have 500 templates"). Say less or leave it out.';
     anchor_b  text := 'For most sites that is some form of what will this actually get me and how much work is it to get it;';
     repl_b    text := 'For most sites that is some form of what will this actually get me, how much work is it to get it, and what does it cost me;';
     p         text;
@@ -204,7 +252,7 @@ BEGIN
            updated_at = now()
      WHERE id = agent_id;
 
-    RAISE NOTICE '747: offer-analyser ordering prompt — price may now LEAD (ranked last, one clause), '
+    RAISE NOTICE '747: offer-analyser ordering prompt — price may now LEAD (ranked last BY DEFAULT, one clause), '
                  'and the exemplar names cost. Step %, prompt now % chars.', step_key, length(p);
 END $mig$;
 
@@ -217,7 +265,7 @@ BEGIN
       FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') st
      WHERE ad.type='offer-analyser' AND ad.is_active
        AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
-       AND st.value->'config'->>'prompt' LIKE '%rank it LAST, keep it to a single clause%';
+       AND st.value->'config'->>'prompt' LIKE '%rank it LAST BY DEFAULT%';
 
     IF p IS NULL THEN
         RAISE EXCEPTION 'ABORT: the softened rule is not in the LIVE row — the write did not land';
