@@ -725,3 +725,17 @@ before exhausting, 2 refused in round 2, succeeded on round 2's final attempt).
 for transparency but known-illegible by owner ruling, kept as 462's test case. **Zero sites left
 serving a silently-bad "fixed" logo that the platform believes is fine and isn't** — the original
 incident's whole premise is now closed across every site it touched.
+
+## 2026-09-03 — bugs_open/424 CLOSED
+
+Per the peer's specific request (state explicitly that the guard fix is live from `v1.0.1356`,
+not merely committed — the bug file's own last word previously said "not live" from a stale
+pre-`v1.0.1356` check), wrote a closing summary into the bug file restating the live-verification
+evidence and the final per-site table, then moved it: `git mv bugs_open/424_HANDOFF... 
+bugs_closed/424_HANDOFF...`, committed both paths in one commit (the `git mv`-plus-passenger
+landmine), verified exactly one copy exists at HEAD via `git ls-tree`. `bugs_open/421`, `462`,
+`433`, `455` all remain explicitly open/elsewhere and are not implied closed by this.
+
+This workstream's own docs (`PLAN`, `NOTES` — this file, `RUNBOOK`, `README_where_we_are`,
+`HANDOFF`) stay in `docs024_key_docs_latest/bugfix_424_logo_transparency/` regardless of the bug
+file's directory — the standing five track the WORKSTREAM, not the bug's open/closed status.
