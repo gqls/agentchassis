@@ -359,10 +359,22 @@ before the population — and when two independent artefacts fail identically, t
 corroboration, it is a shared cause, and the nearest shared cause is your own instrument.
 
 ⚠ **And the honest limit, stated because I told them the same:** delimiter balance is NOT a parse.
-It catches an unbalanced brace, not a missing comma. There is no JS engine on this machine (no node,
-deno, quickjs, or Python parser), so nothing in this chain can prove that script runs. Their
+It catches an unbalanced brace, not a missing comma. ~~There is no JS engine on this machine (no
+node, deno, quickjs, or Python parser), so nothing in this chain can prove that script runs.~~ Their
 `_HOLD` and hand-apply-then-look-in-a-browser is the only step that can, and it must not be
 substituted for.
+
+> **CORRECTED 2026-09-03 17:10Z, by me, at the place I made the claim.** The struck sentence is two
+> claims and only the first is true. *No JS engine on this machine* — correct, verified. *Therefore
+> nothing in this chain can prove the script runs* — **false**, and it is the conclusion rather than
+> the measurement that was wrong. `browser-runner-adapter` was running the whole time and its
+> `selector_count` on `article.news-list-item` proves exactly that, in the live DOM after settle.
+> See the 17:05Z entry. **Left struck rather than deleted** because the shape of the error is the
+> useful part: a correct filesystem measurement carried into a wrong claim about the whole system,
+> and the later entry does not unmake the assertion I made here. The `332` lane made the identical
+> claim in a committed `016b` entry and corrected it the same way; their general form is the one to
+> keep — **a capability absent from your filesystem may be present in your cluster: ask what SERVES
+> it, not what is INSTALLED.**
 
 ---
 
