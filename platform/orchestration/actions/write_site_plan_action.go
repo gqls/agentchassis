@@ -456,6 +456,12 @@ func WriteSitePlanAction(ctx context.Context, params ActionParams) (interface{},
 			Slug:          datahelpers.GetStringField(p, "slug", ""),
 			URL:           datahelpers.GetStringField(p, "url", ""),
 			ParentSection: datahelpers.GetStringField(p, "parent_section", ""),
+			// Whether the reconciler already settled this entry's identity. Read
+			// through the ONE shared helper, and set identically in
+			// SyncPagesToDBAction, for the same reason the URL shape and the
+			// identity policy are: these two surfaces must not disagree about a
+			// page's identity (bugs_open/241).
+			RealisedIdentity: datahelpers.PlanPageCarriesRealisedIdentity(p),
 		})
 	}
 	validated := datahelpers.ValidateRoles(llmPages)

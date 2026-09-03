@@ -103,3 +103,43 @@ func PageCanonicalNameForRow(name, pageType string) string {
 	})
 	return canonName
 }
+
+// ParentSectionFromURL recovers the directory a page lives in, so a page
+// canonicalises back to where it is SERVING (or, for a proposed page, to where
+// it was PLANNED) rather than to its role's default hub. "/guides/x.html" and
+// "/guides/x/index.html" both give "guides"; a root-level "/x.html" gives ""
+// (no parent), which is also what a URL we cannot read gives — in both cases
+// CanonicalisePage's own default applies, which is the behaviour that existed
+// before any caller carried this.
+//
+// One definition, because two callers now need it and they must not disagree:
+// the reconciler carries it off a REALISED row (normaliseRealisedToPlanPage,
+// against the bugs_open/241 URL-move hazard), and ValidateRoles derives it for
+// a PROPOSED page whose section is expressed only in the URL the write path is
+// about to discard (bugs_open/463).
+func ParentSectionFromURL(url string) string {
+	trimmed := strings.Trim(url, "/")
+	i := strings.Index(trimmed, "/")
+	if i <= 0 {
+		return ""
+	}
+	return trimmed[:i]
+}
+
+// PlanPageCarriesRealisedIdentity reports whether a plan entry was derived from,
+// or paired with, a realised page by reconcilePlanWithRealised — i.e. whether
+// its identity is the stored one rather than the planner's proposal.
+//
+// Read by both write surfaces so neither invents an identity the reconciler has
+// already settled. The two markers are not redundant: a snapped or unioned entry
+// carries BOTH (normaliseRealisedToPlanPage), while a same-name stamp carries
+// only identity_authority — it keeps the planner's title, meta and nav, so it is
+// not wholly realised-derived. Either marker is enough to mean "the reconciler
+// decided this entry's identity; do not re-derive parts of it here".
+func PlanPageCarriesRealisedIdentity(p map[string]interface{}) bool {
+	if s, _ := p["identity_authority"].(string); s != "" {
+		return true
+	}
+	b, _ := p["from_realised"].(bool)
+	return b
+}

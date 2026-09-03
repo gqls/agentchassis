@@ -289,6 +289,9 @@ func SyncPagesToDBAction(ctx context.Context, params ActionParams) (interface{},
 			Slug:          datahelpers.GetStringField(page, "slug", ""),
 			URL:           datahelpers.GetStringField(page, "url", ""),
 			ParentSection: datahelpers.GetStringField(page, "parent_section", ""),
+			// Same read as WriteSitePlanAction, deliberately identical
+			// (bugs_open/241) — see the comment there.
+			RealisedIdentity: datahelpers.PlanPageCarriesRealisedIdentity(page),
 		})
 	}
 	validated := datahelpers.ValidateRoles(llmPages)

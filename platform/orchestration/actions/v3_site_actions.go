@@ -3795,6 +3795,7 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 	params.Logger.Info("ValidateSitePlanAction: reconciled with realised pages",
 		zap.Int("unioned_in", counts.Unioned),
 		zap.Int("dropped_collision", counts.DroppedCollision),
+		zap.Strings("dropped_pages", droppedPlanPageNames(counts.DroppedPages)),
 		zap.Int("snapped_rename", counts.SnappedRename),
 		zap.Int("snapped_sections", counts.SnappedSections),
 		zap.Int("section_facts_carried", counts.SectionFactsCarried),
@@ -6505,6 +6506,30 @@ func slugOf(name, url string) string {
 	return name
 }
 
+// sectionPathKey is the site path a page CLAIMS, used by Pass C to tell a page
+// that collides with a section index from one that lives UNDER it.
+//
+// datahelpers.PagePathKey is the estate's collision key and does the real work:
+// "/news.html" and "/news/index.html" both claim "/news", while "/news/x.html"
+// claims "/news/x". This wrapper only normalises the two URL shapes that key
+// deliberately passes through unchanged but Pass C's first-segment predecessor
+// accepted anyway — a URL with no leading slash, and a directory URL's trailing
+// one. Returns "" for a page with no URL, which is the one case Pass C must
+// still settle by name.
+func sectionPathKey(url string) string {
+	u := strings.TrimSpace(url)
+	if u == "" {
+		return ""
+	}
+	if !strings.HasPrefix(u, "/") {
+		u = "/" + u
+	}
+	if u != "/" {
+		u = strings.TrimSuffix(u, "/")
+	}
+	return datahelpers.PagePathKey(u)
+}
+
 // itemStemOf returns the topic stem of an item page name by stripping the
 // role prefixes that CanonicalisePage adds (tool-, guide-, game-): e.g.
 // "guide-economy-basics" -> "economy-basics", "economy-basics" ->
@@ -6586,14 +6611,12 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 // both give "guides"; a root-level "/x.html" gives "" (no parent), which is
 // also what a URL we cannot read gives — in both cases the canonicaliser's own
 // default applies, which is the behaviour that existed before this carry.
-func parentSectionFromURL(url string) string {
-	trimmed := strings.Trim(url, "/")
-	i := strings.Index(trimmed, "/")
-	if i <= 0 {
-		return ""
-	}
-	return trimmed[:i]
-}
+//
+// Delegates to datahelpers (bugs_open/463): ValidateRoles now needs the same
+// derivation for a PROPOSED page, and a second copy in another package is the
+// drift class this estate keeps paying for. One definition, beside the
+// canonicaliser whose default it exists to override.
+func parentSectionFromURL(url string) string { return datahelpers.ParentSectionFromURL(url) }
 
 // factCarryMiss records plan-time fact assignments that could NOT be carried
 // onto a restored realised composition: the planner assigned facts to section
@@ -7168,6 +7191,13 @@ type reconcileCounts struct {
 	Unioned int
 	// DroppedCollision: LLM pages dropped by Pass C / C2.
 	DroppedCollision int
+	// DroppedPages names them. A counter says how many pages this function
+	// deleted; it cannot say WHICH, and "which" is the only thing that tells a
+	// reader whether a plan lost something it needed (bugs_open/463 — five
+	// article pages vanished between plan_site and validate_plan with nothing
+	// durable written anywhere, and the count alone was indistinguishable from a
+	// planner that never proposed them).
+	DroppedPages []droppedPlanPage
 	// SnappedRename: pages snapped back to a realised identity (Pass B).
 	SnappedRename int
 	// SnappedSections: pages whose proposed COMPOSITION was overridden by the
@@ -7236,6 +7266,29 @@ type reconcileCounts struct {
 	// per event, because unlike a stamp this is a state nobody intended: two
 	// pages, one name, two roles.
 	SameNameTypeConflicts []sameNameTypeConflict
+}
+
+// droppedPlanPage is one page this function DELETED from the plan, with enough
+// identity to be traceable after the orchestration row expires (~24h).
+//
+// Carries the PASS deliberately: Pass C ("this page's path is a section index's
+// path") and Pass C2 ("this page re-proposes an adopted item topic") are
+// different judgements with different failure modes, and a shared counter made
+// them one event. bugs_open/463 is what a Pass C drop looks like when nobody can
+// see which pass fired — five planned article pages disappeared with a green
+// status and an unremarkable count.
+//
+// This is the PRODUCER-side record and is deliberately narrow. The durable,
+// strategy-level account of what a plan lost is the 428 lane's
+// recommended_type_reconciliation.go, which classifies by STAGE rather than by
+// pass — a vocabulary that survives these passes being renumbered. The two are
+// complementary, not a duplication: that one answers "was a recommended page
+// type lost, and where", this one answers "which page, and by which rule".
+type droppedPlanPage struct {
+	Name   string
+	URL    string
+	Pass   string // "C" | "C2"
+	Reason string
 }
 
 // identitySnap is one twin-identity event: a plan page recognised as denoting
@@ -7469,7 +7522,14 @@ func reconcilePlanWithRealised(
 
 	realisedByURL := make(map[string]map[string]interface{})
 	realisedByName := make(map[string]map[string]interface{})
-	sectionStems := make(map[string]string) // stem -> realised index name
+	// Two indexes of the realised section hubs, because Pass C asks its question
+	// two ways. sectionIndexPaths is keyed on the path the hub actually CLAIMS
+	// and is the one that runs; sectionStems is keyed on its first path segment
+	// and now survives only as the fallback for a plan page that carries no URL
+	// at all (bugs_open/463 — a first-segment comparison cannot tell a child
+	// from a collider, because both reduce to the section name).
+	sectionStems := make(map[string]string)      // stem      -> realised index name
+	sectionIndexPaths := make(map[string]string) // path key  -> realised index name
 	for _, rp := range existingPages {
 		rm, ok := rp.(map[string]interface{})
 		if !ok {
@@ -7486,6 +7546,9 @@ func reconcilePlanWithRealised(
 		}
 		if stem := sectionStemOf(name, url, pageType); stem != "" {
 			sectionStems[stem] = name
+			if k := sectionPathKey(url); k != "" {
+				sectionIndexPaths[k] = name
+			}
 		}
 	}
 
@@ -7622,12 +7685,54 @@ func reconcilePlanWithRealised(
 		ltype, _ := lm["page_type"].(string)
 		lslug := slugOf(lname, lurl)
 
-		// Pass C: flat page colliding with a realised section index.
-		if idxName, isStem := sectionStems[lslug]; isStem &&
-			!isSectionIndexType(ltype) && lname != idxName {
+		// Pass C: a page whose OWN PATH is a realised section index's path — a
+		// flat /articles.html beside a realised /articles/index.html, which both
+		// claim "/articles".
+		//
+		// A CHILD of that index claims a LONGER path ("/articles/x") and is
+		// KEPT. That distinction is the whole of bugs_open/463: this comparison
+		// used to run on the FIRST PATH SEGMENT of each side, under which a
+		// child and a collider are the same string, so every newly planned child
+		// of a section index was deleted here. It went unnoticed for three
+		// months because Pass A's union restores REALISED pages immediately
+		// afterwards — so on an established site the drop is invisible, and only
+		// a hub that is empty TODAY can never be filled. [MEASURED 2026-09-03]
+		// 53 of 78 section-index hubs fleet-wide, across 21 sites, had zero
+		// children under their prefix.
+		//
+		// The path key is also what makes this pass and bugs_open/444's listing
+		// gate agree BY CONSTRUCTION rather than by coincidence. The gate, ~350
+		// lines below, counts a hub's children with
+		// strings.HasPrefix(url, sectionPrefixOf(hub)); "claims the hub's path"
+		// and "lives under the hub" are mutually exclusive and together partition
+		// the old first-segment test. Before this, Pass C deleted the children
+		// and the gate then held the childless hub, each guard's evidence reading
+		// as a reason for the other.
+		//
+		// bugs_closed/141's behaviour is preserved exactly: a flat /news.html
+		// re-proposed beside a realised /news/index.html still drops, because
+		// both claim "/news". [MEASURED 2026-09-03] all 83 realised hubs
+		// fleet-wide have a name-derived stem matching the one their URL yields,
+		// so on today's estate this rule drops a strict SUBSET of what the old
+		// one dropped — it can stop a drop, never start one. It could start one
+		// only for a hub whose stored name disagrees with its served path, where
+		// it would be right to: it compares where the hub actually serves.
+		idxName, isCollision := "", false
+		if k := sectionPathKey(lurl); k != "" {
+			idxName, isCollision = sectionIndexPaths[k]
+		} else {
+			// No URL to compare. The name is the only signal left, which is what
+			// this pass has always used — unchanged, deliberately.
+			idxName, isCollision = sectionStems[lslug]
+		}
+		if isCollision && !isSectionIndexType(ltype) && lname != idxName {
 			logger.Info("validate: dropped flat page colliding with realised section index",
-				zap.String("dropped", lname), zap.String("kept_index", idxName))
+				zap.String("dropped", lname), zap.String("dropped_url", lurl),
+				zap.String("kept_index", idxName))
 			counts.DroppedCollision++
+			counts.DroppedPages = append(counts.DroppedPages, droppedPlanPage{
+				Name: lname, URL: lurl, Pass: "C", Reason: "path collides with realised section index " + idxName,
+			})
 			continue
 		}
 
@@ -7641,6 +7746,9 @@ func reconcilePlanWithRealised(
 				zap.String("dropped", lname),
 				zap.String("stem", itemStemOf(lname)))
 			counts.DroppedCollision++
+			counts.DroppedPages = append(counts.DroppedPages, droppedPlanPage{
+				Name: lname, URL: lurl, Pass: "C2", Reason: "duplicates adopted item topic " + itemStemOf(lname),
+			})
 			continue
 		}
 
@@ -8224,4 +8332,18 @@ func reconcileGeneratedItemKeys(content map[string]interface{}, expected map[str
 			}
 		}
 	}
+}
+
+// droppedPlanPageNames renders the dropped set for the action's summary log:
+// "<name> [<url>] (pass <n>)" per page. A log line that says only how many pages
+// were deleted cannot be acted on; one that names them can.
+func droppedPlanPageNames(dropped []droppedPlanPage) []string {
+	if len(dropped) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(dropped))
+	for _, d := range dropped {
+		out = append(out, fmt.Sprintf("%s [%s] (pass %s)", d.Name, d.URL, d.Pass))
+	}
+	return out
 }

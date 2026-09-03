@@ -43,6 +43,12 @@ type LLMPlannedPage struct {
 	Slug          string // bare stem; if empty, derived from Name
 	URL           string // LLM-supplied URL, used as a corroborating signal
 	ParentSection string // canonical parent name, or empty
+
+	// RealisedIdentity marks an entry whose identity reconcilePlanWithRealised
+	// has already settled against a realised page (see
+	// datahelpers.PlanPageCarriesRealisedIdentity). The validator derives
+	// nothing for such an entry — see the ParentSection derivation below.
+	RealisedIdentity bool
 }
 
 // ValidatedPage is the corrected shape after running the validator. Role
@@ -187,6 +193,55 @@ func ValidateRoles(pages []LLMPlannedPage) []ValidatedPage {
 		if correctedRole != rawRole && rawRole != "" {
 			v.CorrectedFromRole = rawRole
 		}
+
+		// Rule 6: the DIRECTORY a leaf page will canonicalise into, recovered
+		// from the URL when the planner expressed its section only there
+		// (bugs_open/463).
+		//
+		// WHY THIS IS NEEDED AT ALL. Both write surfaces discard the proposed
+		// URL and re-derive it from CanonicalisePage, which reads ParentSection
+		// for exactly the five leaf roles and otherwise defaults to the role's
+		// own hub — blog-post to /blog/, tool to /tools/, and so on. So a page
+		// the planner placed under /articles/ is written to /blog/ instead, and
+		// the section index it was planned as a child of still resolves zero
+		// children (listing_item_sources.go countSectionChildren, which matches
+		// on the URL prefix). The planner cannot avoid this: the live plan_site
+		// prompt has no parent_section field at all, and [MEASURED 2026-09-03]
+		// 109 of 109 blog-post rows in site_plan_pages carry none.
+		//
+		// This is the same carry normaliseRealisedToPlanPage already performs in
+		// the REALISED direction, for the same stated reason, so it adds no
+		// mechanism — it removes an asymmetry. Rule 5 above is the accidental
+		// half of it: nestedRoleFromURL rescues a nested page under
+		// /tools//guides//games/ by RETYPING it, which is why those three
+		// directories work today and /articles/, /news/, /case-studies/,
+		// /resources/ and /insights/ do not.
+		//
+		// THREE GATES, EACH LOAD-BEARING.
+		//   isLeafRole      — exactly the roles CanonicalisePage reads parent
+		//                     for. Every other role ignores it, so the gate
+		//                     costs nothing and bounds the change to where it
+		//                     can act at all.
+		//   !RealisedIdentity — an entry the reconciler paired with a realised
+		//                     page is left alone. A snapped or unioned entry
+		//                     already carries parent_section; a SAME-NAME
+		//                     STAMPED entry carries the realised URL but
+		//                     deliberately no parent_section, and deriving from
+		//                     that URL would honour the realised identity with
+		//                     the site's honour_realised_identity flag OFF —
+		//                     precisely the behaviour change
+		//                     stampSameNameRealisedIdentity refuses to make
+		//                     (bugs_open/215). This gate is what keeps flag-off
+		//                     behaviour for those entries byte-identical.
+		//   ParentSection == "" — an explicit value always wins.
+		//
+		// Deliberately AFTER the role ladder and deliberately NOT fed into
+		// declaredParents (built before the loop from the INPUT field only), so
+		// no role decision can change: rule 3 sees exactly what it saw before.
+		if v.ParentSection == "" && !p.RealisedIdentity && isLeafRole(v.Role) {
+			v.ParentSection = ParentSectionFromURL(p.URL)
+		}
+
 		out[i] = v
 	}
 
