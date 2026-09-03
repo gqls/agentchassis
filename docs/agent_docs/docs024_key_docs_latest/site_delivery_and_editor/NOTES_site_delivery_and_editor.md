@@ -1492,3 +1492,96 @@ component-template-fixer files its rerender (it files continuously — six today
 monitor armed on the served URL. This is the second successful owner-directed
 improve_tool through the framework today — the route is proven for copy-level tool
 changes.
+
+## 2026-09-03 (evening) — 466 fixed, and the census made the root cause worse than the bug file's
+
+Picked up from `HANDOFF_2026-09-03_continue_here.md`. Items 2, 3 and 5 of its NEXT list are with the
+owner or other lanes; item 1 is a monitor; item 4 (the 651 rehearsal) needs the owner's say-so
+because it sends a real email and burns a once-only handover stamp. So: `bugs_open/466`, this lane's
+own bug, filed today and owned here (`scripts/who-owns.py 466` → this workstream).
+
+### The monitor for item 1, and one thing the handoff's own check would have got wrong
+
+Re-armed the served-page watcher (the previous session's `bw8thrkta` died with its session; monitors
+are session-local). Baseline `last-modified: 15:15:32Z`, i.e. the edits were still unpublished.
+
+**The handoff's check 3 says "zero `cta-subtitle` elements". A bare grep for that string cannot
+express it** — the served page carries **two** occurrences and they are different things: one
+rendered `<p class="cta-subtitle">` and one CSS rule `.cta-subtitle { margin-bottom: 2rem; }` inside
+the page's own `<style>` block. The CSS rule survives the edit, so a bare-string check will read
+**1** for ever and be misread as "the edit did not land". The check is `class="cta-subtitle"` = 0,
+with the bare count ≥1 kept as the **liveness control** that the section still rendered at all. This
+is `MEMORY[a grep occurrence-count conflates a CSS rule with a rendered element]`, met head-on.
+
+Read the template before arming, rather than after being surprised by it: `call-to-action` gates the
+element on `{{if .subheadline}}`, and Go treats `""` as false, so an empty subheadline omits the
+`<p>` entirely — there is no checklist-5.1 empty-`<p>` risk from the owner's "cut it". Watcher
+foreground-tested against the pre-publish page first: it reports FAIL on exactly the three checks
+that must change and PASS on the one that must not, which is what makes a later PASS mean anything.
+
+### 466 defect 1 is not what the bug file says, and a census is what showed it
+
+The file said the approval flow and `include_fields` "disagree about where approved content lives".
+Read `checkpoint_for_review_action.go:157-180` and that is too kind: the review item's spec is built
+from a **fixed literal** — `review_data`, `checkpoint`, `source_agent`, `correlation_id`, then
+optionally `domain`, `spec_aspect`, `on_approve`. No arbitrary field can ever be at its top. The
+approve handler looked its `include_fields` names up in exactly that object.
+
+```sql
+WITH ck AS (SELECT id, spec, jsonb_array_elements_text(spec->'on_approve'->'include_fields') AS fld
+            FROM site_work_items WHERE spec->'on_approve' ? 'include_fields')
+SELECT count(*) AS mentions, count(*) FILTER (WHERE spec ? fld) AS resolvable FROM ck;
+-- 42 | 0     [MEASURED 2026-09-03, all history, 21 items, first 2026-08-24]
+```
+
+**Zero of 42, ever.** So `include_fields` is not half of a broken join — it is a mechanism that never
+copied anything for any consumer, including the two names in `checkpoint_for_review`'s own header
+comment (`reviewed_brief`, `site_record`). The measurement is disconfirmable: a producer writing the
+named field at spec top level shows as `resolvable > 0`.
+
+### Two things I nearly missed, both found by looking at the population rather than the case
+
+1. **The addresses rot.** `LANDMINES` (copy_quality_two_stage, 2026-08-18) says a rerender REPLACES
+   the `page_components` row with a new id. `[MEASURED 2026-09-03]` of the **31** edits parked in
+   `needs_human_review`, **3** point at a row that no longer exists; 0 are stale by `updated_at`.
+   That is a consequence *of the fix*: making fan-out work unblocks 16 parked proposals, and three of
+   their edits would file `section_edit` items guaranteed to die at `load_edit_context` with nothing
+   said to the approver — i.e. the fix would manufacture more of the bug it fixes. Hence the
+   dead-address refusal.
+   ⚠ **The staleness arm of that query is artefactual on `complete` rows** (4 of 4 "stale") because
+   applying an edit is what bumps `updated_at`. It discriminates only for unapplied items. Do not
+   quote the `complete` figure.
+2. **Prior art the bug file missed.** `copy_quality_two_stage` hit this the day before: review
+   `be23d897`, approved in chat 2026-09-02, released **by hand as two `section_edit` items**, its own
+   `result` saying *"replicating the dashboard `on_approve` contract in the proven `section_edit`
+   spec shape"*. Two lanes independently hand-built the fan-out before anyone proposed it as a fix.
+   That is the strongest evidence for candidate 1 and it was sitting in a `result` column.
+
+### What the migration's shape was decided by, not guessed at
+
+`[MEASURED 2026-09-03]` of the 41 proposed edits across those 21 items: **41** carry
+`page_component_id`, **0** carry `edit_type`, **0** carry `page_name`. So `defaults` must supply
+`edit_type` and must **not** supply `page_name` — every edit is addressed by `page_component_id`,
+which alone satisfies `load_edit_context`, and a defaulted `page_name` would be a guess applied to
+every page on every site. `include_fields` becomes `["domain"]`, a key the spec genuinely holds and
+what the two proven hand-filed items carried.
+
+### The tests were mutation-tested, because green is not evidence
+
+Four mutations, each restored immediately and the file checksummed back to identical: remove the
+dead-address guard · remove the approved-body fallback · make fan-out unconditional · drop the
+element-field merge. **All four killed their own test.** The third is the one that matters longest —
+it is what stops a later tidy-up making fan-out the default for every checkpoint consumer.
+
+`33dfeed3a`, council `d04c1bc1-b9a3-41bb-b144-1d101e68e542` (submitted, verdict pending — trailer is
+`Council-Submitted:`, which asserts nothing). HEAD `a26cc1313` verified green with the change in it.
+**Inert until a roll**: `git merge-base --is-ancestor 33dfeed3a <admin-dashboard stamp>`.
+
+### My own wrong call today, logged in full at WRONG_CALLS
+
+Session `332` showed that `sweep_site_defects.sh` §1.4 is blind by construction: it greps the served
+HTML, and every news page ships JS that overwrites that HTML with `/data/news-archive.json`, which
+carries 7 unstripped ATX headings against the server HTML's 0. Fleet-wide, five hosts. They own the
+fix; I told them to use the script's own `blind()` helper rather than printing the word, because
+`blind()` is what makes the **exit** non-zero — printing "blind" while exiting 0 would reproduce the
+very shape one layer down.
