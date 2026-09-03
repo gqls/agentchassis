@@ -248,3 +248,54 @@ func TestStructuredItemShape_DemonstratedShapePassesTheTypeGate(t *testing.T) {
 		t.Error("control failed: the old string-branches shape is no longer refused, so this test proves nothing")
 	}
 }
+
+// THE ADVICE THE NOTE GIVES MUST BE ACCEPTED BY THE GATE — all four spellings of
+// "this element has no decision point".
+//
+// Raised by the council's bug_historian seat (corr 6de0f6f2): the empty-value
+// precedent this fix leaned on is IsEmptyContentValue's live case, and that is a
+// nested empty STRING (fundamentallyai.com, serving since 2026-08-15). The note
+// added by this change tells the writer to use `[]` instead — a DIFFERENT
+// spelling at a NESTED position, justified by analogy rather than measured. The
+// seat was right to ask, and analogy is exactly what this estate punishes: a
+// prompt that recommends a value the gate refuses would manufacture the very
+// failure the fix exists to remove, and it would do it on the pages where the
+// writer obeyed most carefully.
+func TestStructuredItemShape_EveryOmissionSpellingTheNoteRecommendsPassesTheGate(t *testing.T) {
+	schema := map[string]interface{}{
+		"fields": map[string]interface{}{"steps": mechanismFlowStepsFieldDef()},
+	}
+	step := func(branches interface{}, present bool) map[string]interface{} {
+		s := map[string]interface{}{"title": "t", "body": "b"}
+		if present {
+			s["branches"] = branches
+		}
+		return s
+	}
+	cases := map[string]map[string]interface{}{
+		"empty array — what the note actually recommends": step([]interface{}{}, true),
+		"absent":       step(nil, false),
+		"explicit nil": step(nil, true),
+		"empty string — the live 2026-08-15 shape": step("", true),
+		"whitespace string":                        step("   ", true),
+	}
+	for name, s := range cases {
+		t.Run(name, func(t *testing.T) {
+			v := ContentTypeViolations(schema, map[string]interface{}{
+				"steps": []interface{}{s},
+			})
+			if len(v) != 0 {
+				t.Errorf("the gate refuses a shape the prompt recommends: %s", DescribeTypeViolations(v))
+			}
+		})
+	}
+
+	// Control: the gate must still refuse the shape this whole bug is about, or
+	// the passes above would just mean the gate never looks at nested values.
+	bad := ContentTypeViolations(schema, map[string]interface{}{
+		"steps": []interface{}{step("a sentence of prose", true)},
+	})
+	if len(bad) == 0 {
+		t.Error("control failed: nested string branches is no longer refused, so the passes above prove nothing")
+	}
+}
