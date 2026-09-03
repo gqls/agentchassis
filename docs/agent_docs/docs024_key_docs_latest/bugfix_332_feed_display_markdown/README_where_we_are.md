@@ -94,3 +94,64 @@ are the only two, and pointed me at the safer pattern the other twelve already u
 summaries themselves sometimes contain ESPN's own site menu — `Tennis`, `NFL`, `MLB` —
 scraped in as if it were article text. Cleaning the markdown will not fix that; it is a
 different problem in how we capture the articles, and it has gone to the team that owns it.
+
+## 2026-09-03, evening — done and committed, waiting on a roll
+
+The work is finished and committed. It is **not live yet**: these are Go changes, and Go
+changes do nothing until someone rebuilds and rolls the chassis image. That is the honest
+status — the code is right, the pages are still wrong until the roll.
+
+**What went in, in plain terms.** One shared piece of code now prepares news text for display,
+and all three places that show it call that one piece. Before, three bits of code each decided
+for themselves and only one of them cleaned anything up. That is the whole fix; everything else
+is detail.
+
+Alongside it, the cleaner learned to recognise markdown that has been **chopped in half**, which
+is what all the visible damage actually was. And the off-switch we already had now reaches all
+three places instead of one — which is what the original bug report asked for two weeks ago and
+what the old arrangement simply could not do.
+
+**The team that owns the search code fixed their half themselves.** I sent them what I'd found
+rather than editing their file, and they came back having made the cut stop chopping links in
+half at source, and made it safe for accented characters. They also checked my numbers against
+the database themselves before acting, which I'd rather they did. They turned down the more
+invasive change for the same reasons I'd given, having got there independently.
+
+**Two independent reviews of the plan, and one of them saved us from something bad.** The
+obvious way to clean up a chopped-off link also deletes the "…" that shows something was cut —
+so a broken fragment would have become a smooth, complete-looking sentence that the source
+never actually wrote. On a paying customer's page. And no test or automated check we have could
+ever have spotted it. That is now fixed and specifically tested for.
+
+**The formal review board approved it**, with four advisory comments, and two of those were
+right. One asked a question I couldn't answer well, so I answered it in the code. The other
+pointed out I'd checked my change against the news data but not against the *other* seven
+places the same shared code is used — a fair hit, and exactly the kind of gap that causes this
+sort of bug in the first place. I've now run it over all 40,318 pieces of text in that other
+population: nothing was emptied, nothing broke, and the fifteen things that changed were all
+the same defect being fixed.
+
+**One thing I did differently from what you chose, and I want to be straight about it.** You
+picked "fix it at source as well". Both reviews came back against touching that particular
+file, for reasons I didn't have when I asked you — chiefly that cleaning there writes the
+change permanently into records that also feed our own AI training, where cleaning at display
+time can be switched off and undone at any moment. So I handed it to the team that owns it
+instead, with the measurements. They took the safe parts and declined the rest. I think that
+landed in the right place, but it was my call to make it, so it's flagged rather than buried.
+
+**One thing needs a human before it goes live.** The small database change that fixes the
+script security issue is written, rehearsed against the live system and rolled back cleanly,
+and deliberately **held** rather than queued to apply automatically. The reason: it changes how
+a page draws itself in the browser, and none of our automated checks can actually see a browser
+— they'd all pass on a page that came out blank. Someone should apply it and then simply look
+at a news page.
+
+**What is left.** After the next chassis roll: re-check the five sites, both data files and the
+feed. The affected pages should repair themselves within about a day without anyone doing
+anything, because the news feed rewrites those sections every few hours — and if they don't,
+that assumption was wrong, not the fix.
+
+**What is still not fixed, and you will still see it.** Some summaries are ESPN's own site menu
+scraped in as article text. Cleaning the markdown removes the symbols and leaves the words, so
+the news page will still read a little oddly in places. That's a different problem in how we
+capture articles, it's filed, and the team that owns it has acknowledged it.
