@@ -3785,3 +3785,10 @@ UNDIAGNOSED envelope-family-specific behaviour; drop 2 (~09:0xZ) landed inside t
 question hardens into a filing (symptom + the cli-mint census as evidence, cause marked
 undiagnosed, 090 candidate); the gap-planner's 28h-unclaimed queue item remains corroborating
 evidence of a dispatch gap for this agent either way.
+
+**2026-09-03 ~09:30Z — session close.** Fresh-deploy confirmation from the owner: the running
+chassis is v1.0.1356 (probed this morning — full propagation + v2 stack aboard, skew closed).
+Fire 3 of the planner canary (corr `5dcc3476`) was ~6 min old and unminted at close; monitor
+`bfn4yet8k` held the read; the superseding cold-start is
+**HANDOFF_2026-09-03_continue_here.md** with the canary query, the drop taxonomy, and the
+file-don't-refire instruction at the top.
