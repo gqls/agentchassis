@@ -18,6 +18,15 @@ Each registrar lane writes to
 
 Commit by pathspec, message `domain valuation inbound: <registrar> list`.
 
+**FILE DATES ARE PRODUCTION DATES — the day the file was WRITTEN, never the day
+it is meant to be used.** This is the convention every inbound and output file
+here follows, and it is stated because breaking it cost another lane real work:
+two queue files were dated for the window they were built *for*, and on
+2026-09-03 the sedo lane read `..._2026-09-04.csv` in this directory, concluded
+that was today's date, and mis-dated a stretch of its own work and a LANDMINES
+entry before catching it. Both files were renamed to their production date.
+A future-dated filename is indistinguishable from a clock you can trust.
+
 **Re-pull every registrar list the day the pricing sheet finalises** (owner
 adds domains on occasion — proven 2026-09-02, when Dynadot grew 451→453 between
 snapshots): a registrar count is stale by ADDITION, never by loss, and a fresh
@@ -63,10 +72,10 @@ window each. **Say in the dynadot lane's channel before starting a window** —
 three lanes share one 300/day account and a collision is only discovered as a
 429.
 
-1. `inbound/appraisal_queue_direct_2026-09-04.csv` — **1,482 rows**, appraise
+1. `inbound/appraisal_queue_direct_2026-09-03.csv` — **1,482 rows**, appraise
    the domain itself (.com/.net/.uk). Ordered financial → home-garden → … →
    generic-word/misc, so a part-window still finishes whole high-value blocks.
-2. `inbound/appraisal_queue_proxy_2026-09-04.csv` — **875 rows** of
+2. `inbound/appraisal_queue_proxy_2026-09-03.csv` — **875 rows** of
    .co.uk/.org.uk/.me.uk, which Dynappraisal refuses. Appraise the
    `proxy_domain` column (the .com string equivalent) and record the value
    **against `domain`, marked as a proxy** — it measures the keyword in the

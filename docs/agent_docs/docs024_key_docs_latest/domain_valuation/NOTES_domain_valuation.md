@@ -201,8 +201,8 @@
   have ≥20 own appraisals; the eye-catching ones (education $3,601,
   agriculture $2,689) rest on 5 and 9 samples and mean nothing.
 - **Queues built for the remaining 2,357** (~8 windows):
-  `inbound/appraisal_queue_direct_2026-09-04.csv` (1,482 .com/.net/.uk) and
-  `inbound/appraisal_queue_proxy_2026-09-04.csv` (875 .co.uk/.org.uk/.me.uk via
+  `inbound/appraisal_queue_direct_2026-09-03.csv` (1,482 .com/.net/.uk) and
+  `inbound/appraisal_queue_proxy_2026-09-03.csv` (875 .co.uk/.org.uk/.me.uk via
   the .com string equivalent, recorded as a PROXY). 12 domains on untested TLDs
   (org/cv/vin/biz/ai/io) need one probe each first.
 
