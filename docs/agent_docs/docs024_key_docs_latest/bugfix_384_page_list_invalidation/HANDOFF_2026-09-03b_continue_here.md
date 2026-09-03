@@ -161,7 +161,7 @@ Status below is checked, with the query or commit that checked it.
 | 3 | this lane's sweep | ⚠ **NO LONGER "never run" — it worked today** | this lane |
 | 4 | `bugs_open/404` | ⚠ **NOT unclaimed — taken 2026-08-26** | another lane |
 | 5 | re-run the census | ✅ **DONE 16:4xZ — post-fix era is 9/9/0, first-hand** | this lane |
-| 6 | 2 stranded NULL-id rows | unowned, not a listing | nobody yet |
+| 6 | 2 stranded NULL-id rows | ⚠ **only ONE is actually frozen** — corrected 16:5xZ | nobody yet |
 
 ### 2. ✅ DONE 16:4xZ — the owned-page residual is contributed into `bugs_open/389` §2, not re-filed
 
@@ -264,12 +264,27 @@ instrument.
 2. **Still worth re-running after a full day**, which this is not — era 3 is 4.5 hours. What would
    change the conclusion is a `left blank` appearing in era 3. Today there are none.
 
-### 6. Two stranded NULL-`component_id` rows — unowned, and NOT this seam's
+### 6. Two stranded NULL-`component_id` rows — ⚠ **CORRECTED 16:5xZ: only ONE of them is actually frozen**
 
-finetuning.uk `/blog` (`article-grid`) and gamesdesign.co.uk `/game-jelly-invaders` (`section`) —
-the only two live rows whose `slot_name` matches neither an active component's `name` nor its
-`function`, so no re-render can ever resolve them (§8 trap 5). Neither is a listing this seam feeds,
-so they are noted, not owned. If a stuck page ever appears in the census, check that column first.
+Both are live rows whose `slot_name` matches neither an active component's `name` nor its `function`,
+so **no re-render can ever resolve either** (§8 trap 5). That much holds. But I wrote that as though
+it meant both were stuck, and it does not — "cannot be re-rendered" and "is frozen" are different
+claims, and I checked only the first. `[MEASURED 2026-09-03 16:5xZ]`:
+
+| row | last written | by | verdict |
+|---|---|---|---|
+| finetuning.uk `/blog` `article-grid` | **2026-09-03 12:15:59** (today) | `action:rebuild_blog_listing` — and 5 times since 08-24 | **NOT stuck.** It has a live alternative maintainer; the re-render path is not its writer and does not need to be |
+| gamesdesign.co.uk `/game-jelly-invaders` `section` | **2026-08-23 14:06:11** | the ordinary save path, then nothing | **genuinely frozen — 11 days, no writer of any kind** |
+
+So the real item is **one row on one page**, not two. It is a `section` slot on a game page,
+`status=active`, `rebuild_policy=generic`, 25,901 bytes of stored HTML still serving. **Not a listing
+this seam feeds**, so it stays noted-not-owned — but if anyone picks up the NULL-`component_id`
+class, that is the row with no way out.
+
+**The general form, since this lane made the same mistake three times today:** a mechanism claim
+("X cannot be repaired by path P") does not license a consequence claim ("X is broken") until you
+check whether some *other* path maintains it. The card-join error, the sweep near-miss and this are
+all one shape.
 
 ## 7. What belongs to other lanes — do not fix here
 
