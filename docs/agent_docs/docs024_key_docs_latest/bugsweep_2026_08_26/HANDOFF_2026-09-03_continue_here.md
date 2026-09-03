@@ -5,7 +5,82 @@ about mechanism and its §7 still lists the adjacent items; what changed is that
 rolled, 338 shipped, and **338's acceptance test turned out to be unfalsifiable**. Where the
 earlier file is now wrong I say so here rather than editing it.
 
-**The lane is one owner decision away from closing.** There is no unfinished engineering.
+> ⚖ **UPDATED 2026-09-03, LATER THE SAME DAY — THE OWNER HAS RULED ON ALL FOUR QUESTIONS.**
+> §3 and §4 below are the *analysis* that produced them and are left as written; the
+> rulings and what was done about them are in **§0**, which supersedes the "decision"
+> framing everywhere else in this file. **338 is CLOSED.**
+
+
+---
+
+## 0. ⚖ THE FOUR RULINGS (2026-09-03) AND WHAT WAS DONE
+
+| # | question | ruling | done |
+|---|---|---|---|
+| 1 | How does 338 close? | **Close on the CODE proof** | ✅ `bugs_closed/338…` §10; 016b §10 row corrected + closed (`c0992e668`) |
+| 2 | Should a near-empty page carry a description? | **NO** | ✅ `bugs_open/320` §17 CONTRIB (`eef7b74b4`) + LANDMINE |
+| 3 | Should `make release` commit its tag bumps? | **YES** | ✅ `make release-record` (`7858b3458`) |
+| 4 | 442 — which route? | *explanation requested; not yet ruled* | ⏳ §0.4 |
+
+### 0.1 — 338 CLOSED, on the code proof, and why that is not a lowered bar
+`bugs_closed/338_…` §10 records it. The short version for anyone auditing the closure: the
+"live" half of *fixed AND live* is **unobtainable, not unmet**. The fix only changes
+behaviour above **22 mean words**, and two independent facts put that out of reach —
+migration `501` instructs the writer to produce ≤20 words, and all 37 remaining blank pages
+fail the backfiller's `page_visible_text_len > 200` gate. Waiting yields nothing;
+manufacturing the case means authoring copy the house style exists to reject.
+⚠ **016b §10's row had propagated the bug file's own WRONG remedy** (the flat em-dash test)
+into the debugging guide, where it read as settled guidance. Corrected with the arithmetic
+in the same commit, not merely flipped to CLOSED.
+
+### 0.2 — the 37 blank pages are NOT work, and they will keep looking like work
+Owner: a near-empty page does **not** get a description. Recorded as `bugs_open/320` §17
+(contributed, **not** closed — 320 has other live mechanisms and other owners) and as a
+LANDMINE, because the trap is prospective: **every census you can write makes them look
+like an unfilled backlog, and the census is TRUE.** Blankness and unfinished-ness are
+indistinguishable in the column you query. The discriminator is one column —
+`page_visible_text_len(id)` — and the check must include the described-pages row as its
+demand control.
+⚠ **320's headline "407 of 731 — 55.7%" is stale by a factor of eighteen** (3.1% today).
+
+### 0.3 — `make release-record`, and what it deliberately does NOT do
+`make release` and `release-backend` now call it after the deploys succeed; it is also
+runnable standalone. It commits the makefile and the `kustomization.yaml` overlays **by
+pathspec** — never `git add -A`, never adds an untracked file, and a pathspec commit ignores
+the index, so no other session's staged or half-written work can ride along. Non-fatal by
+design and **loud**: the images are already live by then, so it prints a red banner with the
+exact hand command rather than failing a release that succeeded.
+⚠ **Today's `v1.0.1356` was NOT retro-recorded, deliberately.** `REF` would default to
+`HEAD`, but 1356 was built from a commit that is now unrecoverable — the bump was never
+committed and the stamp has rotated. **Recording a confident wrong provenance is worse than
+recording none.** The mechanism works forward, from the next release, where `pinned_sweep`
+already resolves the exact commit.
+
+### 0.4 — 442: the two routes, so the choice is on the record
+Both start from the same fact: `metaDescriptionFailsCopyGates` returns a **nil error**, so a
+refusal completes cleanly and nothing downstream asserts on it.
+
+**Route A — make the SURFACE honest (config-only, ~10 min, no roll, reversible).**
+The workflow's `complete` step tells a human: *"false carries a named reason
+(empty_candidate / candidate_looks_internal / candidate_too_long / already_has_description)"*.
+That list omits `voice_tell`, `banned_claim` and `voice_gate_unreadable` — the three
+expensive reasons, the ones needing a person, the ones that caused 338. A reader following
+its own instruction concludes the gates cannot refuse. Fixing it is one string.
+*It does not make a refusal loud.* It removes an actively misleading surface, which is worth
+doing under either route — Route A is a **prerequisite, not an alternative**.
+
+**Route B — make the REFUSAL loud (files a work item; needs a Go change + roll).**
+On `voice_tell`/`banned_claim` only — never the four cheap reasons — file a work item so the
+copy reaches a human who can judge it. This is the actual mechanism fix.
+⚠ **The objection to answer first is volume, and it is a real one:** `bugs_open/033`/`083`
+record `voice_tells` items parked in a review queue that has closed roughly **one item
+ever**. Route B done carelessly relocates the silence into a queue nobody reads — which
+looks like a fix and is not. So B is only worth taking with a stated answer to *who reads
+this queue, and what makes this item different from the ones already parked there*.
+
+**Not a route, and named so nobody re-proposes it:** making the action return an error. A
+refusal is correct behaviour; erroring would fail a batch of up to 25 pages for one bad
+sentence, and `continue_on_error: true` would swallow it anyway.
 
 ---
 
@@ -16,9 +91,9 @@ earlier file is now wrong I say so here rather than editing it.
 | **359** archived-still-serving | **CLOSED**, acceptance re-established, census instrument fixed (`4e26b1063`) |
 | **404** reason vocabulary | **APPROVED r4** (`f2e4ac2a…`, 16:33Z 09-02, 3 advisory objections). Code committed. **Owed: read those 3 objections** |
 | **407** nav declaration | **RULED, RUN, VERIFIED at the served page.** Drain was partial 09-02; re-sample if you care, do NOT re-dispatch |
-| **338** voice gate on one value | **FIXED, APPROVED, SHIPPED on `v1.0.1356`.** ⚠ **OPEN only because its acceptance test cannot pass — see §3. This is the decision.** |
+| **338** voice gate on one value | ⚖ **CLOSED 2026-09-03** by owner ruling on the code proof → `bugs_closed/338…` §10 |
 | **442** silent refusal *(new)* | **FILED, unowned.** Found by the council reviewing 338. Config-only partial fix is ~10 min |
-| **320** meta_description backfill | Headline re-measured: **55.7% → 3.1%**. Residual changed KIND — see §4 |
+| **320** meta_description backfill | ⚖ Owner: near-empty pages get NO description → §17 CONTRIB. **This axis is at zero**; §2/§3 mechanisms still open, other owners |
 
 ---
 
@@ -115,7 +190,8 @@ different mechanism, because the backfiller structurally cannot see them.
 
 ## 5. WHAT IS ACTUALLY LEFT ON THIS LANE
 
-**Blocking closure — decisions only (§3, §4).** No engineering.
+⚖ **NOTHING BLOCKS THIS LANE ANY MORE.** All four questions ruled (§0); 338 closed; 320's
+coverage axis settled; `release-record` built. What follows is unowned or other lanes'.
 
 **Owed, small:**
 - **Read 404's three r4 objections** (`editquality`, `bug_historian`, `debug_historian`, all
