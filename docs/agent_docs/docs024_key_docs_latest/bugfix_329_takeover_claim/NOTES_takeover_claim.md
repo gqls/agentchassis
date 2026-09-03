@@ -373,3 +373,29 @@ record a takeover has ever left. 461 says plainly not to size the bug until that
 that today it necessarily returns 0 because the fix is not rolled.
 
 **Round 2 resubmitted** under the same trail (`RESUBMIT_CORR=3beb3f54…`, run orch `43181b1a`).
+
+## (j) 2026-09-03 ~13:3xZ — the fix MISSED the build that rolled, proven at the artefact with a control
+
+A fresh chassis rolled while I was working: `agent-chassis` is now **`v1.0.1358`** (was `v1.0.1356`),
+pods ~6 minutes old. The tempting inference — *"a build went out after I committed, so my fix is
+live"* — is exactly the one `MEMORY.md` warns about, so I asked the binary instead of the clock.
+
+```
+build provenance  git_commit d0252fd4dab2a3a583d1cc8eb8e1b26e9c422d85
+git merge-base --is-ancestor b55f837ef d0252fd4…   ->  NO
+git merge-base --is-ancestor 367f5a7fd d0252fd4…   ->  YES   (control)
+```
+
+**`v1.0.1358` does NOT contain `b55f837ef`.** The control matters and is why this is a measurement
+rather than an assertion: an older commit *is* an ancestor of the stamp, so the test discriminates —
+a `NO` on both would have meant my command was broken, not that the fix was absent.
+
+**So the fix is committed and still INERT, and rides the build after this one.** Nothing about 329's
+behaviour has changed in production. ⚠ Do not read `processing_history @> '[{"action":
+"stale_takeover_claimed"}]'` returning 0 as evidence of anything until a build containing
+`b55f837ef` is running — today it returns 0 because the code is not there.
+
+⚠ Note also what the provenance line does NOT tell you: it is a **startup** line, so on a busy
+service it scrolls out of reach within hours. It was still in range here only because the pods were
+minutes old. Later, the binary probe with a present-and-absent control pair is the check with no
+shelf life.
