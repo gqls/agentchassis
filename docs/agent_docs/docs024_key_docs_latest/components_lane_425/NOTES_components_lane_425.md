@@ -311,3 +311,55 @@ says plainly that it was relayed first.
 **The transferable bit, which is theirs and I am recording as theirs:** grade a peer's claims one at
 a time, and hardest where you agree. A correction you send makes the rest of your own message look
 audited too — in both directions.
+
+---
+
+## 2026-09-03 16:55Z — a NEAR-MISS on someone else's migration, caught by the shape of my own result
+
+Reviewing migration `758` for the `bugs_open/332` lane (component-library `js_content`, my surface).
+Two findings and one near-miss.
+
+**The finding they asked for was clean, and the one that mattered was elsewhere.** They asked me to
+check class names, because a typo there would silently unstyle the list and their verify could not
+catch it. All 19 classes across both scripts were correct — right element, right order, right
+conditionals, checked by **placement** rather than presence, since a class on the wrong element is
+the failure that matters. What was wrong was `safeHref()`: it admitted only `http(s)`, and they
+applied it to both the third-party feed URL *and* the internal "More insights" link, which comes
+from `pages.url` and is site-relative (`/news.html`). Every such link would have become
+`href="#"` on every site with a news index. They verified it themselves and found the exposure
+wider than I measured — three URL shapes, not one.
+
+**And their verify could not see it**, which is the transferable half: the post-condition asserted
+`js_content LIKE '%safeHref%'`, and presence stays true when the helper is broken. Their own
+phrasing, which I am recording because it is better than mine: *name what the check would still
+pass if the feature were broken; if the answer is "everything", it isn't a check.*
+
+**THE NEAR-MISS, and it is mine.** Applying their rule back to my own review, I realised my class
+check would have passed on a script that never parses — a syntax error leaves the server-rendered
+items in place, the migration text still reads correct, and I would have called it clean. So I went
+to check delimiter balance. **My first scanner reported BOTH scripts unbalanced, `+1` brace and
+`+1` paren each. I did not send it.**
+
+**What stopped me was the shape of the result, not a doubt about the code:** two independently
+hand-written scripts do not fail identically, in the same direction, by the same amount. That is a
+signature of the instrument. The cause was my regex-based string stripper mishandling the escaped
+slashes in `/^https?:\/\//i` — **I broke my scanner on the very helper the review was about.** A
+proper character-by-character scan tracking string, comment and regex-literal state returns balanced
+on both.
+
+**So within half an hour I told a peer their check confirmed presence rather than function, and then
+built a check whose failure mode was its own construction.** Same family, one lane over. It is a
+near-miss rather than a `WRONG_CALLS` row because nothing was asserted or written down — but the
+only reason is that the artefact of a broken instrument happened to be *symmetrical*, and it is
+luck that this one was. A single-script migration would have given me one plausible `+1` and I would
+have sent it.
+
+**The rule I am keeping:** when a check fires on every member of a population, suspect the check
+before the population — and when two independent artefacts fail identically, that is not
+corroboration, it is a shared cause, and the nearest shared cause is your own instrument.
+
+⚠ **And the honest limit, stated because I told them the same:** delimiter balance is NOT a parse.
+It catches an unbalanced brace, not a missing comma. There is no JS engine on this machine (no node,
+deno, quickjs, or Python parser), so nothing in this chain can prove that script runs. Their
+`_HOLD` and hand-apply-then-look-in-a-browser is the only step that can, and it must not be
+substituted for.
