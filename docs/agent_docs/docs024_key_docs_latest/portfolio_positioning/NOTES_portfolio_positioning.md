@@ -4156,4 +4156,15 @@ later attempt of its own hits the dedup guard and aborts — the file is idempot
   empty result is indistinguishable from its no-change result reports nothing either way** —
   emit on the empty case too. (2) The tool-build monitor's exit threshold is 7 while 8 items now
   exist; the 8th (redirect checker) needs a hand check.
+- **437 answered for advertise (their message, 2026-09-03)**: our two `failed` `needs_page` items
+  need NOTHING — `reconcile_site_plan`'s sweep re-mints on its own — and firing before their Go
+  half `a0044e73b` rolls would burn a third attempt and earn the `[unresolved after 2 attempts]`
+  brand, which (unlike `failed`) IS kept in the open set and blocks re-minting for ever. Gate and
+  pre-fire checks now in the handoff. **Their root cause is a second instance of a class this
+  lane already carries in memory: the prompt's own JSON exemplar declared `branches` as a STRING,
+  so the model copied the demonstration it was shown** — and the flattening happened UPSTREAM
+  (the section planner projects a component's element schema to a flat list of NAMES, collapsing
+  a nested array-of-objects to a scalar). 119 refusals across 6 sites; the writer obeyed
+  throughout and the type gate was right every time. My own filing called it "the writer emits a
+  STRING", which read as writer misbehaviour — corrected here.
 

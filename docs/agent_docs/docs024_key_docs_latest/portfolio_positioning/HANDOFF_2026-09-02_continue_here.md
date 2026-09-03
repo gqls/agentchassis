@@ -198,9 +198,31 @@ The owner refreshed the kubeconfig ~21:2xZ (the 444 session noticed first). Ever
   `mechanism-flow`, `steps[].branches` declared array got string, 4 failures 17:21–19:07Z —
   **an instance of `bugs_open/437`** (loanzy lane, 119 failures / 6 sites in 14 d, filed today,
   no owner yet). Page is `active`, `deployed_at NULL`; LNK-038 suppresses links to it at render
-  so nav stays clean. Nothing to do here until 437's candidate 1 lands; the page then builds
-  on retry (the items are terminal `failed` — a fresh `needs_page` may need minting, read 437
-  first).
+  so nav stays clean. ~~Nothing to do here until 437's candidate 1 lands; the page then builds
+  on retry~~ **ANSWERED by the 437 lane 2026-09-03 (their message; their file is the record):
+  DO NOTHING, AND DO NOT FIRE YET.**
+  (a) `failed` is terminal, so it is excluded from `idx_swi_dedup` and from `loadOpenPageItems`'
+  open set — nothing blocks a new row, and **`reconcile_site_plan`'s next sweep re-mints
+  `needs_page:uk-advertising-regulation-map` by itself**, born `triaged`, outside the attempt
+  ladder. Never retry or UPDATE the two terminal items; the `image_landed` rerender is subsumed
+  by a fresh build.
+  (b) **TIMING GATE.** Their prompt migration 724 is live but INERT without the Go half
+  `a0044e73b`, which is **not in v1.0.1356 and not in the staged v1.0.1357**. Firing early burns
+  a third attempt and earns the `[unresolved after 2 attempts]` brand — which, unlike `failed`,
+  IS kept in the open set and would block re-minting FOR EVER (it is why five other sites' pages
+  sit unbuilt). Pre-fire, after a roll:
+  `git merge-base --is-ancestor a0044e73b <agent-chassis provenance stamp>`, then
+  `SELECT prompt_rendered LIKE '%"branches": [{%' FROM llm_call_log WHERE
+  agent_type='page-content-writer' AND prompt_rendered LIKE '%mechanism-flow%' ORDER BY
+  created_at DESC LIMIT 1;` (true = the writer is now shown the nested shape). Stay clear of
+  ~300 s after a pod restart.
+  (c) Root cause was never the writer: **the prompt's own JSON exemplar declared `branches` as a
+  STRING**, because the section planner projects a component's element schema to a flat list of
+  NAMES, so a nested array-of-objects flattens to a scalar. The model copied the demonstration it
+  was shown, 119 times, and the type gate refused it correctly (their evidence pair:
+  `llm_call_log 34f25815`, OUR 19:07Z advertise run — string exemplar at prompt line 234, the
+  obedient reply beside it). Register PBP-052; their candidates 2 and 3 stay open, and 3 (nothing
+  escalates a linked-but-never-built active page) is what let our page sit quietly.
 - **websitepromotion:** `needs_page` d0a5c53f re-queued `triaged` — its 18:25Z block was
   `placeholder_text` "to be added" matched inside natural prose ("asking to be added to the
   relevant page"), a false positive; fresh writer run per NOTES (f) — **DONE**: claimed within
