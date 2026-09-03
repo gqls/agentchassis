@@ -249,3 +249,10 @@
   demonstrated. Stage B = 641 alone; **applier is now the framework_prompts_positive_voice
   lane (owner's routing)**. ⚠ banked trap: one correlation can cover a whole site's items —
   per-page reads key on writer orchestration_id.
+- **09-03 afternoon — bugs_open/450 neighbour check:** their staged 729 edits
+  build-site-planner's prompt row and their verify block defends neighbour surfaces; told
+  them this lane does NOT edit that row (register inference over-reached) and pointed them at
+  the missing neighbour: **640's rule 17, literal `may also carry a "subject"`, owner
+  apis.uk** — load-bearing for interpreting our detector's fire-rate (a silently eaten rule
+  17 would read as planner non-compliance). Their trap (once 729 lands, 720_ROLLBACK refuses
+  until 729_ROLLBACK runs) flagged back as LANDMINES-worthy, theirs to write.
