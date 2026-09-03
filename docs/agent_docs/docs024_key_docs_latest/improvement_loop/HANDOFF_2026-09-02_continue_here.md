@@ -62,11 +62,12 @@ far.** 867 of the 1,385 were one missing skip link. See §3.
 > The four rounds each found something the change *working* would never have shown — they are
 > written up in NOTES and are the most useful thing in this lane's record.
 >
-> **Two things it leaves you.** (a) **Adopted sites are born held too** — adoption inserts
-> through this path, which is wider than the owner's words "a brand-new site"; raised with him,
-> his to narrow. (b) **Nothing reports "held longer than N days"**, so a site nobody releases
-> stops growing silently — this lane's, unbuilt, and it is the same shape as the 1,385 findings
-> the lane exists to fix.
+> **One thing it leaves you, and one that is now settled.** (a) **SETTLED — adopted sites are
+> born held, by owner ruling of 2026-09-03**: *"yes adoption sites are held until specifically
+> released"*. Adoption inserts through this path; that is intended scope, not an over-reach.
+> **Do not exempt adoption to "fix" a held adopted site.** (b) **OPEN — nothing reports "held
+> longer than N days"**, so a site nobody releases stops growing silently. This lane's, unbuilt,
+> and the same shape as the 1,385 findings the lane exists to fix.
 
 ### 3a. ~~THE FIRST THING TO DO IN A FRESH SESSION~~ (DONE — see the update box above)
 

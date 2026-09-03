@@ -15,6 +15,23 @@
 -- (gamedesign.uk, set by hand 2026-09-02, i.e. no existing row moved); 39 active sites
 -- unchanged.
 --
+-- ── OWNER RULING 2026-09-03: ADOPTION IS IN SCOPE, DELIBERATELY ────────────────
+--
+-- The council's guardian seat asked (round 5, medium) whether the site-adoption
+-- pipeline inserts through this path — an adopted domain is already live and already
+-- tooled, so holding it is wider than the words "a brand-new site". It DOES insert
+-- through this path (091_site_adoption_agent.sql uses INSERT INTO sites ... ON CONFLICT
+-- DO NOTHING, or lets ensure_site_record create the row), so adopted sites are born held.
+--
+-- Put to the owner, who ruled: **"yes adoption sites are held until specifically
+-- released"**. So this is not an over-reach to be narrowed later — it is the intended
+-- scope, and a future reader finding an adopted site held should NOT treat it as a bug
+-- or "fix" it by exempting adoption. The reasoning that makes it coherent: an adopted
+-- site is new TO US however old it is to the world, it arrives with someone else's tools
+-- and someone else's brand (bugs_open/439 is that contamination in the other direction),
+-- and a human deciding what it should become is exactly the review the hold exists to
+-- force.
+--
 -- WHAT THE OWNER DECIDED, narrowly: a brand-new site should be born with
 -- growth_posture='hold' and released by a human when it is ready. He was asked in
 -- exactly that form and chose it over "keep open, hold by hand" and over a

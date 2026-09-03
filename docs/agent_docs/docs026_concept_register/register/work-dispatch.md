@@ -217,8 +217,11 @@ separate register files).
   post-trigger row, so a `DO UPDATE SET settings = EXCLUDED.settings` would re-hold a released
   site. None of the four upserts on `sites` does; `check_sites_upsert_excluded_settings`
   (pattern-check.py) refuses one at commit time, and LANDMINES carries the induction recipe.
-  ⚠ **ADOPTED sites are born held too** — adoption inserts through this path. Wider than the
-  words "a brand-new site"; the owner's to narrow.
+  ✅ **ADOPTED sites are born held too, and that is RULED, not accidental** (owner
+  2026-09-03: *"yes adoption sites are held until specifically released"*). Adoption inserts
+  through this path. **Do not "fix" a held adopted site by exempting adoption** — it arrives
+  with someone else's tools and brand (`bugs_open/439` is that contamination the other way),
+  and the human decision is the point.
   ⚠ **Nothing reports "held longer than N days"** — a site nobody releases stops growing
   silently. Owed by the improvement_loop lane.
 - **what:** `sites.settings->'maintenance_profile'->>'growth_posture' = 'hold'` makes the
