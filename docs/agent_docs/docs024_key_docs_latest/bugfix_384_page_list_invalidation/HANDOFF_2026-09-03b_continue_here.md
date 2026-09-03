@@ -160,7 +160,7 @@ Status below is checked, with the query or commit that checked it.
 | 2 | owned-page residual, 14/14 | ✅ **CONTRIB filed into `bugs_open/389` 16:4xZ** | 389's call now |
 | 3 | this lane's sweep | ⚠ **NO LONGER "never run" — it worked today** | this lane |
 | 4 | `bugs_open/404` | ⚠ **NOT unclaimed — taken 2026-08-26** | another lane |
-| 5 | re-run the census | outstanding | this lane |
+| 5 | re-run the census | ✅ **DONE 16:4xZ — post-fix era is 9/9/0, first-hand** | this lane |
 | 6 | 2 stranded NULL-id rows | unowned, not a listing | nobody yet |
 
 ### 2. ✅ DONE 16:4xZ — the owned-page residual is contributed into `bugs_open/389` §2, not re-filed
@@ -245,11 +245,24 @@ count is not ownership**, and a lane that repeatedly lists a bug it is not worki
 top. Resolve by `git log` on the FILE PATH, which is what the CLAUDE.md landmine says and what
 settled it here. Before touching 404, message whoever holds it rather than assuming it is free.
 
-### 5. Re-run §1's census once the fixed binary has had a day of traffic
+### 5. ✅ DONE 16:4xZ — the census now has a third partition and the post-fix era is measured HERE
 
-`scripts/census_repair_rate.sql` (commit `f8110df1e`). Expect the post-`94f81cc60` failures to stop
-accumulating. If they do not, the residual is real. Quote the "after" column **with its time** — it
-is still moving.
+`[MEASURED 2026-09-03 16:36:37Z]` `scripts/census_repair_rate.sql`, split at the moment the fix went
+live: **era 1 (pre-regression) 131 writes / 131 repaired / 0 blank · era 2 (during) 12 / 5 / 7 ·
+era 3 (post-fix) 9 / 9 / 0.** Era 3 is 4.5 h of ordinary traffic through the same query, so the
+"after" column no longer depends on the relayed 17/17 — it agrees with it from a different
+instrument.
+
+⚠ **Two things to know before you re-run it.**
+
+1. **The era-1 count will be SMALLER than 131 and will keep shrinking, and nothing is wrong.** The
+   window is relative (`now() - interval '10 days'`), so it rolls: it moved 132 → 131 between two
+   runs of this same query today when the robot-hands `/learning-center-hub` repair of 08-24
+   13:13:49 aged out. **The repaired/blank RATIO is the stable claim, not the count.** Pin the
+   window to a literal if you need a reproducible figure; I left it rolling because that is the
+   right default for "is this still happening".
+2. **Still worth re-running after a full day**, which this is not — era 3 is 4.5 hours. What would
+   change the conclusion is a `left blank` appearing in era 3. Today there are none.
 
 ### 6. Two stranded NULL-`component_id` rows — unowned, and NOT this seam's
 
