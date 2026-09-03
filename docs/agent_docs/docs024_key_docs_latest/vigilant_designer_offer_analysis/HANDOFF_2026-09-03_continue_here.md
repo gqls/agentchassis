@@ -455,7 +455,7 @@ live change. In priority order:
 | | what | corr | state |
 |---|---|---|---|
 | `740_..._HOLD.sql` | `info-card-grid`'s `carousel` defaults ON at resolution time | `2ac895f3-ca82-4dbe-8f4e-3335a04b8925` | **r3 APPROVED 16:02:39Z** (r1 REVISE, r2 REVISE). Still `_HOLD`, still unapplied |
-| `747_..._HOLD.sql` | `offer-analyser`: price may LEAD, and the exemplar names it | `aeaf9f88-4348-4453-8c9e-213e7fd548a7` | **r1 APPROVED 16:01:45Z — NOT CLAIMED, see below. r2 pending** |
+| `747_..._HOLD.sql` | `offer-analyser`: price may LEAD, and the exemplar names it | `aeaf9f88-4348-4453-8c9e-213e7fd548a7` | **r2 APPROVED 16:18:20Z** — and r2 reviewed the wording the file actually contains (r1 approved superseded text). Still `_HOLD`, unapplied |
 
 > **⚠ BOTH ARE NOW `_HOLD.sql`, AND THE RENAME IS THE POINT.** An unapplied migration sitting in
 > `sql_for_agents/` is **not held** — any session running `run-migrations.sh --apply` without scoping
@@ -622,8 +622,14 @@ answered BEFORE apply.**
 
 ## What the next session owes, in order
 
-1. **`740` is APPROVED and its advisories are folded in — it is ready to apply.** Do the fence run
-   first (above); it needs no apply. **Read `747`'s r2 verdict** when it lands.
+1. **BOTH ARE APPROVED — `740` at r3 (16:02:39Z), `747` at r2 (16:18:20Z) — and both advisory sets
+   are folded into their headers. They are ready to apply.**
+   **Order: `747` first** (it is the owner's ruling and nothing about price moves until it applies;
+   then run its pre-registered post-apply check). **Then `740`, after the fence run** — which needs
+   no apply and is the one thing the migration cannot check for itself.
+   ⚠ `747`'s single r2 advisory is already discharged: `editquality` caught that the submission
+   warning about unit-less lengths was **itself** carrying two versions of that length (9,590 vs
+   9,591 chars). Reconciled to **9,590 characters / 9,642 bytes** throughout.
    ⚠ **Do not hand-write `Council-Reviewed:` anywhere.** Both migrations' commits carry
    `Council-Submitted:`, and `098` resolves a correlation to its **LATEST** verdict at report time —
    which is exactly why both rounds went back on the SAME correlation. **Had `747`'s r2 opened a NEW
