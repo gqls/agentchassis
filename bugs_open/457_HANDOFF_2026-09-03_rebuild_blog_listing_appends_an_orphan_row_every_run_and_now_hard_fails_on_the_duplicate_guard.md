@@ -296,3 +296,35 @@ SELECT page_id, slot_name, position, count(*)
 > Every resolving row resolves by `function`. So a screening query joined on `cc.name` returns
 > **100% stranded on this population at any size, on any day** — it cannot come out right, which is
 > why the 14-of-14 result looked plausible to two lanes at once.
+
+## THE PRE-FIX BASELINE FOR THE HELD PAGE — recorded here so it outlives the session that took it
+
+Measured at the **served bytes** of boxingonline `/articles/index.html` by
+`site_delivery_and_editor` during their pre-delivery sweep, 2026-09-03 (20/20 pages fetched, with
+an invented-path 404 control and a `</html>` control per page). **Their measurement, recorded here
+rather than left in a session, because whoever implements fix candidate 4 needs a before-state and
+the lane that has it will not be running then:**
+
+| | before the fix |
+|---|---|
+| card links | **36** |
+| distinct articles behind them | **6** |
+| `Latest Articles` headings | **6** |
+| empty `article-card__category` elements | **14** |
+| empty `article-card__excerpt` elements | **2** |
+
+**The verification after candidate 4 lands is therefore 36 → 6, six headings → one, and 14/2 → 0.**
+The first two are what a reader actually meets; the last is the cosmetic half, and note that a
+re-render alone would move **only** the last two and leave 36 and 6 untouched — which is why the
+delivery lane declined to re-render the page and why deletion is the remedy for the duplication
+rather than for the emptiness.
+
+⚠ **My side of it, from `page_components`, agrees on the two axes it can see** (the per-row sums are
+14 and 2, in the section above). It cannot see the 36 or the six headings, because those are
+properties of the assembled page rather than of any one row. Two instruments, neither sufficient
+alone.
+
+⚠ **The domain does not resolve from every session.** `boxingonline.com` has no A record from this
+lane's machine, so `scripts/probe-page-url.sh` fails its own sibling control and correctly refuses
+to answer rather than reporting damage. If you cannot fetch it either, the served figures above are
+the delivery lane's and the row-level ones are reproducible from the database.
