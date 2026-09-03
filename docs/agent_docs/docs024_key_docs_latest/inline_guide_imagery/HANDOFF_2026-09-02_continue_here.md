@@ -156,6 +156,22 @@ needs the composition half.
 
 ## 5. Open threads, and who owns them
 
+- **⚠⚠ THE SHARPEST OPEN RISK TO THIS MECHANISM, and it is not in the binding code.** A genuine
+  sections-path run on `dartsonline.com/tool-brand-comparator` (`section_data_resolved`,
+  attributed by `source_item_id`, 2026-09-03 00:40:40Z) **did not write a newly-declared
+  `site_assets.hero` field**, on a page that HAS a resolvable hero (`content_hero_tool_brand_comparator`,
+  active — arm 2 of `ensureAssets`). I tried to dissolve it with the mundane explanation ("no hero
+  to find, so omitting is correct") and **it survived** — see `bugs_open/114`, this date.
+  **IMG-075 resolves `site_assets.illustration` on that same path.** So apis.uk's six seeded
+  figures may fail to bind when that page re-renders **for a reason unrelated to this lane's
+  code**, and the natural reading on the day will be "IMG-075 does not work". `[UNVERIFIED]` — one
+  instance on `site_assets.*`, one on `query.*` (`bugs_open/425` §2, four reproductions). The
+  components lane owns the discriminating test (batch 690, `remortgagecalculator.uk/about`); its
+  result decides whether this lane has a problem at all.
+  > **A control worth offering if anyone runs it:** apis.uk/index is a page where the field is NOT
+  > newly declared (`image_url` has been on `illustrated-text-block` since 08-24, values stored).
+  > Firing `section_data_resolved` there vs their newly-declared case separates "never re-resolves"
+  > from "never writes a field added after the row was last built". Not this lane's page to fire.
 - **apis.uk/index — the first and only driver. ARMED, NOT EXERCISED.** They seeded six
   section-scope illustration rows at **16:47:03Z** on my CONTRIB (`apis_uk_bees_homepage/CONTRIB_2026-09-02_…`).
   But that page's `page_components` still read `updated_at = 2026-08-24` — **nothing has
