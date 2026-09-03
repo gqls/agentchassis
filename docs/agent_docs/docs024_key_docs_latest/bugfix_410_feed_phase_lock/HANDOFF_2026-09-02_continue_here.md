@@ -1,4 +1,15 @@
-# HANDOFF — `bugfix_410_feed_phase_lock` — BUG CLOSED · OWNER DECISIONS TAKEN AND LIVE (migration 701) · one confirmation left
+# HANDOFF — `bugfix_410_feed_phase_lock` — ⚠ SUPERSEDED 2026-09-03
+
+> ## ⚠ STOP — THE CURRENT COLD-START DOC IS:
+> ## `docs/agent_docs/docs024_key_docs_latest/bugfix_410_feed_phase_lock/HANDOFF_2026-09-03_continue_here.md`
+>
+> Go there. Since this file was written: the §4 prospective test **PASSED exactly**, council round 2
+> returned **APPROVED**, and the chassis is on **v1.0.1356**.
+>
+> ⚠ **§4b's degradation check in THIS file is WRONG** — it counts per-source stamps, so it reports
+> `slots = 56` against its own expected `4` on any normal day. That is a false alarm, not
+> degradation. The corrected check (which also has to include the look-ahead in the bucket edge) is
+> in the 09-03 handoff §4b. **Do not run the one below.**
 
 **Written 2026-09-02 ~16:30Z, UPDATED ~18:45Z (migration 701 applied) by the `bugfix_410_feed_phase_lock` lane. All times in this lane are
 DB time (`SELECT now()`). This is the cold-start doc — read this first, and read it INSTEAD of

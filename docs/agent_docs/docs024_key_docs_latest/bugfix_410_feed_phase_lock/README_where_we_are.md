@@ -282,3 +282,64 @@ Tonight's pass, at about ten to nine, is the test. I have written down in advanc
 four sites should be refreshed and which should not, so it is a real check rather than a glance.
 It also gives the new software build its first proper exercise, so one pass settles both open
 questions at once.
+
+---
+
+## 2026-09-03 — it worked, exactly as predicted, and the lane is finished
+
+The test I set up last night has run, and it passed **precisely**.
+
+I had written down in advance, before the pass happened, which four sites should be refreshed and
+which should not. The refresh at ten to nine served those four and **nothing else**. The two
+refreshes since then — the small hours and this morning — served their own groups, again exactly
+as laid out. Three of the four daily groups have now had their turn, each getting exactly the
+sites intended.
+
+So the daily schedule is doing what it was built to do, the sites are spread evenly across the
+day, and the ten-site limit is nowhere near being reached — the busiest group has four.
+
+The review council also came back **approved**. It had sent the first version back for revision,
+which was fair and useful, and the second version passed.
+
+### Two things I got wrong, both mine, both now fixed
+
+**The health check I wrote for you yesterday was wrong.** I told you the spread "wears out
+silently" and gave you a query to spot it. Run today, that query says everything has fallen apart —
+and it hasn't. I had worked out the expected answer from a state that only existed for a few hours
+right after the change, when all the timestamps happened to be identical. In normal running they
+differ by a second or two per source, which my check counted as breakage. **Then my first attempt
+at fixing it was also wrong**, in a subtler way, and reported five groups instead of four. The
+version now in the handoff is correct and I have checked it against real data: four groups,
+three/four/four/three sites.
+
+I am flagging this because a check that cries wolf is worse than no check — someone would have
+looked at it in a month, seen "56", and gone hunting for a problem that was never there.
+
+**And I found a second way the spread can degrade that I hadn't thought of.** I told you a *failed*
+refresh was the risk. It turns out our automated repair system can also fire off a refresh for a
+single site outside the normal timetable — it did exactly that on Tuesday night for the vet
+comparison site — and that moves the site's next slot. This time it was harmless. It won't always
+be.
+
+### One thing worth your attention, which is not ours
+
+The repair that fired on Tuesday said the vet comparison site's **newest news item was thirteen
+days old**. That is not about how often we fetch — we are fetching that site fine. It is that the
+site has exactly **one** news source and that source is not producing anything new. Our change
+neither caused it nor fixes it. Someone should look at it, but it is a different problem.
+
+### What is left
+
+**Nothing that blocks.** The bug is closed, the change is live and approved, and the evidence is
+recorded three times over.
+
+One optional tidy: the fourth and last group of sites refreshes at about three this afternoon.
+Watching it completes a full round of all four groups on the record. It cannot tell us anything we
+do not already know three times over.
+
+Beyond that, the only real gap is the one I have flagged twice already and still cannot close from
+here: **nothing checks, on a schedule, that the two halves of this fix still agree with each
+other** — and since Tuesday it has a second thing to watch, because if anyone ever changed the
+refresh timetable to daily as well, the original bug would quietly come back. That needs its own
+small piece of work and its own review. I have written it down in the handoff rather than leave it
+as folklore.

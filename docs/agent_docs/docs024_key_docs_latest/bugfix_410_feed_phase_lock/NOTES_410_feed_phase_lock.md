@@ -596,3 +596,118 @@ this lane's row to the playground lane, so anyone tracing when it was written wi
 wrong commit message. This is the **same-file passenger** case CLAUDE.md names as the one thing a
 pathspec commit cannot prevent: "if two sessions edit one file, whoever commits takes both edits,
 and no hook can prevent that."
+
+---
+
+## 2026-09-03 09:15Z — the prospective test PASSED EXACTLY; council round 2 APPROVED; and my own §4b check was WRONG TWICE
+
+`SELECT now()` = `2026-09-03 09:15:38Z`. Chassis now **v1.0.1356** (rolled 08:57:46/08:58:07Z);
+capability probe clean on **both** replicas (look-ahead **2**, negative control **0**, positive
+control **1**). Four passes since the migration, **all COMPLETED**, no failures.
+
+### The prediction, recorded 2026-09-02 18:23Z, resolved
+
+> *"The ~20:59Z pass dispatches EXACTLY these four sites and no others: ai-agent-orchestration.com ·
+> fundamentallyai.com · mortgagecalculator.co.uk · vetcomparison.uk."*
+
+**CONFIRMED, exactly.** Pass fired 20:59:03; dispatched ai-agent-orchestration **20:59:17**,
+fundamentallyai **21:01:32**, mortgagecalculator **21:04:34**, vetcomparison **21:08:15**. **No
+fifth site.** The two following passes continued the pattern with no further prediction needed:
+
+| pass | dispatched | matches slot |
+|---|---|---|
+| 09-02 20:59:03 | ai-agent-orchestration, fundamentallyai, mortgagecalculator, vetcomparison | **slot 1 (4)** ✅ |
+| 09-03 02:59:33 | boxingonline, gaswholesalers, relojistas, webdesign | **slot 2 (4)** ✅ |
+| 09-03 09:02:07 | dartsonline, idea.uk, remortgagecalculator | **slot 3 (3)** ✅ |
+
+Slot 4 (farmerinsurance, loanandmortgagecalculator, robot-hands) is due 14:58:57 today and has not
+fired yet. **Three of four slots have now served exactly their intended membership.** The 24 h
+cadence and the spread are both doing what they were built to do.
+
+### ⚠ MY §4b DEGRADATION CHECK WAS WRONG — twice — and would have cried wolf for ever
+
+Run as written in `HANDOFF_2026-09-02` §4b, it returns **`slots = 56, busiest = 3`** against an
+expected `slots = 4, busiest ≤ 4`. **That is a false alarm I planted, not degradation.**
+
+**Error 1 — it counted SOURCE stamps, not SITE passes.** `count(DISTINCT next_fetch_at)` over
+`content_sources`. Immediately after the migration every source in a site shared one stamp (I set
+them identically), so it read 4. After the first real fetch cycle each source is stamped
+`NOW() + 24h` **at its own second**, so a 5-source site fans out across 5 distinct values
+(ai-agent-orchestration: 20:59:42, :42, :47, :53, :57). 14 sites × ~4 sources ⇒ 56. **I derived
+the expected value from a transient state — the one moment the stamps were artificially
+identical — rather than from steady state.** Exactly this lane's recurring theme: the check
+encoded a different question from the one I meant to ask.
+
+**Error 2 — my first correction was ALSO wrong.** Bucketing by
+`floor((due - last_triggered_at)/6h)` gave **5** buckets (3/2/4/2/3), which looks like drift and
+is not. The boundary omits the look-ahead: a site is served by the first trigger `T >= due - 3h`,
+and because dispatch is sequential and takes ~10 minutes, a naive boundary at `lt + k*6h` falls
+**mid-pass** and splits one pass's sites across two buckets (ai-agent 20:59:42 and fundamentallyai
+21:01:54 landed one side of 21:02:07; mortgagecalculator 21:04:55 and vetcomparison 21:10:32 the
+other — same pass).
+
+**THE CORRECT CHECK — serving pass = `ceil((due − lookahead − last_triggered_at) / cadence)`:**
+```sql
+WITH t AS (SELECT last_triggered_at AS lt, interval_seconds AS secs,
+                  make_interval(secs => interval_seconds / 2.0) AS lookahead
+             FROM scheduled_tasks WHERE name='content-feed-refresh'),
+site_due AS (SELECT cs.site_id, min(cs.next_fetch_at) AS due
+               FROM content_sources cs WHERE cs.is_active GROUP BY cs.site_id)
+SELECT ceil(extract(epoch from (sd.due - t.lookahead - t.lt)) / t.secs)::int AS served_by_pass,
+       count(*) AS sites, string_agg(s.domain, ', ' ORDER BY s.domain) AS domains
+FROM site_due sd CROSS JOIN t JOIN sites s ON s.id = sd.site_id
+GROUP BY 1 ORDER BY 1;
+```
+`[MEASURED 2026-09-03 09:15Z]` **4 passes, 3 / 4 / 4 / 3 sites, busiest 4 against a cap of 10** —
+and each group is exactly the original slot membership. **The spread is healthy.** Note it reads
+`min(next_fetch_at)` per SITE (the site is admitted when its *earliest* source is due) and takes
+both the cadence and the look-ahead from the live row, so it does not go stale if either changes.
+
+### A SECOND cause of slot drift I had not considered: an out-of-band producer
+
+`vetcomparison.uk` appears **twice** on 09-02 — 21:08:15 (the feed pass) and again **22:13:01**,
+when **no trigger fired**. It is not a double-serve by the trigger: different parent
+(`08e4f29a…` vs `91b31a1d…`) and a different payload —
+
+```json
+{"spec": {"check": "stale_news_section", "page_id": "9fad89c1…", "threshold_hours": 72,
+          "original_pipeline": "content", "newest_item_age_hrs": 321}}
+```
+
+So **the checker layer can dispatch a `content-feed-orchestrator` run outside the trigger's
+slots**, and any such run re-stamps that site's sources to *its* moment + 24 h. §4b named failed
+passes as the way the spread degrades; **this is a second route, and a more frequent one.** Here it
+was harmless — vetcomparison moved 21:08 → 21:10:32, still inside slot 1 — but a repair firing at,
+say, 05:00 would park a site between passes for good.
+
+⚠ **Unrelated, adjacent, and NOT this lane's:** `newest_item_age_hrs: 321` means vetcomparison's
+newest news ITEM is **13.4 days** old against a 72 h threshold. That is a content-supply problem
+(the site has exactly one source), not a cadence problem — 701 cannot cause it and does not fix
+it. Flagged so nobody attributes it to the 24 h change; whoever owns `stale_news_section` findings
+should see it.
+
+### Council round 2 — APPROVED 2026-09-02 18:42:48
+
+*"approved with 1 advisory objection(s) — none high-severity"*, corr
+`56c30292-3482-4d9c-8757-f287f1ef5a1b`. Round 1 was REVISE; round 2 carried the real guard bodies,
+the corrected consumer census and both live-layer probes. Five objections recorded, **one medium**:
+
+> ⚠ **MEDIUM, and it is RIGHT:** *"the bare `UPDATE … WHERE fetch_interval IS DISTINCT FROM
+> interval '24 hours'` has no `is_active` filter, so it also rewrites inactive rows — but the
+> rationale, Guard 2 and the verify block all reason in terms of '73 active sources'. The actual
+> write is broader than what is disclosed and verified."*
+
+**Checked, and there was no damage — but the objection stands on its own terms.**
+`[MEASURED 2026-09-03]` the backup table holds **73** rows, **0** already at 24 h, and there are
+**0** inactive rows in `content_sources`. So the unscoped `UPDATE` touched exactly the 73 active
+rows and the broader write was a no-op. **What was wrong was the mismatch**: the write was
+unscoped, the disclosure and the verify were scoped, and had inactive rows existed the verify
+could not have seen them. (Arguably the unscoped write is the *more* consistent choice, since the
+column default applies regardless of `is_active` — but I did not say that, and an unstated
+justification is not a justification.)
+
+Four low-severity objections, all already conceded in the submission's own risks: the `slots <> 4`
+verify is a hard equality that a smaller estate would trip; Guard 1 checks the cadence constant but
+not the look-ahead *formula*; the inequality binds only at apply time; and the column default is
+scoped by measurement, not by constraint. **The first of those is worth acting on if 701 is ever
+re-run** — `<= 4` with a floor on the busiest slot would be the honest invariant.
