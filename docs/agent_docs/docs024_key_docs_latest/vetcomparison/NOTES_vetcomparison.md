@@ -2142,3 +2142,78 @@ post-browser-check of dynamic output); per-section imagery (IMG-075 first exerci
 next); the styles.css amber fallbacks (parked, planner's named observation); the header
 hand-patch restore-or-drop (OWNER, 3 weeks outstanding); 090 verdict on the false-complete class
 (correlation 6553f198) unread as of this entry.
+
+---
+
+## 2026-09-03 — the evidence register is being taken up by the `bugfix_414` / register-programme lane
+
+Recorded here at this lane's own invitation ("contribute into docs024/vetcomparison/NOTES"), so the
+handover survives whichever session ends first.
+
+**Status: ACCEPTED, NOT YET BUILT.** The owner directed it ("we'd want a register for
+vetcomparison"); this lane confirmed the register is **unowned** and welcomed it. The site now has a
+`missing_evidence_register` work item queued automatically by the new daily absence check
+(**CLM-033**, migration 742/744) — the mechanism that exists because, as this lane put it, *"your
+resolveEvidenceSites point means nothing else will ever surface this."*
+
+**Rung: `sourced`/`relied_upon` — the CITED bar, not the cheap one.** vetcomparison is RFC_060's own
+`relied_upon` worked example. So every fact needs a source URL and a verbatim quote verified through
+the production matcher (`go run ./cmd/fcaquotecheck <url> "<quote>" "absent control"`), not just an
+attested value. Method: `lendzy_co_uk/RUNBOOK_lendzy_co_uk.md` §8, and read §8b, §8c and **§8e** first.
+
+### What this lane handed over — take verbatim, do not re-derive
+
+- **THE TOP ERROR CANDIDATE, already identified and unfixed since 2026-08-24:** the live guides state
+  the **£21 / £12.50 prescription caps as SETTLED FIGURES**, but the draft Order carries them as
+  bracketed placeholders *"adjusted for inflation before the Order is made"*. This lane fetched and
+  `pdftotext`'d the draft on 09-03 and flagged it internally; nobody has fixed it. **This is the same
+  shape as the loancash findings — a provisional figure served as settled — and the register pass is
+  the right vehicle.**
+- **Ready-made sourced facts**, in the calculator item spec `d5163ed3` and this file: the draft Order
+  **Article 3 compliance table transcribed verbatim** (17 obligations × Large/Small periods, the size
+  definitions, the two specials), plus **three gov.uk pet-travel pages attested 08-26** for the AHC
+  guide (10-day / 6-month / 6-month validity, the OV requirement, tapeworm countries with the
+  24h–120h window, the 5-pet limit).
+- **⚠ TAG EVERY CMA FACT WITH DRAFT-VS-FINAL STATUS.** The statutory deadline for the substantive
+  Order is **23 September**. The day it is made, **all of it needs re-verification** — which is
+  precisely what the daily citation re-check exists for, and why the draft/final flag has to be in
+  the fact rather than in someone's memory.
+- **The tool-lifecycle seat's advice (TL-045/CLM-022) belongs inside this register**, not seeded
+  separately: the CMA compliance periods go in so the fact-drift sweep flags the deadline calculator
+  when the Order lands. This lane will hand over the transcribed facts rather than seeding twice.
+
+### What the register must NOT do
+
+- **Do not re-assert third-party prices.** Vet Home Certs' £99/£110 publish under the claim-listing
+  licence, with consent snapshotted in `claim_requests` `4752ed91` and a source URL + `observed_at`
+  on every `product_prices` row. **Those are the practice's claims, not the site's**, and they are
+  already handled structurally in `business_intel`. My "other people's numbers" concern was real and
+  is already answered — the register covers the site's OWN assertions only.
+- **Do not fill the deliberate absences.** No ownership/independence claims are published (the
+  `is_independent` data is known-contradictory, P2 unfinished); no practice prices except claimed
+  ones; the OV-qualification claim from VHC is deliberately held UNPUBLISHED as their statement. A
+  register that "completes" any of these would publish something a person chose not to publish.
+
+### Registrable site promises (true by construction)
+
+"claiming is free"; "we do not invent figures and will not publish a price we cannot attribute to a
+source".
+
+### ⚠ For the vet sector preset (RFC_060 Q5): BAN "proprietary data"
+
+This lane's words: *that exact phrase is this site's original sin.* The site was remediated
+2026-07-14 for **fabricated prices, a false "proprietary data" notice, and a fabricated CMA quote** —
+full record in `LEGAL_2026-07-15_vetcomparison_factual_record.md`. That history is the strongest
+argument FOR a register here, and it names the first pattern the vet preset should carry.
+
+### ⚠ And the banned-pattern width warning applies in reverse
+
+The finance sibling set will false-positive here — this site legitimately says things like "we
+publish no prices yet". **Run every inherited pattern over vetcomparison's own ~20 served pages and
+require 0 hits, with a positive control in the same run proving the pattern is not inert.** That is
+the same discipline that caught the width trap on loancash (LANDMINES: *a "shared" `banned_claims`
+set exists in more than one WIDTH*), pointed the other way.
+
+**Trail:** `NOTES_vetcomparison.md` from 2026-08-24 carries every claims decision.
+**Register-programme side:** `bugfix_414_planted_marker_as_claim/HANDOFF_2026-09-03c_continue_here.md`,
+RFC_060 §3g.
