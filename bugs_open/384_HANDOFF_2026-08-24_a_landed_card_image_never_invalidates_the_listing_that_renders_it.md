@@ -1578,3 +1578,39 @@ grading any repair — including a repair you dispatched yourself.
 still binds and one working run is not a working sweep. Re-do the escalation watch from zero after
 389 lands; the old "zero escalations against 1-in-36" is zero over an empty denominator. Keep the
 oxenunity run as the worked example of a good one.
+
+## UPDATE 2026-09-03 16:4xZ — the post-fix era measured **first-hand** in this lane's own census: 9 writes over a real deficit, 9 repaired, 0 blank
+
+Until now the "after" column was **relayed** from the `components` lane's class census (17/17) plus
+this lane's single designblog canary. That is good evidence but it is not this instrument. Re-ran
+`scripts/census_repair_rate.sql` with a third partition at the moment the fix went live
+(`d0252fd4d`, 12:05:34Z) `[MEASURED 2026-09-03 16:36:37Z]`:
+
+| era | writes over a real deficit | repaired | left blank |
+|---|---|---|---|
+| 1. before `94f81cc60` (regression introduced 09-02 11:27:53Z) | **131** | **131** | **0** |
+| 2. DURING the regression | 12 | 5 | **7** |
+| 3. after `9831e9ab4` went live (09-03 12:05:34Z) | **9** | **9** | **0** |
+
+**Era 3 is 4.5 hours of ordinary traffic, measured by the same query, on the same population, with
+the same card join** — so the three eras are comparable in a way the relayed figure was not. It
+agrees with the components lane's 17/17 without depending on it: different instrument (writes over a
+card-joined deficit vs pages in their component class), same conclusion.
+
+### ⚠ Era 1 moved 132 → 131 between two runs of the SAME query, and nothing is wrong
+
+The first run of this census reported **132** pre-regression writes; this one reports **131**. That
+is not a correction and nothing was miscounted. **The window is relative** —
+`created_at > now() - interval '10 days'` — so it rolls forward with the clock. `[MEASURED 16:36:37Z]`
+the window now opens at **2026-08-24 16:36:37**, and the robot-hands.com `/learning-center-hub`
+write of **2026-08-24 13:13:49** (a REPAIR) has aged out of it; dartsonline's 18:17:33 write has not.
+One write left the denominator, so 132 became 131.
+
+**Why this is worth writing down rather than silently fixing:** a re-run of a committed census
+returning a different number is exactly the shape that reads as "someone broke something", and the
+honest answer here is arithmetic. Anyone re-running `census_repair_rate.sql` will get **a smaller
+era-1 count than the one quoted above**, monotonically, for ever — and the repaired/blank RATIO is
+the stable claim, not the count. If you need the counts to be reproducible, pin the window to a
+literal (`created_at > '2026-08-24'`) instead of `now() -`. I have deliberately not changed the
+script, because a rolling window is the right default for "is this still happening"; it is only
+wrong for quoting a fixed figure, which is what I did.
