@@ -61539,3 +61539,35 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   human-typed labels are all the same class.
   Tally: **control-pinned-to-a-mutable-identifier** ×1,
   **fail-closed-treated-as-inherently-safe** ×1.
+
+- **2026-09-03 — bugfix_361 lane — I published a peer lane's figures into the concept register
+  without re-deriving them, and two of the three were contaminated.** Answering a CONTRIB, the
+  `components` lane measured the per-item declaration vocabulary and I wrote its numbers straight
+  into CGV-030's `verify-later` — the entry council seats and cold-start sessions read as ground
+  truth. They were wrong: the count lumped two dialects, so 5 legacy components' JSON-Schema
+  KEYWORDS (`type`, `required`, `properties`) were counted as ~15 phantom field declarations
+  (268 → **253**), "48 declaring items/item_schema" was really **43 flat + 5 legacy + 0
+  item_schema**, and "2 carry `required`" was that keyword, not a per-item requirement.
+  **The lane retracted them unprompted; nothing of mine caught it.**
+  ⚠ **The reason they survived being written down is the transferable part: nothing in the
+  argument depended on them.** The load-bearing claim — zero declarations carry `on_missing` or
+  `source`, so the vocabulary is shape-only — was correct throughout and is what the entry is
+  actually *for*. The three wrong numbers were decorative precision around a sound conclusion, so
+  no reasoning of mine ever pressed on them hard enough to break. **That is the second time today
+  I have logged a figure failing because it load-bore nothing** (the "healthy majority" entry
+  above) — the pattern is not "I checked badly", it is **"I did not check at all, because the
+  claim was not doing any work"**.
+  ⚠ **And my own re-derivation was wrong first.** Verifying rather than relaying, my query
+  returned **43 flat components → 0**. `items->'properties'` is absent on a flat component, so
+  `jsonb_typeof(def->'items'->'properties')='object'` evaluates to **NULL**, and `WHERE NOT
+  legacy` discards every row under three-valued logic. A silent zero that reads exactly like a
+  finding — I had a moment of believing the flat convention did not exist. `COALESCE(…, false)`
+  is the whole fix, and re-running against a number I already expected (43) is what exposed it.
+  **The cheap check, both halves:** (1) a figure arriving from anyone — a peer lane, a subagent, a
+  bug file — is a claim until you have run it yourself, and "the conclusion is sound" is not a
+  reason to relay the arithmetic under it into a record others will cite; (2) when your own
+  re-derivation disagrees with the source, suspect your instrument before the source — the
+  disagreement here was 43-vs-0, and 0 was mine.
+  Tally: **relayed-a-peer-figure-into-the-register-unverified** ×1,
+  **decorative-figure-nothing-depended-on** ×2 (both 2026-09-03),
+  **sql-three-valued-logic-silently-dropped-every-row** ×1.
