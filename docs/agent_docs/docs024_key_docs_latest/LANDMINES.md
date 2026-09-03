@@ -22233,3 +22233,43 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   false absence and WERE caught, because those had a positive control and this query had none
 - **source:** finetuning.uk homepage imagery scoping, `editorial_design_uplift` ↔ `finetuning` lanes
 - **added:** 2026-09-03, editorial_design_uplift lane
+
+## `make release` prints "Release pinned to <sha>" and the DASHBOARD is not pinned — it builds from the working tree, with none of the protection every backend build gives you
+
+- **footprint:** `make release` · `release-dashboard` · `build-dashboard` · `pinned_sweep` ·
+  `RELEASE_IMAGES` · `frontends/admin-dashboard/` · `frontends/user-portal/` · `makefile:2808`,
+  `:2876`, `:2890`
+- **fires when:** you edit anything under `frontends/` and a release runs before you finish; or you
+  check whether a frontend fix will ship by grepping `RELEASE_IMAGES`; or you read the green
+  "Release pinned to …" line and conclude the whole release is pinned.
+- **why the wrong result looks exactly right, THREE ways, and they compound:**
+  1. **`RELEASE_IMAGES` does not list `admin-dashboard`**, so grepping it says the dashboard is not in
+     the release. It is: `release` calls `release-dashboard` (`build-dashboard push-dashboard
+     deploy-dashboard`) as a separate goal. `RELEASE_IMAGES` is the BACKEND list only.
+     (`make release-backend` is the variant that genuinely excludes it.)
+  2. **`pinned_sweep` prints `Release pinned to <sha>`** in green at the top of the run. Its own text
+     says "every **BACKEND** service in this sweep builds from that one commit" — the qualifier is
+     there and is easy to read past. `build-dashboard` ignores `REF` entirely: it is a plain
+     `docker build -f frontends/admin-dashboard/Dockerfile frontends/admin-dashboard/`.
+  3. **Backend builds warn you and the dashboard build does not.** `ref_build` counts uncommitted
+     changes and prints "N uncommitted change(s) are NOT in this image". So the habit the estate
+     teaches — *the build protects me from my own dirty tree* — is absent at exactly the point where
+     the tree IS what ships. **A frontend edit in progress goes to production.**
+- **the direction of the error is the bad one.** For backends the failure is an image MISSING your
+  change, which the pod-grep catches and costs a cycle. Here the failure is an image CARRYING
+  somebody's half-written change, live, with nothing having warned anyone.
+- **the check, before any release, and it is two seconds:**
+  ```bash
+  git status --porcelain -- frontends/    # must be empty, or that WIP is about to ship
+  ```
+  And to answer "will my frontend fix ship", read the `release:` target, never `RELEASE_IMAGES`.
+- **⚠ this also means a frontend fix CAN ship without a backend release, and vice versa.** `466`'s
+  Go half rides `core-manager`; `474`'s two frontend halves ride `admin-dashboard`. Same repo, same
+  commit, two independent journeys to production. Do not infer one from the other.
+- **relations:** `MEMORY[a-shared-tree-commit-can-break-head]` (the backend half of this — a dirty
+  file's symbol is someone's plan) · `MEMORY[prove-a-deploy-at-the-artefact-index]` ·
+  `bugs_open/249` (the per-service pinning the sweep's message refers to) · `bugs_open/474`
+- **source:** 2026-09-03, `site_delivery_and_editor`, checking whether an imminent roll would carry
+  `474`'s frontend fixes. I first told the owner the dashboard was NOT in the release, on the
+  strength of `RELEASE_IMAGES`, and had to correct it a message later.
+- **added:** 2026-09-03, `site_delivery_and_editor` lane
