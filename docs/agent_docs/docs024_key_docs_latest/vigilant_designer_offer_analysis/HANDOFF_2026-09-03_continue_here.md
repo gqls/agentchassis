@@ -241,7 +241,27 @@ live change. In priority order:
 > > bundle follows the COMPONENT, not the flag: `js_snippets` has one active row whose `applies_to`
 > > is `["hero-card-carousel", "info-card-grid"]`.
 > >
-> > **The Illustrated Text Block half is NOT started.**
+> > **⚠⚠ THE ILLUSTRATED TEXT BLOCK HALF: DO NOT WRITE THE MIGRATION — THE PREMISE IS STALE AND THE
+> > COMPONENT STARTED BEING CHOSEN TODAY.** `[MEASURED 2026-09-03 15:35:02Z]` 08-24→09-02:
+> > **2,382 sections built, ZERO** `illustrated-text-block`, nine days running. **09-03: 6 of 514
+> > sections (1.2%), on 2 sites** — `dartsonline.com` (5) and `advertise.co.uk` (1) — all six created
+> > between 14:08:00Z and 14:10:47Z. So the owner ruled "switch the switches" against a premise
+> > (*effectively never chosen*) that was true on 09-02 and is **not true now**.
+> > ⚠ Mind the filter: a bare count returns **12 / 2 sites**; pairing
+> > `build_status='deployed' AND status='active'` returns **6**. Only the second is served.
+> > ⚠ **I have NOT established what changed and did not guess.** Two migrations landed in the
+> > preceding hour (`736` 12:42:25Z, `687` 13:45:54Z) and **neither names this component or its
+> > selection**; the timing equally fits a roll or another lane's prompt work. Recorded as
+> > unattributed.
+> > **THE OPEN JUDGEMENT, and it is this seat's: is 1.2% enough?** Zero was plainly wrong; 1.2% may be
+> > right, a first trickle, or two sites' idiosyncrasy. **One day is not a rate** — give it three or
+> > four more days of the same table before deciding. The table and the query are in NOTES under "THE
+> > SECOND FLIP'S PREMISE IS STALE".
+> > ⚠ **Cross-lane contradiction for its owner, not for us:** §5 records `agentchassis-ff`'s
+> > measurement that `dartsonline.com`'s 22 content pages are **zero illustration-capable**, "no page
+> > can host a per-section figure regardless of rows" — and **5 of today's 6 landed on dartsonline**.
+> > Either a rebuild overtook it or the two counts mean different things. **Nobody quotes either
+> > figure until one of us reconciles them.**
 > >
 > > **⚡ COUNCIL r1 = REVISE (9 of 11 seats approving), r2 SUBMITTED 15:30Z, verdict pending on the
 > > SAME corr `2ac895f3-ca82-4dbe-8f4e-3335a04b8925`.** The gating objection from `bug_historian` was
