@@ -222,6 +222,30 @@ is queued, not stuck.
 > rather than "no change".** Here `17:22:27` is the give-away: it predates the dispatch by fifteen
 > hours.
 
+**TWO EXPERIMENTS ARE IN FLIGHT ON THE SAME PAGE — both queued, neither read.** Do not re-file
+either; find them by these ids:
+
+| what | id | filed | reads out as |
+|---|---|---|---|
+| **mine** — `template_changed` rerender on the new-shape baseline | batch `00000000-0000-0000-0000-000000000688` | 08:26:24Z | `excerpt` **gone** → the rerender path rebuilds with unfixed code · **survives** → it never touches `articles` |
+| **the delivery lane's** — `needs_rerender` / stale_chrome, assemble-only | `ec92320f-3037-448a-bd55-de8385404d92` | 08:35:44Z | tests whether assemble mode really is a byte-for-byte re-ship |
+
+⚠ **The chrome wave's per-page items are CHILDREN.** `rerender-pages` creates them once
+`ec92320f` is claimed, so their `source_item_id` chain hangs off that child batch, **not** off
+`ec92320f` directly. Find the children by `page_id` + creation time, not by parent id.
+
+⚠ **THE DELIVERY LANE'S PASS CONDITION NEEDS A POSITIVE CONTROL AND I HAVE SENT THEM ONE.**
+"No new history row for guides-index" cannot distinguish *assemble preserved the array* from *the
+wave never reached this page* — both give zero rows. The control is to confirm a per-page
+`_assemble` item for `2e738efd` exists and reached terminal BEFORE reading history as a pass.
+Same family as the three absences that cost me yesterday (a 20-second log window, a 98%-NULL
+filter column, a timed-out watcher).
+
+⚠ **The two branches want OPPOSITE readings of the same table** — if assemble does not replace
+rows, the ABSENCE of a history row is the pass; if it does replace them, the PRESENCE of an
+`artefact_archive_trigger` row whose archived `content_data` still carries `excerpt` is the pass.
+Decide which branch you are in before reading, not after.
+
 **Attribution does NOT depend on running this before or after anything else** — which is why the
 delivery lane's chrome wave was released rather than held for three hours.
 `page_component_history` carries `source_item_id` on **1,169 of 1,196** `save_page_sections_overwrite`
