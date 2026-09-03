@@ -40,7 +40,7 @@ def latest(pattern):
 
 def main():
     rows = {}
-    with open(os.path.join(HERE, latest_name('CATEGORIES_*_full.csv'))) as fh:
+    with open(os.path.join(HERE, latest_name('CATEGORIES_*_estate.csv'))) as fh:
         for r in csv.DictReader(fh):
             d = r['domain'].lower()
             sld = d.split('.')[0]
