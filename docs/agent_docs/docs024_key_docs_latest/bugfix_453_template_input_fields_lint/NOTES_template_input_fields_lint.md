@@ -141,3 +141,50 @@ SUCCESSFULLY is logged as `TEMPLATE DATA VALIDATION FAILED — Missing fields`.
 this is **latent, not firing**. Recorded as a landmine rather than a bug: the first lane to
 write `input_fields: ["a.b"]` — a natural thing to write — gets a false ERROR log for a
 field that arrived fine, and a real absence would look identical.
+
+---
+
+## 2026-09-03 — shipped, submitted, and the three things left open
+
+**Commit `4aaf64aee`** — 20 files, commit-scope block confirmed no passengers from other lanes.
+**Council `54abc24b-852d-4b70-9d86-d021e45a5d5a`**, round 1, submitted after the commit
+(`Council-Submitted:`, not `Council-Reviewed:` — nothing has been read yet).
+**Register: WFA-024.** **HEAD builds** — `verify-head-builds.sh` OK at `15cda49ba`.
+
+### Mutation proofs — six RED, one recorded VACUOUS rather than counted
+
+Applied to the shipped tree, one at a time, each restored after:
+
+| # | mutation | result |
+|---|---|---|
+| 1 | `RangeNode` body walked with the dot still root-scoped | RED |
+| 2 | `TemplateRootForInputField` returns `parts[0]` | RED |
+| 3 | `vision_image_manifest` dropped from the declared contract | RED |
+| 4 | `"model"` dropped from `AlwaysEnsuredTemplateRoots` | RED |
+| 5 | `requireAgentPromptProjection` always returns nil | RED |
+| 6 | the `input_data` promotion flag never fires | RED (both packages) |
+| 7 | `kind = kindConditional` made unreachable | **BUILD BROKE — vacuous, NOT a pass** |
+
+⚠ **A misstep worth the line: my backup script collided on two files with the SAME basename**
+(`template_context_contract.go` exists in both `datahelpers` and `actions`), so
+`cp $f $SP/backup/$(basename $f)` kept only the second. Restoring after mutation 2 put the
+`actions` file into the `datahelpers` path — which is what M3's "BUILD BROKE" was actually
+reporting, not the mutation. Caught because the build failed rather than the test; had the two
+files been compatible it would have restored silently wrong. **Back up by PATH, not basename.**
+
+### Two things deliberately not done, both recorded on `bugs_open/453` §5
+
+- **The `page-content-writer` config is unchanged.** Adding `research_result` to its
+  `input_fields` is a behaviour change to the fleet's highest-volume writer; damage is
+  measured at zero today; it should be a decision, not a side effect of shipping a detector.
+- **No CronJob.** `--report` is wired (one `doc_notes` row per run, clean runs included), so
+  scheduling is config-only. Left visible as an open item rather than half-wired — this
+  estate's own record is that detection without dispatch decays.
+
+### Not ours, flagged so nobody inherits it as ours
+
+`go test ./cmd/config-key-audit/` fails `TestShippedRegistryIsSelfConsistent` at committed
+HEAD: `TOOL_PAGE_HELD_NO_TOOL_SOURCE`'s `why` does not name the retention window its own
+disposition rule requires (`bugfix_450`'s entry). Proven not-mine on a clean extract of
+`cc572ea14` via `scripts/verify-head-builds.sh --test`, with none of this lane's files present.
+Scope your `-run` or you will chase it.
