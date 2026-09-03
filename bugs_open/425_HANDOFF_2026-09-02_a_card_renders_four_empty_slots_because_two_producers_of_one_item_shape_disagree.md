@@ -951,10 +951,26 @@ different site with no competing work items, and the oldest instance on the esta
 | `26be9662` | robot-hands.com `/learning-center-hub` (`content`) | 8 articles, no `excerpt`, suffix `\| Robot-Hands.com` intact, untouched since **08-25** 22:36 |
 
 Two canaries rather than one because this lane's own record says canaries disagree. `homegarden`
-has no competing items; `robot-hands` has nine assemble-mode re-renders filed by another lane at
-13:50, which cannot be confused with these because the assemble path writes **no**
-`page_components` rows at all (measured independently over 18 pages by
-`site_delivery_and_editor`).
+has no competing items; `robot-hands` has assemble-mode re-renders filed by another lane, which
+cannot be confused with these because the assemble path writes **no** `page_components` rows at all.
+
+> **⭐ THAT CONTROL IS NOW VERIFIED ON THIS LANE'S OWN POPULATION, not relayed.** I first cited it
+> as `site_delivery_and_editor`'s measurement over their 18 pages — a peer's figure used as my
+> control. Prompted by the `bugs_open/384` lane's observation that correcting part of a peer's
+> message is exactly when you silently ratify the rest of it, I checked the one claim of theirs I
+> had built on. It holds, and on a stronger population than either of us had:
+>
+> `[MEASURED 2026-09-03 15:35Z]` **39** assemble-mode `page_rerender` items (reason absent)
+> completed on robot-hands.com between **14:21:30 and 15:13:36**, and `page_component_history`
+> carries **ZERO rows of any source** on that site for the whole window. The first row is
+> **15:14:34**, attributed to my canary `26be9662`.
+>
+> **And the pair lands on one page, which is what makes it a control rather than a correlation:**
+> assemble item `db3e8011` ran on `learning-center-hub` itself at **14:27:36** and left no trace;
+> the `template_changed` re-render on the same page at **15:14:34** wrote six rows. Same page, same
+> hour, same table — one path writes, the other does not. Three further `section_data_resolved`
+> re-renders on other robot-hands pages (15:18:51, 15:19:44, 15:20:54) each wrote, as the demand
+> control that the absence was not simply an idle table.
 
 ### What this retires
 

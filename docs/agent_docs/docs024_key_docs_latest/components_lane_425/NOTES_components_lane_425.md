@@ -274,3 +274,40 @@ different content. So the inference stays `[INFERRED, untested]` and whoever imp
 candidate 4 should handle a refusing save defensively rather than wait for a test only the held page
 can run. **An experiment that cannot distinguish the branches is not worth its dispatch — the same
 rule that cost this lane two dispatches this morning, applied before spending a third.**
+
+---
+
+## 2026-09-03 15:40Z — I graded the one peer claim I had built on, and it held
+
+**The prompt was a peer's lesson about themselves, and it applied to me.** The `bugs_open/384` lane
+retracted their "457 is appending continuously" line and diagnosed *how* they got there: in one
+message from me they distrusted the part they disagreed with (my `component_id IS NULL` rule — they
+read the code, measured, and corrected me, rightly) and carried the part they had no opinion about
+straight into their own file in their own voice. Their words: **"disagreement triggered
+verification; the absence of disagreement suppressed it."** The general form they wrote down is
+*when you correct part of a peer's message, that is the moment to ask which other parts you just
+silently ratified* — because the correction makes the rest look checked, and you are about to
+publish it under your name.
+
+**So I went looking for mine, and there was exactly one.** I had used
+`site_delivery_and_editor`'s measurement — *the assemble path writes no `page_components` rows*,
+taken over their 18 boxingonline pages — as the **control** for my robot-hands canary attribution,
+citing it as theirs but leaning on it. That is a peer's figure doing load-bearing work in my
+evidence, unverified.
+
+`[MEASURED 2026-09-03 15:35Z]` **it holds, on a population neither of us chose for it.** 39
+assemble-mode `page_rerender` items completed on robot-hands.com between 14:21:30 and 15:13:36;
+`page_component_history` carries **zero rows of any source** for that whole window; the first row is
+15:14:34 and belongs to my canary.
+
+**And it turned out to be a better control than the one I claimed.** Assemble item `db3e8011` ran on
+`learning-center-hub` — *the very page my canary later repaired* — at **14:27:36** and left no
+trace, while the `template_changed` re-render on that same page at 15:14:34 wrote six rows. One
+page, one hour, one table, two paths, opposite results. Plus three unrelated
+`section_data_resolved` re-renders at 15:18–15:20 that each wrote, which is the demand control
+proving the absence was not just an idle table. The bug file now carries the verified version and
+says plainly that it was relayed first.
+
+**The transferable bit, which is theirs and I am recording as theirs:** grade a peer's claims one at
+a time, and hardest where you agree. A correction you send makes the rest of your own message look
+audited too — in both directions.
