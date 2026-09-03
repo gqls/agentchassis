@@ -65270,3 +65270,63 @@ same moment.** Ask what each one is timestamped from before trusting their compa
 
 **Cost.** None reaching the owner: the verification happened before the report. Roughly four minutes,
 against a test that replaced a seven-day wait — the owner's idea, and a good one.
+
+## 2026-09-03 — I told a peer their brief was wrong, on an absence my own `| tail -12` had manufactured (session editorial_design_uplift)
+
+- **The claim.** Sent to the `finetuning` lane as a numbered correction to their brief: *"finetuning.uk
+  has NO evidence base, so `case-studies-grid` is not rendering registered facts"*, with the site's
+  *"twelve current aspects"* listed as the evidence.
+- **Why it was false.** The site has **26** current aspects, and a current `evidence_base` among them
+  (updated 2026-08-26, 10 facts, four superseded rows behind it). My query was
+  `SELECT aspect ... WHERE is_current ORDER BY 1` piped through **`| tail -12`**. `tail` dropped the
+  first fourteen rows and `ORDER BY 1` had sorted `evidence_base` to the **top** — so the single row
+  the question was about was the first thing my own pipe deleted. **Twelve rows came back looking
+  like a complete answer**, which is why it was believable enough to send.
+- **What caught it.** The peer, who re-ran it and quoted the row back with its fact ids. Not me, and
+  not any control — I had run none on this query.
+- **The mistake, precisely.** Two compounding halves. (a) **A display pipe silently became a
+  predicate.** `tail -N` is for reading output, not for bounding a result set, and nothing about a
+  truncated list looks truncated. (b) **`ORDER BY` decides WHICH rows a truncating pipe eats**, so an
+  alphabetically-early row is systematically the most likely casualty — the failure is not random,
+  it is biased toward exactly the row you sorted to find.
+- **The cheap check that would have.** `SELECT count(*)` FIRST, then list — **a count cannot be
+  truncated by a pipe.** I had used that discipline twice earlier the same night (on the `item_type`
+  census and on `content_components`) and did not use it here. Better still for a single-row
+  question: ask for the row (`WHERE aspect='evidence_base'`), never for the list it lives in.
+- **Aggravating, and the real lesson.** This was the **third** blind measurement in one
+  investigation. The first two — probing `rendered_html` for `data-fact` — came back false on all six
+  slots, and I caught them **because the positive control also returned 0 of 127**, proving the
+  predicate broken rather than the data empty. So I demonstrably knew the technique that night. **The
+  query I ran without a control is the one that reached a peer as an assertion.** The controls were
+  not missing knowledge; they were missing discipline on the query that felt too simple to need one.
+- **Cost.** One wrong correction sent to a peer, retracted within the hour, and one conditional
+  ("the £99 vs $5,000 comparison is not drawable") that was wrong in the safe direction — it would
+  have suppressed a legitimate graphic rather than shipped a false one. Their brief was right; my
+  correction to it was the error.
+- Tally: **a display pipe (`tail -N`) read as a complete result set** ×1 · **an absence asserted to a
+  peer with no control on the query** ×1 · **a discipline used twice the same night and skipped on
+  the third query** ×1.
+
+## 2026-09-03 — my verify DELETED a live row to prove fail-open and re-inserted ONE column of it; every dry-run hid that because they rolled back, and the real apply committed a half-row (dispatch_throughput lane, mig 752)
+
+- **What I wrote.** 752's verify, proving the gate fails open when `governor_state` is missing:
+  `DELETE FROM governor_state WHERE id=1; … INSERT INTO governor_state (id, shed_level) VALUES (1, saved_level);`
+  The proof was right. The restore was a fifth of a row.
+- **Why five dry-runs could not catch it.** Every rehearsal ended in `ROLLBACK`, which restores
+  the row perfectly whatever the INSERT says. **A rolled-back rehearsal cannot test a restore**,
+  because the rollback IS the restore. Only the real `COMMIT` exercised my INSERT, and it left
+  `mtd_usd`, `month`, `unpriced_io_tokens` and `computed_at` NULL on the live governor.
+- **What it cost.** Nothing that lasted: enforcement reads only `enabled` + `shed_level` (restored
+  correctly), so nothing was withheld; the state task rewrites every column on its next tick and
+  did (healed within ~4 minutes; mtd read $604.34 afterwards). It cost one blank read that I
+  first mistook for a query-escaping problem, and it would have cost a false "heartbeat dead"
+  alarm to anyone who read the row in that window.
+- **What caught it.** A concatenated status line that came back EMPTY — a NULL in a `||` chain
+  blanks the whole string. That is a second, smaller lesson: a status query built with `||`
+  cannot show you WHICH field is NULL; separate columns can.
+- **The cheap check that would have.** Save the WHOLE row before an induced deletion and
+  restore the WHOLE row (`INSERT … SELECT` from the saved values, every column), then assert
+  `row = saved_row` at the end of the verify — an assertion a rolled-back rehearsal DOES
+  exercise. Done that way in 753 the same hour.
+- **The transferable rule.** A verify that mutates live state must restore it in a way that is
+  itself asserted, because the only run that exercises the restore is the one you cannot rehearse.
