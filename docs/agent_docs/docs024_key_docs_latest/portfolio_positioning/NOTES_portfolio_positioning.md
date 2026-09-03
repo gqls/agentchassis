@@ -4986,3 +4986,39 @@ Owner: *"otherwise the brief is good carry on"* — the release word. Per RUNBOO
   tag list is populated rather than `null` — that read is the actual proof, and it is owed to the
   445 lane as their real before/after boundary.
 
+### (mm) 2026-09-03 16:3xZ — why №5's classification sat 14 minutes past its retry: SELECTION happens only when nothing is claimed
+
+**Symptom:** both `needs_domain_research` items priority **5** (the lowest number on the site, i.e.
+first), retry-due since 16:22:05Z, attempts 1/3, handler active — and still `triaged` at 16:33Z with
+**0 classifier runs since the rollback**, while priority-**50** `needs_content_page` items were being
+claimed and completed throughout.
+
+**Two hypotheses of mine, both DISPROVEN before I found the answer** (recording them because the
+disproving is the useful part):
+1. *Priority starvation* — refuted: `load_items` is `ORDER BY wi.priority ASC`, so 5 outranks 50.
+2. *Spend-governor shed of research* — refuted at the rows: `governor_state.shed_level = 0`,
+   `governor_admits('needs_domain_research') = true`.
+
+**The actual mechanism, read at the selector's own SQL** (`build-pipeline-trigger.find_dispatchable_site`):
+its eligibility CTE ends
+`AND NOT EXISTS (SELECT 1 FROM site_work_items active WHERE active.site_id = wi.site_id AND active.status='claimed')`.
+**A site with ANY claimed item is invisible to SELECTION.** Sampled six times over two minutes:
+copyonline held exactly **1** claimed item continuously.
+
+So the sequence is: at selection time (~16:0xZ) the research items were **not yet retry-due**
+(`retry_after` 16:22/16:29), so the loader's 8-item batch took content pages only; the loop then works
+that batch serially, and **each claim keeps the site out of re-selection**, so the loop never re-loads
+and never sees the items that became due mid-batch. **Not a defect and not starvation — a newly-due
+high-priority item waits for the CURRENT BATCH to drain**, because selection and loading happen once
+per batch, not once per item.
+
+**Self-resolving**, and the prediction is falsifiable: when the batch empties and the claim clears,
+the selector picks copyonline again and the priority-5 research items load FIRST. 11 content items
+remain at ~7 min each, but the batch is 8, so the gap should arrive well before those drain.
+**If a classification has still not run once the site next shows zero claimed items, this explanation
+is wrong and something else is holding it.**
+
+**Practice note for this lane:** after a failed item's `retry_after` passes, the retry is not due
+"in 30 minutes" but "at the next SELECTION of that site", which on a busy site is a different and
+longer thing. Do not promise the owner a retry time from `retry_after` alone — I did, twice.
+
