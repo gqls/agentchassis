@@ -4214,4 +4214,16 @@ a layout bypass the tag matcher?* Measured instead.
   (supersedes the theme-kits CONTRIB line); glossary/inspiration held in briefs until 444's producer
   lives, with a prose `guide` as the compliant form; feed-shaped pages stay section-index filling
   from child pages.
+- **(z) chrome pin RE-SCOPED after a theme-kits correction — and the measurement is worse than
+  their framing.** They flagged that pinning selects but does not populate, and that the four
+  alternatives need 11–19 template variables. Measured here [2026-09-03]: **37 of 39 sites supply
+  ZERO header `content_data` keys** (2 supply any; max 5), against candidates requiring
+  cart-or-nav 11 / with-search 12 / minimal-tool 16 / with-categories 16 / docs 19. **So the fleet's
+  identical chrome is a DATA problem, not a selection problem** — the default `site-header` wins
+  because it is the only one that needs no data — and their own earlier "selection is the
+  bottleneck" framing is superseded (as is my template-v2 reading of it). RUNBOOK §5 rewritten: the
+  one-UPDATE form is withdrawn; the safe experiment supplies the vocabulary FIRST, then pins, and
+  the third branch of the three-way read now says empty/broken means *the pin was honoured and the
+  data is missing*. For copyonline, `header-minimal-tool`'s tool vocabulary is the fillable one
+  (it ships four tools); search needs a real endpoint, cart and docs are wrong for it.
 

@@ -176,22 +176,60 @@ for t in <slug…>; do b=$(curl -s "https://<domain>/tools/$t/?cb=$RANDOM"); pri
   seotools holds were TRUE — prose shells at the tool URLs. A cache-busted curl is the check,
   not the item's wording and not the page's size.
 
-## 5. Remake №5 ONLY — the chrome-pin experiment (theme kits, 2026-09-02)
+## 5. Remake №5 — the chrome-pin experiment, RE-SCOPED 2026-09-03 (do NOT run the old one-UPDATE form)
 
-After site row + style_collection exist, BEFORE the release rerender. Header only — one
-variable. Pin `header-minimal-tool` by UUID (function names are NOT unique):
+**A pin SELECTS a component; nothing POPULATES it.** Correction from the theme-kits lane
+2026-09-03, then measured here and it is worse than their framing:
 
+| | |
+|---|---|
+| Header components available to pin | `header-with-cart-or-nav` 11 vars · `header-with-search` 12 · `header-minimal-tool` 16 · `header-with-categories` 16 · `header-docs` 19 |
+| Sites supplying ANY header `content_data` | **2 of 39. The other 37 supply ZERO keys** (max anywhere: 5) |
+
+[MEASURED 2026-09-03, `content_components.html_template` `{{.var}}` distinct count ×
+`site_components.content_data` key count where `slot_name='header'`.]
+
+**So the estate's chrome sameness is a DATA problem, not a selection problem.** The default
+`site-header` renders everywhere because it is the only header that needs (almost) no data. Pinning
+any alternative on any of those 37 sites today renders 11–19 empty variables — an empty
+`action="{{.search_action_url}}"` posts the form to the current page, aria-labels vanish, nav
+disappears. **That is worse than the sameness.** This also revises the theme-kits CONTRIB's original
+claim that selection was the bottleneck, and it re-sizes the differentiation programme: chrome
+variety exists and has never been supplied, so "pin a nicer header" is not a per-site UPDATE.
+
+**PRE-FLIGHT, mandatory, before any pin (theirs, adopted verbatim):**
 ```sql
-UPDATE style_collections
-   SET header_component_id = 'b519d5d3-1af6-4c91-a1c3-ae81457369ee'::uuid
- WHERE id = (SELECT style_collection_id FROM sites WHERE domain = '<REMAKE_5_DOMAIN>');
+-- what the target site supplies
+SELECT (SELECT string_agg(k, ', ' ORDER BY k) FROM jsonb_object_keys(sic.content_data) k)
+  FROM sites s JOIN site_components sic ON sic.site_id=s.id AND sic.slot_name='header'
+ WHERE s.domain = '<TARGET>';
+-- what the candidate requires
+SELECT DISTINCT unnest(regexp_matches(html_template, '\{\{\.([a-zA-Z_]+)', 'g'))
+  FROM content_components WHERE function='<CANDIDATE>' AND is_active;
 ```
-Post-rerender, diff served header classes vs an unpinned sibling (cache-bust the curl).
-**Read the result THREE ways** (the alternatives are `*_pre_037` legacy rows never rendered
-live): changed-and-right → pins work, recipe safe for the 17 · unchanged → pin IGNORED,
-chrome differentiation is a ChromeSlotFunction code change · broken/missing → component
-stale, NOT a pin verdict — retry with another component before concluding. Send the served
-diff to the `theme kits` session either way (feeds their 438 read).
+
+**The experiment, in its only safe form** — at №5's release, AFTER composition has created
+`site_components` and BEFORE the release rerender:
+1. Run the pre-flight. Expect zero supplied keys.
+2. **Supply the candidate's vocabulary first** (one guarded UPDATE of that site's header
+   `content_data`), choosing a component whose vocabulary the site can honestly fill — for
+   copyonline `header-minimal-tool`'s tool-shaped keys are fillable (it ships four tools);
+   `header-with-search` needs a search endpoint that must really exist, and cart/docs are wrong
+   for it.
+3. Pin by UUID (function names are NOT unique):
+   `UPDATE style_collections SET header_component_id = '<uuid>'::uuid WHERE id = (SELECT style_collection_id FROM sites WHERE domain='<TARGET>');`
+4. Rerender, then diff the SERVED header against an unpinned sibling (cache-bust the curl).
+
+**Three-way read, third branch corrected (theirs):**
+- changed-and-right → pinning works AND the data was sufficient; the recipe is safe for the 17,
+  but each still needs its own pre-flight and its own data.
+- unchanged → the pin was IGNORED; chrome differentiation is a `ChromeSlotFunction` code change.
+- **renders but empty/broken → the pin WAS honoured and the component's `content_data` is
+  unsupplied.** A component-data problem, NOT a verdict on pinning — and the EXPECTED outcome for
+  any site with an empty header `content_data`, which is 37 of 39. Check supplied keys against the
+  template's variables before concluding anything about the mechanism.
+
+Send the served diff to the `theme kits` session either way (feeds their 438 read).
 
 ## 5b. Remake №5 is ALSO the imagery-prompt canary (migration "718", planner prompt, live 19:59:56Z)
 
