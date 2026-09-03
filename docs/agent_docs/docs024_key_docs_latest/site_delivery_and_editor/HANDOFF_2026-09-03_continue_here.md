@@ -1,3 +1,9 @@
+# ⚠ SUPERSEDED 2026-09-03 evening by `HANDOFF_2026-09-03b_continue_here.md` — read that first
+
+> This file remains the working record of the day's first half, and its two in-place correction
+> blocks are worth reading: the links host (§1 item 4) and the `cta-subtitle` counting trap
+> (§1 item 1). Everything still live is carried into 09-03b.
+
 # HANDOFF 2026-09-03 (evening) — the first paid site is verified at the artefact on four of the owner's points; delivery is still HELD, and the delivery chain has never run
 
 **Supersedes `HANDOFF_2026-09-02b_continue_here.md`**, which grew fifteen in-place correction
