@@ -1,14 +1,17 @@
 # RFC_060 — a COMPLIANCE TIER: the claims layer is weakest exactly where the sector is strictest
 
 **Status: FULLY OWNER-DECIDED — NOTHING ON THIS RFC IS OPEN, AND Q5/Q6/Q7 ARE ALL BUILT.**
-Q1–Q4 ruled 2026-09-02; Q5/Q6/Q7 ruled 2026-09-03 (§3f) and built the same day: **Q6** (`ac670badf`,
-council `57a9939f`), **Q7 facts half** (`6ec879212`, council `17fb9105`), **Q5** (`939593e4c`,
-council `9b11752c`) — Q7's `banned_claims` half was already live from the day before (`e5b1a0f01`,
-confirmed running, first pass filed nothing but that zero is uninformative by construction — see
-§3e's caveat). **None of Q5/Q6/Q7 is deployed yet** — committed and council-submitted, awaiting a
-roll. What remains after that is the tier MECHANISM itself (the posture-ladder field + the
-register-required gate) — none of §2's design is code yet; everything built today is upstream of
-it, per §3c's own track order. Historical statement of the questions follows.
+Q1–Q4 ruled 2026-09-02; Q5/Q6/Q7 ruled 2026-09-03 (§3f) and built the same day: **Q6 APPROVED**
+(`ac670badf`, council `57a9939f`, 2 advisory objections both answered — one by a follow-up fix,
+`3c1e1b61c`), **Q7 facts half APPROVED** (`6ec879212`, council `17fb9105`, all nine reviewers
+approve), **Q5 council-submitted, verdict pending** (`939593e4c`, council `9b11752c`). Q7's
+`banned_claims` half was already live from the day before (`e5b1a0f01`, confirmed running, first
+pass filed nothing but that zero is uninformative by construction — see §3e's caveat). **None of
+Q5/Q6/Q7 is deployed yet** — committed, awaiting a roll (Q5's council verdict still pending doesn't
+block that — `Council-Submitted` was used, not `Council-Reviewed`). What remains after a roll is the
+tier MECHANISM itself (the posture-ladder field + the register-required gate) — none of §2's design
+is code yet; everything built today is upstream of it, per §3c's own track order. Historical
+statement of the questions follows.
 ~~Open: **Q5** (§3b)~~ — citation-code recognition is finance-only, doesn't
 generalise to other regulated sectors. **Q6** (§3d) — a citation can be substantively true and still
 name the wrong rule; CONFIRMED STRUCTURAL — the FCA Handbook has no rule-level URL, so a fact
@@ -497,7 +500,17 @@ rolling now. What that build DOES carry is `e5b1a0f01` — after which the patte
 the next daily `evidence-freshness` pass, and **its first findings are the thing to read**, not the
 roll.
 
-**Q6 BUILT 2026-09-03 (`ac670badf`), Council-Submitted: `57a9939f`.**
+**Q6 BUILT 2026-09-03 (`ac670badf`), Council-Reviewed: `57a9939f` — APPROVED 2026-09-03 09:49Z, 2
+advisory objections, none high.** `editquality` correctly flagged two things, both answered: (1) the
+fix only covers the daily refresh path, not `verify_and_register_citations` (registration) —
+deliberate, not fixed here; today's real mis-attributions arrived via migration, which registration
+never sees anyway, so this was the load-bearing path. (2) the heading marker was hard-coded `[RG]`
+and the FCA Handbook carries other provision-type letters (E, D) — **fixed** (`3c1e1b61c`): widened
+to `[A-Z]`, since the marker letter was never load-bearing to the check (the date before it is), only
+untested. Live-checked CONC 6.7 and COBS 2.1, both R/G-only — no counter-example in hand, fixed
+anyway because the gap was real regardless. `reuse_agent` noted `verifyCitationLiveForRule`
+duplicates `verifyCitationLive`'s fetch call — accepted tradeoff, documented in the code: touching
+the shared function would affect 3 other call sites with no rule-attribution concept.
 `datahelpers.CitationRuleSpan` (pure) + `actions.verifyCitationLiveForRule` (new function, doesn't
 touch `verifyCitationLive`'s three other call sites) wired into `refreshCitationFact`, reading
 `fact["rule"]` off the raw map. Ten tests total (six pure, four httptest/offline), the load-bearing
@@ -507,7 +520,10 @@ Mutation-verified in an isolated worktree: disabling the span check fails exactl
 should. Not yet deployed — same two gates as Q7's `banned_claims` half (build+roll, then next daily
 tick).
 
-**Q7 FACTS HALF BUILT 2026-09-03 (`6ec879212`), Council-Submitted: `17fb9105`.**
+**Q7 FACTS HALF BUILT 2026-09-03 (`6ec879212`), Council-Reviewed: `17fb9105` — APPROVED 2026-09-03
+10:00Z, ALL NINE REVIEWERS APPROVE, zero objections beyond one advisory note (`reuse_agent`: no
+recorded search for an existing bot-detection utility elsewhere in the codebase before writing
+`botChallengeReason` — none found in this session's own earlier investigation either).**
 `botChallengeReason` detects the loanzy lane's exact Cloudflare interstitial (title, the
 `_cf_chl_opt` JS variable, the noscript fallback id — all three confirmed live against
 `maps.org.uk` by curl before writing the detector, not guessed) from the RAW html inside
