@@ -4878,4 +4878,20 @@ Owner: *"otherwise the brief is good carry on"* — the release word. Per RUNBOO
   **Worth keeping as a practice note:** encoding the owner's condition as a SQL guard rather than as
   a judgement I make at the keyboard is what made this safe — I checked, believed I was clear, and
   was wrong by sixty seconds. A guard that refuses is better than a check that passes.
+- **(kk) ordering oddity at №5's release, recorded not acted on.** Within 6 minutes of the site going
+  `active` the discovery sweep created `needs_composition` + `needs_design` + `evaluate_tools`
+  (15:55:06Z, `created_by='generic'`). **`site-design-planner` then claimed composition BEFORE any
+  classification existed and raised its own `needs_domain_research` as a `side_effect`**, key
+  `backfill_classification_for_composition` (15:56:41Z, claimed 15:58:26Z). So the classifier is now
+  running from the BACKFILL item, while my release item `319d8d15`
+  (`research_copyonline.co.uk`) is still `triaged` and unclaimed.
+  **Different `item_key`s, so `idx_swi_dedup` blocks neither** — the site may classify twice, the
+  second superseding the first. Wasteful rather than destructive, and **I am not cancelling mine**:
+  the backfill exists to unblock composition, whereas the release item is the Flow A driver for the
+  whole chain (research → strategy → briefing → plan), so cancelling it could stall the build.
+  **The shape is today's recurring one — a producer running before its prerequisite exists.** Here
+  the platform recovered by raising the missing input itself, which is the good version of it.
+  Two things for whoever picks this up: watch whether classification is written twice, and note that
+  **releasing a site makes the discovery sweep act on it within minutes**, which is earlier than the
+  runbook's §2b window assumed.
 
