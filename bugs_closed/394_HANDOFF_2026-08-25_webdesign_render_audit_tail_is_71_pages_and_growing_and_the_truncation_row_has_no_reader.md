@@ -1,6 +1,56 @@
 # 394 — webdesign.co.uk's render audit covers 60 of 131 pages, the tail GROWS every week, and the truncation row `bugs_closed/242` built has no reader
 
-> ## STATUS 2026-09-02 — **CURSOR HALF FIXED, LIVE AND ACCEPTED. Bug stays OPEN for the reader's CronJob.**
+> ## CLOSED 2026-09-03 — **FIXED AND LIVE, both commissioned halves, each proven at the artefact.**
+>
+> Councils `f67593f5` (cursor) and `f49da30d` (CronJob) both APPROVED.
+> Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_394_render_audit_rotation_cursor/`
+> (read `HANDOFF_2026-09-03_closed.md` there for the full account and the open questions).
+>
+> ### The two things the owner commissioned on 2026-08-25, and where each ended up
+>
+> **1. The rotation.** `request_render_audit` no longer takes the same prefix every run. It carries
+> a keyset coverage cursor (opt-in `rotate_coverage`, migration **660**), and the window is a UNION:
+> the pages carrying an open `contrast_failure` ride EVERY run, so the 3-day repair-grading latency
+> migration 469 was an owner instruction to buy is preserved.
+>
+> **This file's own acceptance test passes.** `[MEASURED 2026-09-02]` over three consecutive
+> SCHEDULED runs on webdesign.co.uk the union of `audited_paths` is **151 distinct pages of 151
+> live — ZERO missed**, graded against the site rather than against itself. The third run cleared
+> the cursor (`cursor_cleared=true`, final window 37 pages, last page `tool-llm-cost-calculator` at
+> `nav_order` 201). The second arm is met too: in cursor mode the message no longer claims "the
+> SAME pages every run". A second site, `loanandmortgagecalculator.co.uk`, cycled to completion
+> unaided.
+>
+> **What that replaced:** the same first 60 pages for ever, with 91 never audited — including all
+> 45 `tool-*-guide` pages, unreachable at ANY cap below 98.
+>
+> **2. The reader.** `cmd/config-key-audit --render-truncation`, shipped as CronJob
+> `render-truncation-check` (07:50 UTC), registry flipped to `consumed`. `[MEASURED 2026-09-03]` it
+> **fired on its own schedule** at `07:50:00Z` and wrote its durable row at `07:50:14Z`: *22 rows
+> across 4 sites and 2 callers, 0 findings, 1 dormant group named.* One row per run, clean
+> included, so an ABSENT row means the job did not run and can never read as "nothing is wrong".
+>
+> ### Three things a later reader should not have to rediscover
+>
+> - **The tail was a CLASS, not a count** — which is why "raise the cap" was rejected on a
+>   measurement rather than a preference.
+> - **Never parse a `contrast_failure` `item_key`.** A selector may contain `#` and so may a page
+>   URL (`idea.uk` has `/tools.html` AND `/tools.html#audience-check` active). Match forward with
+>   `workItemKey(...)` + `HasPrefix`. The council caught this as a LIVE defect in round 1.
+> - **The cursor key is the RUNNING agent, not the dispatcher.** Keyed on `Sender.AgentType` it
+>   silently kept a separate cursor per dispatch path. No unit test could see it — the fixture set
+>   both identities to one literal.
+>
+> ### Deliberately NOT done, and each is a question rather than a defect
+>
+> `design-critique-agent` still takes a prefix (manual sampler; rotate-vs-curate is a product
+> decision, not a bug) · webdesign's NEW-defect detection latency moved 3d → ~1 cycle in exchange
+> for 91 pages going from never to one cycle · the dormancy window is 14 days, a judgement · and
+> `page_names` is declared in the action's spec and read by nothing (`bugs_open/412`).
+>
+> ---
+>
+> ## STATUS 2026-09-02 (superseded, kept for the trail) — CURSOR HALF FIXED, LIVE AND ACCEPTED.
 >
 > **The acceptance test in §2 PASSES.** `[MEASURED 2026-09-02]` over three consecutive SCHEDULED
 > rotation runs (08-27, 08-30, 09-02), the union of `audited_paths` on webdesign.co.uk is
