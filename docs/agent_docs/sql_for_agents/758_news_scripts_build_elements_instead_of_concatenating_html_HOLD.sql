@@ -346,3 +346,46 @@ COMMIT;
 -- ⚠ A static curl CANNOT verify the rendered result — the script REPLACES the
 -- server HTML on load. See LANDMINES, "The served news page HTML is OVERWRITTEN
 -- in the browser by /data/news-archive.json".
+--
+-- BUT IT IS NOT UNVERIFIABLE, and an earlier draft of this file wrongly implied
+-- it was. There is no JS engine on the build machine; there IS a headless
+-- browser as a SERVICE — `browser-runner-adapter`, in routine use (277 completed
+-- acceptance_run items, 2026-09-03). `internal/adapters/browserrunner/
+-- run_checks_action.go`, dispatched via the `run_checks` action, reads the LIVE
+-- DOM AFTER SETTLE, which is exactly the surface the curl cannot reach.
+--
+-- THE THREE CHECKS THAT COVER THIS MIGRATION. Take them BEFORE the apply and
+-- again AFTER, in the SAME session — a baseline from hours earlier lets another
+-- lane's rerender in as a confound, and the point is a COMPARISON, not an
+-- assertion:
+--
+--   1. selector_count   article.news-list-item        (on the /news page)
+--      > 0 proves the script ran and built the list in the live DOM. A blank
+--      page, a syntax error, or a dollar-quote truncation all give zero.
+--      THIS IS THE CHECK THAT CLOSES THE LANDMINE ABOVE.
+--
+--   2. selector_exists  a.news-more-link[href^="/"]   (on the HOME page)
+--      Present means the internal link resolved to a path; absent means it is
+--      "#" or gone. THIS IS THE REGRESSION THAT NEARLY SHIPPED, and it is the
+--      one behaviour NOTHING else in the chain can see — verified 2026-09-03:
+--      the served HTML of idea.uk, ai-agent-orchestration.com and
+--      robot-hands.com contains SIX matches for `news-more-link` and ZERO
+--      rendered anchors. All six are CSS rules. The link exists only in the
+--      client-built DOM.
+--
+--   3. has_visible_area #news-listing-items
+--      Not redundant with (1), and run_checks_action.go:617 says why: three
+--      tools the owner reported as unusable measured 1146x0, and
+--      selector_exists passed all three. "Exists" and "can be seen" are
+--      different questions and only the second is the visitor's.
+--
+-- ⚠ WRITING THEM: selector_exists / selector_count pass on count > 0 and FAIL on
+-- zero. THERE IS NO EXPECT-ZERO FORM. So "there must be no
+-- a.news-more-link[href='#']" is not expressible — it would fail on a correct
+-- page. Every assertion must be phrased as the PRESENCE OF THE RIGHT STATE,
+-- which is why (2) is written as [href^="/"] rather than as a negation.
+--
+-- And capture the screenshot of the resolving More-insights link. It is the one
+-- artefact that survives the session, and no automated check in this chain —
+-- not the verify block, not the council, not either peer review — could see
+-- that behaviour.
