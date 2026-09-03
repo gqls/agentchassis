@@ -14781,6 +14781,29 @@ a page that can never be fixed.
 the locked section it had just repositioned) · `bugs_closed/189` (same damage, different shape —
 refuted as the cause) · `bugs_open/039` (the narrow unresolvable-stub guard this row passes).
 
+### A reviewer told its table listing is EXHAUSTIVE reads absence as nonexistence — and the council gate's eleven-table list is framed exactly that way (2026-09-03, `bugs_open/478`)
+
+**The symptom:** a council seat objects *"table X is not in the schema this council can query, I
+cannot verify …"* and approves on the author's word — or, worse, says nothing, because nothing told
+it there was a table to look for.
+
+**The mechanism:** the council gate's `load_schema_hint` step is a `query_database` with a literal
+`table_name IN (…eleven names…)`, and every seat prompt heads it *"## Schema (the ONLY tables
+available to checks)"*. So an unlisted table is presented as nonexistent, not as unlisted. The
+diagnose loop's sibling path (`diagnose_load_runtime_action.go`) already carries the fix — a
+prefix include plus an always-list, a *"This listing is FILTERED … absence here is NOT evidence it
+does not exist"* notice, and a `data_request` escape — and its own comment at `:854` names this
+exact trap. The council never inherited any of the three. `[MEASURED 2026-09-03]` migrations
+600–799 write to **37** tables; the council sees **8**; `site_specs` (115 writes, every site's
+premise) is invisible.
+
+**The check, when you read a council objection of that shape:** the table almost certainly exists.
+Verify it yourself (`\d <table>`) and answer the seat in the resubmission with the query it could
+not run — do not treat "cannot see it" as "nothing to see". And when YOU are the one writing a
+listing for a model to consume: never frame a filtered list as exhaustive. State that it is
+filtered, say how to reach what is not listed, and expect absence to be read as nonexistence
+otherwise — the estate has now hit this identically in two code paths.
+
 ### "I dispatched it and no orchestration row appeared" has THREE causes whose correct responses are mutually exclusive, and the evidence that separates them expires at different rates (2026-08-25, `bugs_closed/327b` build-trigger drop)
 
 **The symptom:** you fired a trigger, it printed a correlation id and exited 0, and minutes later
