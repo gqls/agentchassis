@@ -1127,3 +1127,51 @@ conclude that `sync_pages` can blank a populated page's section list.
   array would drop a page out of its listing AND stop the imagery sweep giving it a card — silent
   in both directions at once. (Established by the `384` lane, checked both directions; recorded
   here because it is the reason the guard is load-bearing rather than tidy.)
+
+## 20. Status update, 2026-09-03 15:10 UTC — the page is REPAIRED and DEPLOYED, and 454 is CLOSED
+
+**Chassis rolled a second time** (`v1.0.1359`, commit `3043885191b20a0e9b83594b2002e8805fbe95ec`)
+carrying both `9831e9ab4` and `29b40e8bc`. Re-dispatched `page-rerender` immediately
+(correlation `53f08444-1c00-4265-a641-d4d32eedf8d0`) — result: **`COMPLETED`**, through
+`save_sections`, `render_page` and `deploy_page`, no `__step_error`.
+
+**The fixture is on the page:**
+
+| | before | after |
+|---|---|---|
+| `event-list` items | 0 | **1** |
+| `event-list` rendered_html | 1,813 B | **2,498 B** |
+
+**And the deploy is real**, traced past the DB row: `deploy_result.response.data.commit_sha =
+0cc6da28b4fc18e59ff9df1a995ce3cc943bc094`; GitHub Actions run `33771117580` completed
+**success**, its own "Sync to B2" step showing `delete tools/fight-calendar/index.html (old
+version)` then `upload tools/fight-calendar/index.html`. `portfolio-sites/boxingonline.com`
+now carries the fight fixture.
+
+**`bugs_open/454` is CLOSED** (moved to `bugs_closed/`, same commit round). Full closure record
+there, including two corrections from the `components` lane after independent corroboration
+(their own two-day-old `bugs_open/425` regression was this same mechanism) and one enumerated
+exception the fix cannot reach (`component_id NULL` rows, `bugs_open/457`).
+
+**The public domain and the preview subdomain still show the empty state, and that is
+EXPECTED, not a new problem.** `sites.handed_over_at IS NULL` for boxingonline.com — it is
+pre-handover and not DNS-live at `boxingonline.com` at all. The preview
+(`boxingonline.ugg2.com`) is served by `site-publisher`, a separate reconciliation pipeline on
+its own tick (established 2026-09-02/03; checked again today via `WebFetch`, still the empty
+state, not chased — same call as before, and not this lane's job).
+
+**What is left before this lane can actually close, updated:**
+
+- [x] ~~Diagnose and fix the `query.upcoming_events` items-not-populating defect~~ — **DONE**,
+  `bugs_open/454` **CLOSED**.
+- [x] ~~The save must be allowed to complete~~ — **DONE**, `bugs_open/450`'s guard fix (`29b40e8bc`)
+  is live; this session's own dispatch proved it.
+- [ ] **`719`/`727`/`728` are TRANSIENT** (§19.2–19.4) — the next `sync_pages` for
+  boxingonline.com will revert `pages.sections` to the stale plan and undo all three. **This is
+  now the lane's top open item.** Needs a council/owner decision about `site_plan_sections`
+  before a durable fix can be written; not a migration.
+- [ ] `ff91e666` is **APPROVED** (round 3, 12:41:09Z) — no further council action needed.
+- [ ] Re-verify `experience_loop`'s nightly reclassification of
+  `/tools/fight-calendar/index.html` out of "no calendar mechanism at all". **This is now the
+  real remaining closing signal for 427 itself** — everything upstream of it is proven.
+- [ ] `bugs_open/460` (why `blog-content-planner` stopped) — unowned, unrelated to closing 427.
