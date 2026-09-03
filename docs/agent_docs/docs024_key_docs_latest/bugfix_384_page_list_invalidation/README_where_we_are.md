@@ -336,3 +336,46 @@ picks it up.
 **Where we are.** The bug stays open, the cause is understood well enough to test, and the fix for
 it belongs to another team's case rather than ours. Nothing is damaged meanwhile: three pages on
 three sites are missing a thumbnail.
+
+## 3 September — it fixed itself overnight, exactly as predicted, on a date I got wrong
+
+**The page is right.** All thirteen entries on the leopardess blog now show their picture, including
+the two that had been blank since 27 August. It happened at twenty past eleven on Tuesday night,
+without anyone touching it.
+
+**And it happened for the reason we thought.** The "already tried twice, don't bother" mark expires
+after seven days. The moment it expired, new jobs were created *without* the mark, they were picked
+up normally, and the component that rebuilds the list ran for the first time in six days. I can see
+the unmarked jobs in the record. That is the explanation confirmed, not merely consistent.
+
+**I got the date wrong by about a day, and it is worth saying why.** I predicted Wednesday evening.
+It happened Tuesday night. I had worked out the expiry from the wrong job: I used the one attached
+to the blog list I kept looking at, when the jobs that actually control whether the site gets
+serviced are different ones, whose clocks started a day earlier. Right mechanism, wrong stopwatch.
+Worse, I had written into the handover that if nothing happened by Thursday the whole explanation
+was wrong — which would have thrown away a correct answer. The thing that saved it was that I had
+also written down a second, better test: look at whether the new jobs carry the mark. They did not.
+That test cannot be wrong about clocks, and it is the one that settled it.
+
+**What is left, and the one thing I need you to decide.**
+
+Our fix does what it was built to do: when a picture arrives, it tells the listings to refresh, and
+on most page types that refresh rebuilds the list correctly. **But blog listings are rebuilt by a
+different component, and the refresh we trigger does not include it.** So a blog listing does not
+get repaired by our fix — it gets repaired later, when the site's routine maintenance next runs.
+That is what happened here, and it took six days only because the site had been frozen out of
+maintenance by the separate problem.
+
+So: **do we close this bug on "blog listings recover on their own within a normal maintenance cycle",
+or do we keep it open and make our fix repair them directly?**
+
+I lean towards closing it, with one condition: that we actually measure how long that normal cycle
+takes, so "recovers on its own" is a number rather than an assumption. The alternative means
+changing a shared piece of machinery and putting it through review, to fix a delay we have not yet
+measured. I would rather measure first. **But it is your call, and the case for the other option is
+real — a customer looking at a blog page during that window sees a gap.**
+
+Two smaller things stay open regardless: the fourteen missing pictures on pages you own and edit
+yourself, which our fix structurally cannot reach and which need their own small piece of work; and
+our safety net, which still has never run because of the other team's problem, and will need
+re-checking once they fix it.
