@@ -1281,3 +1281,52 @@ item at all. What remains genuinely owed:
    seam's reach, still must not close inside 384.
 3. **The sweep (`check_page_list_stale`, migration 603) has still never run** — unchanged, still
    blocked behind 389's arm.
+
+## UPDATE 2026-09-03 13:0xZ — **THE SEAM'S OWN PATH IS PROVEN ON THE FIXED BINARY.** designblog.co.uk/index: 4 blank → 0 blank, verified at the served page
+
+`[ALL MEASURED 2026-09-03 12:54–13:0xZ]` The verification filed at 12:35:51Z has run and repaired.
+
+| | before | after |
+|---|---|---|
+| `content-listing.articles` blank images | **4 of 4** | **0 of 4** |
+| `page_components.updated_at` | 2026-09-03 05:25:29Z | **2026-09-03 12:54:43Z** |
+| `rendered_html` | 2,494 B | **3,327 B** |
+| served `designblog.co.uk/` | — | HTTP 200, **4 card `<img src>`, zero `src=""`** |
+
+- **The run:** `page-rerender`, `reason=section_data_resolved`, COMPLETED 12:54:41Z —
+  `section_count 4, rerendered 4, carried 0, escalated false`. Item
+  `80a1c536-b75f-416d-ac72-952177229b5c` went `complete` at 12:54:53Z, `attempt_count 0`.
+- **The four card files resolve:** `card-tool-aspect-ratio-guide.jpg` 200/35,559 B,
+  `…css-unit-converter-guide` 200/53,603 B, `…css-variables-guide` 200/62,028 B,
+  `…smart-contrast-guide` 200/35,984 B. So this is a repair a visitor can see, not a row.
+- **No `bugs_open/450` confound:** `page_type='landing'`, `rebuild_policy='generic'`, checked
+  before filing — neither arm of `genericBuildRefusal` fires, so the fix ran through
+  `save_page_sections` cleanly. (The 427 lane's own post-fix case was refused at the save by that
+  guard, so it had a proven re-render and no proven artefact. This one has both.)
+
+**⚠ THE RUN'S COUNTS ARE NOT THE PROOF, AND MUST NOT BE QUOTED AS ONE.**
+`rerendered=4, carried=0, escalated=false` is **byte-for-byte what the BROKEN runs reported** —
+compare the 10:0xZ table above, where 05:06:19 reads `4 / 4 / 0 / false` and produced four blanks.
+That is 454's whole signature. The proof is the **artefact** plus a baseline someone else read:
+the `bugs_open/427` lane independently recorded this row at 12:54Z as *"4 articles, 0 with images,
+updated_at still 05:25:28Z, html 2,494 bytes"* — seconds before the write landed. Their read is the
+control, and it was taken by a different session with no stake in this passing.
+
+### What this settles, and what it does not
+
+**Settles:** the 384 seam's own path — `derive_card_asset` → `page_rerender`/`section_data_resolved`
+→ `rerender_page_sections` → `save_page_sections` — **re-resolves a stale page-list array and lands
+the card images, on a page that had been blank for 7.5 hours across two earlier attempts.** Item 1
+of the remaining-work list is closed. Combined with §1's 132/132 pre-regression record, the
+mechanism this workstream built is sound and the 09-02→09-03 breakage was `bugs_open/454`.
+
+**Does NOT settle** — and the `components` lane (`bugs_open/425`) is right to flag it: this is a
+positive for the **`image` field only**. That deck already carried `articles[0].excerpt` in every
+archived state back to 09-02 20:51, put there by a BUILD, so on the *item-shape* axis the baseline
+could not have failed and this run proves nothing about it. My control was the blank images and the
+claim is scoped to them. **The general trap they paid for and I did not: "a re-render wrote a row
+carrying key K" is not "the re-render produced K" — a stored ⊕ nil merge carries K forward
+unchanged.** The discriminator is to project the state each write REPLACED:
+`SELECT h.created_at, (h.content_data->'articles'->0 ? '<key>') AS present_BEFORE_this_write FROM
+page_component_history h WHERE h.page_id = $1 ORDER BY h.created_at;` — joined on `page_id`, never
+`component_id`.

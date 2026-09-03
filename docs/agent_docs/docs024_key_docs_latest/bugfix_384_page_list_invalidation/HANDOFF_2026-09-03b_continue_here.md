@@ -9,7 +9,7 @@ Cold-start: **this file** → `bugs_open/384_…md`, the **12:4xZ** update first
 
 ---
 
-## 1. STATE — the seam is SOUND. The defect that has been breaking it since 09-02 is `bugs_open/454`, and it is fixed and live.
+## 1. STATE — the seam is SOUND, and now PROVEN on the fixed binary (§5). The defect that broke it 09-02→09-03 is `bugs_open/454`, fixed and live.
 
 **384 STAYS OPEN** (owner ruling 2026-09-03: *"keep it open until those are checked and fixed"*).
 But what is left is smaller and different from what the last handoff said.
@@ -83,7 +83,29 @@ you quote any number from the previous handoff.
   write that changed neither leaves **no row** — and a byte-identical no-op is exactly what 454
   produces.
 
-## 5. IN FLIGHT — the one thing left to prove, and how to read it
+## 5. ✅ PROVEN 12:54Z — the seam's own path repairs on the fixed binary
+
+**RESULT (added 13:0xZ, after this file was first written).** The verification below RAN and
+REPAIRED. designblog.co.uk/index `content-listing.articles`: **4 blank → 0 blank**, `updated_at`
+05:25:29Z → **12:54:43Z**, `rendered_html` 2,494 → **3,327 B**, and the served page returns HTTP 200
+with **four card `<img src>` and zero `src=""`** (all four .jpg files 200, 35–62 KB). The run was
+`page-rerender` / `section_data_resolved`, COMPLETED 12:54:41Z. Item `complete`, `attempt_count 0`.
+
+**⚠ Do NOT quote the run's counts as the proof.** `rerendered=4, carried=0, escalated=false` is
+exactly what the BROKEN runs reported — that is 454's signature. The proof is the artefact plus an
+independent baseline: the `bugs_open/427` lane read this row at 12:54Z as "4 articles, 0 with
+images, updated_at still 05:25:28Z, html 2,494 bytes", seconds before the write landed.
+
+**Scope of the claim:** this is a positive for the **`image` field only**. The `components` lane
+(`bugs_open/425`) checked and the deck already carried `articles[0].excerpt` from an earlier BUILD,
+so the item-SHAPE axis could not have failed here and this run says nothing about it. See the bug
+file's 13:0xZ update for their discriminator — *"a re-render wrote a row carrying key K" is not
+"the re-render produced K"*.
+
+**So item 1 of §6 is CLOSED.** What follows is the original in-flight section, kept for its recipe
+and its controls.
+
+### The original in-flight section (recipe + controls, still the right ones to reuse)
 
 A `section_data_resolved` re-resolve at **designblog.co.uk/index**, filed 12:35:51Z:
 
@@ -120,7 +142,8 @@ case this lane has ever had — the runs will be inside retention, unlike everyt
 
 ## 6. What 384 still owes before it can close
 
-1. **The post-fix proof above.** In flight.
+1. ~~**The post-fix proof above.**~~ **DONE 12:54Z — see §5.** designblog.co.uk/index went 4 blank
+   → 0 blank on a `section_data_resolved` re-resolve, verified at the served page.
 2. **The owned-page residual — 14 blanks / 3 pages.** Unchanged, structurally out of this seam's
    reach (`save_sections` refuses an owned page). Remedy shape exists (migration `486`'s
    `section_edit` → `section-editor` route). **Must NOT close inside 384** — file it or carry it
