@@ -4099,3 +4099,36 @@ later attempt of its own hits the dedup guard and aborts — the file is idempot
   All 8 planned tools now in the queue; the running monitor's exit threshold is 7, so read the
   8th by hand after it reports.
 
+### (y) 2026-09-03 09:2x–09:5xZ — remake №5 chosen and its brief FIRED: copyonline.co.uk (corr `8aac8250`, orch `7b627de7`)
+
+- **Queue reality for the 8 tool builds**: dispatch picks ONE site per ~4-min tick by oldest
+  pending item across 21 pending sites; seotools sat 20th, websitepromotion 19th at 09:23Z
+  (sites with 30–59 items ahead re-win until drained — 413's fair-share shape). No governor
+  shed (0 traces; 674 still held). ETA 1–2 h; not jumping a shared queue. Monitor armed.
+- **№5 selection**: the five non-twin single-pagers have NO register rows and NO sites rows
+  (nor do the four live remakes — the brief-writer flow never required one; the brief is the
+  reviewed positioning record). Old pages snapshotted to `salvage/<domain>/index.html`
+  (fridge-magnets = merchandise RSS aggregator; conferences = conference-feed aggregator;
+  copyonline = 2015 two-sided copywriter marketplace; dsgn = empty shell whose only menu item
+  was "Experienced Copywriter"; catalogues = 2007 AdSense home-shopping page). For three canary
+  duties the pick needs tools-friendly + no listing pages + uncrowded → **copyonline.co.uk**,
+  positioned as the UK copywriting AUTHORITY (guides + browser tools), marketplace = prepared
+  later slot (advertise §3 pattern). fridge-magnets next; conferences after (feed
+  pre-enablement via `content_features.news_feed` is its natural shape).
+- **Register**: CW1 copyonline (proposed; seat = setter/teacher of commercial copy; neighbours
+  dsgn/writesy/advertise/websitepromotion/seotools with rules; must_nots incl. the 444/447
+  classes) + CW2 dsgn.co.uk STUB (design, NOT copy — the collision found in its old menu).
+  New family "COPYWRITING / CONTENT". DB only; MD untouched (two-copies rule).
+- **Site row**: `3d965325`, complete (name, network_id, email copyonline@contactforsales.com),
+  `test` + LOCKED — the script's header recipe.
+- **Direction (template v2)**: vertical + best-in-vertical + no-omission + fullness + explicit
+  NO listing pages (marketplace prepared, never claimed) + cluster deference (advertise
+  flagship / websitepromotion / seotools, never duplicate tools — 447) + no negative identity +
+  LAYOUT soft-editorial (one of the nine never-used) + COLOUR referents = designblog's and
+  advertise's SERVED `:root` values (both share `#8b0000` CTA red and `#6b0000` hover — the
+  generic-theme default; told to avoid it) + UK/ASA. Verbatim in the fire output / transcript;
+  `BRIEF_2026-09-03_copyonline_co_uk_for_review.md` to be rendered when the brief lands.
+- **Canary duties at release** (not at brief): §5 chrome pin on the style_collection before the
+  release rerender · §5b imagery.sections on the plan · §2b one-shot design discovery the moment
+  the plan completes. Recorded here so the release step does all three.
+

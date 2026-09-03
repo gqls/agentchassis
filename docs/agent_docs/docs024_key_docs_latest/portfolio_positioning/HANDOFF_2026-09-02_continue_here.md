@@ -299,3 +299,23 @@ The owner refreshed the kubeconfig ~21:2xZ (the 444 session noticed first). Ever
   "already deployed tools" (evaluate_tools result: "the site already has … robots.txt tester,
   Core Web Vitals checker …") and suggested COMPLEMENTS — the shells fooled the suggester too.
 
+# ADDENDUM 5 — 2026-09-03 09:5xZ: №5 = copyonline.co.uk, brief in flight; tool builds queued 19th/20th of 21
+
+- **8 tool builds**: fired (7 at 09:05Z, redirect checker 09:13Z); dispatch is one site per ~4 min
+  by oldest pending item — seotools/websitepromotion sit near the back of 21 sites; expect
+  1–2 h. Monitor reports per item. When they land: runbook §4 form probe on all 8 URLs → close
+  the 8 `owned_page_review` holds with evidence.
+- **№5 brief FIRED**: copyonline.co.uk, corr `8aac8250-a1b4-4633-b083-8479b2d137ea`, orch
+  `7b627de7-b6a4-4ecd-881e-64c1db8defaf`, site `3d965325` (test+LOCKED, complete). Register CW1
+  (+CW2 dsgn stub). Direction = template v2 (NOTES (y)). Pickup if the monitor is gone: the
+  three queries the fire script prints (orchestration_states by orch id; `site_specs`
+  mission_brief is_current; `needs_brief_review` item). When it lands: render
+  `BRIEF_2026-09-03_copyonline_co_uk_for_review.md` (precedent: the 09-02 renders), check the
+  plan draft names NO listing page, grep for `contact-hero`, then it is the OWNER's word.
+- **At №5's release** (runbook §1) do all three canaries: §5 chrome pin (before the release
+  rerender), §5b imagery check on the plan, §2b one-shot design discovery at plan completion.
+- **Next picks**: fridge-magnets.co.uk (№6; register row owed — gifts/promo family, neighbours
+  G1/G2/personalgift), conferences.co.uk (№7; feed pre-enablement via `content_features.news_feed`
+  — its old page was a conference-feed aggregator), then catalogues/dsgn (dsgn's proposition
+  owed: design-side, CW2). Twins ⚑OWNER; insurance last.
+

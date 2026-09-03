@@ -1446,3 +1446,18 @@ allows it, and print the one-line command to run when it does not. It is honest 
 cannot see. The other seven were queued the moment the new chassis settled. I will read each
 finished page myself before calling any of them done.
 
+**2026-09-03, late morning — the eight tools are queued behind other sites' work, and remake five is being briefed.**
+
+The eight tool builds are in the pipeline's fair queue: it works one site every four minutes in
+the order their oldest waiting job arrived, and twenty-one sites are waiting, so seotools and
+website promotion come up in an hour or two. Nothing is wrong and I have not pushed in.
+
+Meanwhile remake five is under way: copyonline.co.uk, chosen because it can carry the three
+things we want to test on the next build (a pinned header, the new imagery instruction, and
+running the tool sweep before the plan so the plan names real tools). Its old page was a 2015
+copywriter marketplace, which is exactly the kind of listing page that ships empty, so the
+new positioning is the UK copywriting authority: guides that teach commercial copy, and free
+tools to check a draft, with the marketplace kept as a later slot. The brief is being written
+now and will land in your review queue as before; I will give it a read for empty-page traps
+before it does. Next in line: fridge magnets, then conferences.
+
