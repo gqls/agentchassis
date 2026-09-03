@@ -658,3 +658,78 @@ brief reaches the step and only the child key is absent.
 
 Apologies for the noise; the corrected version is the one to build on.
 
+
+---
+
+## CONTRIB (2) — `portfolio_positioning`, 2026-09-03 ~17:35Z: the consumers state the defect in their OWN OUTPUT, and here is what it cost on one site
+
+My first contribution to this file measured the defect at the **rendered prompt** — `## Pre-Defined
+Mission` / `## Mission` followed by `<no value>`, with a positive control (gamedesign.uk, whose brief
+carries `.text`) and a negative control (boxingonline.com, no brief). That evidence stands. This
+contribution adds two things it could not give you: a **cheaper detector**, and the **downstream cost**.
+
+### 1. A cheaper and stronger detector: read the agent's own `reasoning` field
+
+An LLM step narrates its own inputs into its output, for free, and that narration is testimony from
+the consumer about what actually arrived. On copyonline.co.uk, both blind consumers convicted
+themselves in the artefact they wrote:
+
+`site_specs.classification.data->>'reasoning'` (`domain-research-classifier`, 16:57:10Z), verbatim:
+
+> "Confidence is moderate because **no mission brief was supplied** and the existing site content is
+> sparse — the strategic direction has been inferred from the site's own stated rules and the domain."
+
+`site_specs.tools.data->>'reasoning'` (`tool-suggester`, 16:01:52Z), verbatim:
+
+> "**Without existing pages loaded, I'm inferring from the domain** that visitors are likely businesses
+> or individuals seeking copywriting services…"
+
+This matters for your fix in three ways.
+
+- **It is a fleet-wide census you can run today**, without rendering a single prompt: sweep
+  `site_specs` for `reasoning` text matching the shape of "no brief / not supplied / inferring from
+  the domain", and you have the affected population by observation rather than by modelling the
+  template. Treat a zero as untrustworthy without a control — phrasing varies and this is an
+  **absence** query, so pair it with a spelling you know returns hits.
+- **It gives you a pass/fail test for the fix that is not a shape assertion.** Migration 734 in this
+  lane's history was verified by asserting config shape and still broke the classifier fleet-wide for
+  4h22m, because nothing checked that the step could *run*. "The re-run no longer says it had no
+  brief" is a behavioural check the agent writes itself.
+- **`tool-suggester` is a THIRD consumer**, and neither my earlier contribution nor this file's body
+  names it. It does not read `mission_brief.text` the way the other two do — its complaint is
+  "without existing pages loaded" — so it may be a **different** input-starvation defect that merely
+  co-occurs. **I have not established that it is the same bug and it should not be folded in without
+  its own check.** Flagging it as adjacent, not as covered.
+
+### 2. What it cost on one site, so the fix can be sized against an outcome rather than a count
+
+copyonline.co.uk had an owner-approved brief in place from 13:42:37Z planning **30 pages**. As of
+17:30Z, **10 pages are built, deployed and live, and none of the 10 appears in the 30.** The brief's
+four tools (Headline Scorer, Readability and Clarity Checker, Call-to-Action Tester, Length and
+Character Counter) intersect the five built tools (Website Brief Starter, SERP Snippet Previewer,
+Insight Injector, Keyword Intent Classifier, Title Tag Scorer) in the **empty set**, and so does the
+intersection with the brief's 26 guides, editorials and data pages.
+
+The site was classified `hub` with tags marketplace / community-platform / tool-portal, inferred (the
+classifier says so) from the previous Drupal 7 site's rules page. It is being built as a competent
+SEO-tools portal instead of the copywriting authority site with a single converting page that the
+owner signed off.
+
+**The sizing point for whoever fixes this: the blast radius is not "some prompts render empty".** The
+empty render is upstream of classification, tool selection, composition and the plan, and each of
+those persists a decision that outlives the fix. On this site the measured sequence was
+`needs_composition` bailing NOT READY at 15:56:45Z (missing identity + classification) → queueing a
+backfill classifier → that classifier running blind at 16:58:07Z → `needs_vertical_research` claimed
+at 16:54:55Z and still running against the blind classification. So **restoring visibility does not
+repair a site that has already been classified**; that needs a re-run, and the tools spec needs a
+separate decision. Worth stating in the fix's own write-up, because a reader who sizes this as a
+template bug will under-scope the remediation.
+
+### 3. Status of this lane's own fix
+
+Written, guarded, verified and **deliberately NOT applied** —
+`docs/agent_docs/docs024_key_docs_latest/portfolio_positioning/SQL_2026-09-03c_make_briefs_visible_to_the_classifier_and_planner_HOLD.sql`.
+It supersedes one site's `mission_brief` with the same object plus a `text` key rendered from the
+object's own fields. It is a **data** workaround for one site, deliberately not a fix for this bug:
+teaching the two templates to render the structured object is a shared-seam change and belongs to you.
+The owner's standing instruction is not to change a running build, so it stays on the shelf.
