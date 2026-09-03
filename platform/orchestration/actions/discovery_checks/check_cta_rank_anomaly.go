@@ -20,6 +20,7 @@
 //     set; the default is what nobody set); and
 //   - leads the runner-up by >= 50 (a curated ladder — 10/20/30 — is a
 //     deliberate ordering; a lone 1 against a pack at 100 is not).
+//
 // 391's fossil (1 vs 100) fires; the demoted state (pack at 100, fossil at
 // 900) is silent; an all-default alphabetical winner is silent.
 //
@@ -32,17 +33,46 @@
 // nothing" — is why this check cannot carry its own copy of any of it.
 //
 // A DETECTOR, NOT A FIX (391 §Fix candidates, #4). It files ONE
-// needs_human_review item naming the page and both remedies (demote
-// nav_order, or set eligible_as_cta_target=false). It repairs nothing: the
-// fossil may be deliberate — a flagship tool ranked first on purpose — and
-// that judgement needs a human who knows the site's premise. When the
-// condition clears (demotion, opt-out, or the page's retirement), the next
-// run positively observes a healthy rank-1 and retracts through the shared
-// Resolved seam. That silencing is correct, not blinded: the alarm is "your
-// primary button is fossil-ranked", and after either remedy it no longer is.
+// needs_human_review item naming the page and its remedies. It repairs
+// nothing: the fossil may be deliberate — a flagship tool ranked first on
+// purpose — and that judgement needs a human who knows the site's premise.
+// When the condition clears (demotion, opt-out, acknowledgement, or the
+// page's retirement), the next run positively observes a healthy rank-1 and
+// retracts through the shared Resolved seam. That silencing is correct, not
+// blinded: the alarm is "your primary button is fossil-ranked", and after any
+// remedy it no longer is — or a person has said it is fine.
+//
+// THE THIRD REMEDY, AND WHY THE FIRST TWO WERE NOT ENOUGH (owner ruling,
+// 2026-09-03). Until today this check offered exactly two remedies, and on a
+// site whose fossil-shaped rank-1 is the RIGHT button both of them make the
+// site worse. The worked case is boxingonline.com: `tool-fight-calendar` at
+// nav_order 3 against a pack at 200 — the fossil shape exactly, and the
+// correct primary button for a boxing site. Opting it out hands the button to
+// a trivia quiz; demoting nav_order does the same AND moves the visible menu.
+// The estate could say "never use this page as a CTA destination"
+// (eligible_as_cta_target, 714) but had no way to say "this page SHOULD win,
+// I have looked, stop asking". `pages.cta_rank_deliberate_nav_order` (750) is
+// that sentence, and ctaRankAcknowledged below is the only thing that reads it.
+//
+// ⚠ AND "JUST DISMISS THE WORK ITEM" IS NOT A THIRD REMEDY — THIS FILE USED TO
+// CLAIM IT WAS, AND THE CLAIM WAS FALSE. The comment on ItemKey below said
+// "items dedup in ANY status … so the same page recurring at the SAME value
+// after a human dismissed it stays dismissed". idx_swi_dedup is
+//
+//	UNIQUE (site_id, item_key) WHERE item_key IS NOT NULL
+//	  AND status <> ALL (ARRAY['complete','verified','rejected','wont_fix',
+//	                          'failed','unresolved','cancelled'])
+//
+// — the dedup slot is held ONLY by items in OPEN statuses. Closing an item as
+// wont_fix or rejected RELEASES the key, and the next pass files an identical
+// one. Measured on cv1.co.uk 2026-09-03: resolved to `complete` 10:00:35Z, a
+// fresh identical item inserted 10:02:24Z. So dismissal is not durable, and
+// perversely it is leaving the item OPEN that suppresses duplicates. Corrected
+// at both sites, and 750 exists because of it.
 package discovery_checks
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 
@@ -85,6 +115,26 @@ func (c *CTARankAnomalyCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 	ranked := datahelpers.RankCTAPositionalCandidates("", interactive)
 
 	anomalous, detail := ctaRankAnomaly(ranked)
+
+	// The acknowledgement is consulted ONLY once the shape has already been
+	// judged anomalous, and only for the page that actually won. Asking first
+	// would let a stale acknowledgement suppress a DIFFERENT page's fossil on
+	// the same site; asking here means the column can only ever silence the
+	// exact finding a person looked at.
+	if anomalous {
+		if ackNav, ok, err := ctaRankAcknowledged(dctx, ranked[0].Name); err != nil {
+			// Do NOT swallow: a failed lookup must not read as "not
+			// acknowledged", which would file an item a human already retired.
+			// The runner fails the step, which is loud and correct — the
+			// alternative is a silently re-opened finding nobody can close.
+			return nil, fmt.Errorf("cta_rank_anomaly: acknowledgement lookup for %q: %w", ranked[0].Name, err)
+		} else if ok {
+			anomalous = false
+			detail = fmt.Sprintf("rank-1 '%s' at nav_order %d is acknowledged as deliberate "+
+				"(pages.cta_rank_deliberate_nav_order = %d)", ranked[0].Name, ranked[0].NavOrder, ackNav)
+		}
+	}
+
 	if !anomalous {
 		// Positive observation, not absence: the ranking RAN over the real
 		// supply and its rank-1 is not fossil-shaped (or there is no rank-1).
@@ -110,11 +160,18 @@ func (c *CTARankAnomalyCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 		"detail":    detail,
 		"source":    "cta_rank_anomaly",
 		"fix": "This page wins the site's primary CTA everywhere on a nav_order far below " +
-			"its siblings — the fossil shape of bugs_closed/391. If deliberate, dismiss this. " +
-			"If not: demote pages.nav_order to join the pack, or set " +
-			"pages.eligible_as_cta_target=false to remove it from CTA candidacy entirely " +
-			"(nav placement and listings are unaffected). Note nav_order also orders the " +
-			"visible menu where in_header=true, so a demotion moves the menu too.",
+			"its siblings — the fossil shape of bugs_closed/391. THREE remedies, and the " +
+			"first is the right one whenever the button is actually correct: (1) if this IS " +
+			"the button you want, record that — " +
+			fmt.Sprintf("UPDATE pages SET cta_rank_deliberate_nav_order = %d WHERE site_id = '%s' AND name = '%s';",
+				winner.NavOrder, dctx.SiteID, winner.Name) +
+			" this check then retracts and stays silent until the page's " +
+			"nav_order changes. (2) set pages.eligible_as_cta_target=false to remove it from " +
+			"CTA candidacy entirely (nav placement and listings unaffected) — but note this " +
+			"hands the button to the NEXT page in the same nav_order ordering, which may be " +
+			"worse. (3) demote pages.nav_order to join the pack; this also moves the visible " +
+			"menu where in_header=true. Do NOT simply close this item: the dedup index " +
+			"releases the key on a terminal status, so it will be re-filed next pass.",
 	}
 	specJSON, _ := json.Marshal(spec)
 
@@ -139,14 +196,60 @@ func (c *CTARankAnomalyCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 		// "one human glance" precedent for the borderline case).
 		Status:    "needs_human_review",
 		CreatedBy: dctx.AgentType,
-		// Keyed page + nav_order: items dedup in ANY status (bugs_open/326),
-		// so the same page recurring at the SAME value after a human dismissed
-		// it stays dismissed, while a NEW fossil value on the same page mints
-		// a fresh item.
+		// Keyed page + nav_order so a NEW fossil value on the same page mints a
+		// fresh item rather than hiding behind the old one.
+		//
+		// ⚠ CORRECTED 2026-09-03 — this comment used to say "items dedup in ANY
+		// status … so the same page recurring at the SAME value after a human
+		// dismissed it stays dismissed". THAT IS FALSE. idx_swi_dedup's WHERE
+		// clause excludes seven terminal statuses (complete, verified, rejected,
+		// wont_fix, failed, unresolved, cancelled), so a closed item releases
+		// the key and the next pass re-files an identical one — measured on
+		// cv1.co.uk 2026-09-03 (complete 10:00:35Z, fresh item 10:02:24Z). The
+		// durable "I have accepted this" is migration 750's column, read by
+		// ctaRankAcknowledged above; closing the item is not a substitute and
+		// the fix text now says so.
 		ItemKey: fmt.Sprintf("cta_rank_anomaly_%s_%d_%s", winner.Name, winner.NavOrder, dctx.SiteID),
 		BatchID: dctx.BatchID,
 	})
 	return result, nil
+}
+
+// ctaRankAcknowledged reports whether a human has accepted THIS page winning
+// the site's primary CTA AT ITS CURRENT nav_order (migration 750).
+//
+// The equality against the page's own live nav_order is the whole design, not
+// a sanity check: it makes the acknowledgement SELF-EXPIRING. A boolean would
+// silence this check for the page for ever, including for a future shape
+// nobody reviewed — an acknowledgement outliving what it acknowledged. Storing
+// the reviewed nav_order means renumbering the page lapses the acknowledgement
+// and the alarm speaks again, which is exactly the granularity the work item
+// key already uses (cta_rank_anomaly_<page>_<nav>_<site>).
+//
+// The comparison is done in SQL against COALESCE(nav_order,100) — the same
+// expression the positional supply and the ranking use — rather than against
+// the ranked candidate's NavOrder, so a future divergence between the two
+// cannot silently widen what an acknowledgement covers.
+//
+// A missing row returns (0, false, nil): a page that has vanished between the
+// ranking and this lookup is not acknowledged, and the caller's ordinary
+// anomalous path is right for it.
+func ctaRankAcknowledged(dctx DiscoveryCheckContext, pageName string) (int, bool, error) {
+	const q = `
+		SELECT cta_rank_deliberate_nav_order
+		FROM pages
+		WHERE site_id = $1 AND name = $2
+		  AND cta_rank_deliberate_nav_order IS NOT NULL
+		  AND cta_rank_deliberate_nav_order = COALESCE(nav_order, 100)`
+	var ackNav int
+	err := dctx.DB.QueryRowContext(dctx.Ctx, q, dctx.SiteID, pageName).Scan(&ackNav)
+	switch {
+	case err == sql.ErrNoRows:
+		return 0, false, nil
+	case err != nil:
+		return 0, false, err
+	}
+	return ackNav, true, nil
 }
 
 // ctaRankAnomaly is the pure predicate over an already-ranked eligible
