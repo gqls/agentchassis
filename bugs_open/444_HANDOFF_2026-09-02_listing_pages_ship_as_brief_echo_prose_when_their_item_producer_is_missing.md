@@ -482,6 +482,45 @@ on `validate_site_plan`, equally invisible to WFA-013's budget. No cron literal 
 > not the layer that would REQUEST it (`site_work_items.item_type`) — `grep -rn "INSERT INTO pages"
 > platform/orchestration/actions/` returns it in one command. `WRONG_CALLS.md` 2026-09-03 entry.
 
+## CONTRIB 2026-09-03b — the feed lane: §"How to verify a fix" names an instrument that CANNOT PASS on a client-filled listing
+
+Second contribution from `news_feed_ingestion`, and this one is about **this file's own
+verification bar** rather than the enablement. §"How to verify a fix" says *"Judge at the
+served body, item count > 0 — never at page status or byte size."* The second half is
+right and hard-won. **The first half silently fails on any listing page that fills
+client-side, and advertise's `/news/` — this bug's own standing repro — is one.**
+
+`[MEASURED 2026-09-03]`, on the live site:
+- served `/news/index.html`: **0** `fetch(` calls, **0** references to
+  `news-archive.json`, an empty `news-listing-container`, a `news-listing-empty` state,
+  and one `<script src=…/tools/assets/news-listing.js>`;
+- that script (200, 3,587 B) contains exactly one fetch: `fetch("/data/news-archive.json")`.
+
+The items are injected into the **DOM at runtime**. The served bytes are the empty shell
+**by design**, so `curl … | grep -c` returns **0** after a completely successful feed run
+and reads as "the fix failed". That is a false negative that survives any amount of
+re-checking, and it is worse than a false positive here because it would send the next
+session to debug a working pipeline.
+
+**Both shapes exist in the estate and the shape is not predictable from the page type** —
+`render_news_section`'s rerender path renders the news-listing component server-side from
+`content_data`, while this page's deployed chrome fetches JSON. So it must be checked per
+page before choosing an instrument: `curl -s <url> | grep -c 'fetch(\|\.json'` tells you
+which you are looking at in one command.
+
+**The instrument for "does a visitor see items" is the live DOM after settle**, via
+`browser-runner-adapter` — a real deployment, up 53 days, **277** `acceptance_run` items
+`complete`. ⚠ **Do not conclude "no browser here" from the absence of node on the
+machine**; two other lanes reached that wrong answer from that wrong question. Cheap
+intermediate check that IS valid on the served surface: the JSON the page fetches
+(`/data/news-archive.json`, **404 on advertise today**) going 200 with a non-empty
+`items` array.
+
+Suggested for §"How to verify a fix": keep "never at page status or byte size", and
+replace "judge at the served body" with "judge at what the VISITOR gets — the served body
+for a server-rendered listing, the settled DOM for a client-filled one, and check which
+you have before choosing". Not edited into your section directly, since the bar is yours.
+
 ## CONTRIB 2026-09-03 — the feed lane: advertise's enablement is BUILT, and the recipe in §"How to verify a fix" is INCOMPLETE
 
 From `news_feed_ingestion` (the feed lane), taking the `advertise`/news half this bug

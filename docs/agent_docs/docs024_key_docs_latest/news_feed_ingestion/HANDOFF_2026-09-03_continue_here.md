@@ -128,8 +128,25 @@ Post-apply verification, in order: `_VERIFY.sql` (reports fetched count,
 `content-feed-refresh` (6-hourly; the trigger selects the site because every new
 source has `next_fetch_at` NULL) or dispatch the orchestrator directly →
 `_VERIFY.sql` again → `https://advertise.co.uk/data/news-archive.json` stops
-404-ing → served `/news/index.html` item count above zero (444's own bar: judge
-at the served body, never at page status or byte size).
+404-ing → ~~served `/news/index.html` item count above zero (444's own bar: judge
+at the served body, never at page status or byte size)~~.
+
+> **⚠ CORRECTED 2026-09-03 — that last step is the WRONG INSTRUMENT and would
+> have reported failure for ever.** `[MEASURED]` advertise's `/news/index.html`
+> fills **client-side**: the served HTML has 0 `fetch(` calls and 0 references to
+> `news-archive.json`, carrying only an empty `news-listing-container`, a
+> `news-listing-empty` state and a `<script>` for
+> `/tools/assets/news-listing.js` — and that script's single fetch is
+> `fetch("/data/news-archive.json")`. Items are injected into the DOM at runtime,
+> so the served bytes are the empty shell **by design** and a `curl | grep -c`
+> returns 0 no matter how well the enablement works. Judge a visitor-facing claim
+> at the **live DOM after settle**, via `browser-runner-adapter` (a real
+> deployment, 53 days up, 277 `acceptance_run` items complete) — and do not
+> conclude "no browser here" from the absence of node on the machine, which is
+> the wrong question. The `news-archive.json` step above is still exactly right
+> and is the cheap one. Full instrument-per-question table in the RUNBOOK.
+> Found because the 332 lane mentioned the browser service in passing; the defect
+> was in this lane's own plan, inherited verbatim from 444's fleet-wide bar.
 
 **Watch point I could not retire:** `git_commit` resolves the news-JSON repo as
 step config → `sites.github_repo` → default `"sites"`, and advertise's

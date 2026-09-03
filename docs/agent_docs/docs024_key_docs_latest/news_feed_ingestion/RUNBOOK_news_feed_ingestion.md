@@ -241,6 +241,40 @@ SELECT count(*) FILTER (WHERE source_summary ~ '\]\([^)]*$') AS unclosed_link_ta
 the page can fill. It does **not** prove the ingested summaries are clean. Both are worth
 knowing and they are different questions.
 
+### ⚠ 746's OWN verification instrument is WRONG: advertise's `/news/` fills CLIENT-SIDE, so `curl | grep` reports failure for ever
+
+`[MEASURED 2026-09-03]` This lane's handoff, and `bugs_open/444`'s standing bar, both say
+*judge at the served body, item count > 0*. **For this page that instrument cannot ever
+return a pass**, however well the enablement works:
+
+- served `/news/index.html`: **0** `fetch(` calls, **0** references to
+  `news-archive.json`, an empty `news-listing-container` and a `news-listing-empty`
+  state, and one `<script>` for `/tools/assets/news-listing.js`;
+- that script (200, 3,587 B) contains exactly one fetch: `fetch("/data/news-archive.json")`.
+
+So the items are injected into the **DOM at runtime**. The served bytes are the empty
+shell by design and stay that way for ever. A `curl … | grep -c` after a successful feed
+run returns **0**, and reads exactly like "the enablement failed".
+
+**Use the right instrument per question:**
+
+| question | instrument |
+|---|---|
+| did the pipeline produce items? | `746_..._VERIFY.sql` NOTICE, and the DB directly |
+| did the data reach the site? | `curl -s -o /dev/null -w '%{http_code} %{size_download}' https://advertise.co.uk/data/news-archive.json` — **404 today**, must become 200 with a non-empty `items` array |
+| does a visitor see items? | the **live DOM after settle**, not the served bytes — `browser-runner-adapter` (a real deployment, up 53 days, **277** `acceptance_run` items `complete` `[MEASURED 2026-09-03]`) |
+
+**Do not conclude "no browser here" from the absence of node on this machine** — that is
+the wrong question and two other lanes reached the wrong answer from it. The browser is a
+service.
+
+⚠ **This likely affects `bugs_open/444`'s other instances too**, and their bug file's
+"judge at the served body" line is the fleet-wide advice that walks into it. Whether each
+listing page is server-rendered or client-filled has to be checked **per page** —
+`render_news_section`'s own rerender path renders server-side from `content_data`, so both
+shapes exist in the estate and the shape is not predictable from the page type. Told to
+that lane.
+
 ### The THIRD question — "did my change actually ship?" — and the two ways its instrument lies
 
 The 332 lane's addition to the split above, and it is right: neither the surface nor the
