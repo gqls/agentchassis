@@ -3894,3 +3894,61 @@ as an owner item; proposed generalisation drafted with the classifier-only nouns
 > rationale is now void, but firing `content-gap-planner` at a live site runs `apply_plan`, so
 > the decision to spend a run is the owner's, not a session's. `scripts/fire-content-gap-planner.sh`
 > is written and NOT run — it sends the headers and refuses rather than dropping.
+
+**2026-09-03 midday — the finetuning.uk homepage verdict (CONTRIB from the finetuning lane):
+mostly NOT a register gap, and a re-render CANNOT fix it.** The owner read the homepage and named
+six tells. Measured against BANNED_REGISTER v2 on the live page (`curl`, 200, with an
+invented-path control returning 404 so it is not a parked domain — 78 visible sentences):
+
+| tell he named | v2 today | live hits |
+|---|---|---|
+| trailing ", not X" | **already caught** (`x_not_y`, comma-anchored) | **14** |
+| "instead of" | already caught (`instead_of`) | 3 |
+| "rather than" | already caught (`rather_than`) | 3 |
+| "not just" | already caught (`not_just`) | 2 |
+| "so" (bolted-on consequence) | **not covered** | 2 |
+| "Nothing … unless" | **not covered** | 1 |
+
+**23 of 26 hits are already named by v2, and his own worked example fires TODAY** — I ran the
+register's regexes against his sentence verbatim and `x_not_y` matches `", not t"`. The CONTRIB
+says the trailing form "matters most for your detector" because it passes an opening-frame test;
+that is true of `count_negation_tells.py`'s opening rule but NOT of the register or the Go gate,
+where the comma-anchored form has been in `negXNotYRe` all along. So the register is not the gap.
+
+**The gap is that the gate has never run on this page.** `rewrite_negations` is not a page-level
+step — it is a per-section sub-step inside `page-content-writer`'s `process_sections_loop`,
+firing right after `generate_content`. So it repairs copy only when the WRITER writes it. A
+page-rerender regenerates HTML from `content_data` and never enters that loop, so **a rebuild
+that is a re-render will not remove one of these tells** — they live in `content_data`. The
+homepage's copy was written 09-02 23:59Z; `[MEASURED 2026-09-03 ~10:20Z]` finetuning.uk has had
+**no** orchestration at all since the 08:58Z roll, so its copy has never met the current gate.
+
+**The current gate IS live and IS firing** — the control that proves it: 3 `page-content-writer`
+calls since the roll, one of them `process_sections_loop_iter_1_rewrite_negations` at 09:41:02Z,
+`success=t`, on **idea.uk** (corr `83353683`). So Decision A (mild set EMPTY since 2026-08-31 —
+"repair every one", `af121c9c1`) is in the running binary. Note the trap I nearly fell into: the
+two finetuning pages whose `updated_at` moved post-roll (`your-own-model` 10:00Z with 8
+`rather than`, `technical-details` 09:30Z with 7) look like the gate failing, and are not — an
+`updated_at` bump is not a writer run, and neither page belongs to a post-roll orchestration.
+**Counting shapes on a page tells you nothing about the gate unless you first establish the page
+went through the writer.**
+
+**Candidate v3 shapes, measured against 1,849 sentences of live copy from 400 recently-updated
+`page_components` on OTHER sites, before proposing either:**
+- `nothing_unless` (`\bnothing\b[^.]{0,90}\bunless\b`): **0 hits (0.00%)** in the corpus, 1 on the
+  homepage. Rare, unambiguous, no false-positive surface found — safe as a regex shape.
+- `so_consequence` (`,\s+so\s+(?:you|we|they|it|the)`): **122 hits (6.60%)** — the highest-traffic
+  pattern of the four tested, above `rather_than`'s 4.54%, and the sample is mostly INNOCENT:
+  *"The companion guide sets out the method behind it, so you can check the working."* That is
+  ordinary English, not the shape he objected to. **So "so" must NOT become a regex shape** — as a
+  trip it would swamp the gate and rewrite good sentences. What he named is a judgement ("a
+  consequence clause bolted on to make the fact sound reasoned"), which is the definition of a
+  `banned_classes_no_regex` entry. Recorded here rather than cut: a v3 is a new file + the
+  registerwords lockstep + a council round, and the regex-vs-class call on "so" is his.
+
+⚠ **One reading to confirm with him.** *"We only need the first bit, not the 'not'"* — the CONTRIB
+reads it as truncate-at-the-comma, keeping *"We're not tied to one provider"*. That matches the
+register's existing `x_not_y` treatment (truncate, keep the first half), so it is very probably
+right. But the kept half is itself a negative opening frame, which the house voice rule ("start
+with the fact; never open by saying what something is NOT") forbids — so on the other reading he
+wants the "not" gone from the first bit too. The two readings give different repairs.
