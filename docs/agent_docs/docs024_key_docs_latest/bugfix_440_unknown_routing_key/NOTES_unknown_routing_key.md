@@ -558,3 +558,18 @@ trailer and will list as un-reviewed in the `098` coverage report, because the r
 `Council-Submitted:` trailer rides the follow-up commit carrying the submission JSON, so the
 correlation is in the git record either way. `Council-Reviewed:` stays unwritten until an approved
 verdict is actually read — writing it earlier is the `098` report's MISMATCH bucket.
+
+**Misstep, immediately after: I hit the backticks-in-`-m` landmine that is in my own auto-memory
+index.** Commit `a32915c16`'s message was written with markdown-style backticks by habit — "named
+in \`symbol\` but shown only as a comment" — and bash executed `symbol` as a command, substituting
+its empty output. The committed message reads "named in  but shown only as a comment"; the word is
+gone and forward-only forbids an amend, so it stands. Cosmetic here, and the meaning survives.
+**It was not guaranteed to be cosmetic:** whatever sits between backticks RUNS, so the same habit
+around a phrase containing a destructive verb would execute it.
+- **The tell is easy to miss**: a single `/bin/bash: line 193: symbol: command not found` scrolls
+  past above the commit-scope block, which is exactly where the eye is going for the file list.
+- **The durable remedy is not "be careful" — it is to stop using `-m` for long messages.**
+  `git commit <pathspec> -F <file>` takes the message from a file with no shell expansion at all,
+  which also makes it trivially reviewable before committing. The landmine entry documents the
+  trap; this is the substitution that removes the opportunity. Prose that is *about* code will keep
+  wanting backticks, and a rule that depends on remembering not to type them has now failed once.
