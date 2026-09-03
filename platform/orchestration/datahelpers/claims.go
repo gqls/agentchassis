@@ -342,6 +342,52 @@ type EvidenceBase struct {
 	// to fad209b92's fleet-wide default.
 	citationPrefixRe  *regexp.Regexp
 	citationContextRe *regexp.Regexp
+
+	// MalformedFacts names the facts in this register that did not decode,
+	// and is the reason facts are decoded ONE AT A TIME below.
+	//
+	// It is not populated from the register's JSON — it is produced by the
+	// parse, so it carries no struct tag and never round-trips into a
+	// register a consumer writes back.
+	MalformedFacts []MalformedFact `json:"-"`
+}
+
+// MalformedFact is one fact this register carries that could not be decoded.
+//
+// WHY THIS TYPE EXISTS, because a reader will otherwise assume the parse is
+// simply lenient now. Until 2026-09-03 ParseEvidenceBase decoded `facts` as
+// one array, so a SINGLE undecodable fact returned an error for the WHOLE
+// base — and every caller treats that error as "this site has no register".
+// The three claims gates (validate_page_content.go, its stat audit, and
+// check_unverified_claims.go) then skip the site entirely, INCLUDING its
+// banned_claims, which do not depend on facts at all. Measured 2026-09-03,
+// that had silently disarmed two live registers and 10 banned claims:
+// finetuning.uk (3 bans, since 08-24) and noted.co.uk (7 bans, since 08-25),
+// whose ban list forbids exactly the unearnable security absolutes a notes
+// product must not claim. Both were found by an audit, not by any signal.
+//
+// The cause was not a typo. EvidenceFact.Value is a *float64 and authors were
+// legitimately registering text-valued facts ("MIT", "Apache 2.0",
+// "Llama 3.3 Community License"), which is a shape the register has no way to
+// hold. So the failure was reasonable authorship meeting a missing capability,
+// and the blast radius was the entire site's guard list.
+//
+// A malformed fact now costs you THAT FACT. Everything else in the register —
+// every ban, both attestations, the citation codes — parses and stays armed.
+type MalformedFact struct {
+	// Index is the fact's position in the register's `facts` array. It is what
+	// a human needs to find the row, and it is available even when the fact is
+	// too broken to have a readable id.
+	Index int `json:"index"`
+	// ID is the fact's `id` if it could be read as a string, else "". Read
+	// separately from the failed decode precisely because the decode failed:
+	// one bad field must not cost us the name of the fact carrying it.
+	ID string `json:"id,omitempty"`
+	// Err is the decode error verbatim, which names the offending field and
+	// its type (e.g. "cannot unmarshal string into ... .value of type
+	// float64"). Verbatim because paraphrasing it would lose the one detail
+	// that makes the row findable.
+	Err string `json:"error"`
 }
 
 // ParseEvidenceBase decodes the site_specs data JSONB into an EvidenceBase and
@@ -353,9 +399,38 @@ func ParseEvidenceBase(data []byte) (*EvidenceBase, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
-	var eb EvidenceBase
-	if err := json.Unmarshal(data, &eb); err != nil {
+	// Facts are decoded ONE AT A TIME, and that is the whole point — see
+	// MalformedFact's own doc comment for the two live registers this was
+	// found on. `facts` is shadowed here as raw JSON (the outer field wins
+	// over the embedded struct's, being at the shallower depth) so that one
+	// undecodable fact costs that fact and nothing else. Every other field,
+	// banned_claims above all, decodes exactly as it always did.
+	//
+	// This can only ever make a register parse where it previously did not.
+	// There is no input for which it returns an error that the old code
+	// accepted: the top-level decode below is the same call on the same
+	// bytes, minus the facts array.
+	type evidenceBaseWire struct {
+		EvidenceBase
+		Facts []json.RawMessage `json:"facts"`
+	}
+	var wire evidenceBaseWire
+	if err := json.Unmarshal(data, &wire); err != nil {
 		return nil, fmt.Errorf("evidence_base unmarshal: %w", err)
+	}
+	eb := wire.EvidenceBase
+	eb.Facts = nil
+	for i, raw := range wire.Facts {
+		var f EvidenceFact
+		if err := json.Unmarshal(raw, &f); err != nil {
+			eb.MalformedFacts = append(eb.MalformedFacts, MalformedFact{
+				Index: i,
+				ID:    rawFactID(raw),
+				Err:   err.Error(),
+			})
+			continue
+		}
+		eb.Facts = append(eb.Facts, f)
 	}
 	// A site carrying ONLY a regulated attestation must still parse to a
 	// non-nil base, or its attestation would be silently discarded here and the
@@ -366,7 +441,14 @@ func ParseEvidenceBase(data []byte) (*EvidenceBase, error) {
 	// attestation-only base must parse non-nil or the practice-claims exemption
 	// silently never fires. Neither attestation makes the base SCANNABLE — see
 	// HasScannableRegister, which is what the register-comparison scans key on.
-	if len(eb.Facts) == 0 && len(eb.BannedClaims) == 0 && eb.Regulated == nil && eb.OperatingHistory == nil {
+	// len(eb.MalformedFacts) is part of this test for the same reason the two
+	// attestations are: returning nil here means "site not opted in", and a
+	// register whose ONLY content is facts that failed to decode is a site
+	// that opted in and got nothing. Without this clause the single signal
+	// that something is wrong would be discarded exactly where it is most
+	// needed — a register with no bans to save it.
+	if len(eb.Facts) == 0 && len(eb.BannedClaims) == 0 && eb.Regulated == nil &&
+		eb.OperatingHistory == nil && len(eb.MalformedFacts) == 0 {
 		return nil, nil
 	}
 	for i := range eb.BannedClaims {
@@ -379,6 +461,21 @@ func ParseEvidenceBase(data []byte) (*EvidenceBase, error) {
 	}
 	eb.compileCitationCodeRegexes()
 	return &eb, nil
+}
+
+// rawFactID reads just the `id` of a fact that failed to decode as a whole.
+//
+// It decodes into a map rather than a struct with one string field, because
+// the fact failed on a TYPE mismatch and a struct would fail again on the
+// same field. Any failure here yields "", which the caller reports as an
+// unnamed fact at a known index — never a wrong name.
+func rawFactID(raw []byte) string {
+	var probe map[string]interface{}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return ""
+	}
+	id, _ := probe["id"].(string)
+	return id
 }
 
 // ============================================================================
