@@ -60,6 +60,19 @@ EXPECTED pre-convergence shape, not a failure).
 > carrying broken logos (designblog / seotools / gamedesign — theirs to do) IS the
 > lower-stakes calibration; read those results at the PNG bytes (424 RUNBOOK chunk scan +
 > `border_keyed` in the adapter log), and only then regenerate boxingonline's. Not fired.
+> **OWNER GO 09:25Z ("yes try the logo on boxingonline") — FIRED:** `needs_imagery`
+> **`d71b7877-b42a-4019-9ede-74be363209ff`**, `item_key needs_imagery:site:-:logo`, filed
+> 09:24:42Z `triaged`, priority 10, `image-build-handler`; spec = the fleet shape of the run
+> that succeeded on websitepromotion (`95333588`), boxingonline's base prompt with the voided
+> wordmark phrase removed, **no GROUND clause** (the key-colour clause is code, 424; text-free is
+> code, 417). Baseline before firing: asset `20ce80fb` `updated_at` 09-02 10:40:12Z; served
+> logo 139,777 B, sha256 `4aff0f99383c3bf5…`, 400×218 depth 16 colour type 2 no tRNS (the
+> interim solid mark). **Success = BOTH** (424 RUNBOOK): stored/served PNG colour type 4/6 or
+> `tRNS`, with a real fully-transparent fraction, AND the adapter log's `border_keyed` for
+> this run; plus eyeball for a single text-free composition and the CONTRIB's magenta fringe.
+> A refusal (guard) leaves the interim mark in place — not a failure of this test, a data
+> point. Watcher armed; 424 lane + boxingonline session told. The three portfolio resets
+> (424 lane, 09:23:49Z) run in the same window — read all four.
 > Binary control probe on the new adapter pod: first attempt KILLED by the rollout (exit 137
 > / "container not found") — inconclusive, not "absent"; retried on a settled pod (NOTES).
 > **~21:18Z (yesterday):** two of §1's four premises are corrected below in place — §1.1 (logo

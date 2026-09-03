@@ -582,3 +582,14 @@ of other work; I will report when the tag is on the live pages.
 
 Nothing else moved: no new release overnight, so the logo position is exactly as I left it,
 and delivery is still held.
+
+## 2026-09-03 (mid-morning) — you said go on the logo, and it is running
+
+The new release is live and carries the repaired safety check for logo backgrounds; I checked
+that on every pod of both services. On your word I have asked the system to regenerate
+boxingonline's logo with a transparent background. It went in at 09:24 and will take a little
+while. The three other sites that got bad logos yesterday are being retried at the same time
+by the thread that owns that fix, so we get four readings from one window. I will judge the
+result by the image bytes and the safety check's own score together, never one alone, and by
+eye for a single clean mark. If the check refuses the result, the current solid mark stays, and
+that is still useful information rather than a failure.

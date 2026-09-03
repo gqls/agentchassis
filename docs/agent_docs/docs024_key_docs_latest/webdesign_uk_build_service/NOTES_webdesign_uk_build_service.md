@@ -8091,3 +8091,21 @@ lane's per the ownership ruling.
   (`985f5f66d`, 08:57:49Z) after my first provenance read; current Running pods and their
   stamps: agent-chassis-75b987cbd7-mqrnj=7bf1ff674 agent-chassis-75b987cbd7-vzdz9=7bf1ff674 image-generator-adapter-985f5f66d-2tqfn=7bf1ff674 image-generator-adapter-985f5f66d-7rgzz=7bf1ff674 — same stamp, so the ancestry verdict stands. Verdict at the artefact, both
   services: **424 guard fix LIVE on v1.0.1356.**
+
+## 2026-09-03 (09:25Z, clock-read) — OWNER GO on the boxingonline logo: transparent regeneration FIRED as `d71b7877`
+
+- Owner: "yes try the logo on boxingonline continue" (~09:20Z) — decision #2 answered: boxingonline is
+  the first deliberate test, alongside the 424 lane's three portfolio resets (triaged 09:23:49Z).
+- **Shape discipline:** the interim row `00aa1796` carried a GROUND clause ("exactly #0a0a0a …
+  edge to edge") in its prompt — carrying that into a keyed-ground run would fight the magenta
+  key clause the same way the round-1 negatives did. So the new row copies the FLEET shape of
+  the run that succeeded (`95333588`, websitepromotion, 18:00Z 09-02): `check emit_imagery_items`,
+  `asset_key logo`, `brand_update true`, base prompt only ("no text or lettering of any kind …
+  a single composition"), key `needs_imagery:site:-:logo` (no prior terminals under that key on
+  this site — the interim had none). Pre-flight: no open imagery item; pods 26 min old.
+- Filed 09:24:42Z: `d71b7877-b42a-4019-9ede-74be363209ff`, triaged. Baseline at the served
+  artefact 09:24Z: 139,777 B, sha256 `4aff0f99383c3bf5`, 400×218, depth 16, colour type 2, no
+  tRNS (RUNBOOK chunk scan) — the interim solid mark, last-modified 04:57:08 GMT.
+- Watcher armed: terminal → asset row → adapter log lines (`border_keyed`, `pixels_keyed`,
+  `source_format`) → item result. Stored-bytes check to follow via the 417 RUNBOOK recipe (probe
+  from the pod, no key in session); served check after the mirror tick.
