@@ -272,6 +272,16 @@ EXPECTED pre-convergence shape, not a failure).
    > `claimed`, that is the monitor working — leave it.** The logo `d71b7877`, the chrome
    > refresh `ec92320f` and the components' `06210ec6` wait on the same turn and will load in
    > the same run (max 8), expected order 8 → 10 → 10 → 80.
+   > **CORRECTED 10:31Z: "hours away" was WRONG — boxingonline is POSITION 2.** The
+   > components lane produced a site (adversecreditmortgage.co.uk) holding the fleet's oldest
+   > window minimum yet untouched for two days; the clause I had read and not applied is the
+   > SITE LOCK (`sites.locked_at` 08-18, owner halt → invisible to the trigger). My "21 sites /
+   > 270 items" was a proxy census (`status='triaged' AND pipeline='build'`) that ignores the
+   > lock, attempts, retry, deps, governor and claimed-skip. Replicating the trigger's FULL
+   > SQL minus LIMIT (`[MEASURED 10:31Z]`): 1 finetuning.uk 08:25:16 · **2 boxingonline.com
+   > 08:26:24 (5 in window)** · 3 garden-tools.uk … gaswholesalers/gamesdesign not in the top
+   > 15. So the four items load in the NEXT boxingonline run, minutes away. The claim-gated
+   > window stands (it is now the better design regardless). WRONG_CALLS row filed.
    > **What actually produces decks here:** the BUILD path — proven on this very site
    > (guides-index `needs_page` rebuild 17:23:02Z → excerpt PRESENT, suffix stripped;
    > §1.4 closed that way). A `needs_page` rebuild of `index` is the known-working route

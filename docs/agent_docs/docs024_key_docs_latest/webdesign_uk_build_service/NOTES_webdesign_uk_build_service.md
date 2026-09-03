@@ -8180,3 +8180,15 @@ lane's per the ownership ruling.
   refuses, burns attempts — recoverable by refiling; NOT a fleet exposure.
 - Told the components and boxingonline sessions: hours, not minutes; expected in-run order 8 → 10
   → 10 → 80 [INFERRED from `process_item_iter_N_spawn_handler` step names — sequential].
+- **CORRECTED 10:31Z — "hours away" was wrong; boxingonline is POSITION 2.** The components lane
+  produced adversecreditmortgage.co.uk (oldest window-min fleet-wide, untouched two days, items of a
+  type served elsewhere today) as a counter-example. Resolution in one query: its `sites.locked_at`
+  = 2026-08-18 (owner HALT, portfolio_positioning) → `lock_ok=false` on all 22 items, every other
+  clause true. My "21 sites / 270" was a proxy census ignoring the lock (and attempts/retry/deps/
+  governor/claimed-skip) — the very clause I had read. Trigger SQL replicated minus LIMIT, ranked
+  by window-min `[MEASURED 10:31Z]`: 1 finetuning.uk 08:25:16 · 2 **boxingonline 08:26:24 (5 in
+  window)** · 3 garden-tools 08:28:36 · … 10 remortgagecalculator 08:55 (components' 690);
+  gaswholesalers/gamesdesign absent from the top 15. Four locked sites fleet-wide (copyonline,
+  buytoletcalculator, indoorplanters, adversecreditmortgage). Both lanes corrected; WRONG_CALLS
+  row + tally row ("rank yourself with the selector's own query, never a proxy census"). The
+  claim-gated window stands — better shape regardless of the wait.

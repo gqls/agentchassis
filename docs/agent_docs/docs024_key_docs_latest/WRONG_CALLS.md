@@ -110,6 +110,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **name the DISTURBANCE's timescale before choosing a stability test's window — N runs back-to-back share a query plan and a heap, so they cannot see drift that happens over hours; the sampling interval is part of the claim** | **1** |
 | **`ls -t` / `git log --since=<your last read>` the lane you are about to act IN (or point the next session INTO) before writing the action item — clearing the blocker you were watching is not re-reading the lane; the disconfirming evidence arrives by another session's commit while you are busy verifying yours** | **1** |
 | **write the `[MEASURED]` marker only AFTER the tool result is on screen — never batch a claim with its own check; a tool failure (here a classifier outage) lets the claim land without the measurement, and the file then asserts a check that never ran** | **1** |
+| **rank yourself with the SELECTOR's own query, never a proxy census — a proxy's population includes what the selector EXCLUDES (here: locked sites), and a served-site history read as "starvation" is the same proxy one step later** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -60582,3 +60583,33 @@ new — but the value came from confirming someone else's finding, not from mine
 
 Family: prior-art-search-goes-stale, grep-landmines-for-your-symbols,
 a-report-is-not-a-measurement.
+
+## 2026-09-03 — "boxingonline's turn is hours away" quoted to two lanes from a proxy census; the trigger's own query ranked it SECOND (session site_delivery_and_editor)
+
+- **The claim.** ~10:2xZ, to the components and boxingonline sessions and into the handoff/NOTES:
+  boxingonline's four queued items wait "hours, plausibly" because the fleet trigger serves the
+  site whose 8-item window holds the oldest `created_at`, and "21 sites / 270 triaged items with
+  week-old minima" sit ahead; gaswholesalers (9 runs/3 h) and gamesdesign (10) as the evidence of
+  starvation.
+- **Why it was false.** I had READ the trigger's `find_dispatchable_site` SQL, including its first
+  clause `(s.locked_at IS NULL OR wi.id = ANY(lock_except_item_ids))`, and then measured with a
+  proxy (`status='triaged' AND pipeline='build'` grouped by site) that applies none of the seven
+  predicates. Replicating the trigger's own SQL minus `LIMIT 1`: boxingonline is **position 2**
+  (window-min 08:26:24Z) behind finetuning.uk (08:25:16Z); the "week-old" sites are LOCKED
+  (adversecreditmortgage: owner halt since 2026-08-18) or otherwise ineligible, and the two
+  "hogging" sites are not in the top 15.
+- **What caught it.** The components lane, with one measured counter-example: a deployed site
+  holding the oldest minimum, untouched for two days while sites behind it moved — "not
+  consistent with the rule as you describe it; I am not proposing a mechanism, I am handing it
+  back." Not me.
+- **The mistake, precisely.** A proxy census answers the question it encodes, not the selector's.
+  Reading the rule and then measuring something cheaper than the rule produced a confident number
+  in the WRONG direction — and "hours" was the figure two other lanes were planning around. The
+  served-site history (9 runs, 10 runs) was the same error one step later: it shows who WAS
+  served, which the proxy then explained with a mechanism the selector does not have.
+- **The cheap check that would have.** Paste the selector's SQL, drop the `LIMIT`, add
+  `row_number() OVER (ORDER BY …)`, and read your own site's row. Ninety seconds; the query was
+  already on my screen.
+- **Cost.** A wrong planning figure sent to two lanes for ~25 minutes; one correction round each;
+  and the 725 window's redesign to claim-gating — which turned out to be the better shape anyway,
+  so the only lasting cost is this row.
