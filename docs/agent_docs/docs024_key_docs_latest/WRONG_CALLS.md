@@ -63202,3 +63202,40 @@ declaring-a-key-silences-your-own-detector.
   says the dormant rows are *"other sites' served surface"* — they are not; the round was in flight
   and forward-only forbids an amend, so it is corrected in the lane NOTES and here). No production
   damage: the contrast fix the round is actually about is sound and verified at the artefact.
+
+---
+
+## 2026-09-03 — I propagated a peer's finding as confidently as a measurement, and it was retracted three hours later (`bugs_open/450` lane)
+
+The subtlest of the day's entries, because **nothing here was careless** and every step was the
+best reading available at the time.
+
+- **The claim**: a peer lane measured that the repaired seotools pages carried the new tool *and*
+  the old prose "sharing position 2", concluding the shelled fork leaves "debris the repair cannot
+  remove" while the sectionless fork heals cleanly. I recorded it as **inverting my own argument
+  for the plan-side gate in its favour**, wrote it into NOTES, put it in a commit message, and sent
+  it to two other lanes — all within about ten minutes of receiving it.
+- **What was actually true**: when the same lane finally read the SERVED BODIES, order was stable
+  on all seven pages (`hero-tool` → `generic-text-block` → tool, by byte offset), so two rows
+  sharing a database `position` do not compete in the output; and the prose was **not debris** but
+  accurate copy about a tool that is now present, written after the repair. **The writes I had
+  variously called a guard failure and then a tolerated event had in fact IMPROVED those pages.**
+- **Whose error it was**: theirs to make, mine to propagate. They inferred served order from stored
+  position — the same encoded-question failure this file records five times today, one table along
+  — and volunteered the retraction unprompted. **My error is separate and is the one worth
+  logging: I adopted their inference and restated it as settled.**
+- **The cheap check**: their message said what it was — a database reading — and I turned it into a
+  claim about what a visitor sees, which only a body probe could support. One `curl` would have
+  told me, and I had been running exactly that probe all day for my own claims.
+- **The rule**: **a peer's finding is evidence, and evidence gets superseded. When you adopt
+  someone else's finding, adopt its STATUS too** — observed or reasoned, at the rows or at the
+  artefact — and carry that status with it into every document and message you push it into.
+  Propagating a correction as confidently as a measurement is how a retraction becomes expensive:
+  mine had reached two other lanes and a commit message before it was three hours old.
+- **Why this is worth an entry despite no damage**: the damage was avoided only because the same
+  peer kept measuring. A finding that travels faster than its evidence is a hazard on a tree this
+  many sessions share, and speed of propagation is exactly what makes cross-lane work valuable —
+  so the fix is not to propagate less, it is to propagate the confidence level with the claim.
+
+Family: a-report-is-not-a-measurement, your-measurement-answers-the-question-you-encoded,
+a-correct-predicate-wrapped-in-untested-inferences, prior-art-search-goes-stale.
