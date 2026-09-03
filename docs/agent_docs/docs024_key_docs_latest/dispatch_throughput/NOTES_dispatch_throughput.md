@@ -1980,3 +1980,47 @@ important things for a while."** Three parts, done in order `[all MEASURED 2026-
 L1, alarm note, banner, a probe submission that must land at `complete_withheld` with 0 LLM
 calls, restore, EASED note). It must NOT run until 83186fd9's round is past the gate, or the
 real round is the thing withheld.
+
+### 2026-09-03 21:3x–21:5xZ — THE GATE FELL OPEN ON ITS FIRST LIVE RUN; the canary caught it; mig 754 fixes the binding; and two things I had wrong about the day
+
+**The canary did its one job.** 753's council round (`83186fd9`, started 21:34:27Z) was also
+the first live run through 752's gate. Its `processing_history` shows `gate_spend_governor`
+executing at 21:34:29Z and its `__step_error` says: **`step gate_spend_governor failed: …
+could not determine data type of parameter $1 (SQLSTATE 42P18)`**. `error_step` then routed
+to `load_schema_hint` and the review ran — **fail-open worked exactly as designed, which is
+precisely why nothing noticed**: no output keys, no refusal, a normal round. Another lane's
+round at 21:41 fell open the same way. So **between 21:24Z and 21:49Z every council run was
+ungoverned while the row, the ledger and my report to the owner said otherwise.** WRONG_CALLS
+row filed. The cause: `$1` (bound from `$ctx.correlation_id`) appeared only inside
+`format(VARIADIC "any")`, so the driver's untyped parameter could not be inferred. **752's
+verify spliced a LITERAL for `$1` — it rehearsed the SQL and never the binding.** The binding
+IS rehearsable: `PREPARE p AS <text>` with unspecified parameter types forces the same
+server-side inference (reproduced: 42P18 on the live text; fixed text PREPAREs clean).
+
+**754** (`$1::text`, one token; refusal arm PROVES the defect is present before touching the
+text and md5-pins the post-752 query `3b3fa4a4…`) — dry-run OK, chained rollback OK, the
+cast-dropped mutation caught by the PREPARE arm with the exact 42P18. **752's daily VERIFY
+gained arm 5b** (PREPARE the live text): red on today's row before 754, green after. **Applied
+21:48:58Z, recorded, VERIFY green.** Its own round is held until after the owner's announced
+roll (a roll kills in-flight councils).
+
+**A second slip in the same hour:** my first probe of the fix reported "STILL FAILS" because
+its `replace()` anchor named text the c400d333 revision had wrapped in `COALESCE` — a
+`replace()` that matches nothing is a silent success. 754's guard counts the anchor first.
+
+**Two things I had wrong about the day, found by the post-roll script:**
+1. **The chassis had ALREADY rolled at 13:28Z** (ReplicaSet `85c4984f77`, v1.0.1359), during
+   the five-hour gap; my "Go halves proven on both live pods" was true of the 08:57 pods only.
+   The script, armed against the old hash, saw the new pods at once, waited 300 s, and
+   re-probed: **3/3 present, absent-control 0 on BOTH current pods**; 674 wiring intact; 752
+   VERIFY green; 753 marker present. The current pods carry the governor.
+2. Its two RED lines were **my own string comparisons** (`gov=true` vs `gov=t`; `^true ` vs
+   `^t `) — the estate was green. Fixed; re-armed against `85c4984f77` for the owner's roll.
+Also: the live council-gate row's `updated_at` is **13:27:33Z** — the release's seeding stamp —
+not my 21:24 apply: `jsonb_set` UPDATEs do not touch `updated_at` (no trigger). `updated_at`
+is not evidence of a hand apply; the content is.
+
+**Lessons, each now a RUNBOOK line:** (a) any `query_database` text carrying `$n` → PREPARE it
+in the verify; (b) any `replace()` → assert the anchor count first; (c) **a fail-open design's
+canary must read the FAILURE field (`__step_error`, `processing_history`), because success is
+what a broken fail-open looks like.**

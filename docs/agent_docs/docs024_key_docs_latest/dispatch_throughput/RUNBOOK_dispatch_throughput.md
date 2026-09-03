@@ -617,3 +617,17 @@ chassis restart. Six checks, scripted as `scratchpad/post_roll_checks.sh <log> <
 6. Governor posture line.
 Then: **resubmit any council round the roll killed** (find it by payload; a row stuck in a
 non-terminal status with no progress is the tell), and do NOT submit anything for ~5 min.
+
+### Three rules from the night the gate fell open (added 2026-09-03 21:5xZ)
+- **A `query_database` step text that carries `$n` MUST be PREPAREd in its verify** —
+  `EXECUTE 'PREPARE p AS ' || q; EXECUTE 'DEALLOCATE p';` — because a literal spliced in for `$n`
+  has a type and a bound parameter does not; `$1` used only inside `format(...)` fails 42P18 at
+  runtime and nowhere else. 752's daily VERIFY arm 5b does this on the live text.
+- **A `replace()` in a migration or a probe: count the anchor first** (`(length(q) -
+  length(replace(q, anchor, ''))) / length(anchor) = 1`). A replace that matches nothing is a
+  silent success and your probe then tests the unchanged text.
+- **A fail-open mechanism's canary reads the FAILURE field, not the outcome:**
+  `SELECT collected_data->>'__step_error', processing_history FROM orchestration_states WHERE …`.
+  A broken fail-open looks exactly like success.
+Post-release: `scratchpad/post_roll_checks.sh <log> <old-RS>` — the two boolean comparisons are
+`gov=true` and `^true ` (text of a boolean via `||` is `true`, not `t`).

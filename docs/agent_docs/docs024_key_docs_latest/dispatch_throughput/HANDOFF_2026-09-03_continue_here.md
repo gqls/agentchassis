@@ -225,3 +225,13 @@ mortgagecalculator CONTRIB (ordering) stays parked against the no-reorder ruling
 `scratchpad/post_roll_checks.sh` armed against ReplicaSet `75b987cbd7` (the pods since 08:57Z).
 The induced-L1 proof is HELD until the checks are green; round `83186fd9` may be killed by the
 roll — resubmit from `scratchpad/council_753.json` if its row stops progressing.
+
+## UPDATE 2026-09-03 ~21:5xZ — the gate FELL OPEN on its first live run (42P18); 754 applied; proof + 754's round HELD behind the owner's roll
+- **754 applied 21:48:58Z** (`$1::text`); 752 daily VERIFY green incl. new arm 5b (PREPARE).
+  Council runs 21:24–21:49Z were ungoverned (fell open) — stated in WRONG_CALLS.
+- **Post-roll watcher re-armed against `85c4984f77`** (`scratchpad/post_roll2.log`; notifier
+  bzgwek29j). The 13:28Z roll had already happened — current pods proven 3/3 + control.
+- **After the roll goes green:** submit 754's round (`scratchpad/council_754.json`) — it is the
+  next live canary: its row must show `gate_spend_governor` output (`collected_data ? 'governor'`)
+  and NO `__step_error` on the gate. THEN the induced-L1 proof (`induced_l1.sh`).
+- 753's round `83186fd9` is running (fell open at the gate — fine for a review); read its verdict.
