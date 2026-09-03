@@ -121,6 +121,44 @@ Live register coverage, re-measured `[MEASURED 2026-09-02, afternoon]` (was §1b
 Fleet citation-sourced facts, same method as §1a: **256**, up from **~192** that same morning
 `[MEASURED 2026-09-02]`.
 
+> **RE-MEASURED `[2026-09-03 09:57 UTC]`, from the `bugfix_414` lane — four of the five are DONE, so
+> §3c track 1 is now ONE site, and the wider population it sits in is thirteen.**
+>
+> - **`lendzy.co.uk` — register is LIVE**: 8 facts, 5 `banned_claims`. The table above still reads
+>   "not yet applied … 0 (pending)", which was true on 09-02 afternoon.
+> - **`farmerinsurance.uk` — 7 facts AND 5 `banned_claims`**; the banned half landed **09-02
+>   18:34:47 by migration 713**, not by the 09-03 09:11 refresher whose name the *current* row now
+>   carries. Read the spec history, not the current row — the refresher rewrites the whole row and
+>   relabels `created_by` on every key it merely preserved, including one it has no code path to
+>   author (LANDMINES: *"A refreshed spec's `created_by` names the last WRITER"*).
+> - **`loancash.co.uk` — still none, and it is an absence rather than an empty register**: no
+>   `evidence_base` row at all beside 14 other current specs, on a `deployed` site serving **30
+>   pages**. Unchanged since 09-02 and still unassigned.
+>
+> **The wider frame, same query:** `[MEASURED 2026-09-03]` **13 of 39 `deployed` sites hold no
+> current `evidence_base`** — `advertise.co.uk`, `cookly.uk`, `cv1.co.uk`, `designblog.co.uk`,
+> `garden-tools.uk`, `homegarden.uk`, `idea.uk`, `lampenkap.com`, `loancash.co.uk`, `oxenunity.com`,
+> `seotools.co.uk`, `vetcomparison.uk`, `websitepromotion.co.uk`. Q1's requirement is finance-scoped,
+> so most of those are not violations today. **Two are in ruled or imminent scope**: `loancash.co.uk`
+> under Q1, and `vetcomparison.uk` — already flagged at §3b line 509 — in exactly the sector Q5's
+> ruling names as next (*"extending to vet and legal quite soon"*). **The presets Q5 approved will
+> land on a site with no register to apply them to.**
+>
+> ⚠ **And nothing raises the absence — this is structural, not an oversight in the backlog.**
+> `resolveEvidenceSites` (`refresh_evidence_base_action.go:290`) builds the daily sweep's target list
+> as `SELECT site_id FROM site_specs WHERE aspect='evidence_base' AND is_current` — it selects the
+> sites that **have** a register. **The target set is defined by the presence of the very thing whose
+> absence is the defect**, so a register-less site is invisible to the freshness sweep, to the fact
+> checks, and to the new `invalid_banned_claim_pattern` detector alike, for ever and silently.
+> Two weaker searches point the same way and are marked as searches, not proofs: no `site_work_items`
+> row has ever been filed under any `item_type` matching `%evidence%`/`%register%`/`%claim%` other
+> than `claims_unverified` (47), `stale_evidence` (10), `spec_supplies_claim` (2) and
+> `stale_directory_claim` (2) — every one of which presupposes a register exists; and a name-search
+> over `platform/`, `cmd/`, `internal/`, `pkg/` for four candidate identifiers
+> (`missing_evidence_base`, `no_evidence_register`, `missing_register`, `evidence_base_missing`)
+> returns nothing. **Q1 requires registers; no reader enforces or even reports the requirement.**
+> Recorded here rather than built: it is this RFC's build, not the `414` lane's.
+
 **The number that matters more than the coverage:** three independent lanes, populating registers by
 reading the cited source rather than trusting the site's existing prose, found **five wrong live
 claims in one day** — not from a detector, from a human-equivalent read of the primary source:
