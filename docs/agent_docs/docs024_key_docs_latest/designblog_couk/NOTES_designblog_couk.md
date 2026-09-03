@@ -779,3 +779,32 @@ The free data point paid off three ways (components, attributed by
 
 161's inverted remedy: grepped clean in the components lane. Their 66/0
 survived this whole chain because it keyed on the ITEM, not the timestamp.
+
+## 2026-09-03 — RETRACTION: the 33-pinned category DOES NOT EXIST; the split collapses back to two
+
+> **CORRECTION to the previous entry (components' own retraction, minutes
+> later): `page_components.component_version_id` is WRITE-ONLY — dormant
+> machinery.** `save_sections_component_version.go:40` verbatim: "THIS FILE
+> ONLY WRITES. Nothing reads component_version_id… inert by construction";
+> header measured 2026-08-22: 0 of 1,930 rows populated, no reader.
+> Resolution keys on `component_id` against the LIVE row — a "pinned" page
+> resolves exactly like an unpinned one. **There is no 33-instance
+> unreachable category, no pin-vs-rebuild decision, and my ownership
+> question had no subject.** Never routed to the owner (it was held as
+> "decision 8 IF it comes back ruling-level" — it doesn't exist).
+
+What that un-explains is the part that matters: **the dartsonline result
+returns to face value** — a genuine sections-path run (`section_data_resolved`,
+attributed by `source_item_id`) that did NOT write the newly-declared field.
+That is a SECOND unexplained data point pointing where 425 §2 points, now on
+`site_assets.*` — strengthening the shared-root-cause hypothesis without
+proving it (components explicitly declining the opposite confident claim).
+689's cancellation reason was wrong but harmless (690 on
+remortgagecalculator.uk/about is equally valid and stays filed — still THE
+test). The class is TWO-way again: 57 repairable instances + the open
+question of whether the sections path resolves declared fields at all.
+
+The check that would have caught it was two greps at the named mechanism —
+correlation (pinned AND missing field) reported as causation. 114 grepped
+here: the phantom split never reached the bug file; inline guide imager
+warned off mirroring it.
