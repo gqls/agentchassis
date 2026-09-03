@@ -700,3 +700,78 @@ work item at `needs_human_review` on a three-day-old site
 Fleet-wide it is a **singleton: 146 attested facts, exactly 1 undated**, and it is this one — so
 order-intake's seeder writes an attestation that can never be satisfied without a human. Narrow,
 cheap, and it puts a spurious item in front of the owner at his pre-delivery review.
+
+## 15. Status update, 2026-09-03 — `ff91e666` resubmitted (round 2), and a defect in this lane's OWN migration 719
+
+**Round 2 of `ff91e666` is submitted** (dispatch correlation `c46cf6c2`, trail still keyed on
+`ff91e666`). It answers the gating objection with what actually happened rather than with a
+better argument, and it **widens the edit list from one migration to three**, because the
+objection was about a deferral and the deferral no longer exists.
+
+- **The gating objection (`prior_art_librarian`, HIGH) was right, and is now answered by
+  events.** Round 1 justified holding Phase B on the claim that only the full
+  page-build-handler pipeline could attach the component. That was a load-bearing absence
+  claim made without checking the section-editor family. The seat's own hypothesis — *"if
+  section-editor can attach a new component to sections, the stated blast-radius concern is
+  moot and Phase B could ship far sooner and smaller than planned"* — is exactly what
+  happened: `apply_section_edit` with `edit_type=component_swap`, read in
+  `ApplySectionEditAction` before use, attached it the same day with no rebuild.
+- **The three unanswered objections are now MEASURED at the live row, not argued.**
+  `[MEASURED 2026-09-03]` the component's `input_schema` top-level keys are exactly
+  `{notes, fields}` — native dialect, so `chk_input_schema_no_legacy_dialect` is satisfied
+  (and was at INSERT); `component_level='section'`, deliberately not `'tool'`, so nothing
+  here pulls this page into `check_tool_health` or Tier-2 acceptance gating; and the
+  `query.*`-sourced component census re-reads as **33 rows / 30 active**, which corroborates
+  round 1's "32" as that day's all-rows count taken before this row existed.
+- **Migrations `719` and `727` are in the edit list because a migration IS the running
+  system.** Submitting the library-only INSERT while its two live-data siblings went
+  unreviewed would have been reviewing the safe third of the work.
+
+### The defect in 719, found while writing the resubmission — not by any detector
+
+`719`'s UPDATE rebuilt the array with `jsonb_agg(DISTINCT x)` and **no `ORDER BY`**, which
+does not preserve input order. So:
+
+| | value |
+|---|---|
+| before 719 | `["hero-tool", "generic-text-block", "advertising"]` |
+| after 719 | `["advertising", "hero-tool", "event-list"]` |
+| 719's own stated intent ("replaces the array entry") | `["hero-tool", "event-list", "advertising"]` |
+
+**`pages.sections` is order-bearing BY INDEX**, not by membership —
+`save_page_sections_action.go:1979` says so outright, `adopt_fragment_section.go` replaces a
+section with `planned[Position-1]`, and `section_editor_actions.go`'s
+`loadPageComponentBySlotRO` carries a match arm on `p.sections->(pc.position - 1)`. After
+719, `page_components` position 1 (`hero-tool`) indexed to `"advertising"` and position 2
+(`event-list`) to `"hero-tool"`.
+
+**Bounded honestly: this was NOT live damage.** That section-editor arm is gated on
+`pc.slot_name IS NULL OR pc.slot_name = ''`, and `[MEASURED 2026-09-03]` both rows on this
+page carry non-empty slot names. It was a **latent** misalignment that goes live the moment a
+build leaves a slot name empty — and silent in both directions, because a wrong-but-present
+name matches nothing rather than erroring.
+
+**Fixed by migration `727`** (`727_boxingonline_fight_calendar_sections_restore_position_order.sql`),
+applied by hand and recorded `--record-only`. Two `RAISE` pre-checks (the array is exactly the
+post-719 value; the live composition really is `hero-tool@1`, `event-list@2`), and a verify
+block that asserts **the index alignment itself** rather than the array's literal value — so
+it would also catch a future drift this migration did not cause. **Rehearsed under
+`BEGIN`/`ROLLBACK`** (clean; post-rollback control unchanged) and **induced-failure-proven**:
+writing a deliberately wrong order made the verify block `RAISE` and abort with the row
+untouched. Live after apply: `["hero-tool", "event-list", "advertising"]` against a live
+composition of `hero-tool@1, event-list@2`.
+
+**Named and deliberately NOT fixed:** `"advertising"` is declared in that array and has no
+`page_components` row on this page (`content_components` `ad_zone_inline`,
+`function='advertising'`, `component_level='section'`). It predates 719 and predates this
+lane, so 727 left it exactly as found. If `check_unresolved_sections` is flagging this page,
+that entry is why — a separate decision from the ordering fix.
+
+**Not censused, and stated as a gap rather than left implied:** whether other pages
+fleet-wide carry a `pages.sections` whose entries do not index onto their own
+`page_components` positions. 727 restores ONE page. If 719's aggregate pattern has been
+copied elsewhere, that is a fleet question this lane has not answered.
+
+**719's header is left unedited on purpose.** It is an applied migration and the runner's
+drift guard hashes it; its now-refuted paragraph about the items defect ("No log line from
+either function appeared…") is corrected in §14 above and in `bugs_open/454` §5 instead.
