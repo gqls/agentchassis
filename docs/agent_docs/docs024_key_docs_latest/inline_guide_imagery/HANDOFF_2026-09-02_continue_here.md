@@ -158,11 +158,32 @@ asked whether they had opened the file; the claim survived, in a better form):
 - `grep -n site_plan_sections` on that file: **no occurrence.** It writes
   `INSERT INTO pages (…, sections, page_spec)` — **tier 3, the materialised cache** — and never
   tier 1, the authority.
-- **And the positive half, which I added:** `INSERT INTO site_plan_sections` has exactly **TWO**
-  writers fleet-wide — `write_site_plan_action.go:668` (the full plan write) and
-  `apply_gap_plan_action.go:1067` (the gap plan). **Neither is on the article-creation path.** So
-  an article born this way can only acquire a plan row if some LATER full re-plan or gap-plan run
-  happens to include it.
+- **And the positive half — CORRECTED 2026-09-03, because I censused Go and said "fleet-wide".**
+  `[MEASURED 2026-09-03]` there are **THREE** writing populations, not one:
+
+  | population | count | writes? |
+  |---|---|---|
+  | Go (`platform/`) | **2** — `write_site_plan_action.go:668`, `apply_gap_plan_action.go:1067` | yes; **neither on the article-creation path** |
+  | live `agent_definitions` config SQL naming the table | 2 rows (`build-site-planner`, `required-fields-missing-handler`) | **READS ONLY** |
+  | **operator SQL in the repo** (`INSERT INTO site_plan_sections`, `*.sql`) | **15 files** | **YES — a real third path** |
+
+  ✅ **The config row is a negative control that could have broken the claim and didn't** —
+  config-embedded SQL is this estate's documented blind spot for code-only censuses (it is why
+  `cmd/config-key-audit` is in council scope), so "2 Go writers" surviving it is worth more than
+  the number. ⚠ **My original wording was a Go-and-`platform/`-scoped grep reported as
+  fleet-wide** — same shape as the other unit errors this lane logged: the population I measured
+  was not the population my sentence named.
+  **And the 15 include `dartsonline_traffic/SQL_2026-07-29d_article_sections.sql` — the single
+  file that is the entire reason any dartsonline article has a plan row.**
+
+⚠ **PHASE ONE THEREFORE HAS THREE POSSIBLE SHAPES, AND THE THIRD IS A TRAP.** (1) Change one of
+the two Go writers so article creation writes the authority. (2) Add a third writer. (3) Backfill
+by operator SQL — **which fixes the pages that exist and nothing about the route.** dartsonline is
+the worked example: `SQL_2026-07-29d` gave nine articles plan rows in July, and the **14 articles
+created there since have none**, because every future article still arrives the same way.
+**Backfill is a cheap unblocker for a canary; it is not phase one** — and if it reaches the owner
+as one it will look done and then quietly stop being true with the next article. (That framing is
+`dartsonline_traffic`'s, who are their own cautionary example for it.)
 
 ⚠ **THE SENTENCE THAT STOPS PHASE ONE BEING MISTAKEN FOR A CHEAP FIX** (theirs, and it is the
 reason separating fallback-from-inference mattered): **"just pass richer `post.Sections`" is NOT a
