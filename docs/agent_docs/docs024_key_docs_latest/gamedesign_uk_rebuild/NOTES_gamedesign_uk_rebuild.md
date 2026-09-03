@@ -996,3 +996,42 @@ encoded.* Filtering on `content_data` when the address also lives in `rendered_h
 is the same error as filtering on `url NOT LIKE '%/index.html'` when the children use the directory
 form, and the same as reading `site_plan_pages` when the drop happened at a step boundary.
 **Only the served bytes are ground truth for "is this fixed".** Verify there, then work backwards.
+
+## 2026-09-03, ~16:45Z — a single-page rerender does NOT rebuild chrome; the footer needs `refresh_site_components`
+
+The four `page_rerender` items from 09-03f completed 16:26–16:29Z. **Served bytes afterwards:**
+contact 2 old / 3 new, about 2 old / 1 new, index 2 old / 0 new. The "2 old" on every page is the
+footer (`mailto:` href + link text). `site_components.footer` `updated_at` was still
+**15:02:39Z** — untouched. **`page-rerender` re-assembles a page around the STORED chrome; it does
+not regenerate chrome.** (The earlier "about returned nothing" was a transient curl failure —
+re-fetched: 200, 65,589 B, same 2/1 split.)
+
+**What regenerates chrome:** `render_site_components` (`render_site_components_action.go`), which
+reads the address from `sites` directly (`COALESCE(si.email,'')`, `:464`). Live callers:
+`rerender-pages` (when `needs_rerender.spec.refresh_site_components=true`), `rerender-chrome`,
+`nav-updater`, `nav-link-fixer`, `site-work-orchestrator`, `pageflow-builder`. The chain's own
+`needs_rerender` at 14:15Z carried that flag, and that is the run that stamped chrome at 15:02Z —
+BEFORE 09-03f corrected `sites.email` at ~16:24Z, so it faithfully rendered the old value.
+
+**`SEED_2026-09-03g`**: one `needs_rerender` → `rerender-pages`, `refresh_site_components: true`,
+key `chrome_refresh_email_8f17eb73_2026-09-03`, guarded on `sites.email` already being correct.
+Re-assembles all four pages in the same pass, so the contact-form's `rendered_html` refreshes too.
+
+**⚠ CDN:** `cache-control: public, max-age=3600`, `cf-cache-status: DYNAMIC` (measured 16:3xZ). The
+edge can serve the old footer for up to an hour after a deploy. **A stale served page within an
+hour of a deploy is not evidence the deploy failed** — check `site_components.footer.updated_at`
+and `rendered_html` first, then re-curl.
+
+**Tally for the contact address, so the next person does not repeat the walk:** the owner's one
+literal lived on **four surfaces** — `site_specs` (submission + briefing; 09-03c), three
+components' `content_data` (09-03e), **`sites.email`** (09-03f, feeds chrome AND the contact-form's
+`rendered_html`), and the **rendered chrome itself** (09-03g, regenerated only by
+`refresh_site_components`). Each of the first three passes verified clean at its own table while
+the live page still showed the old address. **Only the served bytes are ground truth.**
+
+**463 status, for this lane:** FIXED by session `463` (`9b540c2e6`, both halves — Pass C no longer
+deletes new children, and the write path no longer relocates them to `/blog/`), **NOT yet rolled**
+(live agent-chassis `30438851`; `merge-base --is-ancestor` says no). Their correction to my §5
+stands: `parent_section` DID matter — on the write path, not in Pass C. **Do not re-plan until they
+say the image has rolled.** They also filed **`bugs_open/467`** while in there: a re-plan cannot add
+ANY new page to a site of 20+ pages (`truncatePreservingRealised`), 26 of 42 sites affected.
