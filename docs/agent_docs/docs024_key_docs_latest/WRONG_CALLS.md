@@ -64508,3 +64508,52 @@ mid-flow on something else are independent. The cheap check is to use a heredoc
   if the feature were broken, and if the answer is "everything", it is not a check.
 - **Cost.** None shipped — the migration is `_HOLD` and was still unapplied. That was luck in
   timing and a peer's diligence, not a control of mine.
+
+## 2026-09-03 — `site_delivery_and_editor`: I wrote two guards that the landmine register already warns about, and I had read one of the warnings in this same session
+
+Two separate claims in the `bugs_open/466` council submission, both caught by the reviewers rather
+than by me, both already documented in `LANDMINES.md`. Logging them together because the shape is the
+same and the tally is the point.
+
+**Claim 1 — "exactly one other `on_approve` consumer, zero others."** I measured it with
+`jsonb_each(default_config->'workflow'->'steps')`. `LANDMINES` documents that idiom as blind to any
+step nested inside a `sub_workflow` — and this session's own SessionStart hook printed a landmine
+whose text says *"the render steps live inside `process_sections_loop.config.sub_workflow.steps`"*.
+I read that at the start of the session and wrote the blind version anyway.
+
+> The claim turned out **true** — the recursive walk returns the same single row. That is what makes
+> it worth logging rather than filing away as a near miss: **a sound conclusion off unsound evidence
+> is indistinguishable, from the outside, from a lucky one**, and the next person to quote "zero
+> other consumers" would be quoting the blind scan. The council's `prior_art_librarian` seat refused
+> the evidence rather than the conclusion, which is the correct thing to refuse.
+
+**Claim 2 — a refusal built on `page_components.updated_at`.** I added a guard refusing any fanned-out
+edit whose target had been written since the proposal, and wrote in the submission that it "closes the
+class". `LANDMINES` says plainly that this column **cannot** make that claim: at least two live writers
+bump it with no copy touched, one of them **page-wide**, so one review write moves `updated_at` on
+every component of a page. My guard would have refused perfectly fresh approvals, and the failure
+would have looked like the system being careful.
+
+Worse, I had "measured" it — *0 of 31 parked edits stale today* — and treated that as support. It is
+not: it describes today's state, and says nothing about what a future status write does. **A number
+that cannot distinguish the two hypotheses is not evidence for either**, which is the
+`measurement-discipline` rule I have written down and did not apply.
+
+**What caught both.** The council gate, at rounds 2 and 3, on an advisory review I nearly did not run
+because the change felt contained.
+
+**The cheap check that would have caught both, and it is the same check.** Before writing any guard,
+`grep LANDMINES.md for the COLUMN, TABLE or QUERY IDIOM the guard rests on` — not for the bug's
+subject. Both entries were already there, under `page_components.updated_at` and under the
+`jsonb_each` walk. The SessionStart hook cannot help here: it matches entries against files already
+DIRTY in the tree, and a landmine about a *column* or a *query shape* has no path to match. I have
+the memory note that says exactly this (`grep-landmines-for-your-symbols`) and still did not run it
+for the thing my code was resting on.
+
+**The generalisable form.** My habit is to grep the landmine register for **what I am fixing**. Both
+misses were in the register under **what I was fixing it WITH**. The tool, not the target.
+
+**Cost.** Two council rounds — about forty minutes and two rounds of credits, which is the cheap
+place to be wrong. No code shipped with either defect: the `updated_at` refusal never reached a
+release, and the blast-radius claim was re-measured before anything depended on it. `bugs_open/466`
+records both; the third round was APPROVED.
