@@ -174,6 +174,73 @@ func TestVerifyCitationLiveForRule_NonChapterPageFallsBackToWholePage(t *testing
 	}
 }
 
+// RFC_060 §3e/Q7. cfChallengeFixture is trimmed from the REAL response
+// captured live against maps.org.uk on 2026-09-03 (curl, HTTP 200) — the
+// three markers below (title, _cf_chl_opt, challenge-error-text) are the
+// actual bytes Cloudflare served, not an invented approximation.
+const cfChallengeFixture = `<!DOCTYPE html><html lang="en-US"><head><title>Just a moment...</title>` +
+	`<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head><body>` +
+	`<div class="main-wrapper"><noscript><div class="h2"><span id="challenge-error-text">` +
+	`Enable JavaScript and cookies to continue</span></div></noscript></div>` +
+	`<script>window._cf_chl_opt = {cvId: '3', cZone: 'maps.org.uk'};</script></body></html>`
+
+func TestBotChallengeReasonDetectsTheRealCloudflarePage(t *testing.T) {
+	if reason := botChallengeReason(cfChallengeFixture); reason == "" {
+		t.Fatalf("the real captured Cloudflare challenge markup was not detected")
+	}
+}
+
+func TestBotChallengeReasonEachMarkerAloneIsSufficient(t *testing.T) {
+	cases := map[string]string{
+		"title only":      `<html><head><title>Just a moment...</title></head><body></body></html>`,
+		"cf_chl_opt only": `<html><body><script>window._cf_chl_opt = {};</script></body></html>`,
+		"noscript only":   `<html><body><noscript><span id="challenge-error-text">x</span></noscript></body></html>`,
+	}
+	for name, html := range cases {
+		if botChallengeReason(html) == "" {
+			t.Errorf("%s: marker alone should be sufficient, got no match", name)
+		}
+	}
+}
+
+// The discriminating control: ordinary content — including a page that
+// happens to mention "moment" or "challenge" in prose — must NOT match.
+func TestBotChallengeReasonCleanPageIsNotFlagged(t *testing.T) {
+	ordinary := `<html><head><title>World LNG Report 2025</title></head><body>` +
+		`<p>For a moment, prices dipped, but the CONC 5A cost cap remains a challenge for lenders.</p>` +
+		`</body></html>`
+	if reason := botChallengeReason(ordinary); reason != "" {
+		t.Fatalf("ordinary prose containing the words 'moment' and 'challenge' was flagged: %q", reason)
+	}
+}
+
+// TestFetchCitationDocument_BotChallengeBecomesFetchErrorNotCitationLost is
+// the load-bearing, end-to-end test: a real citation, served the real
+// captured challenge page at HTTP 200, going through the actual production
+// path (verifyCitationLive, not a unit test of the detector in isolation).
+// Before this fix the outcome would be citation_lost (drift) — the loanzy
+// lane's own finding, "passes a human skim and then classifies as
+// citation_lost every day for ever, caused by the host, not the quote."
+func TestFetchCitationDocument_BotChallengeBecomesFetchErrorNotCitationLost(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK) // Cloudflare serves the challenge at 200 — status alone says nothing
+		w.Write([]byte(cfChallengeFixture))
+	}))
+	defer srv.Close()
+
+	cit := testCitation(srv.URL)
+	out := verifyCitationLive(t.Context(), cit)
+	if out.Found {
+		t.Fatalf("a challenge page must never verify a quote, got %+v", out)
+	}
+	if out.FailClass != "fetch_error" {
+		t.Fatalf("a challenge page must classify fetch_error (unknown), matching the existing 403 treatment — "+
+			"NOT citation_lost, which would wrongly read as the FACT having drifted rather than the HOST being "+
+			"unreachable unattended. Got %+v", out)
+	}
+}
+
 func TestCitationDateStale(t *testing.T) {
 	now, _ := time.Parse("2006-01-02", "2026-07-20")
 	cases := []struct {

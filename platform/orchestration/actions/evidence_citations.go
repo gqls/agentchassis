@@ -154,7 +154,47 @@ func fetchCitationDocument(ctx context.Context, url string) (string, error) {
 	if isText {
 		return string(body), nil
 	}
-	return datahelpers.VisibleTextFromHTML(string(body)), nil
+	raw := string(body)
+	if reason := botChallengeReason(raw); reason != "" {
+		// RFC_060 §3e/Q7: the host served a bot-challenge interstitial, not
+		// the cited content — at HTTP 200, so status alone said nothing.
+		// An error return here (not a quote-match failure) is deliberate:
+		// it routes through the SAME "fetch_error, unknown, never
+		// citation_lost" path a 403 already takes — a challenge page going
+		// up is evidence we cannot check the citation, not evidence the
+		// fact is wrong. Checking the RAW html, before VisibleTextFromHTML:
+		// every marker measured live (title, the _cf_chl_opt script
+		// variable, the noscript fallback id) lives in <head>/<script>/
+		// <noscript>, all excluded from visible/assertion text by design
+		// (claims.go's nonAssertionElements) — so this check would see
+		// NOTHING if it ran after extraction.
+		return "", fmt.Errorf("bot-challenge page (%s), not the cited content — cannot verify unattended", reason)
+	}
+	return datahelpers.VisibleTextFromHTML(raw), nil
+}
+
+// botChallengeReason reports why rawHTML looks like an automated-access
+// challenge interstitial rather than real page content, or "" if it does
+// not. Deliberately narrow — Cloudflare specifically, the one provider
+// actually measured (maps.org.uk, moneyhelper.org.uk; loanzy_uk lane,
+// 2026-09-02) — not a general CAPTCHA/interstitial detector. Confirmed
+// live 2026-09-03 against maps.org.uk, served at HTTP 200: exact
+// <title>Just a moment...</title>, the `_cf_chl_opt` JS identifier
+// Cloudflare's challenge script sets (essentially unique — not a word that
+// appears in ordinary prose), and the noscript fallback's
+// id="challenge-error-text". Any ONE marker is sufficient; they are
+// independent signals of the same page, not a scored combination.
+func botChallengeReason(rawHTML string) string {
+	switch {
+	case strings.Contains(rawHTML, "<title>Just a moment...</title>"):
+		return "title: Just a moment..."
+	case strings.Contains(rawHTML, "_cf_chl_opt"):
+		return "Cloudflare challenge script (_cf_chl_opt)"
+	case strings.Contains(rawHTML, `id="challenge-error-text"`):
+		return "Cloudflare noscript fallback (challenge-error-text)"
+	default:
+		return ""
+	}
 }
 
 // citationDateStale reports whether a citation has aged past its staleness
