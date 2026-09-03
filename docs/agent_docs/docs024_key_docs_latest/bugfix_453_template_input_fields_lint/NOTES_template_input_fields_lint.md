@@ -262,3 +262,22 @@ owner, the honest move is to make it decidable — which means narrowing `input_
 a change to `ExtractFields`' contract and a different lane's work — not to open a triage rota
 over an undecidable class. `bugs_open/083`/`077`, which the seat cites, are exactly what an
 unowned queue becomes.
+
+---
+
+## 2026-09-03 — a PROCESS misstep of my own: the reviewed commit carries no trailer
+
+`4aaf64aee` is this lane's in-scope platform commit — the 11 files the gate actually reviewed —
+and it carries **neither** trailer, so `098` will list it as unreviewed for ever. The review
+happened and was approved; the join cannot see it.
+
+**Cause: I committed first and submitted second.** `Council-Submitted:` names a correlation, and
+at commit time no correlation existed yet, so there was nothing to write. The two later commits
+(`6c60c3bc2` `Council-Submitted:`, `71c7ce40b` `Council-Reviewed:`) carry it, but they are the
+NOTES and the follow-up fix — the small ones.
+
+**The cheap check that would have prevented it: SUBMIT BEFORE YOU COMMIT.** The gate needs only
+a rationale and a plan, never a commit, so the correlation can always exist first. CLAUDE.md's
+`Council-Submitted:` guidance assumes you have a correlation in hand and does not say to get one
+first — which is exactly the order I got wrong. Forward-only forbids an amend, so this cannot be
+repaired; it is recorded so the next lane orders it the other way round.
