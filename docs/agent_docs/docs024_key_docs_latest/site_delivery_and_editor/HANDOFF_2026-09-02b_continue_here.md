@@ -598,6 +598,21 @@ verbatim:
    PER-CONTACT. [INFERRED, not this lane's to design: that points at a related table with a purpose
    and a consent state per row rather than columns on `sites`.]
 
+   **⚠ THE TWO ADDITIONS ARE NOT INDEPENDENT — the owning lane's point, 15:15Z, recorded here
+   because a reader of THIS file could undo it.** A relation is what addition 2 forces, and a
+   relation is also what makes addition 1 cheap to defer: under a relation a fifth identity is a
+   ROW, under columns-on-`sites` it is a migration. So his *"we don't have to do the first one
+   today"* is only actually cheap under the shape addition 2 already requires. **A future session
+   that shortcuts addition 2 back into columns "for now" silently converts his deferral into
+   future migration work.** Do not decouple them. Their §5.2 also gains a state rather than moving
+   level: with consent per contact there are THREE things to tell apart — has contacts none
+   published · has no contacts recorded · asked and the answer is none — and none is expressible
+   as a field on `sites`. Full reasoning in `RFC_058` (their commit `b50c6af84`), which is the
+   system of record; this paragraph exists only so nobody "simplifies" it out of ignorance.
+   Also noted there: the owner took the SUBJECT as FIRST-CLASS, against the raising lane's own
+   recommendation that it be derived — the stronger reading, since §5.3 wants a register that can
+   say whose claim it holds.
+
 **This lane's contribution stands and is now measured at the code, not relayed** — see the RUNBOOK
 section "The delivery recipient is REFUSED, not inherited": whichever identity becomes the delivery
 address must be NAMED in the 651 recipe, cheap to honour because `send_delivery_email_action.go`
