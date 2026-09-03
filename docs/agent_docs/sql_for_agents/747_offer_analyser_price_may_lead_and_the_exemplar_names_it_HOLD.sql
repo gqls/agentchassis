@@ -117,6 +117,55 @@
 -- `awk length()` or python `len()` and SAY WHICH, because a length quoted without its unit
 -- cannot be reconciled by the next reader.
 --
+-- ══ COUNCIL ROUND 1: APPROVED, 3 advisory mediums — ALL ANSWERED BY MEASUREMENT ═══════
+-- Corr `aeaf9f88-4348-4453-8c9e-213e7fd548a7`, 2026-09-03 16:01:45Z, "approved with 3
+-- advisory objection(s) — none high-severity", 8 abstained.
+--
+-- ⚠ **THE APPROVAL IS FOR THE PREVIOUS WORDING AND IS NOT BEING CLAIMED.** r1 reviewed
+-- "rank it LAST"; this file now says "rank it LAST BY DEFAULT — unless…", which is a
+-- semantic softening, not a typo. So this goes back as r2 on the SAME correlation and the
+-- commits carry `Council-Submitted:`, never `Council-Reviewed:`, until a verdict approves
+-- the text that actually exists. **An APPROVED verdict is the DANGEROUS one here**: a REVISE
+-- forces the resubmission anyway, while an approval creates both the temptation and the
+-- paper trail for "approved, ship it" over wording the file no longer contains.
+--
+-- 1. `editquality` + `debug_historian` (medium, same point, both right): **the row locator
+--    had no multi-row guard.** PL/pgSQL's non-STRICT `SELECT … INTO` takes ONE ARBITRARY ROW
+--    with no error, and a landmine records that some agent types carry TWO active
+--    `agent_definitions` rows of which only the higher `version` loads live — so this could
+--    have edited the stale row while the verify, re-running the same unordered predicate,
+--    read back the row that WAS written and reported success.
+--    [MEASURED 2026-09-03] **`offer-analyser` has exactly ONE row (version 1)**; the four
+--    types that do carry duplicates are `chief-strategist`, `content-creator`,
+--    `content-creator-contact`, `site-component-architect`. And it carries exactly ONE step
+--    with a prompt (`run_offer_analysis`, 9,590 chars — the DB's own count, agreeing with
+--    the character figure above). **So the objection's premise is false today, and the guard
+--    goes in anyway**, on both the locator and the verify: a migration that is safe only
+--    because of a fact nobody re-checks is precisely what this council exists to stop.
+--    Proven by induced failure — widening the count predicate gives
+--    `ABORT: 9 live offer-analyser (row, step) pairs carry anchor A…`, an abort rather than
+--    an arbitrary pick.
+--
+-- 2. `guardian` (medium): **does 747 leave migration `723` rollbackable?** 723 edited this
+--    same prompt row, and a later migration rewriting sentences a prior one touched can leave
+--    the prior rollback unable to find its own anchor — without anyone deciding that.
+--    **ANSWERED BY RUNNING IT, not by inspection.** Applying 747 inside a transaction and
+--    probing before rollback: 723's ROLLBACK anchor
+--    (`OUTPUT. Return ONE JSON object and nothing else`) still occurs **exactly once** in the
+--    post-747 prompt, and both blocks 723 inserted (`THE QUESTION HIERARCHY`, `THE JOIN IS
+--    THE POINT`) are intact. **723 stays rollbackable.** The two edit regions are disjoint:
+--    747's anchors sit at offsets 2407 and 7334 in TASK 1 and the hierarchy exemplar, neither
+--    inside 723's inserted block.
+--
+-- 3. ⚠ **AND THE FILE IS NOW `_HOLD`, WHICH IS A DEFECT ROUND 1 DID NOT CATCH AND A PEER DID.**
+--    An unapplied migration sitting in `sql_for_agents/` is not "held" — any session running
+--    `run-migrations.sh --apply` without scoping `MIGRATIONS_DIR` takes EVERY pending file, so
+--    this could have been applied by a lane that had never heard of it, in wording that
+--    diverges from what was reviewed. Verified in the runner rather than taken on trust:
+--    `run-migrations.sh:65` sets `SIDECAR_RE='_[A-Z][A-Z0-9_]*\.sql$'`, line 284 filters the
+--    pending list with `grep -vE "$SIDECAR_RE"` and line 294 still LISTS it. **Drop the
+--    `_HOLD` suffix at the moment of applying, not before.**
+--
 -- ══ PRE-REGISTERED POST-APPLY CHECK — and it can come out AGAINST this migration ═══════
 -- Raised by `copy_quality_two_stage` before apply, and recorded here rather than argued,
 -- because it is cheap and decidable. Their point: **stating the price is NECESSARY but may
@@ -183,6 +232,8 @@
 --   * anchor B mistyped so it matches nothing       -> "ABORT: anchor B occurs 0 times"
 --   * the verify's needle changed to one no write produces -> "ABORT: the softened rule is
 --     not in the LIVE row — the write did not land"
+--   * the locator's count predicate widened to match many pairs -> "ABORT: 9 live
+--     offer-analyser (row, step) pairs carry anchor A…"  (an ABORT, not an arbitrary pick)
 --
 -- Reversible: 747_..._ROLLBACK.sql restores both sentences verbatim.
 -- Source: this lane's NOTES 2026-09-03 "I MEASURED MY OWN PROMPT"; owner ruling relayed
@@ -201,8 +252,36 @@ DECLARE
     agent_id  uuid;
     step_key  text;
 BEGIN
-    -- Locate the ONE live step carrying this prompt. Named by predicate, not by key, so a
-    -- renamed step aborts rather than silently matching nothing.
+    -- ⚠ COUNT THE MATCHES BEFORE TAKING ONE (council r1, `editquality` + `debug_historian`,
+    -- both medium, same point, both right). PL/pgSQL's non-STRICT `SELECT … INTO` takes ONE
+    -- ARBITRARY ROW on a multi-row result — no error, no warning — and a documented landmine
+    -- says some agent types carry TWO active `agent_definitions` rows of which only the
+    -- higher `version` is ever loaded live. Without this guard the migration could edit the
+    -- stale row while the live one keeps the old absolute, and the verify block below,
+    -- re-running the same unordered predicate, could read back the row that WAS written and
+    -- report success. That is the "a check sharing state with the thing it checks confirms
+    -- the author's intention, not the outcome" shape, one table along.
+    --
+    -- [MEASURED 2026-09-03] `offer-analyser` has exactly ONE row (version 1). The four types
+    -- that DO carry duplicates are chief-strategist, content-creator, content-creator-contact
+    -- and site-component-architect — offer-analyser is not among them. **The guard goes in
+    -- anyway**: the objection's premise is false today and the class is real, and a migration
+    -- that is safe only because of a fact nobody re-checks is the thing this council exists
+    -- to stop. It counts (agent, step) PAIRS, so two matching STEPS on one agent aborts too.
+    SELECT count(*) INTO n
+      FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') st
+     WHERE ad.type = 'offer-analyser' AND ad.is_active
+       AND COALESCE(ad.is_snapshot,false) = false AND ad.deleted_at IS NULL
+       AND st.value->'config'->>'prompt' LIKE '%' || anchor_a || '%';
+    IF n = 0 THEN
+        RAISE EXCEPTION 'ABORT: no live offer-analyser step carries anchor A — the prompt has moved';
+    END IF;
+    IF n > 1 THEN
+        RAISE EXCEPTION 'ABORT: % live offer-analyser (row, step) pairs carry anchor A. SELECT INTO '
+                        'would take an arbitrary one and the verify could read back the same wrong '
+                        'row. Decide which is live (highest version) before applying.', n;
+    END IF;
+
     SELECT ad.id, st.key, st.value->'config'->>'prompt'
       INTO agent_id, step_key, p
       FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') st
@@ -211,7 +290,7 @@ BEGIN
        AND st.value->'config'->>'prompt' LIKE '%' || anchor_a || '%';
 
     IF p IS NULL THEN
-        RAISE EXCEPTION 'ABORT: no live offer-analyser step carries anchor A — the prompt has moved';
+        RAISE EXCEPTION 'ABORT: locator returned no prompt after the count said 1 — race or NULL prompt';
     END IF;
 
     -- PRE-STATE, both anchors, EXACTLY ONCE. A count, not a presence check: `723`'s defect
@@ -261,6 +340,17 @@ END $mig$;
 DO $$
 DECLARE p text; n int;
 BEGIN
+    -- Same multi-row discipline as the locator: a verify that could read back an arbitrary
+    -- one of two rows proves nothing about which row is live.
+    SELECT count(*) INTO n
+      FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') st
+     WHERE ad.type='offer-analyser' AND ad.is_active
+       AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+       AND st.value->'config'->>'prompt' LIKE '%rank it LAST BY DEFAULT%';
+    IF n <> 1 THEN
+        RAISE EXCEPTION 'ABORT: % live (row, step) pairs carry the softened rule, expected exactly 1', n;
+    END IF;
+
     SELECT st.value->'config'->>'prompt' INTO p
       FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') st
      WHERE ad.type='offer-analyser' AND ad.is_active
