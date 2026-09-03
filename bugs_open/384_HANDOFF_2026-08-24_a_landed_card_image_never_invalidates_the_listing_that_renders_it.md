@@ -981,3 +981,43 @@ changed (only the html archive trigger fired). **Do not write this into a fix un
 
 **This is the best diagnostic opportunity this lane has had:** a live, reproducing case with the
 orchestration runs still inside retention, correct inputs, and a falsified leading hypothesis.
+
+### TEMPERING my own alarm, 2026-09-03 10:3xZ — the population is HEALTHY; what is broken is the ATTRIBUTION
+
+I raised the designblog case an hour ago as a live reproduction. It is one, but I set the alarm too
+high and the population measurement corrects it. **Both facts below are true and they matter
+together.**
+
+**The fleet is not accumulating damage** `[MEASURED 2026-09-03 10:2xZ]` — generic listing entries
+whose target card exists, bucketed by card age:
+
+| card age | entries | still blank | with image |
+|---|---|---|---|
+| < 12h | 26 | 5 | 80.8% |
+| 24–72h | 18 | 0 | **100%** |
+| older | 600 | 0 | **100%** |
+
+**Every entry whose card is more than 24 hours old carries its image — 618 of 618.** So there is no
+standing fleet-wide breakage, the blanks are a transient window, and my "reproducing NOW" framing,
+while literally true, implied a persistence the data does not support. The leopardess six-day case
+was the STARVED exception, not the norm.
+
+**But the sharp question survives, and it is now sharper.** designblog/index is **still 4-of-4 blank
+at 10:3xZ, with no write of any kind since 05:25:28** — five and a half hours after the cards
+landed, and after **two** `section_data_resolved` re-renders that the runs themselves report as
+`rerendered=4, carried=0`. So:
+
+- something DOES repair these entries inside 24h — the 618 prove it;
+- **and it is demonstrably not the seam's immediate re-resolve**, which ran twice here and produced
+  blanks both times, exactly as it did on leopardess.
+
+**That is the real defect and it is an ATTRIBUTION defect.** This lane's evidence — §4's "proven
+four times on natural triggers" — credits the seam with repairs that, on both cases examined
+closely, the seam did not perform. The user-visible impact is a bounded window (<24h), not permanent
+damage; the correctness problem is that **we do not know what closes that window**, and this lane
+has been asserting that we do.
+
+**So the question for the `090` is not "why is this page broken for ever" — it is "what actually
+writes the image, and why is it not the re-resolve that was filed to do it".** The intake fired at
+09:41:56 is still `awaiting_diagnosis` (queue latency; **do not re-fire** — the trigger's own
+guidance and `bugs_open/124`).
