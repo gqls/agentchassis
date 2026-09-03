@@ -15862,9 +15862,30 @@ shown a case it could get right.
 **And a limit worth stating with the technique, because the same lane stated it:** a delimiter
 balance scan is **not a parse**. It catches an unbalanced brace or paren, which is the usual
 hand-editing error in an embedded script. It cannot see a missing comma, a bad member
-expression, or a reserved word used as an identifier. Where no JS engine is available (this
-machine has none — no node, deno, quickjs, or Python JS parser, verified 2026-09-03), that
-reading is the best available and **must not be allowed to substitute for loading the page**.
+expression, or a reserved word used as an identifier.
+
+> **⚠ CORRECTED 2026-09-03, hours later, and the correction is another instance of the same
+> family.** This entry said *"where no JS engine is available (this machine has none — no node,
+> deno, quickjs, or Python JS parser, verified 2026-09-03)"*. The verification was real and the
+> conclusion was wrong, because **it answered the wrong question**. There is no local
+> interpreter; there IS a headless browser, as a SERVICE —
+> `browser-runner-adapter`, running, with **277 completed `acceptance_run` work items**. Both
+> lanes on this review reached "no browser here" by looking for a binary on the machine. That
+> is the same shape as looking for a symbol in a binary when you should ask the running
+> service. **A capability absent from your filesystem may be present in your cluster; ask what
+> serves it, not what is installed.**
+
+**So the page CAN be checked, and for this defect class it MUST be.** The relevant capability is
+`internal/adapters/browserrunner/run_checks_action.go`, dispatched via the `run_checks` action:
+it reads the **live DOM after settle**, which is precisely the surface a curl cannot reach when
+a script replaces the server HTML.
+
+**Prior art for this whole section's rule, already in the platform.** `runComputedValues` in
+that same file refuses to run when it names no expected values: *"A check asserting nothing must
+never report a pass — that is the vacuity this whole type was written to remove, and it would be
+perverse to reintroduce it here."* The positive-control discipline above is not a new idea; it is
+the estate rediscovering something one of its own adapters already enforces at the API boundary.
+Cite it rather than re-deriving it.
 
 **Related:** the `bugs_open/472` migration this arose on · *"a `[MEASURED]` marker proves a
 measurement was CLAIMED, not COMPLETE"* · the positive-control rule in this section's
