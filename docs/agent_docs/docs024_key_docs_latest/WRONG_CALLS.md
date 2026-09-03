@@ -59854,3 +59854,52 @@ a-claim-about-behaviour-is-not-the-behaviour.
   "in the template root" are two different facts joined by a config array.
   **tally:** **a-key-in-collected-data-is-not-a-key-in-the-template** ×1;
   family a-claim-about-behaviour-is-not-the-behaviour.
+
+---
+
+## 2026-09-03 — inline_guide_imagery: I quoted a Go COMMENT as if it were the live workflow config
+
+**The claim.** "Only two re-render reasons re-resolve — `image_landed` and `section_data_resolved`;
+every other reason takes the assemble-only path." Written into `bugs_open/114`, this lane's RUNBOOK
+and handoff, a concept-register entry, and CONTRIBs to two other lanes' directories, over about six
+hours.
+
+**Why it was wrong.** The source was `rerender_page_sections_action.go:47` — **a comment**
+describing the workflow wiring. The live `page-rerender` row in `agent_definitions` (active,
+non-snapshot; the only `conditional` step gating this) reads:
+
+```
+input_data.spec.reason == 'image_landed' OR 'section_data_resolved'
+                       OR 'cta_links_stale' OR 'template_changed' OR 'literal_markdown'
+```
+
+**Five, not two.** The comment has drifted from the config it describes.
+
+**What caught it.** Another lane putting the sentence under test for an unrelated reason — they had
+traced a page that recovered via the BUILD path and wanted to know whether the re-render path
+re-resolves at all. They challenged the claim's *second* half; checking it properly refuted the
+*first*.
+
+**The cheap check that would have.** One query, and this estate already has the rule
+(*"the seed is not the system — live config drifts; read `agent_definitions`"*):
+
+```sql
+SELECT s.key, s.value->'config'->>'condition'
+  FROM agent_definitions a, jsonb_each(a.default_config->'workflow'->'steps') s
+ WHERE a.type='<agent>' AND a.is_active AND COALESCE(a.is_snapshot,false)=false
+   AND a.deleted_at IS NULL AND s.value->>'action'='conditional';
+```
+
+**The part worth keeping.** A Go comment describing config is *documentation of a different
+system*: the code cannot enforce it, nothing tests it, and it ages silently while the row it
+describes is edited by migrations from other lanes. **It is not a weaker source than the config —
+it is a different object.** I spent the same day quoting other lanes' landmines about exactly this
+class, which is why the marker matters more than the instinct: a claim about behaviour gated in
+`agent_definitions` must cite the ROW.
+
+**And a second-order lesson from how far it travelled:** the sentence reached six documents in six
+hours because it was *useful* — every lane asking "will a re-render fix this?" wanted it. **A
+convenient mechanism sentence propagates faster than a measured one**, so the ones worth checking
+hardest are the ones you find yourself repeating.
+
+**Tally:** **cite-the-live-row-not-the-code-comment** ×1, **a-useful-sentence-propagates-fastest** ×1.

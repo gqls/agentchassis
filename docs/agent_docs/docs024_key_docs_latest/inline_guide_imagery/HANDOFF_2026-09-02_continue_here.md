@@ -22,7 +22,15 @@ regeneration.
 
 ---
 
-## 2. Deploy verification — DONE, and how the first attempt lied
+## 2. Deploy verification — DONE for `v1.0.1355`, and ALREADY DATED
+
+⚠ **A further chassis build was in progress at ~21:30 on 2026-09-02 and deploys within the hour**
+(owner, at the time of writing). **So the verification below is `v1.0.1355`'s and expires with the
+next roll — RE-RUN THE PROBE FIRST.** Nothing about IMG-075 should change (it is committed and was
+in `v1.0.1354` and `v1.0.1355`), but "it was live on the previous build" is an inference, not a
+measurement, and this lane has now been caught twice by exactly that gap in one day.
+
+## 2a. What `v1.0.1355` measured — and how the first attempt lied
 
 **`v1.0.1355` VERIFIED `[MEASURED 2026-09-02, after the token was refreshed]`** — both replicas
 (`cd2h9`, `vppjz`), errors deliberately NOT suppressed:
