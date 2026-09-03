@@ -109,12 +109,86 @@ SELECT s.domain, w.item_key, w.status, left(w.summary,80)
  ORDER BY s.domain, w.updated_at DESC;
 ```
 
+## ⚠ THE RE-MINT WINDOW IS A HAZARD, AND IT IS NOT GATED BY ANYONE'S RESTRAINT (added 2026-09-03)
+
+**Raised by the `portfolio_positioning` lane, measured here.** While candidate 1 sits inert
+awaiting a roll, the estate keeps re-minting work for these pages **automatically**, and
+each automatic attempt fails on the unfixed writer and burns one sibling toward the sticky
+`[unresolved after 2 attempts]` brand. Nobody has to fire anything for this to happen —
+advertise.co.uk was re-minted at 2026-09-03 10:34:50Z by a discovery sweep
+(`e75f5880`, `needs_content_page`, source **`page-rerender-empty-skip`**), 51 minutes
+before this was written.
+
+**Note the route, because the obvious prediction was wrong.** I told that lane
+`reconcile_site_plan` would re-mint. The re-mint came from
+`fileBuildAskForEmptyPage` (`rerender_single_page_action.go:1276`) instead — a *different*
+producer, filing a *different item type* on a *different key shape*
+(`needs_content_page:<page-uuid>`, not `needs_page:<name>`). **So "which producer re-mints
+this page" is not a safe thing to reason about; several can, and they do not share a key.**
+
+**Why the key shape matters, and it is the whole mechanism:** the two-strike arm counts
+terminal siblings **on the same `item_key`, within a rolling 7 days**
+(`load_work_item_actions.go:1980-2036`), and brands the incoming row `unresolved` at
+`terminalCount >= 2`. An `unresolved` row is then kept in `loadOpenPageItems`' OPEN set
+(`reconcile_site_plan_action.go:751-756`), so it blocks re-minting rather than being
+re-minted past. A fresh key starts its own ladder from zero — which is why advertise's new
+`needs_content_page` is not in immediate danger — but a key that has already failed twice
+is one automatic sweep away from being stuck for good. This producer goes through the
+shared `writeWorkItem` door, so it **does** inherit the arm.
+
+**How much of the door has already closed `[MEASURED 2026-09-03 ~11:00Z]`** — keys touched
+by this defect, by how many terminal siblings they already carry in the rolling window:
+
+| domain | keys AT/PAST the brand threshold (≥2) | keys one away (1) | keys touched |
+|---|---|---|---|
+| farmerinsurance.uk | **21** | 3 | 24 |
+| remortgagecalculator.uk | **6** | 13 | 24 |
+| loanzy.uk | **3** | 6 | 15 |
+| advertise.co.uk | 0 | 2 | 4 |
+| cv1.co.uk | 0 | 1 | 3 |
+| mortgagecalculator.co.uk | 0 | 0 | 2 |
+| leopardessconsulting.co.uk | 0 | 1 | 1 |
+
+**30 keys across three sites are in the window where the next automatic re-mint is born
+branded and stuck.** That is the argument for treating the roll as more urgent than a
+normal inert fix: the cost of waiting is not "the pages stay broken", it is "more of them
+become unreachable by the automatic recovery that would otherwise have fixed them".
+
+> ⚠ **THIS TABLE HAS A SHORT HALF-LIFE AND MUST BE RE-MEASURED, NOT QUOTED.** The threshold
+> counts a **rolling 7-day** window, so a key sitting at 3 terminal siblings today drops
+> below 2 within days as they age out, and becomes safely re-mintable again with nobody
+> doing anything. The number moves in BOTH directions — down as siblings age out, up on
+> every automatic sweep — so it is a snapshot of a moving quantity, not a backlog. Re-run
+> the query in §Verify before acting on it. What does NOT decay is an `unresolved` row once
+> written: those stay open, and stay blocking, indefinitely.
+
+**Deliberately NOT done here:** no held item types, no closed rows, no touched sites. Every
+one of these belongs to another lane, the correct sequence is still fix-then-verify-then-
+unstick, and a hold on a shared item type is a config change to a shared seam that wants
+its own review. This section exists to make the cost of delay legible, not to license
+pre-emptive surgery.
+
 ## Verify
 - The error: `SELECT left(error,300) FROM site_work_items WHERE error LIKE '%mechanism-flow%branches%' ORDER BY updated_at DESC LIMIT 1;`
 - **The fix, at the prompt** (the honest post-roll check — the served page is downstream of
   three more steps): `SELECT prompt_rendered LIKE '%"branches": [{%' FROM llm_call_log
   WHERE agent_type='page-content-writer' AND prompt_rendered LIKE '%mechanism-flow%'
   ORDER BY created_at DESC LIMIT 1;`
+- **The re-mint window (the §hazard table above, which decays — re-run, never quote):**
+```sql
+WITH fam AS (SELECT DISTINCT site_id, item_key FROM site_work_items
+              WHERE error ILIKE '%mechanism-flow%branches%')
+SELECT s.domain,
+       count(*) FILTER (WHERE t.terminal_7d >= 2) AS at_or_past_threshold,
+       count(*) FILTER (WHERE t.terminal_7d = 1)  AS one_away,
+       count(*) AS keys_touched
+  FROM fam f JOIN sites s ON s.id=f.site_id
+  JOIN LATERAL (SELECT count(*) FILTER (WHERE w.status IN ('complete','failed')
+                                          AND w.created_at > now() - interval '7 days') AS terminal_7d
+                  FROM site_work_items w
+                 WHERE w.site_id=f.site_id AND w.item_key=f.item_key) t ON true
+ GROUP BY 1 ORDER BY 2 DESC;
+```
 - **The census, with a DEMAND control** — a post-fix zero in the failure census is equally
   consistent with "no mechanism-flow page has been built since", so count the writer runs
   in the same window or the zero proves nothing.
