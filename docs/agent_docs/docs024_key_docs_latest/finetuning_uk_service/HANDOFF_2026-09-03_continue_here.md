@@ -121,7 +121,14 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    path the owner chose (README 2026-09-03 evening; default (a) if he has not said). First probe
    the route is still up (`curl … -H 'Origin: https://finetuning.uk'` → 200 text/event-stream) — the
    demo box's ufw rule and the island's compose are the two things that can silently take it down.
-1. **When the prompts lane applies 641:** Stage B (above). ~~Rewrite the technical-details brief first.~~
+1. **BEFORE 641 applies (19:15Z, prompts lane): 641 is now OPTION A4** — the subject is printed
+   verbatim as the section's OPENING LINE in page voice (owner exemplar: "If you'd like to prepare in
+   advance of your hour, you might want to get these things ready."). **Re-author the three backfilled
+   `section_subjects` arrays** (playground, your-own-model, technical-details; today clause-form
+   labels) against the phrasing spec the prompts lane is sending — once, against the final wording.
+   Stage B assertions must EXPECT subject wording in each section's opening line (intent, not
+   leakage). G1's marker `current_section.subject` survives A4.
+1b. **When the prompts lane applies 641:** Stage B (above). ~~Rewrite the technical-details brief first.~~
    **DONE 2026-09-03:** `technical_details_stage_b_dispatch.sql` in this dir carries the rewritten
    brief and REFUSES to run until 641 is on the live writer (G1). Rehearse its post-G1 path under
    ROLLBACK first (header says how — it is unrehearsed as a transaction); then run, then

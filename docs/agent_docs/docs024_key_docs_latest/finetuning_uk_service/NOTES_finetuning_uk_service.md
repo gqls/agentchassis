@@ -3024,3 +3024,27 @@ widget) is unblocked and waits on the owner's path choice (README, 17:00Z entry)
 
 **Two restarts of tools-api this evening** (19:06:22Z and 19:08:49Z), each a few seconds, each also
 serving robot-hands.com and vonc.com — the first was the wasted one.
+
+**19:15Z — message from the `prompts` lane (641 owner): the block is now OPTION A4, and the three
+backfilled `section_subjects` arrays are the wrong REGISTER.** Owner decision relayed: the frame
+sentence is dropped; the block is the heading, then `{{.current_section.subject}}` printed verbatim
+on its own line, then the unchanged "X also covers, each in its own section:" list. The subject is
+now the section's OPENING LINE, written to the reader in the site's voice (his exemplar: *"If you'd
+like to prepare in advance of your hour, you might want to get these things ready."*), not a topic
+label. So `playground` / `your-own-model` / `technical-details` arrays (6 each, clause form —
+"what to have ready before the hour") are still valid data but must be RE-AUTHORED once against the
+phrasing spec the prompts lane is writing (they will send it here and to apis.uk; they asked for one
+re-authoring, not two). **Stage B consequence, to write into the assertions:** the subject lands in
+the prompt as page-voice prose and WILL surface in each section's opening line — under A4 that is
+the intent, so the before/after must read subject wording in the copy as expected, not as leakage.
+The Stage B SQL's G1 gate keys on the template naming `current_section.subject`, which A4 keeps —
+told them so, so a rename does not silently make the gate unpassable.
+
+**Housekeeping, 19:20Z:** (1) my `000_concept_index.md` row edit (PUB-006 → LIVE) was swept into the
+IMG-079 register commit `e20662db9` by another session before I committed — nothing lost, the row is
+at HEAD, but it travelled under a message about something else (the same-file-passenger case,
+CLAUDE.md). (2) `WRONG_CALLS.md` is left UNCOMMITTED on purpose: the `bugs_open/469` lane appended
+three entries after mine while I was writing, and a pathspec commit would carry theirs under my
+message. Whoever commits that file next takes both; if it is still dirty at the next session start,
+commit it with a "sweep:" message naming both lanes. Replied to the prompts lane (A4 ack; G1 keys on
+`current_section.subject`; spec requested).
