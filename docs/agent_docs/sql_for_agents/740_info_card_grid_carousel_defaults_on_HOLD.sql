@@ -190,6 +190,50 @@
 --    ⚠ WHOEVER APPLIES THIS: re-run the component fence against a flipped placement and
 --    record the result. That is the one check this migration cannot make for itself.
 --
+-- ══ ROUND 3: APPROVED — and two of its advisories CORRECT THIS FILE'S OWN CLAIMS ═══════
+-- Corr `2ac895f3-ca82-4dbe-8f4e-3335a04b8925`, 2026-09-03 16:02:39Z, "approved with 4
+-- advisory objection(s) — none high-severity". Approved, and two advisories are right about
+-- things asserted above, so they are corrected here rather than left to the next reader.
+--
+-- ⚠ 1. `render_guardian` (medium) — **"THE EXISTING QUEUE LANDS IT" WAS THE WRONG
+--    DENOMINATOR, AND THE SEAT HAD TO TELL ME.** This file cites the `page_rerender` queue's
+--    busy-ness as evidence the default reaches the fleet, grounded only on
+--    `rerender_page_sections_action.go:1450` — the SCOPED path. **Assemble-mode**
+--    `page_rerender` (a `page_id` with no `spec.reason`) re-embeds each section's EXISTING
+--    stored HTML and never re-renders the template against a re-resolved schema, so it can
+--    never apply this fallback. I had not checked the split. [MEASURED 2026-09-03]:
+--        status      items   carries spec.reason (scoped)   assemble-only
+--        complete    9,781   1,264                          8,517  (87%)
+--        unresolved  1,751   1,712  (98%)                      39
+--    **87% of the completes I cited are a mode that cannot land this change.** The busy-ness
+--    was real and was the wrong evidence for the claim. The forward-looking news is better
+--    and is a DIFFERENT fact: the pending queue is 98% scoped. **Quote the unresolved split,
+--    never the completes.** Consequence: the mixed carousel/grid interim's length depends on
+--    SCOPED rerenders reaching each of the 21 sites, not on general throughput.
+--
+-- ⚠ 2. `editquality` + `guardian` + `tooling_provenance` — file a work item to force the
+--    acceptance-fence run. **I NAMED THE WRONG VEHICLE AND THEN MEASURED IT.** Round 3 called
+--    `acceptance_run` "the right vehicle (277 rows)" — named from the type name and a row
+--    count, without checking what the rows ARE. [MEASURED 2026-09-03] **all 277 are
+--    `handler_agent='tool-acceptance-agent'` with `spec.check` of `tool_acceptance_due` or
+--    `manual` — it is a TOOL vehicle**, and this component's own 2026-08-05 fence run was
+--    driven by **no work item at all**. **So no row was filed, deliberately:** routing a
+--    component fence at a handler I cannot show runs component fences is exactly what
+--    `bugs_open/395`'s routing rule 3b exists to stop, and an unhandled row is worse than a
+--    recorded gap. What the seats actually wanted — the decision and its open follow-through
+--    carried somewhere durable — **is written to `doc_notes`**, `subject_type='component'`,
+--    `subject_key='info-card-grid'`, categories `decision`/`council-approved`/
+--    `open-follow-through`, 2026-09-03 16:12:33Z. **Still owed: a component-capable
+--    acceptance vehicle, or a hand-run of the fence against
+--    `leopardessconsulting.co.uk/services.html`** — the one live carousel placement, which
+--    means this can be answered BEFORE apply.
+--
+-- 3. `bug_historian` (medium/low) and `debug_historian` (low) are registered, not disputed:
+--    a shared-component default with no staged rollout fans out to every dependent instance
+--    at once (inherent to the mechanism and the owner's stated intent), and `_pre_740` is an
+--    in-transaction pre-image rather than a `pg_dump` — it guards a wrong write inside this
+--    transaction, not a later unrelated clobber of a contended row.
+--
 -- ══ WHAT CHANGES, AND WHEN ═══════════════════════════════════════════════════
 -- Config: live on apply, no image build. But nothing on a served page moves
 -- until that page re-renders. The re-render path DOES apply this —
