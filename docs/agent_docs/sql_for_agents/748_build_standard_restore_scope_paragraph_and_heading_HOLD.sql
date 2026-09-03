@@ -18,9 +18,20 @@
 --     is a correction to a live influence, not a pre-emption.
 --
 --     It cannot be restored verbatim: "say so honestly in the confidence fields" and "adopted
---     sites stay faithful to their source at first" are classifier-specific. Generalised below,
---     and the generalisation is deliberately shaped to the owner's 2026-09-03 rule-18 ruling —
---     "plan less rather than fabricate" is "say less or leave it out" one level up.
+--     sites stay faithful to their source at first" are classifier-specific. And it cannot be
+--     restored in its own register either: the source paragraph, and my first generalisation of
+--     it, measured 4 negation tells in 54 words against this lane's own detector — two x_not_y,
+--     a "rather than", a "do not" — i.e. the exact register the lane exists to remove, about to be
+--     injected into every planner prompt. (675's own header trimmed ONE "rather than" from the
+--     first paragraph for precisely this reason, then left a not_x_but_y and three em dashes in.)
+--
+--     WORDING BELOW IS THE OWNER'S, 2026-09-03: a middle ground, since "sometimes the negation
+--     makes it easier to understand; it is just that AI overuses it". ONE negation kept, in the
+--     first sentence, where the contrast carries the load-bearing distinction (a quality standard
+--     is not licence to build more); the other three sentences positive. His two edits on my
+--     draft: "real evidence" on the first, weight-bearing use of the word, and "is responsible
+--     for" in place of "governs" ("a dense word"). Measured: 1 tell in 57 words. He will revisit
+--     the copy another day; this is the approved-for-now form.
 --
 -- (2) THE HEADING. The opt-in templates insert `## {{.build_standard}}`, which was correct
 --     against the source's shape (title · newline · body). 675 rewrote the title into a run-on
@@ -53,7 +64,7 @@ DECLARE
   cur text; nxt text; n int;
   old_title text := 'BUILD STANDARD (applies to every site, regardless of inputs). Aim for best-in-class quality';
   new_title text := E'BUILD STANDARD (applies to every site, regardless of inputs)\nAim for best-in-class quality';
-  scope_para text := E'\n\nThis standard governs QUALITY and FIT, not scope. Do not invent services, pages, features, or facts beyond what the evidence supports; where the evidence is thin, plan less rather than fabricate detail. Treat aspirational ideas as direction to be realised as the site''s evidence grows, not as things to force into the first build.';
+  scope_para text := E'\n\nThis standard is responsible for the quality and fit of what gets built, not for how much. Every service, page, feature and fact in the plan comes from real evidence; thin evidence means a small plan. Aspirations set the direction. The first build carries what the evidence supports today, and the rest arrives as the evidence does.';
 BEGIN
   SELECT count(*) INTO n FROM agent_default_configs WHERE config_name='build_standard_block';
   IF n <> 1 THEN RAISE EXCEPTION '748: % carrier rows, want exactly 1', n; END IF;
@@ -62,7 +73,7 @@ BEGIN
   IF cur IS NULL OR cur = '' THEN RAISE EXCEPTION '748: carrier text is empty'; END IF;
 
   -- Idempotency and drift, both directions.
-  IF position('This standard governs QUALITY and FIT' IN cur) > 0 THEN
+  IF position('This standard is responsible for the quality and fit' IN cur) > 0 THEN
     RAISE EXCEPTION '748: scope paragraph already present — this migration has applied, or 675 was re-cut';
   END IF;
   IF (length(cur) - length(replace(cur, old_title, ''))) / length(old_title) <> 1 THEN
@@ -93,7 +104,8 @@ BEGIN
   -- that inspects `nxt` rather than the row confirms intention, not outcome.
   SELECT config->>'text' INTO cur FROM agent_default_configs WHERE config_name='build_standard_block';
   IF position(new_title IN cur) = 0 THEN RAISE EXCEPTION '748 VERIFY: new title (with line break) absent from the LIVE row'; END IF;
-  IF position('This standard governs QUALITY and FIT, not scope.' IN cur) = 0 THEN RAISE EXCEPTION '748 VERIFY: scope paragraph absent from the LIVE row'; END IF;
+  IF position('This standard is responsible for the quality and fit of what gets built, not for how much.' IN cur) = 0 THEN RAISE EXCEPTION '748 VERIFY: scope paragraph absent from the LIVE row'; END IF;
+  IF position('comes from real evidence' IN cur) = 0 THEN RAISE EXCEPTION '748 VERIFY: the owner''s "real evidence" edit is absent from the LIVE row'; END IF;
   IF position(old_title IN cur) > 0 THEN RAISE EXCEPTION '748 VERIFY: run-on title survives in the LIVE row'; END IF;
   IF position('confidence fields' IN cur) > 0 OR position('adopted sites' IN cur) > 0 THEN
     RAISE EXCEPTION '748 VERIFY: classifier-specific wording leaked into the carrier';

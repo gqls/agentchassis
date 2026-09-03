@@ -33,8 +33,9 @@ written strategy, now implemented.
 > leopardessconsulting need not be listed"*) — so the site's exclusion now rests on his word, not
 > on D4's reasoning. **What DOES change:** three lanes (`copy_quality_two_stage`, `sedo`,
 > `domain valuation`) had recorded leopardess as a paying client on the strength of this row and
-> have corrected. **If a real paying client's site exists, its name is the one that belongs here** —
-> that is the case that would actually cost a relationship, and the RUNBOOK's "keepers/clients
+> have corrected. **Owner, 2026-09-03, verbatim: "there are no paying clients yet."** So D4's
+> worked example was not protecting anyone — the relationship-breach case is a future one, and the
+> row should be read as "when a paying client's site exists". The RUNBOOK's "keepers/clients
 > (leopardess)" inherits the same error. Corrected visibly rather than rewritten: the row below is
 > the ruling as made, and this note is the fact as found.
 
