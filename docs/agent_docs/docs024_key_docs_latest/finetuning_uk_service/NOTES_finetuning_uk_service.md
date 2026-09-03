@@ -3541,3 +3541,20 @@ be truncated by a pipe.** They are filing it in WRONG_CALLS and LANDMINES agains
 the £99 side may be crisp. The asymmetry is the honest picture. Scoping now unconditional on their side
 (slots 2 and 3; off 4; not 5 unless something measurable is named); rows still wait on the owner's route
 choice and their user's authorisation.
+
+## 2026-09-03 (21:32–21:36Z) — **THE EXPLANATION AND THE PAIR ARE LIVE under the chat box**, served and browser-proven
+
+`page_rerender` `d4f151bc` complete 21:32:31; `pages.deployed_at` 21:32:21. Served `/playground.html`
+(60,094 bytes) `[MEASURED 21:34Z]`: the owner's framing sentence ×1, "What to try" heading, the three
+suggested prompts, "The same prompt, before and after fine-tuning", the four labelled blocks with the
+texts VERBATIM (base "Feedback on [Domain Broker's Site]…", fine-tune "Grateful for a Moment of
+Closure…", the owner's "I just can't just yet!… Am on hols at the moment in [LOCATION]… Happy times!"),
+the closing sentence; the box's endpoint ×1 and `getReader` present; 0 em dashes in `<main>`. Page order
+now: hero → "Try the demo model" (box) → "What this model is, and what to try" (inside the same
+component) → the three booking sections → FAQ → CTA. Browser probe (`cdp_chat_probe.py`) with one of the
+page's own suggested prompts ("Write this email in my voice. Situation: a customer asks whether we can
+deliver in three weeks…") → **PASS**; the reply streamed in and is, as the page now says, a generic
+business email ("Dear [Customer], Thank you for your message regarding the delivery timeline…").
+Small thing seen, not fixed: the page carries "What to try" twice — once as the widget's heading and
+once as an `<h3>` inside the third booking section — a duplicate heading string, harmless, worth a look
+when the merged playground brief is written.

@@ -178,8 +178,9 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    zero"; fleet census infographic=1; a fleet prompt change is the planner owners' call). Three
    construction constraints (no funcmap arithmetic; no words in SVG; non-text contrast) in NOTES 21:30Z.
    `design_critique_run` `204f1ff7` filed 21:16Z → report in `doc_notes` categories 'design-report'.
-   Widget replace `e1b2bcf8` LANDED 21:18Z (verified; six section hashes unchanged); served when
-   `page_rerender` `d4f151bc` completes — then re-run `cdp_chat_probe.py` and grep the pair text.**
+   Widget replace `e1b2bcf8` LANDED 21:18Z and is **SERVED 21:32Z** (pair text verbatim on the page, box
+   intact, `cdp_chat_probe.py` PASS with a page-suggested prompt). Duplicate heading string "What to try"
+   (widget + third booking section) — cosmetic, fold into the merged brief.**
    Homepage today: hero, features, differentiators-section, case-studies-grid (17.7 KB), departments-grid,
    call-to-action; library carousel-like sections: hero-card-carousel, swipeable-insight-carousel,
    image-hover-card-grid, teaser-reveal-panel, info-card-grid (carousel defaults ON at resolution).

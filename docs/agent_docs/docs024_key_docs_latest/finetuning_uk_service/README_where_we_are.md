@@ -1546,3 +1546,9 @@ homepage, or is a diagram inside the existing section enough? And do you want th
 graphics authored for this page by hand, reversible) or the fleet-wide change to the planner's
 instruction? They will not write anything to the site until you have said, and until their own
 session is cleared to.
+
+**2026-09-03, 22:55 BST.** The explanation is live under the chat box: your sentence about five
+articles and a handful of short emails, three prompts to try, and the same email prompt answered by the
+untrained model, by yours, and what the person actually wrote, names removed. I tested it again in a real
+browser with one of the page's own suggested prompts and the reply streamed in, a generic business
+email, exactly as the page now says to expect. The design critic has started on the site.
