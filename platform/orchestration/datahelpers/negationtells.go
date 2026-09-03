@@ -549,6 +549,14 @@ func normaliseForMatch(s string) string {
 	return strings.TrimSpace(strings.Join(strings.Fields(s), " "))
 }
 
+// wordCount counts words in a sentence that may still carry markup, which the
+// gate's inputs routinely do (`<strong>`, `<em>` inside a section's html field).
+// Tags are stripped first so `<p>It shows.</p>` counts 2, not 4 — otherwise a
+// heavily-tagged stub would clear the floor on its markup alone.
+func wordCount(s string) int {
+	return len(strings.Fields(htmlTagRe.ReplaceAllString(s, " ")))
+}
+
 // AcceptNegationRewrite decides whether a proposed replacement sentence may
 // stand in for the original. It is the whole reason a repair here cannot quietly
 // make things worse, so it fails CLOSED: any doubt keeps the original.
@@ -567,7 +575,43 @@ func AcceptNegationRewrite(from, to string, protectFrom int) (bool, string) {
 	if normaliseForMatch(to) == normaliseForMatch(from) {
 		return false, "unchanged"
 	}
-	if len(to) < len(from)*2/5 {
+	// GUTTED — rewritten 2026-09-03 to the owner's ruling: "Keeping the first
+	// clause and cutting at the comparison is the norm you set. Loosen the judge
+	// so a truncation to a complete, true first clause is accepted."
+	//
+	// It used to be a bare proportion, `len(to) < len(from)*2/5`, and that is
+	// BACKWARDS for the operation this gate performs. Truncation removes the
+	// contrast clause, so the ratio measures how verbose the ORIGINAL was, not
+	// whether the survivor stands up: the wordier the tail we are right to cut,
+	// the more certainly the repair is refused. Measured against the ruling on
+	// 2026-09-03, the 40% floor rejected the owner's OWN worked example —
+	// "We're not tied to one provider, so you get the model that fits the task,
+	// not the model we happen to sell." -> "We're not tied to one provider."
+	// is 29.5%, and a live homepage repair ("We pick the tool suited to each
+	// task.") missed by two points at 38.1%. Both are exactly the norm he set.
+	//
+	// So the test is now the SURVIVOR standing alone, which is what he actually
+	// ruled on, with the proportion kept only as a slack backstop:
+	//   * an absolute floor of 5 words — this is the clause-completeness test in
+	//     practice. The case the old rule existed to stop is a stranded
+	//     transitive verb ("It shows what is possible, not what survives
+	//     production today." -> "It shows."), which is 2 words and still fails.
+	//     Grammatical completeness alone would NOT catch it — "It shows." is a
+	//     complete clause — so word count is the honest proxy, not a parse.
+	//   * a 25% proportion, well below the ruling's 29.5%, to catch a long
+	//     original reduced to a short-but-≥5-word stub.
+	// Both constants sit in a measured GAP, not on a boundary: across all 17
+	// real rewrites of 2026-09-03 (14 accepted, the one "gutted" rejection, the
+	// owner's ruling, and the pinned must-reject), the nearest points either
+	// side are 2 words / 14.5% and 6 words / 29.5%. Zero disagreements with the
+	// ruling or with the pinned test. Evidence and the full table:
+	// copy_quality_two_stage/NOTES_two_stage_copy.md, 2026-09-03.
+	//
+	// ⚠ The fact-preservation guards below are what make loosening this SAFE:
+	// `dropped_figure` is keyed on protectFrom, so every number in the surviving
+	// clause must still be there whatever the length. Loosening the size floor
+	// does not loosen those.
+	if wordCount(to) < 5 || len(to) < len(from)/4 {
 		return false, "gutted"
 	}
 	if len(to) > len(from)*22/10 {

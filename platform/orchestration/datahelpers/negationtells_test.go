@@ -254,6 +254,34 @@ func TestRewriteFactRules(t *testing.T) {
 	if ok, why := AcceptNegationRewrite("It shows what is possible, not what survives production today.", "It shows.", 26); ok || why != "gutted" {
 		t.Errorf("a gutted rewrite must be rejected, got %v/%q", ok, why)
 	}
+
+	// ── OWNER RULING 2026-09-03, relayed via the finetuning.uk lane ──────────
+	// "Keeping the first clause and cutting at the comparison is the norm you
+	// set. Loosen the judge so a truncation to a complete, true first clause is
+	// accepted."
+	//
+	// These two are the cases that PROVOKED the ruling, and both were refused by
+	// the old 40% proportion. The first is his own worked example (29.5%); the
+	// second is a live homepage repair the gate rejected the same morning
+	// (38.1%), leaving `rather than` on the served page. If either of these ever
+	// reads "gutted" again, the floor has been put back and the ruling is lost.
+	if ok, why := AcceptNegationRewrite(
+		"We're not tied to one provider, so you get the model that fits the task, not the model we happen to sell.",
+		"We're not tied to one provider.", 30); !ok {
+		t.Errorf("the owner's own ruled truncation must be accepted, got %v/%q", ok, why)
+	}
+	if ok, why := AcceptNegationRewrite(
+		"We pick the tool suited to each task rather than pushing one platform across everything you need.",
+		"We pick the tool suited to each task.", 36); !ok {
+		t.Errorf("a complete first clause must be accepted, got %v/%q", ok, why)
+	}
+	// The floor is on WORDS, so markup cannot buy a stub its way through: this
+	// is the same 2-word stranded verb dressed in tags.
+	if ok, why := AcceptNegationRewrite(
+		"<p>It shows what is possible, not what survives production today.</p>",
+		"<p><strong>It</strong> <em>shows</em>.</p>", 26); ok || why != "gutted" {
+		t.Errorf("a markup-padded stub must still be gutted, got %v/%q", ok, why)
+	}
 }
 
 func TestShapeVocabularyIsStable(t *testing.T) {
