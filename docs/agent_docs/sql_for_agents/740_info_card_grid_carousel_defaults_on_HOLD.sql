@@ -241,11 +241,30 @@
 --    `content_data` write plus a rerender — **choosing the portfolio site to avoid touching a
 --    client site means performing the very write the concern is about, aimed elsewhere.** The
 --    client page is lower-impact precisely because nothing has to change for it to be testable.
---    ⚠ **This grounding EXPIRES if the fence gains a write** (screenshot store wired on, a
---    failure path filing a repair item, an acceptance flow triggering a rerender). **Re-run
---    those two greps before hand-running it**; if either stops coming back empty, create a
---    carousel placement on a portfolio site and accept the write there. Full reasoning:
---    `doc_notes` subject_type=`component`, subject_key=`info-card-grid`, 2026-09-03 16:16Z.
+--    ⚠ **This grounding EXPIRES if the fence gains a write.** ⚠⚠ **AND THE STANDING CHECK IS
+--    NOT "does it contain a write statement" — it is "does it have a DATABASE EXECUTION PATH
+--    AT ALL",** which the peer lane established independently and is the stronger form because
+--    a write statement can be added in one line while a DB dependency cannot be wired in
+--    accidentally. [MEASURED 2026-09-03] across `internal/adapters/browserrunner/*.go`
+--    (non-test): `.Exec(` **0** · `.ExecContext(` **0** · `.Query(` **0** · `.QueryContext(`
+--    **0** · `sql.DB` **0** · `pgxpool` **0** · `database/sql` **0**. **Control, because a
+--    grep that returns 0 everywhere proves nothing:** `sql.DB` in
+--    `plan_sections_action.go` returns **11**. So the greps discriminate.
+--    **Re-run that set before hand-running the fence**; if any of them stops returning 0,
+--    create a carousel placement on a portfolio site and accept the write there instead.
+--
+--    ⚠ **AND A CENSUS TRAP FOR WHOEVER RE-RUNS THE "only placement" CLAIM.** The peer's first
+--    pass used `content_data::text ILIKE '%carousel%'` and got **5 placements across 4 sites**,
+--    which reads as a refutation and would have sent this fence to a portfolio page that both
+--    needed the write AND does not carry the component. [MEASURED 2026-09-03] resolving the
+--    VALUE rather than the text: only `leopardessconsulting.co.uk` `info-card-grid` has the key
+--    present and `true`; `ai-agent-orchestration.com` (`case-studies-grid`), `seotools.co.uk`
+--    (`Generic Text Block`, ×2) and `webdesign.co.uk` (`article-body`) merely MENTION the word
+--    in a different component's prose. **Test `content_data ? 'carousel'` and read the value —
+--    never `::text ILIKE`.** Same "true number over the wrong population" shape as the 87%
+--    above, one table along.
+--    Full reasoning: `doc_notes` subject_type=`component`, subject_key=`info-card-grid`,
+--    2026-09-03 16:16Z.
 --
 -- 3. `bug_historian` (medium/low) and `debug_historian` (low) are registered, not disputed:
 --    a shared-component default with no staged rollout fans out to every dependent instance
