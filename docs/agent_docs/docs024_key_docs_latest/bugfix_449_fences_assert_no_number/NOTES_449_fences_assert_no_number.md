@@ -171,3 +171,132 @@ labelled strengths — but it lives in one lane's directory, not in the framewor
   backfill, and it has a `needs_criteria` doc_note path with a 30-day per-subject cooldown.
 
 ---
+## 2026-09-03 — neighbouring threads, and two constraints found before planning
+
+### Nobody else is in the files this fix would touch
+
+Checked rather than assumed, because on this tree a dirty file is somebody's plan:
+
+| file | last touched |
+|---|---|
+| `write_doc_plan_action.go` | 2026-08-24 (`995b5fbbe`, the 288 facts-validation door) |
+| `experience_criteria.go` | 2026-08-22 (`b32aa9cd9`, contrast_ratio) |
+| `check_tool_acceptance.go` | 2026-08-25 (`f44451494`) |
+| `run_checks_action.go` (browserrunner) | 2026-08-22 (`b32aa9cd9`) |
+
+All four also clean in `git status`. So no live collision in code.
+
+### ⚠ But a lane changed the tool-generator PROMPT four hours ago
+
+`docs/agent_docs/sql_for_agents/732_tool_prompts_learn_the_paired_ink_rule.sql`, committed
+**2026-09-03 12:10** (`0325ddebb`) for `bugs_open/458` — the tool prompt was never taught the
+paired-ink rule. It edits the same `agent_definitions` ROW I need.
+
+**It does not collide, and I checked the path rather than the row.** 732 anchors on
+`{workflow,steps,generate_tool_html,config,prompt_template}` and
+`{workflow,steps,improve_tool,…}`. The fence vocabulary lives at
+`{workflow,steps,compose_plan,config,prompt_template}` — a different key. Two surgical
+`jsonb_set`s on disjoint paths compose in either order.
+
+**Had I checked only "does another migration touch tool-generator", I would have concluded
+'yes, wait for it' and stalled for nothing.** The row is not the unit; the JSON path is.
+
+732 is also the template to copy, and it is the pattern CLAUDE.md asks for: a pre-guard that
+counts the verbatim anchor and `RAISE EXCEPTION`s if it has moved ("re-read it and re-anchor
+rather than overwriting a prompt this migration has not seen"), an idempotency arm, then a
+post-verify in a `DO` block that raises — **not a block of bare `SELECT`s, which cannot stop
+the `COMMIT`.**
+
+### ⚠ `write_doc_plan` is TWO optional keys from the RFC_022 budget
+
+```
+$ ./scripts/audit-optional-key-budget.sh
+      8 optional keys   3 carriers  write_doc_plan
+  budget: 10 — 0 shared action(s) over it
+```
+
+So the door has **8 of its 10**. A fix adding one optional key to `write_doc_plan`'s input
+spec leaves it at 9 and passes; **two puts it AT the budget** and owes one review of the
+accumulated surface, recorded in `architecture_review/optional_key_budget_acks.json`. That
+is a design constraint on the plan, not an afterthought — and it is exactly the accumulation
+signal RFC_022 exists to raise. Prefer a fix that adds **zero or one**.
+
+### Landmines already banked against this machinery — read before authoring anything
+
+`grep 'criteria' LANDMINES.md` returns a lot, and four bear directly:
+
+1. **Tier 2 ignores `no_auto_fix`** (LANDMINES §8626). A fence of only `computed_values` is
+   inert to Tier 2 — but Tier 2 appends three built-in shell failures *outside* the criteria
+   loop, so it can still raise `improve_tool` and aim an automated rewriter at a SHARED
+   component. Adding one innocuous `page_status_ok` to a correctness fence is what arms that.
+   **Directly relevant:** any fix of mine that tells the generator to emit `computed_values`
+   alongside the existing four health checks creates exactly this combination.
+2. **An unknown key in a criteria fence is dropped in silence** (§8989), so a check can
+   assert less than it appears to and never say so. `selector_count`'s `expect_count` is the
+   worked case — a real-sounding key nothing decodes. Any new field I add must be added to
+   the runner's decode struct AND to `experienceCheckTypeFields`, or it is decoration.
+3. **`computed_values` reads a `display:none` subtree perfectly well** (§9303) — so it pins
+   the arithmetic and says nothing about whether a visitor could see it. This is the precise
+   reason the bug's §4 wants correctness *and* health in one fence, not correctness instead.
+4. **Prose naming the fence in backticks hijacks extraction** (§1271) — the extractor takes
+   the FIRST ` ```criteria `, so a sentence mentioning it in a PLAN body silently becomes the
+   fence. Relevant because my prompt change adds prose about fences to a prompt that writes
+   PLAN bodies.
+
+### The other lanes this reaches, for CONTRIBs once the plan is settled
+
+- `mortgagecalculator_couk_adoption` — filed 449 and owns 441 (fences naming pre-conversion
+  ids). ACTIVE but quiet since 22:35 last night.
+- `loancalculator_couk` — **ACTIVE, committed 11:50 today.** Owns `toolgolden.py`, the
+  `--emit-criteria` capture that `computed_values` fences are built from, and the LANDMINE
+  about it. Any framework rule about where an expected value may come from is theirs too.
+- `staged_component_build` — the existence proof: 6 of its 8 fences carry `computed_values`
+  AND `interaction`. Its practice is the template being generalised.
+- the `458` lane (migration 732, committed 12:10 today) — sharing the tool-generator prompt.
+- the boxingonline/designblog rulings lane — `scripts/audit-experience-promises.py` RULE B
+  ("a tool page with nothing the reader can use or read") is the same shape one level out:
+  *the page keeps the letter of its build and breaks the promise it makes.*
+
+---
+## 2026-09-03 — the fable run failed, and the plan is therefore un-second-opinioned
+
+The owner asked for the plan to be prepared **using fable**. I dispatched a
+`claude-fable-5-1` agent with a full briefing — the census, the prompt text, the seam
+enumeration, the design tension, the CLAUDE.md rulings that bind it, and the §6 verification
+bar. It ran ~30 minutes and **terminated on a session rate limit** (HTTP 429, "You've hit
+your session limit · resets 4:10pm Europe/London"), having emitted one line: *"I'll start by
+reading the bug file and the key seam files in parallel."*
+
+**So the plan in `PLAN_2026-09-03_449_fences_assert_no_number.md` is mine, not fable's**, and
+the head of that file says so. This is recorded rather than glossed because the *reason* the
+owner asked for fable — an independent read of a design decision that inverts the obvious
+ordering — is exactly the input the document is missing. Re-running it after 16:10 is cheap.
+If fable's plan differs materially, the difference goes in as a correction here and in the
+PLAN, not as a replacement.
+
+⚠ **Do not retry a fable dispatch before 16:10 BST** — the limit is per session and a retry
+costs a round for a guaranteed 429.
+
+## 2026-09-03 — the ordering decision, and why the obvious order is wrong
+
+The cheap, live-on-apply, cause-closing move is to teach `tool-generator` the check type.
+Every instinct says do that first. **The plan puts it LAST**, and the reasoning is the part
+worth keeping:
+
+1. A pinned value the generator could not derive independently is **worse than no value**.
+   Silent blindness is uninformative; a defended wrong number is believed. That is the
+   `bugs_open/224`/`225` class — sixteen months of a green certificate on an expired tax cap.
+2. `bugs_open/441` is, in the mcalc lane's own re-framing today, a **live generator of stale
+   fences**. `runComputedValues` fails rather than skips when its element is missing — by
+   design, and rightly. So value assertions authored while 441 is live would fail for the
+   wrong reason and aim `tool-improver` at arithmetic that was never wrong.
+
+So the honest-record phases (P1 verdict, P2 door note, P3 report) ship first: they are
+strictly additive, they touch all 186 fences at once with no backfill, and none of them can
+create a false failure. Only then does the authoring change land.
+
+**[UNVERIFIED]** that 441's fix lands before the next generator run — asked of the mcalc lane
+in `CONTRIB_2026-09-03_from_the_449_lane_…`, not yet answered. If it lands after, P4 must be
+gated rather than merely sequenced.
+
+---
