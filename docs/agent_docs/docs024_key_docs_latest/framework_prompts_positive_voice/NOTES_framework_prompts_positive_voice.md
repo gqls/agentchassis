@@ -193,3 +193,46 @@ prohibition, change the register only, so this is a form rewrite of 16 paragraph
 (3) the cache-breakpoint migration on the same writer row, now unblocked since 641 has landed; (4) the model
 arm including the Grok arm he asked for. The first real evidence for (2) will be the opening lines Stage B
 produces, which the finetuning lane is sending.
+
+## 2026-09-03 (~20:00Z) — 641 council round 2 APPROVED, all three advisories adjudicated at the artefact
+
+Verdict `complete_approved` 19:30:57Z, *"approved with 3 advisory objection(s) — none high-severity"*.
+Read in full and dispositioned; **two of the three were true of my SUBMISSION and false of the FILE**,
+which is a lesson about how I wrote the submission, not a defect in the change.
+
+- **editquality (medium)** — the sketch diffed only the `E'...'` string while the rationale claimed both
+  copies changed, so a stale header copy would mean the owner reads the old frame at gate 2.
+  **Already satisfied in the artefact**: both copies were changed together and byte-compared after
+  decoding, plus a third comparison against the harness template. Their concern was the right one to
+  raise from what I gave them; I showed one hunk and asserted two.
+- **bug_historian (medium)** — `{{.current_page.title}}` is the field family in the OPEN `bugs_open/085`
+  (render data advertises `current_page` and supplies empty on some paths), so the unchanged sibling-list
+  line could render " also covers, each in its own section:" with a blank title, silently. They asked for
+  a live spot-check rather than a fixture replay. **Done, post-apply, first-hand:** all six
+  `generate_content` prompts of orchestration `89059f29` render the title as `The Technical Details |
+  FineTuning`, non-empty, block 596 chars each. `[MEASURED 2026-09-03 ~20:00Z]` **Scope stated honestly:
+  one orchestration, one site, six iterations — this shows 085 does not reach this path on this build,
+  not that it cannot fleet-wide.**
+- **debug_historian (medium + low)** — the `replace()` anchor is a bare needle with no occurrence count,
+  on a row documented as concurrently edited this session. **Premise is false and the file answers it:**
+  641 line 179-182 counts the anchor inside the same `DO` block at apply time and RAISEs unless the count
+  is exactly 1, so a drifted or duplicated anchor aborts rather than multiply-inserting. Again my
+  submission's omission: I described the guards as "unchanged" without showing them.
+
+**Transferable lesson, and it cost two seats' attention:** a submission that says "the existing guards
+still hold" without quoting them invites objections the file already answers. **Quote the guard, do not
+cite it.** Cheap check that would have avoided both: before submitting, grep the file for each guard the
+plan claims is inherited and paste the line into `grounded_in`.
+
+Commit trailer stays `Council-Submitted:` (098 credits it now the correlation is approved); forward-only
+forbids an amend and none is needed.
+
+## 2026-09-03 (~20:05Z) — house voice v3 drafted
+
+`DRAFT_2026-09-03_voice_style_block_v3.md`. Form rewrite per the owner's decision: **every rule and every
+prohibition kept**, including all 15 cut-list items and the em-dash ban; what changes is which half of each
+sentence leads. 16 paragraphs in and out, 5,862 -> 6,173 chars, 0 em dashes, 0 exclamation marks, all 16
+rule carriers and all 15 cut-list words asserted present programmatically before the file was written.
+Two things deliberately NOT changed and flagged for him: the two finance-specific worked examples (removing
+them is a content decision and a documented exemplar-lift risk, not a form one), and the short first line
+(it renders as a heading). Owner read, then the blind before/after, then the migration.
