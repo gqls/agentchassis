@@ -1508,3 +1508,58 @@ times. What it refuses is a directory with no source of entries, which is the fa
 working as intended. That correction is in the brief, and the plan you asked for, covering directories
 of suppliers and their products, is written for whoever picks it up.
 
+
+---
+
+**2026-09-03, late afternoon — copyonline is building a different site from the one you approved, and I have stopped short of fixing it because you told me not to touch a running build.**
+
+I need to correct something I told you earlier today. I said the brief might not be reaching the
+pipeline, and I offered you a choice between letting the build run and holding it. I was describing a
+risk. It is not a risk any more. It has happened, and I can now show you the site saying so itself.
+
+Two of the agents that decide what copyonline becomes have already run. Both of them wrote down, in
+their own working notes, that they had nothing to work from.
+
+The classifier — the agent that decides what kind of site this is — wrote: "Confidence is moderate
+because no mission brief was supplied and the existing site content is sparse, the strategic direction
+has been inferred from the site's own stated rules and the domain." So it went and read the old
+Drupal site, found the rules page, and concluded copyonline is a two-sided marketplace connecting
+buyers with copywriters. It filed the site under "hub", and tagged it marketplace, community platform,
+tool portal.
+
+The tool suggester wrote: "Without existing pages loaded, I'm inferring from the domain."
+
+That is the whole defect, in the system's own handwriting. Neither of them was being careless. They
+were both doing good work on an empty desk.
+
+Here is what it has cost so far. Your brief plans thirty pages. Ten pages have been built. **None of
+the ten is on the list of thirty.** What has been built is five tools and a companion guide for each:
+a Website Brief Starter, a SERP Snippet Previewer, an Insight Injector, a Keyword Intent Classifier
+and a Title Tag Scorer. Your brief's tools were a Headline Scorer, a Readability Checker, a
+Call-to-Action Tester and a word counter. There is no overlap at all, and there is none with the
+guides either. The AI angle you asked me to open with is not there. The lead generation page that
+carries the whole point of the exercise is not there. The copywriter directory is not there.
+
+It is being built as a decent little SEO tools portal. That is a real site. It is not this one.
+
+There is a second thing you should know, because it moves on a decision you have not made yet. Three
+of those five tools are the ones that duplicate seotools, the ones I asked you whether to retire. When
+I asked, I told you the pages existed but were unbuilt, so the decision was cheap. That was true when
+I wrote it and it stopped being true a few hours later. They are live now. My mistake was writing a
+status line as though asking you a question would pause the machine. It does not.
+
+Two pieces of better news. This is not something my own work caused: those tool pages came through the
+tool deployer's own route, not from anything this lane fired. And the door is not shut. The page
+planner has not run yet. Everything above was decided by the two agents that already ran, and the
+planner is the one that would actually commit the thirty pages. While it has not run, the brief can
+still reach it.
+
+The fix is one change and I have it written, guarded, and sitting on the shelf unapplied. Both agents
+look for the brief in a place your brief does not fill in, so the fix is to fill it in. I know it
+works because another site, gamedesign.uk, has a brief that does fill it in, and its prompts show the
+mission text exactly where copyonline's show a blank.
+
+I have not applied it. You told me not to change things that are already running, and you have not
+answered since. I do not think silence is permission, so it stays on the shelf. But I would rather you
+knew that the thing on the shelf now fixes a live problem rather than a predicted one, and that the
+window for it closes when the planner runs.
