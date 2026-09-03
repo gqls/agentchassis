@@ -1285,8 +1285,14 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 	//     the same closure the single-item branch calls, N times, rather than
 	//     forking a second inserter.
 	var followOnID *string
+	// Explicitly EMPTY, never nil: a nil slice marshals to `null`, and the whole
+	// point of always reporting this key is that "nothing was filed" reads as a
+	// visible [] rather than as an absent-or-null value that looks like success.
+	// (Council round 2, editquality — the round-1 fix was right and its test was
+	// not strong enough to hold it.)
 	followOnIDs := []string{}
 	skippedEdits := []map[string]interface{}{}
+	staleWarnings := []map[string]interface{}{}
 	var fanOutNote string
 
 	if onApprove, ok := spec["on_approve"].(map[string]interface{}); ok {
@@ -1338,6 +1344,14 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 			}
 		}
 
+		// One approval's children share a batch_id — the column the platform
+		// already uses for exactly this ("N items minted from one source event";
+		// [MEASURED 2026-09-03] 25,880 of 29,851 rows carry one across 4,161
+		// batches). Council round 2, prior_art_librarian: the grouping question
+		// had an existing answer and this was reinventing it by not asking.
+		// Minted per approval, so the single-item branch gets one too.
+		batchID := uuid.New()
+
 		createFollowOn := func(followSpec map[string]interface{}, label string) {
 			followSpecJSON, mErr := json.Marshal(followSpec)
 			if mErr != nil {
@@ -1352,19 +1366,29 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 			iErr := h.db.QueryRowContext(ctx, `
 				INSERT INTO site_work_items (
 					site_id, source, pipeline, item_type, severity, summary,
-					spec, priority, handler_agent, status, created_by
-				) VALUES ($1, 'admin-approved', 'build', $2, 'high', $3, $4::jsonb, 10, $5, 'triaged', 'admin')
+					spec, priority, handler_agent, status, created_by, batch_id
+				) VALUES ($1, 'admin-approved', 'build', $2, 'high', $3, $4::jsonb, 10, $5, 'triaged', 'admin', $6)
 				RETURNING id
 			`, siteID, followItemType,
 				fmt.Sprintf("Approved: %s%s", followItemType, label),
-				string(followSpecJSON), followHandler).Scan(&newID)
+				string(followSpecJSON), followHandler, batchID).Scan(&newID)
 
 			if iErr != nil {
+				// A failure here USED to vanish into a Warn, leaving
+				// follow_on_item_ids quietly shorter than the number of edits —
+				// a partial completion reporting success, which is the shape
+				// this whole change exists to remove (council round 2,
+				// bug_historian: an admin should not have to COUNT to notice).
+				// It now lands in the same skipped_edits channel as a dead
+				// address, so one element failing is visible per element.
 				h.logger.Warn("Failed to create follow-on work item",
 					zap.String("item_id", itemID.String()),
 					zap.String("label", label),
 					zap.Error(iErr))
-				// Non-fatal — the spec is already saved
+				skippedEdits = append(skippedEdits, map[string]interface{}{
+					"label":  label,
+					"reason": "the follow-on work item could not be created: " + iErr.Error(),
+				})
 				return
 			}
 			id := newID.String()
@@ -1446,14 +1470,13 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 						WHERE pc.id = $1::uuid AND p.site_id = $2
 					`, pcID, siteID, reviewCreatedAt).Scan(&movedSince)
 
+					// REFUSE only the claim the data can actually make.
 					reason := ""
 					switch {
 					case qErr == sql.ErrNoRows:
 						reason = "page_component_id no longer exists on this site — a rerender replaces the row with a new id, so this proposal's address is gone. Re-run the proposer"
 					case qErr != nil:
 						reason = "could not verify page_component_id: " + qErr.Error()
-					case movedSince:
-						reason = "the target section changed after this proposal was written — field_updates is a full-field replacement frozen at proposal time, so applying it now would revert whatever changed since. Re-run the proposer"
 					}
 					if reason != "" {
 						skippedEdits = append(skippedEdits, map[string]interface{}{
@@ -1463,6 +1486,48 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 							"reason":            reason,
 						})
 						continue
+					}
+
+					// WARN, do not refuse, on "might have moved".
+					//
+					// This started life as a second refusal arm and the council
+					// was right to object (round 2, editquality). `updated_at`
+					// CANNOT support the claim "the copy changed": at least two
+					// live writers bump it with no copy touched at all, one of
+					// them PAGE-WIDE — a single review write moves updated_at on
+					// every component of the page (LANDMINES,
+					// `page_components.updated_at` is NOT a content-change
+					// signal; fix_component_template_action.go:853,
+					// v3_site_actions.go:4205). Refusing on it would decline a
+					// perfectly fresh approval because something unrelated
+					// touched the row, and the "0 of 31 stale today" measurement
+					// cannot rule that out going forward — it describes today's
+					// state, not what a future status write will do.
+					//
+					// The columns that COULD answer it are content_hash and
+					// rendered_html_digest, which move only when content does —
+					// but a comparison needs a BASELINE, and no proposal records
+					// the digest it was computed against. Recording one is the
+					// PROPOSER's change (copy-editor), not this handler's. Until
+					// it exists, the honest thing is to hand the approver the two
+					// timestamps and let them look, rather than to manufacture a
+					// refusal from a column that cannot make the claim.
+					//
+					// The risk being flagged is real: `field_updates` is a
+					// full-field replacement frozen at proposal time, so a stale
+					// one silently reverts everything changed since, and on a
+					// single-field component that is the whole component
+					// (LANDMINES 2026-08-17).
+					if movedSince {
+						staleWarnings = append(staleWarnings, map[string]interface{}{
+							"index":             i,
+							"page_component_id": pcID,
+							"slot_name":         el["slot_name"],
+							"filed":             true,
+							"warning": "the target row was written after this proposal — it MIGHT have changed. " +
+								"updated_at cannot tell content edits from status-only writes, so this is not proof; " +
+								"field_updates is a full-field replacement, so if the copy did move, applying this reverts it",
+						})
 					}
 				}
 
@@ -1513,6 +1578,9 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 	if len(skippedEdits) > 0 {
 		followOnDetail["skipped_edits"] = skippedEdits
 	}
+	if len(staleWarnings) > 0 {
+		followOnDetail["stale_warnings"] = staleWarnings
+	}
 	if fanOutNote != "" {
 		followOnDetail["fan_out_note"] = fanOutNote
 	}
@@ -1551,6 +1619,9 @@ func (h *SiteAdminHandlers) HandleApproveWorkItem(c *gin.Context) {
 	result["follow_on_item_ids"] = followOnIDs
 	if len(skippedEdits) > 0 {
 		result["skipped_edits"] = skippedEdits
+	}
+	if len(staleWarnings) > 0 {
+		result["stale_warnings"] = staleWarnings
 	}
 	if fanOutNote != "" {
 		result["fan_out_note"] = fanOutNote

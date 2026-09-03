@@ -106,7 +106,10 @@ func targetRow(movedSince bool) *sqlmock.Rows {
 	return sqlmock.NewRows([]string{"moved"}).AddRow(movedSince)
 }
 
-func doApprove(t *testing.T, h *SiteAdminHandlers, reviewData string) (int, map[string]interface{}) {
+// doApprove returns the raw body as well as the decoded map, because the decoded
+// map CANNOT distinguish a JSON `[]` from a `null` — both land as a zero-length
+// assertion — and that distinction is load-bearing for follow_on_item_ids.
+func doApprove(t *testing.T, h *SiteAdminHandlers, reviewData string) (int, map[string]interface{}, string) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
@@ -121,7 +124,7 @@ func doApprove(t *testing.T, h *SiteAdminHandlers, reviewData string) (int, map[
 
 	var decoded map[string]interface{}
 	_ = json.Unmarshal(w.Body.Bytes(), &decoded)
-	return w.Code, decoded
+	return w.Code, decoded, w.Body.String()
 }
 
 func stringReader(s string) *stringReadCloser { return &stringReadCloser{s: s} }
@@ -174,15 +177,15 @@ func TestApproveFansOutOnePerEdit(t *testing.T) {
 	// Both addresses live and unmoved.
 	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
 	mock.ExpectQuery("INSERT INTO site_work_items").
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), specs, sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), specs, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("11111111-1111-1111-1111-111111111111"))
 	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
 	mock.ExpectQuery("INSERT INTO site_work_items").
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), specs, sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), specs, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("22222222-2222-2222-2222-222222222222"))
 	mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
 
-	code, body := doApprove(t, h, twoEditReviewData)
+	code, body, _ := doApprove(t, h, twoEditReviewData)
 	if code != http.StatusOK {
 		t.Fatalf("status = %d, body = %v", code, body)
 	}
@@ -251,7 +254,7 @@ func TestApproveSkipsDeadComponentAddressAndSaysSo(t *testing.T) {
 	mock.ExpectQuery("SELECT pc.updated_at").WillReturnError(sql.ErrNoRows)
 	mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
 
-	code, body := doApprove(t, h, twoEditReviewData)
+	code, body, _ := doApprove(t, h, twoEditReviewData)
 	if code != http.StatusOK {
 		t.Fatalf("status = %d, body = %v", code, body)
 	}
@@ -290,11 +293,11 @@ func TestApproveIncludeFieldsFallsBackToTheApprovedBody(t *testing.T) {
 	specs := &capture{}
 	mock.ExpectQuery("SELECT site_id, spec, status").WillReturnRows(reviewRow(spec))
 	mock.ExpectQuery("INSERT INTO site_work_items").
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), specs, sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), specs, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("33333333-3333-3333-3333-333333333333"))
 	mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
 
-	code, body := doApprove(t, h, `{"page_target": "index", "no_change_needed": false}`)
+	code, body, _ := doApprove(t, h, `{"page_target": "index", "no_change_needed": false}`)
 	if code != http.StatusOK {
 		t.Fatalf("status = %d, body = %v", code, body)
 	}
@@ -325,11 +328,11 @@ func TestApproveWithoutFanOutIsUnchanged(t *testing.T) {
 	specs := &capture{}
 	mock.ExpectQuery("SELECT site_id, spec, status").WillReturnRows(reviewRow(spec))
 	mock.ExpectQuery("INSERT INTO site_work_items").
-		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), specs, sqlmock.AnyArg()).
+		WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), specs, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("44444444-4444-4444-4444-444444444444"))
 	mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
 
-	code, body := doApprove(t, h, twoEditReviewData)
+	code, body, _ := doApprove(t, h, twoEditReviewData)
 	if code != http.StatusOK {
 		t.Fatalf("status = %d, body = %v", code, body)
 	}
@@ -364,7 +367,7 @@ func TestApproveFanOutFromMissingKeyFallsBackAndReports(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("55555555-5555-5555-5555-555555555555"))
 	mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
 
-	code, body := doApprove(t, h, twoEditReviewData)
+	code, body, _ := doApprove(t, h, twoEditReviewData)
 	if code != http.StatusOK {
 		t.Fatalf("status = %d, body = %v", code, body)
 	}
@@ -376,26 +379,69 @@ func TestApproveFanOutFromMissingKeyFallsBackAndReports(t *testing.T) {
 	}
 }
 
-// The address rots TWO ways and the council round was right that checking only
-// deletion is weaker than it reads. A target that still EXISTS but changed after
-// the proposal was written must be refused too: `field_updates` is a full-field
-// replacement frozen at proposal time, so applying it reverts everything since.
-// [MEASURED 2026-09-03] 0 of 31 parked edits are stale today — this arm costs
-// nothing now, which is exactly when to add it.
-func TestApproveRefusesAnEditWhoseTargetMovedAfterTheProposal(t *testing.T) {
+// The address rots TWO ways, but only ONE of them is a claim the data can make.
+// Deletion is answerable and is refused. "Moved" is NOT: `updated_at` is bumped
+// by status-only writers, one of them page-wide (LANDMINES,
+// `page_components.updated_at` is NOT a content-change signal), so refusing on
+// it would decline a perfectly fresh approval. It is reported instead — the item
+// IS filed, and the approver is handed the doubt. Council round 2, editquality.
+func TestApproveWarnsButStillFilesWhenTheTargetMayHaveMoved(t *testing.T) {
 	h, mock, db := newApproveMock(t)
 	defer db.Close()
 
 	mock.ExpectQuery("SELECT site_id, spec, status").WillReturnRows(reviewRow(fanOutSpec))
-	// First target moved since the proposal was written.
-	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(true))
-	// Second is fine and must still be filed — one bad element does not sink the batch.
-	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(true)) // may have moved
 	mock.ExpectQuery("INSERT INTO site_work_items").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("66666666-6666-6666-6666-666666666666"))
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
+	mock.ExpectQuery("INSERT INTO site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("77777777-7777-7777-7777-777777777777"))
 	mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
 
-	code, body := doApprove(t, h, twoEditReviewData)
+	code, body, _ := doApprove(t, h, twoEditReviewData)
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, body = %v", code, body)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("expectations: %v", err)
+	}
+
+	ids, _ := body["follow_on_item_ids"].([]interface{})
+	if len(ids) != 2 {
+		t.Fatalf("follow_on_item_ids = %v, want 2 — a 'might have moved' must NOT refuse", body["follow_on_item_ids"])
+	}
+	if _, refused := body["skipped_edits"]; refused {
+		t.Errorf("skipped_edits present: updated_at cannot support a refusal, only a warning")
+	}
+	warns, _ := body["stale_warnings"].([]interface{})
+	if len(warns) != 1 {
+		t.Fatalf("stale_warnings = %v, want 1 — the doubt must reach the approver", body["stale_warnings"])
+	}
+	w0, _ := warns[0].(map[string]interface{})
+	if w0["filed"] != true || w0["page_component_id"] != fanPCLive {
+		t.Errorf("warning does not say what was filed, or names the wrong target: %v", w0)
+	}
+	if !strings.Contains(fmt.Sprint(w0["warning"]), "not proof") {
+		t.Errorf("warning overstates its own evidence: %v", w0["warning"])
+	}
+}
+
+// A per-element INSERT failure must land in skipped_edits, not vanish into a log
+// line that leaves follow_on_item_ids quietly one short. Council round 2,
+// bug_historian: an admin should not have to COUNT to notice a partial batch.
+func TestApproveRecordsAnInsertFailureRatherThanShrinkingSilently(t *testing.T) {
+	h, mock, db := newApproveMock(t)
+	defer db.Close()
+
+	mock.ExpectQuery("SELECT site_id, spec, status").WillReturnRows(reviewRow(fanOutSpec))
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
+	mock.ExpectQuery("INSERT INTO site_work_items").WillReturnError(fmt.Errorf("boom: constraint violation"))
+	mock.ExpectQuery("SELECT pc.updated_at").WillReturnRows(targetRow(false))
+	mock.ExpectQuery("INSERT INTO site_work_items").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("88888888-8888-8888-8888-888888888888"))
+	mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
+
+	code, body, _ := doApprove(t, h, twoEditReviewData)
 	if code != http.StatusOK {
 		t.Fatalf("status = %d, body = %v", code, body)
 	}
@@ -405,19 +451,15 @@ func TestApproveRefusesAnEditWhoseTargetMovedAfterTheProposal(t *testing.T) {
 
 	ids, _ := body["follow_on_item_ids"].([]interface{})
 	if len(ids) != 1 {
-		t.Fatalf("follow_on_item_ids = %v, want 1 — the moved target must not be filed", body["follow_on_item_ids"])
+		t.Fatalf("follow_on_item_ids = %v, want 1", body["follow_on_item_ids"])
 	}
 	skipped, _ := body["skipped_edits"].([]interface{})
 	if len(skipped) != 1 {
-		t.Fatalf("skipped_edits = %v, want 1", body["skipped_edits"])
+		t.Fatalf("skipped_edits = %v, want 1 — a failed insert must be REPORTED, not just logged", body["skipped_edits"])
 	}
 	s0, _ := skipped[0].(map[string]interface{})
-	reason, _ := s0["reason"].(string)
-	if !strings.Contains(reason, "changed after this proposal was written") {
-		t.Errorf("reason = %q; the approver must be told it went stale, not merely that it was skipped", reason)
-	}
-	if s0["page_component_id"] != fanPCLive {
-		t.Errorf("skipped entry names %v, want the moved address %s", s0["page_component_id"], fanPCLive)
+	if !strings.Contains(fmt.Sprint(s0["reason"]), "could not be created") {
+		t.Errorf("reason does not name the failure: %v", s0["reason"])
 	}
 }
 
@@ -433,7 +475,7 @@ func TestApproveFanOutFromEmptyArrayFilesNothingAndSaysSo(t *testing.T) {
 	mock.ExpectQuery("SELECT site_id, spec, status").WillReturnRows(reviewRow(fanOutSpec))
 	mock.ExpectExec("UPDATE site_work_items").WillReturnResult(sqlmock.NewResult(0, 1))
 
-	code, body := doApprove(t, h, `{"edits": [], "no_change_needed": true}`)
+	code, body, raw := doApprove(t, h, `{"edits": [], "no_change_needed": true}`)
 	if code != http.StatusOK {
 		t.Fatalf("status = %d, body = %v", code, body)
 	}
@@ -445,9 +487,12 @@ func TestApproveFanOutFromEmptyArrayFilesNothingAndSaysSo(t *testing.T) {
 	if len(ids) != 0 {
 		t.Fatalf("follow_on_item_ids = %v, want [] — an empty proposal must file nothing", body["follow_on_item_ids"])
 	}
-	// The key must be PRESENT and empty, not absent: an absent key reads as success.
-	if _, present := body["follow_on_item_ids"]; !present {
-		t.Errorf("follow_on_item_ids absent; 'nothing was filed' must be a visible [], not a missing key")
+	// It must serialise as a LITERAL []. A nil []string marshals to `null`, and
+	// `null` decodes to a zero-length assertion above just as `[]` does — so the
+	// length check alone cannot tell the two apart. Council round 2,
+	// editquality, reasoning about exactly this from the sketch.
+	if !strings.Contains(raw, `"follow_on_item_ids":[]`) {
+		t.Errorf("follow_on_item_ids did not serialise as []; got %s", raw)
 	}
 	note, _ := body["fan_out_note"].(string)
 	if !strings.Contains(note, "EMPTY") {
