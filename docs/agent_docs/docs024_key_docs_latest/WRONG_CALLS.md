@@ -60944,3 +60944,44 @@ a-post-fix-zero-needs-a-demand-control, a-bound-added-for-a-reviewer-narrows-you
   filed as "approved, done".
 - **related:** MEMORY [[prove-a-deploy-at-the-artefact-index]] · [[live-and-committed-are-independent-facts]]
   · [[a-submission-is-not-a-review]] · the `a-print-statement-is-not-a-config-row` family.
+
+---
+
+## 2026-09-03 — "did you READ it?" is a different question from "is it RIGHT?", and it finds things the second cannot
+
+**Not my error this time — a method note, filed here because the tally is what makes it worth
+automating.** Recorded with the `dartsonline_traffic` lane's agreement.
+
+A peer relayed a mechanism claim to me: *"`create_blog_posts_action.go:183` holds the canonical
+article layout and builds from it without writing plan rows."* It was load-bearing — the whole
+finding that ~84% of articles have no plan row rested on it. I could not verify it cheaply, so I
+marked it `[UNVERIFIED BY ME]` in my handoff and asked them one question: **had they read the
+file, or was it relayed?**
+
+**They had not** — it came from a five-week-old seed header. On reading it, they corrected
+themselves three ways, and then I read it myself before upgrading my marker:
+
+- the line is **212, not 183** — the citation had drifted 29 lines since the seed was written;
+- the triple is a **fallback**, not a hardcoded layout (`post.Sections` may be supplied) — "holds
+  the layout" overstated it;
+- the load-bearing half — *doesn't write plan rows* — had been **inferred** from the pages having
+  none, not checked. It survives: the action writes `pages.sections` (the cache) and never
+  `site_plan_sections` (the authority).
+
+**The claim was TRUE. All three defects were inside it.** No amount of arguing about the
+conclusion would have surfaced any of them, because the conclusion was right.
+
+**And separating the fallback from the inference changed the remedy** — which is the payoff.
+Once "hardcoded layout" became "fallback, and the authority is never written", it followed that
+*passing a richer `post.Sections` is not a fix*: it fills the cache and leaves the plan empty, so
+an ordinal still has nothing to name. The loose version hid that. **A vague true claim and a
+precise true claim recommend different actions.**
+
+**How to apply.** When a claim you are about to build on came from another lane, a doc, or a seed
+header, ask for its **provenance** before its correctness — *"have you opened that file, or is it
+relayed?"* — and keep your own `[UNVERIFIED BY ME]` marker until **you** have read it, not until
+they confirm. Both halves matter: their re-read found the drift, and mine is what earned the
+upgrade. ⚠ **A line-number citation is the shape most likely to have expired** — cite the symbol.
+
+**Tally:** **ask-for-provenance-not-just-correctness** ×1,
+**a-relayed-line-number-has-drifted** ×1 (29 lines, five weeks).
