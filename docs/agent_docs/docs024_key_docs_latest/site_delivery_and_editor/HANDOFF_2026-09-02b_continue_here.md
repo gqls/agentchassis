@@ -768,3 +768,51 @@ the six OTHER orphan-carrying pages, not on the held paid site** — told them s
   lanes at once. Now written beside the query in the sweep script.
 - My 14-on-7 count is recorded in `bugs_open/457` as the corroboration that their "8 on 3" was the
   stale inherited half.
+
+---
+
+## THE DELIVERY CHAIN, READ AT THE LIVE CONFIG — 15:46Z (owner asked "how are we left with getting this site out into the email and the email itself")
+
+**Four agents, all built, and NOT ONE HAS EVER RUN — zero orchestrations, all time:**
+`delivery-review-filer` (files a `needs_delivery_review` checkpoint item) → owner APPROVES on
+admin.apis.uk → `zip-deliverable-dispatch` (spawn+call) → `zip-deliverer` (`zip_deliverable`) →
+`delivery-email-sender` (`send_delivery_email`). Corroborating zeros, all measured 15:46Z:
+`customer_access_tokens` **0 fleet-wide**; delivery/zip work items ever filed **0**; zip assets on
+this site **0**. **This would be the chain's first execution on a paying customer's site.**
+
+**The review item's own words** (so nobody resolves instead of approving): *"Pre-delivery review:
+look at the brief and the rendered site, edit if needed, then APPROVE to release the delivery
+email. Resolve does NOT release it."* `checkpoint: true`, `needs_human_review`, priority 10.
+
+**The email, verbatim from the live step config.** Subject: **"Your website is ready"**. Body
+covers, in order: the live URL and that it stays up for `{{days}}` days · the ZIP *"yours to
+keep"* with instructions for free hosting · that they host it themselves after the window · the
+domain, **£10/month to rent or £200 one-off to buy**, .co.uk and .uk only, reply to arrange · a
+`{{confirm_link}}` to press once moved so we stop reminding · *"No changes are included. You get
+the site as it is built."* Signed **webdesign.uk**. Links host: **`links.webdesign.uk`**.
+
+**A real safety in the sender, worth knowing:** `send_delivery_email_action.go:168` scans the
+rendered body for any surviving `{{` and REFUSES to send. So a missing zip presign fails loudly
+instead of emailing a customer the literal text `{{zip_link}}`. `customer_email` is likewise
+Required and errors on empty (:55, :99-102).
+
+**Two things this lane cannot verify without running it, and says so rather than assuming:**
+1. `links.webdesign.uk` answers **404 on the root AND on an invented path** (checked 15:46Z). That is
+   NOT proof it is broken — a token-path host may legitimately 404 everywhere else — but it means
+   **the link host is unverified**, and it cannot be tested until a token exists, and no token has
+   ever been minted (`platform/delivery/zip.go:57`, `handover.go:266` are the minting sites).
+2. `{{days}}` renders from `AdvertisedWindowDays`; the value that will appear has never been seen
+   in a real send.
+
+**The recipient is the live instance of his own RFC_058 ruling.**
+`build_queue.direction->>'customer_email'` for order **BR-9AUZ59** is
+**`aaa@designconsultancy.co.uk`** with `customer_name` "Boxing Online" — i.e. the DESIGN
+CONSULTANCY that ordered, not whoever will operate the site. Under Option C the email currently
+goes to the ORDERING PARTY. That is correct-by-default today because nothing else is recorded, and
+it is exactly the case his four-identity ruling exists to disambiguate. **Flag it at the delivery
+ask; do not silently re-point it.**
+
+**Recommendation to put to him:** rehearse the chain end-to-end on a NON-customer site first. Four
+unexercised agents, an unminted token type and an unverified link host is a large amount to
+discover for the first time on the first paid delivery, and every one of those unknowns is cheap to
+resolve on a site nobody paid for.
