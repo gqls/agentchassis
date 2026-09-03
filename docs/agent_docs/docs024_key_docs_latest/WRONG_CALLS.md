@@ -64132,3 +64132,61 @@ that blocked the lane's closure overnight. Call 2: none realised — caught in-s
 anything was written or committed. Call 3: none realised — caught before the migration that
 acts on the triage was written; had it not been, migration 753 would have left a resolved item
 open on the grounds that it was divergent.
+
+## 2026-09-03 — I abbreviated the ONE artefact the reviewers judge, and it cost a council round (`bugs_open/449` lane)
+
+- **The claim.** A council submission whose `sketch` showed the migration's `UPDATE` substituting the
+  anchor with `$new$<<<the anchor sentence, then the block below>>>$new$` — a placeholder I wrote to
+  keep the submission short — with the real 2.4KB prompt text moved below it as trailing `--`
+  comments labelled "THE PROMPT TEXT INSERTED ... verbatim".
+- **What was actually true.** The shipped file always carried the real dollar-quoted text; the round
+  trip that measured `2766 → 5046` could not have happened otherwise. **The file was correct and the
+  submission misrepresented it.**
+- **Why it mattered.** `editquality` objected at **HIGH** and gated the round: it could not
+  distinguish "documentation shorthand" from "a migration that inserts a literal placeholder into the
+  live prompt", and said so — *"the change would be a no-op/corruption, not the fix ... the sketch as
+  presented does not demonstrate that unambiguously."* **It was right not to guess.** A whole review
+  round, and the four other seats' objections arrived attached to a verdict I had made unnecessary.
+- **The part that makes this worth logging rather than shrugging at.** `RUNBOOK_council_gate.md` §200
+  already says, in terms: *"On a resubmit, update the `sketch` fields — not just the `rationale`.
+  Reviewers judge the sketch; it is the only view of your code they get."* **I read that line before
+  submitting and then economised on exactly the part it names.** The rule was not missing, unclear or
+  unavailable — the failure was believing my own summary of the file was a fair substitute for the
+  file, which is the same move as citing a function instead of quoting the deciding arm.
+- **What caught it.** The council, at the cost of a full round. Nothing in my own process would have:
+  I had verified the FILE end-to-end and never re-read the SUBMISSION as a reviewer would.
+- **The cheap check that would have — and it is structural, not a reminder.** **Generate the sketch
+  FROM the artefact; never hand-write it.** Round 2's sketch is literally
+  `src[src.index("BEGIN;"):]` — the file sliced from `BEGIN;` to `COMMIT;` — so sketch and artefact
+  cannot diverge, and it answered a second seat's objection (no visible transaction wrapping) for
+  free. **A summary of a file is a second artefact that can be wrong on its own**; the only version
+  that cannot drift is the one computed from the thing it describes.
+- **Cost.** One council round (~20 minutes plus credits), entirely self-inflicted. Mitigated by
+  timing luck: a peer lane's answer landed in the same window, so round 2 carried both.
+
+## 2026-09-03 — "Snapshot captured" plus a count of ZERO, and the count was reading the wrong table (`bugs_open/449` lane)
+
+- **The near-claim.** Having added `snapshot_agent('tool-generator', …)` to migration 749 in answer to
+  two seats' objections, I tested it and got a NOTICE reading `Snapshot captured: type=tool-generator,
+  source_version=1, …` **beside my own control reporting `tg_snapshots = 0`.** I was one sentence away
+  from recording "the snapshot fires" on the strength of the notice.
+- **What was actually true.** Both were correct and I had queried the wrong table.
+  `pg_get_functiondef(snapshot_agent)` shows it copies the live row into **`agent_definitions_backup`**
+  — a separate table — and never writes `agent_definitions` with `is_snapshot=true`, which is what my
+  control counted.
+- **Why it mattered.** The entire point of the objection was that a hand-rolled rollback file "is not
+  equivalent to a **queryable** pre-image row". Reporting the mechanism as working on the strength of
+  a log line, while my only check of its actual output said zero, would have answered a provenance
+  objection with a provenance claim I had not verified — the exact shape the seats were objecting to.
+- **What caught it.** Refusing to let a contradiction stand. The notice and the count disagreed, and
+  **the disagreement was the signal, not noise to be rounded away** in favour of whichever half
+  matched what I wanted.
+- **The cheap check that would have.** When a mechanism reports success, **verify at the artefact it
+  claims to have produced, and read the function definition to learn where that artefact lives**
+  before writing the control. Corrected control, measured in the rolled-back transaction:
+  `agent_definitions_backup` rows for `tool-generator` went **0 → 1 → still 1** across two applies
+  (idempotent, no pointless snapshot), and the stored pre-image **reads back at length 2766**, exactly
+  the pre-change prompt. That last clause is the one that makes it a recovery point rather than a row.
+- **Cost.** None — caught before it was written anywhere durable. Logged because the tally is the
+  point, and because "a log line said it worked" is this estate's most-repeated failure and it very
+  nearly got me on the very change that existed to satisfy a provenance objection.
