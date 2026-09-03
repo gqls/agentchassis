@@ -116,10 +116,27 @@ is an **escaping** defect, not a markdown one, and the two want different review
 
 - Before: `curl -s <host>/tools/assets/news-listing.js | grep -c 'innerHTML = html'` → 1.
 - After: that returns 0, and `grep -c 'textContent'` is non-zero.
-- At the artefact, and this is the one that matters: fetch a news page with a JS-capable
-  client and confirm the rendered items match the server-rendered HTML rather than replacing
-  it with raw JSON. A static `curl` **cannot** see this — see the LANDMINES entry *"The served
-  news page HTML is OVERWRITTEN in the browser"*.
+- At the artefact, and this is the one that matters. A static `curl` **cannot** see it — the
+  script replaces the server HTML on load (LANDMINES, *"The served news page HTML is
+  OVERWRITTEN in the browser"*). **But it is not unverifiable, and an earlier draft of this file
+  implied it was:** `browser-runner-adapter` is a running service (277 completed
+  `acceptance_run` items, 2026-09-03), and `run_checks` reads the **live DOM after settle**.
+  Three checks, taken **before and after in the same session** — a baseline from hours earlier
+  lets another lane's rerender in as a confound:
+  1. `selector_count` `article.news-list-item` — >0 proves the script ran and built the list.
+  2. `selector_exists` `a.news-more-link[href^="/"]` — **the only possible instrument for this
+     behaviour**: the served HTML of three affected homepages contains six matches for
+     `news-more-link` and **zero rendered anchors** — all six are CSS rules, so the link exists
+     nowhere but the client-built DOM.
+  3. `has_visible_area` `#news-listing-items` — not redundant with (1);
+     `run_checks_action.go:617` records three tools that measured 1146x0 while
+     `selector_exists` passed all three.
+  ⚠ `selector_exists`/`selector_count` pass on count > 0 and **fail on zero, with no
+  expect-zero form** — so "there must be no `a.news-more-link[href='#']`" is inexpressible.
+  Every assertion must be the presence of the RIGHT state, which is why (2) is `[href^="/"]`.
+  Capture the screenshot of the resolving link: it is the one artefact that outlives the
+  session, and nothing else in this chain — not the verify block, not the council, not either
+  peer review — could see that behaviour.
 - Negative control: an item whose summary contains `<b>x</b>` must render the characters, not
   bold text.
 
