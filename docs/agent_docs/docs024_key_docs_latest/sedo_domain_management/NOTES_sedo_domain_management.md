@@ -728,3 +728,26 @@ this entry: **2v.uk** (Clook batch, neither excluded nor released) and
 **which webdesign** (webdesign.uk vs webdesign.co.uk) the owner meant —
 copy_quality_two_stage deliberately left the second one to this lane
 rather than duplicate the question.
+
+## 2026-09-03 (later still) — both open questions CLOSED: 2v.uk never-sell; both webdesigns are in scope, will converge to one endpoint
+
+Owner: "both webdesign's they will be the same endpoint one day, don't
+sell 2v.uk."
+
+**2v.uk**: CONFIRMED permanent exclusion, no longer pending — was
+already sitting in `EXCLUDED_live_clook_2026-09-03.txt` as a cautious
+hold, now that hold is upgraded to a decided "never sell," same standing
+as the other Clook exclusions. No sheet change (already absent from
+draft8) — this is a documentation-only closure, recorded so a future
+regeneration never treats it as still-open.
+
+**webdesign.uk / webdesign.co.uk**: BOTH are in scope for the high-value
+live-sites tier, resolving the earlier ambiguity — his 7-figure remark
+was not exclusive to the 18-page one. New fact worth carrying forward
+carefully: **"they will be the same endpoint one day"** — a stated future
+consolidation/redirect plan for the two domains. This has a real
+implication beyond pricing: whichever pricing or listing work happens
+now should not assume today's two-separate-sites structure is permanent,
+and the about-page-commercial lane's CTA work may care about which
+domain becomes canonical and when. Relayed to both peer lanes — this
+lane does not act on the consolidation itself, only flags it exists.

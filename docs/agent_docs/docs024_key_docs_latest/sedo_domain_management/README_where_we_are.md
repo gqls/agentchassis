@@ -279,3 +279,15 @@ of the same way.
 
 **Current sheet**: `outbound/SEDO_IMPORT_2026-09-03_draft8.xlsx` —
 **2,860 domains**.
+
+## 2026-09-03 (later still) — both open questions closed
+
+Got it: 2v.uk stays off permanently, and both webdesign domains are in
+play for the high-value listing (not just the one you mentioned first).
+
+I've also noted what you said about them becoming the same endpoint one
+day — passed that along to the valuation and about-page threads, since
+it matters for pricing and for which one eventually carries the site.
+Nothing for me to act on there myself, just making sure it's on the
+record so nobody prices or plans around the current two-separate-sites
+picture as if it were permanent.
