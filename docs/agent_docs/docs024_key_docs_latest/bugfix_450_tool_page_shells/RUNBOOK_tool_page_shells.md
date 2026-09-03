@@ -5,6 +5,19 @@ changes.
 
 ## 1. The shell census (is the bug still live, and where)
 
+**⚠ THE SOURCE OF TRUTH IS `toolShellPredicateFor` IN `platform/orchestration/actions/owned_page_guard.go`, NOT THIS BLOCK.**
+The SQL below is a **copy** of that function's `NOT EXISTS`, and it is a copy on purpose: the
+question "which pages does the guard refuse?" can only be answered by the guard's own predicate.
+**Before trusting this query, diff it against that function** — it is ~10 lines and pasting it
+costs less than writing a version of it.
+
+That rule was earned three times in one day, twice by me and once by the `bugs_open/427` lane, who
+put it best: *when the thing being measured IS a mechanism, copy its predicate — do not paraphrase
+it.* Every paraphrase produced a **floor delivered in the voice of a total**, and in each case
+nothing in the result could have revealed the error — the numbers all looked reasonable. The
+specific trap here is `cc.is_active`: leave it out and 9 pages across 5 sites, whose tool component
+exists but is deactivated, silently read as "has a tool" while the guard refuses them.
+
 **Use the GUARD'S OWN predicate, split by publication state.** The version first written here (and
 in the bug file) was a floor twice over — see the warning below.
 

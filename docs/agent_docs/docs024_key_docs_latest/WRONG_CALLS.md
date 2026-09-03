@@ -61950,3 +61950,46 @@ your-fix-invalidates-a-peers-pending-test, a-claim-about-behaviour-is-not-the-be
 Family: your-measurement-answers-the-question-you-encoded,
 a-report-is-not-a-measurement, a-closer-census-cannot-see-what-it-succeeded-at,
 cite-the-arm-not-the-function.
+
+---
+
+## 2026-09-03 — the rule that would have prevented FOUR of this lane's measurement errors, and it came from the peer I had just corrected (`bugs_open/450` lane)
+
+Recorded as a lesson rather than a single incident, because by the end of the day this lane had
+produced four measurement errors of one shape and the concise statement of the fix came from
+somebody else.
+
+- **The four**: (1) a shell census whose `deployed_at IS NOT NULL` could not see the never-shipped
+  variant it existed to measure; (2) the same census missing `cc.is_active` while the fix had it,
+  making it a floor by 9 pages / 5 sites; (3) a demand control whose "open" meant `NOT IN (five
+  statuses)` against a SIX-status terminal set, counting 53 undispatchable rows as demand; (4) a
+  `[MEASURED]` position/length recorded as an absolute in a comment, stale within the hour.
+- **The common shape**: in every one, I wrote a query **about** a mechanism instead of **copying**
+  the mechanism's own predicate, and every result was plausible. Nothing in any of the numbers
+  could have revealed the error.
+- **THE RULE, from the `bugs_open/427` lane, in their words:** *"when the thing being measured IS a
+  mechanism, copy its predicate — do not paraphrase it."* They arrived at it after making the same
+  error against my guard: asking "how many pages does this guard refuse" and writing a query about
+  "how many pages have a tool component" — *"different sentences, both plausible counts off the
+  same table, and nothing in the result could have told me. It was a floor delivered in the voice
+  of a total, to another lane, as the basis for a scope decision."*
+- **The cheap check, therefore**: the guard is ~10 lines of SQL in one Go function. Pasting its
+  `NOT EXISTS` costs less than writing your own version of it — and unlike a paraphrase it cannot
+  drift. Where a census exists to measure a mechanism, **the mechanism's source file is the source
+  of truth and the census is a copy**, annotated as one. `RUNBOOK_tool_page_shells.md` §1 now says
+  exactly that and names the function.
+- **Their second half is the one I would have missed**, and it is about process rather than SQL:
+  they had already investigated the discrepancy once, explained the part they could, and stopped —
+  labelling the rest `[UNRECONCILED]`. Honest, and not a substitute for ten more minutes. **"A
+  marker records that you stopped looking; it does not make stopping correct."** The estate's
+  marker discipline (`[INFERRED]`, `[UNMEASURED]`, `[UNRECONCILED]`) makes an unchecked claim
+  *look* unchecked, which is its whole value — but it can also license stopping, and that is a
+  failure mode of the remedy rather than of the disease.
+- **Why the corroboration matters more than either finding**: the `cc.is_active` seam was hit
+  twice in four hours from opposite directions — the portfolio lane against my original census,
+  then the 427 lane against my corrected one. Two independent readers both had to be told, which
+  is the signal that a condition is load-bearing rather than incidental, and is why it now carries
+  an explanatory comment in three files instead of standing bare in one.
+
+Family: your-measurement-answers-the-question-you-encoded, a-report-is-not-a-measurement,
+a-measured-marker-proves-a-claim-not-a-check, a-closer-census-cannot-see-what-it-succeeded-at.
