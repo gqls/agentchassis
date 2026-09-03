@@ -745,3 +745,26 @@ once the site serves — no cleanup needed.
 - Valuation session runs today's Dynappraisal window (test + resume + priority
   list) — these API3 renew writes are a different command family and did not
   touch the appraisal quota.
+
+## 2026-09-03 — CORRECTION: appraise-all.sh wrote a literal "--" as a price; fixed + landmine filed
+
+> **CORRECTED 2026-09-03**, reported by the domain_valuation lane running today's
+> window: `dynadot-appraise-all.sh` extracted Dynappraisal's `"$--"` (HTTP 200,
+> Dynadot's own "no answer for this TLD" placeholder) as the literal price `--`,
+> which shipped as a real-looking row (`southernprints.co.uk,--,USD,…`) AND made
+> the domain look "done", so the daily resume would never have retried it. Not
+> caught by any check I wrote — caught by a human eye on the peer's output file.
+> Fixed commit `95c103369`: price is now validated numeric before writing; a
+> non-numeric result writes an explicit no-appraisal marker instead. Landmine
+> filed (LANDMINES.md, footprint `dynadot-appraise-all.sh`).
+
+- **Cross-registrar CONFIRMED**: `aakn.com` (Porkbun-registered) appraised fine
+  via this Dynadot account — answers the open question from last night. The
+  whole retail estate, not just Dynadot's slice, is appraisable at 300/day.
+- **TLD coverage MEASURED**: `.com`/`.net`/`.uk` work; `.co.uk`/`.org.uk`/
+  `.me.uk` do not (all 4 tested return the `"$--"` non-answer). RUNBOOK updated.
+  Roughly half the UK portfolio is `.co.uk` — the valuation lane has already
+  stripped those from its priority list rather than burn quota re-discovering
+  this per-domain.
+- Today's window: 153 inventory stragglers completed (454 total incl. the aakn
+  test), priority list running at message time.

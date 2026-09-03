@@ -145,6 +145,22 @@ becomes an invalid bearer header.
   is capped **PER DAY** by account price level (50 Regular / 100 Bulk / 300
   Super Bulk) and takes ONE domain per call — a 451-domain portfolio is a
   multi-day walk; keep a deterministic order so each day resumes cleanly.
+- **Cross-registrar CONFIRMED 2026-09-03**: `domain_appraisal` accepts domains
+  NOT registered at Dynadot — `aakn.com` (Porkbun) appraised at $4,554 with no
+  special handling. So the whole retail estate is appraisable via this one
+  account's quota, not just the Dynadot-registered slice.
+- **⚠ TLD COVERAGE gap, MEASURED 2026-09-03** (domain_valuation lane): covers
+  `.com`/`.net`/`.uk` — confirmed working (`adapting.uk` $8,138,
+  `gardening-tools.net` $197). Does **NOT** cover `.co.uk`/`.org.uk`/`.me.uk` —
+  confirmed by 4 domains, all HTTP 200 with `appraisal_price: "$--"` (not an
+  error; the endpoint just has no answer for these TLDs). `.shop`/`.info`/
+  `.org`/`.club` UNTESTED as of 2026-09-03. **`dynadot-appraise-all.sh` handles
+  this since commit `95c103369`** — a non-numeric price writes an explicit
+  no-appraisal marker row (empty valuation+currency) rather than the literal
+  `"--"` as a fake price; before that fix one such row shipped
+  (`southernprints.co.uk,--,USD,…`, caught live 2026-09-03, not by review).
+  For the ~half of the UK portfolio that is `.co.uk`, appraisal needs a
+  different route entirely — do not spend quota probing more of them.
 
 ## Porkbun
 
