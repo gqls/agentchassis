@@ -721,3 +721,34 @@ chasing each result back to the page it came from before writing any of it down.
 fixed, the reasons are written next to each check so nobody loosens them again, and none of the
 wrong answers reached you. But it is a reminder that a new check tells you about the check
 first and the site second.
+
+## 2026-09-03 (late afternoon) — your rulings, and the one question the identity RFC actually needs from you
+
+Your line is in, exactly as you wrote it: "News, previews and results from across the sport."
+The trailing clause is gone. The second line, the one at the bottom of the home page, is cut
+entirely rather than reworded. That is safe to do: the field is optional and the template only
+prints it if there is something in it, so nothing empty is left behind. Both changes are sitting
+in your review queue waiting for the approve click, and nothing reaches the page until you press
+it.
+
+Guides becoming their own type is routed to the planner thread. I asked them to keep two halves
+apart, because they are easy to run together. Adding the type is harmless and changes nothing
+until something uses it. Re-typing the hundred and sixty seven guide pages that already exist
+changes what every blog and guide listing resolves on twenty live sites, and that is the kind of
+change that deserves a proper review rather than a quiet migration.
+
+I have asked the visual designer thread for the palette directly and told them you are waiting.
+If they do not answer I will tell you rather than let it sit.
+
+On the four remaining items, carrying on as you said. One thing I found while measuring them is
+worth your attention on its own: twelve pictures already exist for this site and appear on no
+page at all. Six article heroes, the about, contact and calendar heroes, and three icons. They
+were generated and stored. The components that would display them cannot hold an image. So the
+imagery problem is not that we have too few pictures, it is that the pages cannot show the ones
+we have, which is a different fix and a cheaper one.
+
+The identity RFC needs one decision from you and two that follow from it. Whether we keep two
+identities, three or four. Then, if three or more, what an empty "operating party" means, because
+if readers quietly fall back to whoever paid then the split achieves nothing. And which of the
+identities is the address the delivery email goes to, which has to be named in the recipe rather
+than inherited from whatever happens to be nearest.
