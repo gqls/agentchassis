@@ -719,3 +719,31 @@ Also: the drifted two-reason sentence reached a SEVENTH place — a LANDMINES
 entry quoting three of the five reasons; flagged to inline guide imager (who
 owns the correction sweep). 57-vs-61 reconciliation parked until after the
 experiment; both predicates now stated and dated.
+
+## 2026-09-03 — a retraction upstream, an inverted landmine, and a possible free answer
+
+> **CORRECTION to earlier entries in this file:** the "9 re-rendered post-721,
+> 0 recovered" figure (quoted here twice) is **RETRACTED by its author**
+> (inline guide imager, in 114): ten of the twelve moved rows were
+> seotools.co.uk BUILD-path writes — `updated_at` moved ≠ a re-render
+> happened ≠ the resolver was asked; three things compressed into one word.
+> The 61-orphan observation stands; the inference hung on it does not.
+> Components' 66/66 reason=NONE measurement is the sound one.
+
+- **Second stale-landmine copy, with INVERTED safety advice:** `bugs_open/161`
+  step 2's entry (2026-07-31) told readers to fire a reason **not in** its
+  three-value list to get the safe assemble path — under the five live
+  values, picking `template_changed`/`literal_markdown` as the "safe"
+  out-of-list choice takes the REGENERATE path, the exact outcome the entry
+  exists to avoid. Wrong for five weeks; corrected in place (dated note under
+  the original — another lane's entry), verifier dispatched. The class
+  generalises: **a drifted landmine is read precisely in order to be trusted,
+  before any symptom.**
+- **Possible free answer relayed to components:**
+  `dartsonline.com/tool-brand-comparator` updated 00:40:40Z today with a
+  `section_data_resolved` item beside it — the only qualifying-reason write
+  found. Reading its artefact (attributed via `source_item_id`, not
+  proximity) may settle 689's question for free or double the sample.
+- The state-vs-transition trap ("a measurement that cannot distinguish
+  *became* from *was*") is now in 114's permanent record; the 57-vs-61
+  predicate difference likewise, reconciliation after the experiment.
