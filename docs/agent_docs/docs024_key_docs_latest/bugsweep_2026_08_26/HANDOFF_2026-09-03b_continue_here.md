@@ -1,5 +1,11 @@
 # HANDOFF — bug sweep lane, 2026-09-03b
 
+> ⚠ **SUPERSEDED 2026-09-03c — read `HANDOFF_2026-09-03c_continue_here.md`.**
+> `bugs_open/442` is now BUILT AND LIVE on `v1.0.1359` (this file says it rides the next
+> roll, and it did NOT ship in the roll that followed — see 09-03c §4.2). A second bug,
+> `bugs_open/464`, was filed out of it at the council's request, and the council is at
+> round 3.
+
 > ⚖ **UPDATED LATER THE SAME DAY — THE OWNER RULED ON §2: "yes, make them loud."**
 > Route B is **BUILT**. Config half live (migration `734`), Go half committed `776511e70`,
 > inert until the chassis rolls (a roll was expected within the hour of that commit —
