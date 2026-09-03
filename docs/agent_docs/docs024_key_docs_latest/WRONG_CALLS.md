@@ -62083,3 +62083,104 @@ it next, and the field it named is one that sets a price floor.
 
 Family: a-report-is-not-a-measurement, cite-the-arm-not-the-function,
 a-subagent-report-is-another-doc, prior-art-search-goes-stale.
+
+## 2026-09-03 — I dated files, log entries, and a committed landmine "2026-09-04" for most of a session, anchored on another lane's filename instead of the clock (sedo_domain_management lane)
+
+**The claim.** Across several hours of the sedo_domain_management lane's own working docs
+(`PLAN`, `NOTES`, `README_where_we_are`), 11 generated artefacts (three sheet drafts × three
+files each, plus two owner-withdrawal exclusion lists), and one already-committed
+`LANDMINES.md` entry, I wrote and repeated `2026-09-04` as "today" — including a `[MEASURED
+2026-09-04]` tag inside the landmine, the single strongest-looking evidence marker this file
+has, attached to a date that was wrong.
+
+**Why it was not harmless.** Two peer sessions (domain_valuation, copy_quality_two_stage) built
+on the wrong date in good faith: one verified my sheet by its exact wrongly-dated filename
+(`SEDO_IMPORT_2026-09-04_draft5.csv`) and praised the landmine's evidence as well-dated; the
+other cited "today" language back at me. A `[MEASURED <date>]` tag exists specifically so a
+reader can `git log --since=<date>` and trust the window — a wrong date inside that tag is worse
+than no tag, because it reads as checked and would silently mis-scope any future `--since`
+query built on it.
+
+**What caught it.** Not a check I ran for this purpose — I ran `date +%F` for an unrelated
+reason (scanning registrar exports for past-due expiry dates, prompted by a peer's sharper
+framing of a different question) and it printed `2026-09-03`, one day behind every date I had
+been writing. Cross-checked against fresh `git log` commit timestamps from the same minute,
+which agreed with the OS clock, not with my prior date.
+
+**The cheap check that would have.** Run `date +%F` before the FIRST use of a date in a
+filename or log heading each session, not infer "today" from context — here, from an
+`appraisal_queue_*_2026-09-04.csv` filename glimpsed in a peer lane's grep output while
+searching for unrelated domain names. **A date seen in someone else's filename is a fact about
+their file, not a measurement of the clock.** The two are easy to conflate because both are
+five-character-plausible dates sitting in the same terminal output.
+
+**The fix, once caught.** `git mv`'d all 11 wrongly-dated artefacts to the correct date,
+`sed`-corrected every log heading and cross-reference in the three prose docs (preserving the
+one line that legitimately quoted the peer lane's own `2026-09-04`-named file — not mine to
+correct), fixed the committed `LANDMINES.md` entry's `[MEASURED]` tag and `source:` line,
+regenerated the renamed sheet from the renamed exclude files and diffed it byte-identical
+against the pre-rename version before trusting the rename was content-safe, and notified both
+peer sessions of the corrected filenames since one had cited the wrong one as evidence in its
+own verification.
+
+**Why it is worth a row.** The error propagated through exactly the channels this workstream's
+own discipline is built to trust — a dated NOTES entry, a `[MEASURED <date>]` landmine tag, a
+filename a peer verified against — and none of those mechanisms caught it, because all of them
+trusted the date I typed rather than checking the clock. The mechanism that did catch it was
+incidental (a different command's output happened to print today's date). That is not a
+mechanism worth relying on next time.
+
+Family: pin-the-clock-to-before-the-failure, a-count-of-things-must-carry-the-date-it-was-counted.
+
+## 2026-09-03 — I wrote an acceptance test whose NEGATIVE CONTROL would have read a correct change as a defect, because I summed one word over two whole documents (vigilant designer / offer-benefit analyser lane)
+
+**The claim.** Preparing the owner's "switch the switches" flip of `info-card-grid`'s `carousel`
+flag, I captured a before-read across a flag-ON page and a flag-unset page and wrote into
+`HANDOFF_2026-09-03_continue_here.md` §3.2:
+
+> | `overflow-x` | **2** | **2** ← ⚠ **must NOT change** |
+>
+> ⚠ **`overflow-x` is the NEGATIVE CONTROL and it matters**: it reads 2 on both, because it is the
+> wide-table styling this lane already identified as the reason a template grep misclassifies grids
+> as carousels. **A flip that moves `overflow-x` is doing something other than what it says.**
+
+**What is actually true.** The `info-card-grid` template's **only** `overflow-x` (line 204) sits
+**inside** the `{{if $.carousel}}` style block (lines 165–298), next to `--icg-track-gap` and
+`scroll-snap-type: x mandatory`. **A correct flip ADDS ONE `overflow-x` per flipped instance.** So
+the control was not merely useless — it was **inverted**: the next session to run the flip would
+have seen 2 → 3, read my own instruction saying that means "doing something other than what it
+says", and had every reason to revert a change that had just worked.
+
+The stated *reason* was wrong too, and separately. `[MEASURED 2026-09-03, at the served bytes]`
+the two 2s have nothing in common: `leopardessconsulting.co.uk/services.html` = 1 from another
+component's `--trp-track-gap` + **1 from the info-card-grid carousel block itself**;
+`designblog.co.uk/index.html` = **2 from `.category-strip`**, an unrelated component whose CSS
+block is emitted twice. Neither is the wide-table styling I named.
+
+**What caught it.** Reading the template before running my own test — and only because the flip
+had become mine to make. Nothing else would have: the count is real, it was taken at the served
+bytes on the right pages, and it is reproducible. **A control does not announce that it is
+measuring the wrong thing.**
+
+**The cheap check that would have.** One `grep -n overflow-x` against the component's
+`html_template`, asking *where inside the file each occurrence lives*, before promoting a number
+to a control. Fifteen seconds.
+
+**The transferable rule, and it is the sharp one.** **A count summed over a whole document is not
+a control unless you know what each occurrence IS — and two documents agreeing on a total is not
+agreement.** Equal totals over different populations are the easiest coincidence in this estate to
+mistake for a controlled result, because equality *looks* like evidence of a shared cause. The
+disconfirming question is not "did the number move?" but "**which occurrences are these, and can
+the change I am about to make produce one?**" A negative control must be something the change
+**cannot** touch — here, the count of `info-card-grid__card` articles and the card titles, which a
+layout flip must leave byte-stable.
+
+**Why it is worth a row.** This lane's whole product is telling other lanes that their measurement
+answered the question they encoded rather than the one they asked. I wrote the defect into a
+cold-start handoff, as an instruction, in bold, with a ⚠ on it — the position that carries most
+authority to a session that has just arrived. And a wrong control is worse than no control,
+because it converts a success into an apparent failure and spends someone's revert on it.
+
+Family: measurement-discipline-index, a-post-fix-zero-needs-a-demand-control,
+two-defects-can-wear-one-symptom, a-css-fallback-is-present-and-inoperative,
+fixing-a-checker-to-agree-with-a-broken-site.
