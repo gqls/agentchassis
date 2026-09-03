@@ -137,9 +137,10 @@ Fleet citation-sourced facts, same method as §1a: **256**, up from **~192** tha
 >   carries. Read the spec history, not the current row — the refresher rewrites the whole row and
 >   relabels `created_by` on every key it merely preserved, including one it has no code path to
 >   author (LANDMINES: *"A refreshed spec's `created_by` names the last WRITER"*).
-> - **`loancash.co.uk` — still none, and it is an absence rather than an empty register**: no
->   `evidence_base` row at all beside 14 other current specs, on a `deployed` site serving **30
->   pages**. Unchanged since 09-02 and still unassigned.
+> - ~~**`loancash.co.uk` — still none**~~ → **DONE `[2026-09-03 12:45 UTC]`, owner-directed**: migration
+>   **738** applied — **19 facts + 6 `banned_claims`**, 3 carrying `corrects_site_citation`.
+>   **§3c TRACK 1 IS NOW COMPLETE — all five finance registers exist.** Council-Submitted
+>   `cf7470b7`. Detail at §1e below.
 >
 > **The wider frame, same query:** `[MEASURED 2026-09-03]` **13 of 39 `deployed` sites hold no
 > current `evidence_base`** — `advertise.co.uk`, `cookly.uk`, `cv1.co.uk`, `designblog.co.uk`,
@@ -165,6 +166,58 @@ Fleet citation-sourced facts, same method as §1a: **256**, up from **~192** tha
 > (`missing_evidence_base`, `no_evidence_register`, `missing_register`, `evidence_base_missing`)
 > returns nothing. **Q1 requires registers; no reader enforces or even reports the requirement.**
 > Recorded here rather than built: it is this RFC's build, not the `414` lane's.
+
+### 1e. The fifth register (`loancash.co.uk`, migration 738, 2026-09-03) — and the two traps it turned up
+
+**Track 1 is finished.** All five finance sites named in §1d now hold a register. The last was also
+the highest-risk, for a structural reason worth stating: **the other four calculate or compare;
+loancash EXPLAINS THE RULES THEMSELVES** to people in financial difficulty. Its 30 served pages carry
+**338 regulatory-shaped sentences** `[MEASURED 2026-09-03, crawled at the artefact with an
+invented-URL 404 control]`, of which **three** cite a rule number. The rest state 0.8%, £15, 100%,
+8 weeks, 6 months, 60 days and 3% per month in plain English, with nothing re-checking any of them.
+
+**19 facts** — 11 FCA Handbook rules (CONC 5A.2.2/.3/.10/.14, CONC 6.7.23, CONC 7.6.12/.14,
+CONC 5.2A.4, DISP 1.6.2, DISP 2.8.2(1)/(2)(a)/(2)(b)) and 8 statutory (Debt Respite Scheme Regs 2020
+regs 16/24/26/32, Credit Unions Maximum Interest Rate Order 2013 art 2, FSMA 2000 ss.19/23).
+**19/19 quotes verified through the production matcher**, absent control false in every run.
+
+**The base rate holds for a fourth lane — three more wrong live claims** (lendzy 2 · loanzy 1 ·
+loancalculator 2 · loancash 3). All three recorded as `corrects_site_citation`; served copy untouched:
+
+- **CONC 5A.2.14 — the £15 default cap is CUMULATIVE across the agreement**, "whether in relation to
+  one breach or cumulatively in relation to multiple breaches". Two pages frame it as *per missed
+  payment*. The site **understates the protection it exists to explain**: a reader with two missed
+  payments would accept a second £15 as lawful. It is not.
+- **CONC 7.6.12 — the CPA limit is TWO REFUSED requests, and no £1 threshold exists anywhere in
+  CONC 7.6.** One page says "cannot take more than one payment attempt of over £1". The site's *own*
+  CPA page states the rule correctly — an internal contradiction, not a house view.
+- **CONC 5.2A.4 — affordability is CONC 5.2A, not "CONC 5A"**, which is the price-cap chapter and
+  contains no affordability rule. Cited correctly on three other pages.
+
+**TRAP 1 — the "shared finance banned-claims set" is TWO sets, and the difference is invisible in a
+coverage count.** `lendzy.co.uk` carries a bare `\bno credit checks?\b`; `loanzy.uk` and
+`loancalculator.co.uk` carry a narrow variant requiring the product noun. `[MEASURED 2026-09-03]` the
+**bare** variant fires on loancash's *correct* consumer advice that an employer salary advance
+involves "no interest and no credit check" (**1 hit**); the narrow variant fires **0** across all 30
+pages. Adopting "the shared set" without checking *which width* would have convicted the site of its
+own accurate guidance — on the site whose entire product is accurate guidance. **A count of sites
+carrying "the set" cannot see this.** All 6 adopted patterns were compiled with the production prefix
+`regexp.Compile("(?i)"+p)` (`claims.go:468`) and fired against a positive control: 6/6 compile, 6/6
+match their positive, 0/6 match anything served.
+
+**TRAP 2 — a hand-transcribed quote fails silently and for ever.** The DISP 2.8.2(2)(b) quote was
+first written with commas where the source has parentheses ("became aware, or ought reasonably to
+have become aware,"). It returned **false** on the production matcher. Shipped, it would have
+classified as `citation_lost` drift **every day**, a false alarm indistinguishable from a real one.
+**Never hand-transcribe a citation quote — paste it, and let the matcher decide.**
+
+**What it discharges.** `loancash_couk_fca_validation/README_where_we_are.md` (2026-08-11) verified
+the three price-cap constants by hand and then wrote: *"What is still true is the second half of the
+worry: nothing is checking … What actually earns its keep is something that reads the rulebook and
+shouts if it disagrees with what is on our page."* That is this mechanism, arriving three weeks
+later. That lane also named the complaint-deadline calculator as its highest-value unchecked item,
+*because limitation periods, unlike the price cap, do move* — DISP 2.8.2(1)/(2)(a)/(2)(b) are
+registered for exactly that reason.
 
 **The number that matters more than the coverage:** three independent lanes, populating registers by
 reading the cited source rather than trusting the site's existing prose, found **five wrong live
