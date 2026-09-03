@@ -4168,3 +4168,36 @@ later attempt of its own hits the dedup guard and aborts — the file is idempot
   throughout and the type gate was right every time. My own filing called it "the writer emits a
   STRING", which read as writer misbehaviour — corrected here.
 
+### (z) 2026-09-03 ~10:0xZ — the layout lever is NOT what this lane has been told, and it reframes `bugs_open/445`
+
+Triggered by the 445 lane asking a question I could not answer from belief: *does a brief that names
+a layout bypass the tag matcher?* Measured instead.
+
+- **A brief cannot name a layout.** `resolve_composition_layout_action.go` scores ONLY
+  `classification.category` + `classification.industry_tags` against the library, with a
+  light/dark **scheme** derived from `design_intent.style_direction`. Its own comment is explicit:
+  *"layout resolution never consults design_intent at all"* and *"Human-set signals
+  (mission/design_intent driving the tag matcher below) are not consulted for layout today."*
+  The only short-circuit above the matcher is a **theme kit** naming a layout id. So my template-v2
+  line "LAYOUT intent naming a distinct layout" reaches the resolver **only** as (a) the light/dark
+  scheme and (b) whatever the CLASSIFIER chooses to write into `industry_tags` after reading the
+  mission brief. **CORRECTION to the theme-kits CONTRIB's §3 claim ("layout intent belongs in the
+  BRIEF") as this lane applied it:** the brief is an influence on a classifier, not a lever on the
+  resolver. `soft-editorial` in the copyonline direction is a hope, not an instruction — **verify
+  at №5's composition, do not assume it landed.**
+- **How the three sites actually got magazine-grid — and it is not a "compromise match".** The
+  classifier wrote the literal string **`magazine-grid` into `industry_tags`** for advertise,
+  designblog AND websitepromotion (their tag arrays start with it). A tag that IS a layout's name
+  scores against that layout directly. **[MEASURED 2026-09-03] 12 sites fleet-wide carry a layout
+  NAME inside `classification.industry_tags`** — 8 × `magazine-grid` (advertise, apis.uk,
+  boxingonline, designblog, gamedesign.uk, homegarden, relojistas, websitepromotion) and
+  4 × `affiliate-hub` (garden-tools, loancalculator, mortgagecalculator, seotools); those are the
+  only two layout names appearing. **[UNVERIFIED]** that each of the 12 then resolved to the layout
+  it named — I could not find where the resolved layout is stored per site (`css_themes` has no
+  `site_id`; `style_collections` has no `layout_id`; `site_plan_sections.layout_id` is per-section).
+  The tag census is the solid half.
+- **Why that matters to 445**: their proposed signal fires on a WEAK/compromise best match. If the
+  classifier is naming the layout, the match is STRONG and their detector would stay silent on the
+  exact three sites that motivated the bug. Told them before they build it (message + this entry).
+  This is the "a detector tuned to the wrong mechanism is silent on its own motivating case" class.
+
