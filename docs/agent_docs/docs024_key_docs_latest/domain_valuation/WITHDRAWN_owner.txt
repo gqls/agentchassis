@@ -40,3 +40,11 @@ thepasturedeggcompany.uk
 # 2026-09-03 — copyonline.co.uk: owner says personal-use keeper, not stock
 # (relayed via the sedo lane from a peer thread).
 copyonline.co.uk
+
+# 2026-09-03 — permanent never-sell, by name (owner, via the sedo lane).
+# wpx.uk is his own email domain; leopardessconsulting.co.uk is a paying
+# client's site under owner ruling D4 and is excluded even from "list all live
+# sites". See OWNER_STATED_PRICES.md.
+2v.uk
+wpx.uk
+leopardessconsulting.co.uk
