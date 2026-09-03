@@ -3991,3 +3991,60 @@ anything that names it.** Both are one query and either would have caught this o
 ⚠ Honest limit: this says nothing reaches it via a NAMED reference in live config. A caller
 constructing the agent type dynamically would not be caught by the `LIKE` sweep. Given 0 calls in
 all of `llm_call_log`, that is a thin possibility, but it is the one I have not excluded.
+
+**2026-09-03 ~11:00Z — AFTER-PASS #1 (technical-details, corr `6e8eadaa`): the gate scored 9→0,
+every repair a truncation, and the page-level pair turned out to be the WRONG INSTRUMENT.**
+
+**The gate's own numbers, from `copy_gate_0..5` in the run's `collected_data`** — this is the
+measurement that isolates the repair, and it is not the one I set up in advance:
+
+| section | status | hits_before | hits_after | targets | rejected | exempt |
+|---|---|---|---|---|---|---|
+| 0 | clean | 0 | 0 | 0 | — | 0 |
+| 1 | repaired | 2 | **0** | 2 | `[]` | 0 |
+| 2 | repaired | 1 | **0** | 1 | `[]` | 0 |
+| 3 | repaired | 4 | **0** | 3 | `[]` | 0 |
+| 4 | repaired | 2 | **0** | 2 | `[]` | 0 |
+| 5 | clean | 0 | 0 | 0 | — | 0 |
+
+**9 hits in, 0 out, 8 rewrites, ZERO rejections, ZERO exemptions** (`rather_than` 6, `x_not_y` 2;
+no headline hits). By the criteria pinned before the run this is a clean pass.
+
+**All 8 repairs are TRUNCATIONS — and they are exactly the owner's ruled form.** Verbatim:
+> *"What they ask for is naming and notice, not payment."* → *"What they ask for is naming and notice."*
+> *"…picked for the job rather than for its reputation."* → *"…picked for the job."*
+> *"The terms below are the licence terms for that model version, not a summary of them, so treat
+> them as terms rather than as marketing copy."* → *"The terms below are the licence terms for
+> that model version, so treat them as terms."*
+
+This **empirically answers** the correction I filed an hour earlier. I was right that "truncate"
+is the register's treatment STRING and the implementation is a model rewrite that *may* rephrase
+— so it is not guaranteed. But observed, it truncates **8 for 8**, and that is his
+cut-at-the-comma ruling applied mechanically. Good news for the homepage: the gate should produce
+what he asked for on his own sentence without anyone hand-editing it.
+
+**⚠ THE PAGE-LEVEL BEFORE/AFTER PAIR — the thing I pinned two baselines for — CANNOT MEASURE THE
+GATE, and I should have seen it before arming the watcher.** A content rebuild re-runs the
+WRITER, so every sentence is new; the "before" and "after" pages have no sentence in common and
+the pair measures *old copy vs new copy*, of which the gate is one small term. The instrument
+that isolates the repair is `generated_content_N` (pre-repair) vs `copy_gate_N` (post-repair)
+**inside one run** — same copy, same section, gate the only difference. Both survive in
+`collected_data` for the orchestration's retention (~2 days), and `copy_gate_N` additionally
+carries `hits_before`/`hits_after`/`rewritten`/`rejected`/`exempt_reasons`, so the whole answer
+is already computed and stored. **Read the step outputs, not the page.** The baselines are still
+worth having — they answer "did the page the owner complained about get better", which is a real
+question — but that is a DIFFERENT question from "did the gate work", and I had them conflated.
+
+**The shrink, separated — and this matters for `bugs_open/422`.** The page lost a third of its
+copy: `[MEASURED]` **1,826 → 1,214 words** (−612, −33.5%), 55 → 47 sentences, same 4 components.
+That looks alarming next to 422's repair-vs-shrink-floor problem, and the gate is almost innocent
+of it: summing every rewrite, the gate removed **36 words** (197 → 161 across the eight sentences
+it touched). **So the gate caused 5.9% of the loss and the WRITER caused 94%** — it simply wrote
+a shorter page. Anyone sizing a shrink budget on the repair side (422's fix candidate 1) should
+know the repair is not where the volume goes.
+
+**Incidental defect, shipped live and nothing caught it:** the writer emitted a malformed closing
+tag — `<strong>open-weight model</strom>` — which is in the stored `content_data` **and on the
+served page** (`curl … | grep -c strom` = 1 on both). Present in the gate's `from` AND `to`, so
+the gate faithfully preserved it; it is a writer-output defect, not a repair defect. Raised with
+the finetuning lane. No HTML-validity check stands between the writer and the bucket.
