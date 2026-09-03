@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -58,7 +59,62 @@ func NewGripperDeps(pool *pgxpool.Pool, g *config.GripperConfig) *GripperDeps {
 
 // NewRouter constructs the gin engine with all routes for the tools-api service.
 // gripper is nil when cfg.Gripper is nil (the group is simply not mounted).
-func NewRouter(pool *pgxpool.Pool, cfg *config.Config, gripper *GripperDeps) *gin.Engine {
+// PlaygroundDeps is what the playground route group needs beyond the pool: an
+// HTTP client for the model server and its per-route limiter. The client has no
+// overall timeout because the per-request context in the handler carries one
+// sized for a CPU-served reply (streaming, ~14 tok/s measured 2026-09-03).
+type PlaygroundDeps struct {
+	Client   *http.Client
+	Limiters PlaygroundLimiters
+}
+
+// PlaygroundLimiters are the playground's per-endpoint bands. One route today
+// (/chat); the struct exists so a /session for booked hours can join it without
+// changing the sweeper wiring in main.
+type PlaygroundLimiters struct {
+	Chat *httpguard.Limiter
+}
+
+// Sweep drops idle per-IP entries; main runs it hourly like the gripper's.
+func (l PlaygroundLimiters) Sweep() {
+	if l.Chat != nil {
+		l.Chat.Sweep()
+	}
+}
+
+// NewPlaygroundLimiters builds the demo's bands: 60 replies an hour and 300 a
+// day per address. Generous for a person, bounded for a script; the CPU is the
+// real ceiling and these keep one address from owning it.
+func NewPlaygroundLimiters() PlaygroundLimiters {
+	h, d := time.Hour, 24*time.Hour
+	return PlaygroundLimiters{
+		Chat: httpguard.NewLimiter(httpguard.Band{Window: h, Max: 60}, httpguard.Band{Window: d, Max: 300}),
+	}
+}
+
+// NewPlaygroundDeps is the production wiring for the playground group.
+func NewPlaygroundDeps() *PlaygroundDeps {
+	return &PlaygroundDeps{Client: &http.Client{}, Limiters: NewPlaygroundLimiters()}
+}
+
+// RouterOption attaches an optional route group to NewRouter without changing
+// its signature for the callers that predate the option.
+type RouterOption func(*routerOptions)
+
+type routerOptions struct {
+	playground *PlaygroundDeps
+}
+
+// WithPlayground mounts the playground group when the config for it is present.
+func WithPlayground(deps *PlaygroundDeps) RouterOption {
+	return func(o *routerOptions) { o.playground = deps }
+}
+
+func NewRouter(pool *pgxpool.Pool, cfg *config.Config, gripper *GripperDeps, opts ...RouterOption) *gin.Engine {
+	var o routerOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
 	r := gin.New()
 
 	// gin.Logger() before Recovery so every request is recorded, including one
@@ -121,6 +177,9 @@ func NewRouter(pool *pgxpool.Pool, cfg *config.Config, gripper *GripperDeps) *gi
 	if cfg.Gripper != nil && gripper != nil {
 		mountGripper(r, pool, cfg.Gripper, gripper)
 	}
+	if cfg.Playground != nil && o.playground != nil {
+		mountPlayground(r, pool, cfg.Playground, o.playground)
+	}
 
 	return r
 }
@@ -159,4 +218,19 @@ func mountGripper(r *gin.Engine, pool *pgxpool.Pool, g *config.GripperConfig, de
 	internal := r.Group(prefix)
 	internal.Use(middleware.InternalKey(g.PullKey))
 	internal.GET("/requests", handlers.GripperRequestsHandler(deps.Store))
+}
+
+// mountPlayground adds the third tool: finetuning.uk's public demo chat. One
+// browser group only — there is no cluster-side pull here, so no internal-key
+// group — in the gauntlet/gripper order: CORS (deployed-site Origin allowlist)
+// first so a preflight never spends a band token or reads a body, then the
+// body cap, then the per-route band on the one route. The model server itself
+// is reached only from inside the cluster; this group is the only public door.
+func mountPlayground(r *gin.Engine, pool *pgxpool.Pool, p *config.PlaygroundConfig, deps *PlaygroundDeps) {
+	const prefix = "/api/v1/tools/playground"
+	pub := r.Group(prefix)
+	pub.Use(middleware.CORSMiddleware(pool))
+	pub.Use(middleware.InputCapMiddleware(p.MaxBodyBytes))
+	pub.POST("/chat", middleware.BandedRateLimit(deps.Limiters.Chat), handlers.PlaygroundChatHandler(p, deps.Client))
+	pub.OPTIONS("/chat", func(c *gin.Context) {})
 }

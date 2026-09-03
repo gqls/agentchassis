@@ -65,7 +65,31 @@ func main() {
 		log.Printf("gripper route group NOT mounted (%s unset)", config.GripperAPIKeyEnv)
 	}
 
-	r := api.NewRouter(pool, cfg, gdeps)
+	var ropts []api.RouterOption
+	if cfg.Playground != nil {
+		pdeps := api.NewPlaygroundDeps()
+		ropts = append(ropts, api.WithPlayground(pdeps))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			t := time.NewTicker(time.Hour)
+			defer t.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-t.C:
+					pdeps.Limiters.Sweep()
+				}
+			}
+		}()
+		log.Printf("playground route group mounted (ollama=%s, model=%s, max_tokens=%d)",
+			cfg.Playground.OllamaURL, cfg.Playground.Model, cfg.Playground.MaxTokens)
+	} else {
+		log.Printf("playground route group NOT mounted (%s unset)", config.PlaygroundOllamaURLEnv)
+	}
+
+	r := api.NewRouter(pool, cfg, gdeps, ropts...)
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           r.Handler(),

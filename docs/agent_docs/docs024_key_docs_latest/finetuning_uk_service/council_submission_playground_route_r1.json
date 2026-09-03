@@ -1,0 +1,59 @@
+{
+  "rationale": "finetuning.uk's playground page describes a chat with a fine-tuned model but has no chat (owner, 2026-09-03: 'the playground has no playground'; 'please sort out the tool'; decision the same day: BOTH a public demo and booked GPU hours). This is the public door for it: a third route group in tools-api, /api/v1/tools/playground/chat, that streams one reply from a self-hosted Ollama model as server-sent events. It copies the gripper's security shape exactly (CORS by deployed-site Origin, then the group's own body cap, then a per-IP httpguard band) and is opt-in like the gripper (mounted only when PLAYGROUND_OLLAMA_URL is set AND main passes the deps; a deployment not told about it serves exactly the routes it served before). It is stateless on purpose: the browser holds the transcript and sends it back, capped at 12 messages of 1000 runes. The model server is reached only from the island by URL; where that server lives (a small CPU VM; the in-cluster Ollama is NOT reachable from the island by design) is a deployment decision outside this change. No paid LLM API is in the path. Measured basis for the caps: the demo model on CPU does ~14 tok/s (2026-09-03), so num_predict defaults to 150 and the per-request timeout is 90 s; streaming exists because 150 tokens is ~11 s and a single JSON body would read as a stall.",
+  "plan": {
+    "edits": [
+      {
+        "file": "internal/tools-api/config/config.go",
+        "operation": "modify",
+        "rationale": "PlaygroundConfig, env consts, loadPlayground (nil unless PLAYGROUND_OLLAMA_URL set; every int validated positive; URL must be http(s)); Config.Playground field.",
+        "sketch": "type PlaygroundConfig struct{ OllamaURL, Model string; MaxTokens, NumCtx, MaxBodyBytes int }; func loadPlayground() (*PlaygroundConfig, error) { url := strings.TrimRight(os.Getenv(PlaygroundOllamaURLEnv), \"/\"); if url == \"\" { return nil, nil } ... }",
+        "symbol": "PlaygroundConfig/loadPlayground"
+      },
+      {
+        "file": "internal/tools-api/handlers/playground.go",
+        "operation": "add",
+        "rationale": "The handler: validate (roles user/assistant only, last is user, 1..12 messages, 1..1000 runes each), POST Ollama /api/chat with stream:true and options num_predict/num_ctx, fixed system prompt first, then relay NDJSON chunks as SSE (event: token / done / error). Errors before the first token are JSON 400/503; after it, in-band event: error.",
+        "sketch": "func PlaygroundChatHandler(cfg *config.PlaygroundConfig, client *http.Client) gin.HandlerFunc { ... resp, err := client.Do(httpReq) ... if resp.StatusCode != 200 { httperr.JSONError(c, 503, ...) } h.Set(\"Content-Type\", \"text/event-stream\") ... for sc.Scan() { ... writeSSE(c, \"token\", chunk.Message.Content) ... if chunk.Done { writeSSE(c, \"done\", counts); return } } writeSSE(c, \"error\", ...) }",
+        "symbol": "PlaygroundChatHandler"
+      },
+      {
+        "file": "internal/tools-api/api/server.go",
+        "operation": "modify",
+        "rationale": "PlaygroundDeps/Limiters (60/h + 300/d per IP), NewPlaygroundDeps, RouterOption/WithPlayground so NewRouter keeps its signature for existing callers, mountPlayground in the gauntlet/gripper order: CORS -> InputCap -> BandedRateLimit -> handler; OPTIONS no-op. No internal-key group: nothing on the cluster pulls from this tool.",
+        "sketch": "func NewRouter(pool, cfg, gripper *GripperDeps, opts ...RouterOption) *gin.Engine { ... if cfg.Playground != nil && o.playground != nil { mountPlayground(r, pool, cfg.Playground, o.playground) } }",
+        "symbol": "NewRouter/mountPlayground/WithPlayground"
+      },
+      {
+        "file": "cmd/tools-api/main.go",
+        "operation": "modify",
+        "rationale": "Build deps when cfg.Playground != nil, pass WithPlayground, sweep the limiter hourly on ctx (mirrors the gripper poller's Hourly hook), log mounted/NOT mounted with the env name.",
+        "sketch": "var ropts []api.RouterOption; if cfg.Playground != nil { pdeps := api.NewPlaygroundDeps(); ropts = append(ropts, api.WithPlayground(pdeps)); go hourly sweep } r := api.NewRouter(pool, cfg, gdeps, ropts...)",
+        "symbol": "main"
+      },
+      {
+        "file": "internal/tools-api/handlers/playground_test.go",
+        "operation": "add",
+        "rationale": "Fake Ollama (httptest) streaming NDJSON: tokens reassemble, done carries counts, system prompt first + caps forwarded; 7 bad-input cases 400 and never reach the model; upstream 500 -> 503; unreachable -> 503; truncated stream -> 200 with trailing event: error.",
+        "sketch": "TestPlaygroundChatStreamsTokensThenDone / RejectsBadInput / UpstreamFailureIs503 / UnreachableModelIs503 / TruncatedStreamReportsInBand",
+        "symbol": "TestPlaygroundChat*"
+      },
+      {
+        "file": "internal/tools-api/api/server_playground_test.go",
+        "operation": "add",
+        "rationale": "Routes mount only when config AND deps are both present (4 combinations), gauntlet untouched, no pull route; the group's own body cap refuses an oversized body before any model call.",
+        "sketch": "TestPlaygroundRoutesMountOnlyWhenConfiguredAndWired / TestPlaygroundBodyCapIsItsOwn",
+        "symbol": "TestPlayground*"
+      }
+    ],
+    "grounded_in": [
+      "internal/tools-api/api/server.go (mountGripper doc comment): Ordering inside the browser group mirrors the gauntlet group: CORS first so a preflight (204-aborted there) never spends a rate-limit token or reads a body; then bands; then the cap.",
+      "docs026_concept_register/register/public-api.md PUB-005: the seam a third tool must copy correctly — TWO gin groups on ONE prefix. Browser routes sit behind CORSMiddleware (Origin → island sites row, status='deployed') then a per-route httpguard.Limiter",
+      "finetuning_uk_service/NOTES 2026-09-03 12:10Z: warm | 1.4 ms | 46.9 tok/s (19 tok) | 14.2 tok/s (48 tok in 3.4 s) ... a 100-token demo reply ≈ 7 s single-user",
+      "finetuning_uk_service/PLAN_2026-07-31 line 63: No callback into the cluster, ever [verified-source].",
+      "go test ./internal/tools-api/handlers/ ./internal/tools-api/api/ ./internal/tools-api/config/ 2026-09-03: ok handlers 0.013s / ok api 0.009s / ok config 0.003s; go vet clean; gofmt clean"
+    ],
+    "summary": "finetuning.uk's playground page has no playground: the owner decided (2026-09-03) on a public demo chat against a self-hosted open-weight model plus booked GPU hours. This change adds the public door only: a third, opt-in route group in tools-api, POST /api/v1/tools/playground/chat, mounted only when PLAYGROUND_OLLAMA_URL is set and main wires the deps, copying the gripper's security shape (CORS by deployed-site Origin -> the group's own body cap -> per-IP httpguard band). It validates a browser-held transcript (<=12 messages, <=1000 runes each, roles user/assistant, last from the user), calls Ollama /api/chat streaming with num_predict/num_ctx caps and a fixed system prompt, and relays tokens as server-sent events (token/done/error). Errors before the first token are JSON 400/503; after it, in-band. No paid LLM API is in the path; where the model server runs is a deployment decision outside this change (the island cannot reach the in-cluster Ollama by design).",
+    "risks": "(1) CORS depends on the ISLAND's own sites table having finetuning.uk at status='deployed' (today it holds robot-hands.com and vonc.com only); without that row every browser call 403s — a deployment prerequisite, not a code path. (2) The model server URL is trusted config: a wrong URL yields 503s, never a leak, because nothing from the visitor reaches any other host. (3) Streaming commits status 200 before the reply is known; a mid-stream failure is reported as event: error, and the tests pin that. (4) The per-IP band (60/h, 300/d) is per-pod in-memory like the gripper's; the island runs one pod. (5) The system prompt is fixed English text in code; changing the demo's voice is a code change, which is deliberate (the demo is not LLM-voiced). Reviewer should check: the mount order matches mountGripper; no route is registered when either config or deps is absent; the body cap runs before any model call; num_predict is forwarded."
+  },
+  "submitter": "finetuning_uk_service (session \"finetuning\")"
+}

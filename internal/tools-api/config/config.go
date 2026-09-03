@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gqls/agentchassis/platform/mailer"
 )
@@ -27,6 +28,11 @@ type Config struct {
 	// and a gap fails the process loudly at start, matching how this file
 	// treats DATABASE_URL and ANTHROPIC_API_KEY.
 	Gripper *GripperConfig
+
+	// Playground is the third tool (finetuning.uk's public demo chat against a
+	// self-hosted model). Same opt-in shape: nil unless PLAYGROUND_OLLAMA_URL
+	// is set, and then every field is validated at start.
+	Playground *PlaygroundConfig
 }
 
 // GripperConfig is the gripper-dossier route group's own configuration. It is
@@ -115,7 +121,81 @@ func Load() (*Config, error) {
 	}
 	cfg.Gripper = g
 
+	p, err := loadPlayground()
+	if err != nil {
+		return nil, err
+	}
+	cfg.Playground = p
+
 	return cfg, nil
+}
+
+// PlaygroundConfig is the third tool: finetuning.uk's public demo chat against
+// a self-hosted open-weight model (finetuning_uk_service PLAN Phase P; owner
+// decision 2026-09-03: a public demo on the in-cluster Ollama plus booked GPU
+// hours). Present only when PLAYGROUND_OLLAMA_URL is set — the gripper's
+// opt-in shape: an unset env mounts nothing, so a deployment that has not been
+// told about the demo serves exactly the routes it served before.
+type PlaygroundConfig struct {
+	// OllamaURL is the base URL of the model server, e.g.
+	// http://ollama-adapter.ai-persona-system.svc.cluster.local:11434 (no
+	// trailing slash; one is stripped if given).
+	OllamaURL string
+	// Model is the Ollama model name the demo answers with.
+	Model string
+	// MaxTokens caps num_predict per reply. The demo runs on CPU at ~14 tok/s
+	// (measured 2026-09-03), so this bounds the visitor's wait as much as cost.
+	MaxTokens int
+	// NumCtx is the context window handed to Ollama; it bounds memory.
+	NumCtx int
+	// MaxBodyBytes is the request body cap for the playground routes.
+	MaxBodyBytes int
+}
+
+const (
+	PlaygroundOllamaURLEnv    = "PLAYGROUND_OLLAMA_URL"
+	PlaygroundModelEnv        = "PLAYGROUND_MODEL"
+	PlaygroundMaxTokensEnv    = "PLAYGROUND_MAX_TOKENS"
+	PlaygroundNumCtxEnv       = "PLAYGROUND_NUM_CTX"
+	PlaygroundMaxBodyBytesEnv = "PLAYGROUND_MAX_BODY_BYTES"
+
+	PlaygroundDefaultModel        = "finetuning-demo"
+	PlaygroundDefaultMaxTokens    = 150
+	PlaygroundDefaultNumCtx       = 2048
+	PlaygroundDefaultMaxBodyBytes = 8192
+)
+
+func loadPlayground() (*PlaygroundConfig, error) {
+	url := strings.TrimRight(os.Getenv(PlaygroundOllamaURLEnv), "/")
+	if url == "" {
+		return nil, nil
+	}
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		return nil, fmt.Errorf("%s must be an http(s) URL", PlaygroundOllamaURLEnv)
+	}
+	p := &PlaygroundConfig{
+		OllamaURL: url,
+		Model:     getEnvDefault(PlaygroundModelEnv, PlaygroundDefaultModel),
+	}
+	var err error
+	if p.MaxTokens, err = positiveIntEnv(PlaygroundMaxTokensEnv, PlaygroundDefaultMaxTokens); err != nil {
+		return nil, err
+	}
+	if p.NumCtx, err = positiveIntEnv(PlaygroundNumCtxEnv, PlaygroundDefaultNumCtx); err != nil {
+		return nil, err
+	}
+	if p.MaxBodyBytes, err = positiveIntEnv(PlaygroundMaxBodyBytesEnv, PlaygroundDefaultMaxBodyBytes); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func positiveIntEnv(key string, def int) (int, error) {
+	v, err := strconv.Atoi(getEnvDefault(key, strconv.Itoa(def)))
+	if err != nil || v <= 0 {
+		return 0, fmt.Errorf("%s must be a positive integer", key)
+	}
+	return v, nil
 }
 
 // loadGripper returns nil, nil when the feature is not opted in.
