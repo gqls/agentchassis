@@ -1,5 +1,8 @@
 # HANDOFF 2026-09-02 — bugfix 440 (unknown routing key): phase 1a APPROVED + SHIPPED; what phase 1b–3 need; one new landmine and one debt
 
+> **SUPERSEDED 2026-09-03** — debts cleared, build re-verified, owner decisions enumerated:
+> `HANDOFF_2026-09-03_continue_here.md` (same directory). This file kept for the trail.
+
 Written for a session with none of this context. Every claim carries its check; cite symbols,
 never line numbers. This lane was spun out of `bugs_closed/410_…three_seams…`'s candidate 1 by
 owner decision 2026-09-02. ⚠ The number 410 is AMBIGUOUS (the phase-lock case is unrelated and
