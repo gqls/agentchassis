@@ -90,10 +90,48 @@ recompute path (KEEP #2 holds any valid stored page — 391's own finding); keep
 untouched; the all-default alphabetical-winner shape (webdesign) is candidate 3, deliberately not
 built. No page is opted out yet — owner decisions.
 
-**Remaining to close (updated 2026-09-03):** ~~council verdict~~ (APPROVED r2) → ~~roll~~ (2026-09-03, proven at service_binary_capabilities with both controls) → ~~apply `714`~~ (2026-09-02) → ~~hand-apply `715`~~ (2026-09-03, snapshot verified) → induced apply `714` (safe anytime; may go first) → induced
-canary both directions incl. the header button at the served bytes → observe the check's first
-fleet pass (file on a true fossil / stay silent + retract elsewhere). Then this bug is
-fixed-and-live. Full recipe: bugfix_436_cta_eligibility/HANDOFF_2026-09-03_continue_here.md.
+**Remaining to close (updated 2026-09-03, mid-morning):** ~~council verdict~~ (APPROVED r2) →
+~~roll~~ (proven at `service_binary_capabilities`, both controls) → ~~apply `714`~~ (2026-09-02) →
+~~hand-apply `715`~~ (2026-09-03, snapshot verified) → ~~observe the check's first pass~~ → ~~induced
+canary, ranking, both directions~~ → **⛔ the header button at the SERVED bytes — BLOCKED** → owner's
+opt-out decision (usage, not a close blocker).
+
+**Verified live 2026-09-03** (evidence + queries: lane NOTES/RUNBOOK):
+
+1. **The check runs, and its silence is readable.** `collected_data.run_checks` records
+   `checks_run` / `checks_unregistered` / `checks_failed` per run — structured, no shelf life, names
+   the check individually. First post-enablement pass (idea.uk, 09:26:06Z): ran, 46/46, none
+   unregistered, none failed.
+2. **The zero was rotation coverage, not a healthy fleet.** A hand-mirror of
+   `datahelpers/cta_positional.go` over every site `[MEASURED 2026-09-03 10:05Z]` predicts **4** sites
+   fossil-shaped: `cv1.co.uk` (`tool-example`, nav 2 vs 200), `boxingonline.com` (3 vs 200),
+   `vetcomparison.uk` (4 vs 200), `gamesdesign.co.uk` (20 vs 100). Induced runs on two of them filed
+   `needs_human_review` items quoting the census's own pages and numbers. **Disconfirming control:**
+   idea.uk's rank-1 is also below the default and is correctly ABSENT (lead 7 — the curated ladder),
+   and the check stayed silent there for that stated reason.
+3. **Corroborated off the database.** cv1.co.uk serves
+   `<a href="/tools/example/index.html" class="header-cta">` today (controls: target 200, invented URL
+   404), and **7 of 10** stored CTA destinations on that site point at `tool-example` — including both
+   *other* tools' guide pages. The detector's claim holds against the bytes a visitor gets.
+4. **The lever binds the ranking, both directions, in the deployed binary against the live column.**
+   cv1.co.uk: opt out → the check retracts (`items_resolved: 1`) with reason *"only 2 eligible
+   interactive candidate(s)"*; opt back in → detail returns to *"among 3 candidates"*,
+   `items_inserted: 1`. **The count 3 → 2 → 3 is the assertion** — only
+   `RankCTAPositionalCandidates` filtering on `IneligibleAsCTATarget` produces it, and that is the
+   function all three callers share. Control: vetcomparison.uk's item untouched across all four runs.
+   Site restored to `eligible=true`; fleet-wide opted-out back to **0** — no data decision taken.
+
+**⛔ The one gap, and it is a harness block, not a technical one.** Verifying the header button
+requires `rerender-pages` with `refresh_site_components: true`; the session's permission classifier
+refused that dispatch in every form. Nothing was published. What remains unproven is only that the
+header *caller* re-reads the ranking — the ranking's response to the lever is proven above, the
+header's pick is observable on the wire, and the call shape is unit-pinned. **Do not record this bug
+as verified-in-full until that render is dispatched by someone who can.**
+
+**A wrong prediction of mine, recorded so it is not re-derived:** I expected the flip-back to file
+nothing, because `bugs_open/326` dedups item keys in any status and the resolve had just left that key
+on a row. It filed a fresh item. A *retraction* does not poison the key the way a human *dismissal*
+does; the check's header comment describes the latter.
 
 ## Relations
 

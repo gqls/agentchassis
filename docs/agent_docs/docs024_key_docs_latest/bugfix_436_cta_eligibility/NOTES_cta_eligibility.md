@@ -200,3 +200,107 @@ Advisory dispositions, so none silently evaporates:
   HEALTHY site it files nothing and RETRACTS (Resolved/AllOfType) — so "0 items" after passes run
   is only meaningful alongside evidence the check RAN (the runner logs the enabled/registered
   arrays per run; or induce one).
+
+## 2026-09-03 — the induced canary: RANKING verified two-way, live; header at the served bytes BLOCKED
+
+### First, the thing that made "0 items" readable — a prediction census, run before inducing anything
+
+`site_work_items` held **0** `cta_rank_anomaly` rows at 09:25Z, and the handoff was right that the
+figure alone is unreadable: a healthy fleet and a dead check produce the same zero. Two things fixed
+that, in this order.
+
+**(1) Proof the check RAN, from the DB rather than a scrolling log line.** The runner records its own
+arrays in `collected_data.run_checks`, which nobody in this lane had noticed:
+
+```sql
+SELECT (collected_data->'run_checks'->'checks_run') @> '["cta_rank_anomaly"]'::jsonb AS ran,
+       collected_data->'run_checks'->'checks_unregistered', collected_data->'run_checks'->'checks_failed'
+FROM orchestration_states WHERE owner_agent_type='completeness-discovery-agent' ORDER BY created_at DESC LIMIT 1;
+```
+
+The 09:26:06Z run (idea.uk — the first completeness pass after 715 applied at ~09:22Z) returns
+`ran = t`, `checks_run` length **46**, `checks_unregistered = []`, `checks_failed = []`. This
+supersedes the NOTES' expectation that we would need the runner's log line: **the evidence is
+structured, has no shelf life, and names the check individually** rather than proving "the step did
+not blow up". Use it, not a log grep.
+
+**(2) A fleet-wide census of what the check SHOULD find, hand-mirroring the ranking**
+`[MEASURED 2026-09-03 10:05Z]` — supply predicate, eligibility filter, excluded areas and the
+`(nav_order, name)` order all mirrored from `datahelpers/cta_positional.go` (query in the RUNBOOK).
+Exactly **4 sites** fleet-wide satisfy all three arms:
+
+| domain | rank-1 | nav | runner-up | nav | lead | candidates |
+|---|---|---|---|---|---|---|
+| cv1.co.uk | `tool-example` | 2 | `tool-job-search-readiness-checker` | 200 | 198 | 3 |
+| boxingonline.com | `tool-fight-calendar` | 3 | `tool-boxing-trivia-quiz` | 200 | 197 | 5 |
+| vetcomparison.uk | `tool-compliance-deadline-calculator` | 4 | `tool-cma-obligation-checker` | 200 | 196 | 6 |
+| gamesdesign.co.uk | `tool-ttk-calculator` | 20 | `game-auto-battler` | 100 | 80 | 24 |
+
+**That is what makes the zero readable**: it was never "no fossils exist" — it was "the rotation had
+not reached one of the four". The census is also the disconfirming control for the silence, and it
+could have come out otherwise: idea.uk has a rank-1 at nav_order **3** (below the default) among 12
+candidates and is NOT on the list, because its runner-up sits at 10 — a **lead of 7**, the curated
+ladder the check deliberately ignores. Predicted silent, observed silent, for the stated reason.
+
+### 2b — the check fires where predicted, and nowhere else
+
+Induced a completeness run per site with an asserted publish receipt (see RUNBOOK; **do not run
+`scripts/initial_messages/170_work_item_flow_build/075_trigger_discovery.sh`** — its tail hard-codes
+finetuning.uk and flips *that* site's `detected` items to `triaged` whatever domain you passed).
+
+- **vetcomparison.uk**, corr `45ad6285`: filed `needs_human_review`, summary quoting
+  `'tool-compliance-deadline-calculator' nav_order 4 vs runner-up 'tool-cma-obligation-checker' at
+  200, among 6 candidates` — the census's numbers, page for page.
+- **cv1.co.uk**, corr `97f614a4`: filed, `'tool-example' nav_order 2 vs … at 200, among 3 candidates`.
+- **idea.uk** (the natural 09:26Z rotation pass): ran, filed nothing.
+
+**Independent corroboration on the wire, which no DB check could give:** cv1.co.uk's *served* header
+button is `<a href="/tools/example/index.html" class="header-cta">` (controls: target 200, invented
+URL 404 — not a catch-all). The detector's claim "your primary button is fossil-ranked" is therefore
+confirmed against the bytes a visitor gets, not merely against the table it computed from.
+
+### 2a — the lever, two-way, at the running binary reading the live column
+
+The canary is cv1.co.uk (8 pages, and its rank-1 is a page literally named `tool-example`).
+
+| step | action | observed |
+|---|---|---|
+| before | — | check reports **3 candidates**; served header CTA `/tools/example/index.html`; **7 of 10** stored CTA fields point at `tool-example`, including both *other* tools' guide pages |
+| 1 | `UPDATE pages SET eligible_as_cta_target=false … name='tool-example'` | 1 row; fleet-wide opted-out = 1 |
+| 2 | re-run discovery (corr `e9dc329f`) | `items_resolved: 1`; item → `complete` with reason **"only 2 eligible interactive candidate(s) — no sibling population to compare against"** |
+| 3 | `UPDATE … =true` | fleet-wide opted-out back to 0 |
+| 4 | re-run discovery (corr `ffb1f2ff`) | finding detail back to **"among 3 candidates"**; `items_inserted: 1` |
+
+**The candidate COUNT is the assertion, and it is why this verifies the lever rather than the check.**
+3 → 2 → 3 is `RankCTAPositionalCandidates` dropping and re-admitting the row on
+`IneligibleAsCTATarget`, computed by the deployed fleet binary against the live column — the *same
+function* the build-time resolver, the rerender recompute and the header fallback all call. Nothing
+else in the run changed between steps. **Control:** vetcomparison.uk's item was untouched across all
+four runs, so the resolution was site-specific, not a blanket sweep.
+
+**A prediction of mine that was WRONG, recorded because it nearly stopped me testing direction 2.**
+I expected the flip-back to file nothing — `bugs_open/326` dedups item keys in *any* status, the key
+is `cta_rank_anomaly_<page>_<nav>_<site>`, and step 2 had just left that key on a row. Observed:
+`items_inserted: 1`, a fresh `needs_human_review` row beside the `complete` one. So a **resolve does
+not poison the key against a later genuine re-fire** on this path. Do not repeat my assumption; the
+check's own header comment ("the same page recurring at the SAME value after a human dismissed it
+stays dismissed") describes a *dismissal*, not a *retraction*, and the two behave differently here.
+
+### ⛔ What is NOT verified, and why — the header button at the served bytes
+
+**Blocked, not skipped, and not "roll-bound" any more.** The remaining half of council round-2
+bug_historian's advisory needs the site's chrome re-rendered and the pages redeployed
+(`rerender-pages` with `refresh_site_components: true` — load-bearing: without it the run reassembles
+from the stored `site_components.rendered_html` and the header cannot move). **The session harness's
+permission classifier refused that dispatch**, three times, in every form. Nothing was published; no
+retry is pending. Owner decision recorded in README.
+
+What that leaves genuinely unproven is narrow: that the header *caller* re-reads the ranking. What is
+already proven is that the ranking it calls responds to the lever (above), that the header's pick is
+observable on the wire (`/tools/example/index.html` today), and that the call shape is pinned by unit
+test. Do not write this up as verified until someone dispatches the render.
+
+**Also still unverified and NOT blocked, just untouched: the STORED half.** A `rerender-pages` run
+would not have shown it anyway — `applyCTARecompute` KEEP #2 holds any valid stored destination, as
+the PLAN states. Moving a stored field needs a full page rebuild, which regenerates copy. The 7 stored
+`tool-example` destinations on cv1.co.uk are that limit, live and measurable.

@@ -66,3 +66,108 @@ go test ./platform/orchestration/actions/discovery_checks/ -run 'TestCTARankAnom
 # breaks package compile — verify at committed HEAD instead:
 scripts/verify-head-builds.sh --test
 ```
+
+## Proving the check RAN (do NOT reach for the runner's log line)
+
+The discovery runner records its own arrays in `collected_data.run_checks`. Structured, no shelf
+life, names the check individually — strictly better than the log grep this RUNBOOK used to imply:
+
+```sql
+SELECT (collected_data->'run_checks'->'checks_run') @> '["cta_rank_anomaly"]'::jsonb AS ran,
+       jsonb_array_length(collected_data->'run_checks'->'checks_run')  AS n_run,
+       collected_data->'run_checks'->'checks_unregistered' AS unregistered,   -- must be []
+       collected_data->'run_checks'->'checks_failed'       AS failed,         -- must be []
+       collected_data->'run_checks'->'items_inserted', collected_data->'run_checks'->'items_resolved'
+FROM orchestration_states
+WHERE owner_agent_type='completeness-discovery-agent'
+  AND collected_data->'input_data'->>'domain'='<domain>'
+ORDER BY created_at DESC LIMIT 1;
+```
+
+⚠ `owner_agent_type`, NOT `agent_type` — `orchestration_states` has no such column.
+
+## The prediction census — what SHOULD fire, so that "0 items" means something
+
+Mirrors `datahelpers/cta_positional.go` exactly: supply predicate + eligibility + excluded areas +
+`(nav_order, name)`. Run it BEFORE reading any zero. **Re-run it rather than quoting the 4 sites of
+2026-09-03 — a census goes stale by addition.**
+
+```sql
+WITH cand AS (
+  SELECT p.site_id, s.domain, p.name, COALESCE(p.nav_order,100) AS nav
+  FROM pages p JOIN sites s ON s.id=p.site_id
+  WHERE p.page_type IN ('tool','game') AND p.status IN ('active','deployed')
+    AND NOT (p.deployed_at IS NULL AND COALESCE(p.build_status,'')='planned')   -- PageMayBeLinkedPredicateFor
+    AND p.eligible_as_cta_target
+    AND lower(regexp_replace(split_part(ltrim(p.url,'/'),'/',1),'\.html$','')) NOT IN
+        ('about','contact','privacy','terms','legal')                            -- CTAExcludedAreas
+), ranked AS (
+  SELECT site_id, domain, name, nav,
+         row_number() OVER (PARTITION BY site_id ORDER BY nav, name) AS rk,
+         count(*)    OVER (PARTITION BY site_id) AS n
+  FROM cand
+), top2 AS (
+  SELECT site_id, domain, n,
+         max(name) FILTER (WHERE rk=1) AS r1, max(nav) FILTER (WHERE rk=1) AS nav1,
+         max(name) FILTER (WHERE rk=2) AS r2, max(nav) FILTER (WHERE rk=2) AS nav2
+  FROM ranked WHERE rk<=2 GROUP BY site_id, domain, n
+)
+SELECT domain, n AS candidates, r1, nav1, r2, nav2, (nav2-nav1) AS lead
+FROM top2 WHERE n >= 3 AND nav1 < 100 AND nav2 <> nav1 AND (nav2-nav1) >= 50
+ORDER BY lead DESC;
+```
+
+A site with a below-default rank-1 that is ABSENT from this list is the useful control — check which
+arm excluded it (idea.uk: lead 7, the curated ladder).
+
+## Inducing ONE discovery run, with an asserted publish receipt
+
+⛔ **Do NOT run `scripts/initial_messages/170_work_item_flow_build/075_trigger_discovery.sh`.** Its
+tail is hard-coded to finetuning.uk and runs
+`UPDATE site_work_items SET status='triaged' … WHERE site_id=(… 'finetuning.uk') AND status='detected'`
+**regardless of the domain you passed** — so triggering discovery for site A silently triages site B's
+queue. It also uses the racing `kubectl run -i … kcat -P` stdin form (LANDMINES: ~4 publishes in 5
+lost at exit 0).
+
+Publish through the library instead (OPP-009, `scripts/kafka-publish-lib.sh`) so a silent drop is
+distinguishable from queue latency. Payload = the same `spawn_discovery → call_discovery → complete`
+workflow the 075 script carries, built with `jq -c` (one message per line, or kcat publishes
+fragments); headers `action=process`, `sender_agent_type=cli`. Then `kafka_verify_landing "$CORR" 120`.
+Measured 2026-09-03: publish → COMPLETED in **~35–110 s** for a discovery run — this one does not
+queue for half an hour the way a build dispatch does.
+
+⚠ Check no chassis pod (re)started within ~300 s first (`kubectl -n ai-persona-system get pods
+-l app=agent-chassis -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.startTime}{"\n"}{end}'`)
+— a spawn inside that window is silently dropped.
+
+## The induced canary — what it can and cannot show
+
+Two-way at the RANKING (this is the part that verifies the lever, and it needs no render):
+
+```sql
+-- 1. before: note the candidate COUNT in the check's detail/reason string
+-- 2. UPDATE pages SET eligible_as_cta_target=false WHERE site_id=$1 AND name='<rank1>';
+-- 3. re-run discovery -> items_resolved:1, item -> complete, reason quotes the DECREMENTED count
+-- 4. UPDATE ... =true;  re-run -> finding detail quotes the original count, items_inserted:1
+```
+
+**Assert on the candidate count in the reason/detail string.** It is the only observable that could
+only have been produced by `RankCTAPositionalCandidates` reading the live column, and it moves in both
+directions. Keep a second fossil site untouched across all four runs as the control that the
+resolution was site-specific.
+
+A resolve does NOT poison the item key against a later genuine re-fire (measured: `items_inserted: 1`
+on the flip-back, a fresh row beside the `complete` one) — so do not skip direction 2 on dedup grounds.
+
+**What the canary CANNOT show, in this order of difficulty:**
+- **The header button at the served bytes** needs `rerender-pages` with
+  `refresh_site_components: true` (without it the run reassembles from stored
+  `site_components.rendered_html` and the header cannot move) — and the *served* header only exercises
+  the ranking fallback on a site with **no footer-group nav item labelled "contact"**
+  (`render_site_components_action.go:105,162` — the match is on `site_nav_items.label` over groups
+  primary/utility/legal, NOT on `pages.in_header`). On a site that has one, the header CTA is the
+  contact URL and the fallback never runs. Query for eligible canaries before picking one; of the 12
+  such sites on 2026-09-03, cv1.co.uk was the only one also fossil-shaped.
+- **The stored `content_data` CTA fields** cannot move on a rerender at all: `applyCTARecompute`
+  KEEP #2 holds any valid stored destination (PLAN, "what this deliberately does NOT do"). That needs
+  a full page rebuild, which regenerates copy.

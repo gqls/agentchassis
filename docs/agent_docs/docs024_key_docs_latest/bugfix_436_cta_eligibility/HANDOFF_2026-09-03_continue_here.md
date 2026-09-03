@@ -1,5 +1,12 @@
 # HANDOFF — 2026-09-03. **START HERE.** `bugs_open/436` — lever + alarm BUILT, APPROVED, ROLLED, ENABLED. What is left is VERIFICATION, then close.
 
+> ⚠ **SUPERSEDED 2026-09-03 mid-morning — read `HANDOFF_2026-09-03b_continue_here.md` instead.**
+> Its §2 verification plan has been carried out: the check's first pass is observed and explained,
+> and the induced canary passed two-way at the ranking. What remains is ONE blocked step (the header
+> button at the served bytes) and the owner's opt-out decision — which now has real substance, not the
+> "plausibly nothing to do" this file guesses. Kept for the trail; do not work from it.
+
+
 **Lane:** `docs/agent_docs/docs024_key_docs_latest/bugfix_436_cta_eligibility/` · register **LNK-041**
 (`docs026_concept_register/register/link-management.md`) · council **APPROVED round 2**, corr
 `9faa2a23-f3bc-464e-8c3a-9d3d44759cc0` · commits `215c7eead` → `ffbbfc491` (all trailered; 098

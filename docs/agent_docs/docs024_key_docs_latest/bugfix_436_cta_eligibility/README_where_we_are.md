@@ -74,3 +74,52 @@ it back, watch it return. Plus watching the alarm's first sweep of the fleet, an
 decision — whether any current page should be switched off (probably none needed).
 
 Everything a fresh session needs is in HANDOFF_2026-09-03_continue_here.md in this folder.
+
+## 2026-09-03, mid-morning — the live test passed, and it found four real sites
+
+Two things happened this morning. The first was a check on my own instrument, and it changed how I
+read everything after it.
+
+The alarm had filed nothing since being switched on, and I nearly wrote that down as good news. It
+isn't readable on its own: a fleet with no problems and an alarm that never ran look identical from
+the outside. So before touching anything I did two separate things. I found where the system records,
+run by run, which checks it actually executed — so "it ran" is now a fact I can query rather than a
+log line that scrolls away. And I wrote out, by hand, the same sums the alarm does, and ran them
+across every site we have, to predict what it *ought* to find.
+
+That prediction says **four sites** currently have the fault this was built for — a primary button
+won by a page whose ordering number is a fossil nobody has looked at in months:
+
+- **cv1.co.uk** — the button points at a page called **"example"**. On the live site, right now.
+- **boxingonline.com** — a fight calendar.
+- **vetcomparison.uk** — a compliance deadline calculator.
+- **gamesdesign.co.uk** — a TTK calculator, ahead of 23 others.
+
+The check that this prediction is honest, rather than a sum rigged to agree with itself: idea.uk has
+a low ordering number on its top page too, and my sums say it is **fine** — the gap to the next page
+is small, which means someone arranged that order deliberately. The alarm agrees, and stayed quiet
+there. It could have come out the other way and didn't.
+
+Then I asked the alarm to look at two of the four. It found exactly what the sums predicted, naming
+the same pages and the same numbers. And on cv1.co.uk I confirmed it independently by fetching the
+live page: the button on the wire really does point at `/tools/example/index.html`. So this is not a
+theory about a database — it is what a visitor gets.
+
+The second thing was the live test of the switch itself, on cv1.co.uk. Switch the "example" page off:
+the chooser's shortlist drops from three pages to two, and the alarm withdraws its own finding,
+saying so in those words. Switch it back on: the shortlist returns to three and the finding comes
+back. That number moving 3 → 2 → 3 is the point — it is the running software, on the live database,
+obeying the new switch. Both directions, as designed.
+
+**One piece is not done, and I could not do it.** Checking the button *in the site header* means
+re-rendering and redeploying that site, and my session's safety layer refused to send that command.
+Nothing was sent; nothing is half-done. Everything else about that button is established — the
+chooser it uses is the one I just tested both ways, and its output is visible on the live page — but
+the last step, watching the header button physically move, needs someone to authorise that render.
+
+**Your decision, and it is a real one now.** I put cv1.co.uk back exactly as it was, because switching
+pages off is your call, not mine. But the finding stands: four live sites are pointing their main
+button at a page chosen by an accident of ordering, and on one of them that page is called "example".
+Each has two possible remedies — switch the page out of button-candidacy (changes nothing else), or
+move its ordering number (which also moves the visible menu). Tell me which sites, if any, and which
+remedy, and I will do it.
