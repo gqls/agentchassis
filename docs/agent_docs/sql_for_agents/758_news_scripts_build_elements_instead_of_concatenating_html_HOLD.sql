@@ -41,8 +41,33 @@
 --
 -- ALSO FIXED, and it is the hole an escape helper would have left open: the
 -- anchor href was set from `item.url` / `data.insights_url` with no scheme
--- check, so a `javascript:` URL in a feed would have been live. safeHref()
--- admits only http(s).
+-- check, so a `javascript:` URL in a feed would have been live. TWO helpers now
+-- guard it, and the split is not stylistic: safeExternalHref() admits only
+-- http(s) and takes the third-party feed URL; safeInternalHref() also admits a
+-- site-relative path and takes `data.insights_url`, which comes from
+-- `pages.url` (render_news_section_action.go:213-218) and is `/news.html`,
+-- `/news/index.html` or `/noticias/index.html` on every live site
+-- [MEASURED 2026-09-03]. The FIRST CUT of this migration used one helper for
+-- both and turned the "More insights" link into href="#" on every site with a
+-- news index — a live regression introduced by the security fix, caught by the
+-- components lane on review. Its `^\/(?!\/)` arm admits `/news.html` and still
+-- rejects `//evil.com`, which is protocol-relative and leaves the origin.
+--
+-- Behaviour, executed rather than argued (2026-09-03):
+--   input                    external()  internal()
+--   https://espn.com/x       unchanged   unchanged
+--   /news.html               #           /news.html
+--   //evil.com/x             #           #
+--   javascript:alert(1)      #           #
+--   data:text/html,...       #           #
+--   evil.com  /  (empty)     #           #
+--
+-- MINOR, deliberate, flagged by the same review: the fallback label is now the
+-- literal character "More insights →" where the old markup had `&rarr;`. That is
+-- correct for textContent. But if a future `data.insights_label` is set in the
+-- database containing an HTML entity, textContent renders it literally where
+-- innerHTML used to resolve it. Every live insights_label is empty today, so
+-- nothing is affected — noted so a future reader is not surprised.
 --
 -- BEHAVIOUR PRESERVED EXACTLY: the same elements, the same class names, the
 -- same order, the same conditionals, formatNewsDate untouched, and
@@ -92,8 +117,20 @@ UPDATE content_components SET js_content = $js$  (function() {
       if (text !== undefined && text !== null && text !== "") { e.textContent = text; }
       return e;
     }
-    // An href is the one attribute that can still execute. Only http(s).
-    function safeHref(u) { return /^https?:\/\//i.test(u || "") ? u : "#"; }
+    // An href is the one attribute that can still execute. TWO helpers, not one,
+    // because the two URLs on this page have different trust AND different
+    // shape — and a single helper over both is what produced the regression the
+    // components lane caught in this migration's first cut: a dead "More
+    // insights" link on every site with a news index.
+    //   item.url          third-party, from the feed, ABSOLUTE  -> external
+    //   data.insights_url internal, from pages.url, RELATIVE    -> internal
+    function safeExternalHref(u) { return /^https?:\/\//i.test(u || "") ? u : "#"; }
+    function safeInternalHref(u) {
+      u = u || "";
+      if (/^https?:\/\//i.test(u)) { return u; }
+      if (/^\/(?!\/)/.test(u)) { return u; }   // /news.html yes, //evil.com no
+      return "#";
+    }
     // Server-rendered items (bugs_open/027) must survive an empty feed, a 404,
     // or any fetch failure. Only show a placeholder when there is nothing to
     // preserve — otherwise leave the server's HTML exactly where it is.
@@ -118,7 +155,7 @@ UPDATE content_components SET js_content = $js$  (function() {
           var content = el("div", "news-list-item-content");
           var title = el("h3", "news-list-item-title");
           var link = el("a", null, item.title);
-          link.setAttribute("href", safeHref(item.url));
+          link.setAttribute("href", safeExternalHref(item.url));
           link.setAttribute("target", "_blank");
           link.setAttribute("rel", "noopener noreferrer");
           title.appendChild(link);
@@ -179,7 +216,14 @@ UPDATE content_components SET js_content = $js$(function() {
     if (text !== undefined && text !== null && text !== "") { e.textContent = text; }
     return e;
   }
-  function safeHref(u) { return /^https?:\/\//i.test(u || "") ? u : "#"; }
+  // Two helpers, not one — see the news-listing script above for why.
+  function safeExternalHref(u) { return /^https?:\/\//i.test(u || "") ? u : "#"; }
+  function safeInternalHref(u) {
+    u = u || "";
+    if (/^https?:\/\//i.test(u)) { return u; }
+    if (/^\/(?!\/)/.test(u)) { return u; }   // /news.html yes, //evil.com no
+    return "#";
+  }
   fetch("/data/latest-news.json")
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -198,7 +242,7 @@ UPDATE content_components SET js_content = $js$(function() {
           var content = el("div", "news-card-content");
           var title = el("h3", "news-card-title");
           var link = el("a", null, item.title);
-          link.setAttribute("href", safeHref(item.url));
+          link.setAttribute("href", safeExternalHref(item.url));
           link.setAttribute("target", "_blank");
           link.setAttribute("rel", "noopener noreferrer");
           title.appendChild(link);
@@ -219,7 +263,7 @@ UPDATE content_components SET js_content = $js$(function() {
         f.innerHTML = "";
         var wrap = el("div", "news-section-footer");
         var more = el("a", "news-more-link", data.insights_label || "More insights →");
-        more.setAttribute("href", safeHref(data.insights_url));
+        more.setAttribute("href", safeInternalHref(data.insights_url));
         wrap.appendChild(more);
         f.appendChild(wrap);
       }
@@ -235,6 +279,7 @@ DECLARE
   n_defect  int;
   n_text    int;
   n_href    int;
+  n_rel     int;
   n_rows    int;
 BEGIN
   SELECT count(*) INTO n_rows FROM content_components WHERE function IN ('news-listing','latest-news');
@@ -258,10 +303,24 @@ BEGIN
     RAISE EXCEPTION '758: expected 2 components using the textContent helper, found %', n_text;
   END IF;
 
+  -- Both helpers present. NOT sufficient on its own — see the next check.
   SELECT count(*) INTO n_href FROM content_components
-   WHERE function IN ('news-listing','latest-news') AND js_content LIKE '%safeHref%';
+   WHERE function IN ('news-listing','latest-news')
+     AND js_content LIKE '%safeExternalHref%' AND js_content LIKE '%safeInternalHref%';
   IF n_href <> 2 THEN
-    RAISE EXCEPTION '758: expected 2 components guarding href, found %', n_href;
+    RAISE EXCEPTION '758: expected 2 components with both href helpers, found %', n_href;
+  END IF;
+
+  -- ⚠ THE CHECK THE FIRST CUT DID NOT HAVE, AND THE REASON IT SHIPPED A
+  -- REGRESSION. A `LIKE '%safeHref%'` post-condition is satisfied by a helper
+  -- that BREAKS every internal link — presence is not behaviour. Assert the
+  -- relative-admitting arm itself: without this literal, /news.html becomes
+  -- href="#" on every site with a news index and no row-level check can tell.
+  SELECT count(*) INTO n_rel FROM content_components
+   WHERE function IN ('news-listing','latest-news')
+     AND js_content LIKE '%/^\\/(?!\\/)/.test(u)%';
+  IF n_rel <> 2 THEN
+    RAISE EXCEPTION '758: expected 2 components admitting site-relative hrefs, found % — the More-insights link would be dead', n_rel;
   END IF;
 
   RAISE NOTICE '758 OK: 2 components build elements, use textContent, and guard href.';
@@ -274,7 +333,9 @@ COMMIT;
 --   SELECT function, length(js_content),
 --          js_content LIKE '%html +=%'          AS still_concatenates,  -- expect f
 --          js_content LIKE '%textContent = text%' AS uses_textcontent,  -- expect t
---          js_content LIKE '%safeHref%'         AS guards_href          -- expect t
+--          js_content LIKE '%safeExternalHref%'   AS guards_external,     -- expect t
+--          js_content LIKE '%safeInternalHref%'   AS guards_internal,     -- expect t
+--          js_content LIKE '%/^\\/(?!\\/)/.test(u)%' AS admits_relative  -- expect t
 --     FROM content_components WHERE function IN ('news-listing','latest-news');
 --
 -- Then AT THE SERVED ASSET, after each site's next render:
