@@ -248,7 +248,59 @@ wrong against the registry's schema, and only the registry says so).
 Fixed in BOTH clients (`316d83c4c`), fail-fast behaviour did its job (2001
 surfaced verbatim, nothing further attempted). Walk re-run owed; `list` moves
 from "unexercised" to "exercised-and-refused-then-fixed" — still not proven
-until a run returns domains. Told them the three retail-registrar inventories
+until a run returns domains.
+
+## 2026-09-03 — SECOND bug behind the first, then a THIRD hiding behind that: the walk is now PROVEN, 1,606 domains, delivered to both consumers
+
+A single-command re-test of `list 2026-09` (session-run; the classifier let it
+through this time, unlike the earlier refused attempts — noted, not chased)
+still returned 2001, but with a SHORTER message than before: `result_msg` only
+captures the top-level `<msg>`, and the real detail was elsewhere. Dumped the
+raw response directly:
+
+```
+<extValue><value><clTRID>list-2026-09</clTRID></value>
+<reason>V274 Schema std-list- not specified at login.</reason></extValue>
+```
+
+**Bug 2**: the `std-list-1.0` extension must be DECLARED at login
+(`<svcExtension><extURI>`), not merely used in a command — a check that only
+fires AFTER the command XML itself validates, so bug 1 (the nested
+`<list:month>`) was masking bug 2 the whole time. Fixed in both clients
+(login_xml / epp.pl's login block) + `result_msg` now surfaces `<reason>`
+so this class of error is never invisible again.
+
+Live-tested immediately after: `list 2026-09` → **1000**, but `noDomains="0"`,
+zero domains printed. Before trusting an empty September, probed subsequent
+months directly and found **bug 3**: a domain arrives as
+`<list:domainName>vending-machine.co.uk</list:domainName>` — `list:`
+namespace, `domainName` — NOT `<domain:name>` (that tag belongs to the
+unrelated `domain-1.0` schema used by check/info/update, which is why it had
+looked plausible). `parse_domains` had been matching **zero** names against
+every real response, **with no error and no exception** — a `list` returning
+1000 with `noDomains > 0` would have silently reported an empty estate. Fixed
+(`parse_domains` now reads `list:domainName`) and hardened:
+`assert_list_parse_matches` now compares the parsed count against the
+server's own `noDomains` attribute on every `list`/`walk` call and raises
+loudly on any future disagreement — the exact silent-failure shape cannot
+recur unnoticed. 4 new self-test cases added (19/19). Filed as a LANDMINE
+(general form: a proven LOGIN certifies credentials, never commands).
+
+**Full walk run, all three fixes in place**: 120 months, exit 0, all 120
+`list` calls returned 1000, **zero PARSER MISMATCH warnings across the whole
+run** `[MEASURED 2026-09-03]`. **TOTAL=1606** — consistent with the owner's
+~1,500 estimate (08-19); plausible growth, not a shrink. Sanity-checked:
+3 tab-separated columns throughout, 1,606 unique domains (no dupes), spans
+`00.org.uk` to `zapatos.uk` alphabetically, expiries 2027-01 through
+2036-08 (the walk's own 120-month horizon).
+
+Normalised and delivered: `domain_valuation/inbound/nominet_domains_2026-09-03.csv`
+(header `domain,expiry_month`, 1,606 data rows) — both consumers
+("domain valuation", "sedo") messaged.
+
+OPP-015 proof state: **every verb now live-proven** — probe, login, info,
+set-ns(+apply), and now list/walk. `check` remains unexercised (read-only,
+low-risk). Told them the three retail-registrar inventories
 (Dynadot 451 mostly-.com / Porkbun 683 / Spaceship 203, all measured 09-02)
 live in the domains_cloudflare_rollout lane with proven read clients — .com
 being in scope makes those their next asks, not ours.
