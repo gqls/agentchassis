@@ -482,12 +482,53 @@ func buildCanonicalComponents(comps []component) {
 	}
 }
 
-func findingKey(f finding) string {
-	name := f.Component
+// canonicalName maps a component onto the representative of its template-identity
+// group. ONE implementation, because the baseline's KEY set and its COVERED-component
+// set must agree about identity: if findingKey folds a clone onto its representative
+// while the covered set records the clone's own name, that clone reads as unbaselined
+// for ever and the ratchet quietly stops watching it.
+func canonicalName(name string) string {
 	if rep, ok := canonicalComponent[name]; ok {
-		name = rep
+		return rep
 	}
-	return name + "\x00" + f.Field + "\x00" + f.Shape
+	return name
+}
+
+func findingKey(f finding) string {
+	return canonicalName(f.Component) + "\x00" + f.Field + "\x00" + f.Shape
+}
+
+// classifyAgainstBaseline is THE ratchet decision, in one place so it can be proved
+// by test rather than only by running the whole tool (bugs_open/361 §6 requires BOTH
+// arms be mutation-proved, and a fix verified only on the "does not fail" arm is a
+// fix that turned the check off).
+//
+//   - regression — the baseline COVERED this component and does not hold this key:
+//     something that used to be fine got worse. Fails the run.
+//   - unbaselined — the baseline never analysed this component: growth, not
+//     regression. Reported with its own count, does not fail the run.
+//
+// Both arms key on the CANONICAL name, so a clone and its representative agree.
+func classifyAgainstBaseline(findings []finding, base, covered map[string]bool) (regressions, unbaselined []finding, unbaselinedComps map[string]bool) {
+	unbaselinedComps = map[string]bool{}
+	for _, f := range findings {
+		if base[findingKey(f)] {
+			continue
+		}
+		if covered[canonicalName(f.Component)] {
+			regressions = append(regressions, f)
+			continue
+		}
+		unbaselined = append(unbaselined, f)
+		unbaselinedComps[canonicalName(f.Component)] = true
+	}
+	return regressions, unbaselined, unbaselinedComps
+}
+
+// baselineComponent is the canonical component a baseline key belongs to — the
+// first of its three NUL-separated segments.
+func baselineComponent(key string) string {
+	return strings.SplitN(key, "\x00", 2)[0]
 }
 
 // writeDocNote records the run in doc_notes on EVERY run, clean or not — the
@@ -515,6 +556,20 @@ func writeDocNote(body string) {
 type baselineFile struct {
 	Note string   `json:"note"`
 	Keys []string `json:"keys"`
+	// Components is the ANALYSED-component set at write time, in canonical names.
+	//
+	// WHY IT EXISTS (bugs_open/361). Without it the ratchet can only ask "does this
+	// finding's key appear in the baseline?", which cannot distinguish a component
+	// that REGRESSED from one that did not exist when the baseline was cut — so a
+	// growing library manufactures "NEW" findings and the job goes permanently red.
+	// Scoping by "does this component own any baseline KEY?" is not enough either,
+	// and the old artefact proves why: its own note says "1023 findings across 139
+	// analysed components" while its keys span only 115 components, so 24 components
+	// were analysed and CLEAN. Those 24 are invisible to a keys-derived covered set,
+	// and a clean component that later regresses is exactly what a ratchet is for.
+	// Recording coverage separately from findings is what makes that state
+	// unrepresentable.
+	Components []string `json:"components,omitempty"`
 }
 
 // The baseline is EMBEDDED, not mounted, and that is the whole design.
@@ -532,32 +587,52 @@ type baselineFile struct {
 //go:embed baseline.json
 var embeddedBaseline []byte
 
-func loadBaseline(path string) (map[string]bool, error) {
+// loadBaseline returns the key set, the COVERED-component set (canonical names),
+// and whether the artefact predates component scoping.
+//
+// A legacy baseline (no "components" field) does NOT refuse. Refusing would turn a
+// ratchet that is merely mis-scoped into a job that cannot run at all, and
+// regenerating the baseline is a debt decision — it banks every outstanding finding
+// as "already known" — which is not this tool's to take on its own. It falls back to
+// deriving coverage from the keys, which is strictly better than today's behaviour,
+// and it says so LOUDLY on stdout and in the doc_notes row, naming the blind spot,
+// because a fallback nobody is told about is how a stale artefact becomes folklore.
+func loadBaseline(path string) (keys map[string]bool, covered map[string]bool, legacy bool, err error) {
 	b := embeddedBaseline
 	if path != "" {
-		var err error
 		b, err = os.ReadFile(path)
 		if err != nil {
-			return nil, err
+			return nil, nil, false, err
 		}
 	}
 	var bf baselineFile
 	if err := json.Unmarshal(b, &bf); err != nil {
-		return nil, err
+		return nil, nil, false, err
 	}
-	set := make(map[string]bool, len(bf.Keys))
+	keys = make(map[string]bool, len(bf.Keys))
 	for _, k := range bf.Keys {
-		set[k] = true
+		keys[k] = true
 	}
-	if len(set) == 0 {
+	if len(keys) == 0 {
 		// A baseline that accidentally parses to zero keys would silently
 		// report every finding as NEW — loud refusal instead.
-		return nil, fmt.Errorf("baseline %s holds no keys", path)
+		return nil, nil, false, fmt.Errorf("baseline %s holds no keys", path)
 	}
-	return set, nil
+	covered = make(map[string]bool, len(bf.Components))
+	if len(bf.Components) > 0 {
+		for _, c := range bf.Components {
+			covered[canonicalName(c)] = true
+		}
+	} else {
+		legacy = true
+		for k := range keys {
+			covered[baselineComponent(k)] = true
+		}
+	}
+	return keys, covered, legacy, nil
 }
 
-func writeBaseline(path string, findings []finding, checked int) error {
+func writeBaseline(path string, findings []finding, analysed map[string]bool) error {
 	// DEDUPED, which only started mattering on 2026-08-05: once a clone's findings
 	// key by their template's representative, two identical components contribute
 	// the SAME key and an append-per-finding loop would write it twice. A duplicate
@@ -575,11 +650,28 @@ func writeBaseline(path string, findings []finding, checked int) error {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
+	// The covered set is written in CANONICAL names, the same identity findingKey
+	// uses, so a clone and its representative cannot disagree about coverage.
+	comps := make([]string, 0, len(analysed))
+	seenComp := make(map[string]bool, len(analysed))
+	for name := range analysed {
+		cn := canonicalName(name)
+		if seenComp[cn] {
+			continue
+		}
+		seenComp[cn] = true
+		comps = append(comps, cn)
+	}
+	sort.Strings(comps)
 	bf := baselineFile{
-		Note: fmt.Sprintf("component-render-check baseline: %d findings across %d analysed components. "+
-			"Keys are component\\0field\\0shape — counts deliberately excluded. "+
-			"Regenerate with --write-baseline; a NEW key is the signal.", len(keys), checked),
-		Keys: keys,
+		Note: fmt.Sprintf("component-render-check baseline: %d findings across %d analysed components "+
+			"(%d canonical). Keys are component\\0field\\0shape — counts deliberately excluded. "+
+			"\"components\" is the ANALYSED set: a finding in a component listed there but not in "+
+			"\"keys\" is a REGRESSION and fails the run; a finding in a component absent from it is "+
+			"unbaselined growth and does not. Regenerate with --write-baseline.",
+			len(keys), len(analysed), len(comps)),
+		Keys:       keys,
+		Components: comps,
 	}
 	b, err := json.MarshalIndent(bf, "", "  ")
 	if err != nil {
@@ -604,6 +696,17 @@ func main() {
 			"findings as FIXED — refusing (compare whole runs, or use --write-baseline on a full run)")
 		os.Exit(2)
 	}
+	// Since the baseline records COVERAGE (bugs_open/361), a single-component write
+	// would claim the run analysed one component — and a later compare would then read
+	// every OTHER component as unbaselined and pass. That is the "fix that turned the
+	// check off" shape, bought silently, so it is refused at the flag rather than
+	// discovered in a green run.
+	if *writeBase != "" && *only != "" {
+		fmt.Fprintln(os.Stderr, "--write-baseline with --component would record a covered set of ONE "+
+			"component, so every other component would read as unbaselined and pass — refusing "+
+			"(write a baseline from a full run)")
+		os.Exit(2)
+	}
 
 	comps, err := loadComponents(*jsonPath)
 	if err != nil {
@@ -625,6 +728,10 @@ func main() {
 	var skippedCtx []string  // component.field skipped for context collision
 	var unanalysed []string  // components whose template failed to parse
 	unanalysedNames := map[string]bool{}
+	// The components this run actually probed. Kept in lockstep with `checked` — it
+	// IS `checked`, by name rather than by count — because the baseline must be able
+	// to say which components it covered, not merely how many.
+	analysedNames := map[string]bool{}
 	checked, runtimeFillComps := 0, 0
 
 	for _, c := range comps {
@@ -641,6 +748,7 @@ func main() {
 			continue // static template, nothing to probe
 		}
 		checked++
+		analysedNames[c.Name] = true
 		runtimeFill := componentIsRuntimeFillShell(c.Template)
 		if runtimeFill {
 			runtimeFillComps++
@@ -659,6 +767,7 @@ func main() {
 		if baseErr != nil {
 			unanalysed = append(unanalysed, fmt.Sprintf("%s (baseline render: %v)", c.Name, baseErr))
 			unanalysedNames[c.Name] = true
+			delete(analysedNames, c.Name)
 			checked--
 			continue
 		}
@@ -700,6 +809,9 @@ func main() {
 				// instead, per field, so it can never read as a pass.
 				unanalysed = append(unanalysed, fmt.Sprintf("%s.%s (probe render: %v)", c.Name, f, probeErr))
 				unanalysedNames[c.Name] = true
+				// It is uncovered, so it must leave the covered set too — otherwise a
+				// baseline would vouch for a component this run could not fully probe.
+				delete(analysedNames, c.Name)
 				continue
 			}
 			for shapeName, n := range shapeCounts(out) {
@@ -731,7 +843,7 @@ func main() {
 				"therefore uncovered\n", len(unanalysed))
 			os.Exit(2)
 		}
-		if err := writeBaseline(*writeBase, findings, checked); err != nil {
+		if err := writeBaseline(*writeBase, findings, analysedNames); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(2)
 		}
@@ -743,23 +855,35 @@ func main() {
 	// Baseline comparison. New findings are the signal; disappeared ones are
 	// reported too, because a baseline nobody regenerates is a baseline that
 	// slowly stops describing the tree.
-	var newFindings []finding
+	// THE RATCHET IS COMPONENT-SCOPED (bugs_open/361). A finding is only NEW — i.e.
+	// only fails the run — when the baseline COVERED its component and did not record
+	// the key: that is a component which used to be fine and got worse, which is the
+	// one thing a ratchet is for. A finding in a component the baseline never analysed
+	// is unbaselined GROWTH: real debt, reported with its own count every day, but not
+	// a regression, and failing on it makes the job permanently red as the library
+	// grows (25 consecutive red days, 2026-08-09 → 2026-09-03).
+	//
+	// THE COST, STATED RATHER THAN HIDDEN: a brand-new component that renders a hole
+	// will not fail this job. That debt belongs to birth-time gating (CGV-029 and the
+	// component birth path), not to a regression ratchet.
+	var newFindings []finding // regressions — these fail the run
+	var unbaselined []finding // growth in components the baseline never covered
 	var fixedKeys, uncoveredKeys []string
+	unbaselinedComps := map[string]bool{}
+	legacyBaseline := false
 	inherited := 0
 	inheritedFrom := map[string]bool{}
 	if comparing {
-		base, err := loadBaseline(*baseline)
+		base, covered, legacy, err := loadBaseline(*baseline)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(2)
 		}
+		legacyBaseline = legacy
+		newFindings, unbaselined, unbaselinedComps = classifyAgainstBaseline(findings, base, covered)
 		seen := map[string]bool{}
 		for _, f := range findings {
-			k := findingKey(f)
-			seen[k] = true
-			if !base[k] {
-				newFindings = append(newFindings, f)
-			}
+			seen[findingKey(f)] = true
 			// Counted and REPORTED, never silently dropped. A finding that only
 			// stayed quiet because an identical template already owns its key is
 			// exactly the thing a reader would want to know was suppressed —
@@ -798,7 +922,13 @@ func main() {
 			"components_checked": checked,
 		}
 		if comparing {
+			// "new_findings" keeps its name and now holds exactly the set that FAILS
+			// the run — regressions in covered components. The growth it used to be
+			// diluted by is reported beside it, never dropped.
 			out["new_findings"] = newFindings
+			out["unbaselined_findings"] = unbaselined
+			out["unbaselined_components"] = len(unbaselinedComps)
+			out["baseline_is_legacy"] = legacyBaseline
 			out["fixed_since_baseline"] = fixedKeys
 			out["uncovered_since_baseline"] = uncoveredKeys
 		}
@@ -818,10 +948,21 @@ func main() {
 		// remainder is not a gap — a template with no actions has no field whose
 		// absence could be probed — but an invisible denominator is how a filtered
 		// count gets quoted as a census.
+		// The unbaselined count is IN THE SUMMARY LINE, not only in the detail, because
+		// it is the number this change stops failing on — if it were reported anywhere
+		// less prominent, scoping the ratchet would read as making the debt disappear.
 		summary := fmt.Sprintf("component-render-check vs baseline: %d findings across %d of %d active "+
-			"components (%d have no template actions to probe), %d NEW, %d fixed, %d UNCOVERED",
+			"components (%d have no template actions to probe), %d REGRESSION, "+
+			"%d unbaselined across %d new component(s), %d fixed, %d UNCOVERED",
 			len(findings), checked, len(comps), len(comps)-checked-len(unanalysed),
-			len(newFindings), len(fixedKeys), len(uncoveredKeys))
+			len(newFindings), len(unbaselined), len(unbaselinedComps),
+			len(fixedKeys), len(uncoveredKeys))
+		if legacyBaseline {
+			summary += "\n⚠ LEGACY BASELINE: it records no \"components\" list, so coverage was derived " +
+				"from its keys. A component that was analysed and CLEAN when the baseline was cut is " +
+				"therefore read as unbaselined, and a regression in one would NOT fail this run. " +
+				"Regenerate with --write-baseline to close that blind spot."
+		}
 		if inherited > 0 {
 			reps := make([]string, 0, len(inheritedFrom))
 			for r := range inheritedFrom {
@@ -834,7 +975,12 @@ func main() {
 		if *report {
 			detail := summary
 			for _, f := range newFindings {
-				detail += fmt.Sprintf("\nNEW  %s .%s %s x%d", f.Component, f.Field, f.Shape, f.Count)
+				detail += fmt.Sprintf("\nREGRESSION  %s .%s %s x%d", f.Component, f.Field, f.Shape, f.Count)
+			}
+			// Listed, not merely counted: the row is the only durable record of this
+			// debt, and a count with no names cannot be acted on by whoever reads it.
+			for _, f := range unbaselined {
+				detail += fmt.Sprintf("\nunbaselined  %s .%s %s x%d", f.Component, f.Field, f.Shape, f.Count)
 			}
 			for _, k := range uncoveredKeys {
 				detail += "\nUNCOVERED  " + k
@@ -849,8 +995,14 @@ func main() {
 			src = "(embedded)"
 		}
 		fmt.Printf("component-render-check vs baseline %s: %d findings across %d of %d active components, "+
-			"%d NEW, %d fixed, %d UNCOVERED\n",
-			src, len(findings), checked, len(comps), len(newFindings), len(fixedKeys), len(uncoveredKeys))
+			"%d REGRESSION, %d unbaselined across %d new component(s), %d fixed, %d UNCOVERED\n",
+			src, len(findings), checked, len(comps), len(newFindings),
+			len(unbaselined), len(unbaselinedComps), len(fixedKeys), len(uncoveredKeys))
+		if legacyBaseline {
+			fmt.Println("  ⚠ LEGACY BASELINE (no \"components\" list): coverage derived from the keys, so a " +
+				"component analysed and CLEAN at baseline time reads as unbaselined and a regression in " +
+				"one would NOT fail. Regenerate with --write-baseline to close it.")
+		}
 		// On stdout as well as in the doc_notes row: a session running --compare by
 		// hand must be able to see what the clone rule suppressed, or the rule is a
 		// filter that hides its own effect.
@@ -865,8 +1017,17 @@ func main() {
 		}
 		fmt.Println()
 		if len(newFindings) > 0 {
-			fmt.Println("NEW since the baseline — a component started being able to render a hole:")
+			fmt.Println("REGRESSION — a component the baseline COVERED started being able to render a hole:")
 			for _, f := range newFindings {
+				fmt.Printf("  %-38s .%-28s %s x%d\n", f.Component, f.Field, f.Shape, f.Count)
+			}
+			fmt.Println()
+		}
+		if len(unbaselined) > 0 {
+			fmt.Printf("unbaselined — %d finding(s) in %d component(s) the baseline never analysed. "+
+				"Real debt, NOT a regression, and deliberately not failing this run: birth-time gating "+
+				"(CGV-029) owns it, a regression ratchet cannot.\n", len(unbaselined), len(unbaselinedComps))
+			for _, f := range unbaselined {
 				fmt.Printf("  %-38s .%-28s %s x%d\n", f.Component, f.Field, f.Shape, f.Count)
 			}
 			fmt.Println()
