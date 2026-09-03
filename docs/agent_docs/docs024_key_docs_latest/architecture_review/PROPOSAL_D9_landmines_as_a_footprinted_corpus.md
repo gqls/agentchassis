@@ -253,3 +253,57 @@ theirs.
 measure is not that the hook fires, but whether a session's behaviour changes — the same bar §5
 sets for the corpus itself. The 2026-08-23 pair is the baseline to beat: guard present, correct,
 specific, naming the remedy, and reaching neither of two sessions actively looking at the table.
+
+### 6b. A THIRD instance, and it breaks the framing of §6/§6a: this warning WAS delivered, on time, and still failed
+
+Contributed 2026-09-03 by `inline_guide_imagery` and `dartsonline_traffic`, who hit it independently
+in one afternoon. **It is not another delivery failure. It is the case where delivery worked and the
+outcome was identical**, which is why it is worth adding rather than counting as a third tally mark.
+
+**What happened.** The `SessionStart` hook printed the landmine *"`git diff | grep '^-[^-]'` cannot
+see a deleted markdown BULLET"* to this session at start-up — **first of the six entries it
+displayed**. It was read. Three hours later, checking whether a ledger edit had clobbered a peer's
+entry, that session ran `git show <sha> -- LANDMINES.md | grep '^-[^-]'`, got **nothing** against a
+`--numstat` of **1 deletion**, and briefly accepted the reassuring answer. The same entry had been
+printed to the other lane at the top of *their* session too.
+
+**Why §6a's mechanism would still have caught it, and why that matters.** The trap fires on a
+**command shape** — inspecting a diff with a dash-excluding predicate — and a `PreToolUse` hook on
+Bash sees exactly that, before it runs. So this case is **evidence FOR the costed option**, and it
+extends it cheaply: match on **command shape**, not only table tokens inside `psql`. The two known
+misses then share one mechanism.
+
+**But it also falsifies the assumption underneath §6.** §6 reasons as though the problem is a
+warning that *never arrives*. Here it arrived, correctly targeted in content, at the only moment the
+current design has — and the failure was identical. **Delivery is not availability.** A warning
+lands filed under the artefact it concerns and fires when you are thinking about something else
+entirely: the session was not investigating a bullet, it was checking a diff.
+
+**The structural gap, stated as sharply as we can put it — MANY LANDMINES ARE FOOTPRINTED BY
+ARTEFACT AND FIRE ON A VERB.** This entry's footprint is a **path**
+(`docs/agent_docs/docs026_concept_register/`) and it matched only because an unrelated `.tmp_check`
+file in that directory happened to be dirty. **It was delivered by coincidence, three hours early,
+filed under a dimension orthogonal to when it fires.** The same is true of others added the same
+day: *alt text is not evidence of what an image shows* fires when you **verify imagery**, not when
+you touch a component row; *do not gate on "is migration NNN applied?"* fires when you **check a
+number**, not when you edit `sql_for_agents/`. A path footprint cannot predict any of those moments.
+
+**So D10 has two axes, not one.** The `subject_key` footprint §4 prescribes is right for *"what does
+this entry guard"*. It is not, on its own, an answer to *"when should this entry appear"*. We are
+not proposing a schema change — `doc_notes` rows can carry both — only that the two questions be
+kept distinct in whatever D10 becomes, because collapsing them is what produced a correctly-written,
+correctly-targeted, correctly-delivered warning that reached a reader and changed nothing.
+
+**Neither lane is building anything**, for exactly the reason the section above already gives: a
+`PreToolUse` hook is a harness/config change affecting every session on this machine, and a peer
+session asking is not authority for it. Recorded for the owner, flagged to ours.
+
+**One empirical note that bears on §5's success test.** Across four measurement failures between
+these two lanes in one day — a wrong artefact, a format-assuming predicate, an expectation-sized
+time bound, and this dash-excluding predicate — **all four were caught by the OTHER lane re-running
+the query, and none by the lane that wrote it.** That is not a coincidence of attention: the
+predicate *is* the author's understanding, so re-reading your own query re-applies the assumption
+that produced it. If D10 wants a measure of what actually catches this class today, the honest
+answer is a second party with the same question and a different encoding — which argues for making
+the corpus **cheap to re-derive from** (commands and controls in the entry, as the newer entries
+carry) at least as strongly as it argues for better delivery.

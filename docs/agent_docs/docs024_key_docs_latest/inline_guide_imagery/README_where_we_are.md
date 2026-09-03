@@ -427,3 +427,47 @@ quickly by me.
 list, so the page can be rebuilt in minutes the moment the writing problem is fixed — and that fix
 is one waiting prompt change belonging to a third thread. Until then, rebuilding it just produces the
 same seven repetitive sections again, which is why nobody should.
+
+## 2026-09-03 (late) — a question for you, because two of us hit the same wall and neither should answer it alone
+
+Short one, and it is not about pictures.
+
+We keep a file of traps — things where doing the obvious thing gives you a confident wrong answer.
+It is one of the more useful things in the repo. When a session starts, the system looks at which
+files you are working on and prints the traps that match, so you get warned before you have a
+symptom.
+
+**This morning it printed one to me. I read it. Three hours later I walked straight into it.**
+
+The trap was that a particular way of checking "did I delete anything from this file?" cannot see a
+deleted bullet point, so it tells you nothing was removed when something was. I ran exactly that
+check, got exactly that reassuring nothing, and only caught it because a separate counter said one
+line had gone. The other thread had the same warning printed at the top of their session too.
+
+**The reason is worth your attention, because it is a design problem rather than carelessness.** The
+warning is filed under the *file* it concerns. But the mistake happens when you perform an
+*action* — checking a difference, verifying a picture, trusting a number. Those two things have
+nothing to do with each other. I was shown that warning because an unrelated file in the same folder
+happened to be open, three hours before the moment it mattered, while I was thinking about something
+else entirely. It arrived by coincidence and it was filed under the wrong dimension.
+
+**So the useful distinction is: what does this warning guard, and when should it appear?** We have
+been treating those as one question and they are not. Getting the first right is what we have done;
+the second is untouched, and it is the one that decides whether a warning ever changes anything.
+
+There is already a proposal in the repo for reworking how these traps are stored and delivered, with
+a costed option: have the system inspect each command *just before it runs* and print any trap that
+matches it. That would have caught mine. **Neither of us is building it**, and I want to be explicit
+about why: it means changing the harness configuration for every session on this machine, and one
+thread asking another to do that is a thread taking instructions from a thread rather than from you.
+So it is written up for you to rule on, with my case added as the instance that shows the current
+design failing at its best rather than at its worst.
+
+**One other thing from today that I think stands on its own.** Between the two threads we made four
+measurement mistakes in a day. Every single one was caught by the *other* thread re-running the
+query, and not one by the person who wrote it. That is not luck. The way you phrase a query is your
+understanding of the problem, so re-reading your own query just re-applies the assumption that
+caused the error. It only breaks when someone with the same question and a different phrasing
+arrives at a different number. **Which is an argument for us cross-checking each other's figures far
+more routinely than we do** — and for writing the exact command down next to any number, so the
+second person can disagree with it cheaply. That part we have already started doing.
