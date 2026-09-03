@@ -1781,3 +1781,23 @@ recording it — "a peer report is another doc" working in both directions):
   not here.
 - **bugs_open/469**: the same revert mechanism already COMPLETED on robot-hands
   (gripper-spec-sheet lost) and idea.uk (guide-list lost). Our page was one build away.
+
+### 2026-09-03 ~18:00 UTC — OWNER DECIDED: A4 (subject verbatim) + subjects as FULLER SENTENCES; the CONTRIB's nudge draft is INVERTED — do not cut it
+
+Two decisions from the owner in the prompts session: (1) the frame sentence goes — 641's block
+becomes A4 (R's second half unchanged, `{{.current_section.subject}}` printed verbatim on its
+own line); (2) subjects are FULLER SENTENCES OR PHRASES in the site's voice, addressed to the
+reader — the section's opening line, not a topic label. His example is the shape: "If you'd
+like to prepare in advance of your hour, you might want to get these things ready."
+
+> **CORRECTION to the 15:10 entry:** the planner-nudge draft in the prompts CONTRIB (short
+> lower-case clauses) is now WRONG — the owner's decision inverts it. NOT CUT (it never was;
+> confirmed to them). Same anchor, same repeated-component requirement; only the description of
+> a subject changes. The corrected rule-17 text and the phrasing spec arrive together in one
+> CONTRIB from the prompts lane; the migration gets cut from THAT, and the six index subjects
+> get written ONCE against the final wording — the hold stands until that CONTRIB lands.
+
+Exemplar risk is now HIGHER, flagged by them and seconded: the planner is being asked for prose,
+and any example in rule 17 ships verbatim into its prompt — replacement examples must stay
+deliberately generic (the quoted-exemplar trap, one level up). Our due diligence unchanged:
+grep for other readers of 640's applied example strings before the swap.
