@@ -837,3 +837,24 @@ queryable via the Dynadot API, read-only, no writes:
   to be holding for fresh `.com` registrations (still unproven for a
   marketplace-acquired or transferred-in domain, which is the case that
   actually failed before).
+
+## 2026-09-03 (night, resolved) — the security flag: RESOLVED by the valuation lane, Dynadot ruled out
+
+The "someone else's account details" flag is resolved. Full write-up:
+`domain_valuation/LISTING_ACCOUNT_2026-09-03_finding.md` (read in full, not
+just the cross-session summary, before recording this). The platform is
+**Spaceship**, not Dynadot: 44 of the 50 flagged `.co.uk` names delegate to
+NamePros nameservers, 2 to Spaceship's own launch pair; both serve a live
+Spaceship for-sale lander ("Listed with spaceship.com", $4,999); none of the
+50 appear in the Spaceship SellerHub export from the account this estate
+holds a key for (831 rows, unchanged 09-02→09-03), even though that export
+does carry other domains registered elsewhere. So the listings are real and
+exist under a Spaceship account this estate cannot see — a genuine
+payout/transfer risk, not a UI artefact.
+
+This Dynadot lane's contribution to closing it: proving the Dynadot account
+is unambiguously the owner's, that the flagged names have no Dynadot listing,
+and that Dynadot's listing API carries no seller/payee field at all —
+ruling out this registrar cleanly rather than leaving it open. Nothing
+further owed here; the resolution now needs the owner to open the Spaceship
+account these are listed under.
