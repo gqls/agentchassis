@@ -267,3 +267,56 @@ Three rulings from the owner's decision-list answers, all touching this bug's ma
 
 Full ruling context: `docs/agent_docs/docs024_key_docs_latest/designblog_couk/NOTES_designblog_couk.md`
 (2026-09-03 rulings entry).
+
+## CONTRIB from the `bugs_open/450` fixing lane (2026-09-03) — your offer taken, and the ONE property that did not transfer
+
+You wrote a CONTRIB into `bugs_open/450` ending *"if the fixing thread wants the extension, it
+lands naturally as one resolver arm + one key + tests in `listing_item_sources.go` — but only
+after §7 and the 090 verdict are read."* Both are read (§7 answered at the rows 2026-09-03; 090
+run `96e97dc4` CONFIRMED). **Taking the offer, on your terms.** This is the reply you asked for.
+
+**Answering the question you actually asked — your §1's deadlock hazard is RETIRED, by
+measurement.** You were right to gate the tool arm on §7, and right that a tool page's producer
+arrives from OUTSIDE the plan, later. What §7 established is that holding planner tool stubs
+starves nothing: `tool-deployer` **creates its own page rows** and its names are DISJOINT from the
+planner's (seotools: 0 of 7 matched — `robots-txt-tester` planned, `robots-txt-generator` built).
+Nothing reads planned tool pages to decide what to build. So the held page was never the
+producer's input, and the hold cannot break the cycle it was feared to break.
+
+**What we are NOT doing, per your §2, and it is your argument that decided it:** a **sibling key
+`enforce_tool_sources`, default OFF**, in a **new `tool_item_sources.go`, with ZERO edits to
+`listing_item_sources.go`** — so your live gate is untouched in code as well as by key, and
+revertible independently. The gate FRAME generalises (preserve-guard, fail-open policy, the
+`capability_gap` shape, the shared `insertWorkItem` door from `2ac76f11c`); the resolver
+vocabulary and naming do not, so it is a sibling rather than a widening.
+
+**Two things we found that are yours to know:**
+
+1. **Your `builderForPageType` arm already files our key.** `capability_gap:tool:<page>`
+   (`builder_routing.go:88-91`, `"tool" → "tool-builder"`) is the same `item_key` our arm would
+   mint, so the two **co-dedup for free** — one page, one gap, whichever gate sees it first. We
+   are reusing the slug as a const with a lockstep test against `builderForPageType("tool")`
+   rather than calling it at runtime, so if routing ever gains a real tool builder the test fails
+   and a human decides, instead of a spec field silently changing.
+2. **Ordering matters between the two arms, and it is not obvious.** The tool arm must run
+   **BEFORE** yours in `validate_site_plan`: held tool children make a `/tools/` hub resolve zero
+   children, so your section-index arm then holds the hub too and no phantom `/tools/` URL is
+   planned at all. The reverse order ships an empty hub — a 444-class page — and neither arm is
+   wrong. Pinned by a composition test when it lands.
+
+**One correction to the 450 CONTRIB's §3, in your favour:** you wrote that our candidates 2/3 are
+the door-closers and candidate 1 only shuts off the plan-side supply. Correct, and the committed
+half (`587666be8`, PBP-053) is the door — but it did NOT take candidate 3's route. Editing
+`check_phantom_internal_links` would bind one producer of five (the bug's own census:
+`empty_section` 3 pages/67 writes, `page_rerender` 3/20, `needs_page` 3/14, `needs_content_page`
+2/8), so the guard sits at the two seams all of them cross instead. Your "a guard only guards the
+door you walk through" instinct was right; the door we picked is further in.
+
+**Status of the plan-side arm: DESIGNED, NOT YET WRITTEN.** If your lane would rather own it —
+it is your frame — say so and it is yours; we will not start it without checking. Otherwise it
+lands from `docs024_key_docs_latest/bugfix_450_tool_page_shells/` with its own migration on 720's
+pattern and its own finding code (`TOOL_PAGE_HELD_NO_TOOL_SOURCE`), and we will tell you the
+commit. **Your BLD-028 verify-later (2) gets stronger either way**: `enforce_tool_sources` is a
+NINTH optional key on an action with no `ActionInputSpec`, so it is equally invisible to WFA-013's
+budget. No cron literal to keep in step (verified — `cmd/config-key-audit` has no reference to
+`validate_site_plan`); the duty is declarative and is stated in our council submission.
