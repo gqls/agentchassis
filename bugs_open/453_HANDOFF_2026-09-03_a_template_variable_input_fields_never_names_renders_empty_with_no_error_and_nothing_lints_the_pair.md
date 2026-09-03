@@ -380,3 +380,71 @@ reads as "no fields affected".
   `prepared_urls`; `content-writer` gathers `brief_data`; `site-architect` gathers
   `domain_analysis`). Waste, not damage.
 - The **page-content-writer research decision** — wire the block up or delete it (§3).
+
+### 7a. The 090 verdict, the occurrence citation it asked for, and a CONSEQUENCE the owner must decide
+
+**Diagnosis `92309b45`: UNVERIFIABLE — NOT CONFIRMED (stopped: iteration-cap).** Not refuted;
+it ran out of iterations. Recorded as it came back, not as I would have liked it.
+
+Its reasoning is worth quoting because it was right to abstain and it named exactly what was
+missing:
+
+> *"The static code (RenderPromptTemplate has no `.Option(...)` call, unlike
+> executeGoTemplate/missingBareFields which explicitly set missingkey=zero) establishes the
+> MECHANISM exists, but per the cite-or-abstain rule a CONFIRM needs an occurrence citation,
+> and none of the rows shown can be quoted as containing `<no value>`."*
+
+Its own queries had timed out (SQLSTATE 57014) and it could not tell whether a fallback had
+returned unfiltered rows — so it declined to confirm rather than guess. **I checked my
+suspicion that its code retrieval had failed, and it had NOT**: all five bundles contain
+`func RenderPromptTemplate`, `component_library.go` and `missingBareFields`.
+
+**I closed the gap it named** `[MEASURED 2026-09-03]`, with a narrow window to beat the timeout:
+
+| | |
+|---|---|
+| `llm_call_log` rows in the last **36h** whose `prompt_rendered` contains the literal | **2,170** |
+| carriers in the last 24h | `page-content-writer` **1,453**, `council-gate` 173, `visual-design-auditor` 38, `site-review-agent` 37, `diagnose-agent` 25, … |
+
+Quotable occurrence, `page-content-writer` `process_sections_loop_iter_3_generate_content`,
+2026-09-03 16:38:43 — and it is **worse than §CONTRIBUTION reported**, because the whole
+context block is empty, not just one line:
+
+```
+## Company Context
+Company:            Industry:            Tone:
+Target Audience:    Services: <no value>     Tagline:
+```
+
+### ⚠ THE CONSEQUENCE, MEASURED BY RUNNING THE SHIPPED CODE OVER LIVE PROMPTS
+
+Not an SQL approximation — `ScanMissingValues` itself, over 80 real `prompt_rendered` rows
+from the last 4 hours (`live_sample_probe_test.go`, `NOVAL_SAMPLE=<dump>`):
+
+| | |
+|---|---|
+| rows with at least one hole | **80 of 80** |
+| total occurrences | 154 |
+| occurrences inside an anti-invention block | 74 |
+| **prompts that would log ERROR** | **74 of 80 — 92%**, all `page-content-writer` |
+
+The escalating context is the 437 lane's case verbatim:
+`## Official Contact Information (USE ONLY THESE - DO NOT INVENT) Email: … Phone: Location:`
+
+**A CORRECTION TO MY OWN FIRST MEASUREMENT, which said 0%.** My SQL examined only the FIRST
+occurrence per prompt; the Company Context hole comes first and carries no directive, while the
+Location hole — the one that matters — is later in the same prompt. The Go code examines every
+occurrence. I had encoded a different question from the one I asked.
+
+**Every one of the 74 is a TRUE positive** — a manufactured stand-in inside a DO-NOT-INVENT
+block. It is one systemic defect multiplied by traffic, not noise. But shipping it means
+**~90% of page-content-writer calls log at Error** until the underlying gap closes, and at
+1,453 carriers/24h that is loud enough to bury other Errors.
+
+**So there is a decision here, and it is not mine:** the renderer fix stops the LIE reaching the
+model, but the *right* fix for those 74 is at the template — gate the line
+(`{{if .reviewed_brief.headquarters}}Location: …{{end}}`) so an absent field prints nothing
+instead of a bare label. That is a migration on the fleet's highest-volume writer's prompt, so
+it wants its own round. Options: (a) ship the Error and fix the template promptly, so the rate
+collapses to near-zero and the severity stays meaningful; (b) ship at Warn and lose the
+alertability this was built for; (c) hold the renderer change until the template gate lands.

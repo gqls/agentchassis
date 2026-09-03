@@ -358,3 +358,47 @@ as a hole: the single wrong answer this function must never give. `pathResolves`
 090 `92309b45` filed before asserting the cause (verdict pending; recorded when it lands).
 Five mutation proofs, all RED. Positive fixture is the 437 lane's verbatim live contact block.
 Council alongside.
+
+---
+
+## 2026-09-03 — the 090 came back UNVERIFIABLE, and closing its stated gap produced a 92% figure I had first measured as 0%
+
+**`92309b45`: NOT CONFIRMED (stopped: iteration-cap), verdict UNVERIFIABLE.** Neither a
+confirmation nor a refutation. It abstained correctly: static code established the mechanism,
+but the cite-or-abstain rule wanted an occurrence citation and its own queries had timed out
+(SQLSTATE 57014), so it would not guess.
+
+⚠ **I suspected its code retrieval had failed and CHECKED before saying so — it had not.** All
+five bundles contain `func RenderPromptTemplate`, `component_library.go` and
+`missingBareFields`. The one unrelated file I saw (`analyse_action.go`) was one entry in a long
+in-scope-code section I had only read the first 2,200 characters of. Had I asserted "the loop
+retrieved the wrong code" I would have been wrong in public.
+
+### Closing the gap it named
+
+`[MEASURED 2026-09-03]` **2,170** rows in 36h carry the literal; `page-content-writer` is
+**1,453** of the last 24h. Quotable occurrence obtained with a narrow window and a
+context-extracting substring, which is what beats the timeout the loop hit.
+
+### MISSTEP — my first consequence measurement said the Error would fire on 0 of 300, and that was my SQL's question, not mine
+
+The SQL took `position('<no value>' in prompt_rendered)` — the **first** occurrence — and tested
+the block before it. On the writer, the first hole is in `## Company Context` (no directive) and
+the one that matters is `Location:` in the DO-NOT-INVENT block, **later in the same prompt**.
+The shipped Go code walks every occurrence.
+
+Re-measured by running `ScanMissingValues` itself over 80 live prompts: **74 of 80 (92%) would
+ERROR**, all `page-content-writer`, context verbatim
+`## Official Contact Information (USE ONLY THESE - DO NOT INVENT) … Location:`.
+
+**0% → 92% on the same population.** The lesson is the one already in the index — a measurement
+answers the question you encoded — and the check that caught it was running the real code
+instead of an approximation of it.
+
+### What that means, and what it does not
+
+All 74 are TRUE positives. It is one systemic defect multiplied by traffic, not noise. But it
+does mean shipping this makes ~90% of writer calls log at Error, which is loud enough to bury
+other Errors — so the template gate (`{{if .reviewed_brief.headquarters}}`) is not a nicety, it
+is what makes the severity survive contact with production. Raised on `bugs_open/453` §7a as an
+owner decision rather than shipped quietly.
