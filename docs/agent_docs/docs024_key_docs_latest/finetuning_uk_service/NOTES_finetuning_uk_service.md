@@ -3354,3 +3354,45 @@ deployed and unlinked; **owner's call whether a playground guide should exist** 
 acceptance list lives in the brief; a fence is the next-session item so the ladder can grade it); the
 merged playground brief (tool at the centre + booking copy) is a later, owner-read rebuild.
 Guide page prose carries NO numbers (0 sentences with digits; the earlier '95, 80, 10, 30…' were CSS values), no model names, no price — nothing to register or retract.
+
+## 2026-09-03 (20:38–21:00Z) — OWNER FEEDBACK on the live page, three questions answered by measurement, and a finding that changes the page's story: the demo model shows the gap, not the product
+
+**Owner, verbatim:** *"it looks ok. I am not completely sure of the practical steps I need to take to
+use the model or what I will get out of it with what I put in, maybe an example of input and output
+or two. A clearer explanation of what the model is doing for me would be good. The language sounds
+ok, good in parts even."* Then: *"will this playground cost me money?"*, *"also publish those
+comparisons, that will help explain what it's doing"*, *"it seems very quick for a CPU ollama model —
+or is it using GPU?"*
+
+- **Cost:** none per message. The path is Hetzner CPU box (already paid monthly) → island → page; no
+  paid model API anywhere in it; per-IP bands 60/h + 300/d and a 150-token reply cap bound abuse to
+  the box's own capacity. A GPU costs only when provisioned for a booked hour; nothing on the
+  playground provisions one. Tonight's builds spent the platform's generation credits (not a running
+  cost).
+- **GPU? No `[MEASURED 20:50Z at the box]`:** `ollama ps` → `finetuning-demo 1.5 GB 100% CPU`; 2 cores
+  (AMD EPYC Genoa), one VGA device (virtual), no NVIDIA. It is quick because the model is 1.7B
+  parameters at 4-bit (~1 GB) and replies are capped at 150 tokens: 38–42 tok/s measured.
+- **What to type / what you get — measured, not written:** the model was trained (Phase 0, 295 rows)
+  on six tasks whose USER side is "Write this email in my voice. Situation: …" / "Reply to this in my
+  voice." / "Rewrite this in my voice" / "Summarise this in our house format" (+ two synthetic sets),
+  TARGET side the owner's own anonymised emails (corpus he supplied 08-26). Visitors' natural
+  questions ("what should I check before signing a lease") are off-distribution and get the base
+  model's generic, American-spelled answers. **So the page's missing explanation is exactly: what
+  shapes it learned, and what a first small fine-tune does.**
+- **The comparisons, done properly before publishing anything:** base `smollm2:1.7b` pulled onto the
+  in-cluster `ollama-adapter` (not the visitor path; 1 GB, kept for future comparisons) and run
+  against `finetuning-demo` on HELD-OUT training-shape prompts. Full verbatim record + reading:
+  **`COMPARISONS_2026-09-03_base_vs_finetune_demo_model.md`.** Summary: Pair A (decline a domain
+  offer) improved a little (shorter, "holiday" vs "vacation"); Pair B got WORSE (longer, stiffer);
+  Pair C and Q2 ECHO the input (fine-tune returns the inbound message); Pair D degenerates to the
+  title. **The fine-tune did not learn the voice**; loss 1.41→0.73 measured fit, not this. The echo
+  signature points at a training-data boundary defect (5/300 rows dropped for truncation by the
+  response-marker filter; rows may have taught "copy the user turn") — for the training side before
+  the next run.
+- **What this changes:** the page can say, honestly, "a small model fine-tuned on a few hundred
+  examples of one person's writing; ask it to write or reply to an email in that voice and you see a
+  small shift; ask it anything else and you get a small model's general answer", and publish Pair A
+  verbatim as the illustration. It cannot say the demo shows "your company's voice". **Decision to
+  the owner (README): publish honestly as-is, or improve the model first and then publish.** The
+  merged playground brief (steps + what it does + Pair A) is drafted only after his answer, because
+  the framing sentence is his to choose.

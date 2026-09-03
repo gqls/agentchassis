@@ -151,6 +151,13 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    `adopt_existing_page` (TL-044; step config, default OFF) or the build mints `/tools/…`. First probe
    the route is still up (`curl … -H 'Origin: https://finetuning.uk'` → 200 text/event-stream) — the
    demo box's ufw rule and the island's compose are the two things that can silently take it down.
+0a-0. **OWNER DECISION PENDING (asked 22:00 BST, README): publish the base-vs-fine-tune comparison
+   NOW with an honest framing, or improve the demo model first.** The measured truth
+   (`COMPARISONS_2026-09-03_base_vs_finetune_demo_model.md`): the Phase 0 fine-tune barely moved the
+   model, echoes on two tasks, degenerates on one. The page's missing "what to type / what you get"
+   explanation is written only after his answer, because the framing sentence is his. Base model
+   `smollm2:1.7b` is on the in-cluster ollama-adapter for comparisons. The echo behaviour goes to the
+   training side before any further run (data-boundary suspect; RESULTS 08-15 never measured held-out).
 0a. **Playground follow-ups, in order:** (i) a criteria fence for `tool-playground` so TL-013's
    ladder grades it (the brief's ACCEPTANCE list is the fence's content); (ii) a multi-turn probe
    run (the CDP probe sends one message; the route and widget are multi-turn); (iii) the owner's read

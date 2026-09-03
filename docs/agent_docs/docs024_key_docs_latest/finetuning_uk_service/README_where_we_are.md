@@ -1468,3 +1468,31 @@ a small rebuild. The generator also wrote a companion page, "Understanding playg
 say whether you want it. And the playground page's own text is still the booking copy from yesterday;
 folding the tool into it properly, as the centre of the page, is a rebuild I would want you to read
 the brief for first.
+
+**2026-09-03, 22:00 BST. Your three questions, and something you need to know before we publish
+comparisons.**
+
+Cost: no, the playground does not cost you money per use. It runs on the Hetzner box you already pay
+for, on its processor, with no paid AI service anywhere in the path, and each visitor is limited to
+60 messages an hour. A GPU only costs money when one is hired for a booked hour, and nothing on this
+page hires one.
+
+GPU: no, it is the box's two ordinary processor cores; I read that from the box itself. It feels
+quick because the model is very small, about a gigabyte, and replies are capped at 150 words.
+
+The steps and the examples: before writing "here is what the model does for you", I measured what it
+does. The demo model was trained on your own emails, in the shape "write this email in my voice,
+situation: ..." and "reply to this in my voice". When a visitor types a general question, that is not
+what it was taught, and it answers like any small untrained model would. So I ran the exact kind of
+prompt it was trained on through both the untrained model and yours, side by side, on prompts it had
+never seen. The result is honest and not flattering: on one email it improved a little (shorter,
+"holiday" instead of "vacation"); on another it got worse; on two it simply repeated the message back;
+on a summary it gave up after the title. A few hundred examples cannot teach a voice, and this run
+shows the gap rather than the product. All of it, word for word, is in
+`COMPARISONS_2026-09-03_base_vs_finetune_demo_model.md`.
+
+So the decision is yours: publish the comparison now with a plain explanation ("this is what a first,
+small fine-tune does; the effect is modest and uneven"), which is educational and true; or improve the
+model first (more of your writing, and a training fix for the repeating) and publish when it shows
+something. I would not put the comparison on the page under the offer's promise as it stands. Tell me
+which, and the page brief follows, for you to read before it runs.
