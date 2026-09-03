@@ -187,3 +187,39 @@ session does not have to rediscover them.
 - **A negative control in the same run** — a client built with no `max_tokens`
   must still send 2048, or the test proves only that *something* was sent.
 - **At the pod, post-roll**: grep a string the change ADDS, plus a control.
+
+---
+
+## Round 2, 2026-09-03 — the plan that was executed, and the corrections to the brief it was based on
+
+This file plans **Path A** (budget resolution at the provider client), which shipped 2026-08-16. Round 2
+is a different plan and it was written elsewhere:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_257_token_budget_at_the_client/HANDOFF_2026-09-03_continue_here.md`
+§5. Recorded here so the standing five stay coherent — a reader of the PLAN should not have to discover
+that a second phase happened.
+
+**Executed:** §5 steps 1 and 2, in one commit (`51357cf51`), council APPROVED
+(`c8660cfb-690d-4dd2-8b1f-25828305133e`), objections answered in `54ee2d261`. §5 step 3 (`llm_call_log`
+blindness of direct callers) is untouched and still open.
+
+**Three corrections to the originating brief, marked as corrections rather than edited away** — the
+handoff's §4 census, which §5 step 1 was scoped from:
+
+1. `companies_house_llm_review_action.go` was classified *"reads config, no literal — acceptable"*. It
+   passed an **empty options map** and read no budget config at all.
+2. `execute_vision_prompt_action.go`, same classification. It read the key **float64-only with no `> 0`
+   guard**, so a configured `max_tokens: 0` would be sent verbatim — a hard 400.
+3. `feed_actions.go`'s Perplexity path (`"max_tokens": 4096`, raw HTTP) **was not in the census at all,
+   in any of its four runs**, because every run greps `\.GenerateText(` and that path never touches
+   `platform/aiservice`.
+
+**Consequence for the plan's shape:** step 1 as written was "delete two hand-rolled copies"; what
+shipped routes **five** call sites onto the one resolver. That is not scope creep — step 2's own stated
+rule (*"every GenerateText/GenerateWithImages call … must pass either options built by the canonical
+path or llmOptionsFromConfig, and never a numeric literal"*) makes all five violations by construction,
+and a guard cannot land while its own rule is broken in the same package.
+
+**The decision worth carrying:** the three extra sites were found **by writing the enforcement, not by
+reading the code**. A census keyed on an interface can only find callers who use it. The generalisation
+is in `LANDMINES.md` (*"A budget census keyed on the CLIENT INTERFACE is blind to a provider called over
+raw HTTP"*) and the incident in `WRONG_CALLS.md`, both 2026-09-03.
