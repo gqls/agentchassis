@@ -440,6 +440,19 @@ rolling now. What that build DOES carry is `e5b1a0f01` — after which the patte
 the next daily `evidence-freshness` pass, and **its first findings are the thing to read**, not the
 roll.
 
+> **CONFIRMED 2026-09-03, and it is a caveat rather than a green light.** The build deployed
+> (replicaset `75b987cbd7`) and the detector **is in the running binary** — probed at `/proc/1/exe`
+> for `invalid_banned_claim_pattern` with **both** controls (target **6**, must-be-absent **0**
+> exit 1, must-be-present `stale_evidence` **6**). `evidence-freshness` then ran at **09:10:23**
+> under those pods and completed. Items filed: **0**.
+> ⚠ **That zero is uninformative BY CONSTRUCTION.** Both result fields are `omitempty`
+> (`refresh_evidence_base_action.go:216`, `:221`), so a clean result serialises to **nothing** — of
+> **23** evidence runs since 09:00, **0** mention the field, a figure identical whether the code
+> ran clean or never executed, and there is no log line on the clean path to separate them.
+> **"Live" is proven; "works" is not.** The outstanding step is a **demand control** — plant a
+> deliberately broken pattern on a scratch site, confirm the pass files an item, remove it — owned
+> by the claims-verification lane. Until that is done this must not be read as a passing check.
+
 ---
 
 ## 3b. ADDENDUM 2026-09-02 (Q5, NEW — undecided): citation recognition is finance-only and does not
