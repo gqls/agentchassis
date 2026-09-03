@@ -64769,3 +64769,142 @@ anyone dispatching either delivery agent from that seed.
   HAVING count(*) > 1`. A site with two rows is the producer's fingerprint. Ten seconds, and it was in
   the very table I had been reading all afternoon.
 - **Cost.** One diagnosis run. The site is unchanged.
+
+## 2026-09-03 (c) — `finetuning_uk_service`: my own RUNBOOK said "five keys in `/opt/island/.env`" and the service booted with the route group NOT mounted, because the compose file maps env explicitly and I had never read it
+
+- **What I claimed.** RUNBOOK "Playground tool — step 2", written 2026-09-03 ~14:00Z and repeated in the
+  handoff, the register entry (PUB-006 "deployment contract") and my chat to the owner: the second of
+  three ship steps is *"env — five keys in /opt/island/.env; the group stays unmounted until the first
+  one is set."* Complete, as written. The owner did exactly that, `grep -c` said 5, the image swapped,
+  and the boot log said `playground route group NOT mounted (PLAYGROUND_OLLAMA_URL unset)` while the
+  route stayed 404 with every control green.
+- **Why it mattered.** One wasted restart of a service that also fronts robot-hands.com and vonc.com,
+  and ten minutes of the owner's evening at the keyboard following a recipe that could not work. The
+  shape is the dangerous part: a recipe that names the RIGHT file and the RIGHT keys, verified by a
+  count that comes back right, and is still missing a step nothing in it points at.
+- **What caught it.** The service's own boot line, which names the env var it did not see. Read the
+  compose file (masked) and the cause was one screen down: `environment:` with a `${VAR:-default}` line
+  per key and no `env_file:` — the gripper's keys work only because Tenant 2 has its block.
+- **The cheap check that would have.** Before writing "set X in `.env`" for ANY compose-run service:
+  `grep -n 'env_file\|X' docker-compose.yml`. If there is no `env_file:` and the key is not named
+  under `environment:`, the `.env` line is inert. Two seconds; the precedent (Tenant 2) was in the same
+  file, twenty lines above where my block needed to go, and I had never opened that file — I had read
+  the gauntlet lane's RUNBOOK *about* it instead. A recipe copied from a doc about a file is not a
+  reading of the file.
+- **Cost.** One restart, one `.bak` file, one LANDMINES entry, this row. The route was live 2 min 27 s
+  after the boot line was read.
+
+## 2026-09-03 — I was one query from proposing a new archive table for something the estate already archives (`bugs_open/469` lane)
+
+- **The claim I was about to build on.** Working `bugs_open/469` — a page silently lost a
+  section when the tier-1 plan was synced down over `pages.sections` — I reasoned that a
+  destroyed composition is **unrecoverable**, since nothing keeps a history of `pages.sections`.
+  That much is true (`\dt *histor*` shows only `page_component_history` and
+  `site_component_history`; the only trigger on `pages` is the nav-cache invalidator). I had
+  the design half-written: a `page_sections_history` table plus a trigger, argued from
+  migration `357`'s precedent.
+- **What was true.** `357`'s trigger pair *already* archives every deleted `page_components`
+  row with `slot_name`, `position`, `rendered_html` and a `divergence` classification. So the
+  dropped section's **identity and bytes** survive the loss from ~2026-08-09 onward —
+  `SELECT count(*) FROM page_component_history WHERE slot_name ILIKE '%gripper-spec%'` returns
+  **24**. What does NOT survive is the **LIST**: `DELETE`+`INSERT` is the rebuild lifecycle, so
+  the table holds a delete for *every* section on *every* build, and "which one was dropped" is
+  only derivable by diffing consecutive builds.
+- **Why it mattered.** Nothing shipped — this was caught before the design left my scratchpad.
+  But the gap I would have built for was **a fraction of the gap I thought it was**, and the
+  cost of being wrong here is not a wasted afternoon: it is a new trigger on `pages`, a table
+  that grows with every build, and a council round spent defending a duplicate of machinery
+  that already exists. `page_component_history` is **143 MB and 48,844 rows** as it stands.
+- **What caught it.** Asking "does the estate already record this?" as a *query* rather than as
+  a rhetorical question, because the header I was citing as my precedent (`357`) was itself
+  evidence that somebody had already thought about archiving destroyed artefacts here. **The
+  precedent you reach for is the first place to look for the thing you are about to build.**
+- **The cheap check that would have.** One `count(*)` against the archive table, filtered on the
+  thing you believe is lost. Ten seconds. The general form: before proposing a new store,
+  `\dt` for a sibling and grep the closest existing trigger/migration for your own noun —
+  `grep -rn "artefact_archive" docs/agent_docs/sql_for_agents/ | head` would have done it too.
+- **The distinction that survives, and it is the useful half.** "The bytes are recoverable" and
+  "the composition is recoverable" are different claims, and I had collapsed them. The fix that
+  went ahead points at the existing rows instead of duplicating them, and says in terms which
+  of the two it can promise.
+- **Cost.** Nothing shipped. One design discarded before it was written down as a plan.
+
+## 2026-09-03 — `who-owns.py` said OWNED and the honest answer was "filed by, not worked by" (`bugs_open/469` lane)
+
+- **The claim.** `scripts/who-owns.py 469` returned **"VERDICT: OWNED or recently active"**,
+  naming `bugfix_427_event_render` (ACTIVE, 30 commits/14d, 8 mentions). Read literally, that
+  is "do not start a competing fix" — and I nearly stopped there, which would have left a bug
+  the estate had explicitly parked as unowned sitting unowned for another day.
+- **What was true.** Every one of those mentions is a **cross-reference**: the 427 lane FILED
+  469 while triaging its own backlog and said so in its NOTES, RUNBOOK and SUMMARY. The bug
+  file's own status line reads **"Status: OPEN, unowned."** Confirmed by messaging the `427`
+  session directly, which agreed the split in one round and narrowed its own RFC to reference
+  this lane rather than duplicate it.
+- **Why it mattered.** Not a wrong call that cost anything — the script is advisory and says so,
+  and it is right to be conservative. Logged because **the failure mode is asymmetric and
+  invisible**: a false OWNED reads exactly like a correct one, and its cost (a bug nobody picks
+  up) leaves no trace anywhere, whereas a false UNOWNED produces a visible collision somebody
+  fixes. The tally is the point — if this recurs, the script wants a "filed-by vs worked-by"
+  distinction, which is derivable (a lane that only ever mentions a bug in prose has not
+  committed code against it).
+- **The cheap check that would have.** Read the bug file's own status line, then `ListAgents`
+  for a session named for the bug, then **ask the named lane**. All three took under a minute,
+  and the third produced something no query could: the 427 lane's own scope boundary.
+- **Cost.** None. Recorded as a class observation, not an incident.
+
+## 2026-09-03 — I wrote "VERIFIED AT THE ARTEFACT: nothing fabricated was published", into a bug file and a commit message, having checked a surface the deploy does not write
+
+**The claim.** `bugs_open/427` §22.4, and commit `7391962c9`'s message: *"VERIFIED AT THE ARTEFACT:
+nothing fabricated was published. WebFetch of the real publish target (b2worker /
+boxingonline.ugg2.com) names only Canelo Alvarez and Christian Mbilli … no Charlo, Fury, Usyk,
+Wilder, Joshua or Inoue."* I also said it to the owner in chat, twice, as the reassuring half of
+a report about fabricated claims on a paid site.
+
+**What is actually true.** The fabricated fixtures **shipped**. `[MEASURED 2026-09-03]`
+`gh api repos/gqls/sites/contents/boxingonline.com/tools/fight-calendar/index.html` → **72,945
+bytes**, containing `Jermell Charlo`, `Tyson Fury`, `Deontay Wilder` and `var FIGHTS`. Commit
+`6cb1cdb1` at 17:39:47Z, "Rerender: tools/fight-calendar/index.html", GitHub Actions run
+**33785878793 "Deploy to B2" completed success at 17:39:50Z** — and it was still the newest
+commit on that path when I claimed nothing had shipped.
+
+**The error, precisely.** I checked `boxingonline.ugg2.com` — the **preview**, served by
+`site-publisher` on its own reconciliation tick. It returns 57,987 bytes, which is the OLD,
+clean commit `0cc6da28` from 15:10Z. It was serving stale, and stale happened to look like
+success. The deploy target is a **different surface**, and it is the one this bug file's own
+§13 and §20 had used as proof of deployment — `commit_sha` plus the "Deploy to B2" Actions run.
+**I had the right instrument in front of me, in the same file, and used a different one.**
+
+Two compounding slips made it feel verified:
+- I guessed the repo (`gqls/portfolio-sites`), got a 404, and instead of finding the right one
+  I fell back to the preview. **A 404 on a guessed path is not evidence about the artefact;
+  it is evidence you have not found the artefact.**
+- `sites.publish_project = 'boxingonline.ugg2.com'` genuinely names the preview, so the column
+  I read to "find the real target" pointed at the surface that lags. The DB was not wrong; my
+  question was.
+
+**Why it mattered.** The owner had just told me *"we can't have invented fights, ever."* I told
+him twice that none had shipped. Everything downstream of that — the containment write-up, the
+"near miss" framing, the three options offered as a calm choice — rested on a false negative.
+The truthful version is that it shipped, sat live for over an hour, and was still live while I
+was writing that it was not.
+
+**What caught it.** A `Plan` subagent reviewing my plan checked the deploy target with `gh api`
+because it did not accept my premise — the one instruction I had given it was to critique
+rather than rubber-stamp. It reported the 72,945 bytes and the green Actions run; I then
+re-derived both first-hand before acting.
+
+**The cheap check that would have.** **Verify at the surface the DEPLOY writes, and identify it
+from the deploy's own receipt, not from a config column or a hostname you recognise.** The
+receipt was already in this bug file twice: `deploy_result.response.data.commit_sha` and the
+GitHub Actions run for that sha. One `gh api` against that path answers it. The generalisable
+rule, and it is not new — MEMORY's *"prove a deploy at the ARTEFACT"* index already says
+**probe the CAPABILITY, not the commit**, and *"a stale PAGE holds every improvement since it
+rendered"* is this exact shape: **a preview that lags renders your fix invisible AND your
+regression invisible, in the same direction, and only one of those is comforting.**
+
+**A second-order lesson worth more than the first.** §22.4 opens by correcting my earlier
+mistake — that cancelling one work item was not containment, because assembly ignores the
+section list. I learned the "one trigger of many" lesson and wrote it up *well*. Then, in the
+same section, I verified the consequence on the wrong surface. **Fixing the mechanism you got
+wrong does not license relaxing about the evidence**, and a correction paragraph is exactly
+where confidence is highest and scrutiny lowest.

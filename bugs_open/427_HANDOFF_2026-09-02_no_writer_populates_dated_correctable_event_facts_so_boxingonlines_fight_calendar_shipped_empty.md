@@ -1396,6 +1396,39 @@ itself created. It renumbered the tool to position 3, rewrote `hero-tool` (3,859
 class, which is why a containment `UPDATE` joined through `content_components` matched zero
 rows. `pages.deployed_at` then moved to **17:39:50**.
 
+> **CORRECTED 2026-09-03 (later) — THIS IS WRONG, AND IT IS THE MOST IMPORTANT CORRECTION IN
+> THIS FILE. THE FABRICATED FIXTURES SHIPPED.**
+>
+> `[MEASURED 2026-09-03]`, `gh api repos/gqls/sites/contents/boxingonline.com/tools/
+> fight-calendar/index.html` → **72,945 bytes**, containing `Jermell Charlo`, `Tyson Fury`,
+> `Deontay Wilder` and `var FIGHTS`. Commit **`6cb1cdb1`**, 17:39:47Z, *"Rerender:
+> tools/fight-calendar/index.html"*; GitHub Actions run **33785878793 "Deploy to B2",
+> completed success, 17:39:50Z** — and still the newest commit on that path at the time the
+> paragraph below was written.
+>
+> **The error:** the check below queried `boxingonline.ugg2.com`, the **preview**, served by
+> `site-publisher` on its own reconciliation tick. It was returning **57,987 bytes** — the OLD,
+> clean commit `0cc6da28` from 15:10Z. It was stale, and stale looked like success. The deploy
+> target is a different surface, and it is the one **this file's own §13 and §20 already used
+> as proof of deployment** (`deploy_result.response.data.commit_sha` + the "Deploy to B2"
+> Actions run). The right instrument was in this file twice and I used a different one.
+>
+> **What actually happened:** the `needs_content_page` item the tool run itself raised
+> (`create_tool_component_action.go:576`) drove page-build-handler → `save_page_sections`
+> overwrite at 17:39:22Z (all three slots deleted and re-inserted, tool renumbered 2→3,
+> `component_id` nulled) → deploy at 17:39:50Z. Cancelling `f0fe578b` removed one trigger of
+> several, which §22.4 itself says — and then verified the consequence on the wrong surface.
+>
+> **Remediation:** an assemble-only `page_rerender` was filed (`1af13106`, priority 5). The
+> tool placement is `build_status='removed'`, so assembly yields `hero-tool` + `event-list`
+> only and overwrites the artefact. **Do not treat this bug as contained until `gh api` on
+> that path returns ~57,987 bytes with `Charlo`=0 and `Mbilli`=1, and the "Deploy to B2" run
+> for that sha is green.** Logged in `WRONG_CALLS.md`.
+>
+> **Duration of exposure:** live from 17:39:50Z until that rerender deploys. The site is
+> pre-handover and not DNS-live at `boxingonline.com`, which limits who could see it — but it
+> was published, and the owner had been told it was not.
+
 **Verified at the artefact, not inferred: nothing fabricated was published.** `WebFetch` of
 `https://boxingonline.ugg2.com/tools/fight-calendar/index.html` (the real publish target —
 `sites.publish_target='b2worker'`, `publish_project='boxingonline.ugg2.com'`; the customer
