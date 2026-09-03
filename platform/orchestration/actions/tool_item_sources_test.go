@@ -361,6 +361,124 @@ func TestEnforceToolItemSources_CensusErrorFailsOpen(t *testing.T) {
 	}
 }
 
+// --- composition with the listing gate (BLD-028) ---------------------------
+
+// TestToolGateRunsBeforeListingGate is the test the ordering comment in
+// v3_site_actions.go names, and it exists because the council's guardian seat
+// asked for the interaction to be PINNED rather than reasoned about:
+//
+//	"The ordering change is a new behavioral coupling between two independently-
+//	 gated features. It only manifests when BOTH keys are armed simultaneously ...
+//	 should be pinned by an explicit test naming both keys armed together, not
+//	 deferred to 'worth a reviewer's eye'."
+//
+// ⚠ It was right to ask twice over: the comment claiming this test existed was
+// written BEFORE the test was, and the objection is what caught it.
+//
+// The coupling: a /tools/ section-index hub resolves by counting child pages
+// under its prefix. Hold the tool children first and the hub counts ZERO, so the
+// listing gate holds the hub too and no phantom /tools/ URL is planned at all.
+// Run the gates the other way round and the hub survives on the strength of
+// children that are about to be removed — shipping an empty hub, which is a
+// 444-class page. Neither gate is wrong on its own; only the order decides.
+func TestToolGateRunsBeforeListingGate(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	// The site owns NO tools, so both tool pages are held.
+	expectToolCensus(mock)
+	expectCapabilityGapReceipt(mock) // tool page 1
+	expectCapabilityGapReceipt(mock) // tool page 2
+	mock.ExpectExec("INSERT INTO agent_error_log").WillReturnResult(sqlmock.NewResult(0, 1))
+	// Then the hub, held by the LISTING gate for having no children left.
+	expectCapabilityGapReceipt(mock)
+	mock.ExpectExec("INSERT INTO agent_error_log").WillReturnResult(sqlmock.NewResult(0, 1))
+
+	params := gateParams(db, siteID)
+	params.DB = db
+
+	pages := []interface{}{
+		map[string]interface{}{"name": "index", "page_type": "landing",
+			"sections": []interface{}{"hero"}},
+		map[string]interface{}{"name": "tools-index", "page_type": "section-index",
+			"url": "/tools/index.html", "sections": []interface{}{"hero"}},
+		map[string]interface{}{"name": "tool-robots-txt-tester", "page_type": "tool",
+			"url":      "/tools/tool-robots-txt-tester/index.html",
+			"sections": []interface{}{"hero-tool", "generic-text-block"}},
+		map[string]interface{}{"name": "tool-serp-preview", "page_type": "tool",
+			"url":      "/tools/tool-serp-preview/index.html",
+			"sections": []interface{}{"hero-tool", "generic-text-block"}},
+	}
+
+	// THE ORDER UNDER TEST — the same order ValidateSitePlanAction applies.
+	afterTool := enforceToolItemSources(context.Background(), params, pages, nil)
+	if len(afterTool) != 2 {
+		t.Fatalf("tool gate kept %d pages, want 2 (index + the hub)", len(afterTool))
+	}
+	afterBoth := enforceListingItemSources(context.Background(), params, afterTool, nil)
+
+	if len(afterBoth) != 1 {
+		names := make([]string, 0, len(afterBoth))
+		for _, p := range afterBoth {
+			n, _ := p.(map[string]interface{})["name"].(string)
+			names = append(names, n)
+		}
+		t.Fatalf("after both gates kept %d pages (%v), want 1 — the /tools/ hub must be held "+
+			"once its children are gone, or the plan ships an empty hub (a 444-class page)", len(afterBoth), names)
+	}
+	if name, _ := afterBoth[0].(map[string]interface{})["name"].(string); name != "index" {
+		t.Errorf("survivor is %q, want index", name)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("both gates must file their receipts: %v", err)
+	}
+}
+
+// TestListingGateFirstWouldKeepTheEmptyHub is the CONTROL that gives the test
+// above its meaning. Run in the wrong order — listing first — the hub survives,
+// because at that moment its tool children are still in the plan. Without this,
+// TestToolGateRunsBeforeListingGate would pass for any order and prove nothing
+// about the ordering it is named for.
+func TestListingGateFirstWouldKeepTheEmptyHub(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+	siteID := uuid.New()
+
+	params := gateParams(db, siteID)
+	params.DB = db
+
+	pages := []interface{}{
+		map[string]interface{}{"name": "tools-index", "page_type": "section-index",
+			"url": "/tools/index.html", "sections": []interface{}{"hero"}},
+		map[string]interface{}{"name": "tool-robots-txt-tester", "page_type": "tool",
+			"url":      "/tools/tool-robots-txt-tester/index.html",
+			"sections": []interface{}{"hero-tool", "generic-text-block"}},
+	}
+
+	// Listing gate FIRST: the hub still has a child, so it is kept and files nothing.
+	afterListing := enforceListingItemSources(context.Background(), params, pages, nil)
+	kept := false
+	for _, p := range afterListing {
+		if n, _ := p.(map[string]interface{})["name"].(string); n == "tools-index" {
+			kept = true
+		}
+	}
+	if !kept {
+		t.Fatal("control failed: with its tool child still present the hub should be KEPT — " +
+			"if it is held here, the ordering argument in v3_site_actions.go rests on nothing")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the listing gate should not have filed a receipt for a hub with a child: %v", err)
+	}
+}
+
 // TestEnforceToolItemSources_NilDBFailsOpen — the gate stands down entirely.
 func TestEnforceToolItemSources_NilDBFailsOpen(t *testing.T) {
 	params := ActionParams{

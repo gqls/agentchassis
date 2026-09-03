@@ -150,6 +150,25 @@ func siteToolFunctions(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[s
 // Matching on ANY candidate keeps the page. This arm is what stops the gate
 // filing false gaps against the tool pipeline's OWN pages when a replan echoes
 // them back through the plan.
+//
+// WHY NOT CALL deploy_tool_action.go's resolveToolPageIdentity — asked by the
+// council's reuse_agent seat (corr 4e7497ed), and the answer is that it runs the
+// SAME NAMING RULE IN THE OPPOSITE DIRECTION. It takes a tool FUNCTION and finds
+// the page row that should carry it (querying `pages`, one function at a time,
+// canonicalising with FlatURLs to decide where a page WOULD live). This takes a
+// planned PAGE — which has no row yet, so there is nothing for it to find — and
+// asks which functions could fill it, against a batch census of
+// `content_components`. Inverting it would mean one query per planned page and a
+// canonicalisation whose answer is irrelevant before the row exists.
+//
+// What the two genuinely share is the RULE — `tool-` prefix, and the
+// name/function equality — and that is bound by test rather than by a call:
+// TestToolNameCandidates_MatchToolPipelineNaming exercises sanitiseFunction and
+// CanonicalisePage directly, so if the pipeline's naming moves, this file's
+// candidate list fails the build instead of silently filing false gaps against
+// every real tool page. A shared helper is the better answer the day a THIRD
+// caller needs it; with two callers running the rule in opposite directions, the
+// lockstep test is the cheaper binding and the one that fails loudly.
 func toolFunctionCandidates(page planPageView) []string {
 	seen := map[string]bool{}
 	out := make([]string, 0, len(page.Sections)+2)

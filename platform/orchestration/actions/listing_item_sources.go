@@ -20,6 +20,17 @@
 // a shape it positively understands; anything it cannot classify is left alone
 // with a log line. A false drop silently shrinks a site; a false keep ships one
 // more empty page of a class we now detect downstream — the asymmetry decides.
+//
+// ⚠ SIBLING GATE, AND THE ORDER BETWEEN THEM IS LOAD-BEARING: tool_item_sources.go
+// (bugs_open/450, BLD-029, key enforce_tool_sources) runs BEFORE this one in
+// ValidateSitePlanAction. Held tool children make a /tools/ hub resolve zero
+// children here, so this gate then holds the hub too — which is intended, and
+// means that with both keys armed THIS gate's behaviour changes. Reversing the
+// order ships an empty hub, a 444-class page. Pinned by
+// TestToolGateRunsBeforeListingGate + TestListingGateFirstWouldKeepTheEmptyHub.
+// This pointer exists so a future editor changing gate order finds both halves
+// (council corr 4e7497ed, architecture seat). Comment only — no behaviour of
+// this file is changed by the 450 lane.
 package actions
 
 import (

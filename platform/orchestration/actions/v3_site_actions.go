@@ -4119,7 +4119,10 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 	// children make a /tools/ hub resolve zero children, so the listing gate
 	// below then holds the hub too and no phantom /tools/ URL is planned at all.
 	// The reverse order plans an empty hub — a 444-class page — from a plan whose
-	// tool pages were just removed. Pinned by TestToolGateRunsBeforeListingGate.
+	// tool pages were just removed. Pinned by TestToolGateRunsBeforeListingGate,
+	// with TestListingGateFirstWouldKeepTheEmptyHub as the control that stops that
+	// test passing for any order. (Both were written AFTER this comment first
+	// claimed them — the council's guardian seat caught the claim, corr 4e7497ed.)
 	if enforce, _ := config["enforce_tool_sources"].(bool); enforce {
 		pages = enforceToolItemSources(ctx, params, pages, existingPages)
 		plan["pages"] = pages
