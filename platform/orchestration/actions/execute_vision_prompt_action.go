@@ -200,11 +200,16 @@ func ExecuteVisionPromptAction(ctx context.Context, params ActionParams) (interf
 		resolvedModel = aiservice.ResolveModelAlias(model, params.Logger)
 		options["model"] = resolvedModel
 	}
-	if mt, mok := aiServiceConfig["max_tokens"].(float64); mok {
-		options["max_tokens"] = int(mt)
-	}
-	if bt, bok := aiServiceConfig["budget_tokens"].(float64); bok && bt > 0 {
-		options["budget_tokens"] = int(bt)
+	// max_tokens / budget_tokens come from the package's one resolver rather than
+	// from a second float64-only read here (bugs_open/257). Two behaviours change
+	// and both are repairs: the STEP's own config becomes readable, which a
+	// client constructor never sees; and a configured `max_tokens: 0` is now
+	// treated as unset instead of being sent verbatim, which is a hard 400 from
+	// Anthropic (max_tokens.go). No live vision step declares either — measured
+	// 2026-09-03: design-critique-agent.critique 16000, tool-acceptance-agent.look
+	// 4000, both under ai_service, neither at step level.
+	for k, v := range llmOptionsFromConfig(params.StepConfig.Config, aiServiceConfig, params.Logger, "execute_vision_prompt") {
+		options[k] = v
 	}
 	provider, _ := aiServiceConfig["provider"].(string)
 

@@ -54,6 +54,27 @@
 // own doctrine (LANDMINES, "two vocabularies, one algorithm"): **a THIRD caller
 // should be the extraction, not another paste** — at that point make
 // `ExecuteAIStepAction` call this and delete its inline block.
+//
+// > **UPDATE 2026-09-03 — the paragraph above was ignored twice, and the count
+// > it warned about is now settled the other way.**
+// > Two actions written AFTER this file (`rewrite_negations`, 2026-08-20;
+// > `repair_ordering_register`, 2026-08-31) each pasted the rule again and each
+// > ended in a hardcoded `2000`. A literal is worse than a paste: an explicitly
+// > supplied option wins at the wire (`aiservice/anthropic.go:307`), so a caller
+// > that always sends a number can never inherit the configured one — the
+// > literal DEFEATS bugs_open/257 Path A rather than being covered by it. And in
+// > `offer-analyser` the literal was numerically EQUAL to the configured value,
+// > so `llm_call_log.max_tokens` read `2000` whether the config was honoured or
+// > dropped, and no query over the fleet's own instrument could separate the two.
+// >
+// > Both pastes are deleted, and `execute_vision_prompt` and `ch_llm_review` —
+// > which hand-read the key and passed an empty map respectively — now call this
+// > helper too. Every model call in this package outside `ExecuteAIStepAction`
+// > resolves its budget HERE, and `llm_budget_call_sites_test.go` fails the build
+// > if a sixth spelling appears. The extraction the note above asked for is
+// > therefore done for the direct callers; what remains is `ai_actions.go`'s own
+// > inline block, which is bugs_open/257 candidate 2 and blocked on an import
+// > cycle, not on willingness.
 
 package actions
 

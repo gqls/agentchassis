@@ -533,14 +533,23 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 	}
 
 	prompt := negationRepairPrompt(plan.targets)
-	options := map[string]interface{}{}
-	if mt, ok := aiServiceConfig["max_tokens"].(float64); ok && mt > 0 {
-		options["max_tokens"] = int(mt)
-	} else {
-		// The answer is a handful of sentences; a section-sized ceiling would only
-		// buy room for the model to write an essay we would then reject.
-		options["max_tokens"] = 2000
-	}
+	// The budget is resolved by the ONE resolver this package has
+	// (llm_options.go), never here.
+	//
+	// This block used to read `ai_service.max_tokens` by hand and fall back to a
+	// hardcoded `2000`. Both halves were wrong, and the literal was the worse one:
+	// an explicitly supplied option WINS at the wire (anthropic.go:307), so a call
+	// that always sends a number can never inherit anything, and the literal
+	// therefore DEFEATED bugs_open/257's client-side resolution rather than being
+	// covered by it. Passing nothing is strictly safer than passing 2000.
+	//
+	// The small budget this step wants is not lost — it is migration 517's
+	// `ai_service.max_tokens`, raised to 16000 by migration 569 when the 305 lane
+	// measured a dense page repairing zero of ten targets. That is a lever an
+	// operator can move; a Go literal is not, and for three days in August the two
+	// were the same number, which made the fleet's own instrument unable to tell a
+	// working config from a dropped one (bugs_open/257 §2026-09-03).
+	options := llmOptionsFromConfig(config, aiServiceConfig, params.Logger, "rewrite_negations")
 	if t, ok := aiServiceConfig["temperature"].(float64); ok {
 		options["temperature"] = t
 	}

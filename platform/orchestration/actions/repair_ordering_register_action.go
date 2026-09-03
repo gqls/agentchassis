@@ -432,12 +432,13 @@ func runRegisterRepair(
 	}
 
 	prompt := registerRepairPrompt(targets)
-	options := map[string]interface{}{}
-	if mt, ok := aiServiceConfig["max_tokens"].(float64); ok && mt > 0 {
-		options["max_tokens"] = int(mt)
-	} else {
-		options["max_tokens"] = 2000
-	}
+	// The budget is resolved by the ONE resolver this package has
+	// (llm_options.go), never here. See rewrite_negations_action.go for the full
+	// account; the short version is that the hardcoded `2000` this replaced was
+	// numerically EQUAL to `offer-analyser`'s configured 2000, so
+	// `llm_call_log.max_tokens` read the same whether the configuration was
+	// honoured or dropped, and no query could tell the two apart.
+	options := llmOptionsFromConfig(config, aiServiceConfig, params.Logger, "repair_ordering_register")
 	if t, ok := aiServiceConfig["temperature"].(float64); ok {
 		options["temperature"] = t
 	}

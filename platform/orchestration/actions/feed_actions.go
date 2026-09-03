@@ -416,7 +416,7 @@ func FetchLLMNewsAction(ctx context.Context, params ActionParams) (interface{}, 
 	case "xai", "grok", "openai":
 		return fetchViaResponsesAPI(ctx, apiURL, apiKey, model, prompt, maxItems, sourceID, providerLower, sourceConfig, logger)
 	case "perplexity":
-		return fetchViaPerplexity(ctx, apiURL, apiKey, model, prompt, maxItems, sourceID, logger)
+		return fetchViaPerplexity(ctx, apiURL, apiKey, model, prompt, maxItems, sourceID, sourceConfig, logger)
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", provider)
 	}
@@ -574,7 +574,7 @@ func fetchViaResponsesAPI(ctx context.Context, apiURL, apiKey, model, prompt str
 // Sonar models always search the web — no tools config needed.
 // Uses OpenAI-compatible chat completions format.
 
-func fetchViaPerplexity(ctx context.Context, apiURL, apiKey, model, prompt string, maxItems int, sourceID string, logger *zap.Logger) (interface{}, error) {
+func fetchViaPerplexity(ctx context.Context, apiURL, apiKey, model, prompt string, maxItems int, sourceID string, sourceConfig map[string]interface{}, logger *zap.Logger) (interface{}, error) {
 	emptyResult := func(errMsg string) (interface{}, error) {
 		return map[string]interface{}{
 			"items":      []interface{}{},
@@ -584,6 +584,21 @@ func fetchViaPerplexity(ctx context.Context, apiURL, apiKey, model, prompt strin
 			"error":      errMsg,
 			"fetched_at": time.Now().UTC().Format(time.RFC3339),
 		}, nil
+	}
+
+	// The output budget is configuration, exactly like every other number in
+	// source_config (hours_lookback, max_items). Until 2026-09-03 it was a
+	// hardcoded 4096 — the bugs_open/257 class in a spelling no census had caught,
+	// because this path talks to Perplexity over raw HTTP and never touches
+	// platform/aiservice, so a grep for GenerateText could not see it. It was
+	// found by the package-wide audit in llm_budget_call_sites_test.go.
+	//
+	// 4096 stays as the DEFAULT when nobody has chosen one. That is the honest
+	// difference from what this replaced: a fallback an operator can override,
+	// rather than a number no configuration can reach.
+	maxTokens := 4096
+	if mt, ok := sourceConfig["max_tokens"].(float64); ok && mt > 0 {
+		maxTokens = int(mt)
 	}
 
 	reqBody := map[string]interface{}{
@@ -604,7 +619,7 @@ func fetchViaPerplexity(ctx context.Context, apiURL, apiKey, model, prompt strin
 			},
 		},
 		"temperature":      0.3,
-		"max_tokens":       4096,
+		"max_tokens":       maxTokens,
 		"return_citations": true,
 	}
 

@@ -126,8 +126,18 @@ func CHLLMReviewAction(ctx context.Context, params ActionParams) (interface{}, e
 			zap.Int("batch_start", i),
 			zap.Int("batch_size", len(batch)))
 
-		// Build options map so token usage can be written back by the AI client
-		llmOptions := map[string]interface{}{}
+		// One options map PER BATCH, because the client writes its forensics back
+		// into the map it is handed (__sent_max_tokens, __usage_*) and a shared map
+		// would have each batch overwrite the previous batch's llm_call_log row.
+		//
+		// It is built by the package's resolver, not left empty (bugs_open/257).
+		// An empty map is not neutral: since Path A the client falls back to the
+		// `ai_service` block it was CONSTRUCTED with, so the budget did arrive — but
+		// the STEP's own `max_tokens` and `budget_tokens` never reached the wire,
+		// because no client constructor is ever shown a step config. The helper
+		// also emits the "nobody sized this step" warning, which an empty map
+		// cannot.
+		llmOptions := llmOptionsFromConfig(config, aiServiceConfig, params.Logger, "ch_llm_review")
 		llmCallStart := time.Now()
 
 		response, err := aiClient.GenerateText(ctx, prompt, llmOptions)
