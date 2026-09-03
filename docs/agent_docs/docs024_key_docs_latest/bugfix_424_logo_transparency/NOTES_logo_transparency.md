@@ -433,3 +433,28 @@ rather than filed over this lane:**
   from 424's own closure — the right call, per this estate's own recorded lesson that a deferral
   pointing at a bug which then closes reads as handled when it isn't. **Not this lane's bug; do not
   file it here, and do not treat 424 closing as covering it.**
+
+## 2026-09-03 — first confirmed real-world SUCCESS from the fixed pipeline: seotools.co.uk
+
+Timeline for `seotools.co.uk` (`b178ca1b-b1bc-411b-ae3b-d63b8424dad0`): attempt 1 refused
+09:28:17Z (`border_keyed=0.000` — the model painted something the matte couldn't key at all,
+correctly refused, nothing stored); attempt 2 succeeded 09:30:13Z
+(`border_keyed=0.9993100275988961`, `pixels_keyed=1024969`), item `complete` at 09:30:57Z.
+
+**Verified at the served bytes, not the log or the DB status** — same method that caught the
+original defect, and the same key-date instrument adopted above (fresh key `20260903/
+fe09592e-b2ca-4fc8-a383-f48b53003935.png`, confirming this really is a new object, not a stale
+row):
+```
+curl https://seotools.co.uk/assets/images/logo.png → 200, 26,975 bytes
+PNG chunk scan: 400×218, colour type 6 (RGBA), no tRNS needed (real alpha channel)
+Pixel measurement (PIL): 92.21% of all pixels fully transparent; 99.92% of the border
+ring fully transparent (1231 of 1232 — matches the adapter's own 0.9993 closely); 0.085%
+magenta-like opaque pixels (a smaller residual fringe than websitepromotion's 0.69%)
+```
+
+**This is the first end-to-end, artefact-verified confirmation that the fixed pipeline produces a
+correct result on a real, unplanned, fleet-triggered generation** — not a synthetic test, not a
+statistic replay against old bytes, an actual new image, decoded and measured. `designblog.co.uk`
+is on its second attempt (first refused, same shape as seotools' first); `gamedesign.uk` not yet
+claimed. Sent to `site_delivery_and_editor` as requested — feeds the boxingonline timing decision.
