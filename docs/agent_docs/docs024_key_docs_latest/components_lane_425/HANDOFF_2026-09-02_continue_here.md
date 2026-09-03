@@ -15,7 +15,7 @@
 |---|---|
 | **THE OPEN DEFECT IS ANSWERED** | it was `bugs_open/454` — the light re-render computed a section plan and dropped it, so nothing was ever resolved on that path. Fixed `9831e9ab4`, live `v1.0.1358`. **Read §0p first** |
 | **Proven** | batch `…000692` carried an OLD-shape deck to the new shape end-to-end to the served bytes (garden-tools.uk `/care`, 14:05Z), and **two dartsonline decks repaired themselves on ordinary fleet traffic** |
-| **Do next** | read canaries `…000693` (two, queued 15:04:58Z) · then nothing on the producer half — the population drains as the fleet re-renders |
+| **Do next** | read batch `…000694` — the **last 6** old-shape decks, filed 15:20:57Z to finish the class (5 homegarden siblings + idea.uk). Both `…000693` canaries CONFIRMED. `…000690` (hero) still queued and now only confirms |
 | **Delivered + verified** | migration `682` (card slots), migration `721` (six hero components), two detectors, a widened lint |
 | **Filed from here** | `bugs_open/425`, `bugs_open/457` (live, and now shown to be SERVED damage — §0q), register `PBP-050` |
 | **Council** | `84b51f16` REVISE r3 — two objections actioned, round 4 unsubmitted · `cf3a052c` (721) REVISE r1. **No new code from 09-03 afternoon: docs only, so nothing new to submit** |
@@ -109,6 +109,43 @@ Two canaries are queued rather than a wave, batch `…000693` filed 15:04:58Z, o
 least like the first: `75424e19` homegarden.uk `/comparisons-index` (`section-index`, no competing
 work items) and `26be9662` robot-hands.com `/learning-center-hub` (`content` page type, 8 items,
 untouched since **08-25**). Two, not one, because this lane's own record is that canaries disagree.
+
+> **⭐ BOTH CANARIES CONFIRMED — 2026-09-03.** They did not disagree, and each was attributed by
+> `source_item_id` with the before-state projected from the same row:
+>
+> | item | page | `excerpt` | site-name suffix | `rendered_html` | elements |
+> |---|---|---|---|---|---|
+> | `26be9662` | robot-hands.com `/learning-center-hub`, complete **15:14:51Z** | absent → **present** | `\| Robot-Hands.com` → **stripped** | 7,681 → 6,753 B | 8, **0 empty** |
+> | `75424e19` | homegarden.uk `/comparisons-index`, complete **15:16:01Z** | absent → **present** | `\| Guide` → **stripped** | 2,275 → 2,794 B | 3, **0 empty** |
+>
+> So the fix holds across three sites, three `page_type`s (`content`, `section-index`, `content`
+> for `/care`), item counts 3/4/8, and a baseline **nine days stale**. ⚠ Note robot-hands'
+> `rendered_html` **shrank** by 928 B — the suffix removal and the collapsed empty elements take
+> out more bytes than the excerpt text adds — and it did **not** trip the section shrink floor.
+> Do not treat a byte decrease on this repair as a regression signal.
+>
+> `[MEASURED 2026-09-03 15:18:56Z]` the class is now **11 new / 6 old** of 17. It was 9/8 thirteen
+> minutes earlier and 5/12 yesterday.
+>
+> **AND THE LAST SIX ARE FILED — batch `…000694`, 15:20:57Z, one item per remaining instance.**
+> Not a wave: the residual was fully characterised first and carries **no blockers** — no orphan
+> rows, no tool component (so `450`'s `pageRefusesGenericBuild` cannot fire), sites unlocked,
+> `build_status='deployed'`. Five are homegarden siblings of the page canary 2 just repaired, with
+> the same component and 3 items each; the sixth is idea.uk `/guides-index`, 7 items, **untouched
+> since 08-28** — which is why waiting for traffic was not good enough for that one.
+>
+> | item | page | baseline |
+> |---|---|---|
+> | `1131fc0f` | homegarden.uk `/garden-index` | 3 articles, no `excerpt`, 09-02 13:54 |
+> | `4302eff3` | homegarden.uk `/home-maintenance-index` | 3, 09-02 14:14 |
+> | `6b3d6859` | homegarden.uk `/january-index` | 3, 09-02 13:55 |
+> | `ba90edb2` | homegarden.uk `/shed-and-outbuildings-index` | 3, 09-02 13:55 |
+> | `b863d14d` | homegarden.uk `/this-month-index` | 3, 09-02 14:13 |
+> | `bf7ccbf6` | idea.uk `/guides-index` | **7**, **08-28** 22:37 |
+>
+> **If any of these six does NOT repair, that is a genuine `bugs_open/384` residual** and that lane
+> has asked to be told — their census has the seam repairing 132/132 over the ten days before
+> `454`'s regression, so a stuck instance after the fix is a new finding rather than a leftover.
 
 ### The hero class is the same root cause — `690`'s decision table INVERTS
 

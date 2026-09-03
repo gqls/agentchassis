@@ -70,6 +70,15 @@ SELECT wi.status, to_char(wi.claimed_at,'HH24:MI:SS') AS claimed,
 ⚠ **Print the item status in the same breath as the artefact reading.** A timed-out watcher prints
 the unchanged baseline, which is indistinguishable from a result. Treat an unmoved `updated_at` as
 "did not run", not as "no change".
+⚠ **The run's OWN counts cannot grade the run.** `section_count`, `rerendered`, `carried` and
+`escalated` are byte-identical between a working re-render and one that resolved nothing — measured
+by the `bugs_open/384` lane on one page, where the broken 05:06/05:08 runs and the working 12:54 run
+all reported `4 / 4 / 0 / false`. **Only the artefact discriminates.** Read `content_data` and the
+rendered bytes; never accept a count as evidence the repair happened.
+⚠ **Expect `rendered_html` to SHRINK on a successful repair.** Stripped site-name suffixes plus
+collapsed empty elements can outweigh the added excerpt text — robot-hands.com
+`/learning-center-hub` went 7,681 → 6,753 B on a clean repair and did not trip the shrink floor. An
+acceptance check asserting "html grew" files a success as a regression.
 ⚠ **Find items by `batch_id`, not `id`** — a batch uuid is what the summary and handoffs quote, and
 `WHERE id IN (<batch uuid>)` silently returns nothing.
 

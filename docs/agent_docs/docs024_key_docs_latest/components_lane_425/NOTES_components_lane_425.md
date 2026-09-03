@@ -86,3 +86,64 @@ record from this machine, so `probe-page-url.sh` fails its own sibling control a
 answer. Every served reading for that domain in today's write-ups is the peer lane's, attributed.
 My independent instrument on those pages is `page_components.rendered_html`, and where the two can
 be compared they agree exactly.
+
+---
+
+## 2026-09-03 15:20Z — both canaries confirmed, and a commit trap I walked into
+
+**Both `…000693` canaries came back CONFIRMED and did not disagree**, which is worth recording
+because this lane's standing rule is that they do. `26be9662` robot-hands.com
+`/learning-center-hub` (complete 15:14:51Z) and `75424e19` homegarden.uk `/comparisons-index`
+(complete 15:16:01Z): `excerpt` absent → present, site-name suffix stripped, 8 and 3 elements
+respectively with none empty, each attributed by `source_item_id` with the before-state projected
+from the same history row. So the repair holds across three sites, three page types, item counts of
+3/4/8, and a baseline nine days stale.
+
+**One thing to carry:** robot-hands' `rendered_html` **shrank** 7,681 → 6,753 B on a successful
+repair — the stripped suffixes and the collapsed empty elements remove more than the excerpt text
+adds — and it did not trip the section shrink floor. A byte decrease on this repair is not a
+regression signal, and anyone building an acceptance check on "html grew" would have filed it as one.
+
+**Census, and it moves fast enough to matter:** 5/17 new-shape yesterday, 9/17 at 15:05Z, **11/17 at
+15:18:56Z**. Thirteen minutes for two instances. Anyone quoting a figure from these documents
+overstates the remaining damage.
+
+### MISSTEP — my pathspec commit deleted another lane's bug file out from under itself
+
+**What happened.** At ~16:09 local I appended a CONTRIB to `bugs_open/454_HANDOFF_…md`. At 16:13:36
+the `bugs_open/427` lane ran `git mv` on that file to `bugs_closed/`, closing the bug. At 16:13 my
+commit ran with the explicit pathspec CLAUDE.md mandates, naming the **old** path. A pathspec commit
+reads the working tree at the paths it names and ignores the index — the file was not there any
+more, so git recorded a **477-line deletion with no corresponding add**. `git ls-tree -r HEAD |
+grep 454_HANDOFF` returned **zero rows**: the bug existed at neither path.
+
+**Why this is worse than the documented version of the trap.** `LANDMINES` already carries this
+collision twice, both times from the **mover's** side, where the file ends up in **both**
+directories — which overstates the backlog and is caught by `check_bug_file_duplicated`. From the
+**editor's** side it ends up in **neither**, so the estate's most-repeated instruction — grep
+`bugs_open/` and `bugs_closed/` before you file — silently returns nothing, and a live bug reads as
+never filed. Nothing checks for that.
+
+**What I did, and the judgement I want on the record.** I did *not* commit the restoration myself,
+even though it would have taken one command. The file had been written 60 seconds earlier, so the
+moving session was plainly mid-close: committing it would have taken a same-file passenger of their
+in-flight closure text *and* put their close decision under my commit message. I messaged them with
+the exact trace instead. Their `git mv` add was already staged, so their next commit restored HEAD
+by itself, within two minutes. They confirmed the trace from their end and folded both of my
+corrections into the closed file as visible `CORRECTED` blocks rather than silent fixes.
+
+**What caught it.** The commit's own output — `delete mode 100644 bugs_open/454_…` and `488
+deletions(-)` against an expected ~490 insertions. I read the deletion count, did not recognise it,
+and stopped. **The yellow commit-scope block did not and could not help**: it listed the file under
+`bugs_open/` as part of my own area, which is exactly what it should say. The tell was the word
+`delete`, in a line I could easily have scrolled past.
+
+**Also resolved a numbering collision I caused:** we had each written a `## 15.` into that file
+within minutes. Theirs is the closure note and is canonical; I renumbered **mine** to `§15a` with a
+line saying so, and did not touch their text.
+
+Written up as a LANDMINE with the two-command check (read your own `git show --stat` for
+`delete mode`, then ask `git ls-tree -r HEAD` — exactly one row is correct, zero means this fired,
+two means the documented sibling fired) and the prophylactic that actually shortens the window:
+**commit an append to a bug file promptly and on its own, especially when that bug's fix has just
+gone live and someone is verifying it.**
