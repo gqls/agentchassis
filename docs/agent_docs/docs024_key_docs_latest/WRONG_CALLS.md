@@ -63591,3 +63591,43 @@ convenient ordering.
 **The cheap check:** when a name resolves to more than one thing, the disambiguator is in the error
 message. Read it rather than tie-breaking. And where identity matters, key on the identity —
 correlation, ref, row id — never on `ORDER BY … DESC LIMIT 1`.
+
+---
+
+## 2026-09-03 — session `463`. My census encoded the wrong BRANCH of the function it was testing, and returned a plausible non-zero answer
+
+Fixing `bugs_open/463` turned on one safety claim: after narrowing Pass C, does the new rule
+ever drop a page the old rule KEPT? It can, but only for an *asymmetric* hub — one whose stored
+name stem disagrees with the stem its own URL yields. So I counted them.
+
+My first query said **5 asymmetric hubs**, and named them: `blog` at `/blog.html`, `news` at
+`/news.html`, and three more of that shape. A believable answer — five is exactly the kind of
+small legacy residue this estate has — and I nearly wrote it into the plan as a live blast radius.
+
+**It was my predicate, not the estate.** I compared `regexp_replace(name,'-index$','')` against
+`split_part(ltrim(url,'/'),'/',1)` — but `split_part` on `blog.html` returns `blog.html`, because
+there is no `/` to split on. The Go function I was modelling, `sectionStemOf`, has **two
+branches**: it takes the first URL segment *only when the trimmed URL contains a `/`*, and
+otherwise falls back to the name. Every one of my five "asymmetric" hubs was in the fallback
+branch, where the two sides are equal by construction and asymmetry is impossible. I had encoded
+one branch of a two-branch function and applied it to rows that take the other.
+
+Corrected predicate: **83 of 83 hubs symmetric, 0 asymmetric.** The opposite conclusion, and the
+one the fix's safety argument actually rests on.
+
+**What caught it:** reading the five returned rows instead of the count. All five were
+`/blog.html`- or `/news.html`-shaped — no slash — which is visibly the fallback case. The number
+alone looked fine; the rows did not.
+
+**The cheap check:** when a SQL census models a Go function, **count the function's branches
+first and make sure your predicate has the same number.** A single-expression predicate standing
+in for an `if/else` will silently apply the wrong arm to whichever rows take the other, and it
+fails in the direction that looks like a finding rather than an error.
+
+**Same trap, twice, one day apart, on the same bug.** `bugs_open/463` §3 records its filer
+falling into it from the other side: their census counted "children in plan" with
+`url NOT LIKE '%/index.html'` and returned **0**, which reads as fleet-wide plan damage, because
+the children they were looking for use the directory form the predicate excluded. Their note ends
+*"list the plan rows and LOOK at them before filtering"* — I read that sentence while fixing the
+bug and still made the same class of error six hours later. Reading the warning is not the same
+as applying it; what applies it is looking at the rows.
