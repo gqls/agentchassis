@@ -63450,8 +63450,13 @@ your-action-moves-you-to-the-back-of-the-selector, a-count-of-things-must-carry-
   plaintext-emitted credential staying live because a file said to wait. Second recorded instance of
   this class (`a-closed-blocker-keeps-being-obeyed`, the first cost 20 days).
   **The cheap check, and it belongs to whoever CLOSES a bug, not whoever waits on it:**
-  `grep -rln "bugs_open/<the number you just closed>" bugs_open/ docs/` before closing — every hit is
-  a file whose instructions may now be wrong. It takes seconds and it is the only direction the
-  dependency can be walked.
+  `grep -rln "bugs_open/<the number you just closed>" bugs_open/ docs/` before closing. It takes
+  seconds and it is the only direction the dependency can be walked — the blocked file names the
+  blocker, never the reverse.
+  ⚠ **It needs a discrimination step, so do not just count the hits.** Run today on `237`: **3 open
+  bugs** matched, and only **one** (233) was actually gated by it — `249` cites it as *"adjacent"*
+  and `153` carries a CONTRIB *from* that lane. **Read each hit for an INSTRUCTION** ("wait for",
+  "before rotating", "blocked by", "until X ships"); a citation is not a dependency, and treating
+  every mention as one is how this check gets abandoned as noisy.
   Tally: **a-closed-blocker-keeps-being-obeyed** ×2, **a stale banner caused INACTION rather than a
   wrong action** ×1.
