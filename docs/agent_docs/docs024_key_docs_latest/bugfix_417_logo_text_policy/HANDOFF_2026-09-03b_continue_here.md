@@ -42,8 +42,15 @@ not this one; another roll has been announced since.** Use ancestry, never dates
    **What is left is 462 §7a, and it is a genuine choice**: does the measurement live in the render
    audit (browser, sees the real rendered backdrop) or in a standalone check over stored assets +
    the theme token (cheaper, sweeps all 30 existing logos, but trusts the declaration over the
-   render)? Lane recommends the standalone check first, because it can answer "how many sites are
-   affected right now?", which nothing currently can. **Routing is also unsettled** —
+   render)? **Answer refined by the 424 lane and it is now two pieces of work, not a choice: ship
+   the standalone sweep NOW for the "how widespread is this" answer, and plan the render-audit
+   version as the one that STAYS correct.** The deciding objection is staleness, not coverage — a
+   theme token read at check time is a snapshot, and colour churn is documented here
+   (`generic_theme` landmine; `bugs_open/396` is a design run rewriting the theme row byte-for-byte),
+   so the cheap check drifts into **false passes**, the one direction this bug is already about.
+   Write the sweep knowing it is temporary: share its threshold, and **record the theme value it
+   measured against in the finding**, so a later reader can tell "passed against a palette that no
+   longer exists" from "passed". **Routing is also unsettled** —
    `css-patch-agent` repaints a CSS class and cannot fix a pale PNG.
    ⚠ Binding constraint from §6: **measure after matting, against the header, never the keyed
    ground.** A pre-matte check sees high-contrast white-on-magenta and passes happily.

@@ -312,11 +312,37 @@ with different truthfulness/cost profiles:
   would be wrong on any site where the cascade overrides the token, and it cannot see a logo sitting
   on an image or gradient header.
 
-**Recommendation, offered as input rather than a decision:** **(b) first**, because it can sweep the
-whole existing population immediately (30 stored logo assets) and answer "how many sites are
-affected right now?", which nothing can currently answer; then **(a)** if the population turns out to
-include non-solid headers. Whichever is chosen, §6's constraint is binding: **measure after matting,
-against the header, never against the keyed ground.**
+**Recommendation, revised 2026-09-03 after the `bugs_open/424` lane sharpened it — and their framing
+is better than mine, so it replaces it:**
+
+> **(b) is the fast path, NOT the permanent home. Ship (b) now for the "how widespread is this"
+> answer; plan (a) as the version that stays correct.**
+
+My original framing was "(b) first, then (a) *if* the population turns out to include non-solid
+headers" — i.e. (a) only as a coverage top-up. **That misses the decisive objection, which is
+staleness rather than coverage:** a theme token read at check time is a **snapshot**, and it goes
+stale the moment a site's colours change. A logo that passed last week is not re-examined, so the
+check goes quietly wrong in the direction of a **false pass** — the worst direction, because §2's
+whole finding is that this defect already produces silence.
+
+⚠ **And colour churn is a live, documented mechanism on this estate, not a hypothetical.** The
+`generic_theme` colour-churn landmine records palette values moving fleet-wide, and
+**`bugs_open/396`** is a design run **rewriting the theme row byte-for-byte**. So the exact event
+that invalidates (b)'s cached operand is one that demonstrably happens without anyone asking for it.
+A stale-passing legibility check is then indistinguishable from a site that is fine — which is this
+bug, one layer up.
+
+**(a)'s advantage restated properly:** it does not cache the operand at all. It reads the backdrop
+from the render at the moment it measures, so a colour change is picked up by construction rather
+than by remembering to re-run something.
+
+**So the honest shape is two pieces of work, not a choice between two options** — and (b) should be
+written knowing it is temporary: keep its measurement and its threshold in one place so (a) can
+reuse them, and **record the theme value it measured against in the finding**, so a later reader can
+tell "this passed against a palette that no longer exists" from "this passed".
+
+Whichever is built, §6's constraint is binding: **measure after matting, against the header, never
+against the keyed ground.**
 
 ⚠ **Routing is NOT settled either.** §2's existing path files `contrast_failure` at
 `css-patch-agent`, which repaints a CSS class and **cannot fix a pale PNG**. A logo finding needs a
