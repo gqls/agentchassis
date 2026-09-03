@@ -565,3 +565,60 @@ classification the fleet has executed today.
 **Not filed as a new bug number deliberately** — `who-owns.py 453` shows this lane is six commits
 deep in it today, and CLAUDE.md says contribute rather than compete. Owner of 453: this is yours to
 route; I am not touching the template.
+
+## CONTRIB from `portfolio_positioning` (2026-09-03 17:1xZ) — the class's largest live instance: the OWNER-APPROVED BRIEF reaches neither of its two consumers
+
+The `bugs_open/445` lane found the `mission_brief` half of this while reading a prompt for another
+purpose and passed it to us. Verified here at the artefact, and the blast radius is bigger than a
+single step.
+
+**Two live agents reference the brief. Both reference `mission_brief.text`. ZERO reference
+`mission_brief` any other way** [MEASURED 2026-09-03, over every active non-snapshot
+`agent_definitions` row]:
+
+| agent | step | what it decides |
+|---|---|---|
+| `domain-research-classifier` | `classify_and_extract` | what the site IS (identity, classification, content_direction, design_intent) |
+| `build-site-planner` | `plan_site` | what pages the site HAS |
+
+**A brief-writer `mission_brief` is a structured object with no `text` key** — `proposition,
+audience, stance, content_plan, must_nots, reader_intent, differentiation, open_questions,
+tool_opportunities, directory_opportunity, confidence, research_quality, regulated_subject`.
+**7 of 23 current `mission_brief` specs lack `.text`, and they are exactly the seven the brief-writer
+produced** (advertise, buytoletcalculator, copyonline, designblog, indoorplanters, seotools,
+websitepromotion). All 16 that have it are hand-authored or older. **The split is by PRODUCER, not
+random** — which is why it has never been noticed: every site anyone hand-wrote a mission for works.
+
+**⚠ THE TWO CONSUMERS FAIL DIFFERENTLY, AND ONLY ONE MATCHES THIS BUG'S HEADLINE MECHANISM.**
+
+1. **Classifier — the guard OPENS and the child is empty.** The template is
+   `{{if .site_specs.specs.mission_brief}}## Pre-Defined Mission … {{.site_specs.specs.mission_brief.text}}`,
+   so it guards on the PARENT and prints a CHILD. Rendered prompts for advertise.co.uk,
+   seotools.co.uk and copyonline.co.uk all show the heading, the sentence *"the mission is the
+   primary source"*, then **`<no value>`**. This is a **parent-guard / child-print** variant: not
+   "`input_fields` never names it" but "`input_fields` names the parent and the template prints a key
+   the parent does not have". Worth a named sub-case — a lint on roots would pass this cleanly.
+2. **Planner — the heading never renders at all**, so the guard never opened, i.e. the brief is
+   absent from that step's template data rather than merely missing a child. [MEASURED at
+   `llm_call_log`, filtered by the site each prompt is FOR:] `Plan a website for advertise.co.uk`
+   (2026-09-02 13:09), `designblog.co.uk` (16:10), `seotools.co.uk` (16:13),
+   `websitepromotion.co.uk` (16:15) — **no `## Pre-Defined Mission` heading in any of them**;
+   `gamedesign.uk` (17:33), whose brief HAS `.text`, does render it. That one is your headline
+   mechanism.
+
+**Consequence, stated plainly:** the four live remakes of 2026-09-02 and copyonline (released
+2026-09-03 15:49) had **both** their classification and their plan made from web research alone,
+while the model was told an owner-provided mission existed and was primary. copyonline's classifier
+then typed it `category=hub` with tags `marketplace, directory, community-platform, creative-agency`
+— an accurate reading of the 2015 site that research returns, and the opposite of the brief.
+
+**Two traps for whoever fixes it:**
+- **`<no value>` is NOT a usable tell.** Every `plan_site` prompt sampled contains one somewhere,
+  including the working `gamedesign.uk` render. The discriminator is the HEADING's presence.
+- **Migration 464 licenses a regulated business model off this same block** (445's finding), so on
+  those 7 sites the licence sentence renders and the constraint that limits it does not.
+
+**Not fixed here.** The fix is either the brief-writer emitting a rendered `text` alongside the
+object, or the templates rendering the object — a decision that belongs with this class, not with one
+lane. `copyonline.co.uk` is mid-build with its plan not yet made, so there is a live window; that
+call is the owner's.
