@@ -9,13 +9,14 @@
 > after reaching other lanes, and the corrections are more useful to you than a tidy account would
 > be. Where a section is wrong, it says so and says what replaced it.
 
-## STATUS AT A GLANCE (2026-09-03 15:05Z)
+## STATUS AT A GLANCE (2026-09-03 15:45Z)
 
 | | |
 |---|---|
 | **THE OPEN DEFECT IS ANSWERED** | it was `bugs_open/454` — the light re-render computed a section plan and dropped it, so nothing was ever resolved on that path. Fixed `9831e9ab4`, live `v1.0.1358`. **Read §0p first** |
 | **Proven** | batch `…000692` carried an OLD-shape deck to the new shape end-to-end to the served bytes (garden-tools.uk `/care`, 14:05Z), and **two dartsonline decks repaired themselves on ordinary fleet traffic** |
-| **Do next** | read batch `…000694` — the **last 6** old-shape decks, filed 15:20:57Z to finish the class (5 homegarden siblings + idea.uk). Both `…000693` canaries CONFIRMED. `…000690` (hero) still queued and now only confirms |
+| **⭐ CLASS CLOSED** | `[MEASURED 2026-09-03 15:27Z]` **17 new / 0 old** of 17 `content-listing`/`articles` instances, and **0 empty `article-card__excerpt` elements** across all seventeen. Batch `…000694` drained 6/6 in six minutes; both `…000693` canaries CONFIRMED |
+| **Do next** | **nothing on the deck class.** `…000690` (hero) is still `triaged` and now only confirms what `454` §12 already proved — read it when it lands, do not re-file. `bugs_open/457` is the live residual and is not this lane's to fix |
 | **Delivered + verified** | migration `682` (card slots), migration `721` (six hero components), two detectors, a widened lint |
 | **Filed from here** | `bugs_open/425`, `bugs_open/457` (live, and now shown to be SERVED damage — §0q), register `PBP-050` |
 | **Council** | `84b51f16` REVISE r3 — two objections actioned, round 4 unsubmitted · `cf3a052c` (721) REVISE r1. **No new code from 09-03 afternoon: docs only, so nothing new to submit** |
