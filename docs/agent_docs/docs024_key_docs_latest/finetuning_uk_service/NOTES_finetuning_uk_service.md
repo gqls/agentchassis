@@ -2501,3 +2501,28 @@ now: **0** `REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT` rows for technical-details
 against a fleet **demand control of 7** rows since the roll, so quiet means covered, not blind.
 Stage A's plan-time half is closed on both ledgers; the one Stage A read left is the writer row's
 carry when the watch fires. After that, this lane's 443 work is 641-gated (Stage B).
+
+## 2026-09-03 (10:41Z) — technical-details rebuild COMPLETE; **STAGE A CLOSED**; homepage claimed under the SAME correlation
+
+Item `896bb245` complete 10:40:16Z, page `deployed`, HTTP 200, 41,276 bytes, 6 components written
+10:38:58Z. `[MEASURED 2026-09-03 10:41Z]`:
+- Writer row `ce514ce0` `sections_for_render.sections_ready[].subject`: **6/6**, identical to the plan.
+  Stage A's last read. **Stage A closed.**
+- Served h2s: "The model, and the licence it comes with" · "The model underneath, and who owns it"
+  · "The model itself, and the licence it comes with" · "Questions a technical reader tends to
+  ask" · "Not sure fine-tuning is the right fit?". **The three text blocks still write the
+  model-and-licence section** (wording varied, topic identical) although each carried its own
+  subject in the data. Predicted: the subject reaches the writer's DATA, not yet its PROMPT.
+  Stage B = 641, nothing else.
+- Copy gate: **4** `rewrite_negations` llm calls (4 success) against **6** `generate_content`
+  calls under corr `6e8eadaa`; served-HTML "rather than" **7 → 0** (the copy lane compares on
+  `content_data` against their pinned 5; two surfaces, never mixed). Rejection reasons left to them.
+- Detector: read by the 443 lane (0 vs fleet demand control 7). NB `agent_error_log` has
+  `occurred_at`, not `created_at`; my query failed on the column name.
+
+**Gotcha, recorded for anyone reading per-page LLM logs:** the homepage item `1513b86a` was
+claimed 10:40:38Z by the SAME `build-dispatch-loop` orchestration (`5bf75f69`) and so shares
+**correlation `6e8eadaa`** with technical-details; a per-correlation `llm_call_log` read now
+mixes two pages. Key on the writer's `orchestration_id` (technical-details `ce514ce0`, homepage
+`6e7b0529`; handler `14544ac9`). Told the copy lane and the 443 lane. `[TO CONSIDER]` a
+LANDMINES entry under `llm_call_log.correlation_id` / `build-dispatch-loop`.
