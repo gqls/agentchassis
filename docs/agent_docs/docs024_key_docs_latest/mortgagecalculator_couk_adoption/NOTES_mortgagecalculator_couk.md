@@ -5204,3 +5204,55 @@ with a pointer + correction appended to `bugs_open/114`. **The correction matter
 that ten pages *"have nowhere to put a picture"* is **no longer true** — 701 freed the hero slot, so
 the composition change they need is safe as of today and was not yesterday. We keep the tools as
 product (fences, Tier-4, `441`/`448`/`449`); they own imagery and the spend.
+
+### The hazard I documented had a QUEUE behind it, and I nearly recorded three false failures
+
+Chasing why the 8 acceptance runs sat `triaged` for 17 minutes turned up something more useful than
+the answer.
+
+**First, a fleet-shaped alarm I raised and then refuted myself.** `acceptance_run` claims fleet-wide:
+steady all night, 2 in the 08:00 hour, then **0 in 09:00 and 0 in 10:00, with 14 stuck across three
+sites** (ours 8, advertise.co.uk 3, idea.uk 3) — while the dispatch loop made **102 claims in the
+09:00 hour** on other item types. That reads exactly like a dispatch outage, and
+`tool-acceptance-agent` had been edited at **08:56:53** that morning, which fit beautifully.
+
+⚠ **It was not an outage, and the control is what stopped me filing one.** I found
+`default_config->'workflow'->'steps'` was a JSON *object* and called it malformed. Then I asked how
+every other agent shapes it: **all 202 active agents use an object.** An object is the normal shape.
+My "malformed" reading was wrong and the agent is fine. **The governor was fine too** —
+`governor_admits('acceptance_run')` returns true. Had I filed on the first two observations I would
+have reported a fleet outage caused by another lane's edit, on the strength of a shape I had never
+checked against a peer.
+
+**The real answer is mundane and was in the loader's own SQL.** `load_work_items` runs
+`ORDER BY wi.priority ASC, wi.created_at ASC LIMIT 8` with `max_items: 8`. This site holds **6
+`page_rerender` items at priority 80** and my **8 `acceptance_run` items at priority 90**. The
+rerenders sort first and consume 6 of the 8 slots; my runs are reachable but queued behind them.
+Not starved, just later. **A queue is not an outage, and 17 minutes is not evidence of one.**
+
+### And the thing worth actually acting on
+
+Those 6 rerenders are **`reason: template_changed`, created 08:39–08:46** — the remainder of the
+very wave that converted the other five tools at 08:46–08:49. They target
+`investor-index`, `tool-affordability`, `tool-overpayment`, `tool-stamp-duty`, `tool-bridging-loan`,
+`tool-portfolio`. **When they run, those pages get instance-scoped ids** — and three of the fences I
+installed this morning (`tool-bridging-loan`, `tool-overpayment`, `tool-stamp-duty`) carry **bare**
+selectors, correct only until that moment. **My acceptance runs for those three were queued directly
+behind their own page's rerender.**
+
+So the sequence was going to be: re-render the page → run the acceptance → **fail** → record a
+failure against a calculator that works. Exactly the pollution `bugs_open/441` is about, and I would
+have created three instances of it myself.
+
+**Held the three runs** (`076377ba` bridging-loan, `89a3cc7a` overpayment, `b1bdb777` stamp-duty) —
+`cancelled` with `refire_after` in the result, not abandoned. The 5 remaining runs are all on pages
+already scoped, with fences already re-pointed, so they are safe.
+
+**The order to resume in:** let the rerender wave finish → **re-point those 3 fences against the page
+as actually SERVED, not as predicted** → re-fire. ⚠ I deliberately did not pre-point them to the
+scoped form: that trades one guaranteed-wrong window for another, and the whole lesson of this bug is
+that the rendering, not the template, is the thing to measure.
+
+⚠ **The general check, which is the transferable part:** before dispatching a verification run, look
+at what else is queued **ahead of it on the same page**. A rerender in front of an acceptance run
+invalidates the fence it is about to be judged by, and neither item knows about the other.

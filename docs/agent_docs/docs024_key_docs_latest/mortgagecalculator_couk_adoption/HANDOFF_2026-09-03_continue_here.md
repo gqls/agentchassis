@@ -102,14 +102,47 @@ rebuild wave re-rendered **5 of 10** at 08:46–08:49Z and their ids changed (`a
 This is why `bugs_open/441` was re-framed today: **it is not a backlog, it is a live generator of
 stale fences.** Only the scope-aware checker (441 candidate 1) is stable.
 
+## 4a. ⚠ A RERENDER WAVE IS QUEUED AND WILL BREAK THREE OF TODAY'S FENCES — this is live
+
+Six `page_rerender` items, `reason: template_changed`, created **08:39–08:46**, are sitting
+`triaged` at priority 80. They are the remainder of the wave that converted the other five tools at
+08:46–08:49, and they target `investor-index`, `tool-affordability`, `tool-overpayment`,
+`tool-stamp-duty`, `tool-bridging-loan`, `tool-portfolio`.
+
+**When they run, those pages gain instance-scoped ids, and the fences for `tool-bridging-loan`,
+`tool-overpayment` and `tool-stamp-duty` — installed today with BARE selectors — go stale the same
+minute.** Their acceptance runs were queued directly behind their own page's rerender, so the
+sequence would have been: re-render → run → **fail** → a recorded failure against a working
+calculator.
+
+**Those three runs are HELD** (`076377ba`, `89a3cc7a`, `b1bdb777` — `cancelled` with `refire_after`
+in the result, not abandoned). **Resume in this order:**
+
+1. wait for the rerender wave to finish;
+2. **re-point those 3 fences against the page as actually SERVED** — `#x` → `#c-tool-<slug>-x`,
+   each verified present before writing. ⚠ Do NOT pre-point them from the template: that trades one
+   guaranteed-wrong window for another, and the lesson of `441` is that the RENDERING is the thing to
+   measure;
+3. re-fire the 3 runs.
+
+⚠ **General check this produced:** before dispatching a verification run, look at what else is
+queued **ahead of it on the same page**. A rerender in front of an acceptance run invalidates the
+fence it is about to be judged by, and neither item knows about the other.
+
 ## 5. Next, in order
 
-1. **Read the 8 verdicts** from this morning's runs — `doc_notes`, not the work item.
-   Items: `879ee87a` simple, `076377ba` bridging-loan, `a570b486` rate-forecaster, `36db5755`
-   repayment, `b1bdb777` stamp-duty, `2efd13f7` fee-analyser, `89a3cc7a` overpayment, `d9d4dce0`
-   equity-release. ⚠ They queue behind fleet fairness — a single run took 5m38s to be claimed, and
-   eight had not been claimed after 7m30s. **Slow is normal; a missing row is latency, not a
-   dropped dispatch.**
+0. **The 3 held runs** — see §4a. Do this before anything else; it is the only item with a clock on
+   it.
+1. **Read the 5 verdicts** from this morning's runs — `doc_notes`, not the work item.
+   Items still live: `879ee87a` simple, `a570b486` rate-forecaster, `36db5755` repayment,
+   `2efd13f7` fee-analyser, `d9d4dce0` equity-release — all on pages already scoped, with fences
+   already re-pointed, so they are safe to run.
+   ⚠ **They queue, and a queue is not an outage.** `load_work_items` runs
+   `ORDER BY priority ASC, created_at ASC LIMIT 8`; this site's 6 `page_rerender` items are priority
+   **80** against acceptance's **90**, so the rerenders take 6 of the 8 slots. 17 minutes unclaimed
+   is ordering, not failure. **I nearly filed a fleet-wide dispatch outage over this** — see
+   `WRONG_CALLS.md` 2026-09-03; the agent was fine (all 202 agents shape `workflow.steps` as an
+   object) and the governor admits `acceptance_run`.
 2. **`bugs_open/441` candidate 1** — the platform fix. Council gate; it is `platform/` code.
 3. **`bugs_open/448`** — 62% of every failed `improve_tool` on the estate. Small fix, sound code
    already 300 lines below in the same file.
