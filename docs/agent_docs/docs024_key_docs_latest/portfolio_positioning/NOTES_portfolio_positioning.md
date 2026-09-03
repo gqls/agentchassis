@@ -5412,3 +5412,41 @@ intervene, on the grounds that the planner would receive the brief's content sec
 faithful strategy spec. That still holds — **but the planner has not run and currently has nothing
 queued to make it run.** So "wait and judge the plan on its output" now carries an unbounded wait. The
 watch item is whether a `needs_composition` reappears on its own.
+
+### (tt) 2026-09-03 ~18:12Z — the queue refilled at 18:05:36Z, but with checker findings, NOT a composition
+
+Updating (ss), which recorded an empty queue at 18:08Z. Five items were filed at **18:05:36Z**, all by
+the checker layer, none of them the `needs_composition` the site needs:
+
+| priority | type | summary |
+|---|---|---|
+| 15 | `orphan_blog_posts` | 4 blog posts deployed but not linked from blog listing page |
+| 35 | `page_rerender` | 2 misdirected CTAs on `tool-insight-injector` — copy names a different… |
+| 35 | `page_rerender` | 3 misdirected CTAs on `tool-keyword-intent-classifier` |
+| 35 | `page_rerender` | 1 misdirected CTA on `tool-serp-snippet-previewer` |
+| 35 | `page_rerender` | 4 misdirected CTAs on `tool-title-tag-scorer` |
+
+**So (ss)'s watch item is answered in part, and the answer is no.** A sweep does run against this site,
+frequently, and it did not re-file the composition. The re-filing hypothesis in (ss) — that
+oxenunity's second `needs_composition` came from a periodic producer that would eventually reach
+copyonline — is **not supported by this observation**, though not refuted either: a checker sweep and
+a composition producer need not be the same job or the same cadence. Still `[UNMEASURED]`; what has
+changed is that "the queue is empty so nothing is running" is no longer the situation, and the site is
+being actively swept while remaining stalled on the one step that matters.
+
+**Two of the findings are worth reading as symptoms of the blind build rather than as defects.**
+
+- **The misdirected CTAs.** Ten of these across four of the five tool pages. The tools were selected by
+  a `tool-suggester` that recorded *"Without existing pages loaded, I'm inferring from the domain"* and
+  chose library tools, three of which duplicate seotools. Library tool copy naming a different site's
+  destination is exactly what one would expect from that path. **The system is now queuing repair work
+  on pages that are not in the brief and may be retired** — small, wasted, and harmless, but it is the
+  blind step still generating cost three hours later.
+- **`orphan_blog_posts` on a site with no blog.** All 10 of copyonline's pages are tool pages and their
+  companion guides; there is no blog and no blog listing page. The checker has counted 4 of something
+  as blog posts. **I have not read the check's predicate and am not calling this a mis-detection**
+  `[UNMEASURED]` — the guides may legitimately carry a blog-post kind. Recorded because a finding about
+  a page class the site does not have is worth a second look by whoever owns that checker, and because
+  it is the kind of thing that reads as a real defect to a later cold-start.
+
+**Nothing acted on.** Consistent with (rr): the site is not to be prodded.
