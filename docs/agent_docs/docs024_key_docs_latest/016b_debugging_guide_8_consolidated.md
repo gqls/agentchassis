@@ -7191,6 +7191,7 @@ See `/bugs_closed/README.md`.
 | 408 | **Two inverse path fallbacks in `extractFieldValue` recurse forever, so an unresolvable `content_field` crashes the agent pod with a stack overflow.** `multipage_actions.go:1207-1223`: fallback A strips `.response.` and recurses, fallback B adds it back and recurses — exact inverses, no depth bound, no visited set. `page_content_0.response.page_html` ping-pongs until the goroutine stack passes 1 GB. **The caller is innocent** — `AssemblePageAction:106` already treats `""` as "skip this page"; the function just never returns | **CLOSED 2026-09-02 — fixed, live at `v1.0.1354` (capability probe), and the exact crash input exercised in production post-fix** (canary corr `6e84a4e3`: clean skip, chain COMPLETED, pods restartCount 0 — vs 12,654 identical log lines, `exitCode: 2` and 3 orchestrations lost to the 4h reaper on 2026-08-26). Fix `6e2d4a039`+`b8bf40694` (council `3918db52`, APPROVED r1): bounded ordered-candidate loop over a pure walk helper, one Warn per failed lookup with `paths_tried`, plus a COUNTABLE misconfiguration signal (`ASSEMBLE_CONTENT_FIELD_UNRESOLVED` when upstream declared no skip). ⚠ the test lesson stands: a plain assert cannot fail on non-termination — `go test -timeout` + a mutation control against the OLD code (FAILED by stack overflow in 3.7s) |
 | 410 | **`next_fetch_at` is stamped `NOW() + fetch_interval` at FETCH time, so a 6 h interval on the 6 h `content-feed-refresh` trigger falls due SECONDS after the next pass fires — every news site whose sources are all 6-hourly is served every OTHER run, a 12 h cadence under a 6 h label.** Both stamp arms (`dispatch_feed_sources_action.go:276` optimistic, `feed_actions.go` `UpdateSourceTimestamps`) anchor to the fetch, which lands 10 s–9 min after the trigger; the trigger drifts only 3–30 s per pass. NOT `316` (ordering under the cap; the cap was not binding: 10 due, 10 dispatched) and it survives 316's fix | **OPEN — filed 2026-08-26** by the idea.uk lane, first-hand (declared). 48 h census: **every 6h-only site ran at ~20:47 and ~08:47 (12 h apart)**; the two sites holding a 3 h/4 h source ran at all four passes (control). idea.uk's worked case: five `next_fetch_at` 08:46:15–31 vs trigger 08:46:06. Blast radius **10 of 12** news sites at half the documented cadence; nothing surfaces it (`stale_news_section` keys on 72 h). Prospective prediction for the 14:46/20:46 passes recorded in the file BEFORE they ran. Fix: look-ahead of half the cadence in BOTH gating layers (site query is config; source query is Go) |
 | 450 | **Planned tool pages are built as prose shells by the phantom-link repair before their tools exist, and serve 200.** The planner names `hero-tool,generic-text-block` for a tool page whose tool does not yet exist (tools arrive via the ~3 h/site design rotation); `validate_site_plan`'s `owned_page_review` hold has no consumer; `unbuilt_internal_link` (one per LINK) routes the target to `page-build-handler`; the owned-page guard reads `rebuild_policy='owned'`, which planned tool pages never carry. seotools.co.uk 7/7 (2026-09-02); 61 tool-type pages without a tool-level component across 10 sites [MEASURED 2026-09-02, upper bound]. Control: advertise.co.uk, whose plan persisted after its tools existed. 090 run `96e97dc4`. |
+| 454 | **The light re-render computes a section plan and DROPS it, so every page since 2026-09-02 has been rendered from its own stored data.** `classifyStoredSection` calls `planSection`, branches on its status, then returns without setting `c.plan` — a struct field **read at exactly one line in the repository and written at none** (legal Go, zero value, no compiler/vet/lint complaint). So `renderPlannedSection` composes `base + stored content_data` with `plan.ResolvedData == nil` and persists the stored map unchanged: the estate's repair vehicle became a no-op for all resolver-sourced data while reporting success. Introduced by the extraction commit `94f81cc60`. ⚠ **Every signal is a healthy signal** — `escalated=false`, `skipped` absent, `rerendered` = row count, and **no section is carried**, so none of `bugs_open/182`'s four carry buckets names it; nothing is blanked, so the only observable is a NEGATIVE. ⚠ And the extraction's OWN line-count audit is blind by construction: a value that stops being CARRIED has no line on either side of the diff. Masked by `carryStored` (238) and by `cta_links_stale` allocating its own map. `[MEASURED 2026-09-03]` **1,855** deployed sections / **838** pages / **82** functions declare a non-`llm` source; **206 / 196 / 21** declare a `query.*` one. | **OPEN — FIX COMMITTED `9831e9ab4`, INERT until a chassis image rolls** (both live builds carried the defect at 2026-09-03 09:54 UTC). One assignment plus `rerender_page_sections_resolved_data_test.go`, which reproduces `bugs_open/427`'s live empty state offline; mutation-proven at committed HEAD with `verify-head-builds.sh --with` (the shared tree did not compile). Council `075cfedd`. Found by taking the first untried next step 427's own handoff had named — `grep -n '\.plan\b'`, one hit, four minutes. No `090` run: reason stated in the file §7, not omitted. |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26;
 > RE-MEASURED 2026-08-03).** This table is **materially behind** and a miss here is a
@@ -15261,3 +15262,69 @@ The transferable rules:
 
 Case detail, spread census, fix candidates: `bugs_open/450`.
 
+
+### A refactor that hoists a computation behind a struct can stop carrying its RESULT, and Go says nothing — a field read once and written nowhere is a legal zero value, and the extraction's own line-count audit cannot see it (2026-09-03, `bugs_open/454`)
+
+`rerender_page_sections_action.go`. An extraction commit moved `plan := planSection(...)` out
+of a loop body and into a new `classifyStoredSection`, declared a `plan sectionPlanItem` field
+on the struct it returns, and had the equally new `renderPlannedSection` read it back as
+`comp, plan, htmlTemplate := cls.comp, cls.plan, cls.htmlTemplate`. The assignment `c.plan =
+plan` was never written. `cls.plan` is **read at exactly one line in the repository and written
+at none** — legal Go, zero value, no compiler, vet or lint complaint.
+
+For a fortnight afterwards every light re-render composed its render context as
+`base ⊕ stored content_data` with `plan.ResolvedData == nil`, and persisted `stored ⊕ nil`. The
+estate's own repair vehicle became a no-op for all resolver-sourced data — 1,855 deployed
+sections across 838 pages declare a non-`llm` source — while reporting success.
+
+**Why nothing caught it.** Not one of the usual instruments could fire.
+
+- **No error, and no carry.** The action has four named carry buckets precisely so that "a run
+  in which every section carried" is distinguishable from one that worked (`bugs_open/182`).
+  Right instrument, wrong failure: this run *renders*. It renders the wrong inputs.
+- **Every count is a healthy count.** `escalated=false`, `skipped` absent, `rerendered` equal
+  to the number of rows on the page.
+- **Nothing is blanked.** The stored `content_data` still renders, so the page keeps serving
+  its last-good bytes. There is no damage, only an absent improvement — and the only
+  observable is a NEGATIVE: a re-render that changes nothing when the data has changed.
+- **The extraction's own audit was blind by construction.** That commit reconciled its line
+  counts carefully — "36 removed non-blank lines, 6 with no counterpart, and those 6 are
+  exactly the loop-state mutations hoisted to the caller". A value that stops being *carried*
+  has no line of its own on either side, so it cannot appear in a diff-line reconciliation.
+- **Two live mechanisms masked the effect.** `planSection`'s `carryStored` (`bugs_open/238`)
+  re-supplies a non-LLM field from the page's stored data when its source yields nothing, so on
+  an already-populated page resolved-and-carried is byte-identical to stored-only. And the
+  `cta_links_stale` branch allocates its own map when it finds `plan.ResolvedData` nil, so CTA
+  repair kept working — the one re-render reason anyone was watching was the one still working.
+
+**Transferable checks.**
+
+- **When a refactor introduces a struct to carry state across a NEW boundary, grep each field
+  for reads and writes SEPARATELY.** A field with reads and no writes is the defect and one
+  command settles it: `grep -n '\.<field>\b' <file>` — one hit is a read; look for the
+  assignment and find there is none. This is the whole diagnosis, and here it took four
+  minutes after two sessions had spent a day on the symptom.
+- **A line-count reconciliation audits code that MOVED; it cannot audit a value that stopped
+  TRAVELLING.** The more rigorous the extraction's own accounting, the more confidently it will
+  report clean. Treat "mechanical extraction, every line accounted for" as evidence about
+  lines, not about behaviour.
+- **The zero value is the trap in every language that has one.** Go will not warn on a
+  write-free field, and the zero value of a map is `nil`, which `range` and `len` both accept
+  silently. Any `if x != nil` downstream then reads as a defensive check that is simply never
+  taken.
+- **When the only symptom is "nothing changed", the instrument to distrust FIRST is your own
+  log capture.** This session's predecessor concluded from three careful captures that the
+  query resolver "never ran" — it ran every time; the capture missed it. **An absence in a
+  capture that never demonstrated it could see a PRESENT line is not an absence.** Run a
+  positive control from the same logger and the same pod path before reading a gap as a fact.
+- **Beware a disjunction you stated but never checked was exhaustive.** The predecessor framed
+  the question as carried-vs-freshly-rendered and correctly noted that byte-identical output
+  cannot discriminate between them. The truth was a third state — **freshly rendered from stale
+  inputs** — which produces the same byte-identical output and was in neither option.
+- **Reproduce it in a UNIT TEST before fixing it.** The regression test here drives the real
+  component and a real fact through `rerenderFlatSections` and emits, with no cluster involved,
+  the live page's guarded empty state byte for byte. That is what turns "I have found something
+  odd in the source" into "this is the bug", and it is the only artefact that survives the fix.
+
+Case detail, population census, and the reason a `090` diagnosis run was substituted for rather
+than skipped: `bugs_open/454`.

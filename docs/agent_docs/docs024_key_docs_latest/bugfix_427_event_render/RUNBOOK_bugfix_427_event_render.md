@@ -213,3 +213,83 @@ docker run --rm --entrypoint sh docker.io/aqls/admin-dashboard:<tag> -c \
 `docker push` is a production action and this session's own auto-mode classifier refused it
 without confirmation — correct behaviour, not a bug; surface it to the user rather than
 finding a workaround.
+
+---
+
+## Prove a struct field is never written (the `bugs_open/454` diagnosis, in one command)
+
+The gotcha this exists for: Go compiles a struct field that is read and never assigned,
+and hands you its zero value. `vet` and the linters pass it too. So "the value does not
+arrive" has no toolchain signal at all — you have to ask for reads and writes separately.
+
+```bash
+grep -n '\.plan\b' platform/orchestration/actions/rerender_page_sections_action.go
+# one hit -> that is a READ. Now look for the assignment; if there is no `x.plan =`
+# anywhere in the package, the field is a permanent zero value.
+```
+
+Generalised, for any struct a refactor introduced to carry state across a new boundary:
+for **each** field, one grep for `\.<field>\b` and one for `<field>\s*=`. A field with the
+first and not the second is the defect.
+
+## Build and test a change against committed HEAD when the shared tree does not compile
+
+Routine on this tree, not an edge case: `go test ./...` reads the union of every session's
+uncommitted work, so a neighbouring lane's half-finished file makes your own result
+unreadable in both directions. `scripts/verify-head-builds.sh` extracts committed HEAD and
+overlays only the files you name.
+
+```bash
+# BEFORE committing — your change, against HEAD, nobody else's WIP
+scripts/verify-head-builds.sh \
+  --with platform/orchestration/actions/rerender_page_sections_action.go \
+  --with platform/orchestration/actions/rerender_page_sections_resolved_data_test.go \
+  --test ./platform/orchestration/actions/...
+
+# THE MUTATION PROOF: the test ALONE against unfixed HEAD must FAIL.
+# This is the half that is easy to skip, and it is the half that proves the test can fail.
+scripts/verify-head-builds.sh \
+  --with platform/orchestration/actions/rerender_page_sections_resolved_data_test.go \
+  --test ./platform/orchestration/actions/
+```
+
+⚠ Never hand-roll `git archive HEAD | tar` for this — that recipe is why the machine keeps
+running out of space (CLAUDE.md, and `docs024_key_docs_latest/tmpfs_exhaustion/`).
+
+⚠ Run it AFTER committing too. A pathspec commit takes the named file **from the working
+tree**, so if another session had that same file dirty, their half rides along and only a
+post-commit HEAD build will tell you. That happened on this lane's own fix commit
+(`9831e9ab4` carried the `bugs_open/450` lane's `escalateRerenderToWriter` rework; HEAD
+stopped compiling until they committed the closure as `587666be8`). Cheap warning sign
+beforehand: `git status --porcelain <the file>` showing it already dirty when your own edit
+is one line.
+
+## Re-verify 427 at the artefact once a chassis carrying `9831e9ab4` rolls
+
+```bash
+# 1. what is the chassis actually running?
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=300 | grep -m1 'build provenance'
+git merge-base --is-ancestor 9831e9ab4 <the stamp>   # exit 0 = the fix is in that binary
+```
+
+The provenance line is a STARTUP line and scrolls out of reach on a busy service; an empty
+result means "not in range", not "unstamped". Fall back to the binary probe, and always run
+a known-absent sha as a control alongside the known-present one.
+
+```bash
+# 2. re-dispatch, then 3. read the ARTEFACT — never the job status
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT pc.content_data->'items' AS items, length(pc.rendered_html)
+FROM page_components pc
+WHERE pc.page_id='4b74ff1f-455a-4bb2-b81d-e1d0ec824f33' AND pc.slot_name='event-list';"
+```
+
+`items` non-empty and `rendered_html` no longer 1,813 bytes. Then curl the served page —
+a DB row is not what a customer sees.
+
+⚠ **Do not read a re-render's `escalated`/`rerendered` counts as evidence that data moved.**
+That is precisely what 454 proves they cannot tell you: every count was healthy for a
+fortnight while nothing was delivered. Note also that `escalateRerenderToWriter` gained a
+second refusal disposition (`skipped_tool_pending_page` alongside `skipped_owned_page`,
+commit `587666be8`, `bugs_open/450`), so any count of suppressed escalations that reads only
+the older value will undercount from the next roll onwards.

@@ -107,3 +107,70 @@ one real, well-documented mystery about why the fixture data isn't flowing
 through, and the ordinary next-step housekeeping (get that council review
 result on the actual "swap the section" step, since I only just told them
 about the safer approach they should check).
+
+---
+
+**2026-09-03, later that morning.** The mystery is solved, and it turned out
+not to be our mystery at all.
+
+The calendar page wasn't showing the one real fight because of a bug in a
+completely different piece of the system — the bit that re-renders a page when
+its data changes. Yesterday lunchtime another session tidied up that code:
+split one long function into two smaller ones, which is normal, sensible work
+and their notes about it are unusually careful. In the split, one value stopped
+being handed across from the first function to the second. In Go that isn't an
+error — the second function just quietly gets an empty value instead — so
+nothing complained, nothing crashed, and nothing looked wrong.
+
+The value that stopped being handed across was the freshly-looked-up data. So
+since lunchtime yesterday, every "re-render this page" across the whole estate
+has been taking the page's own previously-stored content and rendering that
+back at itself. It never breaks anything and it never blanks a page — it just
+silently achieves nothing. There is no error message for that. The only way to
+notice is to know what a page *should* now say and find that it doesn't, which
+is exactly the position we were in yesterday with the fight calendar.
+
+I found it by doing the first of the two things yesterday's notes said I hadn't
+tried yet — actually reading that function line by line instead of searching it.
+It took about four minutes. One search command told the whole story: the value is
+read in one place and set in none.
+
+I wrote a test first, before fixing anything. The test builds the real calendar
+component and the real fight fact, runs the re-render, and — with no cluster
+involved at all — produces exactly the empty "no confirmed fixtures yet" box
+that's on the live page. That's what turned "I've found something odd" into
+"this is definitely the thing we've been chasing". Then the fix, which is one
+line. With the line, the test passes; without it, it fails. I checked that
+against the properly committed code rather than my own working copy, because
+someone else's half-finished work was in the shared tree at the time.
+
+Two honest corrections to what I wrote yesterday, both now written into the
+notes rather than quietly tidied away. First, I said I couldn't find any sign of
+the data-lookup code running, and concluded it wasn't running. It was — I just
+wasn't capturing its output properly. I read a gap in my own instrument as a
+fact about the code. Second, I framed the question as a choice between two
+explanations and the real answer was a third one I hadn't thought of.
+
+How big is this? I measured it today: 1,855 live page sections across 838 pages
+use data that gets looked up rather than written by an author. Every one of them
+has been getting nothing from a re-render since yesterday lunchtime.
+
+One thing I have to own. When I committed my one-line fix, the same file already
+had someone else's unfinished work in it, and the way we're all told to commit
+takes whatever is in the file. So their half-finished change went in with mine
+and the shared code temporarily stopped compiling. I worked out exactly which
+six files would fix that, checked it, and messaged the session that owns them —
+rather than committing six files of somebody else's in-progress work on my own
+guess about whether it was ready. That's their call, not mine.
+
+What this means for the calendar page: nothing we built for it was wrong. The
+component, the schema, the evidence check, the fact itself, the way it was
+attached — all correct, all in place, and all being fed into a pipeline that had
+stopped delivering three hours before we attached it. The fix is in the code but
+not yet running: this kind of change only takes effect when a new server image
+is built and rolled out. Once that happens the page should fill in on its own,
+with no further work from us.
+
+I've also sent the fix to the reviewer council, as we do for anything touching
+shared platform code, and I've written the whole thing up as its own bug (454)
+so nobody has to rediscover it.

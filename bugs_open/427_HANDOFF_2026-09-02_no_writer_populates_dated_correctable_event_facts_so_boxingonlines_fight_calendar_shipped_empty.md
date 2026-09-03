@@ -571,3 +571,65 @@ account: `bugs_open/428` §12.
   fetch" — this bug's own original measurement instrument and the real closing signal.
 - Not this lane's job, tracked elsewhere: bug 428's own remaining item (a human uses the
   release surface on a real verdict).
+
+## 14. Status update, 2026-09-03 (later same day) — the open defect is diagnosed and fixed, and it was NOT this bug's code
+
+**§13's "one real defect found, not fixed" now has a root cause, and it lives nowhere near
+this lane.** Filed as its own case: **`bugs_open/454`** — *the light re-render computes a
+section plan and drops it, so every page is rendered from its own stored data*. Fix
+committed `9831e9ab4`; council submission `075cfedd-aef0-4230-b4f1-909ecf68959d`.
+
+**In one sentence:** `classifyStoredSection` in `rerender_page_sections_action.go` calls
+`planSection`, uses the result to decide the row can render, then returns without setting
+`c.plan` — a struct field that is **read at exactly one line in the repository and written
+at none** — so `renderPlannedSection` gets a zero value, and every light re-render since
+2026-09-02 has composed `base ⊕ stored content_data` with `plan.ResolvedData == nil` and
+persisted the stored map unchanged.
+
+That is the whole of §13's symptom. `items` was never going to populate, on this page or
+any other, no matter what this lane did to the component, the schema, the resolver or the
+register. Introduced by `94f81cc60` (2026-09-02 12:27 BST, an extraction commit in the
+`features_open/035` decomposition) — which is **hours before** the event-list attachment
+work of §12/§13, so this lane never saw the mechanism work even once.
+
+**Two things §13 asserted that are now corrected, visibly rather than by editing them away:**
+
+> **CORRECTED 2026-09-03.** §13 said "Could not catch either `plan_sections_action.go`'s
+> query.\* branch or `queryresolve/upcoming_events.go`'s own logging firing, across three
+> careful live-log captures". Under the real cause the resolver **is** still called —
+> `planSection` runs in full, and only its *result* is discarded — so
+> `logger.Info("queryresolve: resolved upcoming_events", …)`, which fires unconditionally on
+> every call, must have been emitted. The pod-log capture was the faulty instrument, not the
+> code. Do not carry "the query resolver never ran" forward.
+
+> **CORRECTED 2026-09-03.** §13 framed the open question as carry-vs-fresh-render and named
+> distinguishing the two as the first next step. The framing was too narrow: the row was
+> **freshly rendered from stale inputs**, a third state neither option covers — and one that
+> produces exactly the byte-identical output §13 had (correctly) said could not discriminate
+> between its two. The *action* it named was still the right one: reading
+> `classifyStoredSection` line by line is what found this, within minutes.
+
+**On the `090_TRIGGER_needs_diagnosis` run §13 nominated: not run, deliberately, and the
+reason is stated in `bugs_open/454` §7** rather than left as a silent omission. Short
+version: the claim turned out to be a property of the source text — a field read once and
+assigned nowhere, settled by one grep and then demonstrated by a failing test — so there was
+no hypothesis for the loop to refute.
+
+**What this changes for this lane's remaining work:**
+
+- [ ] **~~Diagnose and fix the `query.upcoming_events` items-not-populating defect~~ — DONE,
+  as `bugs_open/454`. But this lane stays OPEN and the box stays unticked**, because the fix
+  is Go and is therefore inert until a chassis image carrying `9831e9ab4` is rebuilt and
+  rolled. Both live `agent-chassis` builds still carried the defect at 2026-09-03 09:54 UTC.
+  When it rolls: re-dispatch the page-rerender (recipe in the RUNBOOK), then read the
+  artefact — `content_data->'items'` non-empty and `rendered_html` no longer 1,813 bytes —
+  and then curl the served page.
+- [ ] Resubmit the `ff91e666` council round (unchanged from §13).
+- [ ] Re-verify `experience_loop`'s nightly reclassification (unchanged from §13) — this
+  remains the real closing signal, and it cannot fire until the roll above.
+
+**The one genuinely good piece of news for this lane:** nothing built here was wrong. The
+component, its schema, the evidence gate, the resolver, the register fact and the
+`component_swap` attachment were all correct and all in place; they were being fed into a
+render path that had stopped delivering fresh data to *every* component on the estate three
+hours earlier. When the chassis rolls, this page should populate with no further work.

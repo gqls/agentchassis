@@ -60307,3 +60307,111 @@ state-the-expected-shape-before-you-run-the-check.
 
 Family: your-measurement-answers-the-question-you-encoded,
 a-quiet-test-passes-when-the-rule-is-gone, a-shared-tree-commit-can-break-head.
+
+## 2026-09-03 — I read a silent log capture as proof the code never ran, and stated a two-way disjunction that was missing the true third case (`bugs_open/427` lane, across two sessions)
+
+- **The claim, written into `NOTES_bugfix_427_event_render.md` and into `bugs_open/427` §13**:
+  "captured the complete step-by-step trace of every generic `coordinator.go`/`processor.go`
+  infra log line, and **ZERO** business-logic log lines from either `plan_sections_action.go`'s
+  `query.*` branch or `queryresolve/upcoming_events.go`'s own `logger.Info`/`logger.Warn`
+  calls, **which per the source SHOULD fire unconditionally on every call**". The source
+  reading was right; the inference from the silence was wrong. The same entry framed the open
+  question as a two-way choice — the section is either *carried* (stored HTML reused) or
+  *freshly rendered with genuinely empty items* — and said, correctly, that byte-identical
+  output cannot discriminate between them.
+- **What was actually true**: the resolver ran on every dispatch. `planSection` executes in
+  full and the log line was emitted; `classifyStoredSection` then discarded the *result*
+  (`bugs_open/454`). So the capture missed a line that was there. And the true state was a
+  **third** one the disjunction did not contain — *freshly rendered from stale inputs* — which
+  produces exactly the byte-identical output the entry had ruled non-discriminating.
+- **What caught it**: not the logs, and not another dispatch. Reading
+  `classifyStoredSection` line by line — the first of the two next steps the same entry had
+  itself named as untried. `grep -n '\.plan\b' <file>` returned one hit, a read, with no
+  assignment anywhere.
+- **The cheap check, for the log half**: **run a positive control in the same capture.** Grep
+  the captured output for a line you already know must be present, from the *same logger and
+  the same pod path* as the one you are looking for. Infra lines from `coordinator.go` do not
+  qualify — different logger, different path — so their presence proved only that the capture
+  saw something, not that it could see *this*. An absence in a capture that has never
+  demonstrated it can see a present line is **no data**, not evidence.
+- **The cheap check, for the disjunction half**: when you write "A or B" about a mechanism,
+  spend one sentence on what a **C** would look like. Here C — the resolver working and its
+  output dropped downstream — was reachable by reading one function, and the entry had already
+  identified that function as worth reading. Stating the alternatives felt like rigour and
+  was, in the same paragraph, the thing that stopped the search.
+- **Why it matters beyond this bug**: three careful reproductions were spent on a symptom
+  whose cause was four minutes of reading away, and the false premise was carried forward into
+  a handoff written for a fresh session. A wrong belief in a handoff has no failure row and no
+  sweep will ever catch it.
+
+Family: your-measurement-answers-the-question-you-encoded,
+a-post-fix-zero-needs-a-demand-control, a-plausible-external-cause-is-when-to-doubt-your-instrument,
+two-defects-can-wear-one-symptom.
+
+## 2026-09-03 — my pathspec commit shipped another lane's half-finished refactor into HEAD and stopped it compiling (`bugs_open/427` lane)
+
+- **The claim, implicit in the act**: that committing `git commit <one path> -m …` for a
+  one-line fix ships one line. CLAUDE.md's own rule prescribes exactly this, and it is the
+  right rule — it stops *me* sweeping up other sessions' files.
+- **What was actually true**: a pathspec commit takes the named file **from the working tree**,
+  and the `bugs_open/450` session had an uncommitted rework of `escalateRerenderToWriter` in
+  that same file. Their half went in with mine. HEAD then called `pageRefusesGenericBuild`,
+  `refusalToolPending` and an 8-arg `emitOwnedPageReviewItem`, none of which are committed, and
+  `make build-*` — which builds from HEAD — was broken fleet-wide.
+- **What caught it**: `scripts/verify-head-builds.sh --test` run *after* committing, which is
+  when CLAUDE.md says to run it. Nothing before the commit would have.
+- **The cheap check**: `git status --porcelain <the file you are about to commit>` immediately
+  before the commit. It cannot prevent the passenger — no hook can, and this is a documented
+  landmine — but a file that is **already dirty when your edit is one line** tells you to
+  expect one, and to warn the owning lane **in the same breath** rather than after the fact.
+  That is the whole difference between a coordinated handoff and a broken HEAD someone else
+  discovers.
+- **What I did instead of compounding it**: measured the minimal closure that restores HEAD
+  (six files, all theirs, verified with `verify-head-builds.sh --with`) and sent it to the
+  `bugs_open/450` session, rather than committing six files of another lane's in-flight
+  refactor on my own judgement of its readiness. Forward-only holds either way; whose name the
+  commit carries is the part worth getting right.
+
+Family: a-pathspec-commit-still-takes-a-same-file-passenger,
+a-pathspec-passenger-can-be-half-written, a-shared-tree-commit-can-break-head,
+committing-is-shipping-on-shared-head.
+
+---
+
+## 2026-09-03 — I held a shared-package refactor dirty through a long design phase, and it broke two other lanes before either of them touched my code (`bugs_open/450` lane)
+
+The other side of the entry above, and of the mutation-proof entry three above it. Logged
+separately because the lesson is not the same one: theirs is about what a pathspec commit
+cannot protect you from, mine is about **how long I left the window open**.
+
+- **The claim I was implicitly making**: that an uncommitted refactor is my private workspace
+  until I judge it ready. Every hour of a careful design phase felt like diligence.
+- **What was actually true**: from the moment I first saved `owned_page_guard.go`, seven files
+  of half-finished rename were live shared state in a tree ~10 sessions build and test from.
+  CLAUDE.md says this in terms — *"a long-lived dirty tree is not a private workspace — it is
+  shared, mutable state"* — and I had read it this session, in the file, before starting.
+- **The damage, measured, before anyone edited my code**: (1) the `bugs_open/440` lane's
+  mutation re-proof read `build failed` three times on `undefined: censusExcludedOwnedPages,
+  readRebuildPolicy` — my rename, mid-flight — and it cost that session a wrong conclusion
+  about its own tests, logged three entries above; (2) the `bugs_open/427` lane's one-line
+  pathspec commit took my dirty hunk as a passenger and broke HEAD fleet-wide, logged
+  immediately above. Neither session did anything wrong. Both paid for my window.
+- **What caught it**: not me. The 427 session messaged me with the failing symbols and the
+  minimal closure already measured. I had been about to run the package tests for the fourth
+  time instead of committing.
+- **The cheap check**: commit the coherent unit when it compiles and its tests pass, not when
+  the whole design is finished. My change had a natural landing point hours earlier — the
+  predicate plus its call sites built and passed green well before I had written the new test
+  file. "Ready to review" and "safe to leave dirty" are different bars, and I was applying the
+  first to a decision that needed the second.
+- **The sharper version, since the trap is documented and I still walked into it**: the rule I
+  broke is not "commit often". It is that on this tree **the cost of a dirty file is paid by
+  people who cannot see it**. A rename is the worst possible thing to hold, because it breaks
+  the package for everyone at the moment of the first save and stays broken until the last
+  call site lands — unlike an additive change, which merely sits there. If a refactor renames a
+  shared symbol, the window is not "until I am happy"; it is "as short as I can physically make
+  it", and if it cannot be short, the honest move is to say so in a message before starting,
+  not after someone reports the breakage.
+
+Family: a-shared-tree-commit-can-break-head, committing-is-shipping-on-shared-head,
+a-pathspec-commit-still-takes-a-same-file-passenger, your-fix-invalidates-a-peers-pending-test.

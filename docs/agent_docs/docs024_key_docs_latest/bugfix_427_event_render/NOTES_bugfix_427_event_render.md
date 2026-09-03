@@ -315,3 +315,98 @@ independently on the live pods, `grep -c 'Record verdicts only'` = 1, so
 whatever built v1.0.1356 carries the same UI). Bug 428's own remaining item
 ("a human uses the release surface on a real verdict") is now actually
 reachable — nobody has yet.
+
+---
+
+## 2026-09-03 (later) — the open defect from this morning is a fleet-wide re-render regression, and it is not ours
+
+**Result first: `bugs_open/454` filed, fix committed `9831e9ab4`, council submission
+`075cfedd-aef0-4230-b4f1-909ecf68959d`.** `classifyStoredSection` computes a section plan,
+uses it to decide the row renders, and returns without carrying it. The struct field
+`sectionClassification.plan` is **read at exactly one line in the repository and written at
+none**. So `renderPlannedSection` gets a zero value, `plan.ResolvedData` is nil, and every
+light re-render since 2026-09-02 12:27 BST has rendered `base ⊕ stored content_data` and
+persisted the stored map unchanged.
+
+**What I actually did, in order, because the order is the lesson.** The morning handoff
+named two untried next steps and nominated a `090` run. I took the first of the two — read
+`classifyStoredSection` line by line rather than by grep — before spending anything. Three
+reads in:
+
+```
+grep -n '\.plan\b' platform/orchestration/actions/rerender_page_sections_action.go
+1501:	comp, plan, htmlTemplate := cls.comp, cls.plan, cls.htmlTemplate
+```
+
+One hit. A read, no write. That is the whole diagnosis, and it took about four minutes from
+opening the file. The `090` run was not fired — reason stated in `bugs_open/454` §7 rather
+than silently omitted, per the 2026-07-31 owner ruling: there was no hypothesis for the loop
+to refute, because the claim is a property of the source text rather than an inference about
+behaviour.
+
+**Then I wrote the test BEFORE the fix**, which mattered more than it usually does here.
+`platform/orchestration/actions/rerender_page_sections_resolved_data_test.go` builds
+boxingonline.com's real `event-list` component and a real register fact and drives
+`rerenderFlatSections`. Unfixed, it produces — with no cluster involved —
+`<section class="event-list"><p class="event-list-empty">No confirmed fixtures yet.</p></section>`,
+which is the live page, byte for byte in shape. That is what turned "I have found something
+odd in the source" into "this is the bug we have been chasing since yesterday".
+
+**Where my own earlier claims in this file were wrong.**
+
+> **CORRECTED 2026-09-03.** This morning's entry says I "captured the complete step-by-step
+> trace … and ZERO business-logic log lines from either `plan_sections_action.go`'s query.\*
+> branch or `queryresolve/upcoming_events.go`'s own `logger.Info`/`logger.Warn` calls, which
+> per the source SHOULD fire unconditionally on every call". The source reading was right and
+> the conclusion I drew from the absence was wrong. Under the real cause `planSection` runs in
+> full — the resolver IS called, the query IS executed, the log line IS emitted; only the
+> *result* is thrown away afterwards. So the log capture missed it. Three separate careful
+> captures, one with `logs -f` started before dispatch, and I read the absence as evidence
+> about the code instead of as evidence about my instrument. **The check I skipped:** a
+> positive control — grep the same capture for a log line I KNEW must be there (the
+> `coordinator.go` infra lines were there, but they come from a different logger and a
+> different pod path than the action's own). An absence in a capture that never demonstrated
+> it could see a present line is not an absence.
+
+> **CORRECTED 2026-09-03.** This morning's entry framed the open question as carry-vs-fresh-
+> render and said the byte-identical output "is equally consistent with 'freshly rendered,
+> items genuinely empty' and 'carried, template never re-run'". Two options, and the truth was
+> a third: **freshly rendered from stale inputs** — no carry, no empty resolve, the resolver
+> working perfectly and its output discarded one function later. Worth noticing that I stated
+> the disjunction as exhaustive without checking that it was. The *action* I proposed was
+> still correct and is what found it.
+
+**Numbers, measured today rather than carried.** `[MEASURED 2026-09-03]`, `clients_db`,
+`page_components` at `build_status='deployed'` joined to `content_components`: **206** rows /
+**196** pages / **21** component functions declare a `query.*`-sourced field; **1,855** rows /
+**838** pages / **82** functions declare any non-`llm` source at all. The second is the real
+blast radius — `plan.ResolvedData` carries every non-LLM resolution, not just `query.*`.
+Query in `bugs_open/454` §4; re-run it before quoting these, a census goes stale by addition.
+
+**Two things that masked it, both worth remembering as a shape.** `planSection`'s own
+`carryStored` (bugs_open/238) re-supplies a non-LLM field from the page's stored
+`content_data` when its source resolves to nothing — so on an already-populated page,
+"resolved" and "stored-only" produce identical bytes. And the `cta_links_stale` recompute
+allocates its own map when it finds `plan.ResolvedData` nil, so CTA repair kept working
+throughout: the one re-render reason anyone was actively watching was the one still
+functioning.
+
+**A cost I incurred and should record.** My pathspec commit of the one-line fix took a
+**same-file passenger**: the `bugs_open/450` session had an uncommitted rework of
+`escalateRerenderToWriter` in the same file, and `git commit <path>` takes the file from the
+working tree, so their half went into HEAD with mine. HEAD stopped building —
+`pageRefusesGenericBuild`, `refusalToolPending` and an 8-arg `emitOwnedPageReviewItem`, all
+still uncommitted. This is the documented trap (LANDMINES, "a pathspec commit still takes a
+same-file passenger") and no hook can prevent it; what I could have done is **read `git
+status` for my own target file immediately before committing and seen it was already dirty**,
+which would have told me to expect this and to warn the other lane in the same breath rather
+than after the fact. I measured the minimal closure that restores HEAD (six files, all
+theirs: `owned_page_guard.go`, `multipage_actions.go`, `save_page_sections_action.go`,
+`load_work_item_actions.go`, `get_pages_to_build_actions.go`, `load_page_record_action.go`,
+verified with `verify-head-builds.sh --with`) and messaged the `bugs_open/450` session with
+it rather than committing six files of another lane's in-flight refactor on my own judgement
+of its readiness.
+
+**What is still owed on 427 itself:** nothing new. The fix is Go, so it is inert until a
+chassis image carrying `9831e9ab4` rolls; both live builds still carried the defect at
+09:54 UTC today. When it rolls, re-dispatch the page-rerender and read the artefact.
