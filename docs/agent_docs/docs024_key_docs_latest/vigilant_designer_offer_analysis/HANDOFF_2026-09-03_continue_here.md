@@ -594,6 +594,27 @@ gap. ⚠ **Still owed: a component-capable acceptance vehicle, or a hand-run of 
 `leopardessconsulting.co.uk/services.html`** — the one live carousel placement, so **this can be
 answered BEFORE apply.**
 
+> **⚠⚠ THAT PAGE IS A PAYING CLIENT'S LIVE SITE — and it is STILL the right target.** Flagged by
+> `copy_quality_two_stage`; confirmed in the owner's own record, not on relay
+> (`docs/agent_docs/docs024_key_docs_latest/about_page_commercial/PLAN_2026-07-24_about_page_commercial.md`
+> D4, verbatim: *"a paying client's site (leopardess)"*).
+> **The right question is "does the fence WRITE?", and the answer is measured NO:**
+> `internal/adapters/browserrunner/` has **zero** `INSERT INTO`/`UPDATE … SET`;
+> `check_tool_acceptance.go` files no work item and triggers no rerender on failure; screenshots go
+> to the runner's own store. What reaches the site is an **HTTP GET of an already-served page**, and
+> these are static sites in a bucket.
+> **AND THE RISK ORDERING INVERTS.** `[MEASURED 2026-09-03 16:15:50Z]` leopardess/services is the
+> **only** live placement with the `carousel` key set at all — `finetuning.uk` has one
+> `info-card-grid` instance and no flag — so a "safer" portfolio target needs a `content_data` write
+> **plus a rerender** first. **Choosing the portfolio site to avoid touching a client site means
+> performing the very write the concern is about, aimed elsewhere.** The client page is lower-impact
+> because nothing has to change for it to be testable.
+> ⚠ **The grounding EXPIRES if the fence gains a write** — screenshot store wired on, a failure path
+> filing a repair item, an acceptance flow triggering a rerender. **Re-run the two greps before
+> hand-running it**; if either stops coming back empty, create a carousel placement on a portfolio
+> site and accept the write there. Full reasoning: `doc_notes`, `subject_type='component'`,
+> `subject_key='info-card-grid'`, 2026-09-03 16:16Z.
+
 > **That is the fourth time today I asserted from a name or a count instead of the thing itself** —
 > a served count without the template, a missing ruling without the ruling headings, a model output
 > without its prompt, and now a work-item type without its rows. **Same check every time: open the
