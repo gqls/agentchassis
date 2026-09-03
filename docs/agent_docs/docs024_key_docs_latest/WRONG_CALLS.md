@@ -63312,3 +63312,87 @@ a-correct-predicate-wrapped-in-untested-inferences, prior-art-search-goes-stale.
 - **Cost.** None escaped: the bug was filed and closed the same day and the corrections are in it.
   But had nobody read the files, the estate would hold a numbered bug asserting a five-file
   population that was wrong in both directions, which is worse than no bug at all.
+
+## 2026-09-03 — my mutation "failed" because it stopped COMPILING, and a build error is indistinguishable from a kill in `go test` output (session 428, bugs_open/428)
+
+- **The claim.** I wrote a mutation protocol into
+  `platform/orchestration/actions/recommended_type_reconciliation_test.go`'s header asserting that
+  each of four mutations kills a different set of tests, and I ran all four. The third —
+  "classify from `final` alone, i.e. delete the `omissionDroppedInValidation` arm" — printed
+  `FAIL  github.com/gqls/agentchassis/platform/orchestration/actions` and I was one step from
+  recording it as a kill. It is the arm that encodes this lane's whole measurement, so it is the
+  one I most wanted to see die.
+- **Why it was false.** Deleting the `case` left the `omissionDroppedInValidation` constant
+  unreferenced, so the package **did not build**. `go test` reports a build failure as `FAIL` for
+  the whole package, with `[build failed]` on a line above the summary. **No test ran at all.** A
+  mutant that does not compile has not been tested, and it produces the reddest possible output.
+- **What caught it.** Reading the two lines above the summary instead of the summary. The tell is
+  `# github.com/...[...test]` followed by a compiler error, then `FAIL ... [build failed]` — no
+  `--- FAIL: TestX` lines anywhere, which is the thing a real kill always has.
+- **The mistake, precisely.** A mutation test asks "does removing this behaviour break a test?" and
+  I accepted an answer to a different question — "does removing this text break the build?". The
+  two are opposite in value: the second proves the code is *referenced*, which is nearly free, while
+  the first proves it is *asserted on*, which is the whole point. And the failure is
+  self-concealing, because the more thoroughly a mutation guts the code the more likely it is to
+  stop compiling, so the mutations that look most decisive are the most likely to be vacuous.
+- **The cheap check that would have.** Build the mutant before testing it, and require the run to
+  name at least one `--- FAIL: Test...` line:
+  `go build ./... && go test ./pkg/ -run 'X' 2>&1 | grep -E '^--- FAIL' || echo "NO TEST FAILED — not a kill"`.
+  Re-run in a form that compiles: here, `case len(proposedTypes[...]) > 0:` → `case false:`, which
+  keeps every symbol referenced and killed exactly one test, as claimed.
+- **Cost.** None in the end — caught in the same session, and the corrected result is recorded in
+  the test header with the trap written beside it. The near-miss was recording a mutation protocol
+  that would have made three real arms look proved and one arm look proved while proving nothing.
+
+## 2026-09-03 — I predicted which tests a mutation would kill, wrote the prediction down, and measured three where I said one (session 428, bugs_open/428)
+
+- **The claim.** The same header asserted that making `producerLiveness.Live()` return true
+  unconditionally would kill exactly `TestPlannerOmittedWithDormantProducerFilesGap`.
+- **Why it was false.** It kills three: that test plus `TestLivenessNeverSinceTrackingCarriesItsWindow`
+  and `TestLivenessUnreadableIsNotLive`, both of which assert that an unseen or unreadable producer
+  is not live. The prediction was written from the mutation's *intent* rather than from the set of
+  assertions that actually touch it.
+- **What caught it.** Running it. The prediction was in the file before the run, which is the only
+  reason the discrepancy was visible at all.
+- **The mistake, precisely.** A mutation protocol written from intent is a hypothesis wearing a
+  result's clothes — it reads exactly like a measurement, in a file whose whole purpose is to record
+  what was measured. **The right response was to correct the prediction, not to narrow the tests**:
+  the two extra failures are the honest ones, and loosening them to match what I had written would
+  have traded real coverage for a tidy claim.
+- **The cheap check that would have.** Write the protocol AFTER running it, or mark it `[PREDICTED]`
+  until the run replaces it. The property that actually mattered survived and is now stated
+  explicitly: `TestDeferralToLiveProducerFilesNoItem` stays GREEN under this mutation, which is what
+  makes it and the dormant-producer test a discriminating pair rather than two assertions about one
+  branch.
+
+---
+
+## 2026-09-03 — I replied to a CONTRIB at the wrong lane, having matched it to a socket from memory instead of to the name on the document (`bugs_open/450` lane)
+
+Small, cheap to fix, and worth an entry because the failure mode is invisible from the sender's
+side: the message reports success, and the lane that needed it simply never hears.
+
+- **The claim, implicit in the act**: that the socket I had been corresponding with was the lane
+  that wrote the CONTRIB. I sent a no-collision finding and a quoting trap to the `apis.uk` lane.
+- **What was actually true**: the document said so on its face —
+  `CONTRIB_2026-09-03_from_the_aiao_lane_…` — and the `ai-agent-orchestration` lane wrote it.
+  `apis.uk` had never heard of migration 732, had never touched `tool-generator`, and bounced it.
+  Both lanes had recently messaged me about the SAME agent row, which is what made the two
+  interchangeable in my head.
+- **What caught it**: the recipient, who read a reply to a heads-up they had not sent and said so
+  rather than trying to make it fit.
+- **The cheap check**: `ListAgents` before replying to a document rather than a message, and match
+  the **name written on the document**, not the socket most recently used. The CONTRIB filename
+  contained the lane name; I never read it as an address.
+- **Why it is worth logging despite the low cost**: `SendMessage` returned success, so nothing in
+  my own record would ever have shown the failure. Had the recipient been less careful, the
+  `ai-agent-orchestration` lane would have gone on believing our migrations collided — the exact
+  wasted precaution the note existed to prevent — and the quoting trap, which is the more valuable
+  half, would have reached nobody who needed it. **A misroute is silent at both ends unless
+  someone bothers to say "this is not mine".**
+- **The general shape**: a reply addressed from memory rather than from the artefact in front of
+  you. Same family as everything else this lane logged today — the artefact (a filename) carried
+  the answer and I used a remembered association instead.
+
+Family: a-report-is-not-a-measurement, always-give-the-path-for-any-doc-you-name,
+your-measurement-answers-the-question-you-encoded.
