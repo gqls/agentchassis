@@ -476,3 +476,48 @@ the strength of it; the point is that the encoding is now corroborated rather th
 Their 53-vs-54 half I DID adopt: `build_status='deployed'` versus any non-`removed` row, and the
 more inclusive reading is the honest one for "would be refused a repair", since a live-but-not-yet
 -deployed row is a page mid-maintenance.
+
+## (q) 2026-09-03 12:4xZ — the drain rate: what IS established, what is NOT, and where I stopped
+
+The 427 lane offered a bound rather than a correction: their two readings 40 min apart did not
+move (66/15 both times, db clock 12:00–12:40Z) although tool attachments were running, so the
+coupling between attachment rate and shell-set size is looser than "pages leave one at a time".
+I tested it instead of accepting it, and the test went three rounds before I stopped it.
+
+**ESTABLISHED, and it is the only part I needed:**
+
+- The shell set is **STABLE at 66–67** across ~40 minutes, on **two independent readers'**
+  measurements. So the harm metric's denominator is not moving under me, which is the one property
+  the 1.15 writes/hour base rate depends on.
+- **ZERO shell pages were CREATED in the last 12 h.** Only 7 `page_type='tool'` pages were created
+  at all and all 7 were co-created with their tool. So the set is not being replenished, and
+  bug 450 is not currently minting new shells — consistent with the remakes having paused, not
+  with anything my fix did (the door half does not stop a page ROW being created; only 729 would).
+- **ZERO writes to any shell page since the roll**, which is the harm metric itself.
+
+**NOT ESTABLISHED, and marked rather than resolved: the drain rate.** I measured "39 genuine
+repairs in 12 h", then "12 since 12:07Z" — against a set that fell by ONE. That does not close,
+and the reason is my own predicate again:
+
+> **`pc.created_at - p.created_at >= 1 hour` does not mean "the page was a shell before this
+> insert".** It cannot distinguish a FIRST tool arriving on an old page (a real departure) from a
+> tool being REGENERATED on a page that already had one (`create_tool_component_regenerate` —
+> never a shell, never in the set). Both look like an old page receiving a tool row. So "39" and
+> "12" are upper bounds on departures, not departures.
+
+Measuring it properly needs the page's component state *immediately before* each insert —
+`page_component_history` or a time-travel join — and **I stopped rather than build it**, because
+nothing depends on the answer: neither lane needs the drain rate, and the denominator stability I
+DID need is established directly by two readings of the set itself.
+
+**This is the fourth time today the same shape has caught me** (census `deployed_at`, census
+`is_active`, demand control `open`, and now `repair`), and the third time inside one hour of
+adopting the 427 lane's rule for exactly it. Writing the rule down does not install it. The tell
+each time was identical and cheap: **the arithmetic did not close.** 39 repairs against a set that
+fell by 1 is not a subtle discrepancy — it is a factor of 39, and it was visible in the first
+result rather than the third. **When two of your own numbers cannot both be true, stop measuring
+and go read the predicate.**
+
+⚠ And a smaller one worth copying from them: they caught themselves stamping a UTC reading
+`~14:00` — BST written as UTC, on the very number they had just corrected. Every timestamp in this
+lane's docs is UTC from the database clock (`now()` returns `+00`), never local.
