@@ -192,6 +192,12 @@ func SavePageMetaDescriptionAction(ctx context.Context, params ActionParams) (in
 	if reason, detail := metaDescriptionFailsCopyGates(ctx, params, candidate, logger); reason != "" {
 		logger.Warn("candidate refused by the copy gates — nothing written",
 			zap.String("reason", reason), zap.String("detail", detail))
+		// bugs_open/442: a refusal used to end here, as one Warn plus a field in
+		// collected_data that nothing asserts on. It now leaves a durable row at
+		// an actor that can repair it. This CANNOT change what we return — see
+		// fileMetaDescriptionRefusal, which never errors: the refusal is already
+		// correct and a bookkeeping fault must not turn it into a failed step.
+		fileMetaDescriptionRefusal(ctx, params, config, candidate, reason, detail, logger)
 		return map[string]interface{}{
 			"updated": false,
 			"reason":  reason,
