@@ -284,7 +284,7 @@ The owner refreshed the kubeconfig ~21:2xZ (the 444 session noticed first). Ever
   and ≥ 420 s since that start — the ~300 s no-dispatch window with margin. 3 h deadline, then
   it does NOT fire. **If you find the items absent and the roll done, fire by hand:**
   `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < <that file>` — the guards make it idempotent-safe.
-- **HELD, 1 of 8: `tool-redirect-chain-checker` (seotools).** Following redirect hops needs
+- ~~**HELD, 1 of 8: `tool-redirect-chain-checker` (seotools).**~~ **RULED ~09:1xZ: lesser version accepted and FIRED (`SQL_2026-09-03b_…`, NOTES (x)); all 8 in the queue.** Original reasoning kept: Following redirect hops needs
   server-side requests; a browser cannot see cross-origin `Location` headers, and the platform
   has NO backend provisioning for generated tools (`tool_backend_provision.go` provisions
   nothing — it files a handover item, and only for library tools tagged requires-backend on a

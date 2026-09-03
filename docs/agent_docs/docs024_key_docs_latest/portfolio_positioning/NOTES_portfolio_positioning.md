@@ -4091,4 +4091,11 @@ channel-prioritiser. Redirect-chain checker HELD (owner asked). A monitor report
 terminal state and whether its page gained a `component_level='tool'` row; verification at the
 BODY (runbook §4) follows. The 10-min-capped shell watcher was still polling at 09:04:50Z; any
 later attempt of its own hits the dedup guard and aborts — the file is idempotent-safe by design.
+- **(x) follow-through — OWNER RULING (second, ~09:1xZ): "accept a lesser redirect checker."**
+  8th item fired from `SQL_2026-09-03b_fire_redirect_checker_lesser.sql` (same guards): a
+  paste-in chain analyser (hops, loops, 301/302/307/308 semantics, collapse recommendation,
+  timeline view) + a best-effort browser fetch that reports only `response.redirected`/final URL
+  where CORS permits, prints a `curl -I -L` for the user otherwise, and says what it cannot see.
+  All 8 planned tools now in the queue; the running monitor's exit threshold is 7, so read the
+  8th by hand after it reports.
 

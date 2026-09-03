@@ -1438,3 +1438,11 @@ checks a chain the user pastes in). Say which. The other two "fetch a URL" tools
 genuinely work in a browser: Core Web Vitals reads Google's public PageSpeed data, and the meta
 tag checker works from pasted page source with a fetch attempt as a bonus.
 
+**2026-09-03, ~10:15 — the lesser redirect checker is queued too; all eight are building.**
+
+Done as you said. The redirect checker will analyse a chain the user pastes in (hops, loops,
+temporary-versus-permanent, what to collapse it to), try a browser check where the target site
+allows it, and print the one-line command to run when it does not. It is honest about what it
+cannot see. The other seven were queued the moment the new chassis settled. I will read each
+finished page myself before calling any of them done.
+
