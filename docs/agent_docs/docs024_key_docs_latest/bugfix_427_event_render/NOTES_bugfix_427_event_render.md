@@ -410,3 +410,74 @@ of its readiness.
 **What is still owed on 427 itself:** nothing new. The fix is Go, so it is inert until a
 chassis image carrying `9831e9ab4` rolls; both live builds still carried the defect at
 09:54 UTC today. When it rolls, re-dispatch the page-rerender and read the artefact.
+
+---
+
+## 2026-09-03 (later still) — verdict APPROVED, ff91e666 resubmitted, and a defect found in this lane's own migration while writing the resubmission
+
+**454's fix is council-APPROVED** (`075cfedd`, 10:05:35Z, round 1): 12 of 13 seats approve, 5
+abstain, no truncation, `decided_by: "approved with 1 advisory objection(s) — none
+high-severity"`. All three advisories were about my SUBMISSION, not the code, and are
+adjudicated in `bugs_open/454` §11. The one worth carrying:
+
+> **`editquality` MEDIUM was right on the merits and wrong about what shipped.** I sketched
+> ONE test where I had written TWO, so the seat could not see the classification-level
+> assertion — and objected, correctly, that without it a future refactor could re-break
+> `classifyStoredSection` while leaving the merge intact. That is precisely why the first test
+> exists. **The runbook already says reviewers judge the sketch, because it is the only view of
+> the code they get, and I did not follow it.** A second sketch block would have cost four
+> lines and saved a MEDIUM. The other two advisories cost nothing: `plan`'s scope is settled by
+> compilation, and `reuse_agent`'s "put it in the existing test file" is refused on a
+> measurement — there IS no `rerender_page_sections_action_test.go`; this action already has
+> four concern-named test files, so a fifth follows the convention.
+
+**`ff91e666` round 2 is submitted** (dispatch `c46cf6c2`, trail keyed on `ff91e666`; verdict
+still pending at the time of writing — the only `council_report` on that correlation remains
+the 09-02 REVISE). It answers `prior_art_librarian`'s gating HIGH with events rather than a
+better argument, and widens the edit list from `712` alone to `712 + 719 + 727`.
+
+**The find of that exercise was a defect in this lane's OWN migration 719 — surfaced by
+writing an honest rationale, not by any detector.** 719's UPDATE rebuilt `pages.sections` with
+`jsonb_agg(DISTINCT x)` and no `ORDER BY`, which does not preserve input order:
+
+```
+before 719   ["hero-tool", "generic-text-block", "advertising"]
+after  719   ["advertising", "hero-tool", "event-list"]      <- arbitrary order
+intended     ["hero-tool", "event-list", "advertising"]
+```
+
+`pages.sections` is order-bearing BY INDEX (`save_page_sections_action.go:1979` states it;
+`adopt_fragment_section.go` uses `planned[Position-1]`; `section_editor_actions.go` matches on
+`p.sections->(pc.position - 1)`), so position 1 indexed to `"advertising"` and position 2 to
+`"hero-tool"`. **Bounded, not overstated: not live damage** — that section-editor arm is gated
+on an empty `slot_name` and both rows carry non-empty ones. Latent until a build leaves one
+empty, and silent either way, because a wrong-but-present name matches nothing rather than
+erroring.
+
+Fixed by **migration 727**, applied by hand and `--record-only`'d. Two `RAISE` pre-checks, and
+a verify block that asserts **the index alignment** rather than the array's literal value —
+so it also catches drift it did not cause. **Rehearsed under `BEGIN`/`ROLLBACK`** (clean;
+post-rollback control unchanged) and **induced-failure-proven**: writing a deliberately wrong
+order made the verify `RAISE` and abort with the row untouched. That second step is the one
+that is easy to skip and the only one that shows the guard can fire.
+
+**Two things named and deliberately not done**, so neither reads as handled: `"advertising"`
+is still declared in that array with no `page_components` row (pre-dates 719 and this lane);
+and nobody has censused whether other pages fleet-wide carry the same index misalignment — 727
+restores ONE page and claims nothing wider.
+
+**Cross-lane traffic this session, recorded because two of the three were useful and one
+corrected me.** (1) The `bugs_open/450` lane committed the six-file closure that restored HEAD
+after my pathspec commit took their passenger — HEAD green at `13aac933f`, my fix and both
+tests intact and part of that green, independently re-verified rather than taken on trust.
+They also volunteered that `escalateRerenderToWriter` now returns a second refusal disposition
+(`skipped_tool_pending_page`), which is in the RUNBOOK now: any count reading only
+`skipped_owned_page` will undercount from the next roll. (2) The `gamedesign.uk` lane's
+post-687 CONTRIB, relayed twice (once directly, once via `site-design-planner` through a name
+collision), adjudicated into `bugs_open/428` §11 as a new residual of 687 rather than a
+reopening of 428. (3) Answering their invited refutation turned up a real second producer of
+`blog-post` pages (`create_blog_posts_action.go:238`, driven by a live `blog-content-planner`
+row) — **and nearly had me repeat this file's own mistake of the morning**: my first check was
+`orchestration_states`, which returned 0 runs and spans **24 hours**. A rolling window cannot
+establish that a thing never happened. `llm_call_log` has the real memory: 10 calls, all
+2026-04-03 → 2026-04-24, none since.

@@ -174,3 +174,62 @@ with no further work from us.
 I've also sent the fix to the reviewer council, as we do for anything touching
 shared platform code, and I've written the whole thing up as its own bug (454)
 so nobody has to rediscover it.
+
+---
+
+**2026-09-03, late morning.** Three things since the last note, and one of
+them is me finding a mistake of our own.
+
+The reviewer council approved the fix. Twelve of thirteen reviewers said yes,
+and the one objection was fair and was about my paperwork rather than the
+code: I had written two tests and only showed them one of them, so they quite
+reasonably asked where the other was. It was there all along. The lesson is
+one our own runbook already spells out — the reviewers only see the summary
+you give them, so a summary that undersells the work draws an objection the
+work didn't deserve. Four lines would have avoided it.
+
+Second, I resubmitted the older review that had been sitting unanswered since
+yesterday — the one about the calendar component itself. Its blocking
+objection was that we'd claimed there was no safe way to attach the component
+except a full page rebuild, without checking. The reviewer was right, we did
+check afterwards, there was a safer way, and we used it. So the resubmission
+answers them with what actually happened rather than with a better argument.
+I also widened it: the original only asked them to review the safe part
+(adding a component to the library), leaving the two changes that actually
+touched the live site unreviewed. On this system a database change IS the
+running system, so reviewing only the safe third isn't really reviewing it.
+
+Third, and this is the one worth telling you about: while writing that
+honest account I found a bug in our own change from yesterday. When we
+updated the page's list of sections, the database command we used rebuilt
+that list without preserving its order. The list went from
+[hero, old-section, advertising] to [advertising, hero, calendar] when it
+should have been [hero, calendar, advertising]. That order matters — three
+different parts of the system use "the Nth entry in this list" to identify
+"the Nth section on the page", so after our change the first section on the
+page was matching against the wrong name.
+
+I want to be straight about the size of it: this was not causing damage
+today. The one place that would have tripped over it only does so for
+sections that have no name of their own, and both of ours have names. It was
+a trap waiting rather than a fire burning. But it was silent in both
+directions — a wrong-but-present name doesn't error, it just quietly matches
+nothing — so it would have surfaced one day as an inexplicable failure with
+no obvious cause.
+
+Fixed, with the order restored. Before applying it I rehearsed the whole
+thing inside a transaction that I then rolled back, to check it did what I
+expected and left nothing behind, and then I deliberately made it write the
+WRONG order to confirm the safety check would actually catch that and refuse.
+It did. That second step is the one that's easy to skip and it's the only one
+that proves the safety check works at all.
+
+Two things I deliberately did NOT do, so they don't look handled: there's
+still an entry in that page's list ("advertising") pointing at something the
+page doesn't have — that pre-dates all of this work, so I left it exactly as
+found and wrote down that it's there. And I haven't checked whether other
+pages across the estate have the same ordering problem. I fixed one page and
+I'm claiming nothing wider than that.
+
+The calendar page itself still can't show the fight until a new server image
+is rolled out. Nothing more to do on it here.
