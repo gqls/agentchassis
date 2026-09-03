@@ -210,11 +210,16 @@ activity, not wall-clock. §1's 36 writes are far above that share and are the f
 
 ## §4 Peer lanes — live dependencies
 
-- **`portfolio_positioning`** — owns the INSTANCE repair. All 8 tools built, adopting existing
-  pages at existing URLs. **Owes this lane a served-body reading of the seven seotools pages**
-  (whether the tool and the leftover prose visibly compete at position 2). Their finding, recorded
-  in NOTES (s): the **sectionless** fork repairs *cleaner* — this inverts my own argument for the
-  plan-side gate **in its favour**.
+- **`portfolio_positioning`** — owned the INSTANCE repair; **CLOSED on their side**: all 8 tools
+  verified serving at 14:32:42Z by instance-scoped id, and the six orphaned `component_id`s
+  repaired at 14:01:10Z. ⚠ **Their served-body reading RETRACTED two findings this lane had already
+  adopted** (NOTES (w)): the tool and the prose do NOT compete — served order is stable
+  `hero-tool → generic-text-block → tool` on all seven, and inferring served order from stored
+  `position` was the error — and the prose is **not debris**, it is accurate copy about a tool that
+  is now present. **So the 13:05–13:24Z writes IMPROVED those pages**, and the only casualty was
+  the reference. The "sectionless heals cleaner" inversion recorded in NOTES (s) is therefore
+  itself retracted; the case for holding empty-sectioned tool pages rests on the recurring HITL
+  tax, not on post-repair cleanliness.
 - **`bugs_open/427` / `454`** — reported the regression §2 row 2 fixes; wrote the measurement
   pattern into 016b (`80f74b23d`). Their `9831e9ab4` is live. ⚠ Their standing warning: until it
   rolled, every re-render served stored data back at itself.

@@ -662,3 +662,53 @@ and the current one behaves differently. Re-measure against the current stamp; d
 `HANDOFF_2026-09-03_continue_here.md` in this directory. §1 is the falsification and leads the
 document; §2 is what is live/committed/blocked; §3 separates the numbers that can be trusted from
 the ones that cannot; §4 the peer dependencies; §5 the ordered open list; §6 the traps.
+
+## (w) 2026-09-03 14:3xZ — the served-body reading RETRACTS two findings I had already adopted, and the writes turn out to have IMPROVED the pages
+
+The `portfolio_positioning` lane delivered the reading it owed, as observed rather than reasoned,
+and it falsifies two of its own earlier findings — **both of which I had taken into NOTES (s) and
+acted on.** Recording the whole chain rather than quietly reverting, because the chain is the
+lesson.
+
+**What was measured, by byte offset in the served HTML, on all seven seotools pages:**
+`hero-tool` ≈51,0xx → `generic-text-block` ≈54,6xx → the tool ≈61,000–63,500. **Hero, prose, tool.
+Consistent across all seven.**
+
+**RETRACTED #1 — "the tool and the prose compete for position 2, in an order nothing declares."**
+False. Two rows sharing database `position` do not compete in the rendered output; the order is
+stable. The error was inferring SERVED order from STORED position — their words, and exactly the
+class this lane has been paying for all day, one table along.
+
+**RETRACTED #2 — "debris the repair cannot remove."** False, and the opposite is true. Read on
+`tool-robots-txt-tester`: *"The Robots.txt Tester reads that file the way a crawler does, then
+shows which of your URLs are blocked, which are allowed, and where two rules contradict each
+other… Paste in a URL or the robots.txt content itself…"* That is **accurate copy about a tool
+that is present, sitting directly above it.**
+
+**Which means the 13:05–13:24Z writes IMPROVED these pages.** The original prose was written
+2026-09-02, before any tool existed, and promised a tool that was not there — this bug's exact
+symptom. The rewrite ran *after* the repair put a real tool on the page, so the builder had the
+tool in context and described it truthfully. **The only casualty was the `component_id`**, since
+repaired.
+
+> **CORRECTION to (s), which was itself a correction.** In (s) I recorded their
+> "sectionless-heals-cleaner" finding as *inverting my own argument in its favour* and said so in
+> a commit message and to two lanes. **That inversion is now itself retracted.** The shelled fork
+> does not leave debris; its prose became an asset once a tool existed to describe. What survives
+> is only the narrow point that the sectionless page needed no prose rewrite at all — which is a
+> much weaker claim than the one I propagated. **The argument for holding empty-sectioned tool
+> pages therefore rests where it originally did: the recurring HITL tax, not post-repair
+> cleanliness.**
+
+**The third-order lesson, and it is the one worth carrying.** I corrected my position on the
+strength of a peer's measurement (s), propagated the correction, and the measurement was then
+retracted by a better one from the same peer. Nothing here was careless — each step was the best
+reading available at the time. **The failure mode is propagating a correction as confidently as a
+measurement.** A peer's finding is evidence, and evidence gets superseded; my (s) entry stated
+their inference as settled fact and pushed it into a commit message and two other lanes within
+minutes. The cheap discipline is the one they modelled here: say *observed* or *reasoned* on every
+claim that travels, and when you adopt someone else's finding, adopt its status too.
+
+**Also closed:** all eight tools verified serving at 14:32:42Z by instance-scoped id. The instance
+work is done on their side; §1's outstanding repair is the two remaining orphans
+(`idea.uk/tool-funding-fit`, `loanzy.uk/tool-loan-vs-savings`), not seotools.
