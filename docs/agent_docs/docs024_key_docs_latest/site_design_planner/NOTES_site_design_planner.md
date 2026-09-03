@@ -581,3 +581,32 @@ re-deriving the starting point.
 stayed untouched throughout (the original recommendation held); the accent got
 real, deliberate use; the imagery work is next, sequenced after this batch,
 not started.
+
+## 2026-09-03 — reopened: the independence-banner ELEMENT never renders at all. I made the exact mistake I'd already caught once this thread
+
+`vetcomparison`'s own follow-through found it: 0 `.independence-banner`
+elements on any live page (checked 7), 0 `page_components`/`site_components`
+rows for it. **My earlier "6 occurrences" check for this exact selector
+(2026-09-02) counted CSS rule definitions, not rendered markup — the identical
+error the vigilant-designer's regex made on the same page, and that I myself
+caught and corrected for `.news-more-link` a few hours earlier in this same
+thread.** I did not re-apply that lesson to my own next check on the same
+page. Worth being blunt about in this file rather than quietly folding it into
+"corrected" language: **checking a selector's occurrence count in a served
+file is not checking whether it renders — that has now bitten this thread
+twice on one page, once caught by a peer both times.**
+
+**Consequence:** the owner's "use the green deliberately" ruling is still
+unsatisfied — the whole accent batch gave the palette/CSS infrastructure real
+values with nothing consuming them. Investigated the offered fallback path
+(a "claimed" chip on the directory page) before agreeing with it: the
+component template only has a NEGATIVE badge (`{{if not .is_claimed}}`) — no
+positive branch exists, so this isn't "restyle an existing element" either, it
+needs new markup, same as a banner. **Corrected that premise back rather than
+letting it stand.** The one path that's genuinely free of new content: widen
+the existing decorative `::before` heading-mark (currently scoped to
+`.latest-news-section .section-heading` only) to the other section headings —
+pure CSS, checked its exact selector scope, ready to draft if wanted. Left the
+choice with `vetcomparison`/the owner rather than picking for them — both
+substantial options touch the content freeze regardless of which one looks
+smaller.
