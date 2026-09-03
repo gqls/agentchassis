@@ -1355,7 +1355,9 @@ source document and the entry points at it.
 
 - **footprint:** `090_TRIGGER_needs_diagnosis_v1.sh`, the diagnose-agent `data_requests`
   path, any hypothesis citing `page_components.rendered_html`, `html_template`,
-  `content_data` or another wide text column as its artefact
+  `content_data`, **`agent_definitions.default_config` / any `prompt_template`**
+  (added 2026-09-03 — a prompt case did not match this entry's footprint and got
+  filed twice) or another wide text column as its artefact
 - **fires when:** your hypothesis turns on something NOT being in a large artefact — no
   randomness in a tool, no call to a function, no reference to a key — and you ask the loop
   to verify it
@@ -21527,15 +21529,31 @@ END $$;
 
 ---
 
-### A `090` naming a PROMPT comes back `UNVERIFIABLE` blaming your evidence — but the gap is its own retrieval TRUNCATING a body you can read in one query
+### A `090` naming a PROMPT comes back `UNVERIFIABLE` blaming your evidence — the same truncation trap, one column over
 
-- **footprint:** `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh` · `agent_definitions.default_config` · `diagnosis_artifacts` `kind='bundle'` · any symptom naming a `prompt_template`, a `config` blob or another long jsonb value
-- **fires when:** you file a diagnosis whose mechanism lives in prompt or config TEXT rather than in Go — "the prompt does not mention X", "the config does not declare Y". The loop indexes and samples source and rows; a long `prompt_template` is returned CUT.
-- **what actually happens:** the verdict is `UNVERIFIABLE` — *"NOT CONFIRMED (stopped: scope-not-narrowing)"* — and the `still needed` section says your claim "cannot be asserted from what's shown", listing the very evidence you filed the run to have checked. Worked case 2026-09-03, run `6a317110`: *"every prompt/config sample returned in this bundle was cut off before the point where an ink mention would appear, so 'the prompts don't name the ink companions' cannot be asserted."* The prompt was **5,115 characters** and one `psql` query returns all of it.
-- **why the wrong result is invisible, and this is the whole trap:** `UNVERIFIABLE` **is not `REFUTED`**, but it reads like a rebuttal — it is phrased as a deficiency in your evidence, it is specific, and it is often partly right. A session that files the run to be careful and then reads the verdict as "my claim did not hold" retracts a TRUE finding. The failure is in the instrument's reach, not in the hypothesis, and nothing in the output distinguishes the two.
-- **the check, before you believe any part of it:** for every "could not see / was cut off / cannot be asserted" gap, go and read that artefact yourself — `SELECT default_config #>> '{workflow,steps,<step>,config,prompt_template}' FROM agent_definitions WHERE type='<type>' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;` for a prompt, and the SERVED artefact for anything rendered. Then answer each gap in the bug file by name. Only the gaps that SURVIVE first-hand reading are findings.
-- **the half that is worth the run anyway:** the same verdict's *other* objections can be excellent. That run's third point — *"several components already reference `var(--color-primary-ink, …)`, so it's not established that the naive pattern is what's currently being generated versus already-legacy content"* — was a real challenge the filing session had not tested, and measuring it by `created_at` **inverted the loop's own hypothesis** (the ink-using rows are the legacy ones). **So: do not discard the verdict, and do not adopt it. Split it.**
-- **distinct from the sibling landmine** *"a 090 run on a symbol in a file over ~60KB returns bundles and NO verdict"*: that one produces **no verdict at all** and looks like a run still in progress. This one produces a **confident verdict** whose reasoning is shaped by what the retrieval dropped. Both are the body budget; only one announces itself.
-- **relations:** `bugs_open/458` §10 (the worked case, with each gap answered) · the sibling 60KB-bundle landmine · `WRONG_CALLS.md` 2026-09-03
-- **source:** 2026-09-03, `site_ai_agent_orchestration` lane; the second failure mode was named by the `bugs_open/450` lane, which had hit the first on a 199KB `coordinator.go` and stated its substitute rather than omitting it
-- **added:** 2026-09-03, site_ai_agent_orchestration lane
+> **MERGED 2026-09-03, hours after I filed it — this is substantially the entry above,**
+> *"The diagnosis loop's `data_request` truncates a large text column at ~10.7KB"*. **Read that
+> one; this is a thin addendum, kept only for its two differences.** I grepped `/bugs_open/`
+> before filing and did **not** grep this file, which is how a corpus written to stop repeat
+> mistakes acquires a repeat entry. The existing entry's footprint has been widened to name
+> `agent_definitions.default_config` and `prompt_template`, which is why mine did not match it.
+
+- **footprint:** `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/090_TRIGGER_needs_diagnosis_v1.sh` · `agent_definitions.default_config` · any symptom naming a `prompt_template`
+- **difference 1 — the stop reason differs, so the tell differs.** The entry above records
+  `stopped: iteration-cap`. A prompt case stops at **`scope-not-narrowing`**, and the verdict
+  names your evidence rather than its own reach: *"every prompt/config sample returned in this
+  bundle was cut off before the point where an ink mention would appear, so 'the prompts don't
+  name the ink companions' cannot be asserted."* (run `6a317110`, 2026-09-03). The prompt was
+  **5,115 characters** — comfortably under the ~10.7KB cut — but it sits inside a **14KB**
+  `default_config`, so the *column* was truncated, not the field. **Sizing the field tells you
+  nothing; size the column the loop actually fetches.**
+- **difference 2 — SPLIT the verdict, do not discard or adopt it.** `UNVERIFIABLE` is not
+  `REFUTED`, but it is phrased as a deficiency in *your* evidence, so a careful session retracts a
+  true finding. Answer each "could not see" gap by reading that artefact first-hand and saying so
+  by name — **and then read the objections that are left.** In the worked case the third one was
+  real and untested by the filer (*"is the naive pattern current, or already-legacy content?"*),
+  and measuring it **inverted the loop's own hypothesis**. One run produced both a false
+  retraction risk and the best objection of the day.
+- **relations:** the entry above (the primary) · `bugs_open/458` §10, where each gap is answered · `WRONG_CALLS.md` 2026-09-03
+- **source:** 2026-09-03, `site_ai_agent_orchestration` lane; the second failure mode was named by the `bugs_open/450` lane, which had hit the sibling 60KB variant on a 199KB `coordinator.go`
+- **added:** 2026-09-03, site_ai_agent_orchestration lane; **merged into the entry above the same day**
