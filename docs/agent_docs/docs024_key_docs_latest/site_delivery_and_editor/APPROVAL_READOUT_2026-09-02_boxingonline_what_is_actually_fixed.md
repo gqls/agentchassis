@@ -25,6 +25,7 @@ returns 200 with a 114-byte stub for any path). 21 pages deployed.
 | — | **Fight calendar is in the menu** | 1 header entry per page, correct order, all 21 pages |
 | — | **Logo carries no invented name** | single composition, zero lettering, verified by eye and pixel-decode |
 | — | **Six articles built and linked** | 6 links on both listings, all targets HTTP 200 |
+| 1 | **Contact page is GONE — both halves** `[VERIFIED 2026-09-03 08:28Z]` | `/contact.html` → **404**; three kept pages (`/index.html`, `/guides/index.html`, `/tools/fight-calendar/index.html`) → **200**; invented URL → **404** (so the 404 discriminates and is not a blanket); **0 inbound links** across all five pages probed. Verified independently by me and by two other sessions. Mirror sweep fired 22:53:51Z on the site's first post-roll tick, `deleted:1 ["contact.html"] accepted:true`. `bugs_closed/429`, fix `b60d66e3c` in v1.0.1355 |
 
 ## B. NOT FIXED — still visibly wrong on the site
 
@@ -42,7 +43,7 @@ returns 200 with a 114-byte stub for any path). 21 pages deployed.
 
 | item | state |
 |---|---|
-| **Contact page 404** | Deletion worked; the publish mirror has no delete capability at all. Fix committed (`b60d66e3c`), roll-bound. Converges automatically on the site's normal hourly slot after the roll — **no forcing** |
+| ~~**Contact page 404**~~ | **CLOSED 2026-09-03 — moved to §A.** See below |
 | **Logo with no baked background** (his ruling 5) | Implemented, then its review caught a real defect — the prompt forbade the exact colour it also demanded. Fixed (`b2322a203`), but the running build predates it. **Do not regenerate the logo until the next roll** |
 | **Card headline/deck producer** | Live in the binary since 12:28Z — but see §D |
 
