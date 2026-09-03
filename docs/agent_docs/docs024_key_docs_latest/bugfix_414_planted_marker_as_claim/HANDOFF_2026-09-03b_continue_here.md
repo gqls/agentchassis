@@ -1,5 +1,11 @@
 # HANDOFF 2026-09-03b — `bugfix_414` lane, and the evidence-register programme it spun out
 
+> ## ⚠ SUPERSEDED — read `HANDOFF_2026-09-03c_continue_here.md`
+> Written 13:00 UTC and overtaken the same afternoon by four owner rulings (RFC_060 §3g): vetcomparison
+> gets a register, loancash's three sentences are to be repaired, build the absence check AND populate,
+> and a register for EVERY site at a lower bar for ordinary ones. Three of the four are now built. §5 of
+> this file ("three decisions outstanding") is therefore DISCHARGED — kept for the trajectory only.
+
 **Supersedes `HANDOFF_2026-09-03_continue_here.md`** (written 10:34 BST the same day, and stale in
 three rows within the hour — that staleness is itself recorded, in NOTES §(q)).
 Read this one. The earlier three are kept for the trajectory, not for state.
