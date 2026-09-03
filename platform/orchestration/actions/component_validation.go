@@ -188,6 +188,12 @@ var canonicalCSSTokens = map[string]struct{}{
 	"--container-max-width": {}, "--primary-color": {}, "--secondary-color": {},
 	"--accent-color": {}, "--color-heading": {}, "--color-white": {},
 	"--color-error": {}, "--hero-ink": {},
+	// renderer-owned legible-ink companions, emitted by buildLegibleInkDefaults
+	// (palette_specialised_slots.go). They are the documented repair for a
+	// palette colour that is illegible in the direction a component uses it,
+	// so a template opting into one must not be audited as unknown drift.
+	"--color-primary-ink": {}, "--color-accent-ink": {}, "--color-cta-bg-ink": {},
+	"--color-accent-text": {},
 }
 
 var cssVarRefRe = regexp.MustCompile(`var\(\s*(--[a-z0-9-]+)`)
