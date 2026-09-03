@@ -106,6 +106,62 @@ assertion for a truncated document. ⚠ Council gate applies (migrations in scop
 ⚠ §6's red-induction ("break a constant, re-run, must fail") is still owed and belongs to P4 — P1/P2
 **grade**, they do not strengthen, and cannot satisfy it.
 
+### 4a. SCOPE, RESIZED by measurement — do NOT ship both agents in one migration
+
+`[MEASURED 2026-09-03 16:3xZ]`, and both facts postdate the plan that said "two prompts":
+
+1. **`experience-planner` carries the fence in THREE steps** — `compose`, `recompose`, `reframe`
+   (not one). Editing one leaves two authoring the old vocabulary.
+2. **`experience-planner` has authored 3 fences, EVER.** `tool-generator` is 187 of the 241 tool
+   fences and every blind driving one.
+
+**Recommendation: ship `tool-generator` alone first; make `experience-planner`'s three paths a
+separate follow-on.** Three extra verbatim anchors for ~1% of the population is a bad trade in one
+migration, and `732`-shaped guards are per-anchor — each one is a `RAISE EXCEPTION` that can go stale
+independently.
+
+### 4b. The design rule to write, which is NARROWER than "teach the type"
+
+The generator's only inputs are the spec and `{{.generated_html}}` — **the artefact whose correctness
+is in question.** No register, no formula source. So "emit `computed_values`" unqualified can only
+yield a value read off the tool, i.e. the pinning failure. The one independent oracle actually
+present is **the model's own knowledge of a published formula**, applied to inputs it chooses:
+
+- **Derivable (DEFINITION) → emit.** A published, checkable rule: annuity repayment, compound
+  interest, VAT, BMI, unit conversion, margin arithmetic. The generator picks the inputs, does the
+  arithmetic itself, and the expectation never touches the page.
+- **Not derivable → REFUSE.** An arbitrary scoring heuristic where "correct" is whatever the code
+  says (`tool-idea-stage-identifier`, `tool-process-automation-scorer`). No oracle exists, so a
+  check could only pin the implementation.
+
+**The instruction is conditional and its default is refusal**, and it must require the arithmetic be
+shown in `## Dependencies` so a reviewer can see which case the generator believed it was in.
+
+### 4c. The shape, pinned — do not re-derive it
+
+From `criteriaCheck`/`criteriaStep` (`run_checks_action.go:221-246`), confirmed against a live
+`operator:staged_component_build` fence:
+
+```json
+{ "id": "<kebab-id>", "type": "computed_values", "profiles": ["desktop"],
+  "steps": [ { "action": "fill", "selector": "#volume", "value": "5000" } ],
+  "expect_values": { ".result-card.highlight .result-value": "$2,000.00" } }
+```
+
+`expect_values` is a **map** selector → exact text after `steps` run. Actions: `fill`/`click`/
+`select` (with `value`), `reload`. Comparison is `collapseSpace` both sides — **whitespace-
+insensitive, everything else exact**, so currency symbol, separators and 2dp must match as rendered.
+`no_auto_fix` / `no_auto_fix_reason` are **top-level fence keys**, not per-check.
+
+**Anchor for the pre-guard** (distinctive, one occurrence, and the claim being amended):
+*"No other check type exists for interactions — never emit `"type":"click"` or `"type":"fill"` as a
+check type."*
+
+**Budget:** `compose_plan` is `claude-sonnet-5`, **`max_tokens: 4000`**; the prompt is 2,783 B / 45
+lines; a `computed_values` check costs ~350-450 chars of the output document. **Raise the instructed
+"under 3000 characters" cap to ~3,500** — there is ample token headroom, and leaving it makes the
+model trade the new assertion against prose it was also told to write.
+
 ## 5. The census, refreshed — quote THIS one
 
 `[MEASURED 2026-09-03 16:04Z]` `is_current` tool fences. **Do not quote the old figures; this moved
@@ -120,7 +176,16 @@ assertion for a truncated document. ⚠ Council gate applies (migrations in scop
 | `operator:staged_component_build` | 8 | 0 | 6 | 7 | 0 |
 
 **The single sharpest line in this lane: `tool-generator` has authored 187 fences and
-`uses_computed_values` = ZERO.** All 38 value-asserting fences in the estate came from an operator or
+`uses_computed_values` = ZERO.** All ~~38~~ **30** value-asserting fences in the estate came from an operator or
+> **CORRECTED 2026-09-03 ~16:4x — the count was 30, not 38, and it was MY ARITHMETIC, not a stale
+> census.** 16 (`bugfix224-session`) + 8 (`mortgagecalculator-…-701-rekey`) + 6
+> (`staged_component_build`) = **30**. I took `staged_component_build`'s *fences* figure (8) from
+> the adjacent column instead of its *uses_computed_values* (6), and mis-added on top. Caught by a
+> second query run for a different purpose — `count(*) FILTER (WHERE body LIKE '%expect_values%')`
+> grouped by `subject_type` returned **30** and disagreed with the total I had already published in
+> four places. **The conclusion is untouched: `tool-generator` accounts for ZERO of them.** The
+> number was decoration on that finding and I still got it wrong. `WRONG_CALLS.md` has it.
+
 a lane, never from the agent. `max(created_at)` = **12:35:59Z today** — a live intake, not a backlog.
 
 ## 6. Other threads, and what is owed

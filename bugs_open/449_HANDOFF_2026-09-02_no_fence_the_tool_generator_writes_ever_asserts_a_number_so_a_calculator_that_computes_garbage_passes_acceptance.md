@@ -338,6 +338,42 @@ because it makes today's bug tomorrow's specification.
 ### 9e. The census, re-run — do not quote §2's figures
 
 `[MEASURED 2026-09-03 16:04Z]`, `is_current` tool fences: **`tool-generator` 187 fences, 116
-asserting no value, `uses_computed_values` = 0, 91 driving inputs, 55 driving-and-blind.** All **38**
+asserting no value, `uses_computed_values` = 0, 91 driving inputs, 55 driving-and-blind.** All ~~38~~ **30**
+> **CORRECTED 2026-09-03 ~16:4x — the count was 30, not 38, and it was MY ARITHMETIC, not a stale
+> census.** 16 (`bugfix224-session`) + 8 (`mortgagecalculator-…-701-rekey`) + 6
+> (`staged_component_build`) = **30**. I took `staged_component_build`'s *fences* figure (8) from
+> the adjacent column instead of its *uses_computed_values* (6), and mis-added on top. Caught by a
+> second query run for a different purpose — `count(*) FILTER (WHERE body LIKE '%expect_values%')`
+> grouped by `subject_type` returned **30** and disagreed with the total I had already published in
+> four places. **The conclusion is untouched: `tool-generator` accounts for ZERO of them.** The
+> number was decoration on that finding and I still got it wrong. `WRONG_CALLS.md` has it.
+
 value-asserting fences in the estate were authored by an operator or a lane, never by the agent.
 `max(created_at)` = 12:35:59Z **today** — a live intake. §2 counted 170, then 186; it moves daily.
+
+### 9f. A population none of this lane's three shipped halves can see — `component`, 55 fences, ZERO value assertions
+
+`[MEASURED 2026-09-03 16:3xZ]` `is_current` plans carrying a ` ```criteria ` fence, by subject:
+
+| subject_type | with_fence | with_value_assertion |
+|---|---|---|
+| `tool` | 241 | **30** |
+| `component` | **55** | **0** |
+| `experience` | 3 | 0 |
+
+**Every one of the 55 component fences is `operator:staged_component_build`, and not one asserts a
+value.** P2's write door is gated on `subjectType == "tool"`
+(`write_doc_plan_action.go:218`), and the Tier-4 scope line and the daily sweep are tool-scoped as
+well — so **a component fence that asserts nothing is invisible to all three halves of the fix**, and
+nothing counts it.
+
+This is out of scope for 449 **as filed** and I am not widening the bug to take it. Recording it as a
+**new fix candidate** because it is the same defect in a population 30% the size of the one being
+fixed, and because the three detectors now standing were all built tool-shaped — so the gap will not
+surface on its own. Whoever takes it should check first whether component fences are consumed by the
+same Tier-4 runner or a different path; that determines whether this is one fix or two.
+
+⚠ Also note for the authoring phase: **`experience-planner` carries the fence in THREE steps**
+(`compose`, `recompose`, `reframe`) and has authored **3 fences ever**, against `tool-generator`'s
+187. §8e.1's "and the equivalent on `experience-planner`" understated the anchor count and overstated
+the value. Ship `tool-generator` alone first.

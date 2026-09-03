@@ -604,7 +604,16 @@ run in three should do it.
 | (7 smaller authors) | 8 | 4 | 0 | 4 | 3 |
 
 **The sharpest single line in this lane, and it is now exact: `tool-generator` has authored 187
-fences and `uses_computed_values` = ZERO.** Every one of the estate's 38 value-asserting fences was
+fences and `uses_computed_values` = ZERO.** Every one of the estate's ~~38~~ **30** value-asserting fences was
+> **CORRECTED 2026-09-03 ~16:4x — the count was 30, not 38, and it was MY ARITHMETIC, not a stale
+> census.** 16 (`bugfix224-session`) + 8 (`mortgagecalculator-…-701-rekey`) + 6
+> (`staged_component_build`) = **30**. I took `staged_component_build`'s *fences* figure (8) from
+> the adjacent column instead of its *uses_computed_values* (6), and mis-added on top. Caught by a
+> second query run for a different purpose — `count(*) FILTER (WHERE body LIKE '%expect_values%')`
+> grouped by `subject_type` returned **30** and disagreed with the total I had already published in
+> four places. **The conclusion is untouched: `tool-generator` accounts for ZERO of them.** The
+> number was decoration on that finding and I still got it wrong. `WRONG_CALLS.md` has it.
+
 written by an operator or a lane, never by the agent. That is the bug stated as a census rather than
 as an argument, and it is what P4 exists to change.
 
@@ -706,3 +715,114 @@ the generator cannot derive an expectation from something that is not the tool i
 must emit **no** `computed_values` check and say so in Dependencies. What is still genuinely open —
 and is a question about generalisability, not a blocker — is whether the three-strength taxonomy
 survives outside a domain with published formulae (mortgages) or a legal register (SDLT).
+
+## 2026-09-03 (~16:4x) — P4 groundwork: the shape is pinned, and P4 is BIGGER than "two prompts"
+
+Read everything P4 has to edit before writing any of it. Four findings, two of which resize the phase.
+
+### The cause, now quotable verbatim rather than described
+
+`tool-generator`'s `{workflow,steps,compose_plan,config,prompt_template}` is **2,783 bytes, 45
+lines** `[MEASURED 16:2xZ]`. The whole fence vocabulary is one paragraph (line 34), and it is a
+**closed enumeration**: four mandatory checks (`selector_exists`, `no_console_errors`,
+`page_status_ok`, `no_horizontal_overflow`), then *"Add ONE interaction check ONLY if you can copy
+real ids or classes from the HTML above"*, then the sentence that shuts the door:
+
+> *"No other check type exists for interactions — never emit `"type":"click"` or `"type":"fill"` as
+> a check type."*
+
+`computed_values` is never named anywhere in the row. **That sentence is also the natural verbatim
+anchor for the migration's pre-guard** — distinctive, one occurrence, and it is exactly the claim
+the change has to amend.
+
+### FINDING 1 — `experience-planner` carries the fence in THREE steps, not one
+
+`[MEASURED 16:3xZ]` Steps whose `prompt_template` contains a ` ```criteria ` block:
+**`compose`, `recompose`, `reframe`** (its five `review_*` steps do not). The old plan said "the
+equivalent on `experience-planner`", singular. **It is three JSON paths on that row**, and a
+migration that edits one leaves two authoring the old vocabulary — the `099`-mirror failure mode, one
+level down.
+
+### FINDING 2 — and `experience-planner` is a THREE-FENCE population, so it is not where the value is
+
+`[MEASURED 16:3xZ]` `is_current` plans carrying a fence, by subject:
+
+| subject_type | plans | with_fence | with_value_assertion |
+|---|---|---|---|
+| `tool` | 241 | 241 | **30** |
+| `component` | **55** | 55 | **0** |
+| `experience` | **3** | 3 | 0 |
+| `experience-pattern` / `action` / `pipeline` | 14 | 0 | 0 |
+
+**`experience-planner` has authored 3 fences, ever.** So the cost/benefit inside P4 is lopsided:
+`tool-generator` is 187 of the 241 and every blind driving fence; `experience-planner` is three
+documents. **Recommend: ship `tool-generator` first, alone, and treat `experience-planner`'s three
+paths as a separate follow-on** — it triples the anchor surface for ~1% of the population, and
+`732`-shaped guards are per-anchor.
+
+⚠ **And the population P1/P2/P3 cannot see at all: `component`, 55 fences, ZERO value assertions.**
+Every one is `operator:staged_component_build`. P2's door is gated on `subjectType == "tool"`
+(`write_doc_plan_action.go:218`) and the sweep and the Tier-4 verdict line are tool-scoped too, so
+**a component fence that asserts nothing is invisible to all three halves of this lane's shipped
+work.** Not in scope for 449 as filed, and I am not widening it here — but it is the same defect in a
+population 30% the size of the one we are fixing, and nobody is counting it. Belongs in §5 as a new
+candidate.
+
+### FINDING 3 — the JSON shape, pinned from the struct AND from a live worked example
+
+From `criteriaCheck` / `criteriaStep` (`run_checks_action.go:221-246`) and confirmed against a real
+`operator:staged_component_build` fence:
+
+```json
+{ "id": "<kebab-id>", "type": "computed_values", "profiles": ["desktop"],
+  "steps": [ { "action": "fill", "selector": "#volume", "value": "5000" } ],
+  "expect_values": { ".result-card.highlight .result-value": "$2,000.00" } }
+```
+
+- `expect_values` is a **map** selector → the exact text that selector must read after `steps` run
+  (per-element and order-free; the runner sorts keys so a bounded failure message is stable).
+- Step actions are `fill` (with `value`), `click`, `select` (with `value`), `reload`.
+- Text comparison is `collapseSpace` on both sides — **whitespace-insensitive, everything else
+  exact**. So `"$2,000.00"` must carry its currency symbol, separators and 2dp exactly as rendered.
+- `no_auto_fix` / `no_auto_fix_reason` are **top-level fence keys**, not per-check
+  (`acceptanceFenceFlags`, `tool_acceptance_actions.go`).
+
+**That worked example is also the proof the derivation is doable at birth without reading the tool's
+output:** 5000 × (3.85 − 3.45) = **$2,000.00**, margin/unit **$0.40**, annual = 2000 × 52 =
+**$104,000.00**. All three follow from the spec's arithmetic. Nothing there was copied off the page.
+
+### FINDING 4 — the 3000-character cap is a real constraint but NOT a blocker; there is headroom
+
+`compose_plan`'s step config `[MEASURED 16:3xZ]`: `model=claude-sonnet-5`, **`max_tokens: 4000`**,
+`input_fields: [input_data, site_record, generated_html]`, `output_format: text`. The prompt's last
+line instructs *"Keep the whole document under 3000 characters"*.
+
+A `computed_values` check in the shape above costs **~350-450 characters** of the output document.
+3,000 characters is ≈750-1,000 tokens against a 4,000-token ceiling, so **the instructed cap can go
+to ~3,500 without coming near truncation** — which is the right move, because leaving it at 3,000
+makes the model trade the new assertion against prose it was also told to write, and the handoff's
+warning ("it trades a value assertion for a truncated document") is exactly that failure.
+⚠ I am **not** adding a template variable, so the `input_fields` landmine does not apply here.
+
+### The design rule I will actually write, and why it is narrower than "teach the type"
+
+The generator's only inputs are the spec (`function`/`name`/`description`) and
+`{{.generated_html}}` — **the very artefact whose correctness is in question.** It has no register,
+no formula source, no site facts. So a naive "emit `computed_values`" instruction can only produce a
+value read off the tool, which is the pinning failure `runComputedValues`' own docstring warns about.
+
+The one source that *is* independent and *is* present: **the model's own knowledge of a published
+formula**, applied to inputs it chooses. That splits the tools cleanly:
+
+- **Derivable (DEFINITION):** the tool computes a published, checkable rule — annuity repayment,
+  compound interest, VAT at 20%, BMI, unit conversion, the fuel-margin arithmetic above. The
+  generator picks the inputs, works the arithmetic itself, and the expectation never touches the
+  page. This is where a wrong divisor or a dropped rate conversion gets caught.
+- **Not derivable (must REFUSE):** an arbitrary scoring heuristic where "correct" is definitionally
+  whatever the code says — `tool-idea-stage-identifier`, `tool-process-automation-scorer`. There is
+  no independent oracle, so a `computed_values` check could only pin the implementation.
+
+**So the instruction is conditional and its default is refusal**, and it must require the arithmetic
+be shown in `## Dependencies` so a reviewer can see which of the two cases the generator thought it
+was in. That is the refusal arm the council and both peer lanes converged on, expressed in the only
+terms this prompt actually has available.

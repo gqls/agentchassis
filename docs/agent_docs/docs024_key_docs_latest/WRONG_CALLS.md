@@ -63095,3 +63095,64 @@ declaring-a-key-silences-your-own-detector.
   nothing, and "did they answer?" is a question about **content**, not about directory listings.
 - **Cost.** A handoff and an owner-facing README both stating a blocker that was already resolved;
   corrected in the same session, in both files.
+
+## 2026-09-03 — I published a total I had ADDED UP MYSELF from a table I had just measured correctly (`bugs_open/449` lane)
+
+- **The claim.** *"All **38** value-asserting fences in the estate came from an operator or a lane,
+  never from the agent."* Written into `NOTES`, a fresh `HANDOFF`, the bug file's new §9e **and the
+  commit message** — four places, within about twenty minutes.
+- **What it actually was.** **30.** The per-author census I had run minutes earlier was right; I
+  summed the wrong column out of it — taking `operator:staged_component_build`'s **fences** figure
+  (8) from the neighbouring column instead of its **uses_computed_values** (6), and mis-adding on top
+  of that. 16 + 8 + 6 = 30.
+- **Why it mattered, and why it is worse than a stale figure.** Every entry in this file's
+  neighbourhood is about a measurement going stale or measuring the wrong thing. **This one was not a
+  measurement failure at all — the query was correct, dated, disconfirmable and marked
+  `[MEASURED]`.** The defect was arithmetic performed by hand on a correct result and then given the
+  same authority as the result. **A `[MEASURED]` marker certifies the query, not the sentence you
+  wrote underneath it.** The marker was doing exactly what it promises and still could not catch
+  this.
+- **What caught it.** A *different* query, run for an unrelated reason — a `subject_type` breakdown
+  to check whether `experience-planner`'s fences were even the same population — which reported
+  `with_value_assertion = 30` for `subject_type='tool'` and disagreed with what I had already
+  published. **Nothing in the original work would ever have caught it**, because the original work
+  was not wrong.
+- **The cheap check that would have.** **When you publish a TOTAL derived from a table, make the
+  database compute the total too** — one extra `count(*) FILTER (…)` with no `GROUP BY`, in the same
+  query, and compare. A hand-summed column is a second, unmarked measurement with no control on it.
+  Corollary worth keeping: **the figure the conclusion does not depend on is the one that gets least
+  scrutiny.** Here the finding was "`tool-generator` accounts for ZERO of them" — which is true and
+  untouched — so the 30-vs-38 was decoration, nobody's argument rested on it, and that is precisely
+  why it went out four times unchecked.
+- **Cost.** Three documents corrected in place (visibly, struck through rather than edited away) and
+  one commit message that **cannot** be corrected — forward-only forbids the amend — so the
+  correcting commit has to name it. Caught within the same session.
+
+## 2026-09-03 — "the ONE writer of X" was an uncited precedent claim, and the reviewer who challenged it predicted why it would be wrong (session theme kits)
+
+- **The claim.** In a council submission's rationale and in this lane's PLAN: *"`site-design-planner`
+  stays the one writer of `sites.style_collection_id`, per the Choice-B precedent."*
+- **Why it was false.** There are **two** Go writers as of 2026-09-03:
+  `install_site_composition_action.go` (the one I meant) and `SelectStyleCollectionAction` in
+  `v3_site_actions.go`, which persists the column *"so downstream agents can find it via DB
+  lookup"* and treats the write failing as non-fatal. One command settles it:
+  `grep -rln "UPDATE sites SET[^;]*style_collection_id" platform/ internal/ --include=*.go`.
+- **What caught it.** The council's `prior_art_librarian` seat, which flagged it as an
+  existence/precedent claim carrying **no citation of the decision or the code enforcing it** —
+  and said explicitly *why* it distrusted this one: *"given this council's own history of false
+  absence/precedent claims in earlier rounds of this same submission (chrome eligibility,
+  contact-hero/hero-contact), an unverified 'per the X precedent' phrase should not pass without
+  a lookup."* **A reviewer predicted the class of error from my own track record inside the same
+  correlation, and was right.**
+- **The mistake, precisely.** "Per the X precedent" is a **citation-shaped phrase with no
+  citation**. It reads as though a governing decision has been looked up, and it converts a thing
+  I believed into a thing the reader thinks was checked — the same authority-borrowing as the
+  false retraction two entries up. The narrower claim I actually needed (applying a kit installs
+  nothing; it queues `needs_composition`) was true and would have cost nothing to say instead.
+- **The cheap check that would have.** Any "the one/only writer of <column>" is a grep, not a
+  precedent: `grep -rn "UPDATE <table> SET[^;]*<column>"` across `platform/ internal/ cmd/`.
+  **And date it** — a writer set grows by addition, which is the count-needs-a-date rule.
+- **Cost.** A false claim in an approved submission and in this lane's PLAN for a day. Low
+  damage, because the load-bearing half was true. **The pattern is the cost:** this is the
+  seventh claim of the day where the conclusion survived and the reason did not, and the second
+  where I borrowed authority I had not earned (a retraction, then a precedent).
