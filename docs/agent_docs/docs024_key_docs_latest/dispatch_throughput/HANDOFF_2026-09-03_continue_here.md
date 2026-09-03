@@ -133,3 +133,28 @@ row filed.
 2. `bugs_open/459` — the level-change alarm never fires. Fix + council round.
 3. Option C (trigger interval ≤25 s) — gate met.
 4. The standing queue unchanged.
+
+## UPDATE 2026-09-03 ~17:2xZ — owner ruled "extend it"; D4b stage A LIVE (mig 751); council round dc6d2a54 in flight
+
+- **D4b stage A applied 17:12:21Z, recorded, inert** — see NOTES 17:0x entry for the seven
+  design decisions and the four proofs. `governor_admits` was REWRITTEN live (proven
+  equivalent); post-apply canary clean at +4.5 min.
+- **Council corr `dc6d2a54-bd73-4827-8267-49c5500467ac`** — architecture round, six edits incl.
+  the stage-B sketch. Find it by payload; budget ~30 min. Read the verdict IN FULL before
+  acting; a REVISE is cheaper than the defect it finds.
+- **Stage B is NOT written.** Seam: `platform/messaging/processor.go:1798 executeWorkflow`,
+  after `resolvedAgentType`, before `RecordAgentRun`. Flag `honour_spend_governor_run` on the
+  agent's config, default OFF; on refusal INSERT `governor_withheld_runs`, log, `return nil`;
+  fail-open. Four Go tests named in the submission. Config half = a `_HOLD` migration setting
+  the flag on `council-gate` ONLY with a fleet negative control, applied after the roll. **Do not
+  write stage B until the verdict is read** — the round may change its shape.
+- **TWO OPEN OWNER QUESTIONS, put to them in README (evening entry):** (1) the council-gate
+  shed LEVEL — seeded L3 ('research'); L1 is one UPDATE; (2) whether the other ungoverned agent
+  types (landmine-verifier, auditors) get mapped — each is its own row and its own review.
+- **`bugs_open/459` (alarm never fires) is unchanged and still the next fix after D4b.**
+- **CONTRIB received** from the mortgagecalculator lane (starvation instance 3; two sites hold
+  ranks 1–2 while being heavily served). Input to the no-reorder ruling's revisit trigger; not
+  acted on. Read it before touching ordering.
+
+**Revised NEXT:** (1) read dc6d2a54's verdict; act on it · (2) stage B Go + tests, after the
+verdict · (3) the two owner questions · (4) 459 fix + round · (5) option C · (6) standing queue.

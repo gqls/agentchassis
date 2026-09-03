@@ -569,3 +569,25 @@ already records that the review council was about 85% of all AI spend before tha
 Nobody put that sentence next to the governor's design — including me, until I measured it
 today. I've corrected the internal record so the next person reads the governor's coverage as a
 measured number rather than an assumption.
+
+2026-09-03 evening — you said "extend it", so the governor now has the foundations to cover
+the review council. The database half is built, tested three different ways, applied, and
+sent to the architecture reviewers this evening. Nothing sheds council work yet — that needs
+a small code change (the second half), which waits for the review verdict and the next
+release, and switches on only when deliberately enabled. Same pattern as the first governor.
+
+Two things I'd like you to know now rather than later.
+
+First, a choice that is yours: **at which point should council reviews start being held
+back?** I've set it conservatively — last, alongside research, at 95% of budget — because
+"if it comes to the crunch" read to me as "late". If you'd rather it were the FIRST thing to
+go (the biggest saving, and the reviews are advisory so nothing is blocked), say so and it's
+a one-line change. The practical difference: at the current pace, "first" would mean no
+automated review of platform changes for roughly the second half of every month.
+
+Second, a safety choice I made on your behalf and want to be visible: any agent type that
+nobody has explicitly listed is always allowed to run. That is the opposite of how the
+site-work half works, and it's deliberate — a typo in a list should never be able to stop
+the whole fleet.
+
+Everything is written up; the reviewers' verdict lands in about half an hour.

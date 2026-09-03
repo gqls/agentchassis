@@ -1740,3 +1740,76 @@ council seat would have read as ground truth).
 Also settled, the question I actually opened this to answer: the ungoverned dispatch loops are
 **3.0% of spend** against ~1% of claims by count. My morning caveat ("by spend unmeasured and
 plausibly not small") was right in direction and small in size — 3×, not 30×.
+
+### 2026-09-03 17:0x–17:2xZ — OWNER RULED "extend it": D4b stage A built, proven, APPLIED (mig 751) and submitted to the architecture round (corr dc6d2a54)
+
+**Owner, chat, verbatim: "extend it, reducing council spend is a fairly easy save if it comes
+to the crunch."** A gap of ~5 h preceded this (a tool-classifier outage); on return, three
+other lanes had taken migration number **750** in the meantime — resolved by taking 751, and
+by slug as ever. Governor at pickup: enabled, level 0, **$526.93 MTD** (26.3%; ~$22/h since
+midday), alarm still dead (1 note — `bugs_open/459` unchanged), nobody else had touched the
+governor path.
+
+**Where the gate goes** `[READ 2026-09-03]`: `platform/messaging/processor.go:1798`
+`executeWorkflow(ctx, msgCtx, config)` — the ONE place a request becomes a running workflow,
+single caller at `:317`, already holding `resolvedAgentType` (bugs_open/239 made
+`selectWorkflow` the sole resolver), the agent's config, `p.db` and
+`msgCtx.ExecutionContext.CorrelationID`. That is stage B's seam. Stage A is DB only.
+
+**Design decisions, and why each is the way it is** (all in 751's header too):
+1. **One factored comparison** — `governor_admits_class(class, llm_bearing)`; both public
+   predicates become one-line callers. Because the r1 architecture objection on D4 was a
+   predicate hand-copied four times, and a second namespace is exactly what would re-copy it.
+2. **`governor_admits(item_type)` REWRITTEN** — the live enforcing body. Signature unchanged,
+   selector md5 untouched. **Proven, not asserted**: the verify keeps the old body as
+   `governor_admits_legacy`, compares across 4 levels × 3 classes × 2 bearings + unmapped with
+   the governor ENABLED (so it is not vacuous), requires a known-shed cell to read false on
+   BOTH bodies (the discriminating control), then drops the copy.
+3. **A SEPARATE `governor_agent_class_map`** — item types and agent types are different
+   namespaces; one PK would collide silently.
+4. **UNMAPPED AGENT TYPES ARE ADMITTED** — the opposite default to work items, deliberately:
+   an unmapped item is a queue row we filed; an unmapped agent type is every agent in the
+   estate, and defaulting those to shed turns a typo into a fleet outage. Driven at every level.
+5. **A refused RUN must leave a ROW** — `governor_withheld_runs`, indexed on correlation_id.
+   D4's r1 was gated on shedding being invisible; the work-item answer was a view over rows
+   that exist. A refused run creates nothing, so the observable is WRITTEN, or a shed council
+   submission is indistinguishable from the documented 29-minute latency.
+6. **Seed `council-gate → research` (L3)** and record the LEVEL as an open owner question.
+   "Crunch" reads as late; L1 would remove advisory review for ~half of each month at current
+   burn — a cultural change to be chosen, not defaulted. One UPDATE moves it.
+7. **Seat-capping rejected for stage A** — roster surgery across 17 seats while the 099
+   mirror is suspended over 377's cache breakpoint. Refusing the run is one seam.
+
+**Proofs, in order, all against the live DB and rolled back** `[all MEASURED 2026-09-03]`:
+- Apply dry-run: `751 OK … PROVEN equivalent across 4 levels x 3 classes x 2 bearings +
+  unmapped (with a discriminating control) … inert (0 callers)`.
+- Chained apply→rollback in one transaction: `governor_fns_after_chain=1 body_is_675_again=t`;
+  post-control `fns=1 enabled=true level=0 agent_map_exists=false probe_rows=0`.
+- **Mutation 1** (build threshold 2→1 inside the factored function ONLY): `ERROR: 751 VERIFY:
+  governor_admits DIVERGED from the old body at level=1 class=build bearing=t`.
+- **Mutation 2** (unmapped agents routed through the comparison): `ERROR: 751 VERIFY: an
+  unmapped agent_type was SHED at level 1 — that default would take out the fleet`.
+- Post-control after both mutations: `fns=1 probe_rows=0 level=0 enabled=true`.
+
+**Committed `161efd6bb`, APPLIED 17:12:21Z** (`751 OK`, COMMIT), **recorded 17:13:13Z**
+(`--record-only --note …`; ⚠ the flag is `--note`, not `--notes`). Post-apply read: three
+functions; `council-gate research t`; council/unmapped/page_rerender/improve_tool all admitted
+at level 0; 0 withheld runs; 0 probe leftovers; selector md5 `fcbe8821…` unchanged.
+**Post-apply dispatch canary at +4.5 min: 3 loops / 3 sites / 8 claims / 0 shed refusals /
+0 withheld** — the live rewrite of the enforcing predicate changed nothing observable, which
+is the whole claim. (⚠ my canary label printed "~64 min": `date -d` parsed the UTC stamp as
+LOCAL time — the handoff's own listed trap, walked into. The clock columns are right.)
+
+**Council: `DRY_RUN=1` passed (validation + scope admission), then submitted — corr
+`dc6d2a54-bd73-4827-8267-49c5500467ac`**, six edits incl. the stage-B Go sketch so the round
+judges the whole shape; guard and verify text pasted VERBATIM (the r1–r3 lesson); consumers
+named and told (selector, loader, claim backstop — guarantee unchanged; council-gate — first
+agent-type consumer). Budget ~30 min. Find it by payload, not the printed id.
+
+**Received while away: `CONTRIB_2026-09-03_from_mcalc_lane_third_starvation_instance…`** —
+data only, no diagnosis (their words): mortgagecalculator ranks 5th and eligible, 2h50m
+without a claim while the loop is alive (21 claims/15 min), and 68 of ~110 claims in 90 min
+went to the two sites that ALSO hold ranks 1–2 by oldest-waiting row and stay there. That is
+the "refills with old rows vs never fully drains" question, and it is INPUT to the owner's
+provisional no-reorder ruling, whose mechanical revisit trigger is the pin-census age tail.
+Not acted on today; carried in the handoff.

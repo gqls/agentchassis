@@ -530,3 +530,24 @@ ROLLBACK;
 Third arm, and it is load-bearing: run the `old` CTE ALONE (no `upd` in the statement) and check
 it returns a row whose `shed_level` really does differ from `new.lvl` — otherwise a zero has two
 sufficient causes and the A/B cannot tell them apart.
+
+### D4b — the agent-type namespace (mig 751, live 2026-09-03 17:12Z, stage B pending)
+
+```sql
+-- Is this agent type governed, and at what level would it shed? Unmapped = ADMITTED, always.
+SELECT agent_type, class, llm_bearing, governor_admits_agent(agent_type) admitted_now FROM governor_agent_class_map;
+SELECT governor_admits_agent('no-such-agent');   -- must be TRUE at every level: a typo cannot shed the fleet
+
+-- MOVE THE LEVEL (owner decision; one UPDATE). 'maintenance' = L1 (first), 'build' = L2, 'research' = L3 (last).
+-- UPDATE governor_agent_class_map SET class='maintenance' WHERE agent_type='council-gate';
+
+-- "My council submission never ran — queued, or withheld?" (meaningful once stage B is live)
+SELECT withheld_at, agent_type, shed_level, class FROM governor_withheld_runs_recent
+WHERE correlation_id LIKE '<SUBMISSION_CORR>%' ORDER BY withheld_at DESC;
+-- 0 rows AND no orchestration row => latency (do not retry; CLAUDE.md). 1 row => withheld, deliberately.
+
+-- All three predicates share ONE comparison — if you ever need to change the ladder, change governor_admits_class only.
+SELECT proname FROM pg_proc WHERE proname LIKE 'governor_admits%';   -- expect exactly 3
+```
+⚠ `--record-only` takes `--note`, not `--notes` (silent "unknown argument", nothing recorded).
+⚠ `date -d '2026-09-03 17:12:21'` parses LOCAL time — pass `+00` or `Z`, or your "minutes since" is off by the offset.

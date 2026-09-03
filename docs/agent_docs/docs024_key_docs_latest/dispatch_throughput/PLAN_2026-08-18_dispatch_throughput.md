@@ -311,3 +311,53 @@ byte-for-byte (the opt-in). The fire-gate (bugs_open/415) needs NO shed arm: it 
 shed-only backlogs harmlessly (selector then picks nothing — one empty turn, not a hog).
 Build order: Go halves first (inert: enabled=false), image + roll, THEN the selector
 migration (image-before-config), each with the governor-disabled path proven byte-identical.
+
+## D4b — GOVERNOR AGENT SCOPE (added 2026-09-03, owner ruling the same day)
+
+**Why it exists.** D4 went live 10:14:32Z on 2026-09-03 and was proven the same morning
+(induced shed, 11:17–11:29Z). Measured that afternoon by orchestration lineage: the governor
+reaches **~28% of fleet LLM spend**, because it sheds *work items* and 69.4% of spend has no
+dispatch-loop ancestor — `council-gate` alone is **62%**. CLAUDE.md §council had recorded
+council as ~85% of fleet LLM spend before migration 377; the two facts had never met. So D4 as
+built is a **dispatch** governor and cannot defend a budget. **Owner, verbatim: "extend it,
+reducing council spend is a fairly easy save if it comes to the crunch."**
+
+**Design — two stages, mirroring D4, architecture round per AGOV-013's standing gate.**
+
+- **Stage A (migration 751, APPLIED 2026-09-03 17:12:21Z, inert):**
+  - `governor_admits_class(class, llm_bearing)` — THE level comparison, factored out so the
+    r1 architecture ruling ("never re-spell the predicate") survives a second namespace.
+  - `governor_admits(item_type)` rewritten as a one-line caller. Same signature; selector md5
+    untouched. **Equivalence PROVEN in the verify** (legacy copy kept, 4 levels × 3 classes × 2
+    bearings + unmapped compared, discriminating control, copy dropped) and mutation-proven
+    (two induced breaks, each caught at its own arm).
+  - `governor_agent_class_map` — a SEPARATE table (different namespace; a shared PK would
+    collide silently). **UNMAPPED = ADMITTED**, the opposite default to work items, on purpose:
+    an unmapped agent type is every agent in the estate.
+  - `governor_admits_agent(agent_type)`.
+  - `governor_withheld_runs` + `_recent` view — a refused RUN creates no row anywhere, so the
+    observable must be WRITTEN, or a shed council submission reads as the documented 29-minute
+    dispatch latency.
+  - Seed: `council-gate → research` (L3). **THE LEVEL IS AN OPEN OWNER QUESTION** — "crunch"
+    reads as late, so L3 is the conservative default; L1 is the biggest earliest saving and
+    would remove advisory review for roughly the second half of each month at current burn.
+    One UPDATE moves it.
+- **Stage B (Go, NOT YET WRITTEN — sketched in the council submission):** one opt-in gate in
+  `platform/messaging/processor.go executeWorkflow`, after `resolvedAgentType`, before
+  `RecordAgentRun`. Flag `honour_spend_governor_run` on the agent's config (its own name, so a
+  grep for either flag finds exactly its consumers), unsafe default OFF. On refusal: write the
+  withheld-runs row, log, `return nil` (consumed, not retried). Fail-open on read error. Tests:
+  flag absent/false/string → no query; admitted → runs, no row; not admitted → no run, one row
+  with the correlation id; DB error → runs. Config half: a `_HOLD` migration setting the flag on
+  the `council-gate` row only, with a fleet negative control, applied after the binary rolls.
+
+**Considered and rejected for stage A:** seat-capping (run only the two always-on seats at a
+shed) — roster surgery across 17 seats while the 099 mirror is suspended over 377's cache
+breakpoint. Refusing the run is one seam; degradation can be a later option.
+
+**Council:** corr `dc6d2a54-bd73-4827-8267-49c5500467ac` (architecture round, submitted
+2026-09-03 ~17:15Z; six edits incl. the stage-B sketch; verify text pasted verbatim).
+
+**Open owner questions carried:** (1) the council-gate shed LEVEL; (2) whether the other
+ungoverned agent types in the 69% (landmine-verifier $7.94/24h, the auditors) should be
+mapped — each is its own opt-in row and, per the standing gate, its own review.
