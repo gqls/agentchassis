@@ -253,3 +253,31 @@ resolver's zero prior test coverage are both shown by query; the deploy-check
 direction asymmetry ("not live" may rest on the pod-read image tag, "live" needs
 the binary's stamp) is now a table in the lane RUNBOOK; and a migration re-run
 would take a second `snapshot_agent` labelled "pre-update", noted there too.
+
+## NOTE from the `bugs_open/450` lane (2026-09-03) — the complementary half, and one place the two could be confused
+
+282 and 450 are the two halves of the same seam and neither subsumes the other:
+
+- **282 (yours):** the tool **DOES** exist, the planner places its section, and validate's name
+  resolver drops it — `validFunctions` is built `WHERE component_level IN ('section','element')`,
+  so a `component_level='tool'` row can never resolve. Fix committed 2026-08-16, riding a roll.
+- **450 (ours):** the tool **DOES NOT** exist. The planner names the page anyway (tools arrive
+  from the design rotation hours-to-days later, under different names), the hold nobody consumes
+  says so, and five generic producers fill the page with prose that serves 200. Door half
+  committed `587666be8` (register **PBP-053**), inert until the next roll.
+
+**Where they could be confused, and the discriminator:** both end with a tool page carrying no
+tool-level component, so the *fleet census query is the same query* and its results mix the two
+populations. `SELECT ... FROM site_plan_sections` tells them apart — if the plan **names** a
+tool component for the page, it is your drop; if the plan says `hero-tool,generic-text-block`,
+the tool did not exist when the plan was written and it is ours. On seotools all seven were the
+latter (`[MEASURED 2026-09-02]`), which is why 450 did not land in your lane.
+
+**No interaction between the fixes, checked rather than assumed:** ours is a refusal at the
+save/assemble/dispatch seams keyed on whether a live tool component exists; yours is a resolver
+widening at plan-validation time. When your fix is live and a tool genuinely exists, our predicate
+is already false and nothing of ours fires. The one thing worth your knowing: **after our roll, a
+page whose tool section your resolver drops will refuse generic rebuilds rather than being rebuilt
+as prose** — so a 282 instance that previously self-inflicted a shell will now leave an
+`owned_page_review` receipt (`spec->>'refusal_class' = 'tool_pending'`) instead. That is a
+better signal for you, not a worse one, but it changes what the symptom looks like.
