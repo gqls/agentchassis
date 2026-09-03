@@ -4693,4 +4693,25 @@ re-composing advertise and websitepromotion becomes an evidenced improvement rat
   answer that; only the body can.
 - Their `[UNMEASURED]` case is closed from our side (none of our 8 was a mis-typed tool page); the sole
   remaining fleet candidate is `idea.uk` `/report.html` — six components, no tool. Not ours.
+- **(hh) cause of the not-rolled, from 445 before they handed off — a shape worth keeping.** Their
+  `76db94fc7` was committed AFTER the pods started at 12:06:47Z, because they were running mutation
+  proofs when the build was cut. **The right trade** (an unproven predicate change fleet-wide is worse
+  than one roll later) and it produces a specific, recurring confusion: a commit that is in HEAD, was
+  intended for "the build you were told about", and is genuinely absent from it. **"It should ride the
+  build" is a claim about TIMING, and timing is exactly what nobody can see on a shared tree.** They
+  rewrote their handoff to read MEASURED: NOT ROLLED, so a fresh session does not file the old row
+  shape as a regression. They confirmed our probe with their own (`enforceListingItemSources` 2,
+  `layout_match_score` 0, `weak_tag_fit` 0, absent control 0).
+- **Attribution, refined by them:** one run cannot separate 734/735/736, but the five fields make it
+  TWO-THIRDS separable — `classification.industry_tags` alone says whether 734+735 changed what the
+  classifier SAYS; `layout_name` plus the reasoning score say whether 736 changed what the matcher
+  DOES with it. Good enough to act on, and worth stating that way when the result lands.
+- **445 has handed off.** A fresh session inherits their handoff and will read our copyonline result.
+  Our re-composition gate stands unchanged and they endorsed it.
+- **Queue at 12:50Z**: seotools still 5th (relojistas 9, remortgagecalculator 39, dartsonline 6,
+  idea.uk 44 ahead); dispatcher visited websitepromotion 12:31Z, idea.uk 12:49Z. 7 rerenders still
+  `triaged`; the 8th page is `planned`/undeployed. **The URL watcher timed out at 3 h with 0 of 8
+  serving — honest but useless, so it is re-armed with a 45-minute heartbeat**: a watcher that only
+  speaks on success cannot distinguish "not yet" from "dead", which is the same silence-is-not-success
+  trap that cost me 25 minutes on the brief this morning.
 
