@@ -295,3 +295,80 @@ a site with no pin at all.
 disconfirming read was cheap and I took it before writing the claim down. Three earlier
 errors today came from asserting a mechanism from row data; this one came out differently
 only because I opened the function.
+
+### Council round 2 came back REVISE with a REAL DEFECT — the best thing this review produced
+
+Verdict `revise` at 2026-09-03 15:32:59Z, `editquality` objecting on edit 2, 3 abstained.
+**Accepted in full.** The objection cited landmines keyed to my own file: a design
+preference pre-seeded into `design_intent` before a FRESH build is silently superseded by
+`domain-research-classifier`, and `apply_theme_kit` writes
+`design_intent.{palette,typography}`.
+
+**Confirmed by reading the file. There is no guard** — `grep -n "classifier\|domain-research"`
+in `apply_theme_kit_action.go` finds only comments about the owner's ruling, never a
+predicate. `write_site_spec` supersedes the current row after a deep merge in which
+**scalar keys are overwritten by the incoming value**, so the classifier discards the
+kit's `reference_values`. Measured first-hand by the gamedesign.uk lane: manual
+`design_intent` at 17:04:35 with `pinned=t` was `is_current=f` by 17:11:32, carrying a
+different hex.
+
+| dimension | fresh path | already-classified site |
+|---|---|---|
+| layout | **survives** — aspect `theme_kit_adoption`, which the classifier does not write | survives |
+| palette | discarded — **moot for appearance**, no `design_intent` palette reaches the 8 core slots anyway | kit wins |
+| **typography** | **discarded, and typography IS what renders** | kit wins, and renders |
+| chrome | unaffected (own columns) | unaffected |
+
+**`design_intent.<dim>.locked` does NOT cover this and it is important not to believe it
+does.** `locked` is read when `apply_theme_kit` writes; nothing makes the classifier
+respect it. The key survives the deep merge while the values do not, so the row ends up
+**claiming a human pin over a classifier's values** — the most misleading end state
+available.
+
+**So the defect inverts the owner's framing.** He ruled *"by default it can start with a
+theme"* — a kit as the starting point for a NEW site. As built, a kit works on a site that
+has already been classified and is silently defeated on a new one.
+
+**Recorded, not fixed, and deliberately so.** CONTRIB into `bugs_open/438` §6d, which
+already owns this mechanism (§6a-bis) — a CONTRIB rather than a new bug file. Three
+candidates, all costed there: make the classifier respect `locked` (architecture-scope, it
+changes the classifier's write authority over a shared aspect, and belongs on 438's fix
+list); also write `mission.preferred_typography` (builds on the defect — 438 is explicit
+that mission's durability on that path is an *accident* caused by 438 itself, and it
+collides with my own typography guard); or refuse/warn when no classifier-written
+`design_intent` exists yet (cheapest, honest, my preference, and a behaviour change to a
+live shared action that deserves its own round).
+
+**A stale doc comment in my own file, found on the way.** The header said
+`"fill_gaps" (default)` and never mentioned `start` — the pre-ruling behaviour, so the
+file's own comment stated the **opposite** of the shipped default. Fixed, along with the
+ordering hazard now documented there. Comment-only; verified first that no source-scanning
+test makes that comment load-bearing.
+
+### And a FIFTH instance of the name/function trap, in the same verdict, found by the reviewer
+
+Round 2's reviewer verified my `grounded_in` claim that *"`contact-hero` has ZERO
+`content_components` rows in any state"* and their query returned **1**. They were right.
+
+```
+name=contact-hero | function=hero-contact | component_level=section | is_active
+-- one row, as of 2026-09-03
+```
+
+**One component, whose `name` and `function` are the same two words reversed.** So
+`contact-hero` is not a dead name — it is that component's actual name, and `hero-contact`
+is its function. Both strings resolve, because the section loader indexes by **both**
+(`loadComponentSchemas`: *"Index by both name and function for fast lookup in the section
+loop"*). **The seed is harmless either way and the port changes nothing functionally — but
+the reason given for it was false.**
+
+⚠ **This exact pair is the FOUNDING CASE of the LANDMINES entry about these two columns —
+an entry this lane wrote on 2026-09-02.** I then made the error it warns about twice in one
+submission, the next day, and a reviewer found the second one. The entry is now marked with
+its fourth sighting and the new direction it did not cover (a false zero licenses a
+*retraction*, not just a build).
+
+**Round 3 submitted** on the same correlation: objection accepted with what I did and why
+the remedy is deferred, the false retraction withdrawn, and the `contact-hero` claim
+corrected. Run correlation `8e6f2aa8-ceae-4d22-a543-a47196f57193`; trail id stays
+`bed139b2-f512-436a-9ba8-ff2fbfade8ef`.
