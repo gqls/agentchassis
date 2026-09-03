@@ -247,3 +247,94 @@ can write the receiver, the inbox migration, the collector and the render-seam b
 all of them committed and reviewed — and **"live" is a step only the owner or the gauntlet lane can
 take.** Committed and live are separate facts here in a stronger sense than usual, and no amount of
 care on my side collapses them.
+
+---
+
+## 2026-09-03 — council round 1 on migration 756: APPROVED, and the objections are worth more than the verdict
+
+`SUBMISSION_CORR=3aff429e-c08e-4302-a6a7-0b465dc5229f` → **APPROVED**, "4 advisory objection(s) —
+none high-severity" in the summary line, 8 in the report. Dispositions, because an approved verdict
+whose objections nobody answers is the coverage report's other dishonesty surface.
+
+### ACCEPTED — the one that found a real gap in my process (`reuse_agent`, medium)
+
+> This mints a brand-new bearer-token identity scheme … but the landmine register already documents
+> an existing token-based public-route pattern (`customer_access_tokens`, with `/c/<token>` confirm
+> handlers) … The plan's `grounded_in` never shows that mechanism was checked for reuse.
+
+**Correct, and I had not looked.** `[MEASURED 2026-09-03]` `customer_access_tokens` is a mature
+per-site, purpose-scoped token table with `token_hash` (hashed at rest), `expires_at NOT NULL`,
+`revoked_at`, `single_use`/`used_at`/`use_count`, and partial indexes on
+`(site_id, purpose) WHERE revoked_at IS NULL`. Six Go call sites across `platform/delivery/` and
+`platform/orchestration/actions/`.
+
+**But it is not a drop-in, and the reason is specific enough to be worth writing down rather than
+either adopting or dismissing it:**
+
+| its tokens | mine |
+|---|---|
+| secret; emailed to one customer as a link | **published in page markup**, visible to every visitor by design |
+| `expires_at` NOT NULL | must live as long as the page is published |
+| single-use / counted | used by every visitor who submits |
+
+So **hashing at rest buys almost nothing here** — the plaintext is public by construction — and an
+expiry would make a live form die silently, which is exactly the `017` shape the `bug_historian`
+seat flagged in the same round. What I should take, and did not have, is the **revocation and
+rotation half**: `revoked_at`, and the ability to hold two valid tokens while a re-render propagates
+a new one. That is owed **before the receiver's resolve-by-token contract goes live**, which is now,
+because nothing has run yet.
+
+The seat's own framing — two parallel token schemes with divergent semantics — is the right worry.
+The answer is not one table for both, it is one *vocabulary*: mine should use `customer_access_tokens`'
+column names and semantics where they apply, so a reader of either recognises the other.
+
+### PARTLY ACCEPTED, and one sub-claim is FALSE (`debug_historian`, medium)
+
+> the migration was applied to the live DB BEFORE this council round … The mutation-testing of the
+> verify block is genuinely good practice, but **it was run against an already-committed table, not
+> the sketch under review.**
+
+**The first half is right and I accept it**: I applied before submitting, so the
+`information_schema` evidence in my `grounded_in` is a post-apply re-read of the thing being judged.
+That is a fair hit and the ordering should have been submit-then-apply.
+
+**The second half is not true, and the record should say so.** All three mutations ran through
+`run-migrations.sh`'s doomed-transaction probe — which executes the file and rolls back — **before**
+`--apply` was ever run. The probe output for each (`?? probe inconclusive: ERROR: P0001: verify:
+enabled did not default to false …`) is a pre-apply artefact by construction: the runner probes
+pending files, and a file it has applied is no longer pending. So the mutation testing was against
+the sketch, and it is the one piece of evidence in that submission that could not have been
+contaminated by the early apply.
+
+Recording the rebuttal rather than quietly accepting the whole objection, because a wrong reason
+attached to a right conclusion is how a good practice gets abandoned later by someone reading only
+the objection.
+
+### ACCEPTED ON EVIDENCE, REBUTTED ON CONCLUSION (`prior_art_librarian`, medium)
+
+> `436_tools_api_gripper_intake.sql` … neither is mentioned in `grounded_in` or ruled out. If
+> 'gripper' already implements site-scoped submission intake + routing … this migration risks being
+> a second, uncoordinated implementation.
+
+**The evidence objection is right**: 436 is absent from my `grounded_in` and it should not have
+been. **The conclusion is wrong, and the reason is the most important thing this lane learned
+today** — 436 is not a competing implementation, it is the *model*. Reading it is what revealed
+that `tools-api` runs on the island with its own Postgres, which reshaped this entire design into
+the receiver-stores/cluster-pulls split that 757 now implements. The submission failed to show its
+work; the work was done.
+
+### ACCEPTED, converging on one remedy (`guardian` ×2, `architecture` ×2, `bug_historian`)
+
+- **no rotation or leak-detection story for a published bearer token** (guardian low, architecture
+  medium) — same remedy as the `reuse_agent` objection above. The architecture seat asks for a note
+  *before the receiver ships*; this lane's own plan already says an architecture round is owed, so
+  the two agree.
+- **`ON DELETE RESTRICT` couples any future site-deletion pipeline** (guardian low) — already
+  risk (1) of my own submission; the seat and I agree on the shape and on it being worth the cost.
+- **`notified_at`/`notify_attempts`/`notify_error` is an implicit delivery-guarantee contract**
+  (architecture low) — accepted; it must be named explicitly rather than emerging from whichever
+  handler is written first. It belongs in the collector's design, not in the schema's comments.
+- **case `017` (`static_cutover_orphans_backend_entry_forms`)** (bug_historian low) — a form backend
+  left unreachable after a routing change, which is precisely what a rotated-or-dropped token does
+  to already-published markup. **Carried into the receiver review as a named precedent** rather than
+  left to be rediscovered, which is what the seat asked for.

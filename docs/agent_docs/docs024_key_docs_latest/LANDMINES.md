@@ -21916,3 +21916,27 @@ END $$;
 - **still true in the entry above:** three independent producers reproduce the keyless shape (5 `brief-writer`, 1 `manual`, 1 written by the diagnosing lane itself); 7 of 23 current briefs lack the key; `roadmap_brief.text` is the same shape in the planner and is an unmeasured lead. **The pre-write advice is unchanged** — but the fix now recommended at `bugs_open/453` is to render the object in the two templates, which retires the trap for every future author rather than one site at a time.
 - **relations:** the entry it corrects, immediately above · `bugs_open/453` CONTRIB (3) · MEMORY [[a-census-must-be-derived-from-the-code-it-models]] (a census whose predicate models fewer arms than the code)
 - **added:** 2026-09-03, portfolio_positioning lane — same session, ~90 minutes after the entry it corrects
+
+### `verify-head-builds.sh` reports "HEAD does NOT build" for a MISTYPED TARGET — the one failure it exists to detect, announced for an argument error
+
+- **footprint:** `scripts/verify-head-builds.sh` · `OPP-008`
+- **the trap:** the script's targets are **Go package patterns**, not service or make-target names. Pass a bare service name — `./scripts/verify-head-builds.sh tools-api`, which is exactly the spelling every `make build-<service>` in this repo trains you to type — and `go build` resolves it as a stdlib import path. You get:
+
+  ```
+  package tools-api is not in std (/home/ant/go/pkg/mod/golang.org/toolchain@.../src/tools-api)
+  verify-head-builds: FAILED — HEAD 4cb798131 does NOT build, though your working tree may.
+    The usual cause is a commit referencing a file another session has not committed yet.
+  ```
+
+  **The headline and the remedy are both wrong, and the remedy is the expensive part**: it names the shared-tree failure this script exists to catch, so the trained response is to go hunting another session's half-committed file — on a tree where that genuinely happens, which is what makes the false alarm credible. `[MEASURED 2026-09-03]` The same HEAD, re-run as `./scripts/verify-head-builds.sh ./cmd/tools-api/... ./internal/tools-api/...`, returned `OK — HEAD 5cd5977f6 builds.`
+- **why it survives a careful reader:** the true cause IS printed, one line above the verdict, in `go build`'s own words. But it is a stdlib-resolution message about a package you never mentioned importing, sitting above a bold FAILED line that offers a confident diagnosis — so the eye takes the verdict and the explanation, and the middle line reads as noise from the build it is describing.
+- **the check, and it is free:** **a target must contain a `/`.** Every valid argument is a package pattern (`./cmd/...`, `./platform/orchestration/...`); no valid one is a bare word. Before believing a FAILED verdict, re-run with **no arguments at all** — the script then builds `./...`, which cannot be mistyped:
+
+  ```bash
+  ./scripts/verify-head-builds.sh            # builds ./... — if THIS is green, your target was the bug
+  ```
+
+  A green no-argument run against a red targeted run is conclusive: HEAD is fine and the argument was wrong. Do not open `git log` until you have done it.
+- **the general shape, which is the reusable part:** a checker that reports its SUBJECT as broken when its own INPUT was malformed is worse than one that crashes, because it produces a plausible finding instead of an obvious error — and this one hands you a root cause as well. Whenever a tool's failure message names a cause you did not supply evidence for, re-run it in its least-parameterised form first.
+- **relations:** `OPP-008` · CLAUDE.md "Checking that committed HEAD still builds" · MEMORY [[a-shared-tree-commit-can-break-head]] (the real failure this is mistaken for)
+- **added:** 2026-09-03, static_site_form_endpoint lane — hit while verifying the forms receiver commit
