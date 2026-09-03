@@ -219,6 +219,29 @@ type siteRefreshResult struct {
 	// toward InvalidBannedClaimPatterns but not here — see
 	// createInvalidBannedClaimPatternItems).
 	InvalidBannedClaimWorkItemsCreated int `json:"invalid_banned_claim_work_items_created,omitempty"`
+
+	// FactsUnverifiable counts the facts NOTHING re-proves — every fact
+	// reaching the residue arm, whether or not the nudge was due today.
+	//
+	// Reported separately from AttestationsDue because they answer different
+	// questions and usually disagree: AttestationsDue is "how many need a
+	// human TODAY", this is "how big is the population that no machine will
+	// ever check". A run showing 12 unverifiable and 0 due is the honest
+	// signal that the arm ran and nothing was old enough yet — before this
+	// existed, that run and a run where the arm never looked at all were
+	// indistinguishable. RFC_025 §7 owed exactly this standing measurement,
+	// and it had been answered only by ad-hoc SQL.
+	FactsUnverifiable int `json:"facts_unverifiable,omitempty"`
+
+	// MalformedFacts names the facts in this register that do not decode.
+	// See createMalformedEvidenceFactItems for what that used to cost.
+	// omitempty: a clean register (25 of 27 on 2026-09-03) marshals exactly
+	// as before.
+	MalformedFacts []datahelpers.MalformedFact `json:"malformed_facts,omitempty"`
+	// MalformedFactWorkItemsCreated is how many of the above got a NEW work
+	// item this pass (one already holding an open item counts above but not
+	// here — same honest split as the invalid-pattern pair, bugs_open/091).
+	MalformedFactWorkItemsCreated int `json:"malformed_fact_work_items_created,omitempty"`
 }
 
 func RefreshEvidenceBaseAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -368,6 +391,32 @@ func bannedClaimPatternItemKey(siteID uuid.UUID, pattern string) string {
 	return fmt.Sprintf("invalid_banned_claim_pattern:%s:%x", siteID.String(), h.Sum64())
 }
 
+// malformedFactItemKey identifies ONE malformed fact, not the site, for the
+// same reason bannedClaimPatternItemKey does: a key scoped to the site alone
+// lets a SECOND bad fact hide behind an item already open for the first, and
+// on the motivating case that is the likely path — finetuning.uk's count of
+// undecodable facts went 3 → 7 → 8 over three days as an author kept writing
+// the same reasonable shape.
+//
+// Keyed on the fact's id where it has one, and on its index where it does not.
+// Both are in the hash, so a fact that GAINS an id raises once more and the
+// stale item ages out on its own rather than being silently shadowed.
+func malformedFactItemKey(siteID uuid.UUID, mf datahelpers.MalformedFact) string {
+	h := fnv.New64a()
+	fmt.Fprintf(h, "%s|%d", mf.ID, mf.Index)
+	return fmt.Sprintf("malformed_evidence_fact:%s:%x", siteID.String(), h.Sum64())
+}
+
+// bannedClaimList returns the register's banned_claims as a slice, for the
+// one thing this file needs from it: how many bans were at stake. Reported in
+// the work item because it is the number that makes the finding's severity
+// legible to a human — "one fact will not decode" reads like a typo, "one
+// fact will not decode and 7 banned claims were inert because of it" does not.
+func bannedClaimList(eb map[string]interface{}) []interface{} {
+	list, _ := eb["banned_claims"].([]interface{})
+	return list
+}
+
 // shouldRaiseStaleEvidence decides whether a pass's drift, if any, should
 // raise a stale_evidence work item — split out as a pure function (no DB, no
 // side effect) specifically so the gating decision itself is unit-testable
@@ -421,6 +470,23 @@ func refreshOneSiteEvidence(
 	// do. Independent of the facts loop below; banned_claims carries no
 	// dependency on fact state.
 	res.InvalidBannedClaimPatterns = checkBannedClaimPatterns(eb["banned_claims"])
+
+	// The TYPED parse, run for its report only — this sweep works on the
+	// generic map above and does not need the struct. It is here because this
+	// is the one mechanism that visits every register daily, and until
+	// 2026-09-03 a register the typed parse REJECTED was invisible: the three
+	// claims gates each logged a Warn and skipped the site, in pods replaced
+	// daily, and nothing was ever raised. Two live registers had been in that
+	// state for over a week (finetuning.uk, noted.co.uk) with 10 banned
+	// claims inert between them. Pure, so a dry run reports it.
+	if parsed, perr := datahelpers.ParseEvidenceBase(rawJSON); perr == nil && parsed != nil {
+		res.MalformedFacts = parsed.MalformedFacts
+	} else if perr != nil {
+		// The base does not parse AT ALL — a defect above the facts array,
+		// which the per-fact tolerance deliberately does not cover. Report it
+		// as a malformed fact with no index so it is not silently dropped.
+		res.MalformedFacts = []datahelpers.MalformedFact{{Index: -1, Err: perr.Error()}}
+	}
 	// Always logged, clean or not — the peer half of this pair (§4 below) is
 	// json:",omitempty", so a clean pass leaves NOTHING in the persisted
 	// result: identical to the check never having run at all. Caught live
@@ -571,19 +637,35 @@ func refreshOneSiteEvidence(
 
 		query := factSQLSource(fact)
 		if query == "" {
-			// artifact/attested facts with no artifact_check are checked for
-			// presence, not re-proved. RFC_025 stage 1: the attested_by subset
-			// gets a staleness NUDGE instead of a check — a human's word cannot
-			// be re-proved by design (claims.go's EvidenceSource doc comment),
-			// so this only turns long silence into a queue for a human, never a
-			// pass/fail verdict on the claim itself.
+			// EVERY fact that reaches here is one NO MACHINE RE-PROVES, and
+			// from 2026-09-03 every one of them is counted and nudged on the
+			// same cadence — whatever key it happened to use to say so.
+			//
+			// WHAT THIS ARM USED TO DO, and why it was 161's own mechanism
+			// looking back at us. It nudged `attested_by` facts (RFC_025 stage
+			// 1) and dropped everything else through `continue` UNCOUNTED —
+			// not in FactsChecked, not in res.Facts, in no counter anywhere.
+			// So an `artifact`-sourced fact with no artifact_check was
+			// invisible: the register asserted it, the writer was instructed
+			// by it, every gate vouched for it, and the one sweep that could
+			// have said "nothing has ever checked this" could not even count
+			// it. `[MEASURED 2026-09-03]` 27 such facts on 5 sites —
+			// relojistas 12 (whose `artifact` is an external URL and belongs
+			// in `citation`), fundamentallyai 7 and leopardess 6 (repo paths),
+			// gamesdesign and robot-hands 1 each (live components).
+			//
+			// A nudge is all this is: it renders no verdict on any claim, and
+			// cannot — that is the honest standing of a fact whose only proof
+			// is a sentence a human once typed. It turns silence into a queue,
+			// which is exactly what RFC_025 §2.1 ratified stage 1 to do, and
+			// FactsUnverifiable is the standing measurement its §7 owed.
 			if src, ok := fact["source"].(map[string]interface{}); ok {
-				if _, has := src["attested_by"]; has {
-					if entry := checkAttestationStaleness(fact, today); entry != nil {
-						res.FactsChecked++
-						res.AttestationsDue++
-						res.Facts = append(res.Facts, *entry)
-					}
+				res.FactsUnverifiable++
+				if entry := checkAttestationStaleness(fact, today); entry != nil {
+					entry.Detail = unverifiableFactDetail(src, entry.Detail)
+					res.FactsChecked++
+					res.AttestationsDue++
+					res.Facts = append(res.Facts, *entry)
 				}
 			}
 			continue
@@ -667,8 +749,18 @@ func refreshOneSiteEvidence(
 		res.Facts = append(res.Facts, entry)
 	}
 
-	if res.FactsChecked == 0 {
-		return res, nil // no live-verifiable facts — nothing to do, no noise
+	// "Nothing to CHECK" is not "nothing to REPORT", and conflating the two
+	// silenced two findings that have nothing to do with facts.
+	//
+	// This return sits ahead of every raise in this function, including the
+	// invalid-banned-pattern raise added 2026-09-02 — so a site whose facts
+	// are all unclassifiable could never raise EITHER finding, however broken
+	// its register was. That is precisely the shape of the two sites this
+	// change was written for: a register that fails the typed parse tends
+	// also to have nothing the sweep can check, so the one run that could
+	// have reported it returned here first.
+	if res.FactsChecked == 0 && len(res.InvalidBannedClaimPatterns) == 0 && len(res.MalformedFacts) == 0 {
+		return res, nil // no live-verifiable facts and nothing to report — no noise
 	}
 
 	// ── Whitelist regeneration (V2's writer_block) ──
@@ -716,6 +808,15 @@ func refreshOneSiteEvidence(
 			logger.Warn("refresh_evidence_base: invalid_banned_claim_pattern write failed", zap.Error(err))
 		}
 		res.InvalidBannedClaimWorkItemsCreated = created
+	}
+
+	if len(res.MalformedFacts) > 0 {
+		created, err := createMalformedEvidenceFactItems(
+			ctx, db, siteID, domain, res.MalformedFacts, len(bannedClaimList(eb)), params.AgentType, logger)
+		if err != nil {
+			logger.Warn("refresh_evidence_base: malformed_evidence_fact write failed", zap.Error(err))
+		}
+		res.MalformedFactWorkItemsCreated = created
 	}
 
 	writeFactBindingSuggestions(ctx, db, siteID, factSuggestions, dryRun, logger)
@@ -1216,6 +1317,40 @@ func checkAttestationStaleness(fact map[string]interface{}, today string) *evide
 }
 
 // factSQLSource returns the fact's SQL source, if it has one.
+// unverifiableFactDetail says WHICH shape of unverifiable this fact is, and
+// what would fix it. The nudge is worth little if the human reading it cannot
+// tell "a person vouched for this and it is time to re-look" from "this cites
+// an artefact nobody ever taught the sweep to read".
+//
+// attested_by keeps checkAttestationStaleness's existing wording verbatim —
+// that is the fact class stage 1 was written for and its message is right.
+func unverifiableFactDetail(src map[string]interface{}, attestedDetail string) string {
+	if _, has := src["attested_by"]; has {
+		return attestedDetail
+	}
+	if artifact := datahelpers.GetStringField(src, "artifact", ""); artifact != "" {
+		// A URL in `artifact` is the commonest case fleet-wide (12 of the 27
+		// on 2026-09-03, all relojistas) and it has a better home: `citation`
+		// re-fetches the page and re-checks a verbatim quote every sweep, so
+		// naming it here saves the reader working out that the mechanism they
+		// want already exists.
+		if strings.HasPrefix(artifact, "http://") || strings.HasPrefix(artifact, "https://") {
+			return "artifact-sourced fact whose artifact is a URL, and nothing re-proves it. " +
+				"A `citation` source re-fetches that URL every sweep and re-checks a verbatim " +
+				"quote — retyping this fact as a citation is what makes it self-checking. " +
+				"Otherwise: re-date it, or attach an artifact_check."
+		}
+		return "artifact-sourced fact with no artifact_check — nothing re-proves it, so the " +
+			"register vouches for it on the strength of a sentence someone typed once " +
+			"(bugs_closed/161 is what that costs). Attach an artifact_check " +
+			"(component_id or subject_key, plus a pattern) so the daily sweep can check it, " +
+			"re-date it, or retype it as attested_by if a human's word is the honest source."
+	}
+	return "the fact's source carries no key this platform can re-prove or nudge on " +
+		"(none of sql/query/citation/attested_by/artifact). Give it one, so it is either " +
+		"machine-checked or honestly marked as a human's word."
+}
+
 func factSQLSource(fact map[string]interface{}) string {
 	src, ok := fact["source"].(map[string]interface{})
 	if !ok {
@@ -1816,6 +1951,101 @@ func createInvalidBannedClaimPatternItems(
 			zap.String("site_id", siteID.String()),
 			zap.String("domain", domain),
 			zap.Int("invalid_patterns", len(invalid)),
+			zap.Int("items_inserted", inserted))
+	}
+
+	return inserted, nil
+}
+
+// createMalformedEvidenceFactItems raises one item per fact that will not
+// decode — the finding that had no surface at all until 2026-09-03.
+//
+// WHAT THIS COSTS WHEN IT IS SILENT, which is why the severity is high for a
+// defect that looks like a typo. A fact that does not decode used to fail the
+// WHOLE register's typed parse, and all three claims gates treat that failure
+// as "this site has no register": validate_page_content.go skips its claims
+// checks, the stat audit returns nothing, check_unverified_claims reports a
+// check error. The site's banned_claims go with it, though they never
+// depended on the facts. `[MEASURED 2026-09-03, all 27 live registers]` two
+// sites were in exactly that state — finetuning.uk (3 bans, since 08-24) and
+// noted.co.uk (7 bans, since 08-25, a list forbidding precisely the
+// unearnable security absolutes a notes product must never claim). Neither
+// had raised anything, because the only trace was a Warn in a pod replaced
+// daily.
+//
+// The parse is tolerant now, so the register and its bans survive. This is
+// the other half: say which fact, and what it cost, on the day it happens.
+func createMalformedEvidenceFactItems(
+	ctx context.Context, db *sql.DB, siteID uuid.UUID, domain string,
+	malformed []datahelpers.MalformedFact, bansAtStake int, agentType string, logger *zap.Logger,
+) (int, error) {
+	inserted := 0
+	for _, mf := range malformed {
+		name := mf.ID
+		if name == "" {
+			name = fmt.Sprintf("(unnamed, index %d)", mf.Index)
+		}
+		specJSON, err := json.Marshal(map[string]interface{}{
+			"check":         "evidence_fact_decode",
+			"domain":        domain,
+			"fact_id":       mf.ID,
+			"fact_index":    mf.Index,
+			"decode_error":  mf.Err,
+			"bans_at_stake": bansAtStake,
+			"fix": "This fact does not decode, so it is skipped: it supports no claim and vouches for " +
+				"nothing. Before 2026-09-03 it also voided the ENTIRE register's typed parse, which " +
+				"silently disarmed this site's banned_claims and every claims gate on it. " +
+				"Commonest cause by far: a text value in `value`, which is a *float64 and cannot hold " +
+				"one (\"MIT\", \"Apache 2.0\", \"30 days\"). Either express the fact numerically " +
+				"(value 30, claim naming the unit), or drop `value` and put the wording in `claim` " +
+				"with an attested_by source. Then re-save the evidence_base.",
+		})
+		if err != nil {
+			logger.Warn("refresh_evidence_base: failed to marshal malformed_evidence_fact spec",
+				zap.String("site_id", siteID.String()), zap.Error(err))
+			continue
+		}
+
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return inserted, fmt.Errorf("begin tx: %w", err)
+		}
+
+		write, err := writeWorkItem(ctx, tx, workItem{
+			siteID:       siteID,
+			source:       "scheduled",
+			pipeline:     "content",
+			itemType:     "malformed_evidence_fact",
+			severity:     "high",
+			summary:      fmt.Sprintf("Evidence fact does not decode (%s): %s", domain, name),
+			spec:         string(specJSON),
+			priority:     20,
+			handlerAgent: "human-review",
+			status:       "needs_human_review",
+			createdBy:    agentType,
+			itemKey:      malformedFactItemKey(siteID, mf),
+		}, dropOnConflict, logger)
+		if err != nil {
+			tx.Rollback()
+			logger.Warn("refresh_evidence_base: failed to create malformed_evidence_fact item",
+				zap.String("site_id", siteID.String()), zap.Error(err))
+			continue
+		}
+		if err := tx.Commit(); err != nil {
+			logger.Warn("refresh_evidence_base: failed to commit malformed_evidence_fact item",
+				zap.String("site_id", siteID.String()), zap.Error(err))
+			continue
+		}
+		if write.Inserted {
+			inserted++
+		}
+	}
+	if inserted > 0 {
+		logger.Warn("refresh_evidence_base: evidence fact(s) do not decode — skipped, and before 2026-09-03 this voided the whole register",
+			zap.String("site_id", siteID.String()),
+			zap.String("domain", domain),
+			zap.Int("malformed_facts", len(malformed)),
+			zap.Int("bans_at_stake", bansAtStake),
 			zap.Int("items_inserted", inserted))
 	}
 	return inserted, nil
