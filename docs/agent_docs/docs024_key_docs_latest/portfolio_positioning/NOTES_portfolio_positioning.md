@@ -4139,4 +4139,21 @@ later attempt of its own hits the dedup guard and aborts — the file is idempot
   AND the shell's `generic-text-block`) — `create_tool_component` hardcodes position 2. Recorded
   in 450; check the served order once the `page_rerender` (4970265d) drains, and decide per page
   whether the prose block is retired or the tool bumped.
+- **(y) outcome — copyonline brief COMPLETED 09:31:17Z, held at `needs_human_review`** (orch
+  `7b627de7` COMPLETED 09:31:33Z). 13 keys (the cluster-brief shape), confidence **0.82**,
+  regulated_subject false, **24 content_plan items** (6 core guides + 4 core tools, then
+  valuable/aspirational) — **no listing page planned**, and `directory_opportunity` states the
+  copywriter directory is "explicitly gated behind the bugs_open/444 condition … no directory
+  content should be planned, stubbed, or referenced in live copy at launch" — the direction's
+  hardest instruction came back verbatim as a rule. Render:
+  `BRIEF_2026-09-03_copyonline_co_uk_for_review.md`.
+  ⚠ **Watch at plan review: "The Copywriter's Glossary" is typed `guide`** — correct, and it is
+  exactly 444's stated blind spot (BLD-028: a listing page typed `content` passes the gate). As a
+  guide the definitions are written inline; if it becomes a listing page it ships empty.
+- **Two monitor lessons this session**: (1) the copyonline watcher emitted NOTHING for 25 min —
+  its `kubectl exec` was timing out under load, and `[ -z "$st" ] && continue` swallowed it, so
+  silence looked like "no change". The brief had in fact completed at 09:31Z. **A poll loop whose
+  empty result is indistinguishable from its no-change result reports nothing either way** —
+  emit on the empty case too. (2) The tool-build monitor's exit threshold is 7 while 8 items now
+  exist; the 8th (redirect checker) needs a hand check.
 

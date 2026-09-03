@@ -308,10 +308,12 @@ The owner refreshed the kubeconfig ~21:2xZ (the 444 session noticed first). Ever
 - **№5 brief FIRED**: copyonline.co.uk, corr `8aac8250-a1b4-4633-b083-8479b2d137ea`, orch
   `7b627de7-b6a4-4ecd-881e-64c1db8defaf`, site `3d965325` (test+LOCKED, complete). Register CW1
   (+CW2 dsgn stub). Direction = template v2 (NOTES (y)). Pickup if the monitor is gone: the
-  three queries the fire script prints (orchestration_states by orch id; `site_specs`
-  mission_brief is_current; `needs_brief_review` item). When it lands: render
-  `BRIEF_2026-09-03_copyonline_co_uk_for_review.md` (precedent: the 09-02 renders), check the
-  plan draft names NO listing page, grep for `contact-hero`, then it is the OWNER's word.
+  three queries the fire script prints. **LANDED 09:31:17Z — brief written, held at
+  `needs_human_review`, 24 planned items, confidence 0.82, NO listing page planned, directory
+  gated on 444 in the brief's own words. Rendered:
+  `BRIEF_2026-09-03_copyonline_co_uk_for_review.md`. It is now the OWNER's word.** At plan review
+  (post-release): check the glossary stayed a prose `guide` (444's BLD-028 blind spot) and grep
+  the plan for `contact-hero`.
 - **At №5's release** (runbook §1) do all three canaries: §5 chrome pin (before the release
   rerender), §5b imagery check on the plan, §2b one-shot design discovery at plan completion.
 - **Next picks**: fridge-magnets.co.uk (№6; register row owed — gifts/promo family, neighbours

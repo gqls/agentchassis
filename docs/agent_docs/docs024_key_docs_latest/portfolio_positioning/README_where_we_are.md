@@ -1461,3 +1461,17 @@ tools to check a draft, with the marketplace kept as a later slot. The brief is 
 now and will land in your review queue as before; I will give it a read for empty-page traps
 before it does. Next in line: fridge magnets, then conferences.
 
+**2026-09-03, around 10:50 — the copyonline brief is ready for you, and five of the eight tools are built.**
+
+The brief is written and waiting in your queue:
+`BRIEF_2026-09-03_copyonline_co_uk_for_review.md` in the portfolio positioning folder. It plans
+twenty-four things — six core guides, four browser tools, then a second and third tier — and it
+took the hardest instruction seriously: it states in its own words that the copywriter directory
+must not be built, stubbed, or even referred to in live copy until the empty-listings fix is
+cleared. That is the trap that spoiled the design blog, so seeing it come back as a rule is the
+result I wanted. Nothing is built until you reply.
+
+On the tools: five of the eight are through, arriving about every three minutes, and the first
+one proves the approach works. The tool attached to the page that already existed, at the same
+address the site links, rather than making a second page. The pages will show their tools once
+the rerenders run, and I will read each one before calling it done.
