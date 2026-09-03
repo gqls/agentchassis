@@ -41,6 +41,16 @@ services:
   # mode). CORS comes from the island DB's minimal sites table, NOT an env
   # allowlist (the drafted ALLOWED_ORIGINS never existed in the merged code).
   tools-api:
+    # v1.0.1359-playground (2026-09-03): Tenant 3 — the finetuning.uk playground
+    # demo chat route group (PUB-006, council 63be72d1 r4), mounted only when
+    # PLAYGROUND_OLLAMA_URL is set. Built from committed 9b540c2e6 (image label
+    # org.opencontainers.image.revision); the suffix because fleet v1.0.1359 is
+    # commit 3043885, which predates the route's round-4 refactor. ⚠ The five
+    # PLAYGROUND_* keys in .env reach the container ONLY through the Tenant 3
+    # block below — this file maps env explicitly, there is no env_file. The
+    # first swap (19:06Z) booted with the keys in .env and this block absent,
+    # and the log said "playground route group NOT mounted (PLAYGROUND_OLLAMA_URL
+    # unset)" — a correct-looking .env is not enough.
     # v1.0.1343 (2026-08-26): 409 round 2, per the council's r1 objection —
     # the travel/jaw-span rule enforced in CODE (reconcile in Normalise), not
     # guidance alone.
@@ -62,7 +72,7 @@ services:
     # an unusable response is logged as a structural fingerprint, never its text.
     # Built from committed HEAD via `make build-tools-api-ref`; shipped by
     # docker save|ssh load (no registry creds on the island, by design).
-    image: docker.io/aqls/tools-api:v1.0.1343
+    image: docker.io/aqls/tools-api:v1.0.1359-playground
     restart: unless-stopped
     environment:
       PORT: "8080"
@@ -106,6 +116,19 @@ services:
       GRIPPER_SMTP_FROM_NAME: ${GRIPPER_SMTP_FROM_NAME:-Robot Hands}
       # GRIPPER_DAILY_TURN_CAP (default 2000) and GRIPPER_MAX_BODY_BYTES (16384)
       # are deliberately not surfaced here; set them in .env only if needed.
+      # ── Tenant 3: the finetuning.uk playground demo chat
+      # (POST /api/v1/tools/playground/chat, SSE), added 2026-09-03. OPT-IN BY
+      # ENV: the group mounts only when PLAYGROUND_OLLAMA_URL is non-empty
+      # (internal/tools-api/config: loadPlayground); the `:-` defaults below are
+      # the code's own defaults, so an .env that predates this block boots
+      # exactly as before. The model host is the Hetzner box 167.233.33.159
+      # (Ollama, model finetuning-demo), whose ufw admits ONLY this island's IP —
+      # finetuning_uk_service RUNBOOK "The demo model host". Values in .env.
+      PLAYGROUND_OLLAMA_URL: ${PLAYGROUND_OLLAMA_URL:-}
+      PLAYGROUND_MODEL: ${PLAYGROUND_MODEL:-finetuning-demo}
+      PLAYGROUND_MAX_TOKENS: ${PLAYGROUND_MAX_TOKENS:-150}
+      PLAYGROUND_NUM_CTX: ${PLAYGROUND_NUM_CTX:-2048}
+      PLAYGROUND_MAX_BODY_BYTES: ${PLAYGROUND_MAX_BODY_BYTES:-8192}
     depends_on:
       postgres:
         condition: service_healthy

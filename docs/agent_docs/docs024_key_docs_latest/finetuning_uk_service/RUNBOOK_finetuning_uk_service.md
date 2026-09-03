@@ -708,6 +708,12 @@ ssh root@toolsapisuk.vs.mythic-beasts.com 'cd /opt/island && docker compose exec
 # 2. env — five keys in /opt/island/.env; the group stays unmounted until the first one is set.
 #    PLAYGROUND_OLLAMA_URL=http://<model-host>:11434   (no trailing slash; http(s) or the process refuses to start)
 #    PLAYGROUND_MODEL=finetuning-demo · _MAX_TOKENS=150 · _NUM_CTX=2048 · _MAX_BODY_BYTES=8192
+#    ⚠ AND the matching `PLAYGROUND_*: ${PLAYGROUND_*:-…}` lines under the tools-api service's
+#    `environment:` in docker-compose.yml (the repo copy is
+#    gauntlet_dead_cta/infra/island/docker-compose.yml, "Tenant 3" block). The compose file maps
+#    env EXPLICITLY — there is no env_file — so a key present only in .env never reaches the
+#    container and the boot log says "playground route group NOT mounted (PLAYGROUND_OLLAMA_URL
+#    unset)". This line as first written omitted that and cost one restart (2026-09-03 19:06Z).
 
 # 3. image swap in /opt/island/docker-compose.yml (aqls/tools-api:<tag>), then docker compose up -d
 ```
@@ -729,6 +735,18 @@ ssh $ISL 'cd /opt/island && cp docker-compose.yml docker-compose.yml.bak-1343-pr
   && docker compose up -d tools-api'
 ```
 Then the verify block below; rollback is the `.bak-*` file + `docker compose up -d tools-api`.
+
+**DONE 2026-09-03 19:08:49Z — all four contract items live, verified from outside `[MEASURED]`:**
+boot log `playground route group mounted (ollama=http://167.233.33.159:11434, model=finetuning-demo,
+max_tokens=150)`; running image `aqls/tools-api:v1.0.1359-playground`; symbol probe in the container
+**5 / 3 / 0** (the island's grep counts the same binary differently from the local 2 / 2 / 0 — both
+builds agree on >0 / >0 / 0, which is the assertion); first call with `Origin: https://finetuning.uk`
+→ **200 text/event-stream**, 53 `token` events, `done {done_reason:stop, eval_count:54,
+eval_duration_ms:1380, load_duration_ms:1533, truncated:false}`, 3.85 s total including the cold
+load; a warm three-message call → **0.96 s total, 0.44 s to first byte**, 23 tokens; wrong Origin
+**403**; preflight OPTIONS **204**; `{"messages":[]}` → **400** `messages is required`; gripper and
+gauntlet routes still **403** on a wrong Origin (alive). Rollback file on the box:
+`docker-compose.yml.bak-1343-pre1359pg` (pre-swap) and `.bak-1359pg-noenvblock` (pre Tenant-3 block).
 
 **Verify at the artefact, with a SYMBOL not the route literal** (council round 4, debug_historian:
 a route path can be split by the linker; a symbol survives):

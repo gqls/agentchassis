@@ -1,4 +1,4 @@
-# HANDOFF 2026-09-03 — the site is now the playground; the demo model is live on a Hetzner box; the chat route is approved; two hand steps and a page stand between here and a working demo. Start here.
+# HANDOFF 2026-09-03 — the site is now the playground; the demo model is live on a Hetzner box; **the chat route is LIVE on the island (19:08Z)**; the widget on the page is what stands between here and a working demo. Start here.
 
 **COLD-START for the finetuning.uk service lane.** Supersedes
 `HANDOFF_2026-09-02_continue_here.md` (still the reference for the playground booking page's birth,
@@ -31,17 +31,17 @@ details conversation has not happened. Do not move company-general copy without 
 | 1. demo model server | **DONE, LIVE.** Hetzner `relojistas` 167.233.33.159 (key `~/.ssh/hetzner1`), Ollama 0.33.2, model `finetuning-demo` id `cd4c8ea62f1d`, **38–42 tok/s** (cluster CPU was 14), warm reply 1.3 s, 2.0 GB of 3.8 used. Open to the island's `176.126.243.183` ONLY, on a default-deny ufw box. Reachability proven both ways. | RUNBOOK "The demo model host" |
 | 2. tools-api route `POST /api/v1/tools/playground/chat` | **DONE, council APPROVED** (`63be72d1`, round 4, all reviewers; rounds 1–3 revise, each found something real). Committed; HEAD builds with tests. Registered **PUB-006** (route) + **PUB-007** (`mountBrowserGroup`). **NOT SHIPPED to the island.** | `internal/tools-api/handlers/playground.go`, `api/server.go`; RUNBOOK "step 2: ship" |
 | 2a. island `sites` allowlist row | **DONE** — migration `737_…_ISLAND.sql` applied + ledgered; island `sites` = finetuning.uk, robot-hands.com, vonc.com | island `island_migrations` |
-| 2b. `/opt/island/.env` five `PLAYGROUND_*` keys | **NOT DONE — operator hand edit.** My session's classifier refused to edit a live box's env; that is correct. Values in RUNBOOK. Inert until 2c. | island |
-| 2c. island image swap (`aqls/tools-api:v1.0.1343` → a tag carrying the route) | **NOT DONE — OWNER'S CALL. Image BUILT + PROVEN 2026-09-03 16:52Z: `aqls/tools-api:v1.0.1359-playground`** (from `9b540c2e6`; symbol 2/2/0 on the extracted binary). `docker load` onto the island was refused by the session classifier; the owner's three lines are in RUNBOOK step 2. `make build-tools-api-ref IMAGE_TAG=…` is the target (the `build-%-ref` pattern rule — "no makefile target" above was wrong). **The restart also serves robot-hands.com + vonc.com.** | island; RUNBOOK "step 2: ship" |
+| 2b. `/opt/island/.env` five `PLAYGROUND_*` keys | **DONE 2026-09-03 ~18:55Z (owner, by hand)** — AND the Tenant 3 `environment:` block in the compose file, without which the keys never reach the container (the first restart booted "NOT mounted"; RUNBOOK step 2 corrected, LANDMINES entry). | island; repo compose copy `gauntlet_dead_cta/infra/island/docker-compose.yml` |
+| 2c. island image swap | **DONE 2026-09-03 19:08:49Z** — `aqls/tools-api:v1.0.1359-playground` (from `9b540c2e6`) running; boot log `playground route group mounted (ollama=http://167.233.33.159:11434 …)`; from outside: 200 text/event-stream (53 tokens, cold 3.85 s, warm 0.96 s), 403 wrong Origin, 204 preflight, 400 bad body, gripper/gauntlet alive. Rollback files on the box: `.bak-1343-pre1359pg`, `.bak-1359pg-noenvblock`. | RUNBOOK "step 2: ship" (verify record) |
 | 3. the chat widget on `/playground.html` | **NOT STARTED — and the plan here is CORRECTED (2026-09-03 17:10Z, measured at the library row).** ~~fork `chat-input-box` … repointed at the route~~ The library box is single-turn `{message}`→JSON, same-origin, path a literal, no endpoint field; the route is multi-turn `{messages}`, cross-origin, SSE (`token`/`done{truncated}`/`error`). A fork cannot be "repointed"; the JS must differ. Paths: **(a)** `add_tool` with `library_source: null`, the route contract in the description, function `tool-playground` + the generator's `adopt_existing_page` flag so it lands on `/playground.html` (name match) rather than minting `/tools/…`; **(b)** the estate's two live cross-origin widgets (`gripper-report-intake` mig 651, `gauntlet-round-record-vonc-com`) are hand-written `js_snippets` + section + locked row. **Owner's call; lane recommends (a), (b) as fallback** (README). `deploy_config.capabilities += backend` only if the tool carries `requires-backend`, and NOT before the route is live. | NOTES 16:45–17:15Z; PLAN Phase P |
 | 4. booked-hour GPU provisioning as a workflow | not started; thunder actions exist for training runs (`thunder_ssh_exec_dispatch`, `_decommission_dispatch`, …) | PLAN |
 | 5. booking → session handoff; the examples catalogue ("model pages" with an owner) | not started; "details later" | PLAN DIRECTION |
 
-**Post-ship verification when 2c happens** (council round 4, debug_historian): probe the island
-container for the SYMBOL `PlaygroundChatHandler` with `GripperChatHandler` as present-control and
-an impossible string as absent-control (locally 2 / 2 / 0); `docker logs` for "playground route
-group mounted"; then curl the route with `Origin: https://finetuning.uk` (200 text/event-stream)
-and a wrong Origin (403). Recipe in RUNBOOK.
+**Post-ship verification — RUN 2026-09-03 19:09–19:12Z, all green** (symbol 5 / 3 / 0 on the island's
+grep vs 2 / 2 / 0 locally on the same bytes — the assertion is >0 / >0 / 0; mount line present; 200
+text/event-stream; 403; plus 204 preflight, 400 validation, sibling routes alive). Recipe + figures in
+RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_PASS` into the
+2026-09-03 transcript — rotation recommended; read that file through `grep -v PASS`.
 
 ## ⚠ THE THINGS THAT WILL COST YOU TIME IF YOU DO NOT READ THEM
 
@@ -117,10 +117,10 @@ and a wrong Origin (403). Recipe in RUNBOOK.
 
 ## Next session, in order
 
-0. **If the owner has done 2b + 2c:** run the post-ship probes (RUNBOOK), then start step 3 on
-   whichever path he chose (README 2026-09-03 evening; default (a) if he has not said). Checked
-   2026-09-03 16:48Z: **neither done** (0 env keys, compose 1343, route 404 with controls).
-   If still not: nothing on the playground can move; say so plainly.
+0. ~~If the owner has done 2b + 2c~~ **BOTH DONE 19:08Z, probes green.** Start step 3 on whichever
+   path the owner chose (README 2026-09-03 evening; default (a) if he has not said). First probe
+   the route is still up (`curl … -H 'Origin: https://finetuning.uk'` → 200 text/event-stream) — the
+   demo box's ufw rule and the island's compose are the two things that can silently take it down.
 1. **When the prompts lane applies 641:** Stage B (above). ~~Rewrite the technical-details brief first.~~
    **DONE 2026-09-03:** `technical_details_stage_b_dispatch.sql` in this dir carries the rewritten
    brief and REFUSES to run until 641 is on the live writer (G1). Rehearse its post-G1 path under

@@ -2976,3 +2976,51 @@ the right thing" check earned its keep before the file was ever run.
 what tool-suggester may OFFER this site (406's predicate) as well as what the deployer admits, and
 is only needed on path (a) if the generated tool carries `requires-backend`; flipping it before the
 route is live invites a widget against a dead route. `our-position-on-ai` subjects — untouched.
+
+## 2026-09-03 (18:50–19:15Z) — the owner ran the deploy; THE ROUTE IS LIVE; one miss in my own recipe cost a restart; a secret was echoed into the session
+
+**Sequence, as it happened (owner at the keyboard, me supplying commands):**
+1. `docker save | ssh | docker load` — first attempt failed with "hostname contains invalid
+   characters": `ISL=… docker save …` on ONE line makes the assignment an env prefix on `docker
+   save`, so `$ISL` was empty for `ssh`. Second attempt loaded. (`$ISL` also does not survive
+   between `!` commands — each runs in a fresh shell; I switched to the literal host.)
+2. The `.env` append: the pasted heredoc arrived INDENTED, so `  EOF` did not terminate it and bash
+   appended all seven lines (five indented keys, `  EOF`, the grep line as text) to
+   `/opt/island/.env`. Read back with `tail | cat -A`, then repaired by `sed` (delete the two junk
+   lines, strip the two leading spaces) with a `cp` backup first; `grep -c` → 5, tail clean.
+   **The read-back printed `GRIPPER_SMTP_PASS=…` into this chat** (the owner's own tail, not mine —
+   but it is in the transcript now). Told him; **rotation recommended**; any future read of that
+   file goes through `grep -v PASS`.
+3. Swap + restart (owner pasted the command; I ran it — the classifier let it through this time,
+   under his explicit instruction). Container up on `v1.0.1359-playground`; symbol probe **5 / 3 /
+   0** on the island vs **2 / 2 / 0** locally on the same bytes — the island's grep (different
+   build) counts lines differently; the assertion is >0 / >0 / 0 and both satisfy it. **But the boot
+   log said `playground route group NOT mounted (PLAYGROUND_OLLAMA_URL unset)`** and the route
+   was still 404 with every control green.
+4. **Cause, read at the compose file (masked):** the tools-api service maps env EXPLICITLY
+   (`environment:` with `${VAR:-default}` per key; no `env_file:`). The gripper's keys work because
+   Tenant 2 has its block. My RUNBOOK step 2 said "five keys in /opt/island/.env" and nothing about
+   the compose mapping — the recipe was INCOMPLETE and read as complete. WRONG_CALLS row filed;
+   LANDMINES entry filed (fires when you add a key for a NEW tenant with no symptom yet).
+5. Fix: Tenant 3 block + changelog comment written into the REPO copy
+   (`gauntlet_dead_cta/infra/island/docker-compose.yml`, which a masked diff first proved
+   byte-identical to the island's apart from my image line — the "scp silently reverts the box's
+   settings" landmine checked, not assumed), parse-checked with `docker compose config
+   --no-interpolate`, backed up on the box (`.bak-1359pg-noenvblock`), scp'd, diff-proved IDENTICAL,
+   `docker compose up -d tools-api` → **`playground route group mounted (ollama=http://167.233.33.159:11434,
+   model=finetuning-demo, max_tokens=150)`** at 19:08:49Z.
+
+**Verified from outside, all `[MEASURED 2026-09-03 19:09–19:12Z]`:** POST with `Origin:
+https://finetuning.uk` → **200 text/event-stream**, 53 `token` events, `done` with
+`eval_count 54, eval_duration_ms 1380 (39 tok/s), load_duration_ms 1533, truncated false`, 3.85 s
+total on the cold load. The model's answer: *"In the context of language models, fine-tuning refers
+to the process of retraining a pre-trained model on a new dataset specific to a particular domain,
+task, or industry, while adjusting the model's initial parameters to fit the needs of that new
+environment."* Warm three-message call → **0.96 s total, 0.44 s first byte**, 23 tokens at ~44 tok/s.
+Wrong Origin **403**; preflight **204**; empty messages **400** `{"error":"messages is required"}`;
+gripper + gauntlet on a wrong Origin **403** (both tenants alive through two restarts).
+PUB-006's deployment contract: **4 of 4** (register updated). Phase P step 2 is CLOSED; step 3 (the
+widget) is unblocked and waits on the owner's path choice (README, 17:00Z entry).
+
+**Two restarts of tools-api this evening** (19:06:22Z and 19:08:49Z), each a few seconds, each also
+serving robot-hands.com and vonc.com — the first was the wasted one.
