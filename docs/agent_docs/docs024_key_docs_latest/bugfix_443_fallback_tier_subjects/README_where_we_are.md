@@ -104,3 +104,31 @@ Where this leaves us, unchanged from yesterday: everything now waits on your rea
 writer prompt (seed 641 — it was redrafted to your wording and approved by the council
 today; your read of the exact text is the one remaining gate). After that: the
 before/after proof on one page, then the clean-up of the wider list above.
+
+## 2026-09-03 evening — the writer prompt landed, and it half-worked
+
+Another lane test-ran the fixed writer on the technical-details page tonight. Good news first:
+the six section headings are now genuinely different from each other — that part of the fix
+works exactly as intended. But when I read the actual page and the actual text the writer
+produced, the three body paragraphs still open by saying almost the same thing: all three
+start by explaining that the model is "small and open-weight" and what that means, even
+though only one of them was supposed to be about that. Different headline, same paragraph
+underneath.
+
+I dug into why, rather than taking the other lane's word for it, and found the actual cause.
+It's a second problem, separate from the one we fixed, and it was hiding behind the first one
+the whole time. Every section's writing instructions include, in full, the entire page's brief
+— all six sections' worth of guidance, not just the one the writer is meant to be writing right
+now. Nothing in the instructions tells the writer "ignore the other five, you're only doing
+this one." So when three sections are the same type, given the same full brief, the writer
+naturally gravitates to the same part of it — usually whichever bit comes first. This is not
+specific to this one page: the same shape would show up on any page whose brief is written
+with that much per-section detail.
+
+So the picture is: the fix we built genuinely works — the topics are travelling all the way to
+the writer correctly. It's just that a second, older habit in how we write to the writer was
+masking that the topics weren't the only thing steering the words. Fixing it is a change to
+the shared writer instructions, not to anything we built — the lane that owns writer prompts
+has the evidence and a proposed fix already. Until that lands, I'm treating this bug as not yet
+closeable: distinct headings alone isn't the bar any more, matching content underneath counts
+as the same bug.

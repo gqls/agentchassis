@@ -335,3 +335,36 @@
   approval `6c92d154` covered candidate C specifically and a different pick may need its
   own round (their process, not ours to pre-empt). Nothing owed to them; they've already
   verified this better than we could, from their own harness.
+
+## 2026-09-03 evening — Stage B ran; a second mechanism found and VERIFIED first-hand (bug file §11)
+
+- **Cross-session message from finetuning**: Stage B ran on technical-details, 641/A4 live,
+  h2s distinct but bodies still open on the same claim — "repetition moved down a level".
+  **Did not take it on trust — reproduced every claim from the artefacts before writing
+  anything**, per this lane's own standing practice (Stage A did the same).
+- **Orchestration `89059f29-a8ec-4335-8a68-e7d68c0b8bba`**: COMPLETED 19:35:01Z, right page.
+  **Served page** (curl + control, control 404): 6 distinct h2s, confirmed. **Body text**
+  extracted per-section (python split on `<h2>` boundaries): all three generic-text-block
+  bodies open "...small open-weight model..." — verbatim convergence, confirmed.
+- **`llm_call_log.prompt_rendered`** for the three iterations (`b3542b0f`/`5062e2ea`/`07831aaa`):
+  `## This section` + sibling list correctly distinct per iteration (subject mechanism WORKING)
+  — but `## Rewrite Guidance` is byte-identical across all three and carries the FULL six-item
+  numbered brief, and `## What To Write` never says which numbered item is this section's own.
+  Confirmed the block is generic (`023_page_content_writer_agent.sql`, grep — not page-specific,
+  not a Go literal), so this is a fleet-wide exposure wherever a page's rewrite-guidance brief
+  is itself multi-section-detailed, independent of tiers/639/640/641.
+  `[UNVERIFIED]` how many live pages carry that shape — a census, not done here (not this
+  lane's fix to scope).
+  **643/A4 also confirmed live** at the prompt ("You'll want to know" frame absent, subject
+  line present) — matches finetuning's own NOTES entry on the writer-row check, corroborated
+  independently rather than re-derived from their record.
+- **§11 written into the bug file** (not a new bug — same page, same Stage B run, finetuning's
+  own routing call, agreed). **HANDOFF's Stage B item and closing-bar line REVISED**: "served
+  h2s distinct" is proven insufficient as the closing assertion; body-content divergence is
+  now part of the bar. `your-own-model` (the ORIGINAL canary, reserved for before/after) has
+  not yet had its own Stage B run by this lane — the technical-details run was finetuning's,
+  reported to us, not dispatched by us.
+- **Fix ownership**: the body-convergence mechanism belongs to `framework_prompts_positive_voice`
+  (already has finetuning's evidence + suggested wording) — same lane now carrying both 641's
+  block-choice rework (see the entry above) and this. Not ours to implement; ours to verify at
+  the live artefact once they report it, and to decide 443's closing bar accordingly.

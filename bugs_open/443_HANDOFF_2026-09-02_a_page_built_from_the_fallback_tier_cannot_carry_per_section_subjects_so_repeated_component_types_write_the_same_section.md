@@ -589,3 +589,61 @@ means the second.
 > **The stronger instrument, and it is `inline_guide_imagery`'s not mine — a negative WITH a positive control:** across **both** runs, **38** `page-content-writer` prompts, **0** containing any of the five subject strings, **38** mentioning the page's topic. It could have come out otherwise. They have offered you the grouping as a Stage B acceptance test — after 641, **N sections must show N distinct prompt hashes** — and I think that is the right shape, because it tests what the writer RECEIVED rather than what the config references.
 > **Correction to my own CONTRIB above, since it was found by a peer re-running my query and not by me:** I searched `llm_call_log` for a window ending 13:05 because that is when I expected the build to finish, and so I missed run 2 entirely and told two lanes the page had never been rewritten over. **A time-bounded query answers "what happened in the window I chose", never "what happened"** — the window was carrying my assumption.
 
+
+## 11. Stage B ran: headings fixed, bodies still converge — a second, deeper mechanism (2026-09-03, first-hand)
+
+Reported by the finetuning lane (cross-session message, 19:4x Z), **verified first-hand here**
+before recording — orchestration `89059f29-a8ec-4335-8a68-e7d68c0b8bba` (technical-details,
+COMPLETED 19:35:01Z), the served page, and the raw `llm_call_log.prompt_rendered` rows, not the
+report:
+
+**Served page** (curl + invented-URL control, control 404): the six h2s are now genuinely
+**distinct** — "Which model, and what its licence allows" / "The model and its licence" /
+"Which model we use, and what the licence allows" / "Before you sign off" / "Not sure
+fine-tuning is the right tool for the job?". **But all three `generic-text-block` bodies open
+on the identical claim**: "...a small open-weight model, [meaning/which means] the underlying
+weights... can be downloaded and run on hardware you control..." — the same content, reworded
+three times. §1's symptom ("writes the same thing twice") is **not resolved by distinct
+headings alone**; the closing bar stated in the handoff (item 3, "assert served h2s DISTINCT")
+is confirmed **insufficient** and needs strengthening to a body-content check.
+
+**Mechanism, read from the three iterations' actual prompts** (`llm_call_log` ids
+`b3542b0f…`/`5062e2ea…`/`07831aaa…`, `process_sections_loop_iter_{1,2,3}_generate_content`):
+- **The subject mechanism is working correctly.** Each iteration's `## This section` line and
+  sibling list correctly and distinctly reflect that section's own subject (model/licence vs.
+  the GGUF file vs. the LoRA training process) — 641's fix does exactly what it was built to do.
+- **`## Rewrite Guidance (IMPORTANT: incorporate this into the content)`** — a GENERIC framework
+  block (`023_page_content_writer_agent.sql`, not page-specific), not gated on the current
+  section at all — injects the page's **entire six-section brief, verbatim, into every section's
+  prompt**: numbered items (1)–(6), each a full paragraph, including the other five sections'
+  material in full.
+- **`## What To Write`** says only *"Write the following fields for the generic-text-block
+  section: content, heading"* — it never names the subject, never points back to `## This
+  section`, and gives the model no instruction to write ONLY its own numbered item and ignore
+  the rest of the brief.
+- Given three same-typed slots each holding the full brief with no scoping instruction, the
+  model converges on the SAME sub-topic across all three (observed: item (2), the first and
+  most prominent numbered entry) regardless of which subject that iteration was actually
+  assigned. This is the same shape as the original bug — a shared instruction reaching three
+  slots undifferentiated — one level lower: **§2's diagnosis (tier gate → missing subject) is
+  still correct for headings; this is a SECOND, independent cause for body content, present
+  even where a subject IS attached.**
+
+**Scope — fleet-wide, not finetuning-specific.** `Rewrite Guidance` is 023's generic writer
+template; any page whose `content_direction`/rewrite-guidance text is itself multi-section
+detailed (as this custom brief is) is exposed on the same shape, on EVERY tier, independent of
+639/640/641. `[UNVERIFIED]` how many live pages carry a multi-paragraph, per-section-numbered
+rewrite-guidance brief like this one — worth a census before scoping a fix; the fix itself
+(name the current section's own numbered item to the model, or split the brief so only the
+relevant paragraph reaches each call) is a writer-prompt change and, per the finetuning lane,
+**belongs to the `framework_prompts_positive_voice` lane**, who already have the evidence and a
+suggested one-line instruction from finetuning. This lane does not own that prompt.
+
+**Where this leaves 443.** Stage B is PARTIALLY proven: the mechanism this bug's fix targets
+(subject reaching the writer) is confirmed working end-to-end. The bug's user-visible symptom
+(repeated section content) is **not yet resolved** — a second, previously-invisible cause has
+been exposed by fixing the first one. **443 cannot close on the current Stage B result.**
+Closing needs either: this second mechanism fixed too (tracked with the prompts lane, not
+this lane's to implement), or a decision that 443's scope is headings-only (owner call, not
+made). Recorded here rather than filed as a new bug per the finetuning lane's routing — same
+symptom family, same page, same session's Stage B run.

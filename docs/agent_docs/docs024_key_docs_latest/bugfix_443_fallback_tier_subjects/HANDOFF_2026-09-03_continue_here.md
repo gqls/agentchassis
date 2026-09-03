@@ -49,8 +49,20 @@ redrafted 641 applies. So served h2s still repeat everywhere. That is expected, 
    (build-dispatch-loop takes the site's items in one loop — both finetuning pages ran under
    `6e8eadaa`). Key every per-page read on the WRITER's `orchestration_id`, never the
    correlation.
-3. **Stage B (after 641):** rebuild `your-own-model` via the SAME pinned path; assert served
-   h2s DISTINCT (curl + invented-URL control); tier-1 control page passes same assertion;
+3. **Stage B RAN 09-03 19:35Z on technical-details — PARTIAL, and the bar below is now known
+   insufficient.** (bug file §11, verified first-hand at the orchestration row, the served page
+   and `llm_call_log`, not taken on the finetuning lane's report.) Headings ARE distinct
+   (confirms 641/subject mechanism works end-to-end). **Bodies still converge**: all three
+   `generic-text-block` sections open on the same claim, because the generic `## Rewrite
+   Guidance` block (023's writer template, page-specific brief, NOT subject-scoped) injects the
+   WHOLE six-section brief into every section call, and `## What To Write` never tells the model
+   which numbered item is this section's own. **A second, independent, fleet-wide mechanism —
+   owned by the `framework_prompts_positive_voice` lane (finetuning already sent them the
+   evidence + a one-line fix suggestion).** ~~assert served h2s DISTINCT~~ is NOT the closing
+   bar any more — add a body-content-divergence check (e.g. first-sentence-of-body distinctness
+   across same-typed siblings) before calling Stage B closed. `your-own-model` (this item's
+   original canary) still needs the same before/after run — not yet dispatched by this lane as
+   of 09-03 evening.
    **SAVE the before/after served-HTML pair and point to it from 443's close-out — OWED to
    copy_quality_two_stage** (they cancelled their proposal on this page for us; NOTES 09-02).
    **⚠ VERIFIED CONDITION (09-03, at the deciding arms): the rebuild item must leave
@@ -95,6 +107,11 @@ redrafted 641 applies. So served h2s still repeat everywhere. That is expected, 
 either outcome — but see the coordination note below), the new-finding cohort below (separate
 filing decision).
 
+**⚠ CLOSING BAR REVISED 09-03 evening (bug file §11): "served pages no longer repeating" means
+headings AND body content.** Stage B proved headings alone are reachable without body content
+following — 443 cannot close until the second mechanism (§11, the prompts lane's) is fixed and
+re-verified, or the owner narrows 443's scope to headings only (not decided).
+
 ## Detector cohort — RESOLVED 09-03 (was "⚠ NEW FINDING"; full evidence in bug file §10)
 
 All three of (a)/(b)/(c) done. Verdict: **pre-640 plans, two tiers, no new mechanism, no
@@ -112,6 +129,10 @@ then failing on an unrelated `mechanism-flow` type mismatch; their page serves n
   Stage A as Stage A; owed a re-ping only if the detector shows their rebuild happened and
   they haven't reported.
 - **apis.uk**: own 641 redraft + the sibling-range pre-apply falsifier; told everything.
+- **framework_prompts_positive_voice** (took over 641 apply from apis.uk, 09-03 10:40Z): now
+  ALSO owns the §11 body-convergence fix (`## Rewrite Guidance` not subject-scoped; finetuning
+  already sent them evidence + a suggested one-line instruction, 09-03 evening). Re-verify at
+  the live writer row when they report it, same discipline as 641; nudge only after a week.
 - **114 lane**: imagery seeding claimed (their `448671d18`), sequenced after composition;
   nothing owed either way now.
 - **copy_quality_two_stage**: owed the Stage B HTML pair (item 3 above).
