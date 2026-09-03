@@ -230,12 +230,56 @@ that caught one shell write). No owner yet; the remake programme is the first cu
 
 ## Verify
 
+> **⚠ THE CENSUS BELOW WAS WRONG IN TWO DIRECTIONS AND IS SUPERSEDED — CORRECTED 2026-09-03**
+> (found by the `portfolio_positioning` lane on the first half, and by measuring the FIX's own
+> predicate against it on the second). **The `61 pages / 10 sites` figure quoted throughout this
+> file — and in `PBP-053`, the LANDMINES entry and council submission `2b236e83` — was a FLOOR,
+> not a total.** Corrected figure, `[MEASURED 2026-09-03 ~12:0xZ]`: **67 pages / 16 sites.**
+>
+> 1. **`deployed_at IS NOT NULL` excludes the never-shipped variant** — which is §7's
+>    websitepromotion fork, the page whose link-repair items park at `mark_no_ready_sections`
+>    instead of writing a shell. **A count of shipped shells structurally cannot see a page that
+>    never shipped**, so the variant this file calls the other branch of the same fork was
+>    excluded from the census measuring its own class, and always had been. **+4 pages / 4 sites**
+>    (websitepromotion.co.uk, garden-tools.uk, adversecreditmortgage.co.uk, idea.uk).
+> 2. **The census does not test `cc.is_active`, and the FIX does.** A page whose only tool
+>    component is INACTIVE reads as "has a tool" here and as a shell to `toolShellPredicateFor`.
+>    **+9 pages / +4 sites** — finetuning.uk 3, robot-hands.com 2, ai-agent-orchestration.com 2,
+>    gaswholesalers.com 1, and leopardessconsulting 2→3 — none of which appeared in the filed
+>    census at all.
+>
+> **The general lesson, which is why this is at the top of the block rather than in a footnote:
+> the census that measured this bug's population was never the predicate the fix uses.** Those
+> two drifting apart is how a fix gets judged against the wrong denominator. The corrected
+> queries below are the guard's own predicate, split by publication state.
+>
+> **And a property of ANY version of this census, from the same lane:** it is a
+> repair-INITIATED count, not a repair-COMPLETED one. Attaching a tool component removes a page
+> from it immediately, while the public keeps seeing prose until the rerender drains — an
+> unbounded queue delay. On 2026-09-03 seotools left the census entirely at 10:27Z with **0 of
+> its 7 pages published**. A later session re-running this will read "seotools: clean" off a site
+> serving seven prose pages. **Acceptance is the served body — form and input counts — never
+> this census.**
+
 ```sql
--- shells: tool-type pages with no tool-level component (add s.domain=... to scope)
-SELECT s.domain, p.name FROM pages p JOIN sites s ON s.id=p.site_id
- WHERE p.page_type='tool' AND p.status='active' AND p.deployed_at IS NOT NULL
+-- CORRECTED: the guard's own predicate, split by publication state. `shipped` is the
+-- served-prose population; `never_shipped` is the parked/sectionless fork (§7) that the
+-- original census could not see. Add s.domain=... to scope.
+SELECT s.domain,
+       count(*) FILTER (WHERE p.deployed_at IS NOT NULL) AS shipped,
+       count(*) FILTER (WHERE p.deployed_at IS NULL)     AS never_shipped
+  FROM pages p JOIN sites s ON s.id=p.site_id
+ WHERE p.page_type='tool' AND p.status='active'
    AND NOT EXISTS (SELECT 1 FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id
-                   WHERE pc.page_id=p.id AND pc.build_status<>'removed' AND cc.component_level='tool');
+                   WHERE pc.page_id=p.id AND pc.build_status<>'removed'
+                     AND cc.component_level='tool' AND cc.is_active)
+ GROUP BY 1 ORDER BY 2 DESC, 3 DESC;
+
+-- SUPERSEDED (kept so the 61/10 figure in older text is traceable, NOT for reuse):
+-- SELECT s.domain, p.name FROM pages p JOIN sites s ON s.id=p.site_id
+--  WHERE p.page_type='tool' AND p.status='active' AND p.deployed_at IS NOT NULL
+--    AND NOT EXISTS (SELECT 1 FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id
+--                    WHERE pc.page_id=p.id AND pc.build_status<>'removed' AND cc.component_level='tool');
 -- who wrote them
 SELECT p.name, w.item_type, count(*) FROM page_component_history h JOIN pages p ON p.id=h.page_id
  LEFT JOIN site_work_items w ON w.id=h.source_item_id WHERE p.site_id=:site AND p.name LIKE 'tool-%' GROUP BY 1,2;

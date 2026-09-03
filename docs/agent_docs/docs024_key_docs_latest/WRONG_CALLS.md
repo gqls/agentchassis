@@ -60506,3 +60506,47 @@ a-pathspec-commit-still-takes-a-same-file-passenger, your-fix-invalidates-a-peer
 
 Family: your-measurement-answers-the-question-you-encoded,
 a-report-is-not-a-measurement, editing-one-file-is-not-knowing-the-package.
+
+---
+
+## 2026-09-03 — I quoted a census FIVE times without ever running the predicate my own fix uses, and it was a floor in two directions (`bugs_open/450` lane)
+
+- **The claim**: "61 tool-type pages with no tool-level component across 10 sites", written into
+  the bug file, register entry **PBP-053**, the LANDMINES addendum, 016b §9 and council submission
+  `2b236e83` — in two of those marked `[MEASURED 2026-09-03]`, because I had re-run the filed
+  query and got the identical number, which felt like confirmation.
+- **What was actually true**: **67 pages / 16 sites.** The filed census was a floor twice over.
+  (1) `deployed_at IS NOT NULL` excludes pages that never shipped — and the never-shipped
+  variant is precisely the sectionless fork the same bug file calls "the other branch of the
+  same fork", so **the class's census structurally could not see the instance I had just told a
+  peer lane was my best evidence for a design decision**. +4 pages / 4 sites. (2) The census
+  does not test `cc.is_active`; **my guard does**. A page whose only tool component is inactive
+  reads as "has a tool" to the census and as a shell to the fix. +9 pages / 4 sites, including
+  four sites absent from the filed census altogether.
+- **What caught it**: a peer lane (`portfolio_positioning`) re-running the census after its
+  repairs and noticing seotools had vanished from it while 0 of its 7 pages were published. They
+  reported the `deployed_at` half; the `is_active` half surfaced only because their message made
+  me run the FIX's predicate and the census side by side for the first time.
+- **The cheap check**: **run your fix's own predicate as the census.** I wrote
+  `toolShellPredicateFor` and separately quoted a number from a query in the bug file, and never
+  once diffed them — which is the whole error, because a fix and its denominator disagreeing is
+  invisible while both look reasonable. One `WITH base AS (...)` comparing both predicates took
+  under a minute and is now the corrected Verify block.
+- **Why re-running it read as confirmation and was not**: the second run reproduced the number
+  because it reproduced the *predicate*. A census does not go wrong and then come right; it
+  answers the question you encoded, twice. `[MEASURED]` on a repeat of the same encoded question
+  certifies nothing about the question. This is the estate's own
+  `a-measured-figure-must-be-disconfirmable` rule, and I applied the marker while skipping the
+  test: **what would this measurement have looked like if the population were bigger?** It could
+  not have looked like anything else.
+- **What it cost, and what it did not**: the wrong number is in a live council submission. I did
+  NOT retrigger it — a duplicate round costs more than the error, the figure is directional
+  evidence rather than load-bearing on the design, and the durable documents now carry the
+  correction with the date. Nothing about the fix changes: the guard was always using the
+  stricter predicate, so it refuses the 67, not the 61. The docs were understating what the fix
+  does, which is the harmless direction — but only by luck, and a floor quoted as a total is the
+  shape that gets quoted back months later as a total.
+
+Family: your-measurement-answers-the-question-you-encoded,
+a-closer-census-cannot-see-what-it-succeeded-at, a-measured-marker-proves-a-claim-not-a-check,
+a-count-of-things-must-carry-the-date-it-was-counted.
