@@ -450,3 +450,50 @@ screen, the one that overwrites without asking — is **invisible to the obvious
 because it assembles the database command at the last moment rather than spelling it out. My own
 first two searches reported it as not existing. Anyone repeating that count would confidently find
 three writers and miss the one that matters most.
+
+---
+
+**2026-09-03 — your answer on the identity question, and the part of it that matters most.**
+
+You picked option C, four identities: who ordered the site, who operates it, who is published as the
+contact, and who the site is actually about. Recorded. You also went past the options I gave you in
+two ways, and the second one is the important one.
+
+**The one you deferred:** a fifth identity for whoever is *selling* the service, if the platform ends
+up being sold through more than one site run by more than one person. You said we don't have to do
+that today. Agreed, and it is written down by name so it doesn't get rediscovered as a surprise
+later.
+
+**The one you didn't defer, and which quietly changes the design:** *"there may be more than one
+contact detail for any of these."*
+
+That sounds like a small addition and it isn't. Every version I had sketched assumed one contact per
+identity — which means a column each, four columns, done. "More than one" means that shape cannot
+work at all. It has to become a proper list, where each contact is its own record.
+
+And it makes the hardest part of this harder in a useful way. The thing I flagged as the sharpest
+constraint was that a field has to tell *"we asked and the answer is none"* apart from *"we haven't
+asked yet"* — because otherwise every helpful bit of code that fills in blanks quietly overturns a
+customer's decision. With several contacts per identity there are now **three** things to tell apart,
+not two: this identity has contacts but none is published; this identity has no contacts at all; and
+we asked and the answer is none. Permission to publish also stops being a property of the person and
+becomes a property of each individual contact detail.
+
+**Here is the part worth knowing, because it links your two additions.** They aren't separate asks.
+The list-shaped design that your second addition forces is *also* the thing that makes your first
+addition cheap to postpone — because under it, adding a fifth identity later is just adding a row,
+not rebuilding the table. If someone later decides to shortcut the second point back into "just add
+four columns for now", they will have quietly turned your deferral into a future rebuild. I've
+written that down as the thing not to take apart.
+
+For what it's worth, you also overruled me on one point and I think you were right: I'd suggested
+treating "who the site is about" as something we work out rather than store. You made it a real
+identity. That is better, because the whole reason it came up is that our evidence records need to
+say *whose* claim they're holding, and something you can point at beats something recalculated each
+time.
+
+**What's still owed before anything is built:** we have a list of the places in the code that read a
+site's email address, and it is three days old. I refreshed the *writing* half today — still four,
+unchanged. The reading half, fourteen places, still needs redoing, and it matters more now than it
+did this morning: under your ruling every one of those has to learn *which* identity it is reading,
+so one missed is one that quietly carries on using the old column.
