@@ -148,22 +148,96 @@ If it repairs: the seam is demonstrably sound on its own path on the fixed binar
 is closed. If it does not: that is a **genuine 384 residual on a clean binary** and the sharpest
 case this lane has ever had — the runs will be inside retention, unlike everything before.
 
-## 6. What 384 still owes before it can close
+## 6. What 384 still owes — EVERY ITEM RE-CHECKED 2026-09-03 16:1xZ, and two of them had gone stale
 
-1. ~~**The post-fix proof above.**~~ **DONE 12:54Z — see §5.** designblog.co.uk/index went 4 blank
-   → 0 blank on a `section_data_resolved` re-resolve, verified at the served page.
-2. **The owned-page residual — 14 blanks / 3 pages.** Unchanged, structurally out of this seam's
-   reach (`save_sections` refuses an owned page). Remedy shape exists (migration `486`'s
-   `section_edit` → `section-editor` route). **Must NOT close inside 384** — file it or carry it
-   into the owned-page seam's own round.
-3. **This lane's sweep has NEVER RUN.** `check_page_list_stale` (migration `603`): 12 items in its
-   lifetime, all born terminal, cause is `bugs_open/389`'s two-strike arm. **After 389 lands,
-   re-validate the sweep and re-do the escalation watch from zero** — the old "zero escalations
-   against 1-in-36" is zero over an empty denominator.
-4. **`bugs_open/404`** — still unclaimed, still latent, unchanged.
-5. **Re-run §1's census in a day or two, once the fixed binary has had traffic.** Expect the
-   post-`94f81cc60` failures to stop accumulating. If they do not, the residual is real.
-   SQL: `scripts/census_repair_rate.sql` in this directory (commit `f8110df1e`).
+**Do not work this list from the previous handoff.** Three of its five items were wrong or out of
+date by the time it was written, and I only found that by opening each bug rather than restating it.
+Status below is checked, with the query or commit that checked it.
+
+| # | item | status as of 16:1xZ | whose |
+|---|---|---|---|
+| 1 | post-fix proof | ✅ **DONE** (§5) | this lane |
+| 2 | owned-page residual, 14/14 | **has a home already — `bugs_open/389` §2** | contribute, don't file |
+| 3 | this lane's sweep | ⚠ **NO LONGER "never run" — it worked today** | this lane |
+| 4 | `bugs_open/404` | ⚠ **NOT unclaimed — taken 2026-08-26** | another lane |
+| 5 | re-run the census | outstanding | this lane |
+| 6 | 2 stranded NULL-id rows | unowned, not a listing | nobody yet |
+
+### 2. The owned-page residual — **STOP. It is already filed, in `bugs_open/389` §2 "Owned page".**
+
+The previous handoff said "file it or carry it". Neither: **contribute the measurement into 389 §2**,
+which is the class, and which already carries a correction from the `bugfix_333_owned_page_door`
+lane that matters more than anything this lane has measured:
+
+> the door **structurally cannot cover** owned pages. It parks only when the TARGET HANDLER declares
+> `refuse_owned_page` (migration `488`), and `page-rerender` **must never declare it** — a
+> per-agent/per-branch ruling, register **WII-028**, made **with the 384 lane**. `bugfix_333` is
+> CLOSED (2026-08-26) and this is the part it could not fix.
+
+And the half that makes it a live cost rather than a static blank: **the `save_sections` refusal has
+no `wont_fix` terminal** (migration `480` covers `load_page_record` only), so these items loop
+`failed` → `triaged` for ever. `[MEASURED 2026-09-03 16:0xZ]` owned-page `page_rerender` items in
+14 days: **1,436 `complete` · 402 `unresolved` · 76 `failed`, last failure 15:56:07Z** — minutes
+before this was written. The 1,436 "complete" are 389's own complete-and-unchanged class.
+
+**So the deliverable is a CONTRIB into 389 naming the three pages** (leopardess
+`llm-cost-calculator` 2026-07-17, leopardess `tool-ai-vendor-trust-checklist` 2026-07-30,
+finetuning `llm-cost-calculator` 2026-08-12, all `tool-cta`), card-joined, with the 14/14 figure.
+Migration `486`'s `section_edit` → `section-editor` route is the remedy shape; it is 389's call.
+
+### 3. The sweep — ⚠ **IT RAN TODAY. The "never run" line is retired.**
+
+`[MEASURED 2026-09-03 16:0xZ]` `check_page_list_stale` (migration `603`) lifetime items:
+**13 `unresolved` + 1 `complete`**. The `complete` one is the first ever, and it worked:
+
+- filed **14:42:47Z** by `completeness-discovery-agent` on oxenunity.com
+  `/tool-take-strength-scorer`, naming a real deficit — `tool-cta` `items`, entry
+  `/tools/community-growth/index.html`, `stored_image: ""` against
+  `current_image: /assets/images/card-tool-community-growth.jpg`;
+- dispatched its own `page-rerender` with `reason=section_data_resolved`, **`cause=page_list_stale`**
+  at 15:02:10Z; item `complete` 15:02:36Z, `attempt_count 0`. The slot is **0 blank** now.
+
+⚠ **AND A NEAR-MISS I ALMOST FILED AS A 384 RESIDUAL — read this before grading any sweep run.**
+The history says the sweep's own write took the slot **2 blanks → 2 blanks**, and the repair to 0
+came 30 minutes later from an unrelated `card_landed` re-resolve. That reads as "the sweep detected
+correctly and its remedy did nothing", which is what I was about to write. **It is wrong.** At
+15:02:10 only ONE of the three cards existed (`card_tool_community_growth`, 02:15:47); the other two
+landed at 15:21:56 and 15:22:29. And the one repairable entry had already been fixed at 14:58 by a
+`cta_links_stale` re-render three minutes earlier. **So there was nothing left for the sweep's run
+to repair, and 2 → 2 was the correct outcome.** Same lesson as the ~37% one level along: *a blank
+with no card is correct*, and here it made a working mechanism look broken. **Always date the cards
+against the run before grading a repair.**
+
+**What is still owed:** 13 of 14 lifetime items are still born `unresolved`, so `bugs_open/389`'s
+two-strike arm still binds and one working run is not a working sweep. **Re-do the escalation watch
+from zero after 389 lands** — the old "zero escalations against 1-in-36" is zero over an empty
+denominator. Keep the oxenunity run as the worked example of what a good one looks like.
+
+### 4. `bugs_open/404` — ⚠ **NOT unclaimed. It was taken on 2026-08-26 and this lane has been saying otherwise for a week.**
+
+Filed by *this* lane 2026-08-25 (`efc0db7bc`, out of a council advisory). **Taken 2026-08-26** —
+`98c48e3a1` "404 CONTRIB (taking the bug)" — followed by four corrections that day
+(`a975530ce`, `87e942570`, `4a31c6b8f`, `b640c696a`). Quiet since; the file has not moved in 8 days.
+So the honest status is **taken, then dormant**, not "unclaimed".
+
+⚠ **And a trap in the tool: `scripts/who-owns.py 404` names THIS lane as the most likely owner**
+(10 mentions, ACTIVE) — purely because our own handoffs keep citing it as unclaimed. **A citation
+count is not ownership**, and a lane that repeatedly lists a bug it is not working will rank itself
+top. Resolve by `git log` on the FILE PATH, which is what the CLAUDE.md landmine says and what
+settled it here. Before touching 404, message whoever holds it rather than assuming it is free.
+
+### 5. Re-run §1's census once the fixed binary has had a day of traffic
+
+`scripts/census_repair_rate.sql` (commit `f8110df1e`). Expect the post-`94f81cc60` failures to stop
+accumulating. If they do not, the residual is real. Quote the "after" column **with its time** — it
+is still moving.
+
+### 6. Two stranded NULL-`component_id` rows — unowned, and NOT this seam's
+
+finetuning.uk `/blog` (`article-grid`) and gamesdesign.co.uk `/game-jelly-invaders` (`section`) —
+the only two live rows whose `slot_name` matches neither an active component's `name` nor its
+`function`, so no re-render can ever resolve them (§8 trap 5). Neither is a listing this seam feeds,
+so they are noted, not owned. If a stuck page ever appears in the census, check that column first.
 
 ## 7. What belongs to other lanes — do not fix here
 

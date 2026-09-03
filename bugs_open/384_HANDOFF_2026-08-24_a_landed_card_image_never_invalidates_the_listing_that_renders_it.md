@@ -1537,3 +1537,44 @@ assumed, on a site neither lane chose for the purpose.
 things are invisible: the assemble path (by design, it cannot repair) and any byte-identical no-op
 (the archive triggers fire only on a change). The first is correctly excluded; the second is the
 lower bound already stated at 12:4xZ.
+
+## UPDATE 2026-09-03 16:1xZ — **this lane's own sweep RAN for the first time today** (the "never run" line is retired), and grading it nearly produced a false residual
+
+`check_page_list_stale` (migration `603`) has been recorded in every handoff since it landed as
+*"NEVER RUN — 12 items in its lifetime, all born terminal"*. `[MEASURED 2026-09-03 16:0xZ]` it is
+now **13 `unresolved` + 1 `complete`**, and the `complete` one is a genuine working run:
+
+- **Detected correctly**, 14:42:47Z, `completeness-discovery-agent`, oxenunity.com
+  `/tool-take-strength-scorer`: `tool-cta` `items`, entry `/tools/community-growth/index.html`,
+  `stored_image: ""` against `current_image: /assets/images/card-tool-community-growth.jpg`,
+  source `query.pages_where_type:tool`.
+- **Dispatched correctly** — its own `page-rerender`, `reason=section_data_resolved`,
+  **`cause=page_list_stale`** (the sweep's own tag) at 15:02:10Z. Item `complete` 15:02:36Z,
+  `attempt_count 0`. The slot is **0 blank** now.
+
+### ⚠ The near-miss, and it is the day's lesson arriving one level along
+
+The history for that slot reads: pre-image 3 blanks (14:58:57) → 2 (15:02:16) → 2 (15:32:08) → 0
+(15:44:34). So **the sweep's own write took it 2 blanks → 2 blanks**, and the repair to 0 came ~30
+minutes later from an unrelated `card_landed:tool-provocation-heat-rater` re-resolve. I had the
+sentence "the sweep detected correctly and its own remedy repaired nothing" half-written — a
+**genuine 384 residual on a clean post-fix binary**, which is exactly what I had asked a peer lane
+to send me.
+
+**It is false.** `[MEASURED 16:1xZ]` at the sweep's run only **one** of the three cards existed
+(`card_tool_community_growth`, created 02:15:47); the other two landed at **15:21:56** and
+**15:22:29**, after it. And that one repairable entry had already been fixed at 14:58 by a
+`cta_links_stale` re-render three minutes earlier. **So nothing was left for the sweep's run to
+repair, and 2 → 2 was the correct outcome.** The later 0 is the ordinary seam handling two cards
+that had only just landed — also correct.
+
+**This is the ~37% error in miniature, and I made it again inside the same session in which I
+retracted it.** There the mistake was counting a blank with no card as a failed *entry*; here it was
+counting a blank with no card as a failed *run*. The card join fixes a census; **dating the cards
+against the run** is the same discipline applied to attribution, and it is the check to run before
+grading any repair — including a repair you dispatched yourself.
+
+**Still owed:** 13 of 14 lifetime items are born `unresolved`, so `bugs_open/389`'s two-strike arm
+still binds and one working run is not a working sweep. Re-do the escalation watch from zero after
+389 lands; the old "zero escalations against 1-in-36" is zero over an empty denominator. Keep the
+oxenunity run as the worked example of a good one.
