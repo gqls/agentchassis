@@ -429,3 +429,73 @@ ancestor of HEAD are three true facts that jointly imply nothing.** All three he
 binary still does not carry the change.
 
 ---
+## 2026-09-03 (afternoon) — council round 1 came back REVISE, and it was worth it
+
+**Verdict: REVISE**, gated by `editquality`'s single HIGH. **`architecture` APPROVED**, which settles
+the scope question I reasoned about in the PLAN: this is not architecture-scope. 8 approve, 3 object,
+5 abstain.
+
+**The HIGH found a real hole in my reasoning, and its conclusion for my code turned out false — and
+those two facts are not in tension.** The objection: `insertDocNote` must pass a `subject_type`, and
+`doc_plans` / `doc_notes` carry TWO SEPARATE CHECK constraints with different allowed sets; since I
+made the insert **non-fatal**, a refused value would make P2 a permanent silent no-op with no signal.
+
+Measured from `pg_constraint`:
+
+```
+doc_plans_subject_type_check: tool, pipeline, experience, action, experience-pattern, component   (6)
+doc_notes_subject_type_check: those six PLUS landmine, decision                                   (8)
+```
+
+So `doc_notes` ⊇ `doc_plans` **today**, `'tool'` is in both, and the branch is gated on
+`subjectType == "tool"` anyway. **My code was safe by luck of the value I happened to pass, and I had
+not checked** — my own 8-point risk section never raised it, while citing the "two enforcement points"
+shape elsewhere. That is the fair hit and the reviewer's remedy was right.
+
+⚠ **The load-bearing fact is the SUPERSET relation, and it is not guaranteed.** Add a type to
+`doc_plans` alone and this rule goes quiet. Recorded at the call site rather than in a lane doc.
+
+⚠ **And a bound worth stating, because it is easy to overclaim the test I added:** `sqlmock` cannot
+see a CHECK constraint — it accepts any string. So the test pins the value being **sent** and cannot
+prove the database would take it. The `pg_constraint` read is what proves that. A test asserting "the
+insert was attempted" would have passed in a world where every insert was refused.
+
+### What the other objections were worth
+
+| objection | answer | changed code? |
+|---|---|---|
+| `criteria_field` path unverified (low) | It is **explicitly configured** on the `judge` step, not a hopeful default — and `request_browser_run` SKIPS when it is empty, so any PASS existing proves the path is populated | no |
+| reuse: proof-of-search, not inference (medium) | Exactly **3** Go types decode a fence's `checks`; the Tier-2 one does not decode `expect_values` **at all**; the browserrunner one is unexported in another tree; no exported fence decoder exists | yes — the search is now in the file header, with the residual stated |
+| doc_notes category vocabulary (low) | Searched DB-side: `needs_criteria` (120) and `criteria` (1). `needs_criteria` means **no fence at all** — the opposite state | no |
+| three-callers claim asserted (medium) | Re-verified **structurally** by walking workflow steps for `action='write_doc_plan'`, not by substring. Three, as claimed | no |
+| who consumes the judge's result (low) | Exactly one agent; **zero** Go readers of `acceptance_verdict`, so no strict mapping to break | no |
+| no lint against a future ad-hoc parser (low) | Accepted as a residual and stated in the file; the mitigation is that the two arms an ad-hoc parser gets wrong are pinned in BOTH the Go test and the detector's `--self-test` | no |
+
+**Two of six changed the code. That ratio is the argument for the gate**, and matches this estate's
+record (`a-revise-round-is-cheaper-than-the-defect-it-finds`).
+
+Round 2 submitted on the same trail (`RESUBMIT_CORR`), so the artefacts accumulate in one place.
+
+## 2026-09-03 — the detector is now SCHEDULED, and proven at the artefact
+
+The first version was a bash script. **A detector nobody runs is this estate's documented failure
+mode** — "detection works; schedule and dispatch do not" — so it was rewritten as Python on the
+`listing-class-promise-check` pattern: ONE file with a dual-mode `_psql_argv`, so the hand-run
+(`kubectl exec`) and the clock-run (direct psql) share the same query rather than being two
+implementations.
+
+**Proven end-to-end, at the artefact rather than at the apply output:**
+
+- `kubectl get cronjob fence-value-assertion-check` reads back `40 7 * * *`, `suspend=false`.
+- A manual `Job` from it: pod `state.terminated.exitCode` **0** (`|| [ $? -eq 1 ]` maps "findings",
+  which is the normal state until the authoring fix lands, to success — only a 2 should fail the Job).
+- **The row it wrote is on record**: 241 fences graded, **58 driving-and-blind fleet-wide**, 13 new in
+  the window. A Completed pod that wrote nothing would have been a silent no-op, so the note is the
+  assertion, not the exit code.
+- `--self-test` pins the deployed `base/check.py` against the repo file; **that guard was
+  mutation-proved** (append one line to the copy → self-test FAILS).
+
+⚠ **The count moved 186 → 187 while this was being built**, which is the case for the CronJob in one
+line: the thing it watches changes by a route no commit can carry.
+
+---

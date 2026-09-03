@@ -171,3 +171,71 @@ nothing.
 against the browserrunner one.
 
 ---
+
+## 6. The standing detector
+
+```bash
+python3 scripts/audit-fence-value-assertions.py               # 7-day window
+python3 scripts/audit-fence-value-assertions.py --days 1 --json
+python3 scripts/audit-fence-value-assertions.py --self-test   # fixtures, no cluster
+```
+
+Exit **0** = no new blind fences in the window · **1** = findings (the normal state today) ·
+**2** = could not determine, including a failed demand control.
+
+⚠ **GOTCHA — exit 1 is NOT a failure.** The CronJob wraps the call in `|| [ $? -eq 1 ]` for exactly
+this reason. If you add this to a pipeline, do the same or every run marks itself failed.
+
+⚠ **GOTCHA — after editing the script you MUST copy it to the deployed path and re-apply**, or the
+cluster keeps the old ConfigMap while the repo file looks correct:
+
+```bash
+cp scripts/audit-fence-value-assertions.py \
+   deployments/kustomize/services/fence-value-assertion-check/base/check.py
+kubectl apply -k deployments/kustomize/services/fence-value-assertion-check/overlays/production/uk_001
+```
+`--self-test` fails if the two files differ, so run it before you commit.
+
+### Proving the CronJob actually does something
+
+```bash
+kubectl -n ai-persona-system get cronjob fence-value-assertion-check \
+  -o jsonpath='{.spec.schedule}{"  suspend="}{.spec.suspend}{"\n"}'
+kubectl -n ai-persona-system create job --from=cronjob/fence-value-assertion-check fva-manual-$(date +%m%d)
+POD=$(kubectl -n ai-persona-system get pods -l job-name=fva-manual-$(date +%m%d) -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system get pod "$POD" \
+  -o jsonpath='{.status.containerStatuses[0].state.terminated.exitCode}{"\n"}'
+```
+
+⚠ **GOTCHA — the exit code is not the deliverable; the ROW is.** A Completed pod that wrote nothing
+is a silent no-op. Assert on the artefact:
+
+```sql
+SELECT created_at, left(body,200) FROM doc_notes
+ WHERE categories ? 'fence-value-assertions' ORDER BY created_at DESC LIMIT 1;
+```
+One row per run **including a clean one** — so a MISSING row means the job did not run, and must never
+read as "nothing is wrong".
+
+## 7. Did my Go change actually ship?
+
+⚠ **Do NOT use CLAUDE.md's `grep -m1 'build provenance'`.** That line does not exist in the Go source
+(`LANDMINES.md`, measured 2026-08-25 and reconfirmed 2026-09-03). Worse, on `agent-chassis` the
+command does not return *nothing* — chassis log lines are single JSON objects hundreds of KB wide, so
+`-m1` caps LINES not bytes and you get megabytes of unrelated output.
+
+**Probe the CAPABILITY, with a control on BOTH sides in the same breath:**
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'liveness_only'          /proc/1/exe  # under test
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'Tier-4 acceptance PASSED' /proc/1/exe # MUST be present
+kubectl -n ai-persona-system exec "$POD" -- grep -aq 'zzz_invented_string'     /proc/1/exe # MUST be absent
+```
+
+⚠ **If every control lands on the same side of the answer, the set proves nothing** — three absences
+read exactly like "the fix did not ship" whether or not it did.
+
+`[MEASURED 2026-09-03 13:3x]` v1.0.1358: both under-test literals **absent**, positive control
+**present**, negative control absent ⇒ the roll did **not** carry P1/P2, even though the tag advanced,
+the pods restarted, and the commit was an ancestor of HEAD. **Those three facts jointly imply nothing.**
