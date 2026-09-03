@@ -55,6 +55,7 @@ consolidate. That changes the pricing question:
   source takes traffic and brand adjacency away from the business that remains.
   A per-domain price cannot express that cost, so two independent prices would
   systematically under-price the pair and over-price the part.
-- **Recommendation: quote them as a pair** — one combined figure for both,
-  with individual prices only if the owner explicitly wants them separable and
-  accepts what selling one does to the other.
+- **OWNER RULED 2026-09-03: quote them as a pair** — one combined figure for
+  both, not two independent prices. Decided, do not re-open. Any output naming
+  either domain must carry the pairing, so a later reader cannot lift one price
+  out of context and list it alone.
