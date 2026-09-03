@@ -2625,3 +2625,22 @@ Question: *"what is that public demo going to cost me in llm fees?"* Answer, gro
   `httpguard` body cap sit in front of the route.
 PLAN Phase P written with the build order. First step: load the Phase 0 GGUF into the in-cluster
 ollama and measure tok/s.
+
+## 2026-09-03 (11:25Z) — the 641 read is SUPERSEDED by a rework with the prompts lane; owner's idea and the mechanics answer
+
+Owner, on seeing the block rendered ("You'll want to know what to have ready before the hour…"):
+*"maybe something like this 'If you'd like to prepare in advance of your hour, you might want to
+get these things ready' (or something like that) (is this possible with the current prompt
+variable injection?)"* and *"please talk to the prompts lane about this, we're working on it."*
+So **do not treat the 641 block as read-and-approved**; it is being reworked with the prompts
+session, who are also the applier. Relayed with the mechanics (message `382b1042`):
+- The renderer substitutes strings only; a per-section natural sentence must arrive as DATA.
+- One per-section string exists today (`Subject`). Cheap route: print it verbatim, author
+  subjects as sentences (sibling list then reads badly; planner writes noun phrases).
+- Proper route: a second per-section field (`lead`) beside the short subject — column/array +
+  alignment guard + `sectionPlanItem.Lead` through `load_page_sections_from_spec` + planner
+  prompt; same shape as `dbb218a41`; two changes and a roll.
+- Middle path, no schema: minimal frame, subjects authored as in-voice clauses that read as both
+  lead and list item (what our three arrays already do).
+This lane's part unchanged: test-render whatever they draft (`render_test_641/`), carry the
+exact bytes to the owner, then Stage B rebuilds.
