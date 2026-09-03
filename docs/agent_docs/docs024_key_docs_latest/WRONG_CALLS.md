@@ -62545,6 +62545,22 @@ after.
 Family: a-report-is-not-a-measurement, prior-art-search-goes-stale,
 a-subagent-report-is-another-doc, a-measured-marker-proves-a-measurement-was-claimed.
 
+**Third call, same session, and the most instructive:** I appended a landmine about
+`grep -m1 'build provenance'` matching the wrong log line — and **two entries already
+had that trap**, one of them from 2026-08-17 with a *better* remedy than mine (the 293
+lane's `grep -oa 'buildinfo.GitCommit=…'` needle, plus "run the absent-control first").
+So the estate now carries three copies of one trap, two of them mine to answer for.
+**Why:** the `SessionStart` hook surfaces landmines whose footprint matches a file
+already **dirty** in my tree, and I read what it gave me — but the trap I was about to
+write about is footprinted on a *phrase* and a *command*, not a path, so it was never
+going to appear. MEMORY `grep-landmines-for-your-symbols` says precisely this. **The
+check, and it is one command:** before appending a landmine, grep the file for the
+symbol/phrase/command you are about to write about — `grep -n "build provenance"
+LANDMINES.md` would have returned both entries instantly. Being *shown* landmines is not
+the same as having *searched* them. Kept and cross-referenced rather than deleted, per
+`eeb5c1057`'s precedent; the cross-reference names which entry to read first, because a
+duplicate that does not say which copy is authoritative is worse than either alone.
+
 ---
 
 ## 2026-09-03 — `components` lane (`bugs_open/425`): I read "the re-render wrote a row carrying the key" as "the re-render produced the key", and it cost a day and sixteen eliminations

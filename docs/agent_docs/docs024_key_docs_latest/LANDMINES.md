@@ -5074,9 +5074,61 @@ that is also the thing you would want in the logs is not.
 - **source:** brochure_component_library lane, 2026-08-03 (086b: three pages "republished", zero of the edits served)
 - **added:** 2026-08-03, brochure lane 2
 
-### A `static`-source field in a component's `input_schema` OVERWRITES your stored `content_data` on every section resolve — authored copy comes back as the schema's fallback and nothing reports the swap
-- **footprint:** `content_components.input_schema` (`fields.*.source='static'`), `rerender_page_sections` / the section-planner resolve pass, `page_components.content_data`
-- **fires when:** you hand-author `content_data` for a section and any resolve pass later runs over the page — your value for a static-source key is replaced by the schema's `fallback` (and a `query.*`-source field, e.g. tool-cta's `items`, is regenerated from its query), while `llm`-source fields you wrote are left alone
+### ~~A `static`-source field in a component's `input_schema` OVERWRITES your stored `content_data` on every section resolve~~ — **HALF-CORRECTED 2026-09-03: the `static` half is STALE since `8f899cc8d` (2026-08-14). The `query.*` half is STILL LIVE. Read the correction before acting on either.**
+
+> **⚠ CORRECTED 2026-09-03, vigilant designer + offer/benefit analyser lane — and this entry had
+> already done damage in both directions, which is why the correction is here and not only in a
+> lane doc.** It gated a correct council submission (corr `2ac895f3-…`, `bug_historian` HIGH, and
+> the seat was RIGHT to gate — the submission asserted the opposite from a code read without ever
+> reconciling the register), and left standing it would next license the wrong belief.
+>
+> **`source: static` — NO LONGER TRUE. A stored non-empty value now BEATS the fallback.**
+> `plan_sections_action.go`, the renderer/static branch: `if !carryStored() && fallback != nil {
+> resolvedData[fieldName] = fallback }` — the carry runs FIRST, so the fallback applies only when
+> nothing is stored. The dates are the whole story: **this entry was measured 2026-08-03**;
+> `carryStored` entered the file **2026-08-11** (`d26c26a9a`, bugs_open/238); and the
+> **renderer/static branch got it 2026-08-14** (`8f899cc8d`, *"fix(268): renderer/static fields now
+> reach the 238 carry"*) — **eleven days after this entry was written.** `git log -S 'if
+> !carryStored() && fallback != nil' -- platform/orchestration/actions/plan_sections_action.go`
+> returns exactly that one commit. Both were true when written; the code moved underneath.
+> ⚠ Note what "non-empty" means here — `datahelpers.IsEmptyContentValue` treats only nil, blank
+> strings, empty arrays and empty maps as empty, so a stored **`false`** is NOT empty and IS
+> carried; but a stored **empty string** IS empty, so a blank still takes the fallback.
+>
+> **`source: query.*` — STILL TRUE, UNCHANGED. Do not read this correction as retiring the entry.**
+> A query that resolves writes `resolvedData[field]` directly, ahead of any carry, so a
+> query-sourced key (tool-cta's `items` is the original case) is still regenerated over whatever you
+> authored. The carry only runs when the query yields nothing.
+>
+> **Live evidence, not just git** — `[MEASURED 2026-09-03]` 11 live instances across 6 sites store a
+> `source: static` value that differs from its schema fallback and is still there. The load-bearing
+> ones are POST-fix, because a pre-08-14 row proves nothing either way:
+> `mortgagecalculator.co.uk/index` `tool-list.card_link_label` = "Work it out" against fallback
+> "Open tool", `updated_at` **2026-09-01 02:44Z**; same row's `eyebrow_label` = "Calculators"
+> against "Our Tools"; `cookly.uk/index` `testimonials-modern.cta_url` = "/contact.html" against
+> "/contact", **2026-08-26 12:36Z**. Re-run before quoting:
+> ```sql
+> WITH sf AS (SELECT cc.id, cc.name, f.key AS field, f.value->>'fallback' AS fb
+>               FROM content_components cc, LATERAL jsonb_each(cc.input_schema->'fields') f
+>              WHERE cc.is_active AND f.value->>'source'='static' AND f.value ? 'fallback')
+> SELECT sf.name, sf.field, sf.fb, pc.content_data->>sf.field, s.domain, pc.updated_at
+>   FROM sf JOIN page_components pc ON pc.component_id=sf.id
+>   JOIN pages p ON p.id=pc.page_id AND p.build_status='deployed' AND p.status='active'
+>   JOIN sites s ON s.id=p.site_id
+>  WHERE pc.content_data ? sf.field AND pc.content_data->>sf.field IS DISTINCT FROM sf.fb
+>  ORDER BY pc.updated_at DESC;
+> ```
+>
+> **The transferable lesson, which is why this correction is long.** A landmine is a snapshot of a
+> DEFECT, and a defect is the thing most likely to be fixed — so **a landmine goes stale in exactly
+> the way its own advice cannot detect**, and it keeps reading as a live warning for ever. This one
+> was correct for 11 days and misleading for 20. **Before acting on any entry, check whether the
+> code it describes has moved since its `added:` date** — `git log --since=<added date> -S '<the
+> symbol the entry names>' -- <the file>` is one command and it is the whole check. Where an entry
+> names a mechanism rather than a path, that is the grep to run.
+
+- **footprint:** `content_components.input_schema` (`fields.*.source='static'`, `fields.*.source='query.*'`), `rerender_page_sections` / the section-planner resolve pass, `page_components.content_data`, `plan_sections_action.go` `carryStored` / `storedFieldValue`, `datahelpers.IsEmptyContentValue`
+- **fires when:** ~~you hand-author `content_data` for a section and any resolve pass later runs over the page — your value for a static-source key is replaced by the schema's `fallback`~~ **(static half stale — see the correction above)**; a `query.*`-source field, e.g. tool-cta's `items`, IS still regenerated from its query over whatever you authored, while `llm`-source fields you wrote are left alone
 - **the tell:** one field of your authored block reverts while its neighbours survive. Measured 2026-08-03: tool-cta `secondary_cta_label` authored as "Talk to us about AI tooling", back as "Learn how it works" (`source: static, fallback: "Learn how it works"`) in the same resolve that kept the authored `headline` and `description`
 - **the check:** before authoring `content_data`, read the component's schema: `SELECT jsonb_pretty(input_schema) FROM content_components WHERE name='<component>' AND is_active;` — any key with `source: static` or `source: query.*` is the SCHEMA's to write, not yours. Author only the `llm`/unsourced keys and let the resolver own the rest
 - **source:** brochure_component_library lane, 2026-08-03 (/tools.html build)
@@ -20962,6 +21014,7 @@ SELECT date_trunc('hour', updated_at) AS hr, count(*) AS failures
 - **relations:** MEMORY [[prove-a-deploy-at-the-artefact-index]] · MEMORY [[a-fresh-deploy-can-ship-no-new-code]] (the empty-`$sha` control that matches everything) · MEMORY [[logs-deploy-reads-one-pod-of-n]] · the existing `strings`/discovery-grep landmines — same family, one tool along: here the *needle* is too loose rather than the corpus being wrong · CLAUDE.md's own text, which is where the loose phrase comes from and should be read alongside this entry.
 - **source:** 2026-09-03, `news_feed_ingestion` lane, verifying the v1.0.1358 roll carried commit `0a408f8db` (it did — proven at the binary, not in the logs).
 - **added:** 2026-09-03, `news_feed_ingestion` (feed lane).
+- > **⚠ CORRECTION 2026-09-03, by the author, within the hour: THIS ENTRY IS THE THIRD COPY OF THIS TRAP.** Two entries already had it — "`kubectl logs … | grep 'build provenance'` can match ANOTHER LANE'S PAYLOAD" (2026-08-17, `bugs_open/293` lane) and "`grep -m1 'build provenance'` … matches NOTHING on a backend service, and its documented failure mode absorbs the real one". The 293 entry is **better than mine on the remedy**: it gives a needle that cannot be imitated by a payload (`grep -oa 'buildinfo.GitCommit=[0-9a-f-]*' /proc/1/exe | head -1` — take the value *next to the marker* rather than grepping for a sha you already believe) and it insists the ABSENT control runs FIRST, because a bare-sha probe returns "absent" for a correctly stamped binary on a different commit, which reads as "not stamped". **Read 12677 before this one.** What this entry adds and is worth keeping for: the payload is ~**5 MB in a single line** (so it does not merely match first, it is unreadable and will blow up a terminal or a variable capture), the real startup line had **already scrolled out of `--since=60m` on a 30-minute-old pod** (so "not in range" is the common honest answer), and the exact JSON-key needle `"msg":"build provenance","git_commit":"[0-9a-f]{40}"`. **Why I wrote a duplicate, since that is the transferable part:** the `SessionStart` hook only surfaces landmines whose footprint matches a file already **dirty** in the tree, and I never grepped the *phrase* I was about to write about. MEMORY [[grep-landmines-for-your-symbols]] says exactly this and I did not apply it. Kept and cross-referenced rather than deleted, following the precedent of `eeb5c1057` (two lanes wrote the pathspec-deletion trap two minutes apart).
 
 ### On a path that merges `stored ⊕ fresh`, a PRESERVED value and a RE-RESOLVED value are the same bytes — so a dispatch fired at a baseline that already carries the value is predetermined, and it reads as a result
 
