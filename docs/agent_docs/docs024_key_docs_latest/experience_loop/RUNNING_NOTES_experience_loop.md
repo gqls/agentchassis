@@ -1681,3 +1681,34 @@ Committed now. The live DB and git agree again; nothing was lost, forward-only h
 (current tag `v1.0.1355`, pods up 2026-09-02 20:56/20:57Z). 694 is DB config so the roll cannot
 ship or revert it, but the §0b checks in `HANDOFF_2026-09-02b` are **per-roll, not once** — re-run
 them against the new tag. Boxing Online has *still* not been audited post-694 as of this check.
+
+---
+
+## 2026-09-03 09:27Z — v1.0.1356 rolled; 694 verified across a SECOND roll
+
+New chassis `v1.0.1356` (pods up 08:57:46/08:58:07Z). Per-roll checks re-run, because 694 being DB
+config is an argument for it surviving, not a check that it did.
+
+- **Markers: PASS.** Allow-list gone, non-greedy strip, `ORDER BY pc.position`, all four
+  dimensions, `filing_mode` still `record`. The row's `updated_at` moved again to **08:56:53**,
+  immediately before the roll — the fourth such write (14:36 mine → 15:38 → 20:55:58 → 08:56:53),
+  every one with **no snapshot taken**, and every one leaving my markers intact. Something touches
+  this row at roll time; it is not reverting 694, and the check is cheap enough to keep running.
+- **Behaviour over the 18h to the roll: PASS**, from `llm_call_log` — 36 calls, **0 failures**,
+  avg **~7,000** input tokens (3,612–11,129) against a pre-694 average of **1,744**.
+- **Behaviour since the roll: not yet observable, and I am not calling it either way.** 0 auditor
+  calls in 30 minutes. **Demand control run in the same breath: 45 LLM calls across 5 agent
+  types**, and `improvement-sweep` last triggered **09:24:43**, 3.5 minutes before the check, on a
+  900s interval. So the fleet is live and the sweep is ticking; it takes one site per tick and only
+  some need a content audit. **Two ticks is not a sample.** Re-check in an hour.
+
+**Why the control matters here and not as ceremony:** a zero from a seat that runs opportunistically
+looks identical whether the fleet is quiet, the sweep is dead, or the seat is broken. Without the
+45-calls-across-5-agents line and the sweep's `last_triggered_at`, "0 auditor calls after a roll"
+is exactly the shape that gets written up as a regression. It is not one.
+
+**Handoff written and superseding both 09-02 files:**
+`docs/agent_docs/docs024_key_docs_latest/experience_loop/HANDOFF_2026-09-03_experience_loop_continue_here.md`
+Self-contained, so the next chat reads one file rather than chasing a chain of three. It carries
+the 24h-reaping trap (§4) that invalidated the previous handoff's own verification method, the two
+outstanding peer promises, the empty-index rule, the SQ-004 control bug, and the routing still owed.
