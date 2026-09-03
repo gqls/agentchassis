@@ -3728,3 +3728,100 @@ has not drifted.
 *on*, and would spend a prompt migration to produce a differently-ordered list of the same
 seller-axis points. The agreed acceptance criterion already anticipates this: **the first pass comes
 back mostly `unanswered` at the top — the correct result, not a failure.**
+
+---
+
+## 2026-09-03 — DECISION D HAS LANDED, AND THE PRE-REGISTERED PREDICTION IS REFUTED (in a useful way)
+
+`[MEASURED 2026-09-03 12:38:58Z, pinned in one query]` — **18 sites** carry a
+`question_hierarchy`, **93 questions**, first row `2026-09-02 23:03:24Z`, latest `12:19:51Z` today.
+**19 of the 37 current `offer_ordering` rows have not been re-analysed yet**, so this is a *moving*
+population: it read 15 sites at 12:19Z and 18 at 12:36Z, and the unanswered count moved 8 → 7 between
+two queries seventeen minutes apart. **Date every figure below; none of them will still be true
+tomorrow.**
+
+### The join is mechanically sound — this is the cheap half and it passes
+
+`[MEASURED 2026-09-03]` across all 18 sites: **zero dangling `answered_by`** (every reference names a
+rank that exists in `lead_with`), **zero `unanswered:true` carrying an `answered_by`**, **zero
+`unanswered:false` with a null `answered_by`**. The `from_field` values are the *strategy* fields
+(`trust_threshold` 28, `satisfaction_condition` 22, `recurring_value` 15, …), not the offer points —
+so the questions are being derived from the register the design intended, not reverse-engineered from
+the answers. That was the thing most likely to be quietly wrong and it is not.
+
+### ⚠ THE PRE-REGISTERED ACCEPTANCE CRITERION FAILED, AND I AM NOT CLAIMING IT PASSED
+
+The criterion recorded at the bottom of the previous entry was: *"the first pass comes back mostly
+`unanswered` at the top — the correct result, not a failure."* It did not. **86 of 93 questions
+(92%) came back ANSWERED.** By the letter of what this lane wrote down, that is the failure mode —
+"the model stretched points to cover questions".
+
+**So I read the pairs rather than the counts.** `[MEASURED 2026-09-03]` I read **36 of the 93
+questions, across 7 of the 18 sites** (designblog, idea, relojistas, garden-tools, farmerinsurance,
+leopardess, remortgagecalculator) — question text against the text of the point it claims is the
+answer. **The verdict is mostly (a): the joins are real.** On garden-tools and farmerinsurance all
+ten pairs are tight, one-to-one, and honest — the register genuinely does carry a point per top
+doubt. **The prediction was wrong, not the mechanism.**
+
+### But the failure mode IS present, and it has a mechanical screen
+
+It does not show up as a site answering everything. It shows up as **one point claimed twice**, and
+the second claim is the stretched one. The screen is one line —
+`count(answered_by) > count(DISTINCT answered_by)` per site — and `[MEASURED 2026-09-03]` it fires on
+**4 of 18 sites**, **5 reused refs of 86**:
+
+| site | refs | distinct | my read of the reuse |
+|---|---|---|---|
+| `idea.uk` | 4 | **2** | **both stretches.** P1 ("never leaves your machine") is privacy, offered as the answer to Q4 *"do I have to sign up, enter a lot, commit to anything?"* — **privacy is not effort.** P2 ("specific, actionable output") is offered to Q3 *"will it tell me my idea is great, or actually tell me if something is wrong?"* — **actionable is not candid.** |
+| `leopardessconsulting.co.uk` | 6 | 5 | **half.** P1 answers Q3 (how quickly, what does working mean) genuinely; against Q2 *"what exactly do you build, and on what infrastructure?"* it answers the infrastructure half and not the "what do you build" half |
+| `remortgagecalculator.uk` | 5 | 4 | **half.** P3 ("nothing to sign up for and nothing stored") answers Q2 (do I have to register) squarely; against Q3 *"or is it going to push me toward a product or sell my details?"* it answers "sell my details" and is silent on "push me toward a product" |
+| `relojistas.com` | 5 | 4 | **honest.** P5 (daily feed) answers both Q2 ("is this abandoned?") and Q5 ("worth subscribing?") — they are one doubt asked twice |
+
+**4 of the 5 reuses are stretches or half-answers; 1 of 5 is honest.** And of the **21 single-use
+joins I read, none was a stretch.** So the screen discriminates — it is a screen and not a verdict
+(relojistas is the false positive that proves it needs the read), but it turns "did the model cheat"
+from a 93-pair editorial job into a 5-pair one.
+
+> **This measurement could have come out otherwise, which is why I am recording it.** The reuse cases
+> could all have been relojistas-shaped (honest double-coverage) and the screen would have been
+> worthless; the single-use joins could have been padded and the screen would have been blind. Neither
+> happened.
+
+### ⚠⚠ THE REAL FINDING: THE ABSENCE IS **PRICE**, NOT "EFFORT/PRACTICALITY"
+
+`[MEASURED 2026-09-03 12:38:58Z]` unanswered, by the field the question came from:
+
+| from_field | questions | unanswered | mean rank |
+|---|---|---|---|
+| **`money_flow`** | **7** | **5** | **4.6** |
+| `growth_path` | 2 | 1 | 3.5 |
+| `recommended_page_types` | 1 | 1 | 5.0 |
+| `trust_threshold` | 28 | **0** | 2.4 |
+| `satisfaction_condition` | 22 | **0** | 2.3 |
+| `recurring_value` | 15 | **0** | 4.7 |
+| `value_proposition` | 9 | **0** | 3.3 |
+| `competitive_position` | 8 | **0** | 2.9 |
+
+**Every unanswered question but two comes from `money_flow`, and every other field is a clean zero.**
+The questions themselves:
+
+- `idea.uk` — *"Why would I pay £29 for a report when I can get AI to analyse my idea for free?"*
+- `finetuning.uk` — *"How much is this going to cost me, and how long before I see anything working?"*
+- `oxenunity.com` — *"What does accessing the advanced tool features actually cost…?"*
+- `noted.co.uk` — *"If I sign in, does my free use go away — what does paying actually unlock?"*
+- `gamesdesign.co.uk` — *"Is this going to try to sell me something or put my workflow behind a paywall?"*
+- `fundamentallyai.com` — *"How do I start a conversation without being pushed into a sales process?"*
+
+This is **H4's absence claim, sharpened and made per-site.** H4 said 19 of 186 points (10%) addressed
+"effort or practicality" — a proxy over a regex, and the entry above it in this file records me
+widening that regex and nearly reporting the widening as an improvement. **The hierarchy replaces the
+proxy with the visitor's own question and a join, and the answer is narrower and harder: the register
+answers trust, differentiation and satisfaction on every site, and it does not answer _what this
+costs me_ on six.** Note that `idea.uk` and `remortgagecalculator.uk`'s effort questions **were**
+answered — by the stretched joins above — so effort-in-general is not the gap. Price is.
+
+**And the model ranks the price question LAST** (mean rank 4.6 against 2.3–2.9 for trust and
+satisfaction). For `idea.uk` — a £29 product whose competitor is free — *"why would I pay £29 when AI
+is free"* at rank 5 is an **ordering judgement I do not accept**, and ordering is the half of the
+seam that belongs to `copy_quality_two_stage`. That is the first thing the hierarchy has produced
+that is worth sending them.
