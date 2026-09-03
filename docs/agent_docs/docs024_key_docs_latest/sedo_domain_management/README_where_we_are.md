@@ -304,3 +304,21 @@ independently recommended too — selling either one alone would hand part
 of the eventual merged value to whoever buys it, since the two would no
 longer be under your control together. They'll now price the two as one
 combined figure rather than two separate numbers.
+
+## 2026-09-03 (later still) — no Buy Now prices anywhere, and now it can't happen by accident
+
+Checked every sheet I've built so far, all eight versions, not just the
+current one — none of them has ever carried a Buy Now price or any price
+at all. Every row has genuinely been blank.
+
+You also asked if we can ban this except when you do it manually — done.
+The tool that builds the sheet now refuses outright if anything tries to
+set a Buy Now price or a fixed asking price, unless a specific switch is
+turned on for that one run. That switch isn't something I'd flip myself
+from a conversation — it only exists for you to use deliberately, when
+you've actually decided a specific run should carry real prices. I tested
+it both ways: it genuinely stops the sheet being built when the switch is
+off, and works normally when it's on. Minimum offer amounts (the floor
+under "make an offer," like cartoon.co.uk's £5,000) are unaffected —
+those exist to protect against lowballs, which is the opposite of what
+this is guarding against.

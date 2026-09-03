@@ -313,3 +313,55 @@ Gotchas, each earned:
   make-offer/no-price, which shows no conflicting figure); Afternic asks
   arrive with the owner's export. Draft1 needs no regeneration for this —
   the check belongs to every priced draft.
+
+## §8 The BUY-NOW gate (owner ruling, 2026-09-03)
+
+**No session may cause the generator to ship a BUY_NOW selling option or
+any non-empty `price` without `--owner-authorized-buy-now-prices` on the
+command line.** This is a hard technical block, not a convention — the
+generator refuses (`SystemExit`, exit 1) and prints every blocked
+domain+price before writing anything, and the check is re-run against
+the WRITTEN artefact after the fact as a second, independent layer (in
+case some future code path reaches `write_xlsx()` without going through
+the checked row list).
+
+```bash
+python3 scripts/domains/sedo-importer-xlsx.py build ... --prices X.csv
+# → REFUSED, lists every blocked domain, exits 1, writes nothing
+
+python3 scripts/domains/sedo-importer-xlsx.py build ... --prices X.csv \
+  --owner-authorized-buy-now-prices
+# → proceeds, but prints a loud banner naming every priced domain first
+```
+
+**What the flag is for, and what it is not.** It exists so the OWNER
+himself can authorize a specific, deliberate pricing run — never for a
+session to pass on its own initiative, on inference from a conversation,
+or as something that becomes routine. If a session finds itself reaching
+for this flag because "the valuation lane's prices are ready" or
+similar, that is exactly the case it is meant to stop — the owner needs
+to say so, for that run, not have a session infer authorization from
+context.
+
+**What IS gated**: `selling_option == BUY_NOW`, and any row with a
+non-empty `price`, regardless of selling_option (a MAKE_OFFER row with a
+set `price` is still an asking figure someone set, not just a floor).
+**What is NOT gated**: `min_price` alone. A minimum under MAKE_OFFER is
+protective — it stops a lowball — and gating it would work against the
+exact caution this session has applied throughout (relojistas.com's
+$12k floor, cartoon.co.uk's £5k floor). Gating it too would make the
+safe, recommended practice (set a floor, leave the price open) just as
+hard as the thing being prevented.
+
+**Self-test proves the gate actually fires, both ways** (`--self-test`):
+a BUY_NOW row is blocked without the flag and allowed with it; a
+MAKE_OFFER row with a set price is blocked the same as BUY_NOW; a
+min_price-only row is confirmed NOT blocked. A test that only exercises
+the allowed path proves nothing about whether the gate can ever refuse —
+per the "mutate the code to prove the guard" practice, this checks the
+refusal path exists and actually raises, not just that the happy path
+still works.
+
+**Verified 2026-09-03**: every draft generated in this lane to date (1
+through 8) carries zero BUY_NOW/priced rows, checked directly against
+each CSV, not inferred from "the script defaults to blank."

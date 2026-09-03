@@ -778,3 +778,42 @@ redirect, so selling either alone hands away brand adjacency the
 business needs). Relayed to the valuation lane as the ruling, not a
 recommendation to weigh — their pricing work on this pair should proceed
 on a combined basis, not two independent figures.
+
+## 2026-09-03 (later still) — owner asked: double-check no BUY_NOW prices exist, and ban it except when he does it himself
+
+**Verified directly, every draft, not just the latest**: checked all 8
+generated sheets (draft1 through draft8) with a direct `awk` scan for
+`selling_option=BUY_NOW` or any non-empty price/min_price/currency —
+**zero** in all 8. (First check accidentally globbed the `_provenance`
+CSV instead of the sheet CSV via `ls -t` and read the wrong columns —
+caught before reporting, redone against the correct file explicitly.)
+
+**Built a hard technical gate**, `scripts/domains/sedo-importer-xlsx.py`
+§8: `enforce_buy_now_gate()` refuses (SystemExit, prints every blocked
+domain+price) any BUY_NOW selling option or non-empty `price` unless
+`--owner-authorized-buy-now-prices` is passed; `min_price` alone is
+never gated (it's a protective floor, the opposite of what this guards
+against). Checked twice — once against the in-memory rows before
+writing, once against the WRITTEN artefact after (defense in depth
+against a future code path bypassing the first check). Self-test proves
+BOTH directions of the gate (blocks without the flag, allows with it),
+not just that the normal path still works — a test that only exercises
+the happy path cannot prove a guard exists. Verified live from the real
+CLI too, not just self-test: built a real priced sheet, confirmed
+refusal without the flag (exit 1, every domain listed) and success with
+it (exit 0, loud banner naming what shipped).
+
+**The flag is not automation-facing** — it's named and documented as
+something the OWNER uses himself, deliberately, per run; a session
+reaching for it because "the price data looks ready" is exactly the
+failure mode it exists to stop. This is the same shape as this
+project's other owner-authority mechanisms (opt-in field, unsafe default
+OFF) rather than a config toggle that could quietly stay on.
+
+**Confirmed the guard doesn't disturb the current sheet**: regenerated
+draft8's inputs through the gated script — zero prices found (correctly
+a no-op), output otherwise structurally identical except **+34 new
+domains** the registrar CSVs have picked up since draft8 was built
+earlier today (other lanes refresh those files independently; not a
+gate issue, not acted on — draft8 stays the official current sheet,
+noted for whoever next regenerates from fresh exports).

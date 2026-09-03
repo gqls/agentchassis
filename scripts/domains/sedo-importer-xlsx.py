@@ -20,6 +20,18 @@ Usage:
       --domains a.csv [--domains b.csv ...]
       [--prices OUTPUT_prices.csv]
       [--exclude-file live_domains.txt [--exclude-file other_reasons.txt ...]]
+      [--owner-authorized-buy-now-prices]
+
+BUY-NOW PRICES ARE HARD-BLOCKED BY DEFAULT (owner ruling, 2026-09-03).
+Any row that would carry `selling_option=BUY_NOW` or a non-empty `price`
+(from --prices) stops the build with every blocked domain+price listed,
+UNLESS --owner-authorized-buy-now-prices is passed. That flag exists for
+the owner to use himself, deliberately, on a run he has actually
+authorized — a session must never pass it on its own initiative, on
+inference from a conversation, or as a default. `min_price` (a floor
+under MAKE_OFFER) is NOT gated — the whole point of a minimum is
+protecting against a lowball, the opposite of what this guard exists to
+prevent.
 
 Multiple --exclude-file are UNIONED — keep separate files per REASON (e.g.
 one for live-site protection, a distinct one for an owner-requested
@@ -156,6 +168,38 @@ def sheet_rows(domains, prices, exclude):
         rows.append([d, opt, forsale, price, minprice, cur, ""])
         prov.append([d, src, nsc])
     return rows, excluded, prov
+
+
+def find_buy_now(rows):
+    """-> [(domain, selling_option, price), ...] for every row carrying
+    BUY_NOW or a non-empty price. `min_price` alone does NOT trigger this
+    — a floor under MAKE_OFFER is protective, not a listed asking price."""
+    return [(r[0], r[1], r[3]) for r in rows if r[1] == "BUY_NOW" or r[3]]
+
+
+def enforce_buy_now_gate(rows, authorized):
+    """Hard-block BUY_NOW/priced rows unless explicitly authorized. Refuses
+    (SystemExit) rather than silently dropping the price or the domain —
+    a silent drop would let a session believe pricing shipped when it
+    didn't, which is its own kind of unsafe default."""
+    hits = find_buy_now(rows)
+    if hits and not authorized:
+        lines = "\n".join(f"  {d}: {opt or '(no selling_option)'} "
+                           f"price={p or '(none)'}" for d, opt, p in hits)
+        raise SystemExit(
+            f"sedo-importer: REFUSED — {len(hits)} row(s) carry a BUY_NOW "
+            f"selling option or a non-empty price, and "
+            f"--owner-authorized-buy-now-prices was not passed:\n{lines}\n"
+            f"This flag is for the OWNER to use himself, deliberately, on a "
+            f"run he has actually authorized — never pass it on inference "
+            f"or as a default. min_price (a floor) is unaffected by this "
+            f"gate; only BUY_NOW/price are blocked.")
+    if hits and authorized:
+        print(f"sedo-importer: OWNER-AUTHORIZED BUY-NOW PRICES — "
+              f"{len(hits)} row(s) shipping with a set price:", file=sys.stderr)
+        for d, opt, p in hits:
+            print(f"  {d}: {opt} price={p}", file=sys.stderr)
+    return hits
 
 
 # ---- xlsx writing: sharedStrings for text (as Sedo's template), numbers native
@@ -316,6 +360,36 @@ def self_test():
         except SystemExit:
             check("invalid domain rejected", True)
 
+        # BUY-NOW gate: prove it actually blocks (not just that the happy
+        # path works) and prove authorization actually lifts it — two
+        # separate assertions, since a gate that never fires and a gate
+        # that always fires both look like "the flag exists".
+        buy_now_rows = [["ccc.example.com", "BUY_NOW", "yes", "9999", "", "GBP", ""]]
+        try:
+            enforce_buy_now_gate(buy_now_rows, authorized=False)
+            check("BUY_NOW blocked without authorization", False)
+        except SystemExit:
+            check("BUY_NOW blocked without authorization", True)
+        try:
+            enforce_buy_now_gate(buy_now_rows, authorized=True)
+            check("BUY_NOW allowed WITH authorization", True)
+        except SystemExit:
+            check("BUY_NOW allowed WITH authorization", False)
+
+        priced_no_buy_now = [["ddd.example.com", "MAKE_OFFER", "yes", "500", "", "GBP", ""]]
+        try:
+            enforce_buy_now_gate(priced_no_buy_now, authorized=False)
+            check("MAKE_OFFER with a set price also blocked", False)
+        except SystemExit:
+            check("MAKE_OFFER with a set price also blocked", True)
+
+        min_price_only = [["eee.example.com", "MAKE_OFFER", "yes", "", "100", "GBP", ""]]
+        try:
+            enforce_buy_now_gate(min_price_only, authorized=False)
+            check("min_price ALONE is not gated (it's a floor, not an ask)", True)
+        except SystemExit:
+            check("min_price ALONE is not gated (it's a floor, not an ask)", False)
+
     print(("self-test PASS" if fails == 0 else f"self-test FAIL ({fails})"))
     return 1 if fails else 0
 
@@ -330,6 +404,7 @@ def main():
     ap.add_argument("--domains", action="append", default=[])
     ap.add_argument("--prices")
     ap.add_argument("--exclude-file", action="append", default=[])
+    ap.add_argument("--owner-authorized-buy-now-prices", action="store_true")
     args = ap.parse_args()
 
     if args.self_test:
@@ -341,6 +416,7 @@ def main():
     prices = read_prices(args.prices) if args.prices else {}
     domains = read_domains(args.domains)
     rows, excluded, prov = sheet_rows(domains, prices, exclude)
+    enforce_buy_now_gate(rows, args.owner_authorized_buy_now_prices)
 
     write_xlsx(args.out, rows)
     if args.csv_out:
@@ -356,6 +432,16 @@ def main():
 
     back = read_back(args.out)  # verify the artefact, not the intent
     assert back[0] == HEADERS and len(back) == len(rows) + 1, "round-trip mismatch"
+    # defense in depth: re-check the GATE against the WRITTEN artefact, not
+    # just the in-memory rows the gate already saw — catches any future
+    # code path that reaches write_xlsx() without going through sheet_rows()
+    written_hits = find_buy_now(back[1:])
+    if written_hits and not args.owner_authorized_buy_now_prices:
+        raise SystemExit(
+            f"sedo-importer: INTERNAL GUARD FAILURE — the written artefact "
+            f"{args.out} carries {len(written_hits)} BUY_NOW/priced row(s) "
+            f"despite no authorization. The file has already been written; "
+            f"delete it and treat this as a bug in the gate, not the input.")
     priced = sum(1 for r in rows if r[3])
     print(f"sedo-importer: wrote {args.out}: {len(rows)} domains "
           f"({priced} priced, {len(rows) - priced} default MAKE_OFFER/no-price); "
