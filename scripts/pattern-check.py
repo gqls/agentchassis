@@ -484,6 +484,108 @@ def check_unguarded_migration_insert(files, ref, findings):
             ))
 
 
+# ── rerender routing key: the raw-SQL door bugs_open/440 cannot close in Go ──
+#
+# bugs_open/440 / RFC_062. `spec.reason` on a page_rerender item is TWO fields
+# wearing one name — the gate's routing key and free human prose — so an
+# unrecognised value cannot be refused, it just assembles and completes green.
+# The split gives routing its own key, `spec.routing_reason`, and phase 3 makes
+# a present-but-unknown routing key REFUSE.
+#
+# THE GO PRODUCERS ARE CONVERTED. This is the other door: `[MEASURED
+# 2026-09-03]` raw-SQL migrations mint page_rerender items directly (696, 693,
+# 701 and others), bypassing every Go guard — they are the producer class no
+# compiler will ever reach, and phase 3 cannot narrow the gate while they write
+# `reason` alone.
+#
+# ⚠ THE VOCABULARY IS READ FROM THE GO SOURCE, NEVER HARDCODED HERE. A third
+# copy of this list is precisely the defect bugs_open/404 recorded (the gate
+# knew five values, Go knew three, and nobody noticed for eight days). If the
+# constants cannot be read, this check says so LOUDLY and checks nothing —
+# because a vocabulary check running on an empty vocabulary passes every file
+# and reads exactly like a clean bill of health.
+VOCAB_SOURCE = "platform/livespec/rerender_reasons.go"
+_VOCAB_CONST_RE = re.compile(r'^\s*Reason[A-Za-z]+\s*=\s*"([a-z0-9_]+)"', re.M)
+_ROUTING_SHAPED_RE = re.compile(r'^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$')
+
+
+def _rerender_vocabulary(ref=None):
+    """The sections-rerender reason values, read from their ONE definition.
+
+    Returns (values, error). A non-empty error means the caller must report the
+    failure rather than proceed — see the header: an empty vocabulary makes this
+    check vacuous while looking green.
+    """
+    try:
+        src = file_content(VOCAB_SOURCE, ref)
+    except Exception as exc:                                   # noqa: BLE001
+        return set(), f"cannot read {VOCAB_SOURCE}: {exc}"
+    if not src:
+        return set(), f"{VOCAB_SOURCE} is empty or missing"
+    values = set(_VOCAB_CONST_RE.findall(src))
+    if not values:
+        return set(), (f"no Reason* constants found in {VOCAB_SOURCE} — the declaration shape "
+                       "changed and this check can no longer see the vocabulary")
+    return values, ""
+
+
+def check_rerender_routing_key(files, ref, findings):
+    """bugs_open/440 — a migration minting page_rerender items must stamp routing_reason."""
+    sql = [p for p in files
+           if p.startswith(MIGRATION_DIR) and migration_is_lintable(os.path.basename(p))]
+    if not sql:
+        return
+
+    vocab, err = _rerender_vocabulary(ref)
+    if err:
+        findings.append((
+            "rerender-routing-key", sql[0],
+            f"{BOLD}the reason vocabulary could not be read{RESET} — {err}",
+            "This check derives the vocabulary from Go rather than keeping a copy "
+            "(bugs_open/404: three copies drifted and the gate knew two values Go did not). "
+            "Until it can read them it checks NOTHING, and is saying so rather than passing "
+            "your migration silently. Fix the reader or say why the shape changed.",
+        ))
+        return
+
+    for path in sql:
+        flat = strip_comments(file_content(path, ref))
+        if "page_rerender" not in flat:
+            continue
+        reasons = set(re.findall(r'["\']reason["\']\s*:\s*["\']([^"\']+)["\']', flat))
+        reasons |= set(re.findall(r"'reason'\s*,\s*'([^']+)'", flat))
+        if not reasons:
+            continue
+        has_routing = "routing_reason" in flat
+
+        known = sorted(r for r in reasons if r in vocab)
+        if known and not has_routing:
+            findings.append((
+                "rerender-routing-key", path,
+                f"page_rerender spec carries {BOLD}reason={', '.join(known)}{RESET} but no "
+                f"{BOLD}routing_reason{RESET}",
+                "bugs_open/440 / RFC_062: `reason` is the free-prose ANNOTATION; the gate's "
+                "routing half is `spec.routing_reason`. Stamp BOTH with the same value here — "
+                "the Go producers already do (livespec.RerenderReasonFields). An item minted "
+                "with the annotation alone routes to assemble the day the gate narrows, and "
+                "re-ships the stored HTML while completing green, which is this bug itself.",
+            ))
+
+        unknown_shaped = sorted(r for r in reasons
+                                if r not in vocab and _ROUTING_SHAPED_RE.match(r))
+        if unknown_shaped:
+            findings.append((
+                "rerender-routing-key", path,
+                f"routing-SHAPED reason not in the vocabulary: {BOLD}{', '.join(unknown_shaped)}{RESET}",
+                "It looks like a routing key and is not one, so page-rerender's gate will "
+                "ASSEMBLE this item — stored HTML re-shipped, work item green, nothing changed "
+                "(`tool_retirement` x16 and `light_palette_chrome_replaced` x13 did exactly "
+                "that). If you meant free prose, write a sentence; if you meant routing, use a "
+                f"declared value ({', '.join(sorted(vocab))}) or add yours to {VOCAB_SOURCE} "
+                "and its gate migration.",
+            ))
+
+
 # ── runtime-fill marker: one predicate, or say which scope you meant ────────
 #
 # bugs_open/137. The exemption "this control is exempt because it hydrates
@@ -2475,6 +2577,7 @@ CHECKS = (check_untouched_twin, check_gofmt, check_stdin_eater, check_kcat_stdin
           check_runtime_fill_marker, check_unrepaired_component_write,
           check_unscoped_component_render,
           check_dynamic_item_type, check_scan_swallow,
+          check_rerender_routing_key,
           check_partial_page_upsert, check_silent_reply_drop,
           check_handrolled_shipped_predicate, check_flexless_hamburger,
           check_sites_upsert_excluded_settings,

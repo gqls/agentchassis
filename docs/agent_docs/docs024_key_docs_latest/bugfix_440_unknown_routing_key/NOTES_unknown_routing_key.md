@@ -294,3 +294,38 @@ breaks no caller (Go permits ignoring it) and changes no behaviour for any exist
 test is about new authority on a shared seam; this removes silence from a seam nobody else uses
 yet. If a third caller outside this lane appears before RFC_062 lands, that judgement expires —
 and REB-008's no-second-producer constraint is what should stop that happening anyway.
+
+## 2026-09-03 (night) — phase 2 part 2: the raw-SQL door (corr `3b484a74`)
+
+**The design problem was not detection, it was the vocabulary.** A Python checker needs the five
+reason values; hardcoding them would be the THIRD copy of a list whose second copy is why
+`bugs_open/404` exists. So `check_rerender_routing_key` READS them from
+`platform/livespec/rerender_reasons.go` at run time (`_VOCAB_CONST_RE` over the `Reason*`
+constants) — verified by execution to return exactly livespec's five — and when it cannot read
+them it emits a LOUD finding and checks nothing. That branch is the important one: **a
+vocabulary check running on an empty vocabulary passes every file and reads exactly like a clean
+bill of health.** Both blind modes mutation-proved: source missing → "could not be read"; source
+present but reshaped (pointed at `rerender_routing_key.go`, which has no `Reason*` constants) →
+"the declaration shape changed". Neither passes silently.
+
+**Behaviour proven across five fixtures**, including the two silences that matter: free prose is
+NOT flagged (owner ruling D4 — the annotation stays free forever), and an in-vocabulary reason on
+a `needs_page` item is ignored (the item-type precision phase 2 part 1 established).
+
+**Noise measured before shipping, not after**: 11 findings across 844 lintable migrations — and
+the check only sees files a commit TOUCHES, so the practical rate is lower. That blind spot is
+stated in the entry rather than left implicit.
+
+**A live finding fell out of the census**: `683_content_listing_rerender_after_roll_HOLD.sql` and
+`701_retype_357_population_by_adoption_HOLD.sql` carry `reason` with no routing key and
+**no `-- APPLIED` line** — unapplied. Applied after phase 3 they mint items that assemble. Named
+in the LANDMINES entry so whoever applies them sees it first.
+
+**The authoring door is the LANDMINES entry, not a new doc** — the estate's system of record for
+prospective traps, synced into `doc_notes` so agents read it too. Appended and dispatched in the
+required order (`landmines-verify-dispatch.sh`, not the sync alone).
+
+**The self-check I promised last round earned its keep immediately.** Widened to "every symbol
+named in `symbol` must appear in the sketch", it FAILED on `_ROUTING_SHAPED_RE` — the exact
+class of gap (`StampRerenderReason` named, body never shown) that drew `editquality`'s medium at
+round `c7dab2c1`. Fixed before dispatch instead of after a REVISE.
