@@ -284,3 +284,13 @@ Corr `c7dab2c1`, `approved with 3 advisory objection(s) — none high-severity`,
 - **`debug_historian` / `architecture` [low] — string-spliced JSON is fragile as a general
   pattern.** Agreed and bounded: two known call-site shapes, the empty case proven to compose,
   and the doc says a third shape should reconsider a structured builder rather than extend this.
+
+**Architecture signal on the signature change, judged and recorded rather than waved through.**
+The pre-commit hook fired "exported symbol removed/changed" on `StampRerenderReason` gaining its
+`known bool` return. Assessed as a POINT FIX, not a shared-contract change, on three grounds
+`[MEASURED 2026-09-03]`: the symbol is **hours old** (introduced in this same lane's phase-2
+commit), it has **2 non-test callers, both converted by this lane**, and adding a return value
+breaks no caller (Go permits ignoring it) and changes no behaviour for any existing one. RFC_022's
+test is about new authority on a shared seam; this removes silence from a seam nobody else uses
+yet. If a third caller outside this lane appears before RFC_062 lands, that judgement expires —
+and REB-008's no-second-producer constraint is what should stop that happening anyway.
