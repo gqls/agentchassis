@@ -15829,3 +15829,43 @@ in the browser"* and *"a `(?m)^` pattern means BLOCK start on one surface and LI
 other"*) · CQ-019 (five layers now, and a tiered pattern set) · *"a pass from a blind check
 outlives the blindness"* — this is the generating case: the August measurement was honest,
 correct, and taken over a population that has since changed.
+
+### TWO INDEPENDENT THINGS THAT FAIL IDENTICALLY ARE INDICTING YOUR INSTRUMENT, NOT THEMSELVES — and the tell is the *sameness*, not the size (2026-09-03, `components` lane, on its own check, caught before it was reported)
+
+**The symptom that will bring you here:** a check you have just written reports a defect in
+two or more things that were produced independently, and the defects are **the same shape and
+the same magnitude**. A balance scan says two hand-written scripts are each `+1` brace and
+`+1` paren. A census says two unrelated sites are each short by exactly three rows. A diff
+says two files each gained the same number of lines.
+
+**The rule.** Independent authors, independent runs and independent inputs produce
+*independent* errors. When they do not, the thing they share is the **measurement**, and that
+is what you are actually looking at. The worked case: a character scanner tracking string and
+comment state reported both news scripts unbalanced by the same amount in the same direction —
+and its author stopped, because *two independently hand-written scripts do not fail
+identically*. The cause was the scanner's own regex mishandling the escaped slashes in
+`/^https?:\/\//i` — **it broke on the very construct the review was about.**
+
+**Why it earns a place here rather than in `WRONG_CALLS`:** it is not a mistake, it is a
+*read*. The signal arrives before you have done any harm, and it is available at the exact
+moment you are most inclined to believe a scary result — because a check that has just found
+something feels like a check that works.
+
+**The check.** When a new instrument reports a defect, ask *"is this result the same across
+inputs that have nothing in common?"* before asking what to fix. If yes, run the instrument
+against a case you already know the answer to. That is the same positive control that catches
+the sibling failure in this section — a detector scoring **0** on the file it was written to
+catch — and it is worth noticing that the two failures are mirror images: **one instrument
+found nothing everywhere, the other found the same thing everywhere.** Neither had ever been
+shown a case it could get right.
+
+**And a limit worth stating with the technique, because the same lane stated it:** a delimiter
+balance scan is **not a parse**. It catches an unbalanced brace or paren, which is the usual
+hand-editing error in an embedded script. It cannot see a missing comma, a bad member
+expression, or a reserved word used as an identifier. Where no JS engine is available (this
+machine has none — no node, deno, quickjs, or Python JS parser, verified 2026-09-03), that
+reading is the best available and **must not be allowed to substitute for loading the page**.
+
+**Related:** the `bugs_open/472` migration this arose on · *"a `[MEASURED]` marker proves a
+measurement was CLAIMED, not COMPLETE"* · the positive-control rule in this section's
+sanitiser entry.
