@@ -243,14 +243,45 @@ a prose section; for `grip-styles`, where each h3 (Ring / Razor / Shark) wants e
 > - **4 do NOT, and not because of drift — they have ZERO rows in the current plan** while carrying
 >   three built components each: `barrel-shapes`, `checkout-chart`, `dart-balance`, `dart-points`.
 >
-> > **⚠ THOSE FOUR ARE THIS LANE'S OWN, AND THE CAUSE IS IN OUR HISTORY.** They are *exactly* the
-> > four articles commissioned by `SQL_2026-08-20_content_batch_week1.sql` — "barrel shapes, dart
-> > balance, points, and a checkout chart" in `README_where_we_are`'s own words. **So that content
-> > route built and deployed four live pages without writing plan sections for them.** They serve
-> > fine today; the exposure is that they exist in the built world and not in the planned one, so
-> > **a re-plan has nothing to preserve them from**, and they can never bind section imagery.
-> > Worth attention independently of imagery — and worth checking before the next content batch,
-> > because if the route still does this, every future article lands the same way.
+> > **⚠ CORRECTED 2026-09-03 — I had the consequence right and the CAUSE wrong, twice over.**
+> > I first wrote that those four were "exactly the four articles commissioned by
+> > `SQL_2026-08-20_content_batch_week1.sql`" and that **that content route built four live pages
+> > without writing plan sections**, implying our batch skipped a step other routes perform.
+> > **No route performs it.** `[MEASURED 2026-09-03]` across the **32 sites that DO have a
+> > substantive current plan**, being absent from the plan is the NORM for content page types and
+> > the exception for structural ones:
+> >
+> > | page_type | built | in plan | absent |
+> > |---|---|---|---|
+> > | `blog-post` | 241 | 40 | **201 (83%)** |
+> > | `tool` | 290 | 49 | **241 (83%)** |
+> > | `guide` | 95 | 24 | **71 (75%)** |
+> > | `content` | 126 | 103 | 23 (18%) |
+> > | `section-index` | 52 | 45 | 7 (14%) |
+> > | `landing` | 45 | 44 | **1 (2%)** |
+> >
+> > **So dartsonline is unusual in the OTHER direction, and the nine planned posts are the anomaly,
+> > not the four unplanned ones.** All nine got their plan rows in a **single write at
+> > 2026-07-29 13:28:03Z** — this lane's own `SQL_2026-07-29d_article_sections.sql`, a hand-written
+> > backfill. Its header says why in its own words: *"Nobody ever decided what blocks a guide page
+> > should contain."* Every article created since — **14** of them, the four from 08-20 plus ten
+> > tool guides — has no plan rows, which is simply the estate default.
+> >
+> > **The real mechanism:** `create_blog_posts_action.go:183` encodes the canonical article layout
+> > `["hero","article-body","call-to-action"]` **in the action**, and builds the page from it
+> > without writing `site_plan_sections`. So the layout is real and the plan is empty.
+> >
+> > **Why this matters far beyond tidiness: every mechanism keyed on the plan is structurally
+> > unavailable to those pages.** Per-section imagery binding degrades to page-wide when there is
+> > no current plan row for the page (IMG-075's first stated degrade case) — so **~83% of the
+> > estate's articles cannot carry a per-section figure at all**, whatever the planner composes.
+> > That is a much harder bound on the imagery work than "the planner has never composed an article
+> > out of illustrated blocks", and it is the thing to fix first.
+> >
+> > Adjacent and **actively owned — contribute, do not compete**: `bugs_open/443` (finetuning lane,
+> > 8 commits in 2 days, Stage A closed 09-03) is the same root reached the other way — whole SITES
+> > with no current plan (their census: 203 pages across 6 sites). **My population is disjoint from
+> > theirs**: planned sites whose article page TYPES are unplanned. CONTRIB filed there.
 >
 > **⚠ SEQUENCE MATTERS, and getting it wrong looks like the mechanism failing.** The build path
 > compares the plan against `pages.sections` (synced from the plan) so they agree during a rebuild
