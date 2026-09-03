@@ -4,7 +4,9 @@ Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_450_tool_page_shells/`
 Bug: `bugs_open/450_HANDOFF_2026-09-02_planned_tool_pages_are_built_as_prose_shells_by_the_link_repair_before_their_tools_exist.md`
 Standing five in this directory: PLAN · RUNBOOK · NOTES (a)–(t) · README_where_we_are · SUMMARY_2026-09-03.
 
-**Read §1 first. It is a live, measured failure of this lane's own fix and it is NOT diagnosed.**
+**Read §1 first.** It corrects a wrong conclusion of mine (the guard did NOT fail) and names the
+real live bug: six pages serve working tools whose `component_id` is NULL, so they are one rerender
+away from losing them. **That repair is time-sensitive and is the first job.**
 
 ---
 
@@ -106,7 +108,7 @@ inserted by another producer can lose that slot's reference the same way.
 | thing | commit | state |
 |---|---|---|
 | Door half — derived refusal, 6 seams | `587666be8` | **live** (also in v1.0.1359) |
-| Narrowing — tool arm off `save_page_sections` | `29b40e8bc` | **live** in v1.0.1359 ⚠ see §1(2) |
+| Narrowing — tool arm off `save_page_sections` | `29b40e8bc` | **live** in v1.0.1359 (§1: the worry about it is RETIRED) |
 | Receipt wording corrected (stated fact, not inference) | `196319707` | live |
 | Plan-side gate `enforce_tool_sources` | `5e6fee47b` | live but **KEYLESS** — inert |
 | Migration 729 arming the key | `681190083` | **committed, NOT APPLIED — BLOCKED** |
@@ -120,9 +122,10 @@ inserted by another producer can lose that slot's reference the same way.
 Recipe and the reason it waited: RUNBOOK §10. Until it applies, **the planner keeps naming tool
 pages whose tools do not exist.**
 
-**Owner lever available:** `DISABLE_TOOL_SHELL_REFUSAL` disarms the tool arm fleet-wide with no
-build, scoped so it cannot touch migration 164's owned protection. Relevant if §1 turns out to be
-the arm misbehaving rather than under-firing.
+**Owner lever, still available and now probably NOT wanted:** `DISABLE_TOOL_SHELL_REFUSAL` disarms
+the tool arm fleet-wide with no build, scoped so it cannot touch migration 164's owned protection.
+⚠ Per §1 it would also disarm the accidental protection those six `component_id`-NULL pages are
+currently getting, so **do not pull it until their references are repaired.**
 
 ---
 
@@ -171,7 +174,9 @@ activity, not wall-clock. §1's 36 writes are far above that share and are the f
 
 ## §5 Open, ordered
 
-1. **§1 — diagnose why the guard did not refuse, and re-test whether `29b40e8bc` was safe.**
+1. **§1 — repair the six NULL `component_id` references BEFORE any rerender reaches those pages**,
+   then scope the class fleet-wide and read the re-insert branch that drops the reference. The
+   guard question is CLOSED (it behaved correctly); this is a distinct and more urgent bug.
 2. **Apply migration 729** once the permission question is settled (owner).
 3. **`bug_historian`'s standing objection (council, low, accepted):** nothing PINS the §7
    assumption that nothing reads planned tool pages. It is a negative finding in a code comment.

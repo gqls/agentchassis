@@ -137,7 +137,25 @@ live before its tools will fill its tool URLs with prose, and every 200 hides it
    made deliberate. Recipe: `portfolio_positioning/RUNBOOK_remake_release.md` §2b. UNEXERCISED
    on a remake; answer §7 above before pointing it at seotools.
 
-## ⚠ FALSIFIED 2026-09-03 13:3xZ — THE GUARD DID NOT REFUSE A GENERIC WRITE. Read this before acting on anything below.
+## ⚠ CORRECTED 2026-09-03 13:5xZ — the guard behaved CORRECTLY; a different and more urgent bug is live
+
+> **This block said "FALSIFIED — THE GUARD DID NOT REFUSE A GENERIC WRITE" and that was WRONG.**
+> The `portfolio_positioning` lane measured the artefact and I verified it: the six pages had REAL
+> tool components attached at 09:34–09:54Z, so at 13:05Z they were **not shells**, and the guard
+> correctly allowed the write. My "0 tool rows ever" was an artefact — every census here joins
+> `page_components` to `content_components` **on `component_id`**, and the write had set that to
+> NULL, so a page serving a real 20 KB tool read as never having had one. **I inferred pre-write
+> state from post-write state.** Kept visible because the shape is the lesson.
+>
+> **THE REAL BUG:** `save_page_sections`' delete-and-reinsert **preserves the `rendered_html` of a
+> slot it does not recognise as one of its planned sections and drops the `component_id`.** Six
+> seotools pages now serve working tools (78–85 KB, real controls, instance-scoped ids) with a NULL
+> reference — **one rerender away from losing them, with nothing in their appearance to warn
+> anyone.** It also means this bug's own census over-reports by six. Repair those references before
+> any rerender touches them. Full detail, scoping query and repair sketch:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_450_tool_page_shells/HANDOFF_2026-09-03_continue_here.md` §1.
+
+### The original (wrong) reading, kept for the record
 
 **36 `page_component_history` writes across SIX of the seven canonical seotools shells,
 13:05:14Z–13:24:36Z**, producer **`needs_content_page` → `page-build-handler`** (the generic
