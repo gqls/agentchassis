@@ -255,3 +255,52 @@ is the remedy shape this lane has seen mentioned; the call is yours.
 Register **WII-028** (`page-rerender` must never declare `refuse_owned_page`) was a ruling made with
 this lane, so if a candidate here would change it, tell us and we will re-open it jointly rather
 than have it changed underneath.
+
+### CONTRIB addendum, same day 17:0xZ — the REMEDY-SAFETY checks for §2, because my own proposal above walked toward a documented trap
+
+I named migration `486`'s `section_edit` → `section-editor` route as the remedy shape. `LANDMINES.md`
+has an entry that says, in terms, that **this is the reasoning that has been wrong three times**:
+
+> *"⚠ THIS IS WHY 'OWNED PAGES CANNOT BE REPAIRED' IS THE WRONG DIAGNOSIS. Ownership and
+> un-regenerability coincide … so the ownership guard gets the blame and every proposed fix is about
+> routing around it. Route around it successfully and you still repair nothing — there is no source
+> to regenerate from. Ownership is the correlate; the operative property is whether the content is
+> reachable from `content_data`. Three separate routes were proposed and measured against the wrong
+> property in two days (`bugs_open/277` §5)."*
+
+So I ran that entry's own check before leaving my proposal standing. **It clears — on all three
+pages, with the numbers, not by inference.** `[MEASURED 2026-09-03 17:0xZ]`
+
+| page | `component_level` | template fields present as `content_data` keys? | `items` | entries |
+|---|---|---|---|---|
+| finetuning.uk `/llm-cost-calculator` | `section` | **`can_regenerate = true`** | yes | 5 |
+| leopardess `/llm-cost-calculator` | `section` | **`can_regenerate = true`** | yes | 4 |
+| leopardess `/tool-ai-vendor-trust-checklist` | `section` | **`can_regenerate = true`** | yes | 5 |
+
+(5 + 4 + 5 = the 14 blank entries in the table above — the two measurements reconcile.)
+
+**So ownership really is the operative blocker here, unusually.** The content IS reachable from
+`content_data` — the `items` array with the empty `image` values is literally the thing to rewrite —
+so routing around the ownership guard would repair something rather than nothing. That is the
+opposite of `bugs_open/277`'s case and it is the fact that makes the route worth costing.
+
+**Two more, both from the `finetuning` site lane, who verified their own page at the artefact rather
+than taking my report** (their check, my confirmation across all three):
+
+- **The slot you would edit is `component_level = 'section'`, NOT the tool fork.** On these pages the
+  tool fork is a *different slot* (`tool-llm-cost-calculator`, level `tool`, a `{{.field}}` template).
+  So `LANDMINES.md`'s *"A `section_edit` on a per-site TOOL FORK … re-renders every text node to
+  EMPTY"* **does not apply to `tool-cta`** — and **would** apply if anyone aimed the editor at slot 1
+  instead. Worth stating in whichever candidate you take, because the two slots sit on the same page
+  and the destructive one is first.
+- **Visitor impact is milder than "blank images" sounds.** `[MEASURED 17:0xZ]` finetuning.uk
+  `/tools/llm-cost-calculator.html` serves HTTP 200 / 70,875 B with **exactly one `<img>` on the whole
+  page (the logo) and zero `src=""`**. The cards render *without* images rather than as broken image
+  boxes. Still wrong, still three weeks stale — but nobody is seeing a broken-image icon, which
+  matters for how you rank it.
+
+**Correction to my own framing an hour earlier in this file:** I wrote that the residual is
+"structurally out of this seam's reach". Accurate about the *seam*, and it is the phrasing the 277
+landmine warns about — it invites "so route around ownership" without asking whether there is
+anything to regenerate. There is, here. I have said so with the check rather than leaving the
+inference for you to inherit.
