@@ -424,6 +424,12 @@ rather than filed over this lane:**
   (`platform/colour.AALarge`). Technically present, close to invisible. **This is a genuinely
   different problem from 424**: transparency working correctly says nothing about whether the
   resulting mark's own colours are legible against an arbitrary site background — nothing in the
-  generation pipeline currently considers that. Not filed this session (mid-watch on the three
-  retries); flagged here so it isn't lost. Candidate for its own bug file if not picked up by the
-  time this lane closes.
+  generation pipeline currently considers that. **Deliberately NOT taken on by this lane** — the
+  reporting session independently verified no existing detector covers it
+  (`request_render_audit_action.go` scopes itself to text-against-background contrast only; image
+  findings are broken/not-broken, and `over_image` findings are explicitly counted but not filed)
+  and wrote it up in full in their own handoff
+  (`bugfix_417_logo_text_policy/HANDOFF_2026-09-03_continue_here.md` §4a), deliberately decoupled
+  from 424's own closure — the right call, per this estate's own recorded lesson that a deferral
+  pointing at a bug which then closes reads as handled when it isn't. **Not this lane's bug; do not
+  file it here, and do not treat 424 closing as covering it.**
