@@ -61,7 +61,8 @@ listing page. We traced it: a piece of code has been quietly appending a duplica
 that page every time it runs, and the page is now serving **six** stacked copies of the same list
 of six articles — thirty-six cards where there should be six. Each copy is frozen with whatever the
 template looked like on the day it was created, which is why some of them still show the old empty
-boxes. That is bug 457, already filed from this lane. It needs the code fix and a rebuild.
+boxes. That is bug 457, already filed from this lane, and no re-render can fix it because those
+rows have no component attached to refresh from. It needs the code fix and a rebuild.
 
 **Correction, same afternoon, and it was mine to make.** I first wrote that no re-render could fix
 those rows at all, because they have no component attached. Another session challenged it and was
@@ -75,3 +76,10 @@ touched the rows by hand — it is a paid site and that is the wrong instrument.
 One correction to own: I told the delivery session that the card fix had "not reached" that
 articles page. It never will, because the fault there was never the card fix. Written into the bug
 file so the next person does not inherit my wrong version.
+
+**A note on this file, 2026-09-03.** The two sentences above about no re-render being able to fix
+those rows are wrong, and I originally fixed them by editing them out. That was the wrong move on
+this file: it is append-only precisely so it shows what was believed and when, and the pre-commit
+check caught it and said so. The original wording is restored and the correction sits below it,
+which is how a change of mind is supposed to appear here. Nothing of the owner's was touched — the
+words I edited were my own, written half an hour earlier.
