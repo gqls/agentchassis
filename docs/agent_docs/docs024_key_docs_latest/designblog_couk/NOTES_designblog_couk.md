@@ -697,3 +697,25 @@ pages-vs-instances); reconciliation owed after the experiment. ⚠ Another
 chassis build deploys within the hour — all of tonight's pod-greps/artefact
 readings (incl. the v1.0.1355 IMG-075 verification) are about to be dated;
 told components to stamp their test with the serving binary.
+
+## 2026-09-03 — the pre-test check flips my suggested reading: the sections path was NEVER exercised
+
+Components ran the nine-items check and it came out the OPPOSITE way from my
+framing: **all 66 completed `page_rerender` items since 721 on
+relevant pages (six hero components + own page-scope asset) carry
+`reason = NONE`** — zero qualifying reasons, so the sections path has never
+run against this class since the field became declarable, and "9 rerendered,
+0 recovered" proves NOTHING about it. Their one-page test (**batch 689**,
+advertise.co.uk/about, `image_landed` — filed; site had 0 open items) will be
+the FIRST exercise ever: necessary, not confirmatory. Two of their traps
+worth keeping:
+- **"Currently correct" is a STATE, not a transition** — 10 of the 66 read as
+  RECOVERED in a naive sweep; all were pages already correct pre-721 plus the
+  one build-path fix. No page has been fixed by a re-render. Zero.
+- Their test will almost certainly run on the NEW binary (queued behind 164
+  items, chassis build landing mid-queue) — attribution stamped by capability
+  probe at READ time, stated as "whichever binary was live when claimed".
+Also: the drifted two-reason sentence reached a SEVENTH place — a LANDMINES
+entry quoting three of the five reasons; flagged to inline guide imager (who
+owns the correction sweep). 57-vs-61 reconciliation parked until after the
+experiment; both predicates now stated and dated.
