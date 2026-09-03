@@ -153,3 +153,57 @@ description survives.
 the handoff §6 item 1. The r3/r4 commits already carry `Council-Submitted:`, so 098 credits
 them at report time with no amend. Reading those three objections is the 404 lane's, not
 mine — but note this round and mine BOTH approved while finding real defects.
+
+---
+
+## 2026-09-03 — the roll landed, and 338's acceptance test turned out to be unfalsifiable
+
+`agent-chassis` on `v1.0.1356`, pods started 08:58:07Z.
+
+### Provenance was unavailable by BOTH sanctioned routes, each for a recorded reason
+1. **Log stamp rotated inside 18 minutes.** LANDMINES' own precheck: at 09:16Z the two pods'
+   first log lines were 09:16Z and 09:10Z, so the 08:58 startup line was already gone. The
+   entry's time-limited case, not "unstamped".
+2. ⚠ **`grep 'build provenance'` on this service matches LANDMINE TEXT about build
+   provenance** — the chassis logs whole council/diagnosis payloads, so the recipe greps up
+   its own documentation. My first attempt returned 1.9MB. Already a landmine; live today.
+3. **The release was applied from an UNCOMMITTED overlay bump.** `git show HEAD:` on the
+   chassis overlay → `v1.0.1353`; tree and pods → `v1.0.1356`. The build point is not in git
+   history, so no ancestry check exists. `make release` bumps makefile + overlays in the
+   working tree; nobody committed it.
+
+### MISSTEP 5 — my must-be-absent control passed because the command ERRORED
+`$C` (deploy commit) was empty, so both `git merge-base --is-ancestor` calls printed usage
+errors and exited non-zero — and my `&& / ||` turned each failure into its designed
+"negative" branch. Output read `ANCESTOR: no` + `CONTROL OK`. **A control keyed on a
+NON-ZERO EXIT cannot discriminate, because every failure mode of the command is non-zero.**
+Full row in `WRONG_CALLS.md`. I was one paste from writing "my fix did not ship" into a
+handoff.
+
+### THE FINDING THAT MATTERS — §6 can never come out either way
+338 §6 says: watch the two blank pages fill. They cannot. `load_pages_missing_meta` gates on
+`page_visible_text_len(p.id) > 200`, and they measure **0** (with **0** eligible components)
+and **124**. The backfiller never selects them → the gate is never consulted → the fix
+cannot move them. A session running §6 after the roll would see "still blank" and conclude
+the fix failed.
+
+Fleet-wide `[MEASURED 2026-09-03]`, **with a demand control**: all **37** remaining blank
+active pages (11 sites) fail the gate, **zero** selectable, averaging **8** chars of visible
+text. Control — the **1,164** pages that DO have a description average **4,401** chars with
+**1,137 (97.7%)** clearing it. So the instrument is sound; every remaining blank is a
+near-empty page.
+
+**Why §6 was right when written and is wrong now:** on 08-20 the blanks WERE gate refusals.
+Migration `501`'s ≤20-word instruction has since filled that population. What is left is a
+different population, blank for an unrelated reason. **A measurement can go stale by having
+its subject REPLACED, not just by drifting** — the population was renewed under a
+predicate that no longer selects for the cause.
+
+⚠ **And `501` makes the fix largely inert for this caller anyway** — ≤20 words clears the
+trip of 22, so the natural exercise will not occur. The fix's value is the seam and the
+lower-threshold case, both real, neither observable today.
+
+### Knock-on: 320's headline is 3.1%, not 55.7%, and its residual changed KIND
+Updated in place with today's dated figures. What is left there is a **coverage floor**, not
+a writing failure — and whether a near-empty page should carry a description at all is an
+owner question, not a backlog.

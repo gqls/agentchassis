@@ -60039,3 +60039,94 @@ which one decides.
 
 Family: a-measurement-answers-the-question-you-encoded,
 a-count-of-things-must-carry-the-date-it-was-counted, order-fix-candidates-by-what-closes-the-door.
+
+---
+
+## 2026-09-03 — I shipped a health check whose expected value I read off a TRANSIENT state, so it cries wolf in steady state — and my first fix was wrong the same way
+
+**The claim.** `HANDOFF_2026-09-02` §4b, written as a service to whoever comes next: *"Expect
+`slots = 4`, `busiest <= 4`. Fewer slots or a busier one means it has degraded."* The query was
+`SELECT count(DISTINCT next_fetch_at) … FROM content_sources WHERE is_active`. I had just applied
+migration 701, ran it, got **4**, and wrote the 4 down as the invariant.
+
+**What was false.** The 4 was an artefact of the migration having *just* run. Statement 3 of 701
+sets every source in a site to **one identical** `next_fetch_at`, so for a few hours 14 sites gave
+4 distinct values. In steady state each source is re-stamped `NOW() + 24h` **at its own second**,
+so a 5-source site fans out across 5 values. `[MEASURED 2026-09-03]` the same query now returns
+**`slots = 56`** — against my own stated expectation of 4 — while the spread is in fact perfectly
+healthy at **3/4/4/3 sites across four passes**. **A correct system, reported as broken, for ever.**
+
+**And the fix was wrong the same way.** My first correction bucketed sites by
+`floor((due − last_triggered_at)/6h)` and returned **5** buckets (3/2/4/2/3), which again reads as
+drift. It omits the look-ahead: a site is served by the first trigger `T >= due − 3h`, and because
+dispatch is sequential and takes ~10 minutes, a boundary at `lt + k*6h` falls **mid-pass** and
+splits one pass's sites across two buckets. Correct form:
+`ceil((due − lookahead − last_triggered_at) / cadence)`, reading both constants live.
+
+**What caught it.** Running my own check the next morning, on a day when I had independent reason
+to believe the system was fine — three passes had just served exactly their predicted membership.
+**The disagreement between two of my own measurements is the only thing that surfaced it.** Had I
+run it in isolation, or a month later with no prediction to contradict it, I would have believed
+the 56 and gone looking for a fault that was never there.
+
+**The cheap check, and it is one question:** *what will this value be in STEADY STATE, not what is
+it right now?* I measured the invariant seconds after the one operation that made it artificially
+true. Any check written immediately after a bulk `UPDATE` is suspect in exactly this way, because
+a bulk update is the one moment every row agrees. Corollary, cheaper still: **a health check needs
+a control too** — run it against a state you know is healthy AND one you know is degraded before
+writing the threshold down.
+
+**Why this one is worth the tally.** A false-alarming check is worse than no check: it consumes
+the attention of whoever inherits it, and when it eventually fires for a real reason nobody will
+believe it. This lane has now logged three checks that could not come out false or came out false
+wrongly (2026-09-02 (a) the unsatisfiable acceptance test, (b) the LIKE census, and this) — all
+three written by the same session that had just been warned about the class.
+
+**Blast radius: one document, one day.** Never run by anyone else; corrected in
+`HANDOFF_2026-09-03` §4b, and the superseded 09-02 handoff now carries an explicit "do not run the
+check below" banner.
+
+Family: measurement-discipline (a measurement that cannot come out false),
+a-post-fix-zero-needs-a-demand-control, state-the-expected-shape-before-you-run-the-check.
+
+---
+
+## 2026-09-03 — my must-be-absent CONTROL passed because the command ERRORED, not because the answer was right (`bugsweep_2026_08_26` lane, verifying 338's roll)
+
+**The claim I was about to make.** After the `v1.0.1356` roll I checked whether my 338 fix
+was in the build, the sanctioned way: find the deploy commit, then
+`git merge-base --is-ancestor <my-commit> <deploy-commit>` — with a must-be-absent control
+(a LATER commit of mine, which cannot be an ancestor). The run printed:
+
+```
+ANCESTOR: no
+CONTROL OK: my later handoff commit is not an ancestor
+```
+
+Read straight, that is "the control behaved, and my fix is NOT in the build" — a specific,
+alarming, and completely false conclusion I was one paste away from writing into a handoff.
+
+**What actually happened.** The command substitution that was supposed to hold the deploy
+commit returned **empty** (`git log -S'v1.0.1356' -- <overlay>` found nothing, because the
+overlay bump was never committed). So both `merge-base` calls ran with a missing argument,
+printed a **usage error**, and exited non-zero. My `&& echo … || echo …` turned each
+non-zero exit into its designed "negative" branch. **The control could not have come out any
+other way: a broken command fails, and failing IS what the control was defined to expect.**
+
+**What caught it.** The usage text was in the output, above my own cheerful labels. Reading
+the whole output rather than the last line of each pair.
+
+**The cheap check that would have.** Assert the input before the test: `[ -n "$C" ] || exit`.
+More generally — **a must-be-absent control built on a NON-ZERO EXIT is worthless, because
+every failure mode of the command is also non-zero.** A control has to be a positive
+observation (a value that must be present and IS), not the absence of a success.
+
+**Why it is worth a row.** This estate's whole discipline is "run a control so the result
+could have come out otherwise". I ran one, and picked a control whose passing was
+guaranteed by the failure it was meant to detect. That is worse than no control, because it
+launders a broken measurement into a verified one. The real finding underneath — that the
+release was applied from an uncommitted overlay, so no ancestry check exists at all — was
+only reachable once I stopped believing the control.
+
+Family: mutate-the-code-to-prove-the-guard, a-post-fix-zero-needs-a-demand-control,
+a-plausible-external-cause-is-when-to-doubt-your-instrument, a-quiet-test-passes-when-the-rule-is-gone.

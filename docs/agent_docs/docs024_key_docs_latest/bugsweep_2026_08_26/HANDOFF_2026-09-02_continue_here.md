@@ -1,5 +1,12 @@
 # HANDOFF — bug sweep, 2026-09-02 (continuing the 2026-08-26 session)
 
+> ⚠ **SUPERSEDED 2026-09-03 — read
+> `docs/agent_docs/docs024_key_docs_latest/bugsweep_2026_08_26/HANDOFF_2026-09-03_continue_here.md`
+> instead.** The chassis rolled on `v1.0.1356` and 338 shipped; more importantly, **338's
+> acceptance test turned out to be unfalsifiable** — the two pages it names can never be
+> selected by the backfiller, so following §7 of this file would produce a confident false
+> "the fix did not work". This file's mechanism and its adjacent-items list remain correct.
+
 **Read this instead of `HANDOFF_2026-08-26_continue_here.md` for current state**; that file is
 still correct about mechanism and still worth reading for its §6, but a week had passed and
 three of its status lines had expired. Where it was wrong I say so rather than editing it.
