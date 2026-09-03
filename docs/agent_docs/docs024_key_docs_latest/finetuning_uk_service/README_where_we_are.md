@@ -1336,3 +1336,44 @@ given you as fact rather than as a guess. That claim was that the tools box cann
 server we already run in the cluster. It turns out to be true, but I had asserted it before testing
 it, and it is the reason the demo needs a machine of its own. So the placement question stands, and
 it is now the only thing between a reviewed, tested chat route and a working demo on the page.
+
+**2026-09-03, early evening (a fresh session picking up the handoff).** I checked where the playground
+actually stands rather than trusting the handoff, and the answer is: nothing has moved on your side
+yet, which is fine, it only went to you an hour ago. The island still runs the old tools-api image,
+the five `PLAYGROUND_*` settings are not in its env file, and a test call to the new chat route from
+outside gets "not found" (I checked with a route that does exist, which correctly says "forbidden"
+for a wrong origin, so the machine and its security gate are fine; the route simply is not in the
+running program). Migration 641, the prompt change that stops the repeated headings, is also still
+unapplied by the prompts lane.
+
+Two things I could do without you, so I did them.
+
+First, the new tools-api image is built and checked: it is tagged `v1.0.1359-playground`, built from
+the committed code, and I extracted the program from it and confirmed the playground handler is in
+there (with a positive and a negative control, per the runbook). I tried to copy it onto the island
+so it would be sitting there waiting; the session's safety classifier refused, as it refused the env
+edit earlier today. So the swap is three commands for you, written out in the runbook under
+"Playground tool, step 2". The reason it is yours and not mine: restarting tools-api also restarts
+the robot-hands.com and vonc.com tools.
+
+Second, the technical-details page. You said it was "an unhelpful page listing on 3 types of
+model", and the reason is that the brief asked for exactly that. I have rewritten the brief: the
+page now says we choose a small open-weight model to suit the job and tell you in writing which one
+and which licence before training starts, that we only use models whose licence lets a business
+your size use the result commercially at no charge, and that the exact terms come with the
+handover. No list of families, no licence small print on the page. It also now points at the
+playground. The rebuild is written as a file that REFUSES to run until 641 is live, so nobody can
+fire it early by accident; when the prompts lane applies 641, this lane runs it.
+
+One thing I need your call on, and it is not urgent until the route is live. The plan was to take
+the library's existing chat box and point it at the new route. I read the library chat box: it is
+a one-message-at-a-time box that talks to a page's own server, not a conversation box that talks
+to tools.apis.uk and shows the reply as it streams. Pointing it elsewhere is not enough; the code
+has to be different. Two ways to get that code: (a) have the framework's tool generator write it
+from a brief describing the route, which is the "everything through the framework" route and goes
+through the same checks every other tool gets; or (b) do what the robot-hands and vonc widgets did,
+where a person wrote the widget's JavaScript by hand and it was installed through a migration.
+Both of those hand-written widgets work today; the generated route is the one your August ruling
+points at. My recommendation is (a), with (b) as the fallback if the generator cannot produce a
+working streaming client after a couple of rounds, in which case that is a bug to file. Say if you
+would rather go straight to (b).

@@ -2903,3 +2903,76 @@ operative blocker — the unusual case — and routing around it via the section
 something. In 389's CONTRIB, credited. Takeaway they named and I second: **a mechanism claim does
 not license a consequence claim** ("the seam cannot reach it" ≠ "it cannot be repaired"). Nothing
 further owed; the handoff's "Reported by peers" entry stands as written.
+
+## 2026-09-03 (16:45–17:15Z, new session) — state read at the artefact: NEITHER hand step done, 641 NOT applied; the image is built and proven; the library widget does NOT fit the route; Stage B SQL written with the rewritten brief
+
+**Cold-start read, all measured, none inferred:**
+- **2b NOT done:** `grep -cE "^PLAYGROUND_" /opt/island/.env` → **0**. **2c NOT done:** compose still
+  `docker.io/aqls/tools-api:v1.0.1343`. Public probe with controls: `POST …/playground/chat` →
+  **404** with `Origin: https://finetuning.uk` AND with a wrong origin; gripper route with a wrong
+  origin → **403** (island up, CORS gating works); a made-up route → 404 (the absent shape). So the
+  404 is "route not in the running image", not a CORS or tunnel fault.
+- **641 NOT applied:** the live page-content-writer's `default_config` does not contain
+  `current_section.subject` (0 rows), `schema_migrations` has no 641 row, and the sub-workflow
+  `generate_content.config.input_fields` lacks `sections_for_render` (both halves absent).
+  Misstep on the way: my first marker was `section_subject`, which is NOT a string the 641
+  template contains (it uses `.current_section.subject`) — a false-absence risk had 641 been
+  applied. Checked the seed's own bytes before concluding.
+- **Demo box healthy:** ollama service active, model UNLOADED (30 m keep-alive expired — first
+  request pays the 1.5 s cold load, by design), ufw rule `11434/tcp ALLOW 176.126.243.183` intact,
+  600 MB used of 3,809.
+
+**2c reduced to one owner command — the image is BUILT and PROVEN, not shipped:**
+`make build-tools-api-ref IMAGE_TAG=v1.0.1359-playground` from committed HEAD `9b540c2e6`
+(the build printed "49 uncommitted change(s) are NOT in this image" — correct, none are mine).
+Why that tag: fleet `v1.0.1359`'s images are labelled commit `3043885` (13:00Z), which does NOT
+contain the round-4 refactor `13c6aa89a` (`git merge-base --is-ancestor` says no), so a plain
+`v1.0.1359` would be a lie and `v1.0.1360` would collide with the next fleet release name. The
+suffix says what it is; the image label `org.opencontainers.image.revision=9b540c2e6…` is the
+identity. Proven on the extracted binary (RUNBOOK's own recipe): `PlaygroundChatHandler` **2**,
+`GripperChatHandler` **2** (present control), `zzzAbsentControlZzz` **0**, the log literal
+`playground route group` **2**; sha256 `2ce6745aba1294cb…`. `docker save … | ssh … docker load`
+onto the island (inert — compose keeps running 1343) was **refused by the session's permission
+classifier**, same as the env edit yesterday. Not retried: it is the deploy gate the gauntlet
+RUNBOOK §13 describes, and the owner runs the three lines (RUNBOOK step 2, updated).
+
+**Step 3 finding — the plan's "fork `chat-input-box` and repoint it" does NOT fit, measured at the
+library row:** `d6a8f57b`'s JS (in `html_template`, `js_content` NULL) is **single-turn**
+(`POST {message}` → `response.json()` → one assistant bubble), **same-origin** (`fetch('/api/chat',
+{credentials:'same-origin'})`, the path a LITERAL, and `input_schema` exposes only six copy
+strings — no endpoint field). The route is **multi-turn** (`{messages:[{role,content}…]}`, ≤12 ×
+1,000 runes, last must be `user`), **cross-origin** (`https://tools.apis.uk`, CORS by Origin) and
+**streams SSE** (`event: token` per fragment, `event: done` with `truncated`, `event: error`
+in-band after the 200). A fork would ship a widget that POSTs the wrong shape to a path the site
+does not serve — precisely the widget TL-043 exists to refuse. Two real paths:
+(a) **generate it** — an `add_tool` item with `library_source: null` and the route contract in the
+description, through tool-generator and the acceptance ladder; (b) the estate's TWO live
+cross-origin widgets against island routes are both `created_from='manual'` sections seeded by
+migration (`gripper-report-intake`, mig 651; `gauntlet-round-record-vonc-com`), i.e. hand-written
+JS in a `js_snippets` row + a section component + a locked `page_components` row. (b) is exact
+and byte-budgeted (8,192 B verify); (a) is the framework path the 2026-08-04 ruling points at.
+**Not decided; put to the owner in README.** Placement finding either way: `/playground.html` is
+six `section`-level slots (hero, 3× generic-text-block, faq, call-to-action), none locked;
+`resolveToolPageIdentity` attaches a tool to an existing page only when the page's `name` equals
+the function's legacy name (`tool-playground` → `playground`), so path (a) needs function
+`tool-playground` + the generator's `adopt_existing_page` step flag, or it will mint
+`/tools/…` instead of landing on the page the owner looks at.
+
+**Stage B is now a held file, gated mechanically:**
+`finetuning_uk_service/technical_details_stage_b_dispatch.sql` — the rewritten brief (§2 drops the
+three-family listing: model named, with its licence, in writing before training; page states no
+licence's terms), `/playground.html` added to `required_links`, page → `planned`, item inserted
+with the ORIGINAL row's `source/pipeline/severity/item_key` and a NEW spec (not the copied one —
+landmine #3). `DO` block RAISES on G1 (641 absent — asserted by the template's own marker), G2
+(page not deployed / an open `needs_content_page`), and post-conditions (`NOT spec ? 'mode'`,
+`NOT spec ? 'not_dispatchable'`, 6 sections, no family listing, playground link present).
+Rehearsed under ROLLBACK: **stops at G1 as designed.** The path beyond G1 is UNREHEARSED as a
+transaction (classifier refused the stubbed run); read-only proof of the spec expression found
+that my first family-listing check `'%Llama%'` matched **`Ollama`/`llama.cpp`** — the post-condition
+would have refused a CORRECT brief. Fixed to the family-listing phrases. The "does the guard fire on
+the right thing" check earned its keep before the file was ever run.
+
+**Not done, deliberately:** `deploy_config.capabilities += backend` on the site row — it widens
+what tool-suggester may OFFER this site (406's predicate) as well as what the deployer admits, and
+is only needed on path (a) if the generated tool carries `requires-backend`; flipping it before the
+route is live invites a widget against a dead route. `our-position-on-ai` subjects — untouched.

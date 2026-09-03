@@ -32,8 +32,8 @@ details conversation has not happened. Do not move company-general copy without 
 | 2. tools-api route `POST /api/v1/tools/playground/chat` | **DONE, council APPROVED** (`63be72d1`, round 4, all reviewers; rounds 1–3 revise, each found something real). Committed; HEAD builds with tests. Registered **PUB-006** (route) + **PUB-007** (`mountBrowserGroup`). **NOT SHIPPED to the island.** | `internal/tools-api/handlers/playground.go`, `api/server.go`; RUNBOOK "step 2: ship" |
 | 2a. island `sites` allowlist row | **DONE** — migration `737_…_ISLAND.sql` applied + ledgered; island `sites` = finetuning.uk, robot-hands.com, vonc.com | island `island_migrations` |
 | 2b. `/opt/island/.env` five `PLAYGROUND_*` keys | **NOT DONE — operator hand edit.** My session's classifier refused to edit a live box's env; that is correct. Values in RUNBOOK. Inert until 2c. | island |
-| 2c. island image swap (`aqls/tools-api:v1.0.1343` → a tag carrying the route) | **NOT DONE — OWNER'S CALL.** No makefile target (tools-api is not a cluster service); path is `docker save … \| ssh \| docker load` + compose edit (`gauntlet_dead_cta/RUNBOOK` §deploy). **The restart also serves robot-hands.com + vonc.com.** | island |
-| 3. the chat widget on `/playground.html` | **NOT STARTED.** Plan: fork the library's `chat-input-box` (`content_components` id `d6a8f57b`, tags chat/intake/backend/requires-backend) through the tool pipeline (`add_tool`, library_source), repointed at the route; TL-043's deploy gate will refuse until the site's `deploy_config.capabilities` includes `backend` (today `deploy_config` is empty). Never hand-author HTML. | PLAN Phase P |
+| 2c. island image swap (`aqls/tools-api:v1.0.1343` → a tag carrying the route) | **NOT DONE — OWNER'S CALL. Image BUILT + PROVEN 2026-09-03 16:52Z: `aqls/tools-api:v1.0.1359-playground`** (from `9b540c2e6`; symbol 2/2/0 on the extracted binary). `docker load` onto the island was refused by the session classifier; the owner's three lines are in RUNBOOK step 2. `make build-tools-api-ref IMAGE_TAG=…` is the target (the `build-%-ref` pattern rule — "no makefile target" above was wrong). **The restart also serves robot-hands.com + vonc.com.** | island; RUNBOOK "step 2: ship" |
+| 3. the chat widget on `/playground.html` | **NOT STARTED — and the plan here is CORRECTED (2026-09-03 17:10Z, measured at the library row).** ~~fork `chat-input-box` … repointed at the route~~ The library box is single-turn `{message}`→JSON, same-origin, path a literal, no endpoint field; the route is multi-turn `{messages}`, cross-origin, SSE (`token`/`done{truncated}`/`error`). A fork cannot be "repointed"; the JS must differ. Paths: **(a)** `add_tool` with `library_source: null`, the route contract in the description, function `tool-playground` + the generator's `adopt_existing_page` flag so it lands on `/playground.html` (name match) rather than minting `/tools/…`; **(b)** the estate's two live cross-origin widgets (`gripper-report-intake` mig 651, `gauntlet-round-record-vonc-com`) are hand-written `js_snippets` + section + locked row. **Owner's call; lane recommends (a), (b) as fallback** (README). `deploy_config.capabilities += backend` only if the tool carries `requires-backend`, and NOT before the route is live. | NOTES 16:45–17:15Z; PLAN Phase P |
 | 4. booked-hour GPU provisioning as a workflow | not started; thunder actions exist for training runs (`thunder_ssh_exec_dispatch`, `_decommission_dispatch`, …) | PLAN |
 | 5. booking → session handoff; the examples catalogue ("model pages" with an owner) | not started; "details later" | PLAN DIRECTION |
 
@@ -117,10 +117,15 @@ and a wrong Origin (403). Recipe in RUNBOOK.
 
 ## Next session, in order
 
-0. **If the owner has done 2b + 2c:** run the post-ship probes (RUNBOOK), then start step 3 (the
-   widget through the tool pipeline; set `deploy_config.capabilities` first or TL-043 refuses).
-   If not: nothing on the playground can move; say so plainly.
-1. **When the prompts lane applies 641:** Stage B (above). Rewrite the technical-details brief first.
+0. **If the owner has done 2b + 2c:** run the post-ship probes (RUNBOOK), then start step 3 on
+   whichever path he chose (README 2026-09-03 evening; default (a) if he has not said). Checked
+   2026-09-03 16:48Z: **neither done** (0 env keys, compose 1343, route 404 with controls).
+   If still not: nothing on the playground can move; say so plainly.
+1. **When the prompts lane applies 641:** Stage B (above). ~~Rewrite the technical-details brief first.~~
+   **DONE 2026-09-03:** `technical_details_stage_b_dispatch.sql` in this dir carries the rewritten
+   brief and REFUSES to run until 641 is on the live writer (G1). Rehearse its post-G1 path under
+   ROLLBACK first (header says how — it is unrehearsed as a transaction); then run, then
+   `your-own-model` by the RUNBOOK recipe.
 2. **The details conversation** the owner deferred: pricing (×5 of which GPU class), the examples
    catalogue's data model (owner, model artefact, before/after, price), what moves to leopardess.
    Bring numbers: a6000 $0.35/hr, a100xl $1.09/hr, ×5 ⇒ £1.40 vs £4/hr; the Hetzner demo box is

@@ -712,6 +712,24 @@ ssh root@toolsapisuk.vs.mythic-beasts.com 'cd /opt/island && docker compose exec
 # 3. image swap in /opt/island/docker-compose.yml (aqls/tools-api:<tag>), then docker compose up -d
 ```
 
+**The image EXISTS (built + proven 2026-09-03 ~16:52Z, NOT on the island):**
+`docker.io/aqls/tools-api:v1.0.1359-playground`, from committed `9b540c2e6` (label
+`org.opencontainers.image.revision`), symbol probe on the extracted binary 2 / 2 / 0. The suffix
+is deliberate: fleet `v1.0.1359` is commit `3043885`, which predates the route's round-4 refactor,
+and `v1.0.1360` would collide with the next fleet release. The `docker load` onto the island was
+refused by the session classifier (the deploy gate), so **the owner runs these three, in order**:
+
+```bash
+ISL=root@toolsapisuk.vs.mythic-beasts.com
+docker save docker.io/aqls/tools-api:v1.0.1359-playground | gzip | ssh $ISL 'gunzip | docker load'
+# env (step 2 above) BEFORE the restart, or the group mounts as "NOT mounted" and every call is 404:
+ssh $ISL 'grep -cE "^PLAYGROUND_" /opt/island/.env'        # expect 5
+ssh $ISL 'cd /opt/island && cp docker-compose.yml docker-compose.yml.bak-1343-pre1359pg \
+  && sed -i "s|tools-api:v1.0.1343|tools-api:v1.0.1359-playground|" docker-compose.yml \
+  && docker compose up -d tools-api'
+```
+Then the verify block below; rollback is the `.bak-*` file + `docker compose up -d tools-api`.
+
 **Verify at the artefact, with a SYMBOL not the route literal** (council round 4, debug_historian:
 a route path can be split by the linker; a symbol survives):
 
