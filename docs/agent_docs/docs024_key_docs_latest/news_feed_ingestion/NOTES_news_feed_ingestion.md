@@ -714,12 +714,31 @@ exact expectation; 6 sites, unchanged from the 2026-09-02 census). Two findings:
   the fleet-count negative control. Then proved nothing persisted with the same
   census the preconditions read: **0** sources for the site, `content_features`
   **false**, **1** classification row. The guards are exercised, not merely written.
+  ⚠ **Re-run AGAIN on the renumbered file, and that mattered.** The passing run above
+  was on the 740-numbered file; the global 740→746 rewrite then touched this NOTES
+  entry too, which silently turned my quoted NOTICE into a line no run had ever
+  printed. Re-ran the committed 746 file: `DO / INSERT 0 1 / INSERT 0 6 / DO /
+  ROLLBACK` with the NOTICE now genuinely reading **"746 POST-CHECK PASSED: …"**, and
+  the same census after (0 / false / 1). So the quote above is verified, not inherited
+  from a `sed`. **The general trap:** a bulk rename applied across code AND its own
+  evidence log rewrites your quoted output into something that was never emitted — the
+  claim then reads as verified and cannot be falsified by re-reading the doc. Re-run
+  the thing, or quote it with the identifier it actually printed.
 - **Still NOT applied.** Same refusal as 691 — a live-DB write the owner had not
   named. Commands in the RUNBOOK; nothing was worked around.
-- **The council dispatch was blocked the same way — ~8 attempts, all refused.** `097`
-  publishes to Kafka, so it needs the same classifier. The submission is written,
-  committed and unchanged; only the firing is outstanding (RUNBOOK §"Council submission
-  for 746"). **The commit carries NO `Council-Submitted:` trailer**, deliberately:
+- **The council dispatch: `DRY_RUN=1` PASSED, the real dispatch was REFUSED.** Worth
+  separating, because the free half is a real result. `DRY_RUN=1 097_TRIGGER…` returned
+  *"every client-side validation and the scope ADMISSION check passed. Nothing
+  dispatched, no correlation minted, no credits spent."* So the submission JSON is
+  **valid and in scope** — no rework needed, and that cost nothing to establish. The
+  real dispatch then came back as an explicit auto-mode **denial** (not the
+  "temporarily unavailable" overload that had eaten ~8 earlier attempts). Handed over
+  rather than routed around; commands in RUNBOOK §"Council submission for 746".
+  - Incidental, for whoever owns `scripts/council-scope.sh`: the trigger warns
+    *"unclassified migration suffix(es) in sql_for_agents: `_ISLAND` `_RELOCK` — treated
+    as IN scope (the safe default)"*. Two other lanes have minted suffixes the scope
+    script does not know. Not this lane's file to change, and the default is the safe
+    one, but it is drift and it is now recorded (`bugs_open/314` names the mechanism). **The commit carries NO `Council-Submitted:` trailer**, deliberately:
   that trailer names a correlation id, and there is no correlation id until the dispatch
   goes out, so writing anything there would have been a fabricated key that `098`
   resolves to nothing. `098` will therefore list `8f1e9d3b7` as un-reviewed, which is

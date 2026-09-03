@@ -156,10 +156,12 @@ relevant/review/rejected split), then `https://advertise.co.uk/data/news-archive
 
 ## Council submission for 746 — WRITTEN, NOT DISPATCHED (2026-09-03)
 
-`COUNCIL_SUBMISSION_746.json` is complete and committed (`8f1e9d3b7`). The dispatch was
-blocked the same way the migration applies were — the `097` trigger publishes to Kafka,
-and this session's classifier was unavailable for it across ~8 attempts. **Nothing about
-the submission needs changing; it just needs firing.**
+`COUNCIL_SUBMISSION_746.json` is complete and committed (`8f1e9d3b7`).
+**`DRY_RUN=1` PASSED 2026-09-03** — "every client-side validation and the scope ADMISSION
+check passed", so the JSON is valid and in scope and needs no rework. The **real**
+dispatch was then refused by auto mode (an explicit denial, not the overload that ate
+~8 earlier attempts). **Nothing about the submission needs changing; it just needs
+firing**, by the owner or a session authorised for it.
 
 ```bash
 # free admission test first — no credits, no dispatch

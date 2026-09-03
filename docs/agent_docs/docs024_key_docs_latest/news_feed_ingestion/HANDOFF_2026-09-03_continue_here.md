@@ -36,10 +36,11 @@ about five minutes. **Exact commands: `RUNBOOK_news_feed_ingestion.md`, sections
 | `746_advertise_news_feed_enablement.sql` | enables news for advertise.co.uk: spec flag + 6 `content_sources` rows | site has 0 sources, spec has no `content_features` |
 
 **A third thing needs the same clearance: the council submission for 746 is written and
-committed but NOT dispatched.** The `097` trigger publishes to Kafka and was refused
-across ~8 attempts by the same unavailable classifier. Nothing about the submission needs
-changing — fire it (`DRY_RUN=1` first, it is free), save the `SUBMISSION_CORR`, and put it
-in NOTES. RUNBOOK §"Council submission for 746". The commit carries **no**
+committed but NOT dispatched.** `DRY_RUN=1` **passed** — client-side validation and the
+scope admission check both — so the JSON is valid and in scope and needs no rework; the
+real dispatch was then refused by auto mode (an explicit denial, distinct from the
+"temporarily unavailable" overload that ate ~8 earlier attempts). Just fire it, save the
+`SUBMISSION_CORR`, and put it in NOTES. RUNBOOK §"Council submission for 746". The commit carries **no**
 `Council-Submitted:` trailer because there was no correlation id to name, so `098` will
 list it un-reviewed until a later commit carries one — accurate, and not to be papered
 over with a `Council-Reviewed:` line for a verdict nobody has read.
