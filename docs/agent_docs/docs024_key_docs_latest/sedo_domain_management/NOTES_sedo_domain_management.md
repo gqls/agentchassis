@@ -417,3 +417,14 @@ this workstream's own dating discipline caught it:
 '2026-09-04'…". **Lesson for every future date-in-filename: run `date
 +%F` yourself; a date glimpsed in someone else's filename is a fact about
 their file, not the clock.**
+
+**Root cause traced further, same evening**: the valuation lane's own
+`appraisal_queue_*_2026-09-04.csv` was theirs, dated by the window it was
+built FOR, while every other file in their inbound directory is dated by
+when it was written — an inconsistent convention within one directory,
+which is what made reading it as "today" a reasonable inference rather
+than a careless one. They fixed it at source (renamed to `_2026-09-03`,
+stated the convention explicitly in their own RUNBOOK — file dates are
+production dates, never intended-use dates) and confirmed their earlier
+verification of draft5 still stands unchanged (byte-identical rename,
+zero re-run needed). No further action here; recorded for completeness.
