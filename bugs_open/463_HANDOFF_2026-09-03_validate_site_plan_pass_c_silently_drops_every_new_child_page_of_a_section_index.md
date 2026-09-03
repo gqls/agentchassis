@@ -15,6 +15,10 @@
 
 **Severity: this is why a site with an articles/guides/news hub and no children stays empty for ever, through any number of re-plans.**
 
+**The finding in one line** (the `designblog.co.uk` lane's phrasing, adopted here because it is
+better than mine): *two guards in series, each right on its own, that together make an empty
+section index permanently unfillable.*
+
 ## 1. Symptom, at the artefact
 
 gamedesign.uk has served an articles hub with **zero articles since it was built**. Three
@@ -246,3 +250,58 @@ Not before the chassis image rebuilds and rolls — Go changes are inert until t
 step-boundary check, and one addition to it: confirm the children reach `site_plan_pages` at
 **`/articles/<slug>.html`, not `/blog/<slug>.html`**. That second assertion is the one a
 Pass-C-only fix would fail, and a served-page check cannot distinguish the two.
+
+---
+
+## 10. A WIDER case found while fixing this, and it was never filed: the PHANTOM HUB
+
+Raised indirectly by the `designblog.co.uk` lane (relayed via `gamedesign.uk`) asking about the
+*mirror* shape — existing children, new hub. That mirror turns out to be safe either way
+(`isSectionIndexType` exempts a proposed hub from Pass C, before and after this fix; the test for
+it is labelled vacuous in the file rather than counted as evidence). But looking for it found
+something else.
+
+**`sectionStemOf` treats ANY non-root url ending in `/index.html` as a section index, whatever
+its `page_type`:**
+
+```go
+	if !isIndex {
+		if strings.HasSuffix(url, "/index.html") && url != "/index.html" {
+			isIndex = true
+		}
+	}
+```
+
+And `/x/y/index.html` is `CanonicalisePage`'s **default** url shape for a `tool`, `guide` or
+`game` — `nestedOrFlatURL` returns the nested form unless the site opts into flat urls. So an
+**ordinary realised tool page registered as a section index claiming the stem `tools`**, and
+under the old first-segment rule a newly planned sibling then collided with that phantom and was
+dropped. This is not about section indexes at all; it is every nested page family.
+
+**Mechanism CONFIRMED, by mutation** — forcing Pass C back to the first-segment rule with a
+realised `tool-existing` at `/tools/existing/index.html` and a proposed `tool-new` at
+`/tools/new/index.html` gives `dropped_collision = 1`,
+*"tool-new … collides with realised section index tool-existing"*. The narrowed rule keys the
+phantom on the path it actually claims (`/tools/existing`), so it can only collide with a page
+claiming that same path. Test:
+`TestPassC_RealisedNestedChildIsNotAPhantomHubForItsSiblings`.
+
+**Damage NOT measured, and I am not claiming a count.** `[MEASURED 2026-09-03]` there are **365**
+such rows across **39 sites** (321 `tool`, 33 `guide`, 6 `game`, 4 `guias`, 1 `content`) — that is
+the population where the mechanism *can* fire, not a loss figure. The obvious census cannot
+attribute losses to it, and trying to made the strong reading collapse:
+
+- post-Pass-C plans carry **171** `tool` rows, of which **110** name pages that already existed
+  (dropped by Pass C, restored by Pass A — invisible) and **44** name pages created *after* the
+  plan;
+- tool pages are also minted **outside the plan path entirely** by `deploy_tool_action`, so
+  "page created after the plan" does not mean the plan row survived validation;
+- and a site's **first** plan skips Pass C altogether (`len(preserved) == 0` returns early).
+
+So new tools and guides demonstrably do still reach `pages`, which refutes any claim that this
+blocked them fleet-wide. What is established is the mechanism and its population; what a
+`[MEASURED]` loss figure would need is a per-plan diff of proposed-vs-survived, which
+`orchestration_states` only retains for about a day.
+
+The fix covers this case for free, because it is the same defect — a first-segment comparison
+standing in for a path.
