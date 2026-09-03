@@ -13,7 +13,11 @@ handed the imagery work to another lane.
 18 tool pages, all serving 200. **All 18 are now ladder-eligible (was 9)** — `701` did that.
 **13 of 18 now resolve to a live acceptance fence (was 6)** — this lane re-addressed all 8 of its
 fences today, because `701` silently orphaned every one of them. **Imagery is no longer ours.**
-Open bugs owned here: `441`, `448`, `449`. Nothing on the site is known broken.
+Open bugs owned here: **`441` and `448`**. ⚠ **`449` is NO LONGER OURS** — handed to the
+`bugfix_449_fences_assert_no_number` lane on 2026-09-03 at their request; they re-verified it,
+extended it (186 fences / 115 blind, and the sharper cut: **91 fences drive inputs and 55 of those
+assert nothing**) and found the primary source. We keep the site half — this site's fences and the
+PASS table. Reply and the full division: `CONTRIB_2026-09-03_from_the_449_lane_…`. Nothing on the site is known broken.
 
 ## 1. Imagery — HANDED OVER, do not work it
 
