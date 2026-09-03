@@ -59979,3 +59979,63 @@ hardest are the ones you find yourself repeating.
   values to see how much signal was there is what exposed that there was none. **The check ran
   because I wanted to USE the data, not because I doubted it** — a claim I had already written
   into three documents and told the owner.
+
+## 2026-09-03 — seed 641's em-dash census asserted a literal (5) that was never true at any adjacent time (apis_uk_bees_homepage lane)
+
+- **the claim:** the first cut of `641_page_content_writer_prompt_v5_section_subject_HOLD.sql`
+  (committed 2026-08-26, council APPROVED r2 the same day) carried
+  `IF dashes <> 5 THEN RAISE ... 'em-dash census is % not 5'` as its post-apply verify — i.e. a
+  standing assertion that the live writer prompt held exactly 5 em dashes.
+- **the reality:** the live count was **3** before migration 595 (applied 2026-08-24 16:57Z,
+  rules 9 and 10) and **9** after it — proven from `agent_definitions_backup` (the 595 pre-update
+  snapshot reads 3; the 599 one, three hours later, reads 9). The file was written TWO DAYS after
+  595 applied. **5 matches neither state**; the literal was wrong from birth, and any hand-apply
+  would have RAISEd on a correct insertion. Never caught because the file sat `_HOLD` behind two
+  gates, and a council round cannot query the live row.
+- **what caught it:** the 2026-09-03 redraft's read-only pre-flight rehearsal printed the live
+  count as a NOTICE (9) instead of asserting it — the number was fetched to be USED, not to be
+  checked, same mechanism as the Afternic entry above.
+- **THE CHECK, one line:** a verify literal about live state must be SELECTed from the live row
+  in the same session that writes it — or better, not be a literal: the invariant was never
+  "the prompt has 5 em dashes", it was "this insertion adds none", which is a pre/post EQUALITY
+  the migration can carry in a variable. The redraft does that; the class is closed for this file.
+- **what it would have cost:** a failed apply at the exact moment the owner's long-awaited read
+  cleared gate 2 — the highest-friction moment available — followed by a session "fixing" the
+  census by copying the new count in, i.e. re-arming the same trap with a fresher wrong number.
+
+## 2026-09-03 — I predicted the age-out of the key whose SYMPTOM I was watching, not the key whose SERVICE I needed (bugfix_384 lane)
+
+**The claim.** I wrote a dated, falsifiable prediction into a handoff and a peer message: the
+two-strike brand on leopardessconsulting.co.uk lifts 7 days after the second-newest strike, so
+**"nothing should move before ~2026-09-03 21:30Z"**, and a page still broken on 09-04 refutes the
+whole causal chain. I derived it from the blog-listing key
+(`page_rerender_blog_…_section_data_resolved`, second-newest strike 2026-08-27 22:37).
+
+**What actually happened.** The site resumed at **2026-09-02 23:12** and the page was repaired at
+**23:20:15** — about **21 hours before** my window opened. The mechanism was exactly as predicted;
+the date was wrong because I aged out **the wrong key**. The blog-listing key is the one carrying
+the SYMPTOM I kept curl-ing. The keys that gate `rerender-pages` service — and therefore
+`rebuild_blog_listing` — are `deactivated_head` and `improvement_rerender_<domain>`, whose strikes
+fell on 2026-08-26 ~02:00, so they lifted on **09-02 ~02:00**, not 09-03 22:37.
+
+**Why it nearly cost the verdict.** I had written "still broken on 09-04 ⇒ chain REFUTED" into the
+handoff as a decisive test. Had the site NOT resumed, that instruction would have told the next
+session to discard a correct mechanism on the strength of my arithmetic about an unrelated key. The
+thing that saved it was that the handoff ALSO specified a discriminator at the item — is the new row
+branded? — and the brand is what actually confirmed the chain. **The timing prediction was the weak
+leg and the brand was the strong one; I led with the weak one.**
+
+**The cheap check I skipped.** I never asked which key gates the SERVICE. One query would have said
+it: `SELECT item_key, status, created_at FROM site_work_items WHERE site_id=… AND
+handler_agent='rerender-pages' AND status IN ('complete','failed') ORDER BY item_key, created_at` —
+four keys, and the blog-listing key is not among them. **When a mechanism is keyed, enumerate the
+keys before you date anything.** The key you are watching and the key that gates the repair are
+routinely different objects, and a rolling-window prediction is only as good as the key it names.
+
+**Generalisation worth keeping:** prefer a STATE discriminator to a TIMING one. "Is the new row
+branded?" is answerable whenever you look and cannot be wrong about clocks; "it will resume at
+21:30" embeds an arithmetic you may have done over the wrong population. Where you offer both, say
+which one decides.
+
+Family: a-measurement-answers-the-question-you-encoded,
+a-count-of-things-must-carry-the-date-it-was-counted, order-fix-candidates-by-what-closes-the-door.
