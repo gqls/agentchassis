@@ -59903,3 +59903,41 @@ convenient mechanism sentence propagates faster than a measured one**, so the on
 hardest are the ones you find yourself repeating.
 
 **Tally:** **cite-the-live-row-not-the-code-comment** ×1, **a-useful-sentence-propagates-fastest** ×1.
+
+---
+
+### 2026-09-03 — components lane (`bugs_open/425` / migration 721): I blamed a column that nothing reads, and a peer was routing an owner decision on it
+
+- **the claim:** *"33 of the 57 repairable hero instances are PINNED to a `component_version`
+  predating migration 721, whose schema lacks the field, so 721 cannot reach them by any rerender
+  — a separate repair needing its own owner."* Sent to the `designblog.co.uk` lane, which held it
+  as a candidate ruling for the owner's decisions list.
+- **why it was wrong:** `page_components.component_version_id` is **WRITE-ONLY**.
+  `save_sections_component_version.go:40`, verbatim: *"THIS FILE ONLY WRITES. Nothing reads
+  component_version_id, so this change is inert by construction: it cannot alter what any page
+  serves."* Its header adds, measured 2026-08-22: *"0 of 1,930 rows populated, no Go code writing
+  it, no Go code reading it — dormant machinery."* The single SELECT of it carries the stamp
+  forward; component resolution keys on `component_id` against the **live** row. **A pinned page
+  resolves exactly like an unpinned one.**
+- **what I actually had:** a correlation — those instances were *both* pinned *and* missing the
+  field — and I reported it as causation. The correlation is real and means nothing: the pins are
+  old because the pages are old, and the field is missing because the pages have not re-rendered
+  since 721. Two consequences of the same age, not a mechanism.
+- **THE CHECK, and it is the transferable part:** **before attributing an outcome to a mechanism,
+  confirm something READS the thing you are blaming.** One grep for readers of the column, and one
+  look at what the sole reader does with it. On this estate that is doubly worth doing because
+  *dormant machinery is common and documented* — a column can exist, be purpose-built, be
+  correctly populated, and be consumed by nothing at all. "It is populated" is not "it is read".
+- **what it would have cost:** a phantom category of 33 instances across 18 sites, an ownership
+  question with no subject routed to the owner, and — worse — the **dartsonline data point
+  explained away**. That page is a `section_data_resolved` rerender through the sections path,
+  attributed by `source_item_id`, which did not resolve a newly-declared field. My false
+  explanation removed the second-strongest piece of evidence for the open root cause in `425` §2.
+  **An incorrect explanation does not merely fail to help; it retires the evidence it explains.**
+- **what caught it:** grepping the estate's landmine list for the pin, which sent me to read what
+  the pin does rather than what I assumed it did. Not diligence — the entry I was reading was
+  about something else.
+- **containment, which is the only good part:** the peer had held it one step short of the owner
+  and had not mirrored it into `bugs_open/114`. It was retracted in both lanes within the hour,
+  and the cancelled work item's stated reason now carries a dated correction so the row does not
+  lie to the next reader.
