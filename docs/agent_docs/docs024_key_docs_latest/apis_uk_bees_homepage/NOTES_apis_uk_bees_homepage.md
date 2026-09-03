@@ -1894,3 +1894,28 @@ Remaining, all DATA or acceptance:
   checked at the served page, not the item.
 - Council round 2 on `6c92d154` — prompts lane reads the verdict and acts on REVISE (the change
   is live; the owner's read was the binding gate).
+
+### 2026-09-03 ~20:15 UTC — two binding findings from the FIRST live A4 build; two verdict-reads owed
+
+The phrasing-spec CONTRIB gained an addendum from the first real build under A4
+(finetuning.uk/technical-details). Both findings bind our queued six-subjects task:
+
+- **(7) A short subject invites a short section, and the shrink floor reads short as truncated.**
+  A 46-char hero subject produced a 212-char section against an existing 429-char one; the save
+  refused the WHOLE page at 49% vs the 50% floor (bugs_open/178). Our index has existing long
+  copy AND a prune_floor history — so our six subjects must be substantial enough to carry
+  comparable sections, or the floor refusal is expected and planned for, not a surprise.
+- **(8) The subject currently LOSES to Rewrite Guidance on same-typed sections.** Measured: the
+  A4 block rendered correctly in all six prompts, and three of six gtbs still converged, because
+  the page's whole brief renders byte-identical into every section's prompt in a louder register,
+  2.6KB after the subject. Filed as a diagnosis run by the prompts lane (cause is upstream of the
+  block). **Until resolved: a good subject is necessary, not sufficient — converging sections are
+  NOT evidence our subjects were written badly.** Stage B interpretation must account for this.
+
+**Owed to a future session (this one's DB channel is timing out — two consecutive 100s+ stalls
+on a query that ran in seconds all day):** read the council verdicts for 754 and 762 and act on
+any REVISE. The queries:
+`SELECT current_step, status FROM orchestration_states WHERE collected_data->'input_data'->>'fix_correlation_id'='227986ba-8615-4730-af61-d4afa6d3c6b2';` (754)
+`...='901aca93-c8f4-4b38-b9a1-6ae82ccc8eea';` (762)
+Both commits carry `Council-Submitted:` so approval self-credits via 098; only a REVISE/REJECTED
+needs action. (6c92d154 round 2 is the prompts lane's to read, per their apply record.)
