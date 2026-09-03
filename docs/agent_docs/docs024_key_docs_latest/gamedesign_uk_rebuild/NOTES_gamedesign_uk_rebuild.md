@@ -812,3 +812,47 @@ with a false justification; no per-site lever. Only "no producer exists" was ove
 **Lesson for this lane specifically: speed cuts both ways.** Framing the census so it could be
 falsified is what let another lane ship a class fix in an hour — and it is also what let one
 unearned sentence reach production in that same hour. Both came from the same property.
+
+## 2026-09-03, ~11:05Z — the index build BLOCKED, and the zero-articles defect showed up at the build layer
+
+`needs_page` `ac76ec54` claimed 10:58:44Z → **`needs_human_review`**, attempt_count 0, corr
+`afce7c49`. Two distinct findings in `agent_error_log` (the detail row is
+`error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'`; the chassis row carries only "1 blockers, 0
+errors", so **query the detail row, not the chassis one**).
+
+**1. The blocker — and the gate was RIGHT.** `type=banned_claim`, severity `blocker`:
+
+> Banned claim "contact page" (owner 2026-09-03: no contact page and no contact form.) — 1 occurrence
+> location: "…al cases. If you have one of your own worth discussing, **the contact page is there for it**."
+
+The writer put a pointer to the contact page in the homepage copy; mission v3 says there is no
+contact page; the banned-claim gate caught the contradiction and refused the build. **That is the
+framework working.** Nothing to fix in the gate.
+
+**But it exposes a THREE-WAY conflict that is now BLOCKING, and only the owner can settle it:**
+mission v3 says the site has no contact page · the **preserve guard keeps the realised contact
+page live** (the planner said so itself in `strategy_notes` — "preserved structurally… it exists
+only because it was already built") · and the banned-claim list forbids any copy that *mentions*
+it. So the page is in the nav, the writer naturally references it, and the gate blocks the build.
+**This escalates §5 decision 1 from a preference to a blocker** — it is no longer "keep or replace
+the address", it is "remove the page or lift the ban", and until it is settled the homepage cannot
+build. Recorded in the handoff's UPDATE BLOCK 2.
+
+**2. The zero-articles defect, materialised at the build layer — this is the artefact-level
+confirmation I said §6 would need.** Same run, step `plan_sections`:
+
+> page "index" section "featured-content": **6 required non-llm field(s)** resolved from neither
+> their declared source nor the page's stored `content_data` — omitted under `on_missing=skip_field`
+> fields: `featured_image`, `featured_excerpt`, `featured_category`, `featured_author`,
+> `featured_read_time`, `featured_date`
+
+**Every field of the homepage's featured-article slot resolved from nothing, because there is no
+article to feature.** So the missing articles are not only a hub-listing problem (444's symptom) —
+they hollow out the homepage's featured section too, silently, under `skip_field`. Note the
+failure mode: `skip_field` means this does NOT block; it degrades quietly. Only the
+`plan_sections` finding row records it. **A page that renders is not a page whose sections
+resolved** — check this row after any build on a site with an empty content type.
+
+Both findings predate any fix from migration 730/731 (rule 20), which went live 10:59:59Z /
+~11:03Z — i.e. AFTER this plan was written at 10:40Z. **A re-plan is what picks rule 20 up; this
+build cannot.**

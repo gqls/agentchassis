@@ -215,3 +215,52 @@ while mission v3 says "There is no contact page, no contact form and no email ad
 the site". The planner said so itself and preserved it because it is already built. So owner
 decision #1 (the `contactforsales.com` address) is now a **three-way** choice — keep, replace, or
 remove the page entirely as v3 asks — and the preserve rule means it will not go on its own.
+
+---
+
+## UPDATE BLOCK 2 — 2026-09-03 ~11:10Z. The build is BLOCKED on an owner decision, and the class fix went live 20 min AFTER our plan.
+
+**`needs_page` `ac76ec54` (index) is `needs_human_review`, not running.** Corr `afce7c49`, claimed
+10:58:44Z, failed `validate_content` at 11:03:32Z. Read the detail row, not the chassis row:
+`SELECT jsonb_pretty(context) FROM agent_error_log WHERE work_item_id='ac76ec54-8f04-455f-8018-03bc5834ac96';`
+(the chassis row says only "1 blockers, 0 errors"; `error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'`
+carries the issue list).
+
+**The blocker is a banned claim, and the gate was right:** the writer wrote "…the contact page is
+there for it" into the homepage; the registered claim is *"contact page (owner 2026-09-03: no
+contact page and no contact form.)"*. **Do not fix this by editing copy or lifting the ban on your
+own initiative** — it is the visible edge of a three-way conflict only the owner can settle:
+
+1. **mission v3** says the site has no contact page, no contact form, no email address;
+2. **the preserve guard keeps the realised `contact` page live** (planner's own `strategy_notes`:
+   "preserved structurally… it exists only because it was already built") — it is in the nav and
+   will not leave on its own;
+3. **the banned-claim gate** blocks any copy that mentions it.
+
+So §5 decision 1 is **promoted from a preference to a BLOCKER**: no longer "keep or replace
+`gamedesign@contactforsales.com`" but **"remove the contact page, or lift the ban"**. The homepage
+cannot build until one of the three gives. Nothing else in the chain is blocked by it.
+
+**Second finding, same run — the zero-articles defect at the build layer.** Step `plan_sections`:
+`page "index" section "featured-content": 6 required non-llm field(s) resolved from neither their
+declared source nor the page's stored content_data — omitted under on_missing=skip_field`
+(`featured_image`, `featured_excerpt`, `featured_category`, `featured_author`, `featured_read_time`,
+`featured_date`). **The homepage's featured-article slot lost every field because there is no
+article to feature.** ⚠ `skip_field` **degrades silently — it does not block**, so a rendered page
+is not a page whose sections resolved. Check that `plan_sections` finding row after any build on a
+site with an empty content type; nothing else surfaces it.
+
+**THE CLASS FIX IS LIVE, AND OUR PLAN PREDATES IT.** The designblog.co.uk lane shipped migration
+**730** (10:59:59Z) and **731** (~11:03Z) off this lane's evidence: `build-site-planner` gains rule
+20, *"NO LATER EDITORIAL PASS RUNS — do not defer posts to one. The one mechanism that could create
+posts later (blog-content-planner, via create_blog_posts) has been DORMANT since 2026-04-24…"*,
+instructing 3–6 launch posts on real subjects from the site's own briefing. **Verified at the live
+row by the `bugs_open/427` lane, not just "recorded as applied".** ⚠ **Grepping for 730's original
+literal "THERE IS NO LATER EDITORIAL PASS" now returns ZERO rows** — 731 superseded it four minutes
+later; that is a false negative, not a failed migration.
+
+**So the next action for this lane is a RE-PLAN, not a rescue of this build.** Our plan `c920da7a`
+was written 10:40:21Z, ~20 minutes before rule 20 existed. A re-planned site runs under 718
+(content imagery), 720 (listing gate) **and** 730/731 (launch posts) — the article half arrives
+free. **Settle the contact-page decision first**, or the same banned claim blocks the rebuilt
+homepage too.
