@@ -118,7 +118,7 @@ priced version), send the API-access email (RUNBOOK §2), and — if you want
 to double-check my live-site list before uploading — it's
 `EXCLUDED_live_2026-09-03.txt` next to the sheet, one domain per line.
 
-## 2026-09-04 — checked, Appleby domains pulled out: 2,888 in the sheet now
+## 2026-09-03 — checked, Appleby domains pulled out: 2,888 in the sheet now
 
 You asked me to double-check the sheet and pull out the Appleby domains
 before you upload. Both done.
@@ -139,10 +139,10 @@ left those alone, they were never in the sheet.) I kept this as a separate
 list from the live-sites one, so a future refresh of the live-sites list
 won't accidentally lose your Appleby instruction.
 
-**The sheet you'd upload now**: `outbound/SEDO_IMPORT_2026-09-04_draft3.xlsx`
+**The sheet you'd upload now**: `outbound/SEDO_IMPORT_2026-09-03_draft3.xlsx`
 — 2,888 domains, all make-offer, no prices. That's ready whenever you are.
 
-## 2026-09-04 (later) — williama.co.uk out, and the wyke/pastured-egg names pulled
+## 2026-09-03 (later) — williama.co.uk out, and the wyke/pastured-egg names pulled
 
 You confirmed williama.co.uk should come out with the Appleby names — done.
 You didn't get back to me on the other four person-name domains (ianstirling.com,
@@ -158,6 +158,6 @@ already out because they're one of your live sites), plus six pastured-egg
 names at Porkbun (pasturedegg.co.uk, pasturedegg.uk, thepasturedegg.com,
 and three thepasturedeggcompany.* variants). All eight are out now.
 
-**Current sheet**: `outbound/SEDO_IMPORT_2026-09-04_draft5.xlsx` —
+**Current sheet**: `outbound/SEDO_IMPORT_2026-09-03_draft5.xlsx` —
 **2,879 domains**, still all make-offer with no prices. This supersedes
 the draft3 file above.

@@ -220,7 +220,7 @@ Gotchas, each earned:
   union with each sheet — the live set changes as sites launch.
 - **An owner-requested withdrawal (e.g. "take out the X family of
   domains") is a SEPARATE fence, not an addition to the live-site one**
-  (added 2026-09-04, `--exclude-file` accepts multiple and unions them —
+  (added 2026-09-03, `--exclude-file` accepts multiple and unions them —
   keep files named by reason: `EXCLUDED_live_<date>.txt` vs
   `EXCLUDED_owner_<reason>_<date>.txt`). Appending unrelated names into the
   live-site file was tried once and reverted the same session — the

@@ -221,7 +221,7 @@ Outstanding: prices import once the valuation lane freezes/ships
 the API route; dynadot's remaining 151 appraisals resume on their own
 schedule.
 
-## 2026-09-04 — owner sanity-checked draft2, asked to withdraw the Appleby family; draft3 = 2,888
+## 2026-09-03 — owner sanity-checked draft2, asked to withdraw the Appleby family; draft3 = 2,888
 
 Owner asked two questions and gave one instruction: (1) confirm no BUY_NOW
 prices in the sheet, (2) what minimum-offer amounts were set, (3) "take
@@ -257,7 +257,7 @@ before it was ever committed. Correct fix, done instead: widened
 multiple files; self-test now 10/10, the new check calls the actual
 reader function rather than re-implementing the union inline — a test
 that reimplements the logic under test proves nothing), then a SEPARATE
-file `EXCLUDED_owner_appleby_2026-09-04.txt` (7 names) for this specific,
+file `EXCLUDED_owner_appleby_2026-09-03.txt` (7 names) for this specific,
 differently-reasoned request. RUNBOOK §7 now states the rule: one fence
 file per REASON, never merge.
 
@@ -265,14 +265,14 @@ file per REASON, never merge.
 three ways — the tool's own printed exclusion list (57 = 50 + 7), an
 independent re-read of the xlsx (2,889 `<row` = header + 2,888), and a
 direct grep of the output CSV for "appleby" (zero hits). Files:
-`outbound/SEDO_IMPORT_2026-09-04_draft3.{xlsx,csv}` + `_provenance.csv` +
-`EXCLUDED_owner_appleby_2026-09-04.txt` (new); `EXCLUDED_live_2026-09-03.txt`
+`outbound/SEDO_IMPORT_2026-09-03_draft3.{xlsx,csv}` + `_provenance.csv` +
+`EXCLUDED_owner_appleby_2026-09-03.txt` (new); `EXCLUDED_live_2026-09-03.txt`
 unchanged and reused as-is.
 
 Owner said he'll upload what's built now — draft3 is current. Prices
 remain the outstanding item; nothing else changed this round.
 
-## 2026-09-04 (later) — williama.co.uk + wyke/pastured-egg withdrawn; draft5 = 2,879
+## 2026-09-03 (later) — williama.co.uk + wyke/pastured-egg withdrawn; draft5 = 2,879
 
 **Cross-lane input first**: valuation lane confirmed draft3's 7-name
 Appleby withdrawal applied and independently reconciled (same 7, no
@@ -309,7 +309,7 @@ live-site check never touched them).
 **New reason file** (per RUNBOOK §7's one-file-per-reason rule — this is a
 brand/farm family, unrelated to Appleby, so a THIRD file, not appended to
 the second):
-`EXCLUDED_owner_wykefarm_pasturedegg_2026-09-04.txt` (8 names — the 2
+`EXCLUDED_owner_wykefarm_pasturedegg_2026-09-03.txt` (8 names — the 2
 non-hyphenated wykefarm domains omitted since already covered).
 `williama.co.uk` went into the EXISTING Appleby file (same
 reason/category as that withdrawal, unlike wyke/pastured which is a
@@ -321,14 +321,14 @@ already-live) = distinct exclusion count 66 as printed. 2,887 (draft4,
 intermediate, not separately shipped) − 8 = **2,879**. Verified at the
 artefact: 2,880 `<row` = header + 2,879; grep for wyke/pastur/appleby
 across the output CSV returns zero; zero non-MAKE_OFFER or priced rows.
-Files: `outbound/SEDO_IMPORT_2026-09-04_draft5.{xlsx,csv}` +
+Files: `outbound/SEDO_IMPORT_2026-09-03_draft5.{xlsx,csv}` +
 `_provenance.csv` + the new wykefarm/pasturedegg file; draft4 kept on disk
 as the intermediate step (williama-only) but draft5 supersedes it.
 
 Notified valuation lane of both new withdrawals for their `keep_override`
 model. Prices remain the only outstanding item.
 
-## 2026-09-04 (later still) — cross-lane reconciliation: "all domains will be in afternic", a real landmine, an open check
+## 2026-09-03 (later still) — cross-lane reconciliation: "all domains will be in afternic", a real landmine, an open check
 
 **copy_quality_two_stage relayed** an owner remark from an UNRELATED
 conversation about about-page copy: "All domains will be in afternic" —
@@ -356,7 +356,7 @@ joiner globbed `EXCLUDED_live_cloudflare_*`, which matched my OLD
 2026-09-02 fence name and silently missed the current
 `EXCLUDED_live_2026-09-03.txt` sitting beside it — so their model read a
 19-domain fence, not 50, and counted **31 live sites as sellable stock for
-most of 2026-09-04** (webdesign.co.uk, idea.uk, mortgagecalculator.co.uk,
+most of 2026-09-03** (webdesign.co.uk, idea.uk, mortgagecalculator.co.uk,
 loancalculator.co.uk, 27 more). My rename (dropping "cloudflare" from the
 name when the method widened beyond NS-only) was reasonable on its own but
 broke a downstream consumer I had no way to see. **Filed as a landmine**
@@ -384,3 +384,36 @@ registrar/registry list_domain exports, never their derived
 appraisal_queue files, so an unowned domain has no route in) — structural
 soundness is not the same as checked. Resolve before the owner's next
 upload if the names arrive in time; otherwise flag as still open.
+
+**Resolved same message**: valuation lane checked draft5 directly by name
+(all 6 → 0 rows) with real positive/negative controls (`aakn.com` → 1, an
+invented domain → 0), not just the structural argument. Both halves now
+hold — clean by construction AND clean by measurement, which matters
+because construction alone would have survived a fence bug exactly like
+today's. They also filed the producer-side landmine half from their end.
+
+**MISSTEP, caught ~30 min later, cost real churn**: every timestamp in
+this session from "Nominet delivered" onward — 11 generated files (three
+draft sheets × 3 files, two exclusion lists) and several log headings —
+was dated **2026-09-04**, which was wrong; the actual date all along was
+**2026-09-03**. Traced the origin: I saw `appraisal_queue_proxy_2026-09-04.csv`
+in the valuation lane's inbound directory while grepping for Appleby
+names, and anchored on that filename as "today" instead of running `date`
+myself. Caught only incidentally — checking registrar exports for
+past-due expiry dates (prompted by copy_quality_two_stage's sharper
+framing of the undeliverable-domains question) needed `date +%F`, which
+printed 2026-09-03; cross-checked against fresh `git log` timestamps,
+which agreed. **This had already reached a committed LANDMINES.md entry**
+(`[MEASURED 2026-09-04]`) and a peer session had verified my sheet by its
+exact wrongly-dated filename. Fixed forward: `git mv` all 11 files to the
+correct date, corrected every doc heading/reference (one line preserved —
+the valuation lane's own genuinely-09-04-named file, not mine to alter),
+fixed the LANDMINES.md tag and source line, regenerated the renamed sheet
+from the renamed exclude files and diffed it byte-identical against the
+pre-rename version before trusting nothing else broke. Notified both
+peers of the corrected filenames. Full account, including why none of
+this workstream's own dating discipline caught it:
+`WRONG_CALLS.md`, "I dated files, log entries, and a committed landmine
+'2026-09-04'…". **Lesson for every future date-in-filename: run `date
++%F` yourself; a date glimpsed in someone else's filename is a fact about
+their file, not the clock.**

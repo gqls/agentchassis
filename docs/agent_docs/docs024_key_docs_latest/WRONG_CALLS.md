@@ -62184,3 +62184,55 @@ because it converts a success into an apparent failure and spends someone's reve
 Family: measurement-discipline-index, a-post-fix-zero-needs-a-demand-control,
 two-defects-can-wear-one-symptom, a-css-fallback-is-present-and-inoperative,
 fixing-a-checker-to-agree-with-a-broken-site.
+
+---
+
+## 2026-09-03 — I measured a licence with a literal, and matched the OVERRIDE that quotes it. The census could not have come out otherwise, and I reported it as `[MEASURED]`.
+
+**The claim.** `bugs_open/417`'s fence trigger asks for an exposure figure: how often are we relying
+on the model to adjudicate between a wordmark licence and our text-free override? I ran
+`origin_prompt ILIKE '%wordmark%'` AND `LIKE '%Render a text-free mark%'` across five sites, got
+**5 of 5**, and wrote that *"the override is load-bearing on 100% of logo generations"* — into the
+bug file, into NOTES, and into a commit message. Marked `[MEASURED 2026-09-03, n=5]`.
+
+**Why it is false.** The override clause ends: *"…overrides any earlier wording in this prompt that
+mentions, permits or presupposes a **wordmark** or any text."* **Every prompt carrying the override
+matches `%wordmark%` because of the override.** My licence-detector was matching the prohibition.
+Stripping the override sentence first: **0 of 5** carry a licence outside it. The true figure is
+**1 of 5** — and that one, `designblog.co.uk`, never uses the word: it says *"abstract **letterform**
+or **typographic symbol**"*.
+
+**The cheap check that would have caught it, and it is the same one every time.** *Name what the
+disconfirming result would have looked like.* There wasn't one: a prompt with the override but no
+licence would have scored `t` exactly like a prompt with both. A census whose positive arm is
+satisfied by the thing it is supposed to be measuring against is not evidence, and one command —
+`SELECT ... WHERE origin_prompt ILIKE '%wordmark%' AND origin_prompt NOT LIKE '%Render a text-free%'`
+— would have returned zero rows and shown it immediately.
+
+**Why this one stings, and why it is worth a row rather than a shrug.**
+
+1. **The trap is written down, in the RUNBOOK I was working from, three lines long:** *"⚠ The
+   exemplar phrase itself matches `no text`, so 'does the prompt forbid text?' scores the
+   contradictory prompts as SAFE. And counting the licence by literal is still a literal."* I read
+   it, deliberately inverted my census to avoid counting the prohibition — and then counted the
+   prohibition anyway, in a new location, because **the override quotes the licence in order to
+   overrule it**. Knowing the class was not enough; the specific text was novel.
+2. **It is the bug's own thesis, applied to my own instrument.** 417 exists to record that the model
+   *rewords* the licence, so a literal is a floor. The licence had indeed been reworded —
+   "wordmark" → "letterform" — and my detector missed the real one while confidently counting five
+   fake ones.
+3. **The error flattered the conclusion.** 5/5 made the override look load-bearing everywhere and my
+   evidence base look broad. The truth is that 4 of 5 prompts have no licence at all, so those runs
+   never tested adjudication, and the only prompt that does test it **has never produced an
+   artefact**. My real sample on the question I was measuring is **n = 0**.
+4. **The `[MEASURED]` marker was applied correctly and did nothing.** Dated, sourced, reproducible —
+   and unfalsifiable. This is the second half of the marker rule that keeps costing us: *a
+   `[MEASURED]` figure is only evidence if the measurement could have come out otherwise.*
+
+**What caught it.** Nothing I did. The `bugs_open/424` lane messaged to say it was resetting
+`designblog` for another retry round, which sent me to read that prompt in full for an unrelated
+reason. **A peer's incidental message, not a check** — and the claim had been committed for about an
+hour by then.
+
+Family: a-measured-marker-proves-a-measurement-was-claimed-not-complete,
+census-the-write-history-not-the-bug-file, a-bound-added-for-a-reviewer-narrows-your-detector.

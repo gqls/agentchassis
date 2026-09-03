@@ -52,16 +52,16 @@ parking) by Claude sessions, via Sedo's API.
   request).** Sedo's web importer takes the same data with NO API
   credentials — the owner uploads the xlsx in the dashboard. Built:
   `scripts/domains/sedo-importer-xlsx.py` (self-test 10/10, `--exclude-file`
-  repeatable/unioned since 2026-09-04). **Current: draft3, 2026-09-04 —
+  repeatable/unioned since 2026-09-03). **Current: draft3, 2026-09-03 —
   2,888 domains** — the 2,895-domain draft2 full portfolio (Dynadot 453 +
   Porkbun 683 + Spaceship 203 + Nominet 1,606, 0 cross-source dupes, minus
   a 50-domain live-site fence — union of Nominet's Cloudflare zone list,
   the live `sites` table, and the NS-based check; RUNBOOK §7) minus a
   **separate 7-domain owner-requested withdrawal** (the Appleby family;
   kept in its own fence file, never merged into the live-site one — RUNBOOK
-  §7). `outbound/SEDO_IMPORT_2026-09-04_draft3.{xlsx,csv}`. Interim shape
+  §7). `outbound/SEDO_IMPORT_2026-09-03_draft3.{xlsx,csv}`. Interim shape
   agreed with the domain_valuation lane and confirmed against the artefact
-  2026-09-04: MAKE_OFFER / for-sale yes / **no price and no minimum on any
+  2026-09-03: MAKE_OFFER / for-sale yes / **no price and no minimum on any
   row**; prices arrive as a second import from the valuation lane's
   canonical `OUTPUT_prices_<date>.csv` (their lane, their column freeze).
   **Superseded same day by draft5: 2,879 domains** — two more
@@ -70,7 +70,7 @@ parking) by Claude sessions, via Sedo's API.
   reason-file). One open item from the valuation lane's own question,
   unresolved: 4 other person-name domains (ianstirling.com, kapoor.uk,
   keeler.uk, anne-marie.co.uk) — owner did not answer, left IN the sheet.
-  `outbound/SEDO_IMPORT_2026-09-04_draft5.{xlsx,csv}`. Sheet-generation
+  `outbound/SEDO_IMPORT_2026-09-03_draft5.{xlsx,csv}`. Sheet-generation
   work is effectively done pending only the priced re-import.
 - **P3 — first credentialed calls.** `--check-secret`, then
   `DomainList 'results=100'`: inventory what (if anything) the account
