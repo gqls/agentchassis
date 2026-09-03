@@ -59,7 +59,13 @@ cannot read the brief directly.** It also renders the WRONG classification, so c
 
 ## 1y. ⚠ ADDED ~20:35Z — RETIREMENT IS DONE; §1z's re-fire task is CLOSED. What is live now:
 
-- **Migration 764 is HOLD, council-submitted (`888e7319-01ae-4371-846d-76fe227a1ebc`), NOT applied.**
+- **Migration 764 is HOLD, in council ROUND 2 (same correlation `888e7319…`, run orch `b07fdcdd…`), NOT applied.**
+  Round 1 was REVISE (bug_historian gating); every objection is answered in the file header and the
+  proof now runs through the fleet's own renderer (`tplproof/`, `go test -tags tplproof`, README).
+  ⚠ PRC-003 (`681b0ee65`, rides the next roll) STRIPS `<no value>` inside `RenderPromptTemplate` —
+  after the roll, a `<no value>` census at `llm_call_log.prompt_rendered` reads clean for the wrong
+  reason; measure with `ScanMissingValues` on the raw execution, as the harness does.
+- ~~**Migration 764 is HOLD, council-submitted (`888e7319-01ae-4371-846d-76fe227a1ebc`), NOT applied.**~~
   Read the verdict: `SELECT body FROM doc_notes WHERE categories ? 'council-gate' AND body LIKE '%888e7319%' ORDER BY created_at DESC LIMIT 1;`
   APPROVED → the OWNER picks the moment (two shared agents, fleet-wide). Apply by hand, then **make it
   run once** exactly as the file header says — read the new `classification.reasoning` for a

@@ -5646,3 +5646,47 @@ owner's moment, and the header mandates a make-it-run-once at the artefact, beca
 
 **Still untouched, deliberately:** copyonline's composition (re-files on its next design-discovery
 selection; `style_collection_id` still NULL) and the plan.
+
+### (zz) 2026-09-03 ~21:05Z — council round 1 on 764: REVISE; every objection answered with evidence; the proof re-run through the FLEET'S OWN renderer; round 2 submitted on the same correlation
+
+**Round 1 verdict** (19:47:40Z, `888e7319`): REVISE, gating objection from `bug_historian` (high);
+`editquality`, `guardian`, `prior_art_librarian` objected (medium); `reuse_agent`, `guidelines`,
+`adoption_guardian`, `render_guardian`, `debug_historian`, `constitution`, `mission`, `architecture`
+approved. Reviewers' own read-only checks answered in the report: 1 active row per agent, version {1};
+anchor occurrences = 1. Two of their checks failed at the tool (a multi-statement lint; a statement
+timeout) — those questions were answered by me instead, below.
+
+**The two objections that were RIGHT, and what they changed:**
+- *editquality:* my harness built its own `text/template` + funcmap — it proved the template text, not
+  the production injection path. Rewritten: `tplproof/proof_test.go` now imports the real package (a
+  per-lane `go.mod` with `replace … => ../../../../..`, because `docs/go.mod` carves docs out of the main
+  module; build-tagged so `./...` ignores it) and calls **`datahelpers.RenderPromptTemplate`** — what
+  `ai_actions.go:328` calls for `execute_llm_prompt`, the action ALL THREE steps run under `[MEASURED]`
+  — and **`datahelpers.ScanMissingValues`**, PRC-003's own scan. **PASS**: object case occurrences
+  planner 3→2, classifier 4→3, the original report attributing `site_specs.specs.mission_brief.text`;
+  prose byte-identical; no-brief unchanged. **The rewrite's own first run read zero holes everywhere** —
+  I scanned `RenderPromptTemplate`'s OUTPUT, which PRC-003 has already STRIPPED. The scan must run on the
+  raw execution parsed with `PromptTemplateFuncs()`, exactly as `data_helpers.go:1204` does. Recorded in
+  the harness README and a WRONG_CALLS row.
+- *bug_historian:* my completeness census walked `workflow->steps` top-level; a landmine says loop
+  bodies live under `sub_workflow.steps`/`substeps`. Re-censused two ways — the corpus's prescribed
+  `jsonb_path_query(default_config,'$.**.steps')` walk AND a regex over the whole `default_config::text`
+  at any depth — **both return exactly the four expressions**; the classifier's third `prompt_template`
+  (`review_mission_alignment`) carries none; 49 other `{{…\.text}}` reads fleet-wide sit under
+  different roots (`schema_hint`, `decisions`, `experience_*`) written by their own producers.
+
+**The finding the round surfaced that I had not known:** **PRC-003** (`681b0ee65`, 17:33Z today, the
+437 lane; built + tested, NOT live till the roll) — `RenderPromptTemplate` now names, strips and
+escalates `<no value>`. That is the read-side loud failure the historian asked for, already built. It
+makes the hole VISIBLE; it cannot make the brief visible. 764 is its complement. Named in the header.
+
+**Also answered:** dual-row guard stated explicitly (every statement scoped on
+`is_active AND NOT is_snapshot AND deleted_at IS NULL`, exactly-one asserted); in-flight runs
+unaffected by construction (LANDMINES: a running orchestration carries its own snapshot in
+`orchestration_states.workflow_plan`); the same-day LANDMINES correction NARROWED the mechanism and
+CONFIRMS the premise; per-agent edits in the plan (guardian); why not the strategist's whole-blob
+shape (these templates render the other specs separately under headings — a whole-blob dump would
+duplicate all of it; the fallback is the same principle at the aspect level).
+
+**Round 2 submitted** ~21:00Z on the same correlation: envelope `71de0014…`, run orch
+`b07fdcdd-b278-4bca-baf3-c205aa1ec357`. Watcher `bd8lefmyq` armed. Still NOT applied.

@@ -65028,3 +65028,30 @@ where confidence is highest and scrutiny lowest.
   "applied" and let `applied_at` say when.
 - **Cost.** Two corrected rows. No decision rested on it, but a note that disagrees with its own row's
   timestamp is exactly the thing a later forensic read trips over.
+
+## 2026-09-03 — a render proof that read "zero holes everywhere" because it scanned output the renderer had already cleaned (`portfolio_positioning`, migration 764, caught before publication)
+
+- **The near-claim.** Re-running my template proof through the fleet's own `RenderPromptTemplate` (as
+  the council asked), the missing-value scan reported **0 occurrences in every case** — original and
+  fixed alike. One more line and I would have reported "the production renderer shows no hole", which
+  reads as either "the defect is not real" or "the fix is a no-op", both false.
+- **What was true.** `RenderPromptTemplate` now (PRC-003, `681b0ee65`, committed that afternoon)
+  **strips** `<no value>` before returning. I fed its OUTPUT to `ScanMissingValues`. Scanning a cleaned
+  string finds nothing, in both arms, which looks exactly like "nothing to find". On the raw execution
+  — parsed with the same `PromptTemplateFuncs()` the renderer uses — the scan attributes the hole to
+  `site_specs.specs.mission_brief.text` and the fixed template removes exactly one.
+- **Why it mattered.** Fourth instance in one day of *my measurement answered the question I encoded*,
+  and the first where the blindness was introduced by someone ELSE's fix landing between two of my
+  runs. **A cleaning step upstream of your instrument makes a defect invisible without changing a
+  line of your test.** My own comment in the test said the renderer strips, and the next line scanned
+  the stripped output anyway.
+- **What caught it.** Refusing a zero that matched nothing: the earlier standalone harness had shown
+  4→3 and 3→2 on the same templates minutes before, so 0→0 was a change in the INSTRUMENT, not the
+  system.
+- **The cheap check that would have.** When a measurement flips to uniform zero after you change
+  instruments, run the control FIRST: the unmodified template must still show the defect, or the
+  instrument is blind. The harness already had that control — for the sentinel, not for the scan. Put
+  the control on every instrument, not on the first one you wrote.
+- **Cost.** None. Recorded because the tally is the point, and because this one will recur: PRC-003
+  ships on the next roll, after which any `<no value>` census taken at `llm_call_log.prompt_rendered`
+  reads clean for the wrong reason.
