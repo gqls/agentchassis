@@ -145,7 +145,8 @@ Fleet citation-sourced facts, same method as §1a: **256**, up from **~192** tha
 > land on a site with no register to apply them to.**
 >
 > ⚠ **And nothing raises the absence — this is structural, not an oversight in the backlog.**
-> `resolveEvidenceSites` (`refresh_evidence_base_action.go:290`) builds the daily sweep's target list
+> `resolveEvidenceSites` (`refresh_evidence_base_action.go` **:281**, its fleet query at **:291**,
+> read at `f1e110a82`) builds the daily sweep's target list
 > as `SELECT site_id FROM site_specs WHERE aspect='evidence_base' AND is_current` — it selects the
 > sites that **have** a register. **The target set is defined by the presence of the very thing whose
 > absence is the defect**, so a register-less site is invisible to the freshness sweep, to the fact
