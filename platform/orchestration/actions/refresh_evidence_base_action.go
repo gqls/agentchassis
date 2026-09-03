@@ -421,6 +421,19 @@ func refreshOneSiteEvidence(
 	// do. Independent of the facts loop below; banned_claims carries no
 	// dependency on fact state.
 	res.InvalidBannedClaimPatterns = checkBannedClaimPatterns(eb["banned_claims"])
+	// Always logged, clean or not — the peer half of this pair (§4 below) is
+	// json:",omitempty", so a clean pass leaves NOTHING in the persisted
+	// result: identical to the check never having run at all. Caught live
+	// 2026-09-03 by the bugfix_414 lane, first daily pass post-roll: 23 runs,
+	// zero mentioned the field, and that count cannot distinguish "ran, found
+	// nothing" from "never executed". This line is the fix — it fires on
+	// every pass regardless of outcome, so ITS absence (not the result
+	// field's) is what would mean the code never reached here.
+	bannedClaimsRaw, _ := eb["banned_claims"].([]interface{})
+	logger.Info("refresh_evidence_base: banned_claims pattern compile check",
+		zap.String("site_id", siteID.String()),
+		zap.Int("patterns_checked", len(bannedClaimsRaw)),
+		zap.Int("invalid", len(res.InvalidBannedClaimPatterns)))
 
 	factsRaw, _ := eb["facts"].([]interface{})
 	today := currentDateString(ctx, db)
