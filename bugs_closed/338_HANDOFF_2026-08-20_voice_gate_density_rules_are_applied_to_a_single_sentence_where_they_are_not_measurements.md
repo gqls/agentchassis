@@ -1,9 +1,10 @@
 # 338 — the voice gate's DENSITY rules are applied to a single sentence, where they are not measurements
 
-**Filed** 2026-08-20 by the `meta_description_never_backfilled` lane. **Status: OPEN —
-FIX COMMITTED 2026-09-02 (`425398a01`) AND SHIPPED ON `v1.0.1356` 2026-09-03 08:58Z.
-⚠ CLOSURE IS BLOCKED ON AN OWNER DECISION, NOT ON WORK: §6's acceptance test can never
-pass, and the reason is not the fix (§9).**
+**Filed** 2026-08-20 by the `meta_description_never_backfilled` lane.
+**Status: ⚖ CLOSED 2026-09-03 BY OWNER RULING — on the CODE proof, deliberately, because a
+live exercise is not obtainable (§10).** Fix `425398a01`, shipped on `v1.0.1356`
+2026-09-03 08:58Z, council APPROVED `106802fc-ad14-4beb-b622-147c3a0ab982`, mechanism
+registered **CQ-035**.
 
 > **UPDATE 2026-09-02** (`bugsweep_2026_08_26` lane, continuing
 > `docs024_key_docs_latest/bugsweep_2026_08_26/HANDOFF_2026-09-02_continue_here.md`).
@@ -300,3 +301,55 @@ assert a cause outside the symptom.
 Landmine written (`LANDMINES.md`, *"The voice gate's DENSITY rules are statistics over a
 CORPUS…"*). Full trail: `bugs_open/320` §13 and
 `docs024_key_docs_latest/meta_description_never_backfilled/`.
+
+
+---
+
+## 10. ⚖ OWNER RULING 2026-09-03 — CLOSED ON THE CODE PROOF, AND WHY THAT IS NOT A LOWERED BAR
+
+**The estate's bar is "fixed AND live", and it is met on the first half beyond doubt and
+UNOBTAINABLE on the second — not unmet.** The owner was given the three options in §9 and
+ruled **option 1: close on the code proof.** Recorded here rather than left implicit,
+because a future reader will otherwise see a bug closed without a live exercise and read it
+as a slipped standard.
+
+**What "live" would have required, and why it cannot be had.** The fix only changes
+behaviour for a candidate whose **mean sentence length exceeds 22 words** (or which has a
+sentence over 25). Two independent facts make that unreachable in production:
+1. Migration `501` instructs the writer to produce **≤20 words**, which clears the trip. So
+   the natural case does not arise, by design, from an interim mitigation that is itself
+   correct and stays.
+2. Every page that could still exercise the path is out of the backfiller's reach: all
+   **37** remaining blank pages fail its `page_visible_text_len > 200` selection gate (§9,
+   with its demand control).
+
+So waiting produces nothing, and manufacturing the case means authoring copy the house
+style exists to reject. **Option 3 was not "more rigour", it was an indefinite wait for an
+event that cannot occur.**
+
+**What the closure actually rests on** — stated so it can be audited rather than trusted:
+- **Both arms induced** (`voicetells_singlevalue_test.go`), against the **live**
+  `leopardessconsulting.co.uk` gate config read from `site_specs`, not a composed fixture.
+- **Every corpus-only case is control-first**: it asserts the check DOES fire on the page
+  path before asserting the single-value path drops it, so a pass cannot come from an input
+  that never tripped it.
+- **Four mutations proven red** — delete a map entry, emit an unclassified check, remove the
+  filter, drop everything — each killing exactly the expected tests, green on restore.
+- **Council APPROVED**, 9 seats, 2 advisory objections, none high-severity; the
+  `architecture` seat recorded `point_fix | DEFLECTIONS: 0`.
+- **The image is shipped** (`v1.0.1356`). ⚠ Provenance is unconfirmable by both sanctioned
+  routes for the reasons in §9 — a rotated stamp and an uncommitted overlay bump. **That is
+  a defect in the RECORDING of releases, not evidence about this fix**, and the owner ruled
+  the same day that `make release` must commit its bumps; `make release-record` (`7858b3458`)
+  implements it, so this specific blindness does not recur.
+
+**What is NOT claimed.** That the two named blank pages filled — they cannot, and §9 says
+why. That the fix has had any observable production effect yet — it has not, and `501`
+means it may not for some time. **Its value is the seam** (CQ-035, for the short-field
+callers §5 expects) **and the removal of a trap** for any site setting a lower
+`mean_sentence_words`. Both real; neither visible today.
+
+**The residual, deliberately left open elsewhere and not folded into this closure:**
+`bugs_open/442` (a true refusal is still silent — found by the council reviewing *this*
+fix) and `bugs_open/320` (the coverage floor; owner ruled 2026-09-03 that a near-empty page
+should NOT carry a description, which zeroes this axis of it).
