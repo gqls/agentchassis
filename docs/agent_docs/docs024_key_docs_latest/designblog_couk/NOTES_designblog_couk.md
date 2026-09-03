@@ -1105,3 +1105,14 @@ worth copying for any future canary here:
   in-flight: tools-hub needs_page + GTM wave); told them to attribute chrome
   churn to the GTM wave unless the logo file itself changes. A new logo may
   land alongside the wave — expected churn, not damage.
+
+- 2026-09-03: **428 lane resumed (planner owners)** — phase 1: Go-side
+  recommended-vs-planned reconciliation + external-producer registry with
+  COMPUTED liveness (mechanises 460); phase 2 (later, separate council):
+  rendered liveness replaces rule 20's hand-dated literal — **they will not
+  edit rule 20 without talking to this lane first**. Confirmed nothing in
+  flight here on the row; endorsed phase 2 as the dated form's design intent;
+  flagged the llm_call_log cleanup-function hazard for their liveness reads +
+  the two rollback files' refuse-after-edit behaviour + the live canary.
+  Their JSON-field migration will neighbour-verify 720/729/730/731 text (729
+  pattern). Will relay the canary result to them either way.
