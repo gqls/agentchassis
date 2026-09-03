@@ -5743,3 +5743,36 @@ immediately. Watcher `bspmruymu` prints all three at the artefact.
 place; the classifier may re-write identity/content_direction/design_intent (it did at 16:57) and may
 re-file `needs_vertical_research`. That is the pipeline doing with the brief what it should have done
 at 16:57 — not an intervention beyond what the run-once requires.
+
+### (ccc) 2026-09-03 21:25Z — migration 764 PROVEN at the artefact, both criteria, on the site it was written for
+
+Run-once item `17bac4d6` was dispatched at 21:22:22Z (copyonline sat third of four in the trigger's
+oldest-backlog-first queue; ~26 min from filing — the selector picks ONE site per ~4-min tick by
+`MIN(created_at)` across sites, which is the mechanism behind this lane's earlier "priority
+starvation" and "filing sorts you to the back" observations). Pass/fail was stated in (bbb) before
+the result.
+
+**Criterion 1 — the classifier's own testimony `[MEASURED 21:25:18Z]`:** new current classification
+`category=editorial` (was `hub`), tags `editorial-guides, content-hub, tool-portal, interactive-tools,
+guides, directory, knowledge-base, long-form-content, practitioner-platform, founder-tools` (was
+`marketplace, community-platform, …`). Reasoning names the brief's four tools by name, the craft guides,
+the directory, and *"the lead-route page, which earns from either lead sales or referral relationships
+with listed copywriting companies"* — **revision 5's own wording**, so it read the CURRENT brief. It does
+not say the brief was missing; the 16:57:10Z row said *"no mission brief was supplied"*.
+
+**Criterion 2 — the rendered prompt `[MEASURED at llm_call_log]`:**
+
+| render | `<no value>` in the whole prompt | `## Pre-Defined Mission` block |
+|---|---|---|
+| blind, 16:57:05Z | **1** | heading, the "STRONG guidance … primary source" sentence, then `<no value>` |
+| sighted, 21:25:15Z | **0** | the same heading and sentence, then `{ "audience": { "primary": "UK founders, in-house marketers…` |
+
+Same site, same template family, same day: one empty marker became the brief. This is the delta the
+`tplproof` harness predicted (−1) observed on the fleet.
+
+**Side-effects, as predicted in (bbb):** identity 21:25:16Z, content_direction 21:25:21Z, design_intent
+21:25:25Z re-written sighted; `needs_vertical_research` re-filed (`triaged`). The strategy (17:44Z,
+already sighted via the strategist's whole-blob render) stands. The blind rows are superseded in place.
+
+**Status:** 764 LIVE for both agents since 20:55:27Z; the planner's own run-once is copyonline's next
+`plan_site` — read its rendered `## Mission` block then. `doc_notes` carry `proven` rows for both agents.

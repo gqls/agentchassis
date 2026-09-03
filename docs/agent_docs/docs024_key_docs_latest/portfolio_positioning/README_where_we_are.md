@@ -1751,3 +1751,15 @@ I have not applied it and will not without your word. It changes what two shared
 run across the whole fleet, and a change to one of those same agents broke it for four hours this
 morning. When you say go, I apply it, run one classification for copyonline, and read what the
 classifier says about the brief. If it still says no brief was supplied, it comes straight back out.
+
+**Half past nine — proven.** The fix went in on your word at five to nine and the proof landed at
+twenty-five past. The classifier re-read copyonline against your brief and this time it saw it: it now
+calls the site an editorial platform with tools and a directory, it names your four tools, and it
+describes the lead route earning through the listed copywriting companies, which is the exact wording
+of the revision you chose this evening. The rendered prompt confirms it from the other side: where the
+five-to-five run had one empty placeholder in the mission block, this run has the brief itself and no
+placeholders at all.
+
+It also redid the identity and design intent it had produced blind, and queued the vertical research
+again, so the site is now re-planning itself from a correct reading. The composition and page plan are
+still the two missing steps, and they remain untouched by me.
