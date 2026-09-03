@@ -19,7 +19,7 @@ REGISTRY ?= docker.io/aqls
 # 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
 # carries 252 newer commits, 24 of them touching platform/internal/pkg. A
 # same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
-IMAGE_TAG ?= v1.0.1354
+IMAGE_TAG ?= v1.0.1357
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -2866,13 +2866,47 @@ endef
 .PHONY: release
 release: ## Full release: build, push, deploy everything
 	$(call pinned_sweep,build-backend push-backend deploy-core deploy-agents deploy-agent-cleanup release-dashboard)
+	@$(MAKE) --no-print-directory release-record
 	@echo "$(GREEN)Full release complete with image tag $(IMAGE_TAG)$(NC)"
 	@echo "$(YELLOW)Usage: make release IMAGE_TAG=v1.0.xxx ENVIRONMENT=production REGION=uk001$(NC)"
 
 .PHONY: release-backend
 release-backend: ## Release backend only (no dashboard)
 	$(call pinned_sweep,build-backend push-backend deploy-core deploy-agents deploy-agent-cleanup)
+	@$(MAKE) --no-print-directory release-record
 	@echo "$(GREEN)Backend release complete with image tag $(IMAGE_TAG)$(NC)"
+
+#################################
+# release-record — put the release back INTO git (owner ruling 2026-09-03)
+#
+# WHY. `deploy-*` rewrites every overlay's `newTag:` with `sed -i` and the
+# makefile's IMAGE_TAG is bumped by hand, so a finished release leaves its own
+# identity ONLY in the working tree. Measured 2026-09-03: the fleet was running
+# `v1.0.1356` while `git show HEAD:` on the chassis overlay said `v1.0.1353` —
+# so the running tag existed NOWHERE in git, and the two sanctioned ways to ask
+# "did my fix ship?" both failed: the startup stamp had already rotated, and
+# there was no committed tag bump to run `git merge-base --is-ancestor` against.
+# A release that cannot be located in history is not auditable after its logs
+# rotate, which on the chassis is minutes (bugs_open/338 §9, LANDMINES).
+#
+# ⚠ PATHSPEC, NOT `git add -A`. This runs on a working tree shared by many
+# sessions. It commits ONLY tracked files it can name — the makefile and
+# `kustomization.yaml` overlays — and never adds an untracked file, so a
+# half-finished change belonging to another lane cannot ride along. It takes
+# them from the working tree and IGNORES THE INDEX, which is what stops another
+# session's staged work being swept in (CLAUDE.md, "Git — commit per task").
+#
+# ⚠ NON-FATAL BY DESIGN, AND LOUD. It runs AFTER the deploys have succeeded, so
+# the images are already live: failing the release at that point would report a
+# problem that has not happened. It prints a RED banner with the exact command
+# to run by hand instead — deliberately not a silent `|| true`.
+#
+# Runnable standalone, which is how you record a release that already went out:
+#   make release-record IMAGE_TAG=v1.0.1356 REF=<the commit it was built from>
+#################################
+.PHONY: release-record
+release-record: ## Commit the tag bumps a release leaves in the tree (pathspec-scoped, never `add -A`)
+	@PINNED=$$(git rev-parse --verify --quiet '$(REF)^{commit}'); 	if [ -z "$$PINNED" ]; then 		echo "$(RED)release-record: REF='$(REF)' is not a commit — cannot record what was built.$(NC)"; 		exit 0; 	fi; 	FILES=$$(git diff --name-only -- makefile $(KUSTOMIZE_DIR) | grep -E '(^makefile$$|kustomization\.yaml$$)' || true); 	if [ -z "$$FILES" ]; then 		echo "$(GREEN)release-record: no tag bumps in the tree — nothing to record.$(NC)"; 		exit 0; 	fi; 	echo "$(CYAN)release-record: committing $$(echo "$$FILES" | wc -l) release artefact(s) for $(IMAGE_TAG), built from $$PINNED$(NC)"; 	git commit $$FILES 		-m "release $(IMAGE_TAG): record the tag bumps this release left in the tree" 		-m "Built from $$PINNED. Written by 'make release-record' so the running tag exists in git: a release whose overlays are only ever dirty cannot be located in history, and the chassis startup stamp rotates within minutes, so there is otherwise nothing to run 'git merge-base --is-ancestor' against (owner ruling 2026-09-03, bugs_open/338 section 9)." 		-m "Pathspec-scoped to the makefile and kustomization.yaml overlays; no untracked file is added and the index is ignored, so no other session's work rides along." 	|| { 		echo "$(RED)=============================================================$(NC)"; 		echo "$(RED)release-record: THE COMMIT FAILED. The release itself is FINE$(NC)"; 		echo "$(RED)and the images are live — only the git record is missing.$(NC)"; 		echo "$(RED)Run this by hand (pathspec kept, so it stays safe):$(NC)"; 		echo "$(YELLOW)  git commit $$(echo $$FILES | tr '\n' ' ') -m 'release $(IMAGE_TAG): record tag bumps (built from $$PINNED)'$(NC)"; 		echo "$(RED)=============================================================$(NC)"; 	}
 
 .PHONY: deploy-services
 deploy-services: deploy-core deploy-agents deploy-agent-cleanup deploy-dashboard ## Deploy all services (no build, images must exist)
