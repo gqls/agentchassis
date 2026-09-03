@@ -74,8 +74,10 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
 - **Stage A PROVEN** on `technical-details` (corr `6e8eadaa`, writer `ce514ce0`): all six
   `sections_ready[].subject` populated from `pages_table` (tier 3), carried to the writer's row;
   detector quiet with a fleet demand control of 7. `pages.section_subjects` backfilled for
-  `playground`, `your-own-model`, `technical-details` (6/6 each; clause form, e.g. "what to have
-  ready before the hour"); `our-position-on-ai` still null (no brief to derive from).
+  `playground`, `your-own-model`, `technical-details` (6/6 each; ~~clause form, e.g. "what to have
+  ready before the hour"~~ **re-authored to A4 sentences 19:20Z**, e.g. "If you'd like to prepare in
+  advance of your hour, you might want to get these things ready."); `our-position-on-ai` still
+  null (no brief to derive from).
 - **Served h2s still repeat** ("The model, and the licence it comes with" ×3, wording varied):
   the subject reaches the writer's DATA, not yet its PROMPT. That is Stage B = migration 641.
 - **641 is now the PROMPTS lane's, end to end, as OPTION A** (one field, the subject authored in
@@ -121,13 +123,15 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    path the owner chose (README 2026-09-03 evening; default (a) if he has not said). First probe
    the route is still up (`curl … -H 'Origin: https://finetuning.uk'` → 200 text/event-stream) — the
    demo box's ufw rule and the island's compose are the two things that can silently take it down.
-1. **BEFORE 641 applies (19:15Z, prompts lane): 641 is now OPTION A4** — the subject is printed
-   verbatim as the section's OPENING LINE in page voice (owner exemplar: "If you'd like to prepare in
-   advance of your hour, you might want to get these things ready."). **Re-author the three backfilled
-   `section_subjects` arrays** (playground, your-own-model, technical-details; today clause-form
-   labels) against the phrasing spec the prompts lane is sending — once, against the final wording.
-   Stage B assertions must EXPECT subject wording in each section's opening line (intent, not
-   leakage). G1's marker `current_section.subject` survives A4.
+1. **641 is OPTION A4 (19:15Z, prompts lane)** — the subject prints verbatim as the section's OPENING
+   LINE in page voice. **DONE 19:20:58Z: the three `section_subjects` arrays are RE-AUTHORED and
+   APPLIED** against the spec (`CONTRIB_2026-09-03b_…_subject_phrasing_spec.md`) by
+   `SQL_2026-09-03_section_subjects_A4_reauthor.sql` (previous values in its header; five spec
+   guards mutation-killed; playground §4 is the owner's exemplar verbatim). Stage B's acceptance
+   wording under A4 is in the Stage B file's header: subject wording in each opening line is the
+   INTENT; a section opening on a SIBLING's subject is the failure. G1's marker survives A4. 641
+   itself: edited to A4, rehearsed, council round 2 on `6c92d154`; the owner's read of the bytes
+   is the last gate.
 1b. **When the prompts lane applies 641:** Stage B (above). ~~Rewrite the technical-details brief first.~~
    **DONE 2026-09-03:** `technical_details_stage_b_dispatch.sql` in this dir carries the rewritten
    brief and REFUSES to run until 641 is on the live writer (G1). Rehearse its post-G1 path under

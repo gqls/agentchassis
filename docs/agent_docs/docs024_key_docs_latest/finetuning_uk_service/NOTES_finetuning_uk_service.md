@@ -3048,3 +3048,40 @@ three entries after mine while I was writing, and a pathspec commit would carry 
 message. Whoever commits that file next takes both; if it is still dirty at the next session start,
 commit it with a "sweep:" message naming both lanes. Replied to the prompts lane (A4 ack; G1 keys on
 `current_section.subject`; spec requested).
+
+## 2026-09-03 (19:18–19:25Z) — the three `section_subjects` arrays RE-AUTHORED to A4 and APPLIED; Stage B's acceptance wording written before the rebuild
+
+The prompts lane delivered the phrasing spec (`CONTRIB_2026-09-03b_from_framework_prompts_subject_phrasing_spec.md`;
+original in `framework_prompts_positive_voice/`). Rules, short: the subject is the line the section
+OPENS on, written to the reader in the site's voice; one sentence or a phrase reading as one; distinct
+within the page (exclusion from the sibling list is by string equality); no em dashes; only what you
+would publish, because it surfaces in the copy by design; sentence case. 641 is edited to A4, rehearsed,
+resubmitted as council round 2 on `6c92d154`; the owner's read of the exact bytes is the last gate; the
+literal `current_section.subject` is unchanged so the Stage B G1 gate still fits (they confirmed).
+
+**Re-authored and APPLIED 19:20:58Z** by `SQL_2026-09-03_section_subjects_A4_reauthor.sql` (previous
+values in its header for rollback). Six per page, index-aligned as before, no numbers in any subject
+(£99 is a registered fact but a subject "is not a route around" the facts block, so it stays out),
+playground §4 is the owner's exemplar verbatim. Examples: playground hero *"The playground is an hour
+with your own trained model, already loaded and ready for your real work."*; your-own-model §4 *"This
+is what makes the price possible."*; technical-details §2 *"Before training starts, you'll know which
+model we are using and what its licence allows."* (matches the rewritten brief). Data only: live now,
+read at the Stage B rebuild.
+
+**Guards, all mutation-killed under ROLLBACK (5/5):** em dash → `spec rule 4`; a digit → `no numbers`;
+a duplicate within a page → `spec rule 3`; a lower-case start → `spec rule 6`; 170 chars → `spec rule 2`.
+Pre-flight (arrays must equal what the file was written against) fired for real, twice: my first three
+induced runs raced the apply and were refused by it — the guard doing exactly its job — and one
+mutation hit it because the sed changed the pre-flight's expected string as well as the array line
+(re-run anchored to an array-only line; killed). Control after every rehearsal: the live arrays start
+with a capital on all three pages.
+
+**Stage B acceptance under A4 is now in `technical_details_stage_b_dispatch.sql`'s header** (rule 5,
+written BEFORE any rebuild so the record cannot argue with itself): subject wording in each section's
+opening line is the INTENT; a section opening on a SIBLING's subject is the failure; distinct h2s, no
+em dash, no licence-family listing, tier-1 control unchanged; and a check that `section_subjects->>0`
+starts with a capital (else the re-authoring has not reached the page).
+
+Also from the prompts lane, for anyone quoting the writer prompt: it grew ~510 chars during their
+session from another lane's edit and its em-dash count moved 9 → 10; any absolute length or offset
+for that prompt in this lane's docs is stale.

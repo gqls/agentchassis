@@ -34,6 +34,23 @@
 -- as control; check the </strom> of bugs_open/456 (malformed_closing_tag slug)
 -- is gone from the served bytes.
 --
+-- STAGE B ACCEPTANCE UNDER OPTION A4 (prompts lane spec, 2026-09-03 — written here
+-- BEFORE the rebuild so the record cannot argue with itself afterwards):
+--   * 641/A4 prints each section's `pages.section_subjects[i]` VERBATIM as that
+--     section's opening line in the writer's prompt, in page voice. So the served
+--     copy WILL open each section on wording close to its subject. THAT IS THE
+--     INTENT, NOT LEAKAGE. Do not file it as a defect; do not "fix" the writer.
+--   * What TO assert on the served page: (1) six sections, each h2 distinct
+--     (443's symptom gone); (2) each section's first sentence tracks ITS OWN
+--     subject and not a sibling's — the sibling list is the mechanism, and a
+--     section opening on a sibling's subject is the failure; (3) no em dash;
+--     (4) no licence-family listing (this brief's change); (5) the tier-1 control
+--     page's copy is unchanged in shape.
+--   * The subjects this page carries at rebuild time are the A4 re-authored ones
+--     (SQL_2026-09-03_section_subjects_A4_reauthor.sql), not the clause-form
+--     Stage A labels; if section_subjects->>0 does not start with a capital, the
+--     re-authoring has not been applied and the opening lines will read as labels.
+--
 -- Run:  kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
 --         psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < this_file
 -- Rehearse first with COMMIT swapped for ROLLBACK.
