@@ -281,6 +281,23 @@ func normalizeScrapeResults(collectedData map[string]interface{}, field string, 
 		if cleaned, _ := datahelpers.StripFeedDisplayMarkdown(summary, !datahelpers.HTMLMarkupRe.MatchString(summary)); cleaned != "" {
 			summary = cleaned
 		}
+		// WHY NOT queryresolve.FeedDisplaySummary, which this lane just built for
+		// the other three readers (council 803f0d81, reuse_agent, medium — the
+		// seat was right to force the question):
+		//
+		//   1. That projection is gated on DISABLE_NEWS_MARKDOWN_STRIP, a DISPLAY
+		//      kill switch. Calling it here would put a display lever in charge of
+		//      what gets WRITTEN to content_feed_items — flip the switch and the
+		//      stored record silently changes shape. That is precisely the
+		//      irreversibility this lane refused at firecrawl.go.
+		//   2. This is an INGEST path. The projection's contract is "prepare text
+		//      for a visitor"; this one's is "do not manufacture a shape the
+		//      readers cannot handle". Different guarantees, deliberately.
+		//
+		// And TruncateString is NOT a third truncation primitive: data_helpers.go
+		// defines it AS SafeCut plus the ellipsis, so this call site and
+		// feedSummaryCut bottom out in the same rune-safe cut. It is used rather
+		// than SafeCut directly because the ellipsis is wanted here.
 		summary = datahelpers.TruncateString(summary, 500)
 
 		externalID := pageURL
