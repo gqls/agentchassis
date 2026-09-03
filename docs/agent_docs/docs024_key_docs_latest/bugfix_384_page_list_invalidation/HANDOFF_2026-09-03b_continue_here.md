@@ -157,13 +157,13 @@ Status below is checked, with the query or commit that checked it.
 | # | item | status as of 16:1xZ | whose |
 |---|---|---|---|
 | 1 | post-fix proof | ✅ **DONE** (§5) | this lane |
-| 2 | owned-page residual, 14/14 | **has a home already — `bugs_open/389` §2** | contribute, don't file |
+| 2 | owned-page residual, 14/14 | ✅ **CONTRIB filed into `bugs_open/389` 16:4xZ** | 389's call now |
 | 3 | this lane's sweep | ⚠ **NO LONGER "never run" — it worked today** | this lane |
 | 4 | `bugs_open/404` | ⚠ **NOT unclaimed — taken 2026-08-26** | another lane |
 | 5 | re-run the census | outstanding | this lane |
 | 6 | 2 stranded NULL-id rows | unowned, not a listing | nobody yet |
 
-### 2. The owned-page residual — **STOP. It is already filed, in `bugs_open/389` §2 "Owned page".**
+### 2. ✅ DONE 16:4xZ — the owned-page residual is contributed into `bugs_open/389` §2, not re-filed
 
 The previous handoff said "file it or carry it". Neither: **contribute the measurement into 389 §2**,
 which is the class, and which already carries a correction from the `bugfix_333_owned_page_door`
@@ -180,10 +180,29 @@ no `wont_fix` terminal** (migration `480` covers `load_page_record` only), so th
 14 days: **1,436 `complete` · 402 `unresolved` · 76 `failed`, last failure 15:56:07Z** — minutes
 before this was written. The 1,436 "complete" are 389's own complete-and-unchanged class.
 
-**So the deliverable is a CONTRIB into 389 naming the three pages** (leopardess
-`llm-cost-calculator` 2026-07-17, leopardess `tool-ai-vendor-trust-checklist` 2026-07-30,
-finetuning `llm-cost-calculator` 2026-08-12, all `tool-cta`), card-joined, with the 14/14 figure.
-Migration `486`'s `section_edit` → `section-editor` route is the remedy shape; it is 389's call.
+**The CONTRIB is filed** (`bugs_open/389`, section dated 2026-09-03), and it carries three things:
+
+1. **A retraction of this lane's OWN 09-02 contribution in that file**, which ended *"so it has
+   never run once"* about the sweep. It ran today (item 3 below). True when written, false now, and
+   it was load-bearing in how we put it to them.
+2. **Artefact-level proof of their class 2** — the three pages carry **26 `page_rerender` items that
+   reached `complete`** while not one of the three arrays has been written since July/mid-August:
+   leopardess `llm-cost-calculator` (frozen 2026-07-17, 7 completes), leopardess
+   `tool-ai-vendor-trust-checklist` (2026-07-30, 9), finetuning `llm-cost-calculator`
+   (2026-08-12, 10). That is "complete provably meant unchanged" measured on the stored artefact,
+   which is what their Verification bar asks for and what this lane could supply cheaply.
+3. **A refinement of their "these loop `failed`→`triaged`" line**, on a WIDER cut (all owned-page
+   `page_rerender`, 14 days, not just `cta_links_stale`): `[MEASURED 16:33:10Z]` 76 `failed` **all at
+   `attempt_count 3`** — ladder exhausted, not cycling — and 405 `unresolved` all at 0. Offered as a
+   different population, explicitly NOT as a refutation; they should re-cut on their own predicate.
+
+**No fix proposed and no new bug opened** — it is their class on their handler, and a second account
+would drift. Migration `486`'s `section_edit` → `section-editor` route is the remedy shape; the call
+is 389's. Flagged to them that register **WII-028** was a ruling made with this lane, so a candidate
+that would change it should re-open it jointly rather than underneath us.
+
+⚠ **No live session holds 389 or 308** (checked 16:4xZ) — the bug file is the channel, as it was for
+this lane's 09-02 contribution. Do not wait for a reply.
 
 ### 3. The sweep — ⚠ **IT RAN TODAY. The "never run" line is retired.**
 
