@@ -3952,3 +3952,42 @@ register's existing `x_not_y` treatment (truncate, keep the first half), so it i
 right. But the kept half is itself a negative opening frame, which the house voice rule ("start
 with the fact; never open by saying what something is NOT") forbids — so on the other reading he
 wants the "not" gone from the first bit too. The two readings give different repairs.
+
+**2026-09-03 ~10:45Z — ONE OF THE THREE BUILD-STANDARD OPT-INS IS ON A DEAD AGENT.** Chasing the
+still-open canary I checked whether waiting for an organic run is viable per agent, and two of
+three are fine while the third cannot ever answer:
+
+| opted-in row | llm_call_log, ALL HISTORY | last run | verdict |
+|---|---|---|---|
+| `content-gap-planner` (678) | 2,812 calls | 2026-09-02 11:09Z | alive; organic run will answer |
+| `build-site-planner` (677) | 86 calls | 2026-09-02 17:33Z | alive; fires on new site builds |
+| `visual-designer` (679) | **0 calls** | **never** | **nothing can dispatch it** |
+
+`[MEASURED 2026-09-03 10:45Z]` `visual-designer` has **zero** `llm_call_log` rows in all history
+and has never appeared in `orchestration_states`. More decisive than either, because both tables
+have retention limits and an absence there is weak: **zero live agent configs name it.**
+`SELECT type FROM agent_definitions WHERE is_active AND … AND default_config::text LIKE
+'%visual-designer%'` returns **0 rows** — nothing spawns it, calls it, or routes to it. Its only
+surviving references are the original 2026 website-builder migrations (`003`/`005`/`007`), an
+`unused/` test seed, migration `348`'s capping sweep, and **our own `679`**. The single Go
+reference (`spawn_actions.go:3053`) is a `storageAgents` list that grants storage env vars — not
+a dispatch path.
+
+So `679` opted a **legacy, unreachable row** into the build standard. It is not harmful and not
+wrong — the migration's guards all passed honestly, because they check that the row exists, is
+unique and takes the placeholder, and every one of those is true of a dead row. **But it delivers
+the standard to nothing, and no amount of waiting will produce a canary read for it.** Corrects
+the handoff's framing that the canary is one owed read: it is TWO reads (both live planners) plus
+a question about whether the third opt-in should exist at all.
+
+**The transferable bit, and it is the reason this is in NOTES rather than a footnote:** *an
+opt-in migration's verification cannot tell a live consumer from a dead one.* `679` verifies
+"the loaded row carries the placeholder" — a property of the ROW. Whether anything ever LOADS
+that row is a different question, in a different table, and nothing in the migration or in the
+propagation plan asked it. **Before opting a consumer into a shared block, census the consumer:
+`llm_call_log` all-history for the agent_type, and a `default_config::text LIKE` sweep for
+anything that names it.** Both are one query and either would have caught this on 08-31.
+
+⚠ Honest limit: this says nothing reaches it via a NAMED reference in live config. A caller
+constructing the agent type dynamically would not be caught by the `LIKE` sweep. Given 0 calls in
+all of `llm_call_log`, that is a thin possibility, but it is the one I have not excluded.
