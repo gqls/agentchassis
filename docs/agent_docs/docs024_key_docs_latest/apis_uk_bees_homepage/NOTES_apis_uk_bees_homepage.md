@@ -1615,3 +1615,14 @@ pathspec. Context from their side: the 443 Stage A canary (technical-details, it
 is queued and independent of 641; "your-own-model" waits for Stage B after the apply. They are
 also adding a pointer from their CONTRIB to our WRONG_CALLS census row — they had repeated the
 header's "5" as fact, the same error class.
+
+### 2026-09-03 — OWNER DIRECTION: the PROMPTS lane applies 641; this lane keeps the follow-ups
+
+The owner (in this lane's chat): "they can do 641 unless you take it" — not taken; the apply is
+handed to the prompts session with the full handover (seed path, council APPROVED r1 `6c92d154`,
+twice-rehearsed state, the header checklist, the do-not-edit-the-block-bytes rule, the _HOLD
+filename landmine, and who to notify after). The finetuning lane — still carrying the owner's
+read — is redirected to notify PROMPTS as applier when his words land. The read-record still
+goes in THIS file (dated, quoted; prompts may append it directly). This lane retains: the Stage B
+acceptance follow-ups (443 cohort + our two deferred content_rewrite items), the tier-1
+planner-subject phrasing owner question, and PBP-049 stewardship.
