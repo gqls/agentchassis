@@ -222,8 +222,33 @@ separate register files).
   through this path. **Do not "fix" a held adopted site by exempting adoption** — it arrives
   with someone else's tools and brand (`bugs_open/439` is that contamination the other way),
   and the human decision is the point.
-  ⚠ **Nothing reports "held longer than N days"** — a site nobody releases stops growing
-  silently. Owed by the improvement_loop lane.
+  ~~⚠ **Nothing reports "held longer than N days"** — a site nobody releases stops growing
+  silently. Owed by the improvement_loop lane.~~ **BUILT 2026-09-03 (improvement_loop lane):
+  `growth-posture-hold-check`**, a daily CronJob (`0 8 * * *` UTC, the postgres:16-alpine
+  Python family — `deployments/kustomize/services/growth-posture-hold-check/`) that lists
+  every held site with its age, raises `held_overdue` for a LIVE site (active/deployed,
+  unlocked) held past **N = 7 days `[ASSUMED 2026-09-03, owner to rule]`**, and raises
+  `trigger_missing` if 722's trigger is dropped or disabled (otherwise a clean report lies).
+  One `doc_notes` row per run, clean or not (`subject_key='growth-posture-hold'`). Hand run,
+  same file: `scripts/audit-growth-posture-hold.sh [--days N] [--write]`; `--self-test` is
+  16 fixture cases incl. the threshold by mutation. **Status: built + self-tested + dry-run
+  against the live DB; CronJob NOT yet applied and no doc_notes row yet — "deployed" would
+  overstate it until `kubectl apply -k` and the first row.** Council: see the lane's NOTES.
+  **The clock it needed did not exist** `[MEASURED 2026-09-03]`: 722 stamped only
+  `growth_posture`; the two hand-holds carried two shapes and zero timestamps. Migration
+  **`752`** makes the trigger also stamp `growth_posture_set_at` (`to_jsonb(now())`),
+  `growth_posture_set_by` (`'trg_sites_born_holding_growth'`) and `growth_posture_reason`,
+  beside a posture IT stamped only — a stated `open` gets no record. **No backfill** of the
+  two hand-held rows (other lanes'; a guessed timestamp is worse than none): the check
+  reports those as age UNKNOWN, bounded below by the first day it saw them (its own earlier
+  rows, anchored on the `HELD <domain> ` line), and self-corrects the day the lane stamps
+  the row. **Hand-hold recipe, now three lines longer** (the gamedesign.uk lane's key
+  names, kept): `settings = jsonb_set(jsonb_set(jsonb_set(jsonb_set(COALESCE(settings,'{}'),
+  '{maintenance_profile,growth_posture}','"hold"'), '{maintenance_profile,growth_posture_reason}',
+  to_jsonb('<why>'::text)), '{maintenance_profile,growth_posture_set_by}', to_jsonb('<lane> <date>'::text)),
+  '{maintenance_profile,growth_posture_set_at}', to_jsonb(now()))` — ⚠ and only if
+  `maintenance_profile` already exists on the row; `jsonb_set` silently no-ops on a missing
+  parent (722's header, 291's before it), so materialise it first on a bare `{}`.
 - **what:** `sites.settings->'maintenance_profile'->>'growth_posture' = 'hold'` makes the
   two HEADS of the tool growth chain file their items in the RECORD SHAPE — born
   `status='deferred'`, `handler_agent=''` (the promoter excludes a handler-less row from its
@@ -253,6 +278,9 @@ separate register files).
   tests: growth_posture_door_test.go (hold / open+unknown / read-error fails open /
   non-gated never probed, ordered / pure-half table); design + producer census:
   loanzy_uk_example_site/PLAN_2026-08-25_…_switch_the_loop_back_on.md ADDITION 2026-08-31.
+  Born-held: sql_for_agents/722 (trigger) + **752** (the when/by-whom record);
+  the report: deployments/kustomize/services/growth-posture-hold-check/base/check.py
+  (`classify`, `render_report`, `--self-test`), scripts/audit-growth-posture-hold.sh.
 - **relations:** the record shape and its refusal proof are RFC_056 / filing_mode's
   (write_audit_findings_filing_mode_test); WDS-017/018 are the neighbouring write/promoter
   doors; set/unset recipe in loanzy RUNBOOK ("growth posture").

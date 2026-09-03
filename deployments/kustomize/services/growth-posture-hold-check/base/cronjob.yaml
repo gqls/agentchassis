@@ -1,0 +1,81 @@
+# deployments/kustomize/services/growth-posture-hold-check/base/cronjob.yaml
+#
+# The report migration 722 owed (improvement_loop lane, 2026-09-03). A site holding
+# growth (WDS-020) — by hand, or born held by 722's trigger — errors nowhere: its loop
+# runs report clean and its growth items sit `deferred`. A site nobody releases therefore
+# stops growing silently. This job lists every held site daily with how long it has been
+# held, raises a finding for a LIVE site held past the threshold, and watches the 722
+# trigger itself (dropped or disabled ⇒ no new site is born held ⇒ a clean report lies).
+#
+# WHY A CRONJOB AND NOT A DISCOVERY CHECK: a per-site check would file a handler-less
+# `detected` row — the exact class of finding nothing acts on and nobody sees (the
+# improvement_loop lane's own opening measurement, 1,385 of them). The watchdog for a
+# silent state must report where a person reads, driven from outside the mechanism.
+#
+# Modelled on site-discovery-staleness-check (same image, same secret, same doc_notes
+# convention — one row per run, clean or not, so a missing row means the job did not run;
+# same direct-Postgres constraint — no pods/exec RBAC here).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: growth-posture-hold-check
+  labels:
+    app: growth-posture-hold-check
+    component: pipeline-integrity
+spec:
+  # Daily. 08:00 UTC is the first free slot after the check window, which the LIVE
+  # schedule (`kubectl get cronjobs`, read 2026-09-03) shows running 06:20–07:55; the
+  # last occupant is loop-sitewide-item-key-check at 07:55. Verify against the cluster,
+  # not against this comment or a neighbour's — those drift.
+  schedule: "0 8 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # One query over ~60 sites plus one doc_notes insert. Five minutes is generous;
+      # a hanging job must not sit in the schedule blocking the next one.
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            app: growth-posture-hold-check
+            component: pipeline-integrity
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 >/dev/null
+                  python3 /scripts/check.py
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 128Mi
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: check-script
+              configMap:
+                name: growth-posture-hold-check-script
+                defaultMode: 365
