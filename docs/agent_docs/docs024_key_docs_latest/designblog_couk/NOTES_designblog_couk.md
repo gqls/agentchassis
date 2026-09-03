@@ -1098,3 +1098,10 @@ worth copying for any future canary here:
    FAVOURABLE case (classifier + imagery guide re-seeded for the vertical's
    temperature) — generic subjects there would be WORSE news than on a bland
    brief.
+
+- 2026-09-03: **424 lane resetting designblog's logo-generation item**
+  (24dff15c…, 3 correct refusals earlier, original logo still serving) for a
+  retry under their transparent-background fix. No collision confirmed (my
+  in-flight: tools-hub needs_page + GTM wave); told them to attribute chrome
+  churn to the GTM wave unless the logo file itself changes. A new logo may
+  land alongside the wave — expected churn, not damage.
