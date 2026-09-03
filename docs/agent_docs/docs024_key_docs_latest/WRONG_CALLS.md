@@ -63460,3 +63460,43 @@ your-action-moves-you-to-the-back-of-the-selector, a-count-of-things-must-carry-
   every mention as one is how this check gets abandoned as noisy.
   Tally: **a-closed-blocker-keeps-being-obeyed** ×2, **a stale banner caused INACTION rather than a
   wrong action** ×1.
+
+## 2026-09-03 — I called the wrong domain "the shopfront" and warned two audiences to protect it (copy_quality_two_stage lane)
+
+**The claim.** Told the owner and the `sedo` lane that **`webdesign.co.uk`** (155 pages) is *"the
+shopfront for the webdesign business — the 'store window'"*, and warned that a valuation landing
+on the wrong one *"is an easy and expensive mix-up"*.
+
+**What actually happened.** They are the other way round. `CLAUDE.md:716`, recording the owner's
+2026-08-04 ruling, reads *"a session hand-wrote the **webdesign.uk** shopfront and shipped it to
+`portfolio-sites/`"*. So the shopfront is **webdesign.uk** — the 18-page one, and also the domain
+the owner had just named as potentially seven figures. I had no evidence of any kind for the claim
+about `webdesign.co.uk`. I inferred "shopfront" from a large page count and a plausible name, and
+the separate phrase *"the storefront"* in `about_page_commercial/PLAN_2026-07-24` refers to
+**fundamentallyai.com**, a third domain entirely, which is probably where the word came from in my
+head.
+
+**Why it was not harmless.** The caution I built on it inverted the real position. I told a lane
+actively pricing domains to guard against a valuation landing on the shopfront by mistake — when
+the shopfront is the one the owner had already, knowingly, valued high. A lane acting on my warning
+would have treated a deliberate decision as an error to be caught.
+
+**What caught it.** A peer relaying an unrelated fact ("both webdesign domains are in scope, and
+they will be the same endpoint one day") made me re-read my own claim before building on it. One
+grep. Nothing else would have — I had already said it twice, to two audiences, and neither queried it.
+
+**The cheap check that would have.** `grep -n "shopfront" CLAUDE.md`. Six seconds, and the answer
+names the domain explicitly. **"Which of these two similarly-named things is the important one" is
+never an inference from size or plausibility — it is a lookup**, and this estate has an entire
+practice (resolve by slug, never by number) built on the same lesson for bug files.
+
+**Why it is worth a row on a day that already has three.** It is the FOURTH instance of one
+pattern in one session, and the first where the invented half was a *property* rather than a
+mechanism: I asserted a field was wired from a shared name, a fence's logic from its output, a
+model's ranking from its results, and now a domain's role from its page count. Same root each
+time — **a plausible attribute asserted in the same voice as a measured one**. The three earlier
+ones were caught by the lane that owned the thing; this one only because a peer happened to mention
+the neighbouring domain. Sitting next to a fact is not knowing it.
+
+Family: cite-the-arm-not-the-function, a-report-is-not-a-measurement,
+prior-art-search-goes-stale, always-give-the-path-for-any-doc-you-name.
