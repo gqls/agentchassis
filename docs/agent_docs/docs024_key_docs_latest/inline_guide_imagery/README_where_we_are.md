@@ -257,3 +257,38 @@ guides still looked the same.
 
 I have said the same to both threads working on this, so nobody reports the first as progress on
 the second.
+
+## 2026-09-03 — there is a third layer underneath, and it explains why the guides cannot be fixed from here
+
+I have twice told you the bottleneck had moved. It has moved once more, and this is the bottom of
+it — so it is worth setting out plainly what the three layers are, because the answer to "why are
+there no pictures in the guides" turns out to be all three at once.
+
+**Layer 1, which I spent a fortnight on: could a picture stay put?** Yes, now. Built, reviewed
+across three rounds, live and verified in the running system. This was the half I was asked to fix
+and it is done.
+
+**Layer 2, found yesterday: does anything build an article out of small illustrated sections?** No.
+An article is composed as a banner, one solid slab of text, and a button. Across 442 article and
+guide pages, exactly one page in the whole estate is built the other way, and it was made by hand.
+
+**Layer 3, found this morning by the darts thread and checked independently by me: are the
+articles even in the plan?** Mostly not. **Around 84% of articles, guides and tool pages have no
+entry in their site's plan at all** — against 2% of home pages and 15% of ordinary content pages.
+The split is by *page type*: the structural pages are always planned, the article pages almost
+never are. A route builds them from a layout held in the code and never writes the plan down.
+
+That third layer is the one that makes the other two unreachable, because everything I built keys
+off the plan. No plan entry means the machinery politely stands aside and the page renders as it
+always did.
+
+**And it corrects something I told you yesterday.** I said nine of the thirteen darts blog pages
+were ready for this. They are — but only because that thread hand-wrote those plan entries once, in
+July, in a single batch, from a note saying *"nobody ever decided what blocks a guide page should
+contain."* The fourteen articles written there since have no entries. So my number described one
+person's tidying-up, not the system working, and I should not have presented it as the latter.
+
+**What I would want you to take from this.** Getting pictures into the guides needs three things
+in order: the articles have to be *planned*, then *composed* into small sections, then the pictures
+*attached*. The third is mine and is finished. The second belongs to the other imagery thread. The
+first does not appear to belong to anyone, and it is the one that blocks the rest.
