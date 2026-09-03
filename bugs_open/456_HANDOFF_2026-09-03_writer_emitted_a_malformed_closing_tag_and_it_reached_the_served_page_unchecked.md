@@ -83,3 +83,8 @@ the volume.
   `curl -s https://finetuning.uk/technical-details.html | grep -c '</strom>'` → 0, with the
   `markup_normalised` log line present if the writer misspelt a tag again, absent if it did not.
   Control: the pre-fix page (this one) reads 1.
+
+> **CORRECTED 2026-09-03 (same morning, copy lane):** §4's shrink is NOT a property of rebuilds.
+> The homepage rebuilt in the same dispatch loop **grew** 1,804 → 2,042 words (+13.2%) against
+> technical-details' −33.5%. Per-page writer variance, not a rebuild effect; the 422 file should
+> not read §4 as general.

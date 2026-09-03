@@ -2569,3 +2569,14 @@ one the page still has most of.
 Case-studies-grid cards are unnamed illustrations ("A financial services team needed…"), as
 rule 15/17 of the writer prompt requires; the 04-23 audit wanted real ones. Same as before the
 rebuild; flagged to the owner in one line, not acted on.
+
+**10:58Z — copy lane's homepage after-pass (commit `5562805a9`) confirms the artefact read:** 9 in,
+3 out (6 repairs, 2 rejections, 0 exempt; content_data 13 → 2); the page GREW 1,804 → 2,042 words
+(+13.2%), so the technical-details shrink was that page's writer, not a rebuild property
+(`bugs_open/456` §4 corrected). Two calibration questions for the owner, put together at their
+request: (1) the **"gutted" rejection** — "We pick the tool suited to each task rather than pushing
+one platform across everything you need." → "We pick the tool suited to each task." was REFUSED by
+`AcceptNegationRewrite`, which is the same operation he ordered on his own sentence; his ruling and
+the judge disagree on how much a truncation may remove; (2) the **"so" consequence clause**, the
+one shape both pages still carry that the register does not see. The `no_answer_for_target`
+rejection is a live instance of a class already sized at 13.6% of 1,849 targets (their re-ask work).
