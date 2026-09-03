@@ -21271,3 +21271,46 @@ END $$;
   that structurally cannot exhibit the effect" — **a true number counted over a population that
   cannot show the thing you are asking about.**
 - **added:** 2026-09-03, copy_quality_two_stage lane
+
+### A `js_snippets` snippet that finds its mount with `querySelectorAll` binds ZERO listeners and reports nothing — the bundle is a SYNCHRONOUS `<head>` script, and self-guarding is a per-snippet convention nothing enforces
+
+- **footprint:** `js_snippets` (`js_content`) · `render_js_snippets_for_site` · `/assets/js/snippets.js` · any new site snippet or widget · `docs/agent_docs/sql_for_agents/651_robot_hands_gripper_report_page.sql` · `document.querySelector` / `querySelectorAll` at IIFE top level · `bugs_open/465`
+- **the trap:** the site chrome includes the snippet bundle as a **plain synchronous
+  `<script>` inside `<head>`** — no `defer`, no `async` (measured on
+  `/gripper-report.html`: tag at line 2219, `</head>` at 2238). So every snippet runs
+  **while `<head>` is still parsing, before `<body>` exists.** A snippet that looks for
+  its mount point then finds nothing. Whether yours survives is decided by whether its
+  author happened to add a `readyState`/`DOMContentLoaded` guard — **9 of 18 rows did
+  not** `[MEASURED 2026-09-03]`.
+- **the tell:** *there isn't one*, and that is the entry. `querySelectorAll` returns an
+  **empty NodeList**, so `.forEach` iterates zero times — no null to guard, no exception,
+  no log line. The snippet ran, completed, and did nothing. (`querySelector` at least
+  returns `null`, which an `if (!el) return;` bails on just as silently.) The page looks
+  merely *unfinished*, which reads as a copy or layout problem, not a JS one.
+- **⚠ the check that FAILS here — and it failed twice on the same widget:** grepping the
+  served bundle for your code, and the served page for your mount div. **Both passed
+  while no button existed.** They prove shipment, not binding. `[MEASURED 2026-09-03]`
+  `grep -c DOMContentLoaded` over the bundle is a real check *only* if you know the
+  expected count: it returned **1** while ours was broken — the carousel's pre-existing
+  guard — so `>= 1` passes on the defect and **2 was the pass, 1 the fail**.
+- **the check:** run it, don't read it. Execute the snippet under a DOM stub reproducing
+  the real load order (`querySelector` returns null while `readyState === 'loading'`),
+  **with the OLD version as a negative control** — a harness that only ever runs the new
+  code is asserting its own bookkeeping. Old: 0 listeners, no element. New: 1 listener,
+  element after `DOMContentLoaded`. Then have a human load the page; that is the only
+  place the proof exists. Working guard shape, copyable from seed 651:
+  `function init(){…}` + `if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); } else { init(); }`
+- **⚠ before you fix it one row at a time:** the exposure is generic, not yours. **8 of
+  the 9 unguarded rows query the DOM** (`accordion`, `copy-to-clipboard`,
+  `counter-animate`, `form-validation`, `lazy-load-images`, `mobile-menu-toggle`,
+  `smooth-scroll`, `typing-effect`). The class ends by emitting `defer` on the bundle tag
+  — one renderer change, no snippet touched — not by adding a ninth guard. `bugs_open/465`
+  carries the census, the three things that stand between a library row and live damage
+  (bundle membership, markup presence, per-template head placement — **none measured
+  yet**, so do not quote "8 broken features"), and the fix candidates ordered.
+- **source:** robot_hands_gripper_dossier lane, 2026-09-03. The gripper intake widget
+  rendered no clickable element; two prior sessions read it as working off bundle+mount-div
+  greps (logged in `WRONG_CALLS.md` same day). The generalisation was **not** noticed by the
+  fixing thread — the council's `bug_historian` seat objected on scope (corr
+  `5775dc10-c791-4285-9f4c-249a055b5aa3`, round 1), and the census confirmed the seat.
+- **added:** 2026-09-03, robot_hands_gripper_dossier lane
