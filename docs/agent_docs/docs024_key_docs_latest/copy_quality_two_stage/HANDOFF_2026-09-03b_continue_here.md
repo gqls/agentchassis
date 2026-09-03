@@ -72,6 +72,19 @@ is the most dangerous carrier for an invented cause.
    needle in `NOTES`, this file and `scripts/fire-content-gap-planner.sh` in the SAME commit.
 3. **`679` opted a dead agent in.** Roll back, revive, or leave recorded. Recommended: roll back
    unless a design agent is meant to exist.
+   **WHY it is dead (owner asked; read, not inferred, 2026-09-03 ~18:00Z):** `visual-designer`
+   is a **first-generation agent from 2025-08-10** (website-builder group, migrations
+   `003`/`005`/`007`), description *"Handles images, logos, and visual assets"*, still version 1.
+   Its jobs were decomposed into the build pipeline and it was never re-wired: imagery went to
+   `image-generator` / `image-build-handler` (both ran today), design direction went to
+   `build-site-planner`'s own `emit_design` step ("Plan-time design trigger: queue
+   needs_composition + needs_design") plus `design-discovery-agent` / `visual-design-auditor`
+   (**31** LLM calls today). Nobody deleted the row. **Honest bound on "zero calls":**
+   `llm_call_log` starts **2026-03-25**, so that is zero in five months, not since birth — it may
+   have run in the seven months the log cannot see. **Sharper recommendation: roll `679` back.**
+   The build standard already reaches design work through `build-site-planner`, which IS opted in
+   and IS rendering it; a second delivery to a row nothing loads adds nothing and keeps the
+   propagation reading three-for-three when it is two.
 4. **Which built sites are for sale** (the one that BLOCKS work): the about-commercial-block
    renders on nothing until each site has a `site_specs.commercial` row, and today **exactly one**
    site fleet-wide has `for_sale_requested=true` (relojistas.com). He said built sites "should be
