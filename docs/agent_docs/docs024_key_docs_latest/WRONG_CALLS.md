@@ -64238,3 +64238,13 @@ open on the grounds that it was divergent.
   it mechanically rather than describing it — a `planned` page has no lock on it, and asking is not one.
 - **Cost.** Three unwanted tool pages live on a site whose brief plans four different tools, plus the
   rework of retiring pages rather than declining to build them.
+
+**Addendum, same session, operational rather than a false claim:** I put backticks around
+`ordering` inside a `git commit -m "…"` message. Bash executed it as a command
+substitution, `ordering: command not found` went to stderr, and the committed message reads
+*"the four positional consumers of  (including …)"* — the word silently deleted. Forward-only
+forbids an amend, so it stands. This is a **documented landmine already in MEMORY**
+("backticks in `-m` execute"), read at session start, and hit anyway five commits later
+while writing about a different trap. The tally is the point: knowing a trap and being
+mid-flow on something else are independent. The cheap check is to use a heredoc
+(`git commit -F -`) for any message containing backticks, or single-quote the word.
