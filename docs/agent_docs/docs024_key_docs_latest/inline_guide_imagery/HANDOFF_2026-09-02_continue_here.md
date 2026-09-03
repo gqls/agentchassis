@@ -121,6 +121,50 @@ binding down — rather than mis-binding — when the plan's order and the live 
 
 ---
 
+## 3b. ⚠ THE LAYER BELOW EVERYTHING ELSE: ~84% of articles are NOT IN THE PLAN AT ALL
+
+**Found by `dartsonline_traffic` 2026-09-03, independently reproduced here with the join control
+they asked for.** This bounds IMG-075 harder than the composition gap, and it is **this lane's own
+first stated degrade case**: no `site_plan_sections` row for the page → `planSectionOrder` returns
+nil → binding disabled → page-wide resolution. It cannot engage at all.
+
+`[MEASURED 2026-09-03, active pages on the 33 sites that have a current plan with sections]`:
+
+| page_type | built | in plan | absent | % absent |
+|---|---|---|---|---|
+| tool | 294 | 49 | 245 | **83%** |
+| blog-post | 262 | 40 | 222 | **85%** |
+| guide | 96 | 25 | 71 | **74%** |
+| content | 149 | 126 | 23 | 15% |
+| section-index | 56 | 46 | 10 | 18% |
+| landing | 49 | 48 | 1 | **2%** |
+
+**The split is by page TYPE, not site health** — structural pages are essentially always planned,
+content pages essentially never. So a site passes every site-level "is it planned?" check while
+sending every article it owns down the fallback path.
+
+✅ **Join control (they flagged their own join as verified on one site only):** `pages.name =
+site_plan_sections.page_name` — **0 of 33 sites have zero joining pages**, so the
+naming-mismatch confound does not apply anywhere in this population. The `landing` row at 2%
+absent is a second built-in control: a broadly broken join could not produce it.
+
+**Their mechanism:** `create_blog_posts_action.go:183` holds the canonical article layout
+`["hero","article-body","call-to-action"]` in the action and builds from it **without writing plan
+rows**. `[UNVERIFIED BY ME]` — code claim relayed, not read.
+
+⚠ **AND IT CORRECTS SOMETHING I PUBLISHED.** I reported "9 of dartsonline's 13 `/blog/*` pages bind
+today" and implied that was the framework working. **Confirmed here:** all 27 plan rows for those
+nine pages share **one timestamp, `2026-07-29 13:28:03.58521Z`** — a single hand-written backfill
+by that lane, from a seed whose header says *"Nobody ever decided what blocks a guide page should
+contain."* The 14 articles created there since have no plan rows. **So my figure was a fact about
+one seed, not about the platform**, and reading it as the latter badly overestimates how many
+pages anywhere are ready for this mechanism.
+
+**So the ordering is three deep, and this lane owns only the top:**
+`get articles into the plan` → `compose them with illustrated blocks` → `bind figures per section`.
+The third is IMG-075 and is done. The second is `editorial_design_uplift`'s. **The first looks like
+nobody's.**
+
 ## 4. Where the actual ask stands: the binding was NOT the bottleneck
 
 `[MEASURED 2026-09-02]`
