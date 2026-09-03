@@ -44,11 +44,14 @@ yet** — see §3 item 1.
 
 ## 2. WHAT THIS SESSION DID
 
-**417 verification finished.** Disconfirmation A (did the clause reach the generation?) **6/6**;
-disconfirmation C (did the model obey it?) **5/6 eye-checked, all clean** — boxingonline,
-advertise, designblog, seotools, websitepromotion. Zero lettering, single composition, no invented
-brand on any. **421's two-panel shape did not recur.** Only `gamedesign.uk` (17:58Z 09-02) has not
-been looked at; it carries the clause.
+**417 verification COMPLETE.** Disconfirmation A (did the clause reach the generation?) **6/6**;
+disconfirmation C (did the model obey it?) **6/6 eye-checked, all clean** — boxingonline, advertise,
+designblog, seotools, websitepromotion and **gamedesign.uk** (a woven lattice mark; captured
+2026-09-03 09:40Z, minutes before the 424 lane regenerated it). Zero lettering, single composition,
+no invented brand on any. **421's two-panel shape did not recur in six.**
+⚠ **That last one was nearly lost.** The 424 lane flagged it was about to reset those three sites'
+logo items; a regeneration UPSERTs the row and the old artefact is gone. **A peer's fix can destroy
+the evidence you still owe — capture it when you hear the plan, not when you get to it.**
 
 **A live repair, at the owner's instruction.** `websitepromotion.co.uk` had a logo asset and a text
 header. Chrome re-rendered, then 11 hand-filed assemble-mode `page_rerender` items — **25/25 served
@@ -78,10 +81,16 @@ pages now carry `<img class="logo-img">`**, invented-path control 404, logo file
    artefact. **Verify at the bytes, not the status:** RUNBOOK §"Fetch a generated asset's BYTES".
    ⚠ **This dispatches work at another lane's sites — the 424 lane said it is theirs to fire
    post-roll. Coordinate; do not just do it.**
-2. **Eye-check `gamedesign.uk`'s logo** — the one outstanding 417 data point. ~2 minutes with the
-   RUNBOOK recipe. (Its *transparency* is already known bad; this is about lettering.)
+2. ~~Eye-check `gamedesign.uk`~~ **DONE 2026-09-03 09:40Z — clean.** 417 is now 6/6 on both
+   disconfirmations.
 3. **The fence decision** (417) — still deliberately not taken. 5/5 clean is now the evidence base.
 4. **417 and 420 stay OPEN** per the fixed-AND-live bar; 420 also on its §C residual.
+5. **Watch the 424 lane's rerun.** They reset `designblog` / `seotools` / `gamedesign`'s
+   `needs_imagery:site:-:logo` items to `triaged` (owner-authorised) so the queue retries them under
+   the fixed guard. **Their result is 417 evidence too** — but ⚠ **do NOT read `assets.updated_at`
+   to decide whether a regeneration happened.** gamedesign's row was bumped 2026-09-03 00:55:58Z
+   with **no regeneration behind it** — proven by re-fetching the object and getting a byte-identical
+   md5 to the copy pulled ~12 h earlier. Use the **storage key's date directory** (§5 item 4).
 
 ---
 
