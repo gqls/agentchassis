@@ -588,3 +588,77 @@ for a guarantee. It would turn "we do not know the exposure" into a number, for 
 
 **Not built here either** — it is a new check, and the class fix this file was opened for is done,
 approved and live. Recorded so the option is visible to whoever picks the trigger up.
+
+---
+
+## THE FENCE TRIGGER — first readings from the FIXED pipeline (2026-09-03, both fixes live)
+
+The trigger above asks for *"the next several logo generations, across different sites, each
+censused for the clause and eye-checked"*, with the outcome written **as a rate, never as
+"it works"**. Here are the first generations produced with BOTH 417's prompt fix (`b2322a203`) and
+424's guard fix (`fcbe6071c`) live together (`v1.0.1356`, rolled 08:57Z; re-confirmed as ancestors of
+the later `v1.0.1358` adapter stamp `d0252fd4d`, with a negative control).
+
+| site | generated | key date dir | prompt carried licence + override | lettering? | verdict |
+|---|---|---|---|---|---|
+| seotools.co.uk | 09:30Z | `20260903/` ✅ new | **both** (`wordmark=t`, `text_free=t`) | **none** | clean |
+| gamedesign.uk | 11:41Z (attempt 3) | `20260903/` ✅ new | **both** | **none** | clean |
+| designblog.co.uk | — | `20260902/` (unchanged) | n/a | **no artefact** | see below |
+
+Both clean marks were eye-checked at the **served bytes** with a 404 invented-path control:
+seotools a magnifying glass over a woven lattice; gamedesign an abstract maze in terracotta and tan.
+Single composition each, zero lettering, no invented brand. **421's two-panel shape did not recur.**
+
+**Both were the adjudication case.** Each prompt still contained the wordmark licence *and* the
+text-free override, so in both the override had to win on the model's own reading — which is exactly
+the situation the fence would remove by construction.
+⚠ The clause census was **re-run against the post-regeneration rows**, not carried over from the
+morning's. gamedesign's row had been censused before its 11:41Z regeneration; an `origin_prompt` is
+replaced by the UPSERT, so the earlier reading described a prompt that no longer existed. Re-checked
+at `updated_at = 11:41:02Z` on the `20260903/` key: both clauses present.
+
+### designblog contributes NOTHING to this trigger, and that must not be miscounted
+
+Its three attempts were all **guard refusals** — `border_keyed=0.000, want >= 0.95 — refusing to
+store` (item error, 11:36:58Z), correctly storing nothing. **No artefact exists to eye-check**, so it
+is neither a clean generation nor a lettered one. Counting a refusal as a clean run would inflate
+this trigger's evidence base with runs that never tested the prompt at all.
+⚠ Checked explicitly that this was a refusal and not a run killed by the 12:06Z chassis roll: the
+refusal is timestamped **before** the roll and carries the guard's own statistic. A killed run leaves
+no such line while still consuming an attempt, and the two are otherwise indistinguishable from the
+item status alone.
+
+### The rate, and the failure rate this sample could actually detect
+
+**8 clean generations, 0 lettered, as of 2026-09-03** (6 eye-checked pre-fix per the 09-03 handoff,
+plus seotools and gamedesign post-fix).
+
+**That bounds the lettering rate at roughly ≤ 31% with 95% confidence** (rule of three: 3/8 ≈ 0.31)
+— and that is the honest statement. It is a **weak** bound. It does not license *"the override
+works"*, it does not close the trigger, and the failure mode remains **silent**: a lettered logo
+passes every automated check and is caught only when a human opens the file.
+
+**Recommendation, unchanged in direction and now better grounded: keep the fence UNBUILT, keep the
+trigger OPEN.** Nothing has refuted the override, and 2 of the 2 real post-fix opportunities came
+back clean — but 8 runs cannot distinguish "reliable" from "fails one time in five".
+
+### The exposure figure the fence section asked for is now answerable — and it is total
+
+The section suggests a cheap intermediate: *count how often we are relying on adjudication at all* —
+logo prompts whose `origin_prompt` contains BOTH a wordmark licence and the policy clause.
+
+**Measured 2026-09-03: 5 of 5 sampled sites carry BOTH** (boxingonline, designblog, gamedesign,
+seotools, websitepromotion — `origin_prompt ILIKE '%wordmark%'` AND `LIKE '%Render a text-free
+mark%'`, both true on every row).
+
+**So we are relying on adjudication in every case, not occasionally.** That is the number the fence
+section wanted, and it is the strongest argument *for* eventually building the fence: there is no
+population of prompts where the licence is simply absent and the override is redundant. The override
+is load-bearing on 100% of logo generations `[MEASURED 2026-09-03, n=5]`.
+⚠ That census is a **literal match**, which 417's own finding says is a floor — the model rewords
+the licence. A floor is a legitimate instrument for a *measurement*; it would not be one for a
+guarantee. Being a floor, the true figure can only be **higher**, never lower, which is the direction
+that makes the conclusion safe.
+
+**See also `bugs_open/462`** — a separate gap found while eye-checking these: the marks are text-free
+and correctly matted, and nothing in the estate checks whether one is legible against its header.

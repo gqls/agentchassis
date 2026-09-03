@@ -251,3 +251,66 @@ possibly another pale one, since nothing in the pipeline currently asks for a ma
 against a white header. If you would rather I raise that last point as a proper bug — "nothing
 checks whether a logo is visible on the header it sits on" — say so and I will, once I have
 checked who owns the imagery-quality side.
+
+---
+
+**2026-09-03 (later) — the test we were waiting for has happened, and the logos come back clean.**
+
+You asked two things this morning and both are done or under way.
+
+**First, the big one: the logo fix works.** Two sites have now generated a brand new logo with both
+fixes switched on, and I looked at both pictures rather than trusting the green ticks.
+
+`seotools.co.uk` came back with a magnifying glass over a woven lattice pattern. `gamedesign.uk`
+came back with an abstract maze in terracotta and tan. **Neither has a single letter on it, and
+neither invented a brand name** — which is the whole thing this bug was opened about.
+
+What makes those two worth more than they look: in both cases the instruction that causes the
+problem was *still in the prompt*, sitting alongside the correction we added. So the model had to
+choose, and both times it chose correctly. That is the harder test, not the easier one.
+
+**Second, a site failed, and it failed correctly.** `designblog.co.uk` tried three times and was
+refused all three times — the safety check looked at what the model produced, decided the background
+had not been removed properly, and threw it away rather than publishing it. So that site is still
+showing its old poor logo. Nothing is broken; the guard did its job. But it means three tries were
+not enough for that one, and the lane that owns the guard already has an open question about whether
+the retry limit should be higher. This is now a real example rather than a hypothetical.
+
+I was careful about one thing there. A fresh version of the system was deployed at 12:06, and a job
+interrupted by a deployment looks *exactly* like a job that was refused — same failed status, same
+missing result. I checked the timing and the refusal happened half an hour before the deployment,
+with the safety check's own reading attached. So it genuinely was refused, not interrupted. Worth
+saying because reporting it the other way would have put a false black mark against another team's
+fix.
+
+**Third, I have filed the "the logo is too faint to see" bug**, as you approved. It is number 462.
+
+While writing it up I found the argument is stronger than I first thought. The reason the existing
+checks skip this is written down in the code, and it is a *good* reason: when text sits on top of a
+photograph, there is no single background colour, so any contrast measurement would be guesswork,
+and acting on guesswork would create churn. That is right.
+
+But our case is the opposite of that in every respect. The logo *is* the image, and it sits on the
+header's own solid colour, which the site itself declares. Nothing is guesswork — both numbers are
+known exactly. So the sensible rule that excludes the hard case does not actually cover ours; we
+just fall down the gap between two reasonable decisions. That is a much better bug than "somebody
+forgot to check".
+
+I also checked the header really is white rather than assuming it, because the entire measurement
+depends on that one number.
+
+**Fourth, your logo regeneration for `websitepromotion.co.uk` is queued and running now.** I gave it
+three fresh attempts rather than the one it had left, because the evidence says the margin matters:
+of the three sites that just went through this, one needed two attempts, one needed three, and one
+ran out. With a single attempt it would probably have failed for no good reason.
+
+If it fails entirely, the current logo simply stays — the failure mode is "no change", not "worse".
+I will report what actually comes out, including if it comes back pale again, which would be bug 462
+happening in front of us.
+
+**One thing I got wrong, and caught.** Looking at the new gamedesign logo, the white areas inside the
+maze looked solid to me, and I worked out a plausible reason why the safety check would miss that —
+it only inspects the outer edge. I was about to pass it to the other team as a finding. I measured
+it first and it was simply false: those areas are see-through, and they look white because the page
+behind them is white. One command, and it saved someone a wasted investigation. A picture cannot
+tell you what is transparent when everything behind it is white.

@@ -286,3 +286,89 @@ today)."*
 
 Still true and still worth keeping: a `Host:` override against the worker is 403'd by Cloudflare,
 and a parked domain 200s every path — so **always run the invented-path control**.
+
+---
+
+## 2026-09-03 (session 3) — the clean test happened, and it was mostly other lanes' runs
+
+**State on arrival.** The 09-03 handoff's ⭐ item was "trigger ONE logo regeneration and look at it",
+with a warning to coordinate because the 424 lane owned those sites. On checking, that had already
+started: 424 reset three logo work items at 09:23:49Z and `seotools.co.uk` regenerated at 09:30Z —
+the first artefact ever produced with both fixes live. So the test needed watching and reading, not
+triggering.
+
+**seotools, read at the served bytes (09:45Z).** 200, 26,975 B, RGBA, 404 invented-path control.
+Storage key under `20260903/` — the sound instrument, since `updated_at` has already lied once on
+this fleet. Eye-check: a magnifying glass over a woven lattice. **No lettering, single composition,
+no invented brand.** Its prompt carried the wordmark licence AND the text-free override, so this was
+the adjudication case, and the override won.
+
+**gamedesign, read at 12:28Z.** Completed 11:41:09Z on **attempt 3**. md5 changed
+(`b4f0ed1091f9` → `01076df06e90`), 298,938 B → 76,830 B, key `20260903/`. Eye-check: an abstract
+maze in terracotta/tan. **No lettering, single composition.** Contrast median 2.39:1, max 6.46:1 —
+legible.
+
+**designblog FAILED, all 3 attempts, and it is NOT evidence for 417.** Error, verbatim:
+`border_keyed=0.000, want >= 0.95 — refusing to store`. A genuine guard refusal, so **no artefact
+exists to eye-check**. Recorded in 417 explicitly because counting a refusal as a "clean generation"
+would pad the fence trigger's evidence base with runs that never tested the prompt.
+⚠ Confirmed it was a refusal rather than a run killed by the 12:06Z chassis roll — the refusal is
+timestamped 11:36:58Z, *before* the roll, and carries the guard's own statistic. A killed run leaves
+no such line while still burning an attempt, and from the item status alone the two look identical.
+
+### A hypothesis I formed from the image and the measurement REFUTED
+
+Looking at gamedesign's maze, the white regions *inside* the mark looked opaque, and I reasoned that
+`BorderKeyed` measures only the outermost ring, so enclosed ground would survive the guard **by
+design** — a real gap, and one worth telling the 424 lane about.
+
+**Measured it before saying so, and it is false.** Near-white opaque pixels: **gamedesign 0,
+seotools 0**, websitepromotion 41 (0.05%). The white I was looking at is transparency showing the
+page through. The matte reached the interior regions too.
+
+The cheap check took one command and would have cost the 424 lane a wasted investigation had I sent
+it as a finding. **The image is not the alpha channel** — what looks opaque against a white page is
+indistinguishable from what is transparent against a white page, which is precisely why this needed
+a measurement and not a look.
+
+### Despill fringe, since 424 asked for readings on a good result
+
+Magenta-ish opaque pixels as a fraction of the image: **gamedesign 0.01%, seotools 0.05%**, versus
+**websitepromotion 0.62%** (pre-fix). Substantially better on both post-fix artefacts.
+
+### The exposure figure, and why a literal is legitimate here
+
+`origin_prompt` census, 5 sites: **5 of 5 carry BOTH the wordmark licence and the text-free
+override** `[MEASURED 2026-09-03]`. So the override is load-bearing on every logo generation, not
+occasionally — there is no population where the licence is simply absent.
+This is a literal match, which 417's own finding says is a floor. Legitimate for a **measurement**
+(and only a measurement): being a floor, the true figure can only be higher, which is the direction
+that keeps the conclusion safe.
+⚠ **Re-ran this census against the post-regeneration rows.** The morning's reading of gamedesign
+described a prompt that no longer existed — the UPSERT replaces `origin_prompt` along with the
+artefact. Dated evidence about a row that has since been rewritten is not evidence about the row.
+
+### websitepromotion regeneration — attempt_count reset to 0, deliberately
+
+Owner approved regenerating it now the matting fix is live. Used the **work-item reset**, not a
+hand-built `orchestrate` publish, which avoids the missing-ORCHESTRATION-headers trap that cost this
+lane ~50 minutes on 09-02.
+
+Followed 424's reset shape with **one deliberate difference: `attempt_count` reset to 0.** 424 kept
+theirs because those were genuine retries of a run that had failed; this item had **succeeded** (it
+produced the pale logo), so this is a fresh owner-authorised request and the ladder should start at
+zero. The evidence says the margin matters: seotools needed 2 of 3 attempts, gamedesign needed 3 of
+3, and designblog exhausted all 3 and stored nothing. Leaving the counter at 2 would have given this
+one attempt against a guard that refuses roughly as often as it passes.
+
+Bounded downside, stated before firing: if every attempt is refused, nothing is stored and the
+existing logo keeps serving. The failure mode is "no change", not "worse".
+
+### Fired into a settled cluster, not a rolling one
+
+A fresh chassis (`v1.0.1358`) rolled at 12:06:47Z / 12:07:16Z. A spawn dispatched within ~300s of a
+chassis restart is **silently dropped**, so the reset was held until 12:30Z. Re-verified both fixes
+against the **new** adapter stamp `d0252fd4d` rather than carrying `7bf1ff674` forward —
+`b2322a203`, `fcbe6071c` and `6440ec968` all ancestors, with HEAD as a negative control (correctly
+not an ancestor). Ancestry, not dates: `kubectl` prints UTC and `git log --date=format:` prints
+`+01:00` with no visible offset.
