@@ -124,7 +124,8 @@ live change. In priority order:
    > read, none was a stretch.** So it is a screen, not a verdict — but it turns a 93-pair editorial
    > job into a 5-pair one.
    >
-   > **⚠⚠ THE FINDING THAT MATTERS: THE ABSENCE IS *PRICE*, NOT "EFFORT/PRACTICALITY".**
+   > **⚠⚠ ~~THE FINDING THAT MATTERS: THE ABSENCE IS *PRICE*~~ — REFUTED THE SAME DAY. I MEASURED
+   > MY OWN PROMPT. Read the correction below before quoting any number in this block.**
    > `[MEASURED 2026-09-03 12:38:58Z]` **5 of 7 `money_flow` questions are unanswered. Every other
    > source field is a clean ZERO** (`trust_threshold` 0/28, `satisfaction_condition` 0/22,
    > `recurring_value` 0/15, `value_proposition` 0/9, `competitive_position` 0/8). The register
@@ -138,7 +139,52 @@ live change. In priority order:
    > This also sharpens H4 honestly: H4's "19 of 186 points address effort or practicality" was a
    > regex proxy, and the entry above it in NOTES records this lane nearly reporting a **widened**
    > regex as an improvement. `idea.uk` and `remortgagecalculator.uk`'s effort questions **were**
-   > answered (by the stretched joins), so effort-in-general is not the gap. **Price is.**
+   > answered (by the stretched joins), so effort-in-general is not the gap. ~~**Price is.**~~
+   >
+   > > **⚠⚠ CORRECTED 2026-09-03 evening — refuted by `copy_quality_two_stage` within the hour by
+   > > reading the deciding arm of the prompt, which I never opened. I verified their reading
+   > > independently; it holds. Full account: NOTES, "I MEASURED MY OWN PROMPT".**
+   > >
+   > > **`lead_with` — the ANSWER side of the join — is derived from EXACTLY FOUR named fields**
+   > > (`satisfaction_condition`, `value_proposition`, `trust_threshold`, `recurring_value`), and
+   > > **`money_flow` is not one of them.** `[MEASURED 2026-09-03, my own count over the live
+   > > 9,643-char prompt]` occurrences of `money_flow`, `price`, `cost`, `pay`, `charge`, `£`:
+   > > **zero, all six.** And the join rule says *"Do NOT stretch a point to cover a question it does
+   > > not answer, and do NOT add a lead_with point merely to close a gap."*
+   > > **So `unanswered: true` on a price question was GUARANTEED before any site was analysed.**
+   > >
+   > > **The defect is mine and it is sharper than "money_flow is missing": the two halves read
+   > > DIFFERENT POOLS.** The question side is told *"Derive each question from a named field of the
+   > > strategy you were shown"* — the WHOLE register — while the answer side reads four fields of
+   > > it. **Any question sourced outside those four is unanswerable by construction**, which is
+   > > exactly the three fields that carry unanswered questions (`money_flow`, `growth_path`,
+   > > `recommended_page_types`).
+   > > ⚠ **Disconfirmed in one place, stated rather than hidden:** `competitive_position` is also
+   > > outside the four and has **0 unanswered of 8** at rank 2.9 — probably because
+   > > `value_proposition` covers the same ground. So the rule is "outside the four is unanswerable
+   > > **unless another of the four covers the same ground**".
+   > >
+   > > **My proposed CAUSE is refuted too.** I wrote that the model ranks by how well it can answer;
+   > > the prompt says *"Rank 1 is the FIRST doubt, not the one most important to us."* Their better
+   > > account is the **exemplar** — *"what will this actually get me and how much work is it to get
+   > > it"* names outcome and effort, never price. ⚠ Hold the RANK half loosely (`recurring_value` IS
+   > > named and sits at 4.7); hold the JOIN half firmly.
+   > >
+   > > **WHAT SURVIVES:** the model raised price questions on six sites **unprompted** — nothing in
+   > > the prompt names price — and ranked them 4.6 rather than dropping them. That is evidence about
+   > > the VISITOR, not about our copy, and it is why the defect is worth fixing.
+   > > **WHAT DOES NOT:** "the register does not answer what this costs me." The measurement cannot
+   > > distinguish that from "the instrument cannot represent a price answer", and the two want
+   > > opposite responses — an editorial campaign across 18 sites, or a one-clause prompt fix.
+   > >
+   > > **⚠ OWED, NOT DONE: the prompt fix, and it needs the owner on one point.** Add `money_flow` to
+   > > TASK 1's source fields, or name price in the exemplar, or both — my prompt, my agent, my
+   > > change. But `lead_with` requires *"a benefit to the reader, never a description of us or of our
+   > > inventory"*, so **someone must decide whether "£29, no subscription" is a benefit worth
+   > > LEADING WITH, or whether price is a doubt we deliberately answer further down the page.** That
+   > > is a judgement about how these sites sell and it wants his word, not ours.
+   > > ⚠ And migration `723` edited this same prompt — anchored replaces on DISJOINT anchors, and see
+   > > §2.1: `723` is not idempotent, so do not model the new one on it.
 2. **The two switched-off things — ruled, built, unstarted, and mine.**
    `[MEASURED 2026-09-02]` `info-card-grid`'s `carousel` flag is ON for **1 of 49** instances while
    the owner has **ruled it default-on**; and `Illustrated Text Block` is still chosen on **one site**

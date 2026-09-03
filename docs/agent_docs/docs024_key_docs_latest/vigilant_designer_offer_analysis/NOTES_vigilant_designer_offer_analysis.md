@@ -3894,3 +3894,103 @@ here** — but nobody should quote either figure until one of us has reconciled 
 already corrected to three of five, because two were driven within days). Make it three of six, or
 possibly two of six — **the pattern claim keeps shrinking every time it is re-measured, which is
 itself the finding.** Do not press it to the owner again without re-running it.
+
+---
+
+## 2026-09-03, evening — ⚠⚠ CORRECTION: "THE ABSENCE IS PRICE" IS NOT ESTABLISHED. I MEASURED MY OWN PROMPT.
+
+**Refuted by `copy_quality_two_stage` within the hour, by reading the deciding arm of the prompt —
+which I never opened. I have verified every part of their reading independently and it holds.**
+
+### What they found
+
+`lead_with` — the answer side of the join — is derived from **exactly four** named fields. TASK 1,
+verbatim from the live prompt:
+
+> *"satisfaction_condition says what this reader is trying to achieve; value_proposition says what
+> this site offers that others do not; trust_threshold says what this reader needs before acting;
+> recurring_value says why they come back. **Those are four prose paragraphs. Turn them into a RANKED
+> list of what a page on this site should lead with**"*
+
+**`money_flow` is not one of them.** `[MEASURED 2026-09-03, my own count over the live 9,643-char
+prompt]` occurrences: `money_flow` **0** · `price` **0** · `cost` **0** · `pay` **0** · `charge`
+**0** · `£` **0**. Against `satisfaction_condition` 2, `value_proposition` 2, `trust_threshold` 2,
+`recurring_value` 1.
+
+And the join rule forbids the model from covering the gap — verbatim:
+
+> *"Do NOT stretch a point to cover a question it does not answer, and do NOT add a lead_with point
+> merely to close a gap."*
+
+**So a `money_flow` question has nothing it could legitimately join to, and `unanswered: true` is the
+CORRECT output of the instrument. It was guaranteed before any site was analysed.**
+
+### The defect is MINE, and it is sharper than "money_flow is missing"
+
+Reading the two halves together — which is the thing I should have done before publishing anything —
+**the question side and the answer side draw from DIFFERENT POOLS, and I wrote both.** Verbatim:
+
+| half | what it is told to read |
+|---|---|
+| the QUESTION side | *"Derive each question from **a named field of the strategy you were shown**"* — the whole register |
+| the ANSWER side (`lead_with`) | the **four** fields named in TASK 1 |
+
+**Any question sourced outside those four is unanswerable BY CONSTRUCTION.** That is not a property
+of our sites; it is a property of the instrument. And it predicts the result exactly: the three
+fields carrying unanswered questions — `money_flow`, `growth_path`, `recommended_page_types` — are
+all outside the four.
+
+> ⚠ **The strict version of that mechanism is DISCONFIRMED in one place and I am not hiding it.**
+> `competitive_position` is also outside the four, gets **0** prompt mentions, and yet has **0
+> unanswered across 8 questions** at mean rank 2.9. The likely reason is that `value_proposition`
+> ("what this site offers that others do not") is itself a differentiation field, so a
+> competitive-position question finds a real answer among the four. So the rule is "outside the four
+> is unanswerable **unless another of the four covers the same ground**", which is weaker and is what
+> the evidence actually supports. Their caution, and they were right to make it.
+
+### And it refutes my proposed CAUSE as well
+
+I wrote that the model "is ranking by how well it can ANSWER, not by how early the doubt arrives."
+**The prompt says the opposite, in terms, and I wrote that too:**
+
+> *"Rank 1 is the FIRST doubt, not the one most important to us."*
+
+Their better account: the **exemplar** is what omits price —
+
+> *"For most sites that is some form of what will this actually get me and how much work is it to get
+> it"*
+
+— which names **outcome and effort and never price**, and explains why `idea.uk`'s and
+`remortgagecalculator.uk`'s EFFORT questions rank early and answer cleanly. ⚠ Hold the rank half of
+that story loosely (`recurring_value` IS named and sits at 4.7); hold the **join** half firmly, which
+is the half with a hard textual explanation.
+
+### What survives, and it is not nothing
+
+**The model raised price questions on six sites WITHOUT being prompted to.** Nothing in the prompt
+names price — not the source fields, not the exemplar — and it still surfaced *"Why would I pay £29
+for a report when I can get AI to analyse my idea for free?"* and five siblings, and ranked them at
+4.6 rather than dropping them. **That is evidence about the visitor, not about our copy**, and it is
+the reason the construction defect is worth fixing rather than shrugging at.
+
+**What does NOT survive: "the register does not answer what this costs me on six sites."** The
+measurement cannot distinguish that from "the instrument cannot represent a price answer", and those
+two want opposite responses — an editorial campaign across 18 sites, or a one-clause prompt fix.
+
+### The fix is mine; one part of it is the owner's
+
+Making price answerable means adding `money_flow` to TASK 1's source fields, or naming price in the
+exemplar, or both — **my prompt, my agent, so my change.** But `lead_with` requires *"a benefit to the
+reader, never a description of us or of our inventory"*, so someone has to decide whether "£29, no
+subscription" is a benefit worth **leading with**, or whether price is a doubt we deliberately answer
+further down the page. **That is a judgement about how these sites sell and it wants the owner's
+word.** Not written yet; carried to the handoff as owed.
+
+> **⚠ THE LESSON, and it is the one this lane exists to enforce, turned on itself.** I measured an
+> output, found a clean and striking pattern — one field at 5-of-7 unanswered against a clean zero
+> everywhere else — and published it as a fact about eighteen sites **without reading the instrument
+> that produced it.** The correlation was perfect precisely BECAUSE it was constructed. My own memory
+> index carries this as "your measurement answers the question you ENCODED, not the one you asked",
+> and I encoded this one myself, eight days ago, and still did not look. **Before any finding derived
+> from an LLM step: read the prompt's deciding arm. It is one query.** Caught by a peer, not by me —
+> the fourth time this week that sentence is true.

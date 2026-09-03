@@ -62897,3 +62897,71 @@ an-objection-naming-one-file-is-naming-a-category, a-closer-census-cannot-see-wh
 
 Family: a-report-is-not-a-measurement, damage-confirmed-is-not-mechanism-confirmed,
 your-measurement-answers-the-question-you-encoded, cite-the-arm-not-the-function.
+
+## 2026-09-03 — I published a finding about eighteen sites that was a property of my own prompt, and the correlation was perfect BECAUSE it was constructed (vigilant designer / offer-benefit analyser lane)
+
+**The claim.** The question hierarchy went live and I measured which of the visitor's questions our
+offer registers fail to answer. The result was clean and striking, and I wrote it into NOTES, the
+cold-start handoff, the owner's plain-prose log, and a message to the partner lane:
+
+> **⚠⚠ THE REAL FINDING: THE ABSENCE IS *PRICE*, NOT "EFFORT/PRACTICALITY".** … 5 of 7 `money_flow`
+> questions are unanswered and **every other source field is a clean ZERO** … the register answers
+> trust, differentiation and satisfaction on every site and does not answer *what this costs me*.
+
+**What is actually true.** `lead_with` — the answer side of the join — is derived from **exactly four
+named fields**, and `money_flow` is not one of them. Verbatim from the live prompt: *"satisfaction_
+condition says what this reader is trying to achieve; value_proposition says what this site offers
+that others do not; trust_threshold says what this reader needs before acting; recurring_value says
+why they come back. Those are four prose paragraphs. Turn them into a RANKED list…"* And the join rule
+forbids covering the gap: *"Do NOT stretch a point to cover a question it does not answer, and do NOT
+add a lead_with point merely to close a gap."*
+
+**So `unanswered: true` on a price question was guaranteed before any site was analysed.** My count
+over the live 9,643-char prompt: `money_flow` **0**, `price` **0**, `cost` **0**, `pay` **0**,
+`charge` **0**, `£` **0**.
+
+Worse, the defect is one I built and could have seen by reading the two halves together: **the
+question side and the answer side draw from different pools.** The question side is told *"Derive each
+question from a named field of the strategy you were shown"* — the whole register — while the answer
+side reads four fields of it. **Any question sourced outside those four is unanswerable by
+construction**, which is precisely the three fields that carried unanswered questions.
+
+**What caught it.** `copy_quality_two_stage`, within the hour, by opening the prompt. Not me — and I
+wrote the prompt, eight days earlier.
+
+**The cheap check that would have.** One query: read the deciding arm of the prompt before publishing
+a finding derived from its output. It is the same `SELECT` I have used a dozen times this week for
+other people's agents.
+
+**Why this row matters more than the others in this file.** Every entry here is some version of "the
+measurement answered the question you encoded". This one is the pure case: **I encoded it, and the
+correlation was perfect BECAUSE it was constructed.** One field at 5-of-7 unanswered against a clean
+zero on every other field is not a suspiciously weak signal — it is a suspiciously *strong* one, and
+strength is what made it feel like a discovery instead of a tautology. **A pattern that clean in
+noisy editorial data should have been the trigger to go and read the instrument, not the reason to
+publish.** That is the transferable rule: *the cleaner the correlation, the more likely you are
+measuring your own construction.*
+
+**And it had already travelled** — into a handoff, the owner's log, and a peer message — before the
+refutation arrived, which is the cost this file exists to make visible. Three documents corrected in
+place, not silently.
+
+**One thing survives and I have kept it separate rather than salvaging the headline:** the model
+raised price questions on six sites **unprompted** — nothing in the prompt names price, not the
+source fields, not the exemplar — and ranked them at 4.6 rather than dropping them. That is evidence
+about the visitor, and it is why the construction defect is worth fixing. It is not evidence about
+our copy, which is what I claimed.
+
+**My proposed CAUSE was refuted in the same round**, and by the same document. I wrote that the model
+"is ranking by how well it can ANSWER"; the prompt says, in terms, *"Rank 1 is the FIRST doubt, not
+the one most important to us."* I proposed a mechanism for a behaviour that my own text explicitly
+forbids, without checking whether it forbade it.
+
+**Fourth peer catch in a week** (see the three preceding rows). The common thread is no longer
+"grep wider" — it is that **I keep publishing from an artefact without reading the thing that
+produced it**: a served count without the template, an absence without the ruling headings, a model
+output without the prompt.
+
+Family: measurement-discipline-index, cite-the-arm-not-the-function,
+prompt-text-poisons-its-own-detector, a-guarantee-conditional-on-a-classifier-inherits-its-gaps,
+declaring-a-key-silences-your-own-detector.
