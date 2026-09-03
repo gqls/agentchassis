@@ -190,3 +190,21 @@ article-card__excerpt` non-zero with `article-card` as the control; date the obj
 is a `template_changed` rerender on top of the new baseline, and which way the key goes is their
 discriminator. Also read the regenerated copy against OWNER_REVIEW's classes before calling item 14
 done — the cards are not the only thing that changed.
+
+
+## Chrome refresh by hand when the detector's `stale_chrome` item was born `unresolved` (2026-09-03)
+
+The detector re-files `needs_rerender`/`stale_chrome` on every chrome-input drift, and the
+loader parks the third one in 7 days as `unresolved` (terminal) — `bugs_open/451`. Check first:
+```sql
+SELECT id, status, left(summary,60), created_at FROM site_work_items
+ WHERE site_id='<site>' AND item_key='stale_chrome' ORDER BY created_at DESC LIMIT 3;
+```
+Two terminals inside 7 days above an `unresolved` one = the ladder. Re-file exactly as
+`bugs_open/451` §"Operator interim" (copy the last COMPLETED row's `spec`; `source='operator'`,
+`status='triaged'`, `handler_agent='rerender-pages'`, `pipeline='build'`,
+`approval_mode='auto'`, `priority 8`). boxingonline 2026-09-03: `ec92320f`. Verify at
+`site_components` (`updated_at`, `rendered_html LIKE '%<gtm id>%'` and `'%cc_v1%'`), then at
+the served pages after the mirror tick. ⚠ The wave re-assembles every page (`_assemble`
+items, reason-less ⇒ `rerender_single_page`, stored arrays re-shipped) — it does NOT re-resolve
+list items; still-suffixed cards after it are not a new failure.

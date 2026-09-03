@@ -23,7 +23,31 @@ stays HELD on the owner's fix-everything cut-line**; `customer_access_tokens` = 
 (checked 19:3xZ). As of ~21:0xZ NONE of the three convergence waves had fired yet
 (contact.html 200, GTM count 0, excerpt decks 0 — all with controls held; that is the
 EXPECTED pre-convergence shape, not a failure).
-> **~21:18Z:** two of §1's four premises are corrected below in place — §1.1 (logo
+> **2026-09-03 08:37Z — MORNING STATE (session slept 21:5x→08:2xZ).** §1.2 DONE (429 CLOSED, moved
+> `640e4041c`: contact 404 with index 200 + invented 404; both sites `th2:`; converged at
+> boxingonline's FIRST serviced post-roll tick 22:53:51Z per the 429 lane's series read).
+> §1.3 the owner-approved index rebuild `c5614b00` **FAILED ×3** (21:51/22:xx/23:25Z) on the
+> content-loss guard: `SECTION SHRINK REFUSED … call-to-action 1116→167 chars of VISIBLE text
+> (15% kept, floor 50%)` — the build path regenerates a ~1.1k-char news-teaser CTA as a 167-char
+> one; do NOT set `section_shrink_floor` (step-config escape hatch, fleet-wide). Also filed by
+> that attempt: `needs_section_data` `97db7b0f` (featured-content's `query.featured_post` is an
+> UNKNOWN query name → the section would be skipped on any rebuild; the two open
+> `empty_section:…:featured-content` items are the same gap). §1.4 the GTM/consent wave was
+> never coming: the detector's `stale_chrome` item was born `unresolved` by the two-strike
+> ladder → **`bugs_open/451`** (fleet: 75/76 parked, 12 sites; diagnosis row `0639080d`),
+> operator re-file **`ec92320f`** filed 08:35:44Z (watcher armed; queue ~3 h deep per the
+> components lane). Chassis still `v1.0.1355` (no roll overnight) → §1.1 unchanged.
+> `customer_access_tokens` 0. Token valid.
+> **⚠ ROLL INBOUND (owner, 08:39Z): a new chassis is being prepared for deployment within the
+> hour.** After it lands: (a) verify at the artefact, per service — image-generator-adapter
+> provenance line + `git merge-base --is-ancestor fcbe6071c <stamp>` (the 424 guard fix) and
+> the same for the chassis; if ABOARD, §1.1's unblock (a) is met and only owner decision #2
+> (first test site) remains before a calibration run; (b) a roll kills whatever is CLAIMED
+> mid-run — re-read `ec92320f` (chrome refresh), `06210ec6` (components' discriminator) and
+> diagnosis row `0639080d` afterwards; a `failed`/reaped state there is the roll, not the
+> mechanism — re-file, do not diagnose; (c) no dispatch within ~300 s of the new pods; (d) the
+> pre-delivery sweep (§1.5) waits for the roll AND the chrome wave AND the mirror tick.
+> **~21:18Z (yesterday):** two of §1's four premises are corrected below in place — §1.1 (logo
 > regen: DO NOT FIRE, owner decision) and §1.3 (cards: no HOLD pending; the rerender
 > path is the open defect and the roll does not touch it). §1.2 and §1.4 stand.
 
@@ -81,7 +105,7 @@ EXPECTED pre-convergence shape, not a failure).
    > also reports designblog / seotools / gamedesign still serve the broken near-opaque
    > logos and has flagged that to the owner as urgent; their work items are NOT to be
    > reset before that roll.
-2. **Contact-404 — WATCH ONLY, never force the reconciler.** `b60d66e3c` (429,
+2. ~~**Contact-404 — WATCH ONLY, never force the reconciler.**~~ **DONE 2026-09-03 (429 CLOSED `640e4041c`; served 404/200/404 at 08:23:09Z; both sites `th2:`).** `b60d66e3c` (429,
    council b576bcc6 APPROVED 18:52Z) converges each opted-in site ONCE on its
    normal rotation slot: boxingonline's publish result should read
    `published:true, deleted:1` (contact.html), then no-drift again. At ~21:0xZ
@@ -176,6 +200,21 @@ EXPECTED pre-convergence shape, not a failure).
    > false, title suffixed. Watcher armed on the item; verify per the RUNBOOK block,
    > then hand the id to `components` (messaged at filing). Expect claim ~21:36–21:41Z,
    > complete ~2–8 min later; a missing claim at 10 min = read the row, do not re-file.
+   > **RESULT (read 08:2xZ, 09-03): FAILED, 3 attempts** (claimed 21:42:49Z; refusals 21:51Z,
+   > ~22:3xZ, 23:25Z; `mark_item_failed` 23:25:39Z). Error each time: `save_page_sections:
+   > SECTION SHRINK REFUSED for page "index" — call-to-action 1116→167 chars of VISIBLE text
+   > … (15% kept, floor 50%)`. The stored CTA is a ~1.1k-char running news-teaser block; the
+   > current writer produces a normal short CTA; the content-loss guard cannot know which is
+   > right and refuses the whole save. **The build route on index is therefore CLOSED** until
+   > either the 425 rerender-path defect is fixed (the real fix) or someone decides the CTA's
+   > stored text is not the baseline — and that is a copy decision, not a floor to lower.
+   > Side-finding from attempt 1: `featured-content` on index sources `query.featured_post`,
+   > which the resolver does not know (`needs_section_data` `97db7b0f`, needs_human_review;
+   > `on_missing: skip_section`) — a vocabulary gap of the guides-index class; owner of the
+   > `featured_article` component to route. Stored/served index = the 21:30Z rerender.
+   > The components lane's guides-index discriminator (`06210ec6`, template_changed, filed
+   > 08:26Z) runs instead — guides-index already IS a new-shape baseline; ordering is by
+   > `page_component_history.source_item_id`, not by who fires first.
    > **What actually produces decks here:** the BUILD path — proven on this very site
    > (guides-index `needs_page` rebuild 17:23:02Z → excerpt PRESENT, suffix stripped;
    > §1.4 closed that way). A `needs_page` rebuild of `index` is the known-working route
@@ -185,7 +224,17 @@ EXPECTED pre-convergence shape, not a failure).
    > unchanged: NON-ZERO `article-card__excerpt` with real copy + suffix-free titles on
    > /index.html. Also owed after ANY rerender here: `721`'s effect on the six hero
    > components (applied pre-roll, "needs a re-render to show") — approval-readout B.8.
-4. **GTM wave — watch, third-party-owned.** Analytics lane wrote
+4. ~~**GTM wave — watch, third-party-owned.**~~ **CORRECTED 2026-09-03: it was never inbound.**
+   The detector's `needs_rerender`/`stale_chrome` for this site (`5b4eb7a0`, 09-02 06:19Z) was
+   written `unresolved` AT BIRTH by the loader's two-strike ladder (two `complete`/`failed`
+   siblings in 7 d — one of them a SUCCESS, 09-01) → `bugs_open/451`, landmine + 016b §9
+   entries, CONTRIB to `analytics_gtm`, diagnosis row `0639080d`. Operator re-file
+   **`ec92320f-3037-448a-bd55-de8385404d92`** (08:35:44Z, triaged; spec = the last completed
+   row's). Success = `site_components` head/header/footer `updated_at` > 08:35Z with
+   `GTM-PQ3WCTBD` AND `cc_v1` present, then the served pages after the mirror tick (monitor
+   armed: GTM count on index). Assemble-only prediction under test on guides-index: no
+   history row attributable to the wave / archived content still carries `excerpt`.
+   Original text follows. Analytics lane wrote
    `analytics.gtm_container_id=GTM-PQ3WCTBD` into `site_specs.site_config`; the
    `chrome` key SURVIVED the merge (header_slots + fight-calendar CTA verified
    intact — the nav fix did not revert). A 22-page chrome rerender propagates it

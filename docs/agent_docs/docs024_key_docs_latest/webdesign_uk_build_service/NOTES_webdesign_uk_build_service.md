@@ -7994,3 +7994,65 @@ lane's per the ownership ruling.
   the components lane owns the reading. (Also: the served index will show THIS render after the
   ~21:52Z tick unless `c5614b00` lands first — either way the 420 discriminator is
   `pages.deployed_at` vs the served `last-modified`.)
+
+## 2026-09-03 (08:37Z, clock-read; session slept 21:5x→08:2xZ) — 429 closed at the artefact; the index rebuild FAILED on the shrink floor; the GTM wave was never coming (two-strike ladder → bugs_open/451); operator re-file ec92320f
+
+- **429 DONE.** 08:23:09Z served: contact.html 404 / index.html 200 (last-mod 03 Sep 04:57:18) /
+  invented 404. DB: both b2worker sites `th2:` — noted.co.uk 21:53:27Z (the 21:52 tick took it
+  first, as the 429 lane predicted), boxingonline `published_at` 04:57:24Z. The 429 lane's
+  series read: the converge fired at boxingonline's FIRST serviced tick **22:53:51Z**
+  (`deleted:1 ["contact.html"]`), then no-drift 00:54/02:55, then a REAL content drift at
+  04:56 which is what `published_at` shows — "the 04:56 row alone reads as sweep-never-fired;
+  the series query is the instrument". Bug moved to `bugs_closed/` (`640e4041c`). My 21:52:19Z
+  double curl-error stands as a single dated observation (their 4-min watch has nothing there).
+- **c5614b00 FAILED ×3** — watcher: 21:51:06Z attempt 1 `SECTION SHRINK REFUSED for page "index"
+  — call-to-action 1116→182 ch`; terminal 23:25:39Z (`mark_item_failed`) after attempt 3
+  (`1116→167 chars of VISIBLE text … 15% kept, floor 50%`). `pages.deployed_at` unchanged
+  21:30:16Z; `updated_at` 23:22:15Z (attempt 3 touched the row before the refusal). The stored
+  CTA is a ~1.1–1.5k-char running news-teaser ("Stay on top of every card, every division…");
+  the writer now produces a 167-char CTA. **Not lowering `section_shrink_floor`** — the
+  error's own escape hatch is the page-build STEP config (fleet-wide), the same class the
+  components lane warned about for `section_component_floor`. Attempt 1 also filed
+  `needs_section_data` `97db7b0f`: `featured-content` sources `query.featured_post`, an
+  UNKNOWN query name → `skip_section` on rebuild. The two open `empty_section:…:featured-content`
+  items (09-01/09-02) are the same gap seen from the served page. Owner told (README).
+- **GTM/consent wave: never inbound — MEASURED.** `5b4eb7a0` (09-02 06:19:53Z) summary
+  `[unresolved after 2 attempts] Site chrome is stale…`, `attempt_count` 0, never triaged.
+  Mechanism read at `load_work_item_actions.go` (`insertWorkItem`, `terminalCount >= 2` over
+  `status IN ('complete','failed')` in 7 d → `status='unresolved'`); strikes on this site =
+  `1b3c2afc` COMPLETE 09-01 00:34 + `b6c4eded` failed 09-01 21:30 (its own error:
+  `rebuild_blog_listing: duplicate key uq_page_components_no_byte_identical_duplicate` — a
+  separate idempotency defect, not filed). Exemption `recurrenceExpected` is on the internal
+  struct only; `WorkItemSpec` (discovery_checks/registry.go:56–71) has no field for it. Fleet
+  `[MEASURED 08:3xZ]`: `stale_chrome` 76 unresolved / 63 complete / 1 failed; **75 of 76
+  prefixed, 12 sites**. Filed **`bugs_open/451`**; diagnosis `090` row `0639080d` (08:31:28Z,
+  awaiting_diagnosis — the trigger's 180 s claim-wait was cut by my 110 s timeout; the row is
+  there; do not re-fire); LANDMINES entry + 016b §9 sibling entry; CONTRIB into
+  `analytics_gtm/` (their C bucket "awaiting stale_chrome rebuild" is parked on 12 sites).
+- **Operator re-file `ec92320f-3037-448a-bd55-de8385404d92`** at 08:35:44Z, spec copied from
+  the last COMPLETED row `1b3c2afc`; pre-flight: no open needs_rerender on the site; chrome
+  slots before = head 41421 / header 2271 / footer 2289 B, all 09-02 16:27:55–56Z, no GTM, no
+  `cc_v1`. Watcher armed (terminal → slots → child batch → guides-index history).
+- **Coordination with the components lane (08:2x–08:3xZ):** their guides-index discriminator
+  `06210ec6` (template_changed, filed 08:26:24Z) is queued behind ~164 older triaged
+  page_rerenders (192 triaged, drain ~137/2 h → ~3 h). They first asked me to hold the chrome
+  wave, then released it: ordering is unenforceable on a FIFO that deep, and unnecessary
+  because `page_component_history.source_item_id` attributes each sections-path write
+  (1,169 of 1,196 `save_page_sections_overwrite` rows in 24 h carry it). My assemble-only
+  prediction ("a reason-less `_assemble` item re-ships the stored arrays byte for byte")
+  becomes a test: pass = no history row on guides-index attributable to the wave.
+- **Also on this site overnight:** `site_unreachable` ×2 (22:34Z complete, 06:46Z detected) —
+  the generic check probes `https://boxingonline.com/` (the PARKED customer domain) and the
+  cluster DNS answered "server misbehaving"; a false-alarm class (probe the serving host),
+  not chased. `news-index` rerendered 03:00Z by `render_news_section` (fresh items).
+- **Pass-condition correction (components lane, 08:4xZ, before any reading):** "no history row on
+  guides-index attributable to the wave" is an ABSENCE and needs a positive control — the wave's
+  child `page_rerender` for page `2e738efd` must EXIST and be `complete` first (`spec->>'page_id'`,
+  `created_at > 08:35:44Z`). Zero history rows with that child complete = assemble preserved the
+  array (pass); zero rows with the child still `triaged` = nothing happened yet (the watcher trap
+  in a different costume). And the two branches read the same table oppositely — branch 1
+  (updates in place): absence is the pass; branch 2 (replace): an `artefact_archive_trigger` row
+  whose ARCHIVED `content_data` still has `excerpt` is the pass — so record which branch before
+  reading. ⚠ My watcher `buyp8fxz3` exits when the PARENT `ec92320f` completes (which is when the
+  children are CREATED); its guides-index history read at that moment is the child-creation
+  checkpoint, NOT the result. A second watcher on the child for `2e738efd` is owed then.

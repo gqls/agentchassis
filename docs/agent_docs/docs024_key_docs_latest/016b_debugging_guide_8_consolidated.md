@@ -4305,6 +4305,34 @@ Category tags: `detector-broader-than-handler`, `file-only-what-the-handler-can-
 `residue-is-a-capability-gap-not-a-failure`, `handler-that-does-not-exist`,
 `remit-lives-in-config-too`, `a-superset-proves-zero-not-nonzero`.
 
+### The two-strike ladder parks a RECURRING detection as `unresolved` because a COMPLETED refresh is a strike (2026-09-03)
+
+*The in-remit sibling of the entry above. There the handler could not act and the label
+"[unresolved after 2 attempts]" was at least arguably about the handler; here the handler
+acted and SUCCEEDED, and the label is simply false.*
+
+**Shape.** A discovery check files the same `item_key` every time an input drifts
+(`stale_chrome`: chrome render inputs). `insertWorkItem` counts prior rows for the key in
+`status IN ('complete','failed')` over 7 days and, at two, writes the new row `unresolved` —
+terminal, undispatched, excluded from the dedup index. A refresh that worked is counted like
+one that failed, so the third drift in a week on any site is dead on arrival. The exemption
+(`recurrenceExpected`) lives on the internal struct and `WorkItemSpec` cannot set it.
+
+**Symptom.** A rollout routed "via the per-site X rebuild" arrives on some sites and never on
+others, with no failure anywhere: the row exists, reads `unresolved`, `attempt_count 0`,
+`created_at = updated_at`. Every "did the check run?" probe is green. A census that counts
+completes ("20 ever, all complete") is true for the first week and then inverts.
+
+**Live instance.** boxingonline.com, 2026-09-02 06:19Z: born `unresolved` after one `complete`
+(09-01 00:34) and one `failed` (09-01 21:30); the GTM id and consent block written on 09-02
+never reached the chrome. Fleet, 2026-09-03: 76 unresolved / 63 complete `stale_chrome`, 75 of
+the 76 prefixed, 12 sites. `bugs_open/451`.
+
+**The rule.** *A success is not a strike.* Count only `failed` in the ladder (the anti-churn
+deferral in the same block already bounds fast recurrence), AND give discovery producers a way
+to declare recurrence. Until then, verify a recurring key's channel with the prefix census in
+`LANDMINES.md` ("A discovery check that RE-FILES a keyed item…"), never with a count of completes.
+
 ### A schema `source` path and the aspect writer's SHAPE are one contract — and the mismatch withholds the section silently (2026-07-25)
 
 *Added 2026-07-25 from `bugs_open/072`.*

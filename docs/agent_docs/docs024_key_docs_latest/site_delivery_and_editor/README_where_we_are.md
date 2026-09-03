@@ -550,3 +550,35 @@ has now been fixed and approved by review, about half an hour ago. It still need
 release before it can reach the site, and after that your decision on where to test it
 first still stands. The contact page's "not found" and the analytics tag are unchanged:
 still expected at the site's next publishing tick, a few minutes before the hour.
+
+## 2026-09-03 (morning) — the contact page is properly gone; the home-page rebuild you approved was refused by a safety check; and the analytics tag was never on its way
+
+Overnight the contact page finally answers "not found" at the public address, with a normal
+page still answering beside it, and the thread that owned that fix has closed it. That one is
+done.
+
+The home-page rebuild you approved last night did not go through. It ran three times and was
+refused each time by a guard that stops a page losing more than half of a section's visible
+text in one save. The reason is worth knowing: the "call to action" block on the home page
+currently holds about a thousand characters of running news teaser, and the writer now
+produces a short call to action of about a hundred and seventy. The guard cannot tell whether
+that is the fix or the damage, so it refuses. I have not lowered the guard, because the knob
+for that is fleet-wide. So the cards on the home page still have no summaries, and the only
+real route left is the rendering defect the components thread is chasing; their next
+experiment runs on the guides index instead, where it does not need a rebuild. The same
+attempt also showed that the "featured content" block on the home page asks for data by a
+name the system does not know, which is why that block has been empty; that needs whoever
+owns that component.
+
+The analytics tag and the cookie banner had not arrived because the refresh that carries them
+was never going to run. The system re-detects that a site's header and footer need refreshing
+whenever their inputs change, and a rule meant to stop a broken fix being retried for ever
+treats a refresh that WORKED as a failed attempt. After two in a week the third is parked as
+"unresolved" the moment it is filed. Boxingonline was parked on 2 September at 06:19, and
+eleven other sites are in the same state, which also stalls the consent banner rollout
+fleet-wide. I have filed this as a bug with the fix shape, told the analytics thread, and put
+the refresh in by hand for boxingonline this morning. It is queued behind about three hours
+of other work; I will report when the tag is on the live pages.
+
+Nothing else moved: no new release overnight, so the logo position is exactly as I left it,
+and delivery is still held.
