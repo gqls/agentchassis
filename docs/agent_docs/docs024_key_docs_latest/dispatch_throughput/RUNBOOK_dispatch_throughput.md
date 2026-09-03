@@ -368,3 +368,103 @@ go test -run TestLoadWorkItemsOrderingMirrorsTheSelectorWindow ./platform/orches
 # 09:00Z pre-fix baseline. Disconfirming result: any site with eligible work > ~1h unserved
 # while pinned rows exist elsewhere. Quote the WORST site, dated.
 ```
+
+## Spend governor (D4 / AGOV-013) — the live queries (added 2026-09-03, the day enforcement went on)
+
+Until today this RUNBOOK had **no** governor section: every query lived in NOTES prose or
+inside the migrations. These are the ones you actually re-run.
+
+```sql
+-- POSTURE, one query: is it on, what level, and is the meter alive.
+SELECT gc.enabled, gc.monthly_budget_usd budget, gc.l1_pct, gc.l2_pct, gc.l3_pct,
+       gs.shed_level, gs.month, round(gs.mtd_usd,2) mtd_usd, gs.computed_at,
+       round(EXTRACT(epoch FROM now()-gs.computed_at)) heartbeat_age_s
+FROM governor_config gc, governor_state gs WHERE gc.id=1 AND gs.id=1;
+```
+⚠ **`computed_at` is the ONLY liveness signal the governor has** — a stale one means the
+120 s task is not running, and the level then freezes wherever it was (fail-open: it never
+sheds MORE than it was, but it also never sheds when it should). **A single high reading is
+not a fault**: interval 120 s + the scheduler's 30 s tick makes ~150 s normal, and one read
+of **211 s** on 2026-09-03 self-corrected to 25 s at the next read. Two consecutive reads
+over ~300 s is the real signal.
+
+```sql
+-- WITHHELD vs STUCK — the one discriminator (bug_historian's r1 gating objection made real).
+SELECT class, llm_bearing, count(*) FROM governor_withheld_now GROUP BY 1,2 ORDER BY 1,2;
+-- columns: id, site_id, domain, item_type, class, llm_bearing, current_shed_level,
+--          created_at, priority, status
+```
+
+```sql
+-- WIRING CHECK — ⚠ RE-RUN AFTER EVERY RELEASE, not just after touching the governor.
+-- A release writes EVERY live agent_definitions row in ONE statement about 70 s before the
+-- new pods start (measured 2026-09-03: 208 rows / 203 types, all at 08:56:53.045885Z, with
+-- no matching schema_migrations entry). The hand-applied governor clause SURVIVED that write
+-- -- but 674 edited the LIVE row and no repo seed carries the clause, so a re-seed that did
+-- overwrite it would silently remove the governor's primary gate and nothing else reports it.
+SELECT md5(default_config#>>'{workflow,steps,find_dispatchable_site,config,query}') sel_md5,
+       (default_config#>>'{workflow,steps,find_dispatchable_site,config,query}' LIKE '%governor_admits%') carries_gov
+FROM agent_definitions WHERE type='build-pipeline-trigger' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL ORDER BY version DESC LIMIT 1;
+-- expect: fcbe8821a2a56512911955735796460e / t   (657's VERIFY pins the same md5)
+SELECT default_config#>>'{workflow,steps,load_items,config,honour_spend_governor}' load_flag,
+       default_config#>>'{workflow,steps,process_item,config,sub_workflow,steps,claim,config,honour_spend_governor}' claim_flag
+FROM agent_definitions WHERE type='build-dispatch-loop' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL ORDER BY version DESC LIMIT 1;
+-- expect: true / true, both jsonb BOOLEAN (a string "true" reads FALSE in Go's .(bool))
+```
+
+```bash
+# GO HALVES on the CURRENT pods — a roll replaces them, so yesterday's probe proves nothing.
+# ⚠ Run the absent-control SEPARATELY: grep cannot stop early on a needle that is not there,
+# and combining it with the present-probes times the exec out (seen 2026-09-02 and 09-03).
+for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name); do
+  for s in 'governor_admits(' 'spend_governor_shed' 'honour_spend_governor'; do
+    kubectl -n ai-persona-system exec "${p#pod/}" -- grep -ac "$s" /proc/1/exe   # expect 1
+  done
+  kubectl -n ai-persona-system exec "${p#pod/}" -- grep -ac 'governor_forbids(' /proc/1/exe  # expect 0
+done
+```
+
+```sql
+-- THE SHED STAIRCASE, PROVEN WITHOUT WITHHOLDING ANY LIVE WORK. Drives the LIVE selector
+-- against synthetic shed levels inside one transaction and ROLLS BACK: readers of
+-- governor_state are MVCC-isolated, so live dispatch never sees it. Keep it short — the
+-- 120 s state task will block on the row lock until the rollback.
+-- ⚠⚠ THE TRAP: the selector ENDS IN `LIMIT 1`, so `SELECT count(*) FROM (<selector>)` is 1
+-- at EVERY level and reads as "the governor changes nothing" — a meter that cannot come out
+-- otherwise. Strip the trailing LIMIT, and ABORT if the strip does not match.
+BEGIN;
+DO $$
+DECLARE q text; qn text; lvl int; sites int; w int; wclass text;
+BEGIN
+  SELECT default_config#>>'{workflow,steps,find_dispatchable_site,config,query}' INTO q
+  FROM agent_definitions WHERE type='build-pipeline-trigger' AND is_active
+    AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL ORDER BY version DESC LIMIT 1;
+  qn := regexp_replace(q, 'LIMIT\s+1\s*$', '');
+  IF qn = q THEN RAISE EXCEPTION 'ABORT: trailing LIMIT 1 not found — do not trust the count'; END IF;
+  IF position('governor_admits' in qn) = 0 THEN RAISE EXCEPTION 'ABORT: no governor clause'; END IF;
+  FOR lvl IN 0..3 LOOP
+    UPDATE governor_state SET shed_level = lvl WHERE id=1;
+    EXECUTE 'SELECT count(*) FROM (' || qn || ') s' INTO sites;
+    SELECT count(*) INTO w FROM governor_withheld_now;
+    SELECT COALESCE(string_agg(c || ':' || n, ' ' ORDER BY c),'-') INTO wclass FROM (
+      SELECT class || CASE WHEN llm_bearing THEN '/llm' ELSE '/free' END c, count(*) n
+      FROM governor_withheld_now GROUP BY 1) z;
+    RAISE NOTICE 'L% | dispatchable_sites=% | withheld=% [%]', lvl, sites, w, wclass;
+  END LOOP;
+END $$;
+ROLLBACK;
+-- Post-rollback control (ALWAYS run it): shed_level back to the real value, withheld back to 0.
+SELECT shed_level, enabled, round(mtd_usd,2) mtd, (SELECT count(*) FROM governor_withheld_now) withheld
+FROM governor_state gs, governor_config gc WHERE gs.id=1 AND gc.id=1;
+-- 2026-09-03 10:47Z result: L0 14 sites/0 withheld · L1 13/51 [maintenance/llm] ·
+-- L2 13/112 [+build/llm 61] · L3 13/112 (no research-class item eligible in that window).
+-- Sites barely move while items move a lot — correct: shedding is per ITEM_TYPE, so a mixed
+-- site stays dispatchable on its llm-free work. That is the council's "withheld, not
+-- monopolist" property, measured.
+```
+
+**What this canNOT prove** — the Go loader and the claim backstop reading a non-zero level on
+live traffic. Only a real shed (at the current burn, ~11 September) or an INDUCED one (lower
+the budget briefly, watch L1 fire, restore) does that, and that is option C's gate.

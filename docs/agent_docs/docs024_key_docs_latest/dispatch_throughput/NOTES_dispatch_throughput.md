@@ -1484,3 +1484,81 @@ issued a third time (owner's console, not verifiable from here). **Option C's ga
 ~Sep 11; an INDUCED one (briefly lower the budget in a controlled window, watch L1 fire,
 withheld view populate, level-change doc_note write, restore) is the faster path and a
 next-session choice.
+
+### 2026-09-03 ~10:40–10:50Z — the first post-enable watch: the governor is inert-as-designed at L0, and the shed staircase is PROVEN at all four levels without withholding any live work
+
+Picked the lane up ~25 min after the enable. Everything below `[all MEASURED 2026-09-03]`.
+
+**1. Post-enable watch — dispatch is unchanged, which is the whole claim at level 0.**
+Adjacent 25-minute windows either side of the 10:14:32Z enable: build-pipeline-trigger fires
+6 vs 6; dispatch loops 6 (2 sites) vs 7 (7 sites), 0 FAILED either side; **0
+`spend_governor_shed` mentions in any orchestration since the enable; `governor_withheld_now`
+= 0 rows;** `governor_admits` TRUE for all four class/bearing groups and for an unmapped
+type. ⚠ handler counts across the two windows (48 pre vs 19 post) are NOT comparable — the
+post window is right-truncated, its loops were still spawning. Recorded so nobody grades a
+throughput change off it.
+
+**2. The heartbeat scare that was not one.** First read: `computed_at` age **211 s** against
+a 120 s task. Second read three minutes later: **25 s**. Interval 120 s + the scheduler's
+30 s tick makes ~150 s ordinary and a single tail read meaningless; the RUNBOOK now says two
+consecutive reads over ~300 s is the signal. Not "fine" by assumption — re-read, twice.
+
+**3. MY OWN WRONG TURN, caught before it was asserted anywhere durable: I read the wrong
+object and nearly filed a revert.** Checked "does the selector carry the governor clause?"
+against `scheduled_tasks.pre_query` — it came back **f**, with an md5 matching neither the
+pre-674 nor the post-674 value. That reads exactly like "another session reverted 674".
+It is not: the selector 674 edits is
+`agent_definitions.default_config#>>'{workflow,steps,find_dispatchable_site,config,query}'`,
+and `scheduled_tasks.pre_query` is a different query that was never in 674's scope. **The
+word "selector" names two live objects in this lane** — 657's VERIFY pins the agent_definitions
+one; the trigger's `pre_query` is the wake-up gate (the 415/688 lane's). Read at the right
+object: md5 `fcbe8821a2a56512911955735796460e`, carries_gov **t**, both step flags bare
+jsonb `true`, fleet negative control 0 other rows. Wiring intact.
+
+**4. What that wrong turn turned up anyway — a release rewrites EVERY live agent row ~70 s
+before the pods start.** 208 rows / 203 types, all stamped `2026-09-03 08:56:53.045885+00`
+(one statement, one microsecond, snapshots untouched), with **no matching
+`schema_migrations` row** — so it is the release's own seeding step, not a migration. The
+chassis pods started 08:57:46 / 08:58:07Z on `v1.0.1356`. **The hand-applied governor clause
+SURVIVED it** (md5 read AFTER the roll). But 674 edited the LIVE row and no repo seed carries
+the clause, so the window is real and a silent revert would remove the governor's primary
+gate with nothing reporting it. RUNBOOK gains "re-run the wiring check after EVERY release".
+657's VERIFY pins the same md5 and would also catch it — but it is a hand-run habit, not a cron.
+
+**5. The enable landed on pods that had never been probed.** Yesterday's capability probe was
+on `8ddbf8958-cd2h9`/`-vppjz`; the 08:57Z roll replaced them. Re-probed both live pods:
+`governor_admits(` / `spend_governor_shed` / `honour_spend_governor` = 1 on each, absent
+control `governor_forbids(` = 0 on each (run separately — the combined form times the exec
+out, as on 09-02). The Go halves are live on `v1.0.1356`.
+
+**6. THE SHED STAIRCASE, PROVEN — and the meter that could not have come out otherwise.**
+Drove the LIVE selector against synthetic `shed_level` 0→3 inside one transaction, rolled
+back (MVCC keeps it invisible to live dispatch; post-rollback control clean each time).
+First attempt reported `selector_candidate_sites = 1` at **every** level — which reads as
+"the governor changes nothing" and is in fact **the selector's trailing `LIMIT 1`**: the
+meter could not have produced any other number at any level, true or false. Stripped the
+trailing LIMIT (with an abort arm if the strip does not match) and re-ran:
+
+| level | dispatchable sites | withheld items | by class |
+|---|---|---|---|
+| L0 | 14 | 0 | — |
+| L1 | 13 | 51 | maintenance/llm 51 |
+| L2 | 13 | 112 | + build/llm 61 |
+| L3 | 13 | 112 | (no research-class item eligible in the window) |
+
+Exactly the owner's ruled order, and the class ladder flips in the right sequence. **Sites
+barely move while items move a lot** — correct, because shedding is per `item_type`: a mixed
+site stays dispatchable on its llm-free work. That is the council r2/r3 "withheld, not
+monopolist" property, now measured rather than argued. L3 showing no further withholding is
+a population fact (one research type in the map, nothing of it eligible at 10:47Z), not a
+defect — say so when quoting it.
+
+**What none of this proves:** the Go loader and claim backstop reading a NON-ZERO level on
+live traffic. The DB predicate, the selector clause and the view are all proven; the Go
+halves are proven present but only ever exercised at L0, where they are identity. Option C's
+gate ("one real or induced shed observed") therefore still stands.
+
+**Owner, in chat ~10:41Z, verbatim: "I have increased the cap in anthropic to $3000."** That
+closes the console-cap dependency that had been flagged three times: the account wall now
+sits $1,000 above the budget and $1,100 above L3, so the governor's staged brake always
+arrives first. Every precondition D4 was waiting on is now met.

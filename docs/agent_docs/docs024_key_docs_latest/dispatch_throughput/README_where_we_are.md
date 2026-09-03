@@ -458,3 +458,40 @@ the first line ($1,400 — maintenance pauses) would arrive around the 11th at t
 The dashboard question "is this paused or stuck?" is one query (governor_withheld_now).
 Last reminder on my list: the Anthropic console cap should sit above $2,000 so the
 governor's gentle brake always beats the account's hard wall.
+
+2026-09-03 late morning — thank you for the $3,000 cap; that was the last thing on my list
+and it closes the gap properly. Your account's own hard wall now sits a thousand dollars
+above the budget the governor defends, so the gentle staged slow-down always arrives before
+the hard stop. Nothing else is outstanding from you.
+
+I then spent half an hour watching the governor now that it is actually switched on, because
+"it went live and nothing bad happened" is worth very little unless someone looks. Dispatch
+is completely unchanged either side of the switch — same number of wake-ups, more sites
+served if anything, no failures, and not one piece of work refused. That is what it should
+look like at $386 of a $2,000 budget: the governor is watching and saying yes to everything.
+
+Two things I found while looking, neither of them a problem, both worth you knowing.
+
+The first: when a new build is released, the system rewrites every one of its 200-odd agent
+configurations in a single stroke about a minute before the new pods start. Our governor
+setting was applied by hand directly to the live configuration, so I had to check it had not
+been wiped by this morning's release. It had not — it is intact — but it could have been, and
+nothing would have told us. I have written the two-line check into the runbook as a
+"do this after every release" habit.
+
+The second: I proved the governor's staged slow-down actually works, at all three levels,
+without pausing a single real piece of work. The trick is to pretend the budget has been
+crossed inside a database transaction that is then thrown away — the live system never sees
+it. At the first level it would hold back 51 routine maintenance jobs; at the second, 112 (the
+extra 61 being new page builds); routine work that needs no AI keeps flowing at every level,
+which is exactly the order you ruled. Sites barely drop out of the queue even when a hundred
+items are held, because the holding is per type of work, not per site — so a site with a mix
+carries on with the parts that are free.
+
+One honest limit: what I proved is the database half. The worker code that reads the level
+has only ever been exercised at "level zero, allow everything". The only way to prove the
+whole chain is to see a real slow-down — which at the current spend arrives around the 11th —
+or to induce one deliberately: drop the budget for about five minutes, watch the first level
+fire and the held-work list fill up, then put it back. Nothing is lost either way; the held
+jobs simply wait and resume. Say the word if you want that done today rather than waiting a
+week, and I will do it in a controlled window and write up what happened.
