@@ -160,6 +160,27 @@ def main():
             if d in rows:
                 rows[d]['keep_override'] = 'live-site'
 
+    # Owner-withdrawn names. Deliberately applied AFTER the live-site fence and
+    # with its own value, because the two reasons are not interchangeable: a
+    # live-site keep could be revisited if the site came down, an owner
+    # withdrawal could not. Collapsing them would lose that.
+    wd = os.path.join(HERE, 'WITHDRAWN_owner.txt')
+    missing = []
+    if os.path.exists(wd):
+        for line in open(wd):
+            d = line.split('#')[0].strip().lower()
+            if not d:
+                continue
+            if d in rows:
+                rows[d]['keep_override'] = 'owner-withdrawn'
+            else:
+                missing.append(d)
+    if missing:
+        # A withdrawn name that matches nothing is a silent no-op — exactly the
+        # failure mode that would let a domain the owner pulled reach a sheet.
+        print(f'⚠ WITHDRAWN_owner.txt names {len(missing)} domain(s) not in the '
+              f'estate — check for typos: {", ".join(missing)}')
+
     out = os.path.join(HERE, 'WORKING_table.csv')
     cols = ['domain', 'registrar', 'category', 'subcategory', 'tld', 'sld_length',
             'expiry', 'ns_class', 'dynappraisal', 'dynappraisal_date',

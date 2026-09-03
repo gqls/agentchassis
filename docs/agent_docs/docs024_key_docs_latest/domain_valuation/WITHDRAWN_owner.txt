@@ -1,0 +1,15 @@
+# Domains the OWNER has withdrawn from sale. One per line; # comments ignored.
+# These are never valued for sale, never enter the bottom-500 cut, and never
+# reach a marketplace sheet — a distinct reason from the live-site KEEP fence,
+# so it is recorded separately and never collapsed into it.
+#
+# 2026-09-03 — the Appleby family names, owner instruction relayed via the sedo
+# lane; independently verified here as exactly the 7 domains in the estate
+# matching "appleby", no more and no fewer.
+anthonyappleby.com
+appleby.cv
+katherineappleby.co.uk
+kathyappleby.co.uk
+kathyappleby.com
+oliverappleby.co.uk
+williamappleby.co.uk

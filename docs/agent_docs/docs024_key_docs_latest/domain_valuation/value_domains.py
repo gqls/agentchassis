@@ -126,10 +126,20 @@ def main():
 
         mult, why = quality(r)
         value = anchor * mult
+        # A withdrawn or live-site name still gets a value (the owner may want
+        # to know what he is holding) but can never be priced for sale.
+        # A domain we do not own can never be priced, listed or counted as
+        # stock — checked FIRST, because it outranks every other reason.
+        if r['registrar'].startswith('NOT-OWNED'):
+            keen_out, sell = '', r['registrar']
+        elif r.get('keep_override'):
+            keen_out, sell = '', 'KEEP:' + r['keep_override']
+        else:
+            keen_out, sell = None, 'tbd'
         for tier, floor, keen_frac in TIERS:
             if value >= floor:
                 break
-        keen = max(round(value * keen_frac), FLOOR_USD)
+        keen = keen_out if keen_out == '' else max(round(value * keen_frac), FLOOR_USD)
 
         ask = float(r['live_ask_price']) if r['live_ask_price'] else None
         floor_now = float(r['afternic_min_offer']) if r['afternic_min_offer'] else None
@@ -137,6 +147,7 @@ def main():
                         anchor=f'{anchor:.0f}', anchor_source=src, confidence=conf,
                         quality_multiplier=f'{mult:.2f}', quality_reasons=why,
                         value_usd=f'{value:.0f}', tier=tier, keen_price_usd=str(keen),
+                        sale_status=sell,
                         ask_vs_value=f'{ask/value:.1f}' if ask and value else '',
                         floor_vs_keen=f'{floor_now/keen:.1f}' if floor_now and keen else ''))
 
@@ -152,8 +163,12 @@ def main():
     print('tiers:', dict(sorted(tc.items())))
     print('confidence:', dict(cc))
     tot_val = sum(float(r['value_usd']) for r in out)
-    tot_keen = sum(float(r['keen_price_usd']) for r in out)
-    print(f'portfolio value (USD): {tot_val:,.0f}; if every name sold keen: {tot_keen:,.0f}')
+    sellable = [r for r in out if r['keen_price_usd']]
+    tot_keen = sum(float(r['keen_price_usd']) for r in sellable)
+    held = len(out) - len(sellable)
+    print(f'portfolio value (USD): {tot_val:,.0f}')
+    print(f'{len(sellable)} sellable; if all sold keen: {tot_keen:,.0f} '
+          f'({held} held back: live-site or owner-withdrawn)')
     print('\nby category (value desc):')
     bycat = collections.defaultdict(list)
     for r in out: bycat[r['category']].append(float(r['value_usd']))
