@@ -117,3 +117,29 @@ only has to add zero em dashes); the both-halves verify needs no touch.
 - **Tell the `bugfix_450_tool_page_shells` lane before landing anything on that row**: their migration 729
   pins the same rule-17 anchor as a neighbour-check and is blocked on an owner permission decision, so they
   re-anchor on top of ours, not the reverse. Rehearse with their temp-table baseline shape (their RUNBOOK §10).
+
+## Replaying a real prompt against a model, from a pod, with the key never leaving the pod
+
+The estate's images carry **no curl and no python3** (checked 2026-09-03 on agent-chassis,
+content-creator-agent, browser-runner-adapter, analyser-adapter). What they do carry is **BusyBox
+wget, and it supports `--header`, `--post-file` and `-O -`**, which is enough:
+
+```bash
+P=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
+# 1. put the request body on the pod (prompt text is not secret; the KEY is never sent from here)
+cat body.json | kubectl -n ai-persona-system exec -i $P -- sh -c 'cat > /tmp/req.json'
+# 2. call, reading the key from the pod's own environment inside the pod's shell
+kubectl -n ai-persona-system exec $P -- sh -c '
+  wget -q -O - -S \
+    --header="content-type: application/json" \
+    --header="anthropic-version: 2023-06-01" \
+    --header="x-api-key: $ANTHROPIC_API_KEY" \
+    --post-file=/tmp/req.json https://api.anthropic.com/v1/messages 2>&1'
+kubectl -n ai-persona-system exec $P -- rm -f /tmp/req.json
+```
+
+⚠ **BusyBox wget DISCARDS the body of a 4xx**, so a failed call shows a status line and nothing
+useful. That is the documented reason the 2026-08-31 Grok 403 was unreadable. **Always pass `-S`
+and read the status line**, and never conclude "out of credit" or any other cause from an empty
+body. Same shape works for xAI (`XAI_API_KEY`, model `grok-4-1-fast`) and Gemini (`GEMINI_API_KEY`).
+Never print a key, and never copy one into a session (owner ruling 2026-08-23).

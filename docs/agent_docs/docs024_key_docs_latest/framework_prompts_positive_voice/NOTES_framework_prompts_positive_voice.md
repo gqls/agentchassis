@@ -236,3 +236,50 @@ rule carriers and all 15 cut-list words asserted present programmatically before
 Two things deliberately NOT changed and flagged for him: the two finance-specific worked examples (removing
 them is a content decision and a documented exemplar-lift risk, not a form one), and the short first line
 (it renders as a heading). Owner read, then the blind before/after, then the migration.
+
+## 2026-09-03 (~20:30Z) — the diagnosis run came back UNVERIFIABLE, and the clean control does not exist in the data yet
+
+**Verdict, verbatim from the work item (`2b9733ae`, status complete):** *"Diagnosis NOT confirmed
+(stopped: iteration-cap). Best-effort trail attached for a human; no fix proposed."* Status
+`UNVERIFIABLE`, `is_fix: false`.
+
+**That is neither CONFIRMED nor REFUTED, and I will not report it as either.** It stopped at the cap.
+Worth recording why it plausibly could not settle it: its own evidence bundle's "in-scope code" section
+retrieved `truncate` from the banana image provider, `truncate` from the tools-api gripper store, and
+`applyAddToPage` — none of which is on the path named in the symptom. The evidence that decides this
+lives in `llm_call_log.prompt_rendered` and in one `agent_definitions` row, not in a code search.
+**A symptom that points at a TABLE may be a poor fit for a loop whose retrieval is code-shaped.**
+
+**What is established first-hand and is not in doubt** (all `[MEASURED 2026-09-03]`): the same
+3,295-char brief, identical md5 `b4fd73f0…`, is rendered into all six section prompts under
+"## Rewrite Guidance (IMPORTANT: incorporate this into the content)"; the code chain from
+`aliasGuidanceIntoSuggestion` through page-build-handler's `rewrite_guidance` mapping to the writer's
+loop; and that "## What To Write" identifies the section by `{{.current_section.name}}`, the COMPONENT
+type, so three `generic-text-block` slots read the identical instruction there.
+
+**What is NOT established: that removing or relabelling the brief would stop the convergence.**
+
+**The sharpest circumstantial evidence, and its n.** Two pages built today converged, and both converged
+on their brief's **section (2)** specifically: technical-details on "which model and its licence",
+your-own-model on "how it works, in three steps". Different sites' briefs, different topics, same
+POSITION in the brief. `[n=2, MEASURED 2026-09-03]` Small, and it points at the brief rather than at the
+sections. your-own-model's brief was written 2026-08-24 and NOT touched today, so the effect is not an
+artefact of the rewritten technical-details brief.
+
+**The observational control does not exist yet.** Census of the last 4 hours: every orchestration
+carrying the new subject block (`89059f29`, `fadecb26`, `ac71fc02`) also carries the page brief, 6 of 6
+prompts each. Over 3 days there are 643 orchestrations WITHOUT a brief and 207 with, but the ones
+without predate the subject block, so they lack BOTH inputs and cannot separate the two causes.
+**The comparison that decides it is: subjects present, brief absent — and no such build has happened.**
+
+**Two ways to get it, both real:**
+1. **Prompt replay A/B, off-line.** Take `89059f29` iteration 2's exact `prompt_rendered` (which
+   converged), run it as-is and with the Rewrite Guidance block deleted, n=2 each. Newly possible: the
+   images have no curl and no python3, but **BusyBox wget supports `--header`/`--post-file`**, recipe now
+   in the RUNBOOK. About four calls, pennies. Decides causation directly.
+2. **Build one page through the framework with subjects and no page-level brief.** Slower, but it is the
+   estate's own path and produces a real artefact rather than a replay.
+
+**Not doing either without the owner**, because both spend money and (2) writes a live page. Recommending
+(1) first: it is cheaper, it is reversible, and if it comes back showing the section opening on its own
+subject, the fix is scoped before anyone edits a prompt.
