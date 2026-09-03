@@ -172,7 +172,19 @@ needs the composition half.
   > newly declared (`image_url` has been on `illustrated-text-block` since 08-24, values stored).
   > Firing `section_data_resolved` there vs their newly-declared case separates "never re-resolves"
   > from "never writes a field added after the row was last built". Not this lane's page to fire.
-- **apis.uk/index — the first and only driver. ARMED, NOT EXERCISED.** They seeded six
+- **apis.uk/index — the first and only driver. ARMED, AND ITS ONE ATTEMPTED TEST FAILED.**
+  ⚠ **Updated 2026-09-03 — this is stronger than "not exercised yet".** `[MEASURED]` that lane
+  filed a `reason='section_data_resolved'` rerender at **the identical microsecond** as the six
+  imagery rows (16:47:03.788197Z — one transaction, exactly right) and **it FAILED** at 18:21:41Z
+  with `result = {}` and no detail recorded. A second item completed 09-03 07:06 carrying **no
+  reason**, i.e. the assemble path, which asks the resolver for nothing. Rows still
+  `updated_at = 2026-08-24`. ⚠ **And all seven rows are `lock_type='permanent'`,
+  `locked_by='apis-uk-bees-lane'`** — so the failure may be the locks working as designed, and
+  that page cannot serve as a control without a protection being lifted that its owner put there
+  deliberately. **I withdrew my own offer of it as the "existing declared field" control and told
+  that lane their test had failed** (nothing about the failure is visible on the item).
+  **The existing-field half of the experiment therefore has NO VENUE yet** — any page with a
+  resolver-sourced field declared *before* its last build, with values stored, would serve. They seeded six
   section-scope illustration rows at **16:47:03Z** on my CONTRIB (`apis_uk_bees_homepage/CONTRIB_2026-09-02_…`).
   But that page's `page_components` still read `updated_at = 2026-08-24` — **nothing has
   re-resolved, so the branch has never actually run.** Evidence arrives at its next re-resolving
