@@ -1,5 +1,20 @@
 # HANDOFF 2026-09-03 — bugs_open/114 imagery wiring: continue here
 
+> **UPDATE 2026-09-03 later afternoon — the closure gate is now TWO of three states
+> observed:** the first **`unwired`** rollup landed (fundamentallyai.com, count 3,
+> 12:30:48Z — a detector READING there is fine; that site stays excluded only as
+> WIRING-acceptance evidence, 412 §11) alongside a `no_image_slot` (1) on the same
+> sweep, and orchestrations are **7/7 COMPLETED**. Coverage: 4 sites, 5 rollups, all
+> counts plausible and dated. **Still outstanding before closing 114:** one
+> `fragment_slot` observation (predicted on the tool-page sites — mcalc's 10 rows,
+> robot-hands) and the large-`unwired` sites (webdesign.co.uk, 66 candidates) entering
+> the rotation. Capability re-probed 86/86 with clean controls. ⚠ The user reported a
+> further fresh build, but the agent-chassis deployment still shows `v1.0.1358` with
+> pods born 12:06Z — either another service rolled, or a same-tag rebuild that has not
+> (and would not) restart these pods. Immaterial to this lane: NOTHING of ours is
+> roll-pending (all Go shipped in v1.0.1356+; only docs committed since). If you need
+> to know what these pods run, ask the binary, never the tag.
+>
 > **UPDATE 2026-09-03 afternoon (second roll of the day, `v1.0.1358`, pods born
 > 12:06Z):** the check SURVIVED the re-roll — capability re-probed **73/73** reporting
 > pods with positive + negative controls clean. Sweep coverage since enablement:

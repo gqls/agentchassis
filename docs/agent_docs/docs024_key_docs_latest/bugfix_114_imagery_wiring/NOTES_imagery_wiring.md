@@ -841,3 +841,20 @@ criterion still waits on the census-predicted `unwired` (webdesign.co.uk et al) 
 `fragment_slot` (the 16 tool rows) sites entering the rotation — expected within ~a day.
 `flag_page_image_rebuild_action.go` gained the 440 lane's routing_reason conversion
 (`d44644635`) — coexists with step 2b; noted in the handoff so round 2 re-reads the file.
+
+### 2026-09-03 later afternoon — first `unwired` rollup: two of three states now observed live
+
+fundamentallyai.com swept 12:30:48Z → `unwired` count **3** + `no_image_slot` count 1,
+both dated. (A detector READING on fundamentallyai is fine — the 412 §11 exclusion is
+about wiring-ACCEPTANCE attribution, not detection; 3 unwired of its 14 content-hero
+assets is plausible against 664's nine hand-wired pages.) Running totals since the
+09:16Z enablement: **4 sites, 5 rollups, 7/7 design orchestrations COMPLETED**, states
+observed `no_image_slot` (4 sites) + `unwired` (1). Outstanding for closure: one
+`fragment_slot` observation and the big-unwired sites (webdesign.co.uk) entering the
+rotation. Capability re-probe on the current pods: **86/86**, controls clean.
+
+The user reported a further fresh build; the agent-chassis deployment still reads
+`v1.0.1358`, pods born 12:06Z — another service, or a same-tag rebuild these pods will
+never pick up. Immaterial here: nothing of this lane's is roll-pending. Recorded so the
+next session does not read "a build was deployed" as "agent-chassis re-rolled" —
+same-tag is the FRESH-BUILD landmine, and the tag is never the evidence.
