@@ -49,13 +49,19 @@ const (
 	// PlaygroundMaxMessageRunes bounds one message. The body cap (config) is
 	// the byte-level backstop; this is the per-message limit a visitor sees.
 	PlaygroundMaxMessageRunes = 1000
-	// playgroundCallTimeout covers model load (2.4 s cold, measured) plus a
-	// full-length reply at CPU speed with headroom for a busy node.
-	playgroundCallTimeout = 90 * time.Second
 	// playgroundScanBuf is the largest single NDJSON line accepted from the
 	// model server; a token fragment is tens of bytes.
 	playgroundScanBuf = 1 << 20
 )
+
+// playgroundCallTimeout bounds the WHOLE model call — connect, first token and
+// every byte of the streamed body — because it is applied as the context on
+// http.NewRequestWithContext, and Go's client honours that context while the
+// body is being read, not only until the headers arrive. It covers model load
+// (2.4 s cold, measured 2026-09-03) plus a full-length reply at CPU speed with
+// headroom for a busy node. A var, not a const, so the stalled-stream test can
+// shorten it; production never writes it.
+var playgroundCallTimeout = 90 * time.Second
 
 // PlaygroundSystemPrompt tells the demo model what it is, in the site's own
 // register. Fixed text on purpose: the demo is not LLM-voiced and cannot
@@ -209,11 +215,18 @@ func PlaygroundChatHandler(cfg *config.PlaygroundConfig, client *http.Client) gi
 				sentAny = true
 			}
 			if chunk.Done {
+				// A reply cut by num_predict streams exactly like one that
+				// finished on its own; Ollama says which in done_reason
+				// ("stop" vs "length"). Surface it as a boolean the widget
+				// can act on, so a capped reply is never mistaken for a
+				// complete one (the MDL-038 / "truncation looks like
+				// success" class, on this transport).
 				writeSSE(c, "done", map[string]interface{}{
 					"eval_count":       chunk.EvalCount,
 					"eval_duration_ms": chunk.EvalDuration / int64(time.Millisecond),
 					"load_duration_ms": chunk.LoadDuration / int64(time.Millisecond),
 					"done_reason":      chunk.DoneReason,
+					"truncated":        chunk.DoneReason == "length",
 				})
 				return
 			}
