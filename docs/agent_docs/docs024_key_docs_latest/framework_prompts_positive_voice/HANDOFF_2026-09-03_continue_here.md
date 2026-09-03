@@ -12,6 +12,11 @@ context can start; the finetuning lane's own record is in
 "Working docs"), add a line to `~/.claude/projects/*/memory/MEMORY_workstreams.md`, and run
 `scripts/who-owns.py` on every prompt before touching it (section 6 lists the ones in flight).
 
+> **CORRECTED 2026-09-03 (prompts lane):** `scripts/who-owns.py` resolves BUG numbers and slugs only; a
+> prompt name returns "No bug file matches", which reads as unowned and means "not a bug". For a prompt,
+> `git log --oneline -5 -- docs/agent_docs/sql_for_agents/NNN_*` on its latest seed, then the lane HANDOFF
+> that commit names. Caught by running it on `page-content-writer` and `build-site-planner`.
+
 ## 1. The owner's directive, in his words
 
 On how to prompt (2026-09-02):
@@ -233,6 +238,12 @@ regression, not a style win, so the detectors are the test, not the prose.
 
 ## 6. In flight: what this lane inherits, and what it must not collide with
 
+- > **CORRECTED 2026-09-03 (prompts lane, ~13:00Z):** by the time this file was read, 641 was COMMITTED
+  > at HEAD carrying C plus the `sections_for_render` append and a both-halves verify (`7da6c6a46`,
+  > `6e8d04b6b`), council `6c92d154` had reached `complete_approved` (09:22Z), the apply had been rehearsed
+  > twice under ROLLBACK, and apis.uk had handed the apply to the prompts lane. The owner then reopened the
+  > block's words ("If you'd like to prepare in advance of your hour…") and chose one field authored in the
+  > voice; see the lane PLAN. The bullet below records the state at 09:58Z.
 - **Migration 641 (page-content-writer, the block above) is the `apis.uk` lane's file**
   (`docs/agent_docs/docs024_key_docs_latest/apis_uk_bees_homepage/`, PBP-049). They write the
   final SQL from `…/apis_uk_bees_homepage/CONTRIB_2026-09-02_from_finetuning_owner_picked_C_and_the_test_render_found_two_things.md`,
@@ -256,7 +267,7 @@ regression, not a style win, so the detectors are the test, not the prose.
 0. Standing five here; workstream line in memory; `who-owns` each prompt you intend to touch.
 1. Read, in this order: `finetuning_uk_service/DRAFT_2026-09-02_641_positive_prompt_candidates.md`,
    the style prompt (`travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT_v3.md`),
-   `platform/voicestyle/voicestyle.go`, `bugs_open/121`, `copy_quality_two_stage/PLAN_2026-08-25*`,
+   `platform/voicestyle/voicestyle.go`, ~~`bugs_open/121`~~ `bugs_closed/121` (corrected 2026-09-03: fixed and live since 07-27), `copy_quality_two_stage/PLAN_2026-08-25*`,
    `RFC_016` §5.2.
 2. Re-run the census above with today's date and pick the first target. The writer prompt is in
    flight; the two that are not are the voice row's reach (7 of 141) and the planner's subject
