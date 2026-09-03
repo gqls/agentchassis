@@ -875,6 +875,32 @@ somehow."*
 This is the one that amends Q3. The ladder above gave `standard` "today's behaviour, unchanged" —
 i.e. **no register**. D4 says every site gets one. The rung stays; its *requirement* changes.
 
+### 3g(0). BUILD STATUS of the four rulings, as at 2026-09-03 15:30 UTC
+
+| ruling | state |
+|---|---|
+| **D1** — vetcomparison.uk gets a register | **NOT STARTED.** The live `vetcomparison` session was asked at ~13:50 whether the register is theirs or unowned, and whether a comparison site's figures (other people's claims, not its own) change the answer. **No reply yet.** Its `missing_evidence_register` item now exists (filed by D3's check), so it is queued rather than merely known. |
+| **D2** — repair loancash's three wrong sentences | **DONE AND DISPATCHED.** Migration **739**, applied ~14:35 UTC: four `content_rewrite` items (the £15 error spans two pages), `status='triaged'`, `handler_agent='page-build-handler'`, each carrying the exact served wording, the governing rule, what to KEEP as well as change, and an acceptance test readable at the served bytes. `Council-Submitted: 93897fb5-0b73-4b1e-b4aa-c0d2b9d4a87b` (verdict pending). ⚠ **Two clocks on it** — see below. |
+| **D3** — build the absence check | **BUILT, LIVE AND OBSERVED RUNNING.** Migration **742** + register **CLM-033**, applied 14:29 UTC. It fired within a minute and filed **12** items. |
+| **D3** — populate the missing registers | **QUEUED, not done.** 12 `missing_evidence_register` items now exist, one per deployed register-less site, `needs_human_review` with an empty handler. That is the programme, and it is days of work, not a session's. |
+| **D4** — a register for every site, lower bar for normal ones | **DESIGNED AND RULED-INTO-THE-DOC (§3g(i)), NOT YET EXERCISED.** No site has yet been given an *attested* register, so the cheap bar is described and untested. The first one to take it will discover whatever §3g(i) got wrong. |
+
+⚠ **TWO CLOCKS ON D2's REPAIR ITEMS, both discovered by reading the machinery rather than by waiting:**
+
+1. **48 hours.** The `stale-work-item-reaper` scheduled task flips `status='triaged'` + `pipeline='build'`
+   items with `claimed_at IS NULL` and `updated_at` older than 48 hours to **`unresolved`**, prefixing the
+   summary with `[stale: triaged 48h+]`. All four repair items are exactly that shape. So if
+   `page-build-handler` has not claimed them by **~2026-09-05 14:35 UTC** they will be reaped, and a
+   reaped item reads as *processed* rather than *ignored*.
+2. **A `page_rerender` was already queued on all four pages at 13:18 UTC**, before the repairs were filed.
+   A rerender regenerates from `content_data`, so it **re-ships the wrong wording byte for byte and
+   completes successfully**. It is not a repair and must not be read as one.
+
+**And the acceptance gate for this item type is inert**, which is why every item carries its own test:
+`complete_work_item_acceptance_predicate.go` records that **no verifier is registered for
+`content_rewrite`** (13 `RegisterVerifier` calls, none naming it). **A `complete` content_rewrite is not a
+repaired artefact. Verify at the served bytes.**
+
 ### 3g(i). What the lower bar IS, derived from the code rather than invented
 
 The owner's "somehow" has a mechanical answer, and it is better than a reduced version of the
