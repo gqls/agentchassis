@@ -32,6 +32,11 @@ import (
 //     upsert) without ever creating a second current row or resurrecting a retracted tag.
 //   - mode is stamped "default" so readers (and the ZIP export path) can tell a seeded
 //     value from an operator-set one ("custom") or an opt-out ("none").
+//   - the system/test pseudo-sites (system.internal carries platform-wide work items,
+//     never pages) are excluded: an analytics row there is pure census pollution.
+//     Measured 2026-09-03: the no-current-row population was 17 pool + 1 system + 1 test,
+//     zero deployed/active — so the re-ensure path backfills only pool sites, at the
+//     moment they are actually built.
 const seedAnalyticsDefaultSQL = `
 	INSERT INTO site_specs (site_id, aspect, data, source, created_by, notes, is_current)
 	SELECT $1, 'site_config',
@@ -47,6 +52,9 @@ const seedAnalyticsDefaultSQL = `
 	   AND NOT EXISTS (
 	         SELECT 1 FROM site_specs ss
 	          WHERE ss.site_id = $1 AND ss.aspect = 'site_config' AND ss.is_current)
+	   AND EXISTS (
+	         SELECT 1 FROM sites st
+	          WHERE st.id = $1 AND st.status NOT IN ('system', 'test'))
 `
 
 // seedAnalyticsDefault is best-effort by contract: a failure leaves the site exactly as

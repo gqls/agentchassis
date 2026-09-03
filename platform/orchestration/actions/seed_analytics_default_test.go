@@ -18,7 +18,8 @@ var seedGuardNeedles = []string{
 	`COALESCE(n.settings->'analytics'->>'gtm_container_id', '') <> ''`, // no network default, no seed
 	`NOT EXISTS`, // never a second current row, never override mode=none
 	`ss.aspect = 'site_config' AND ss.is_current`,
-	`'mode', 'default'`, // seeded values are distinguishable from operator-set ones
+	`st.status NOT IN ('system', 'test')`, // pseudo-sites never get an analytics row
+	`'mode', 'default'`,                   // seeded values are distinguishable from operator-set ones
 }
 
 func TestSeedAnalyticsDefaultGuardsAreInTheExecutedSQL(t *testing.T) {
