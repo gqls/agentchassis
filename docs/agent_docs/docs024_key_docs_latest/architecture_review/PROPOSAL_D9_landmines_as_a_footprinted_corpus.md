@@ -363,3 +363,60 @@ touching every session on this machine, and a peer session asking is not authori
 routed it to their owners. **What we would flag to whoever rules on it:** the success test in §5
 should be run against *unsuspecting* sessions specifically, because a warning evaluated by someone
 who already knows to look for it measures the wrong population.
+
+#### 6b (ii). The §5 success test, settled between the two lanes — my proposed criterion was UNRUNNABLE and is withdrawn
+
+**`inline_guide_imagery` proposed "run the success test against *unsuspecting* sessions
+specifically". `dartsonline_traffic` refused it and they are right. It is withdrawn.** The concern
+behind it stands (a warning evaluated by a reader who already knows to look for it is the
+fixed-tree error), but **suspicion is not observable in the artefacts**: nothing a session leaves
+behind separates *"did not think to grep"* from *"grepped for an unrelated reason and happened to
+be covered"*. Any proxy — *did they grep `LANDMINES` before touching X?* — **is a predicate encoding
+an assumption about mental state**, which is the family that produced four errors between these two
+lanes in one day. Worse, it reads rigorous and **could never return a failing result**, which is
+this corpus's own definition of a measurement that is not one.
+
+**The runnable form, theirs, adopted:**
+
+> After the mechanism ships, do `WRONG_CALLS` entries **of the covered class** stop appearing, while
+> entries for traps with **no** hook coverage continue at their prior rate?
+
+It measures outcomes rather than mental states, carries its own control, needs no cooperation from
+the sessions being measured, and is blind to suspicion by construction — an unsuspecting session
+that avoids the trap simply never files an entry, which *is* the signal.
+
+**Their two stated cautions, kept:** it is a **lagging** indicator (you learn it worked from
+absences accumulating, and an absence is weak evidence early), and `WRONG_CALLS` is
+**self-reported**, so it counts *caught-and-logged* traps — a mechanism that prevents a trap and one
+that stops people noticing they hit one look identical. That is why the no-coverage control matters
+more than the headline count.
+
+**A third caution, measured here rather than reasoned, and it changes how the test must be read**
+`[MEASURED 2026-09-03; predicate: bullets opening `- **YYYY-MM-DD`, which is the entry form — the
+file's other 1,250 top-level bullets are continuation lines within entries]`:
+
+| period | entries |
+|---|---|
+| 2026-07 (from the 30th) | 6 |
+| 2026-08 (whole month) | 27 |
+| **2026-09 (three days)** | **41** — 19 on the 2nd, 22 on the 3rd |
+
+**The logging rate rose roughly twentyfold in two days.** So **"continue at their prior rate" cannot
+be read as an absolute baseline** — a before/after count would be dominated by whatever is driving
+that surge, not by the hook. **The concurrent control is doing all of the work, and the statistic
+has to be the RATIO of covered-class to uncovered-class entries in the same window**, which is
+robust to the overall rate moving. Read as a ratio the test survives; read as a before/after count
+it does not. (Totals confirmed: 74 dated entries against **870** `###` entries in `LANDMINES.md` —
+the peer's 869 is same-day drift, entries are being appended hourly, including four today.)
+
+⚠ **And the surge is fleet-wide, not these two lanes inflating their own instrument** — only **3**
+of the 41 September entries name either lane. So the throughput is real and broad, which is good for
+detecting a change. But it introduces the **mirror of caution two**: a hook that raises landmine
+awareness generally could increase logging (better noticing) at the same time as it prevents traps,
+and those two effects move the covered-class count in **opposite** directions. The uncovered-class
+control absorbs the awareness effect only if awareness rises equally across both classes — which is
+exactly what a hook targeted at one class would not do. **Stated as a known weakness of the best
+available test, not as a reason to prefer the unrunnable one.**
+
+**Both lanes now agree the criterion is the ratio form with those three cautions attached, and
+neither is building the mechanism.** Owner's ruling.
