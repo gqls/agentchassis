@@ -4133,3 +4133,46 @@ something at or below 30%.** Put it to him with the "so" question — both are "
 a reason, and the accepted repairs cluster at ~75%, so the evidence for where the floor belongs
 between 30% and 74% is thin — two data points either side. If he rules, the change is a Go edit
 in the council's scope, with the four policy tests re-pinned to the ruling.
+
+**2026-09-03 ~12:00Z — RULING 1 SHIPPED; RULING 2 MUST NOT BE ENCODED AS STATED, because its
+discriminator misclassifies one of the owner's own three exemplars.**
+
+**Ruling 1 (`gutted`) is done and committed** (`7cc16a5d0`, `Council-Submitted: b9b5fdf8`).
+The guard was `len(to) < len(from)*2/5` — a proportion, which is **backwards for a truncation
+repair**: it measures how verbose the DISCARDED tail was, so the wordier the contrast we are most
+right to cut, the more certainly the repair is refused. Now a test on the survivor: 5-word floor
+plus a slackened 25% backstop. Mutation-proven (restoring the proportion fails exactly the two new
+acceptance assertions). Go, so inert until the next roll. He ruled a test, not a number; the
+constants are mine and are flagged as the residual risk in the submission.
+
+**Ruling 2 (`so`) — STOP BEFORE ENCODING.** He ruled: *"fire when the 'so' clause is bolted onto
+a sentence that already explained a term, leave plain cause-and-effect"*, with three exemplars —
+(1) and (2) IN, (3) OUT. Tested his stated discriminator ("a definition or gloss before the
+comma") against his own three sentences:
+
+| # | his ruling | gloss in the pre-clause? |
+|---|---|---|
+| 1 | IN | **YES** — *"a technique called fine-tuning"* |
+| 2 | IN | **NO** — *"It learns from your own documents"* carries no gloss |
+| 3 | OUT | no |
+
+`[MEASURED 2026-09-03]` **a definition-detector plus a `, so` anchor gets 1 of his 2 positives.**
+It would classify (2) — which he personally ruled IN — as OUT. Encoding the rule as stated ships
+a detector that disagrees with the owner on a third of the cases he ruled on, and it would
+disagree *silently*, because nothing downstream re-checks a shape rule against its exemplars.
+
+What actually separates (2) from (3) is not a gloss but what the `so` clause DOES: in (1) and (2)
+it elaborates the product's merit (*"answers the way your best person would"*, *"picks up how
+your industry actually talks"*); in (3) it states a plain consequence for the reader (*"you can
+see what it decided and why"*). Note (3) is also the only one whose `so` clause shifts subject to
+the reader, and the only short one — (2) is 152 chars against (3)'s 74 — but neither is a rule I
+would trust on three points.
+
+**So the recommendation stands, and his own exemplars are now the argument for it: `so` belongs in
+`banned_classes_no_regex`, judged in context, with these three sentences carried as LABELLED
+EXEMPLARS (2 positive, 1 negative).** That was the recommendation before the ruling, on
+false-positive grounds — `, so <pronoun>` fires on 6.60% of live estate copy, mostly innocuous.
+It is now also the recommendation on *fidelity* grounds: the shape he described does not pick out
+the sentences he chose. Raised back to him rather than encoded. ⚠ Do NOT quietly widen the
+detector to catch (2) — a rule reverse-engineered to fit three sentences will fire on far more
+than three, and the 6.60% base rate is what it would be firing into.
