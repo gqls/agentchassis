@@ -299,3 +299,15 @@ page-build-handler (the only workflow containing `load_page_sections_from_spec`)
 Served h2s still repeat, as predicted: the writer is v4 until the redrafted 641 lands
 (§8's stated dependency — that is Stage B, unchanged). Remaining Stage A confirmation
 (writer-row carry at run completion) is on the finetuning lane's watch.
+
+**§9 completion (2026-09-03 10:40Z, finetuning lane's watch): STAGE A CLOSED.** Writer row
+`ce514ce0` (COMPLETED 10:38:58Z) carries `sections_for_render.sections_ready[].subject` on
+all six slots, identical to the handler's plan; page redeployed 10:40:16Z, HTTP 200. Served
+h2s still repeat as predicted — the three text blocks wrote model-and-licence variants with
+varied wording despite each having its own distinct subject in the data. **That is the clean
+split the staging existed to show: the subject reaches the writer's DATA and not yet its
+PROMPT. Stage B is exactly 641 and nothing else.** Reported to the owner as Stage A.
+⚠ For Stage B reads: both finetuning items ran under ONE correlation (`6e8eadaa` — the
+build-dispatch-loop takes a site's items in one loop), so key per-page reads on the writer's
+`orchestration_id`, never the correlation. 641's applier is now the
+`framework_prompts_positive_voice` lane, per the owner.

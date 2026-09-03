@@ -243,3 +243,9 @@
   7 fleet-wide (demand control in the same breath). finetuning's report corroborated, not
   taken on trust. Remaining: writer-row carry at completion (their watch), then Stage A is
   fully closed and the lane waits only on 641 for Stage B.
+- **09-03 10:40Z — STAGE A CLOSED** (their watch, full read-out in bug file §9 completion
+  note): writer row `ce514ce0` carried subjects on all 6 slots identical to the plan;
+  redeploy 200; served h2s repeat with varied wording as predicted — data-not-prompt split
+  demonstrated. Stage B = 641 alone; **applier is now the framework_prompts_positive_voice
+  lane (owner's routing)**. ⚠ banked trap: one correlation can cover a whole site's items —
+  per-page reads key on writer orchestration_id.

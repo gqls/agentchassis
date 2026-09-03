@@ -40,9 +40,15 @@ redrafted 641 applies. So served h2s still repeat everywhere. That is expected, 
    containing `load_page_sections_from_spec`. The page-rebuild agent (`spawn_content_writer`
    path) has no such step and structurally CANNOT exercise this fix** (finetuning, verified
    against the workflow configs 09-03).
-2. **Redrafted 641 lands** — NOT ours (apis.uk's file, owner's framing pick pending,
-   finetuning test-renders incl. the untested sibling-range arm). We only wait. Nudge the
-   apis.uk lane if a week passes.
+2. **Redrafted 641 lands** — NOT ours. **STAGE A CLOSED 09-03 10:40Z** (bug file §9: plan
+   row, writer row `ce514ce0`, redeploy 200, h2s repeat as predicted — subjects reach the
+   writer's DATA, not yet its PROMPT), so this is now the ONLY gate before Stage B. The
+   **applier is the `framework_prompts_positive_voice` lane per the owner** (no longer
+   apis.uk-held-pending-framing); nudge THEM if a week passes.
+   **⚠ Stage B read trap (measured on Stage A): a site's items can share ONE correlation**
+   (build-dispatch-loop takes the site's items in one loop — both finetuning pages ran under
+   `6e8eadaa`). Key every per-page read on the WRITER's `orchestration_id`, never the
+   correlation.
 3. **Stage B (after 641):** rebuild `your-own-model` via the SAME pinned path; assert served
    h2s DISTINCT (curl + invented-URL control); tier-1 control page passes same assertion;
    **SAVE the before/after served-HTML pair and point to it from 443's close-out — OWED to
