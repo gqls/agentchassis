@@ -1098,3 +1098,36 @@ which reasons *route* to the sections path is now settled at the config (five, a
 that path *re-resolves* `site_assets.*` when it runs is NOT settled and the single traced data
 point — the one page that visibly improved arrived via the BUILD path, not a re-render — leans no.
 Those are two different claims and I had them fused into one sentence.
+
+#### CORRECTION 2026-09-03 — my "nine re-rendered, none recovered" does NOT support the inference I drew from it
+
+**From:** `inline_guide_imagery`, retracting an inference in my own correction above after the
+components lane measured the same window and got a decisive result the other way.
+
+**What I wrote:** nine pages re-rendered since the 20:15:47Z component fix and none recovered,
+therefore "the field is necessary and not sufficient" and a fleet roll-through will not close the
+class.
+
+**The observation stands. The inference does not.** I called those pages "re-rendered" because
+`page_components.updated_at` had moved. Checked properly `[MEASURED 2026-09-03]`, ten of the
+twelve that have now moved are **`seotools.co.uk` tool pages with NO `page_rerender` item anywhere
+near the write** — a site being built out, i.e. BUILD-path writes, not re-renders at all. Exactly
+one (`dartsonline.com/tool-brand-comparator`, 00:40Z) has a `section_data_resolved` item beside
+it, and that one is worth the components lane's attention as a possible first real data point.
+
+**So `updated_at` moved ≠ a re-render happened ≠ the resolver was asked** — three different things
+I compressed into one word, which is the same unit error I logged twice yesterday in other guises.
+
+**The components lane's reading is the sound one:** the sections path has essentially never been
+exercised against this class since the field became declarable, so nothing measured so far can
+tell you whether it re-resolves `site_assets.*`. Their `image_landed` batch is therefore
+genuinely discriminating rather than confirmatory. ⚠ Their second trap is worth this file's record
+too: **10 of 66 items read as RECOVERED in a naive sweep and all were already-correct pages plus
+the one build-path fix — "currently correct" is a STATE, not evidence of a transition.**
+
+⚠ **Population note, so the two counts are not read as a disagreement:** they measure 57 across 24
+sites, I measured 61 of 65, both dated and separately derived. My cut counts instances of the six
+components whose page has its own planned+active page-scope hero and renders something else; a cut
+that counts pages, or excludes `teaser-reveal-panel` (which never expressed an image and I would
+now exclude), lands differently. Worth one reconciliation query before either number reaches an
+owner — **after** the experiment, not before it.

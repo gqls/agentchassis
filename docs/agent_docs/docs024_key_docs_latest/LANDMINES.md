@@ -1767,8 +1767,10 @@ source document and the entry points at it.
   route to `rerender_sections` (regenerate), anything else routes to `render_page`
   ("assemble stored HTML"), which republishes bytes you have already fixed and cannot
   regress an interactive tool
+- **⚠ APPENDED 2026-09-03 (`inline_guide_imagery`) — THE THREE-VALUE LIST ABOVE IS STALE, AND THE DRIFT INVERTS THIS ENTRY'S OWN SAFETY ADVICE.** The remedy says to force a republish by firing a `reason` **not in** (`image_landed`, `section_data_resolved`, `cta_links_stale`), on the grounds that anything else takes the assemble path and "cannot regress an interactive tool". `[MEASURED 2026-09-03]` the live `check_rerender_mode` condition on the `page-rerender` agent has **FIVE** values: those three **plus `template_changed` plus `literal_markdown`**. So a reader picking either of those two as a deliberately "safe" out-of-list reason gets the **regenerate** path — precisely the outcome this entry exists to help them avoid. **Read the row, not any list written down here:** `SELECT s.key, s.value->'config'->>'condition' FROM agent_definitions a, jsonb_each(a.default_config->'workflow'->'steps') s WHERE a.type='page-rerender' AND a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL AND s.value->>'action'='conditional';` The sibling entry on the same condition (footprint `check_rerender_mode`) was corrected the same way on 2026-09-02 by the components lane; **this one is a second copy nobody had swept**, found because a third lane asked how far one wrong sentence had travelled.
 - **source:** 2026-07-31, bugfix lane, `bugs_open/161` step 2
 - **added:** 2026-07-31, bugfix lane
+- **corrected:** 2026-09-03, `inline_guide_imagery` lane (the stale three-value condition only; the entry's own finding is untouched)
 
 ### Template syntax written inside a COMMENT in `html_template` fails the parse — ~~and the renderer silently falls back to a regex engine~~ IT NOW FAILS THE STEP
 
