@@ -4176,3 +4176,43 @@ It is now also the recommendation on *fidelity* grounds: the shape he described 
 the sentences he chose. Raised back to him rather than encoded. ⚠ Do NOT quietly widen the
 detector to catch (2) — a rule reverse-engineered to fit three sentences will fire on far more
 than three, and the 6.60% base rate is what it would be firing into.
+
+**2026-09-03 ~12:55Z — the rule-18 migration came back REVISE (corr `498080d9`) on an ALREADY-LIVE
+change. Three objections, answered by measurement; one of them found a real hole in my own
+verification.** Note first what decided it: `decided_by: "unreadable reviewer(s):
+review_editquality.result"` — the gate was an **unreadable seat output**, not the objections
+below. That is the truncation class this lane has hit before, so read the objections on their
+merits rather than as the reason for the verdict.
+
+**1. guardian, medium — "the UPDATE may target a duplicate active row."** Does not apply, and it
+is now measured rather than argued: `SELECT id, version, is_active, is_snapshot FROM
+agent_definitions WHERE type='page-content-writer'` returns **exactly one row, full stop** (id
+`5946a27b…`, version 2) — not one active row among several, one row. The migration's
+`count(*) <> 1 → RAISE` guard would have aborted otherwise, and it did not fire. The landmine
+the seat cites ("four agent types have TWO active rows, only the higher version is loaded") is
+real and this type is not one of them.
+
+**2. debug_historian, medium — "which `snapshot_agent` overload fires, and does it persist a
+restorable row?" THE SEAT WAS RIGHT AND I HAD NOT ESTABLISHED IT.** My submission's risks block
+asserted *"Rollback is the snapshot taken in the same transaction"* on the strength of the
+function having been CALLED. Checking it properly: there are **two overloads**, and the two-arg
+form writes to **`agent_definitions_backup`**, a different table — so my first verification query,
+which looked for `is_snapshot=true` rows in `agent_definitions`, returned **ZERO** and briefly
+read as "there is no rollback for a live fleet-wide change". That is exactly the failure the
+objection predicted, reproduced by me one query later. The rollback does exist:
+`agent_definitions_backup`, `snapshot_taken_at` 2026-09-03 12:34:23Z, reason
+`739_…: pre-ruling`, and `carries_OLD_rule18 = t`. **The lesson is not "the snapshot was fine" —
+it is that "I called the backup function" is not evidence a backup exists, and the function's
+return value cannot tell you, because `snapshot_agent()` returns the SOURCE row's id, not the
+snapshot's.** Verify a backup by reading the backup.
+
+**3. debug_historian, low — "'effective the moment it applies' is wrong for in-flight runs."**
+Correct, and I have first-hand corroboration from earlier the same day: a dispatch envelope
+carries `config.workflow` **inline** (the gap-planner canary's `gap_msg3.json` embedded the whole
+workflow, byte-equal to the live definition). So an in-flight `page-content-writer` orchestration
+holds its own copy of the prompt and will keep emitting the OLD rule-18 register until it
+completes. The boundary is per-spawn, not per-instant. My submission's wording overstated it.
+
+**Resubmitted** with all three answered (`RESUBMIT_CORR`), no change to the migration itself —
+every objection was about what the plan failed to STATE, not about what the SQL does. The
+migration stays applied; nothing here argues for reverting it.
