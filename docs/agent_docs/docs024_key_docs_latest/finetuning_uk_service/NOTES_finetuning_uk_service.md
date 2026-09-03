@@ -2526,3 +2526,23 @@ claimed 10:40:38Z by the SAME `build-dispatch-loop` orchestration (`5bf75f69`) a
 mixes two pages. Key on the writer's `orchestration_id` (technical-details `ce514ce0`, homepage
 `6e7b0529`; handler `14544ac9`). Told the copy lane and the 443 lane. `[TO CONSIDER]` a
 LANDMINES entry under `llm_call_log.correlation_id` / `build-dispatch-loop`.
+
+**10:55Z — copy lane's after-pass on technical-details (commit `2cb6cfb43`) and what came of it.**
+Gate's own report: **9 hits in, 0 out; 8 rewrites across 4 repaired sections, 2 clean; zero
+rejections, zero exemptions**; shapes rather_than 6, x_not_y 2 — matches the 4 `rewrite_negations`
+calls. **Every one of the 8 is a truncation in the owner's ruled form** ("…picked for the job
+rather than for its reputation" → "…picked for the job"). Their earlier correction stands as
+design (the gate COULD rephrase) and is settled empirically here (it truncated 8 of 8).
+Instrument correction they made and I accept: **a page-level before/after cannot measure the
+gate** (a content rebuild re-runs the writer; no sentence survives); the instrument is
+`generated_content_N` vs `copy_gate_N` inside one run, and `copy_gate_N` already stores
+hits_before/after/rewritten/rejected/exempt_reasons. The pinned baselines answer "did the page he
+complained about get better", a different question.
+Two findings: (1) **`<strong>open-weight model</strom>` shipped live** — writer output, gate
+preserved it, no well-formedness check on the save seam (the `sanitize…` there is bug 190's
+envelope guard). Filed **`bugs_open/456`** with the save-seam guards enumerated and fix
+candidates ordered (normalise via `x/net/html` at the save seam first). **Decision: no re-run** —
+the visible effect is a bold run-on in one paragraph, and Stage B rewrites the page once 641
+applies; revisit if 641 stalls past a day. (2) the page **lost a third of its copy** (1,826 →
+1,214 words; the gate removed 36; the writer wrote a shorter page; the 422 shrink floor did not
+trip) — recorded in 456 §4 as an observation for the 422 file, not a claim.
