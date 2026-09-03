@@ -1053,3 +1053,26 @@ honestly)** — portfolio positioning has taken it in exactly that shape. Their
 same rolling-window caution (union `site_work_items_archive` before any
 "ever" figure) matches 445's self-correction — twice in one hour from two
 lanes.
+
+## 2026-09-03 — 460 filed for the dormancy; rule 20 gets its first live test
+
+- **`bugs_open/460` filed** (gamedesign, commit `787283cc9`, unowned, no root
+  cause asserted): the blog-content-planner dormancy 731's rule 20 cites now
+  has a durable home, **explicitly recording that reviving the producer makes
+  rule 20's text stale** — whoever picks up 460 owns a live-prompt
+  consequence.
+- **The dormancy date gains a second independent instrument**: the producer
+  was DRIVEN, not never-used — `check_empty_blog.go` filed `needs_blog_posts`
+  14 times (13 complete, 1 wont_fix), 2026-03-14 → 2026-04-24, serving three
+  sites; work items and llm_call_log agree ON THE DAY of the stop. So
+  driven-then-stopped is confirmed, and "DORMANT since 2026-04-24" is exactly
+  right twice over.
+- ⚠ **Re-measurement trap (460 §5)**: `site_work_items` alone returns ZERO
+  `needs_blog_posts` fleet-wide — all 14 rows are ARCHIVED. A live-table-only
+  re-check "confirms" the mechanism never ran — the opposite of the truth,
+  reading as corroboration. Union the archive (third instance of the
+  rolling-window family in one day).
+- **Rule 20's first live test is queued**: gamedesign's re-plan
+  (needs_briefing `5cce64a6`, triaged 11:44:45Z) is the first plan written
+  under rule 20 (+718 imagery, +720 gate). They report either way; a
+  zero-article result comes to me before anyone builds on it.
