@@ -1,0 +1,20 @@
+# Categories kept WHOLE — not divisible into sub-category blocks — because the
+# owner intends to monetise them as an ADVERTISING NETWORK, where the value is
+# the aggregate reach across the vertical rather than any single domain.
+#
+# This OVERRIDES the 2026-09-03 sub-category ruling for the categories named
+# here. Both rulings are the owner's and they are not in conflict: sub-category
+# is the default unit; a network category is a stated exception.
+#
+# 2026-09-03, owner, verbatim: "I want to keep all financial domains together
+# because I can offer better reach and specifics for advertisers as a network
+# when they eventually get traffic."
+#
+# Why it must be whole and not merely mostly-whole: an advertiser buying
+# "insurance reach" cannot be served from a network whose insurance names were
+# sold. Selling the weakest family of a vertical does not trim the network, it
+# removes a segment of its inventory — which is the one thing the strategy
+# cannot survive. The provisional cut had 133 financial/insurance domains in it
+# for exactly this reason: they were the weakest family by median, and that is
+# irrelevant to a reach argument.
+financial

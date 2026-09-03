@@ -1,14 +1,15 @@
 # The bottom-500 cut — PROVISIONAL, by sub-category block
 
-Built to the owner's rulings of 2026-09-03: **sub-category blocks** as the unit,
-**USD rounded up** (floor $200), bands unchanged for now, **~500 approximate**.
+Owner's rulings of 2026-09-03: **sub-category blocks** as the unit, **USD
+rounded up** (floor $200), bands unchanged for now, **~500 approximate** —
+with **financial kept WHOLE** as a network exception (see below).
 
-> ⚠ **PROVISIONAL — NOT READY TO ACT ON.** Only 588 of 3,023 owned domains have
+> ⚠ **PROVISIONAL — NOT THE SALE LIST.** Only 588 of 3,023 owned domains have
 > their own appraisal; the rest inherit a category median, so the ORDER of these
-> blocks is not yet reliable. This shows the SHAPE of the cut and lets the owner
-> sanity-check which families are heading for sale. Re-run at high coverage.
+> families is not yet reliable. This shows the SHAPE of the cut. Re-run at high
+> appraisal coverage before anything is listed.
 
-## The blocks that reach ~500 (540 domains, 14 whole families)
+## The families that reach ~500 (505 domains, 17 whole families)
 
 | # | family | domains | median value | keen price range |
 |---|---|---|---|---|
@@ -25,30 +26,30 @@ Built to the owner's rulings of 2026-09-03: **sub-category blocks** as the unit,
 | 11 | `beauty-personal-care/general` | 4 | $610 | $275–$275 |
 | 12 | `packaging-print/packaging` | 13 | $617 | $200–$2,250 |
 | 13 | `web-digital/design` | 110 | $684 | $200–$3,000 |
-| 14 | `financial/insurance` | 133 | $695 | $200–$6,750 |
+| 14 | `industrial-equipment/machinery` | 12 | $702 | $200–$1,350 |
+| 15 | `home-garden/services` | 33 | $748 | $200–$1,650 |
+| 16 | `travel/accessories` | 1 | $772 | $350–$350 |
+| 17 | `automotive/general` | 52 | $779 | $200–$4,500 |
 
-**If every one sold at its keen price: $286,025** (average $530).
-That is the optimistic case — the realised-sales evidence says a fair share of
-the tail will not clear $200 at all.
+**If every one sold at its keen price: $259,625** (average $514).
+The optimistic case — realised-sales evidence says a fair share of the tail
+will not clear $200 at all.
 
 ## Held back, and why
 
-- **153** — PREMIUM-REVIEW
-- **75** — KEEP
-- **3** — NOT-OWNED-elsewhere
-- **3** — NOT-OWNED-expired
-- **2** — QUOTE-AS-PAIR
+- **401** — kept (live sites, owner-withdrawn, and the financial network)
+- **183** — premium classes the model cannot price — held for a real appraisal and the owner's eye
+- **3** — registered to someone else
+- **3** — no longer registered to anyone
+- **2** — webdesign.uk + webdesign.co.uk, quoted together by owner ruling
 
-**⚠ FINANCIAL IS NOT INTACT — the biggest single block in this cut is
-`financial/insurance` (133 domains, median $695).** The owner named financial as
-the category to keep together, and the sub-category rule he chose permits selling
-one of its families while keeping the rest. That is exactly what it has done: 1
-of financial's 8 families is in the cut, and it is the largest. Mortgages (30),
-loans (36), investing (53), banking-savings (26), general (29), credit-debt (10)
-and foreign-exchange (11) all stay.
+**The financial network: all 335 financial domains are held whole.**
+The owner's reason (2026-09-03): *"I can offer better reach and specifics for
+advertisers as a network when they eventually get traffic."* An advertiser
+buying insurance reach cannot be served from a network whose insurance names
+were sold — so the weakest family being weakest is simply not the relevant test.
+This removed 133 `financial/insurance` domains that the previous draft had in
+the cut, and cost about 133 of the 500; the shortfall is made up from the
+families listed above.
 
-**This is a decision for the owner, not a result to accept.** Selling 133
-insurance domains is either precisely what sub-category granularity was for, or
-a violation of the spirit of "keep the financial domains together" — and only he
-can say which. Note also that insurance sits lowest by median only on
-PROVISIONAL numbers: 4 of its 133 have their own appraisal.
+Financial families held: `insurance` (134), `investing` (53), `loans` (40), `mortgages` (32), `general` (29), `banking-savings` (26), `foreign-exchange` (11), `credit-debt` (10)

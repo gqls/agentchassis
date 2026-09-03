@@ -62,6 +62,15 @@ TIERS = [
 # owner paid £5,000+ for it) and 52 others. Removed on evidence, not taste.
 THIN_EVIDENCE = {'foreign-language', 'names-places', 'misc', 'packaging-print'}
 
+# Categories the owner keeps WHOLE for an advertising-network play, overriding
+# the sub-category cut unit. See NETWORK_KEEP_categories.txt for the reasoning.
+try:
+    NETWORK_KEEP = {l.split('#')[0].strip() for l in
+                    open(os.path.join(HERE, 'NETWORK_KEEP_categories.txt'))
+                    if l.split('#')[0].strip()}
+except OSError:
+    NETWORK_KEEP = set()
+
 # A single dictionary word with no hyphen or digit. These are the estate's
 # premium end and the model cannot price them: only 4 of 144 have an appraisal,
 # and the two we have owner figures for (cartoon.co.uk £5,000+ paid,
@@ -194,6 +203,8 @@ def main():
             # .uk sales of tp.uk £5,200, fpp.uk £3,500, va.uk £3,300, egg.uk
             # £2,000 (COMPARABLES §1.3c). Held out like the dictionary words.
             keen_out, sell = '', 'PREMIUM-REVIEW:short-name'
+        elif r['category'] in NETWORK_KEEP:
+            keen_out, sell = '', 'KEEP:network-' + r['category']
         elif r.get('quote_with'):
             # Owner-ruled quote-together group: a standalone price for one of
             # these is the exact mistake the ruling exists to prevent, so the
