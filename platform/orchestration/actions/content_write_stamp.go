@@ -68,6 +68,13 @@ const (
 	contentWriterRebuildBlogListing  = "action:rebuild_blog_listing"
 	contentWriterApplyAdoptionPlan   = "action:apply_adoption_plan"
 	contentWriterToolRegenerate      = "action:create_tool_component.regenerate"
+	// features_open/035 P1 direction 2. Its archive rows are the only evidence
+	// that a child edit propagated upward, so they must name this writer rather
+	// than the socket — and it is a distinct name from section_editor.update
+	// deliberately: the child write and the ancestor rewrite are two different
+	// decisions in one action, and an archive that conflated them could not
+	// answer "who rewrote the parent".
+	contentWriterRecomposeAncestors = "action:recompose_ancestors"
 )
 
 // stampWriterSQL is the one statement both helpers issue. Kept as a const so

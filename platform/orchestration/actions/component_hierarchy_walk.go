@@ -378,8 +378,14 @@ func hierarchySlotsFromSchema(schema map[string]interface{}) []hierarchySlotSpec
 // ---------------------------------------------------------------------------
 
 // hierarchyDB is the read surface these helpers need. It is satisfied by both
-// *sql.DB and *sql.Tx, so the render paths and apply_section_edit's transaction
+// *sql.DB and *sql.Tx, so a caller that holds a transaction and one that does not
 // share one implementation instead of two.
+//
+// ⚠ CORRECTED 2026-09-03: this comment used to say "apply_section_edit's
+// transaction". THERE IS NO SUCH TRANSACTION — that action writes on the
+// autocommit connection throughout (component_hierarchy_recompose.go's header
+// carries the measurement). The interface is still right, and stays for the
+// render paths; the justification was not. Both callers pass *sql.DB today.
 type hierarchyDB interface {
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row

@@ -646,6 +646,40 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 		zap.Int("new_html_length", len(outcome.HTML)),
 	)
 
+	// ── Recompose the ancestors this row is embedded in (035 P1, direction 2) ──
+	//
+	// A composed page serves the TOPMOST ancestor's bytes, not the child's. So a
+	// child edit that stops at the child is invisible on the page it just changed,
+	// and the page keeps serving the pre-edit text while this action reports
+	// success — bugs_open/384's shape, one level in.
+	//
+	// PLACEMENT IS LOAD-BEARING, on both sides:
+	//   AFTER the persist, because the ancestors must embed the NEW child bytes,
+	//   and because the child's UPDATE has committed by here (this action holds no
+	//   transaction) so an ordinary read sees it;
+	//   BEFORE assemblePage below, because the reassembly reads page_components
+	//   back — recomposing after it would ship the stale parent in the very HTML
+	//   this action returns for deployment.
+	//
+	// It cannot fail the edit (see the file header of component_hierarchy_recompose.go).
+	// An ancestor it could not refresh — unreadable, unrenderable, floor-breaching,
+	// locked or tombstoned — comes back as a slot name and is published in the
+	// result below, where it is a durable record rather than a log line that
+	// rotates within minutes.
+	//
+	// COSTS ONE INDEXED SELECT PER EDIT AND NOTHING ELSE TODAY: hierarchyAncestorChain
+	// reads parent_instance_id for the edited row and returns empty on a top-level
+	// one, and `[MEASURED 2026-09-03]` 0 of 3,229 page_components carry a
+	// parent_instance_id, so the loop body is unreachable on today's data. That is
+	// the RFC_022 shape this feature ships in: opt-in, unsafe side OFF, inert until
+	// a row opts in.
+	staleAncestorSlots := recomposeAncestors(ctx, params, params.DB, pcID, siteID, logger)
+	if len(staleAncestorSlots) > 0 {
+		logger.Warn("ApplySectionEditAction: some ancestors could not be recomposed — the page may serve stale parent bytes (035 P1)",
+			zap.String("page_component_id", pcIDStr),
+			zap.Strings("stale_ancestor_slots", staleAncestorSlots))
+	}
+
 	// --- Reassemble full page ---
 	pageInfo, err := getPageInfo(ctx, params.DB, pageID)
 	if err != nil {
@@ -709,6 +743,11 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 		// same reasoning. Empty/zero for the other two edit types.
 		"transform_name":      outcome.TransformName,
 		"transform_converted": outcome.TransformConverted,
+		// 035 P1 direction 2: the ancestors this edit could NOT refresh, so a
+		// parent left embedding stale bytes is queryable in collected_data
+		// instead of only in a pod log. Empty on every page that is not composed,
+		// which today is all of them.
+		"stale_ancestor_slots": staleAncestorSlots,
 	}, nil
 }
 
