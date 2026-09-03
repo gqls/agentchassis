@@ -261,11 +261,25 @@ Gotchas, each earned:
 - **`webdesign.uk` and `webdesign.co.uk` are two different domains — do
   not conflate them, ever, in pricing or docs.** `webdesign.uk` (18
   pages) was the owner's own example of a domain that "could be worth
-  over a million." `webdesign.co.uk` (155 pages) is the webdesign
-  business's own shopfront. A pricing or listing action landing on the
-  wrong one is an expensive, easy mistake — always use the full domain
-  string, never "webdesign" as shorthand, in any cross-lane message or
-  generated file.
+  over a million" — **and is also the shopfront**: CLAUDE.md:716 records
+  the owner's own words, "the webdesign.uk shopfront." (CORRECTED
+  2026-09-03: this entry originally said `webdesign.co.uk` was the
+  shopfront, backwards — copy_quality_two_stage caught it, verified
+  independently against CLAUDE.md before propagating the correction; the
+  earlier claim was an inference from page count and name, not a
+  checked fact.) `webdesign.co.uk` (155 pages) is a large site whose
+  role is otherwise unconfirmed. Both are now owner-confirmed in scope
+  for a possible sale (2026-09-03) — always use the full domain string,
+  never "webdesign" as shorthand, in any cross-lane message or generated
+  file.
+- **The two webdesign domains are stated to CONVERGE — "the same
+  endpoint one day"** (owner, 2026-09-03) — while simultaneously BOTH
+  being in scope for sale. copy_quality_two_stage flagged the coupling
+  this creates: a domain destined to merge cannot be sold independently
+  without breaking the consolidation plan — whoever buys one is not
+  obliged to honour a redirect the owner intended. Not resolved here;
+  put to the owner rather than assumed (RUNBOOK is not the place to
+  decide a commercial structure). See NOTES for the question as put.
 - **An owner-requested withdrawal (e.g. "take out the X family of
   domains") is a SEPARATE fence, not an addition to the live-site one**
   (added 2026-09-03, `--exclude-file` accepts multiple and unions them —
