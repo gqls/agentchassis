@@ -146,6 +146,32 @@ inert until the next roll**, and the **write** path (`:700` →
 outside mocks either way. A detector that detects and does not file looks identical to a clean
 fleet.
 
+**UPDATE 2026-09-03 09:49 UTC — the probe is PLANTED by its owner, and the "inert until the roll"
+clause above is now MEASURED rather than inferred.**
+
+The `claims-verification` lane planted it at **09:34:48 UTC**, four minutes after this lane's
+landmine (`71b85fcc2`) named the test sites: `buytoletcalculator.uk`
+(`dc7a8ebf-9c23-45e7-970e-32147615bb12`), spec row `623c1de8`, `created_by='claims_verification_probe'`,
+one `banned_claims` entry with pattern `guaranteed(`. **The assertion has not yet succeeded** — at
+09:49 UTC `site_work_items` for `invalid_banned_claim_pattern` is still **0** fleet-wide and no
+`orchestration_states` row since 09:25 names that site. So: planted, not yet dispatched. **Do not
+plant a second one.**
+
+`[MEASURED 2026-09-03 09:47 UTC]` The `patterns_checked` Info line is **absent from BOTH replicas**
+of replicaset `75b987cbd7` — probed at `/proc/1/exe`, `0` and exit 1 on each, against
+`invalid_banned_claim_pattern` **6/6** present, control `stale_evidence` **6/6** present, control
+`zzz_not_a_real_symbol_qx7` **0/0** absent. The pods started **08:57:46 / 08:58:07 UTC** and
+`996b40542` was committed **09:29:46 UTC**, so the absence is arithmetic as well as measurement.
+**The consequence is a live trap on one branch:** if the dispatched pass files nothing, grepping for
+`patterns_checked` returns silence that is the *un-deployed line*, not a non-executing check.
+Relayed to the owning lane in
+`docs/agent_docs/docs024_key_docs_latest/claims_verification/CONTRIB_2026-09-03_from_414_your_demand_control_is_planted_and_the_log_line_you_will_reach_for_is_not_deployed.md`.
+
+One further observation, since the probe **created** that site's register rather than editing one:
+`resolveEvidenceSites`' fleet query (`:290`) carries **no `sites.status` predicate**, so the probe
+site is now in the daily tick as well as directly dispatchable. Reverting the spec is what takes it
+back out.
+
 ---
 
 ## 4. WHAT IS LEFT ON THIS LANE — nothing, and here is the accounting
@@ -156,9 +182,9 @@ fleet.
 | Framework fix (3 changes + citation exemption) | **LIVE**, council-approved | — |
 | RFC_060 — all 7 questions | **FULLY RULED** 2026-09-02/03 | owner: done |
 | RFC_060 Q5/Q6/Q7 builds | not written; none rode today's roll | **claims-verification** |
-| Q7 `banned_claims` half | **BUILT, APPROVED, LIVE** — demand control outstanding (§3) | **claims-verification** |
-| `loancash.co.uk` register | the one genuine gap; owner informed; **unowned** | unowned |
-| `farmerinsurance.uk` | has a register (7 facts) but **0 `banned_claims`** — the 707 residue | flagged to lendzy relay |
+| Q7 `banned_claims` half | **BUILT, APPROVED, LIVE** — demand control **PLANTED 09:34 UTC, not yet dispatched** (§3) | **claims-verification** |
+| `loancash.co.uk` register | **the one genuine gap, re-confirmed 09:49 UTC 2026-09-03**: no `evidence_base` row at all (not an empty one) beside 14 other current specs, on a **deployed** finance site serving **30 pages**. RFC_060 Q1 makes a register required here; owner informed; **still unowned** | unowned |
+| ~~`farmerinsurance.uk` — 0 `banned_claims`~~ | **DISCHARGED 2026-09-02 18:34 UTC** by migration 713 (lendzy relay), *before* this table was written; today's 09:11 refresher carried 7 facts + 5 patterns forward unchanged. Spec history, not the current row, is what shows this — the current row alone reads as "the daily sweep fixed it", which is false | — |
 | `lendzy.co.uk` migration 695 | written + council-reviewed, blocked on rolls | lendzy lane |
 
 **No owner decisions outstanding.** RFC_060 is fully ruled; nothing here waits on a person.

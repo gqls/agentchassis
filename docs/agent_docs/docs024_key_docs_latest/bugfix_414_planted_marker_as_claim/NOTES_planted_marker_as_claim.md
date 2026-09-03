@@ -306,3 +306,65 @@ evidence of the run. There is nothing to grep — I only established that by rea
 rather than by grepping and finding nothing, which would have looked like the same answer and meant
 something different. *An absence in a log is only evidence once you have read the code that would
 have written the line.*
+
+---
+
+## (q) 2026-09-03, 09:43–09:52 UTC — the handoff went stale in 15 minutes, in three of its rows
+
+Picked the lane back up from `HANDOFF_2026-09-03_continue_here.md`, written at 09:34 UTC. Its §0
+says the lane is closeable and its §3 says one verification is outstanding and owed by another lane.
+Both were true when written. Three rows were not true fifteen minutes later, and one of them I got
+wrong on the first reading.
+
+**1. The demand control was already planted — by its owner, four minutes after we unblocked it.**
+`buytoletcalculator.uk` (`dc7a8ebf-…`, `sites.status='test'`, 0 pages) had a current `evidence_base`
+created **09:34:48 UTC** by `created_by='claims_verification_probe'`: one `banned_claims` entry,
+pattern `guaranteed(` (unterminated group), `reason` naming it a probe to revert. Our landmine
+`71b85fcc2` — "a scratch site search by DOMAIN finds nothing; non-production is `sites.status`" —
+was committed ~09:30 UTC. So the relay worked, and it worked in **four minutes**. Worth knowing that
+the landmine channel moves that fast when the receiving lane is live.
+
+At 09:49 UTC the assertion had **not** yet succeeded: `invalid_banned_claim_pattern` items **0**
+fleet-wide, no `orchestration_states` row since 09:25 naming that site. Planted, not dispatched.
+
+**2. The follow-up log line is NOT deployed, and I measured it rather than repeating the handoff.**
+§3 said `996b40542`'s always-fired Info line is "Go, so inert until the next roll" — an inference.
+`[MEASURED 09:47 UTC]` probing `/proc/1/exe` on **both** replicas of `75b987cbd7`:
+`invalid_banned_claim_pattern` **6/6**, `patterns_checked` **0/0 (exit 1)**, control `stale_evidence`
+**6/6**, control `zzz_not_a_real_symbol_qx7` **0/0 (exit 1)**. Pods started 08:57:46 / 08:58:07 UTC;
+`996b40542` committed 09:29:46 UTC. Arithmetic and artefact agree.
+
+The consequence is a live trap on exactly one branch, which is why it was worth relaying rather than
+just recording: **if the dispatched pass files nothing, grepping for `patterns_checked` returns a
+silence that is the un-deployed line, not a non-executing check.** Sent as
+`claims_verification/CONTRIB_2026-09-03_from_414_your_demand_control_is_planted_and_the_log_line_you_will_reach_for_is_not_deployed.md`
+(a NEW file, deliberately — that lane was committing into `RFC_060` every few minutes and a
+same-file append would have been a passenger risk for no gain).
+
+**3. MISSTEP — I read a current row and inferred a cause the history refutes.** §4 listed
+`farmerinsurance.uk` as "7 facts but **0 `banned_claims`** — the 707 residue, flagged to lendzy
+relay". The live row today shows **7 facts and 5 patterns**, written **09:11:23 UTC by
+`evidence-refresher`** — one minute into the 09:10 daily sweep. I read that as *the daily sweep
+closed the gap on its own*, which would have been a genuinely interesting claim about the refresher
+minting patterns, and I nearly wrote it down.
+
+The spec history says otherwise:
+
+| created_at (UTC) | created_by | facts | banned |
+|---|---|---|---|
+| 09-02 15:11:19 | `evidence-researcher` | 3 | 0 |
+| 09-02 15:27:19 | migration 698 (loanzy lane) | 7 | 0 |
+| **09-02 18:34:47** | **migration 713 (loanzy lane)** | 7 | **5** |
+| 09-03 09:11:23 | `evidence-refresher` | 7 | 5 | ← carried forward, minted nothing
+
+The **lendzy relay closed it the previous evening**; the refresher merely copied it into a new
+current row and stamped its own name and today's clock on it. **The lesson is narrow and reusable:
+`created_by` on the current row names the last WRITER, not the AUTHOR of the value it carries — and
+a refresher that rewrites a whole spec launders every field's provenance into its own name.** The
+check that catches it is one query: read the aspect's full history, not its current row. Compare
+`a-report-is-not-a-measurement` and `seed-sql-is-history-live-row-is-fact`; this is the inverse of
+the second — here the LIVE row is the misleading one and the history is the fact.
+
+**4. `loancash.co.uk` re-confirmed as the one genuine gap**, and it is unchanged: **no**
+`evidence_base` row at all — not an empty one — beside 14 other current specs, on a `deployed`
+finance site serving **30 pages**. RFC_060 Q1 makes a register required there. Still unowned.
