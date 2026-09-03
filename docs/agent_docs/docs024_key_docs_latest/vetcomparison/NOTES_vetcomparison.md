@@ -2217,3 +2217,17 @@ set exists in more than one WIDTH*), pointed the other way.
 **Trail:** `NOTES_vetcomparison.md` from 2026-08-24 carries every claims decision.
 **Register-programme side:** `bugfix_414_planted_marker_as_claim/HANDOFF_2026-09-03c_continue_here.md`,
 RFC_060 §3g.
+**Register handover completed (2026-09-03 late):** the 414 lane's transcription above verified
+accurate — and it carried NEWS for this lane: **CLM-033 (migrations 742/744) now files a daily
+`missing_evidence_register` item**, so the structural invisibility their message identified is
+closed at the mechanism; and vetcomparison is RFC_060's `relied_upon` worked example → the CITED
+bar (source URL + verbatim quote through fcaquotecheck) applies to every fact. Handed over
+durably: `ATTESTATION_2026-09-03_cma_draft_order_and_govuk_pet_travel.md` (55d878953 — Article 3
+table as verbatim pdftotext, size definitions, the three gov.uk attestations, §4 the caps
+discrepancy with recommended repair wording: "the draft Order proposes a cap of £21, to be
+finalised — with an inflation adjustment — when the Order is made"). **Operational check adopted
+from their loancash scar, for whenever the owner commissions the caps repair: a content_rewrite
+item MUST set `spec.mode='edit_live'` (otherwise page-build-handler REGENERATES the section), and
+verify by diffing SENTENCES, not lengths — their pages retained 84–88% of bytes while 36/37 and
+49/50 sentences were replaced.** Register build queued behind their held repair; this lane keeps
+site-knowledge support only.
