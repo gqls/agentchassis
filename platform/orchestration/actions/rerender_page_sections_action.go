@@ -1167,7 +1167,8 @@ func isSelfContainedSection(comp componentInfo) bool {
 // resolve no sections and the page is in no current plan, no item is emitted.
 //
 // Returns the disposition so the caller can put it in the action's output —
-// "raised", "skipped_sectionless_page", "skipped_owned_page", or
+// "raised", "skipped_sectionless_page", "skipped_owned_page",
+// "skipped_tool_pending_page", or
 // "escalate_failed" alongside a non-nil error. A no-op that only the absence
 // of a row records is a silent no-op (bugs_open/182).
 // `cause` is the human half of the summary only. The spec's machine reason
@@ -1201,10 +1202,15 @@ func escalateRerenderToWriter(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 	// a page that does not resolve yet is the legitimate build-request case, and
 	// an unreadable policy must not suppress a real escalation.
 	if guardPageID, _, lookupErr := saveSectionsLookupPageID(ctx, db, siteID, pageName); lookupErr == nil {
-		if owned, checked := pageIsOwnedForGuard(ctx, db, guardPageID, logger); checked && owned {
-			logger.Info("rerender_page_sections: skipped_owned_page — the page is rebuild_policy=owned, so the writer this would escalate to is forbidden to touch it; owned slots legitimately carry no content_data (bugs_open/333)",
+		if refused, class, checked := pageRefusesGenericBuild(ctx, db, guardPageID, logger); checked && refused {
+			// bugs_open/450: the tool_pending case is the same argument one step
+			// along. A tool page waiting for its tool has empty prose slots for a
+			// legitimate reason too, and the writer this escalates to is precisely
+			// what fills them with prose about the missing tool.
+			logger.Info("rerender_page_sections: escalation skipped — the page refuses generic builds, so the writer this would escalate to is forbidden to touch it; such slots legitimately carry no content_data (bugs_open/333, bugs_open/450)",
 				zap.String("site_id", siteID.String()),
 				zap.String("page", pageName),
+				zap.String("refusal_class", class),
 				zap.String("cause", cause))
 			// The skip leaves a DURABLE record, not only a log line (council
 			// round 70a1e557, bug_historian): if an owned page ever genuinely
@@ -1216,11 +1222,17 @@ func escalateRerenderToWriter(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 			// already write, so it cannot flood and a reader finds every
 			// owned-page refusal in one place. Errors are logged and swallowed
 			// inside the emitter: the skip protects the page either way.
+			escalationReason := ownedPageSkipReasonPrefix + ": rerender escalation skipped — " + cause +
+				" is the normal state of an owned page's widget slots; if this page's tool genuinely lost content, rebuild via the tool pipeline"
+			disposition := "skipped_owned_page"
+			if class == refusalToolPending {
+				escalationReason = ownedPageSkipReasonPrefix + ": rerender escalation skipped — " + cause +
+					" is the normal state of a tool page whose tool has not been built yet; escalating would write prose about a tool that is not there"
+				disposition = "skipped_tool_pending_page"
+			}
 			emitOwnedPageReviewItem(ctx, db, siteID, pageName, "page-rerender",
-				ownedPageSkipReasonPrefix+": rerender escalation skipped — "+cause+
-					" is the normal state of an owned page's widget slots; if this page's tool genuinely lost content, rebuild via the tool pipeline",
-				logger)
-			return "skipped_owned_page", nil
+				escalationReason, class, logger)
+			return disposition, nil
 		}
 	} else if !errors.Is(lookupErr, sql.ErrNoRows) {
 		logger.Warn("rerender_page_sections: ownership lookup failed — escalation guard standing down",
@@ -1457,6 +1469,17 @@ func classifyStoredSection(
 	}
 	c.comp = comp
 	c.htmlTemplate = htmlTemplate
+	// The plan travels with the classification, and it is LOAD-BEARING, not
+	// bookkeeping: renderPlannedSection composes its render context as
+	// base ⊕ stored content_data ⊕ plan.ResolvedData and persists
+	// stored ⊕ plan.ResolvedData. Compute it here and drop it, and every
+	// re-render silently renders the page's OWN STORED DATA back at itself —
+	// no error, no carry, the same `rerendered` count a healthy run reports,
+	// and a repair vehicle that can no longer deliver a data repair
+	// (bugs_open/454; the live symptom was bugs_open/427's event-list, whose
+	// query.upcoming_events `items` never populated across three dispatches).
+	// Pinned by rerender_page_sections_resolved_data_test.go.
+	c.plan = plan
 	return c
 }
 
