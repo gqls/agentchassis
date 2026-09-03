@@ -293,3 +293,44 @@ domains still listed there were probably lost."*
 - **Afternic: the owner removed all 6 dead listings himself** in the dashboard;
   the afternic lane has no fresh export to confirm, so they are "gone, unconfirmed".
   He re-registered `enables.uk` (distinct from the lost `enables.co.uk`) — added.
+
+## 2026-09-03 (late) — the owner's rulings applied, and a premium blind spot with one cause
+
+- **All four decisions ruled**: sub-category blocks; **USD, rounded UP** (clean
+  ladder, floor $200 — 63 distinct prices, was 659); bands unchanged for now;
+  ~500 approximate.
+- **⚠ FINANCIAL IS A WHOLE-CATEGORY EXCEPTION** (`NETWORK_KEEP_categories.txt`).
+  Owner: *"I want to keep all financial domains together because I can offer
+  better reach and specifics for advertisers as a network when they eventually
+  get traffic."* An advertiser buying insurance reach cannot be served from a
+  network whose insurance names were sold, so "weakest family by median" is not
+  the relevant test. Removed **133 financial/insurance** from the cut; all 335
+  financial held. Sub-category remains the DEFAULT unit; network categories are
+  named exceptions. **Ask before adding another — home-garden, automotive and
+  health-medical are all large enough to be networks.**
+- **PREMIUM BLIND SPOT — 5 measured cases, ONE cause.** Category-median
+  anchoring drags the best names to the middle, and the better the name the
+  worse the error: free.uk $215 (sibling `free.co.uk` sold **~£160,000**);
+  holidaytime.com $995 (**$12,000 realised**); relojistas $1,490 (owner's
+  $12,000 floor); cartoon.co.uk below what he paid; short .uk at the $200 floor
+  against realised £2,500–£5,200. **Response is refusal, not a better
+  multiplier**: 183 domains in scarcity classes are held out of the tail
+  (single dictionary word · ≤3 chars · 4-letter .com with a vowel or y — the
+  owner's own rule). They lead the appraisal queues.
+- **3 live offers, all lowballs**: ipry.com €150, holidaytime.com €200,
+  ortd.com €220 — far below even this model. ⚠ **Exactly the failure this lane
+  warned sedo about on 09-02**: make-offer with NO minimum. Minimums come from
+  this lane's output.
+- **⚠ CORRECTION, propagated: `leopardessconsulting.co.uk` is the OWNER'S OWN
+  consultancy, not a paying client's site.** Recorded wrongly in the sedo lane
+  (now fixed) and quoted from copy_quality's reading of D4 (flagged to them).
+  Verified at the live site + owner-confirmed. Exclusion stands, but on
+  ordinary live-site grounds, not third-party harm — which matters because D4 is
+  cited as precedent elsewhere.
+- **Owner asked for a second self-services domain.** Recommended
+  **proverb.co.uk** (he owns `proverb.uk` too — the pair is defensible, and the
+  webdesign ruling shows why that matters); alternatives `rationale.uk` (states
+  his differentiator: a record of every decision) and `egret.co.uk` (closest to
+  the Leopardess animal-brandable pattern). ⚠ **`mandrill.uk` deliberately NOT
+  recommended — Mailchimp trademark in the same tech space.** All parked at
+  Dan.com, no site behind them.
