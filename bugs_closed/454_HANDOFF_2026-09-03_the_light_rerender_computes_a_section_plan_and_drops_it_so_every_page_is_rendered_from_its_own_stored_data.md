@@ -627,8 +627,25 @@ that IS the deploy target, and it now does, proven by a real write and a real up
 in the fleet, and its effect is demonstrated end to end through the actual production pipeline —
 not a test, not a status field. Moved to `bugs_closed/`.
 
-**One enumerated exception, from §15a: this fix cannot reach every row.** A `page_components`
-row with `component_id NULL` misses `resolveComponent` entirely and takes a carry branch —
-its stored HTML re-ships verbatim forever, 454 fix or not. `[MEASURED 2026-09-03, components
-lane]` **8 such rows across 3 pages**, filed as `bugs_open/457`. So "every light re-render now
-delivers fresh data" is true with that one named exception, and closing 454 does not close 457.
+**One enumerated exception, from §15a: this fix cannot reach every row.**
+
+> **CORRECTED 2026-09-03 (the `components` lane, checking their own earlier claim at the source
+> after `bugs_open/384` challenged it).** The figure below was wrong twice over — the rule was
+> over-wide, and "8 rows / 3 pages, from `bugs_open/457`" was inherited from 457's own earlier
+> census and stated with `[MEASURED 2026-09-03]` as though freshly taken. **A marker on a number
+> you did not measure yourself reads as first-hand and is not.** Re-verified here at the source
+> before writing this correction, not accepted on report: `resolveComponent`
+> (`rerender_page_sections_action.go:361-393`) does NOT give up on an empty `component_id` — it
+> falls through to `schemas[s.slotName]`, and `loadComponentSchemas`
+> (`plan_sections_action.go:1996-2001`) indexes that map by BOTH `Name` and `Function`. So a
+> NULL-id row resolves whenever its slot name matches EITHER column, and the naive screen
+> (`cc.name = pc.slot_name` alone) overcounts by miscounting the function-matched rows as
+> stranded.
+
+A `page_components` row with `component_id NULL` and no `content_components` row matching its
+`slot_name` on **either** `name` or `function` misses `resolveComponent` entirely and takes a
+carry branch — its stored HTML re-ships verbatim forever, 454 fix or not.
+`[MEASURED 2026-09-03, this session, independently at the source]` **2 such rows on 2 pages**:
+`finetuning.uk /blog` (`article-grid`) and `gamesdesign.co.uk /game-jelly-invaders` (`section`).
+Neither is from `bugs_open/457`. So "every light re-render now delivers fresh data" is true with
+this two-row, two-page exception — smaller and differently sourced than first stated.
