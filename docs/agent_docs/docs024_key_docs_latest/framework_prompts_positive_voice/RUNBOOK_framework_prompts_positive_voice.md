@@ -80,10 +80,25 @@ sql=open('docs/agent_docs/sql_for_agents/641_page_content_writer_prompt_v5_secti
 e=re.search(r"E'((?:[^']|'')*)'", sql[sql.index('jsonb_set'):]).group(1)
 applied=e.replace("\\n","\n").replace("''","'")
 header="\n".join(l[3:] for l in sql.split('__ INSERTED TEXT')[1].split('__ END INSERTED TEXT')[0].splitlines() if l.startswith('-- '))
-print("MATCH" if applied.split('{{if .current_section.facts_scoped}}')[0].strip()==header.strip() else "DIVERGED")
+a=applied.split('{{if .current_section.facts_scoped}}')[0].rstrip('\n')
+h=header.rstrip('\n')
+print("MATCH" if a==h else "DIVERGED")   # rstrip BOTH: see the note below
 PY
 ```
 The apis.uk lane ran this on both their cuts and it caught nothing precisely because it ran.
+
+**Normalise the trailing newline on BOTH sides or the check cries wolf.** The comment copy is
+reconstructed line by line and gains a trailing newline the applied string does not have; the first
+run of this recipe on 2026-09-03 printed DIVERGED on two byte-identical copies. A checker that
+false-alarms gets ignored, which is worse than not having one. The authoritative third comparison is
+against the harness template itself (`render_test/main.go`, the candidate's raw string), which is what
+actually rendered the fixtures the owner read:
+
+```python
+h=open('docs/agent_docs/docs024_key_docs_latest/framework_prompts_positive_voice/render_test/main.go',encoding='utf-8').read()
+tpl=h.split('"A4_R_second_half_no_frame": `')[1].split('`,')[0]
+print("harness == applied:", tpl==applied_block)
+```
 
 **The pre-flight "already applied" probe keys on `{{if .current_section.subject}}`** plus the `input_fields`
 containment. Every candidate under option A keeps that opening literal, so the probe still discriminates.

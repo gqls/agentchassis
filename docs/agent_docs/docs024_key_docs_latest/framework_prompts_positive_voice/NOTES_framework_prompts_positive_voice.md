@@ -98,3 +98,55 @@ twice in 641 (header comment and the `E'...'` string) and must be byte-compared 
 planner row returns a clean false for any literal containing a double quote (JSON stores `\"`); that prompt
 moved 169 chars in an hour, so no absolute offsets; and the 450 lane's migration 729 pins the same rule-17
 anchor and is blocked on an owner permission decision, so they re-anchor on top of the nudge, not the reverse.
+
+## 2026-09-03 (~16:00Z) — the owner's three decisions, 641 edited to A4, apply rehearsed green
+
+**His answers, verbatim:** *"1: drop it and use fuller sentences/phrases 2: keep the prohibitions but
+perhaps make the whole prompt read more positive as a whole. 3: enable cache and also test against Grok
+now that it has some credit."*
+
+**Decision 1 — the block.** 641's INSERTED TEXT is now candidate A4: the subject printed verbatim on its
+own line, C's sibling list unchanged. The "You'll want to know ___" frame is gone. **This is a data
+decision, not a taste one**, and the harness is why: the frame is a fixed sentence with a hole, so only a
+short lower-case fragment fits, and both the real gamedesign planner subjects and his own example line
+render broken (the latter with a doubled full stop no rule catches). Subjects are now authored as the
+section's opening line, in fuller sentences or phrases. A phrasing spec is owed to finetuning and apis.uk
+before either authors data; my earlier planner-nudge draft asked for the OPPOSITE (short lower-case
+clauses) and was retracted to apis.uk before they cut it - confirmed nothing had landed.
+
+**Decision 2 — the house voice row: keep every prohibition, change the register only.** So the trade I
+offered (drop a prohibition where a detector already enforces it) is DECLINED, and that simplifies the
+work: no rule leaves the prompt, meaning-preservation is a form question, and nothing depends on the
+detectors holding. "The whole prompt read more positive as a whole" is taken as the row first, then the
+writer prompt's own rule block by the same treatment.
+
+**Decision 3 — caching is now authorised** (its own migration, after 641, on the same row) **and Grok
+joins the model arm.** Credentials checked at the pod, value never printed: `XAI_API_KEY` and
+`GROK_API_KEY` both SET, `grok-4-1-fast` is the model the platform already uses via the xAI Responses API
+(`feed_actions.go:741-758`). The 08-31 arm was blocked on credits; he says there is credit now.
+⚠ The chassis image has **no curl and no python3, only BusyBox wget**, which drops 4xx bodies - the
+documented reason the 08-31 Grok 403 was unreadable. Find a pod with curl, or read the status line
+explicitly, before calling any failure a credit failure.
+
+**641 edited and rehearsed.** Only the two copies of the text and the header prose describing them changed;
+the pre-flight already-applied probe (keys on `{{if .current_section.subject}}`, which A4 keeps), the
+version-shadow guard, the both-halves verify and the em-dash equality census are byte-for-byte as apis.uk
+wrote them. Rehearsed under BEGIN/ROLLBACK against the live row: `NOTICE: 641 applied … em-dash census 10
+(unchanged)`, then ROLLBACK, then a post-rollback control showing the live row still clean (block position
+0, `sections_for_render` absent).
+
+> **[MEASURED 2026-09-03 ~16:00Z] The live writer prompt moved under me during this session: 14,111 chars
+> at ~12:30Z, 14,621 at 16:00Z, and its em-dash count went 9 to 10.** Another lane edited the same row
+> while this lane was drafting against it. Nothing here broke, because 641's census asserts pre/post
+> EQUALITY rather than a literal - the apis.uk lane replaced a literal 5 with equality on 2026-09-02 for
+> exactly this reason and it has now paid off twice. This is also the empirical form of their warning:
+> **record no absolute positions or lengths of a shared prompt**; my own PLAN quotes 14,111 and is already
+> stale, corrected here rather than there.
+
+**Also confirmed for the finetuning lane:** their Stage B dispatch gate keys on the literal
+`current_section.subject`, which A4 keeps, so the gate still fits.
+
+**Misstep, mine, caught by running the check:** the RUNBOOK's two-copies byte-compare printed DIVERGED on
+two byte-identical copies, because the comment copy is reconstructed line by line and gains a trailing
+newline. Fixed to `rstrip` both sides, with the harness template as the authoritative third comparison.
+A checker that false-alarms is worse than no checker, because it gets ignored.

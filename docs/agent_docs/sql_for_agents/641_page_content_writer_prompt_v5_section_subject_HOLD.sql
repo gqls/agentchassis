@@ -1,9 +1,25 @@
 -- 641 — page-content-writer prompt v5: render the section's SUBJECT when the
--- plan assigned one. REDRAFTED 2026-09-03 to the owner's positive-prompting
--- directive; the block below is his pick "C" (2026-09-02 late: "go with C"),
--- test-rendered against five real-row fixtures BEFORE this SQL was written
--- (finetuning_uk_service/render_test_641/ - OUTPUT.txt is the evidence; the
--- template bytes here are copied verbatim from that harness, anchor swapped).
+-- plan assigned one. REDRAFTED TWICE to the owner's positive-prompting
+-- directive of 2026-09-02. The block below is the second redraft, decided by
+-- him on 2026-09-03 after a blind read of four candidates: the subject is
+-- PRINTED VERBATIM on its own line, and the sibling list is unchanged from his
+-- 2026-09-02 pick "C". Test-rendered against eight real-row fixtures BEFORE
+-- this SQL was written (framework_prompts_positive_voice/render_test/ -
+-- OUTPUT.txt is the evidence, candidate A4; the finetuning lane's
+-- render_test_641/ holds the round-1 record). The template bytes here are
+-- copied verbatim from that harness, anchor swapped.
+--
+-- WHY C'S FIRST SENTENCE WENT (2026-09-03, and it is a data decision, not a
+-- taste one): C opened "You'll want to know {{.current_section.subject}}.",
+-- a fixed frame with a hole, so only a short lower-case fragment could fill
+-- it. Measured on the harness: the REAL gamedesign.uk planner subjects render
+-- "You'll want to know Brief description of the sister-site relationship with
+-- gamesdesign.co.uk and what each site covers.", and the owner's own example
+-- opening line renders with a doubled full stop. The frame and prose-shaped
+-- subjects are mutually exclusive; he chose the prose. Subjects are now
+-- authored as the section's OPENING LINE, addressed to the reader in the
+-- site's voice - a phrasing spec goes to the finetuning and apis.uk lanes,
+-- and a build-site-planner nudge follows as its own migration.
 --
 -- !! THE DELTA IS NOW TWO CHANGES IN ONE TRANSACTION, not one:
 --   (a) the subject block inserted before the Verified Facts block;
@@ -24,26 +40,36 @@
 --      voids it. History: the v5 first cut FAILED this gate 2026-09-02 - the
 --      read returned a REDRAFT direction (positive prompting only, response
 --      register, no specimen answer), the framing candidates went to him, he
---      picked C's words. Those words are below; his fresh read of THIS file's
---      block is still owed, because what he approved was the filled-in render,
---      and what applies is this template. Change nothing in the block without
---      saying so to him and to the finetuning lane.
+--      picked C's words. On 2026-09-03 he read four candidates BLIND (letters
+--      randomised, key sealed before presentation, C included as the control),
+--      leaned to C for its warmth, and on being shown what its frame does to
+--      real planner subjects and to his own example line, chose to drop the
+--      frame and keep the rest: that is the block below. HIS READ OF THESE
+--      EXACT BYTES IS STILL OWED - what he has approved is the shape and the
+--      rendered example, and what applies is this template. Change nothing in
+--      the block without saying so to him, to the apis.uk lane (whose file
+--      this is) and to the finetuning lane (whose subject data it renders).
 --
 -- Placement: immediately BEFORE the Verified Facts block. Renders ONLY when
 -- the plan assigned a subject ({{if .current_section.subject}}); every
 -- unassigned section's prompt is byte-identical to v4 (fixture B). Sibling
 -- exclusion is by SUBJECT, not name - names repeat (generic-text-block x3 on
 -- the real playground row); a subjectless sibling drops out cleanly, Go's
--- "and" short-circuits (fixture E). Known cosmetic edge, tracked as an OWNER
--- QUESTION not absorbed here: tier-1 PLANNER-written subjects can read
--- awkwardly in "You'll want to know ___" (fixture A); the recommended fix is
--- a planner-prompt nudge in a separate small migration, NOT an edit to C's
--- words (his pick was the words).
+-- "and" short-circuits (fixture E). The tier-1 planner-subject question that
+-- stood here as an OWNER QUESTION is ANSWERED by this redraft: with no frame,
+-- any subject shape renders grammatically, so the planner nudge is no longer
+-- a correctness fix. It is still owed as a REGISTER fix (the planner writes
+-- capitalised noun phrases with em dashes; those now print verbatim as a
+-- section's opening line), and it lands as its own migration on the apis.uk
+-- lane's rule-17 anchor. Two fixtures added for this cut: F, two sections
+-- sharing one subject (subject-equality exclusion drops both from the list -
+-- a data defect rule 17 forbids, visible not silent); G, subjects written as
+-- full sentences, which is the shape the owner asked for.
 --
 -- __ INSERTED TEXT (delta (a); plain hyphens, no em dashes) _______________
 -- {{if .current_section.subject}}## This section
 --
--- You'll want to know {{.current_section.subject}}. That's what this section is for.
+-- {{.current_section.subject}}
 --
 -- {{.current_page.title}} also covers, each in its own section:
 -- {{range $s := .sections_for_render.sections_ready}}{{if and $s.subject (ne $s.subject $.current_section.subject)}}- {{$s.subject}}
@@ -151,7 +177,7 @@ BEGIN
                         default_config->'workflow'->'steps'->'process_sections_loop'->'config'
                             ->'sub_workflow'->'steps'->'generate_content'->'config'->>'prompt_template',
                         '{{if .current_section.facts_scoped}}',
-                        E'{{if .current_section.subject}}## This section\n\nYou''ll want to know {{.current_section.subject}}. That''s what this section is for.\n\n{{.current_page.title}} also covers, each in its own section:\n{{range $s := .sections_for_render.sections_ready}}{{if and $s.subject (ne $s.subject $.current_section.subject)}}- {{$s.subject}}\n{{end}}{{end}}\n{{end}}{{if .current_section.facts_scoped}}'
+                        E'{{if .current_section.subject}}## This section\n\n{{.current_section.subject}}\n\n{{.current_page.title}} also covers, each in its own section:\n{{range $s := .sections_for_render.sections_ready}}{{if and $s.subject (ne $s.subject $.current_section.subject)}}- {{$s.subject}}\n{{end}}{{end}}\n{{end}}{{if .current_section.facts_scoped}}'
                     )
                 )
             ),
