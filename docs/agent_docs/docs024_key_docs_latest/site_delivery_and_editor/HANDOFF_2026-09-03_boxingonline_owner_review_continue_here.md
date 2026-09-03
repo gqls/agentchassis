@@ -224,3 +224,69 @@ before building, or the working half gets rebuilt.** Addendum committed to the b
 5. **Nobody re-seeds this site** until `420`'s class fix rolls — `build_queue.direction` still holds
    the ordering email and `sites.email` is empty, so a re-seed refills it. (`b60d66e3c` shipped the
    *mirror* fix, not this one.)
+
+---
+
+# UPDATE — end of 2026-09-03. §§1, 2 and 4 above are SUPERSEDED by this.
+
+The site's queue turn came at 10:42Z and again at ~12:07Z; the publish tick landed 13:14Z.
+**Full end-of-day state, measured at the served site, is in
+`APPROVAL_READOUT_2026-09-02_boxingonline_what_is_actually_fixed.md` under
+"STATE AT END OF DAY 2026-09-03"** — read that for the owner-facing verdict. This section records
+only what a NEW SESSION needs that the read-out does not carry.
+
+## The seven checks in §2.1 HAVE BEEN RUN. Verdict: pass, one live defect.
+
+Against `/index.html` lm 13:14:20, cache-busted, control 7, invented path 404:
+CTA block **210 visible chars** (from 1,347) · **0** register tells · **0** AI tells · **0**
+placeholders · 6 blog links · **6 deck elements, 0 empty** · **0 suffixed headlines, 0 suffixed
+alts** · email 0 · contact links 0 · one fight-calendar header entry · GTM ×2.
+
+**THE ONE LIVE DEFECT: "…and the calendar below tells you what's coming up next."** The CTA is the
+last section (`content-listing → info-card-grid → call-to-action`) and there is no calendar on the
+page. **Fix filed `needs_copy_edit a930e70c`, ends at `checkpoint_for_review` → it lands in the
+OWNER'S ADMIN QUEUE for approve / request-changes.** Do not hand-edit `content_data`; the
+framework writes the content.
+
+## §2.2's PRE-REGISTERED PREDICTION HELD — and one inherited claim must be narrowed
+
+A BUILD produced decks with real copy, suffix-free headlines **and** suffix-free alts, nothing
+further done. Builds are now **4 for 4**.
+
+⚠ **Do NOT inherit "the path-split model stands".** Its other half — *rerenders never produce the
+new shape* — was refuted (two rerenders elsewhere did), and the components lane's batch 691 has
+since shown a rerender **PRESERVES** the shape on a new-shape baseline. So: **builds reliable;
+rerenders inconsistent; cause still unknown.** §4.1's elimination list and the `garden-tools.uk`
+lead both stand. That 691 result is also what unblocked the CTA fix — it proved correcting item 1
+cannot revert item 14.
+
+## New traps for §0
+
+- **`pages.rendered_head` reads GTM = 0 on all 21 pages while the served pages carry it.** The head
+  is composed from `site_components` at assemble time. **Checking that column would report the
+  analytics rollout as failed when it succeeded.**
+- **A `rerenders_since` count on a component whose `updated_at` has not moved is EMPTY of meaning**
+  — an unmoved timestamp proves those rerenders never wrote that row, so the number describes
+  rerenders elsewhere on the site. I nearly reported "survived 19 rerenders" as good news. Kept out
+  of every file deliberately; do not reintroduce it.
+- **Chrome refresh `ec92320f` FAILED 3/3** (`bugs_open/457`) — chrome propagation on this site is
+  hand-filed until that code fix.
+- **`/about.html` GTM = 0**: published ~20 s before its own assemble finished. Queued, not failed.
+
+## What is still open, unchanged from §3
+
+Items **7, 9, 10** (articles / comparator / calendar) — re-measured 13:59Z, all unchanged, all one
+root cause in **`bugs_open/427`, whose session has ENDED and needs restarting.** Its writer half
+now works here (`evidence_base` 1 → 7 real cited facts, including a dated forward fixture) and
+nothing consumes them — **restate the bug's title before building or the working half gets rebuilt.**
+Also open: **12b** news feed residue (5 md links / 12 truncations / 11 UFC), **3b** guides
+unrewritten, **8** imagery logo-only on every page but the two listings.
+
+## Immediate next actions, replacing §9
+
+1. **Watch the owner's admin queue** for `a930e70c` — the CTA rewrite needs his approve/request-changes.
+2. **Re-run the seven checks after that rewrite lands**, and re-read the deck keys afterwards
+   (the 691 result says they survive, but verify rather than inherit).
+3. **Get a session onto `bugs_open/427`** — root of items 7, 9, 10; restate the title first.
+4. **`/about.html` GTM** — confirm on the next publish tick.
+5. **Nobody re-seeds this site** until `420`'s class fix rolls.
