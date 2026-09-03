@@ -61104,3 +61104,33 @@ relay it: the 427 lane was right, and I only knew that because I re-ran their th
 - **Cost.** The window was closed for 33 s at 11:02 with no run inside it (no exposure, no missed
   attempt — attempt 2 could not spawn before 11:15). The cost is a fourth clock/zone row in this
   ledger today; the tally now reads 4.
+
+## 2026-09-03 — designblog_couk lane: I hardcoded another lane's absence claim into LIVE CONFIG without the one grep that tests an absence
+
+**The claim.** Migration 730 shipped rule 20 into the live build-site-planner prompt opening
+with the flat absolute "THERE IS NO LATER EDITORIAL PASS", taken from the gamedesign.uk
+session's 444 CONTRIB ("There is no blog infrastructure and no later editorial pass"). Their
+census (every live article page is a planned page) was framed for falsification and survives;
+the ABSENCE sentence was not the census, and I embedded it as fact.
+
+**What was true.** A blog-post producer EXISTS and is wired — `create_blog_posts_action.go`,
+registered, named by one live agent definition (`blog-content-planner`) — and is DORMANT: 10
+LLM calls all-history, none since 2026-04-24. "No pass RUNS" was true; "no pass EXISTS" was
+not, and a revival of the agent would have made a live prompt actively wrong.
+
+**What caught it.** The bugs_open/427 lane refuted the absence within the hour; gamedesign
+verified the refutation first-hand and retracted to me; migration 731 (same day, ~1h later)
+replaced the absolute with the dated-dormancy form ("NO LATER EDITORIAL PASS RUNS …
+blog-content-planner DORMANT since 2026-04-24, 10 calls all-history, measured 2026-09-03").
+
+**The cheap check that would have.** An absence is true only when you looked, and the look
+for "no producer exists" is one grep at the REGISTRY, not a census of outputs:
+`grep -rn "blog.post\|create_blog" platform/orchestration/actions/ | grep -i regist` before
+writing "nothing creates X" into anything durable — doubly so into LIVE CONFIG, which has no
+reader who will re-derive it. Corollary already in the memory index and ignored under speed:
+a silent mechanism is usually UNDRIVEN, not missing. And when an absence must ship, ship it
+DATED and OPERATIONAL ("has not run since <date>") — the form that invites re-checking —
+never ontological ("does not exist") — the form that invites belief.
+
+**Tally:** **an-absence-claim-needs-the-looked-where-statement** ×(n+1);
+**never-embed-an-unverified-absolute-in-live-config** ×1 (new).
