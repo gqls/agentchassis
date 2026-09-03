@@ -286,3 +286,73 @@ func TestSectionPathKey_ChildNeverEqualsItsHub(t *testing.T) {
 		t.Errorf("collider /articles.html no longer claims the hub path %q", hub)
 	}
 }
+
+// The MIRROR of the filed case, relayed by the designblog.co.uk lane via
+// gamedesign.uk: existing CHILDREN, new HUB.
+//
+// ⚠ THIS TEST PASSES WITH OR WITHOUT THE FIX — I mutation-checked it and it is
+// green against the old first-segment rule too, because isSectionIndexType
+// exempts the proposed hub from Pass C either way. It is kept as a guard against
+// a future change removing that exemption, NOT as evidence for this one. Labelled
+// because an unlabelled vacuous test reads exactly like a demonstration. Their tools hub (migration 726) is a
+// new plan row at /tools/index.html on a site whose tool pages already live under
+// /tools/. The filed case was the other way round — existing hub, new children —
+// and neither list had this one.
+func TestPassC_NewHubOverExistingChildrenSurvives(t *testing.T) {
+	existing := []interface{}{
+		sectionHub("tool-a", "/tools/a.html", "tool"),
+		sectionHub("tool-b", "/tools/b.html", "tool"),
+	}
+	llm := []interface{}{
+		proposedPage("tools-index", "/tools/index.html", "section-index"),
+		proposedPage("tool-a", "/tools/a.html", "tool"),
+		proposedPage("tool-b", "/tools/b.html", "tool"),
+	}
+
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	if counts.DroppedCollision != 0 {
+		t.Errorf("dropped_collision = %d, want 0; dropped: %+v", counts.DroppedCollision, counts.DroppedPages)
+	}
+	for _, want := range []string{"tools-index", "tool-a", "tool-b"} {
+		if !hasPage(got, want) {
+			t.Errorf("page %q was dropped; a new hub must not evict its own realised children, nor they it", want)
+		}
+	}
+}
+
+// THE PHANTOM HUB — the widest case this fix repairs, and the one nobody filed.
+//
+// Unlike the test above, this one FAILS against the old rule: mutation-checked
+// 2026-09-03, dropped_collision = 1, "tool-new … collides with realised section
+// index tool-existing".
+//
+// sectionStemOf treats ANY non-root url ending in /index.html as a section index,
+// whatever its page_type. CanonicalisePage's default url shape for a tool, guide
+// or game is exactly that — nestedOrFlatURL gives /tools/<bare>/index.html unless
+// the site opts into flat urls. So an ORDINARY realised tool page registered as a
+// section index whose first-segment stem was "tools", and under the old rule every
+// newly planned tool on that site then collided with it and was dropped.
+//
+// The narrowed rule keys that phantom on the path it actually claims
+// (/tools/existing), so it can only ever collide with a page claiming the same
+// path — which is what it should have meant all along.
+func TestPassC_RealisedNestedChildIsNotAPhantomHubForItsSiblings(t *testing.T) {
+	existing := []interface{}{sectionHub("tool-existing", "/tools/existing/index.html", "tool")}
+	llm := []interface{}{
+		proposedPage("tool-new", "/tools/new/index.html", "tool"),
+		proposedPage("guide-new", "/guides/new/index.html", "guide"),
+	}
+
+	got, counts := reconcilePlanWithRealised(llm, existing, reconcileOptions{}, zap.NewNop())
+
+	if counts.DroppedCollision != 0 {
+		t.Errorf("dropped_collision = %d, want 0; dropped: %+v", counts.DroppedCollision, counts.DroppedPages)
+	}
+	if !hasPage(got, "tool-new") {
+		t.Error("a new tool was dropped because an existing tool's canonical nested url made it look like the /tools/ hub")
+	}
+	if !hasPage(got, "guide-new") {
+		t.Error("guide-new was dropped; it shares no path with the realised tool at all")
+	}
+}
