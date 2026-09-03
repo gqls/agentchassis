@@ -881,3 +881,52 @@ opened, and `cruiserweight-…` is a content page this lane has no business re-p
   review-context annotation, not a `modify`; and 727's exact-match pre-check makes it
   non-idempotent against other drift, which **was intentional** (this migration corrects one
   specific prior value and must refuse anything else) and should have said so.
+
+## 17. Status update, 2026-09-03 — the chassis rolled, the fixture DOES resolve, and the page is now blocked one step later
+
+**The roll happened (chassis `d0252fd4d`, image `v1.0.1358`, 12:18Z) and it carries the 454
+fix.** Dispatched the re-render this lane has been waiting two days to run. Result, from the
+run's own `sections_metadata`:
+
+- **`event-list` resolved its fixture.** `content_data` gained `items`, **n = 1**, and
+  `rendered_html` went **1,813 → 2,498 bytes**. The control taken minutes earlier read
+  `content, heading`, 0 items, 1,813 bytes — the same value this lane measured across three
+  dispatches yesterday.
+- **`hero-tool` regained `hero_url` and `background_image`** in the same pass, which nobody was
+  looking for. That is `planSection`'s authoritative hero aliasing, lost to the same defect.
+
+**So every claim this lane made about its own work is now confirmed at the artefact.** The
+resolver reads the register correctly, the evidence gate admits the one qualifying fact and
+excludes the five that do not, the component's guarded template renders the fixture rather than
+the empty state, and the `component_swap` attachment put it in the right place. §14's conclusion
+— "nothing built here was wrong" — was right.
+
+**But the page has NOT changed yet, and will not until a separate decision is taken.** The save
+was refused:
+
+> `OWNED_PAGE_GUARD: page tool-fight-calendar is page_type=tool with no tool component: a
+> generic section save would publish prose about a tool that is not there.`
+
+That is `bugs_open/450`'s guard, live in the same image (`587666be8`). **Its predicate genuinely
+holds on this page** — `page_type='tool'`, and both components are `component_level='section'`
+(`hero-tool` is a section named for a tool, not a `component_level='tool'` row). This lane is
+not claiming the guard is wrong, and is not routing around it.
+
+`[MEASURED 2026-09-03]` the refusal reaches **58** active tool pages on **12** sites, **53** of
+them on **9** sites already serving deployed components. Raised with the `450` lane with that
+measurement — they had explicitly asked to be told if their tool-shell arm blocked a 454-driven
+re-render. **The scope decision is theirs; this file will not fork a second account of it.**
+
+**What this changes for this lane, honestly:** §14 said the page "fills in on its own once 454
+ships". That is now **wrong** and is corrected here rather than left standing. 454 shipped, the
+data resolves, and the page still shows the empty state, because the last step before the
+artefact refuses. The remaining work is not this lane's code.
+
+- [x] ~~Diagnose and fix the `query.upcoming_events` items-not-populating defect~~ — **DONE and
+  VERIFIED LIVE** (`bugs_open/454` §12). The re-render half needs no further work.
+- [ ] **The save must be allowed to complete.** Blocked on `bugs_open/450`'s scope decision, not
+  on anything here. When it lifts, re-dispatch (recipe in the RUNBOOK) and read the served page,
+  not the job status.
+- [ ] `ff91e666` **round 3** in flight (dispatch `b1a2cf68`) — verdict not yet landed.
+- [ ] Re-verify `experience_loop`'s nightly reclassification once the page actually changes.
+  Still the real closing signal, and still gated on the save.

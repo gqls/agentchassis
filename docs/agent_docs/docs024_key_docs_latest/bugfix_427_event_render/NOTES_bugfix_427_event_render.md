@@ -481,3 +481,54 @@ row) — **and nearly had me repeat this file's own mistake of the morning**: my
 `orchestration_states`, which returned 0 runs and spans **24 hours**. A rolling window cannot
 establish that a thing never happened. `llm_call_log` has the real memory: 10 calls, all
 2026-04-03 → 2026-04-24, none since.
+
+---
+
+## 2026-09-03 (afternoon) — the roll landed, the fix is proven at the artefact, and the page is blocked one step further on
+
+**Chassis `d0252fd4d` / `v1.0.1358` rolled 12:18Z carrying `9831e9ab4`.** Verified by
+`git merge-base --is-ancestor` against the commit the STANDING pods report — and the documented
+stale-row landmine fired on the way: a plain newest-first read of
+`service_binary_capabilities` returned six rows for a **spawned**
+`agent-image-build-handler` pod still on the old `7bf1ff67`. Filtering to
+`pod_name LIKE 'agent-chassis-<rs>-%'` gave two standing pods agreeing on `d0252fd4d`, and that
+agreement is the signal. **Had I trusted the first read I would have concluded the fix had not
+shipped and stopped.**
+
+**The dispatch and what it proves.** `page-rerender`, `reason=section_data_resolved`, correlation
+`be75b209`. Counts came back `rerendered:2 carried:0 escalated:false` — **which is exactly what
+the broken runs reported for a fortnight, so the counts are not the evidence and I did not treat
+them as such.** The evidence is the `sections_metadata`, read against a control captured minutes
+before the dispatch:
+
+| | before | after |
+|---|---|---|
+| `event-list` content_data keys | `content, heading` | `content, heading, **items**` |
+| `event-list` items | 0 | **1** |
+| `event-list` rendered_html | 1,813 B (`md5 ee2ec068…`) | **2,498 B** |
+| `hero-tool` content_data | 11 keys | +`hero_url`, +`background_image` |
+
+**The `hero-tool` row is the finding I did not go looking for and the one that matters most.**
+Nothing in 427 or 454 was about hero images. That section regained `planSection`'s authoritative
+hero aliasing in the same pass, from a completely different non-`llm` source — which is the
+1,855-row blast-radius claim demonstrated rather than asserted. One line, two sections, two
+unrelated sources.
+
+**Then the save refused**, and it is not this lane's defect:
+`OWNED_PAGE_GUARD: page tool-fight-calendar is page_type=tool with no tool component`. That is
+`bugs_open/450`'s `pageRefusesGenericBuild`, shipped in the SAME image (`587666be8`). Its
+predicate genuinely holds — `page_type='tool'`, both components `component_level='section'`.
+`[MEASURED 2026-09-03]` **58** tool pages refused across **12** sites, **53** of them on **9**
+sites already serving. Concentrated: loanandmortgagecalculator.co.uk 16, loanzy.uk 5+, idea.uk 3.
+
+**The interaction is the interesting part, and neither lane could have predicted it.** Until this
+morning a re-render on those 53 pages ran, reported success and delivered nothing — so refusing
+its save cost nothing observable. 454's fix and 450's guard arrived in the same image, and the
+same refusal now blocks a real repair. Raised with the 450 lane with the measurement (they had
+asked to be told), and **not routed around** — the scope call is theirs.
+
+**A claim of mine to correct, from this morning.** §14 of the bug file said the page "fills in on
+its own once 454 ships". 454 shipped, the data resolves, and the page still shows the empty
+state. Corrected in place there. The lesson is one this lane has now hit twice in a day:
+**"it will work once X lands" is a prediction about a chain, and I had verified only my own
+link.**
