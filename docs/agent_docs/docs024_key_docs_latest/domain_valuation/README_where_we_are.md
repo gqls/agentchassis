@@ -80,22 +80,12 @@ names could not be checked (that registry publishes no lookup service we can
 reach). Worth acting on: **the three dead names are still listed for sale on
 Afternic**, advertising domains that can't be delivered.
 
-**Your Afternic prices need more than lowering — corrected later the same day.**
-I first reported that your asks run about 5.4 times the independent appraisal.
-That figure is arithmetically right but it describes the wrong problem, and the
-real one matters more. Your prices were applied in **bulk bands**, not per
-domain: of 419 asking prices, 250 are the identical figure $4,999 and 136 are
-$25,000; of 1,215 minimum-offer floors, 845 are exactly $10,000. And the bands
-do not track quality — names in the $4,999 band and names in the $25,000 band
-have essentially the same appraisals ($1,549 against $1,646 median), so two
-names of equal worth are priced five times apart. The $10,000 floor band covers
-names appraised anywhere from $25 to $24,511.
-
-So the job isn't to scale your prices down by a factor. It's to give the
-portfolio per-domain pricing for the first time — which will move some prices
-down a long way and some genuinely good names **up**. Also worth knowing: only
-419 of your 1,634 Afternic entries carry an asking price at all; the rest have
-only a minimum-offer floor.
+**Your Afternic prices are confirmed high, and now there's a number on it.**
+Where a name has both an Afternic asking price and an independent appraisal,
+the ask is a median of **5.4 times** the appraisal. Also worth knowing: only
+419 of your 1,634 Afternic entries have an actual asking price at all — the
+rest carry only a minimum-offer floor, and those floors run about 5.8 times
+appraisal too.
 
 On valuations themselves: the appraisal tool turned out to value *any* domain
 name, not just ones you own — which matters because it refuses .co.uk entirely.
@@ -103,3 +93,33 @@ So the .co.uk half of the estate can be valued through its .com equivalent
 instead, clearly labelled as the proxy it is. The daily limit is 300 names, so
 full coverage of 2,945 domains takes roughly a week of windows; today's ran to
 the limit.
+
+## 2026-09-03 (later) — correcting the paragraph above about your Afternic prices
+
+Two corrections, one to the finding and one to how I recorded it.
+
+**The finding.** I said your asks run about 5.4 times the appraisal. That is
+arithmetically right and it describes the wrong problem. Your prices were
+applied in **bulk bands**, not per domain: of 419 asking prices, 250 are the
+identical figure $4,999 and 136 are $25,000; of 1,215 minimum-offer floors,
+845 are exactly $10,000. Because one side of that "5.4 times" is nearly a
+constant, the ratio was really measuring how much the appraisals vary, not how
+you priced.
+
+What the bands do show is worse than a factor being too high: they don't track
+quality at all. Names in the $4,999 band and names in the $25,000 band have
+essentially the same appraisals ($1,549 against $1,646 median) — equal names
+priced five times apart. The $10,000 floor band covers names appraised anywhere
+from $25 to $24,511.
+
+So the job isn't to scale your prices down. It's to give the portfolio
+per-domain pricing for the first time, which will move many prices down a long
+way and some genuinely good names **up**. Had you acted on my first version,
+you'd have cut everything by a factor and kept the actual defect.
+
+**The record.** I edited that paragraph in place rather than correcting it
+here, which is against this file's own append-only rule — the point of the rule
+being that what we believed at the time is part of the record. The original
+wording is restored above and this is the correction. The underlying lesson
+(check whether a variable actually varies before quoting a ratio over it) is
+logged in the fleet-wide WRONG_CALLS.md.
