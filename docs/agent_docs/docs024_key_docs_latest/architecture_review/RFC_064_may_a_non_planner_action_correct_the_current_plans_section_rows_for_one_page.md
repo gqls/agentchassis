@@ -87,6 +87,53 @@ stamp becomes a **false statement** — the page was built from the *old* rows �
 `skip_built` means the reconciler will never rebuild it, so the correction only takes effect
 if something else happens to build the page. Hence the second half of the question.
 
+### 4a. A second, stronger case — where q2 is BLOCKING, not theoretical (contributed by the `bugs_open/469` lane, 2026-09-03)
+
+Migration `750`, this RFC's motivating case, was the *easy* shape: a rename at a fixed
+`ordering`, on a page that was already correct, on a site with exactly one plan. It could be
+argued as a precedent-following one-off. **`robot-hands.com/gripper-catalog` cannot, and it is
+blocked on question 2 specifically.**
+
+The loss is **damage, not an intended removal**, with provenance: migration
+`SQL_2026-07-24_r9_gripper_catalog_real_grid.sql` placed `gripper-spec-sheet` at position 3 as
+an owner-backed call — spec cards being the honest fit where `product-grid` had empty
+e-commerce fields. A reasoned July addition, wiped by the tier-1 sync-down, never restored.
+
+Why `750`'s safety argument does not transfer — `[MEASURED 2026-09-03]`, DB facts re-verified
+independently here:
+
+| | migration 750 | gripper-catalog |
+|---|---|---|
+| shape of the write | RENAME at fixed `ordering` | **INSERT at ordering 2**, shifting `info-card-grid`/`call-to-action` down — the renumbering §5 warns about |
+| plans on the site | exactly **1** | **5** — so "nothing superseded to falsify" is unavailable |
+| `built_from_plan_version` | = current plan | = current plan |
+| does the correction render? | yes — page already correct, nothing to re-render | **NO.** `decideEmit` returns `skip_built` before any section comparison, so a corrected plan is **a no-op** |
+
+**That last row is question 2, made load-bearing.** On this page the repair does not merely
+lose provenance if the stamp is left alone — it **does not happen at all**. Without a stamp
+withdrawal the corrected plan rows sit there and the page never rebuilds from them. This is
+the case that turns q2 from a tidiness argument into a blocking one.
+
+The renumbering hazard was **checked rather than carried across**: all four plan rows have
+`assigned_fact_ids = NULL` and `subject = NULL`, and the site's only imagery row for this page
+is page-scoped (`'gripper-catalog'`), not `'<page>:<ordinal>'` — so on *this* page the shift is
+benign. That is the right discipline and it is worth naming: §5's warning is a reason to
+enumerate the four consumers, not a reason to refuse.
+
+**One further wrinkle, which is a question this RFC does not answer:** `gripper-catalog` is
+`pages.status = 'archived'` and `build_status = 'deployed'` with a NULL `last_built_at`
+(verified here), while the 469 lane reports it **serving 200** at `/gripper-catalog.html`
+(their probe, via `scripts/probe-page-url.sh` with an invented-URL 404 control and a sibling
+200 control; my own `WebFetch` returned 403, a transport-level block that is evidence of
+neither). If that holds, then even with the stamp withdrawn it is an open question whether the
+build path will touch an archived page at all — so a ruling for q2 may still leave this
+specific repair needing a separate answer. `gripper-catalog-index` is not a substitute; it is a
+single `news-listing`.
+
+The 469 lane is writing it as `_HOLD.sql` and routing the go/no-go to the owner alongside this
+RFC rather than applying it. That is the right call: it is the same decision, met from the
+other end.
+
 ## 5. The proposal
 
 A single typed action, `apply_page_composition`, plus one file
