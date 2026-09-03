@@ -1407,3 +1407,63 @@ lane's report stands unchallenged — boxingonline.com `/articles-index` carries
 `generic-text-block` rows all at `position 3`, which is `bugs_open/457`'s orphan-append and is why
 that page serves 36 cards where there should be 6. Those rows resolve; the defect is that they
 exist, not that they cannot render.
+
+## UPDATE 2026-09-03 15:3xZ — **17/17 after the fix**, completing the partition; plus a correction to my own page count and a population that grows by the hour
+
+### The third era, from the `components` lane (`bugs_open/425`)
+
+They drained their whole class post-fix and it went **17 new shape / 0 old at 15:27Z** (5/12 the
+previous day, 9/8 at 15:05, 11/6 at 15:18). Six of those were a batch they filed with baselines
+recorded **before** dispatching; each confirmed `excerpt` absent → present from its own archiving
+write. So this seam's record now reads across all three eras:
+
+| era | writes over a real deficit | outcome |
+|---|---|---|
+| before `94f81cc60` | 132 | **132 repaired, 0 blank** |
+| during 454's regression | 7 light re-renders | **0 repaired, 7 blank** |
+| after `9831e9ab4` | 17 (their class) + 1 (designblog) | **18 repaired, 0 blank** |
+
+Two of their details are worth keeping. `idea.uk /guides-index` came back with **9** items where the
+frozen array held 7 — the resolver returning more eligible posts than the stale snapshot, i.e. the
+mechanism working, not a discrepancy. And **four of the six repairs moved `rendered_html` in both
+directions** — one of their earlier canaries *shrank* 928 bytes on a clean repair (stripped
+site-name suffixes and collapsed empty elements outweighing added text). **So "html grew" is not a
+pass condition either**, and my 12:5xZ table quotes 2,494 → 3,327 B: that byte figure is
+descriptive, NOT part of the verdict. The verdict is the blank count and the served page.
+
+### ⚠ CORRECTION to my own 15:4xZ table — the page count was wrong, and the population is MOVING
+
+`[MEASURED 2026-09-03 15:30:39Z]`, against `[MEASURED 15:4xZ]` forty minutes earlier:
+
+| | at 15:4xZ (as I published it) | at 15:30:39Z | correction |
+|---|---|---|---|
+| resolving rows | 12 | **13** | population grew |
+| resolving **pages** | ~~6~~ | **6** | **wrong when written — it was 5** |
+| stranded | 2 rows / 2 pages | 2 rows / 2 pages | unchanged |
+| **total NULL-id rows / pages** | 14 / 7 | **15 / 8** | grew |
+
+**The page count was a miscount and I own it** — I counted the resolving pages by eye off a 14-row
+listing instead of asking the database, and got 6 where the distinct count was 5. The peer lane's
+independent census is what surfaced it (they read 7 total pages against my 8). One `count(DISTINCT
+page_id)` would have settled it; eyeballing a short list feels too cheap to be worth a query and is
+exactly where this kind of error lives.
+
+**And the population is not static — it grows by the hour.** A new NULL-`component_id` row was
+created at **15:27:34Z**, three minutes before I read it: advertise.co.uk
+`/tool-cpm-cpc-benchmark-comparator`, slot `tool-cpm-cpc-benchmark-comparator` (it resolves).
+`bugs_open/457`'s orphan append is producing these continuously, so **both my count and the peer's
+were correct when taken and stale within the hour.** CLAUDE.md's rule is that a count of things
+carries the date it was counted; on this population **a date is not enough — it needs the time**.
+
+**The one figure that has not moved, and is the sharpest form of the `name`/`function` trap:**
+`[MEASURED 15:30Z]` of all 15 NULL-id rows, **zero match an active component by `name`** — every
+one of the 13 that resolves does so by `function`. So a screening query joined on `cc.name` returns
+**100% stranded on this population, every time, whatever its size.** It cannot come out right.
+
+### One inference from that lane, carried as theirs and UNTESTED
+
+`[INFERRED, not measured — theirs]` a re-render of boxingonline.com `/articles-index` may still fail
+at the save: migration `316`'s `uq_page_components_no_byte_identical_duplicate` refuses a row
+byte-identical to one already present, and six rows rendering the same deck from the same data is
+that shape — which is `457`'s own reported failure mode. **Do not build on it without testing it.**
+It does not change this seam's record; it bounds what a re-render can do for that one page.
