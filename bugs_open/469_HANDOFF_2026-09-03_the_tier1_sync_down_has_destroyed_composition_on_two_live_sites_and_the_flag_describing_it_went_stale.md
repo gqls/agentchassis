@@ -55,6 +55,20 @@ the page**.
 It was rescued, and then lost again. That is the finding: the remedy did not hold, or a
 later write re-introduced the divergence and the sync-down won the second time.
 
+> **CORRECTED 2026-09-03 (later) — `idea.uk/guides-index` is NOT a loss, on the owning
+> lane's own first-hand check.** The `idea.uk` lane replied to my notification, verified at
+> the artefact, and reported: `/guides/index.html` serves 200 / 90,042 B with `hero` +
+> `content-listing` both deployed (rebuilt 2026-09-03), 19 card elements, **all 10 guides
+> linked**; and their lane records back to July carry no memory of a distinct `guide-list`
+> section that differed from the current listing. So on that site the
+> `guide-list` → `content-listing` change reads as a **one-for-one rename**, and nothing a
+> visitor would miss is gone. The direction test correctly said "the authority won"; it
+> cannot say whether what the authority won *with* was equivalent — which is precisely why
+> `authority_won` must route to a human and never auto-close as resolved. **So this file's
+> confirmed-loss count is ONE (`robot-hands.com`), not two**, with `idea.uk` reclassified as
+> a benign rename and the question still in front of its owner. Caught by notifying the lane
+> rather than by any check of mine.
+
 A third, `oufe.com/contact`, also resolved authority-wards (the cache had lost
 `contact-info`; the authority restored it). Recorded for completeness, but the direction
 test cannot distinguish "a deliberate removal was destroyed" from "an accidental

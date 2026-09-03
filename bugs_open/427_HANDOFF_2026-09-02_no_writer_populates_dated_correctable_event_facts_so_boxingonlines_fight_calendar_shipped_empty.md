@@ -1315,3 +1315,69 @@ deliberately.
       who knows what those pages are for.
 - [x] ~~719/727/728 are TRANSIENT~~ — **DONE**, migration `750`.
 - [x] ~~the `section_source_drift` backlog~~ — **DONE**, migration `753`.
+
+## 22. Status update, 2026-09-03 evening — the tool pipeline built the MECHANISM correctly and FABRICATED its data, which is this bug's own root cause demonstrating itself
+
+Per the owner's decision (§21.2), the calendar mechanism was dispatched through the framework
+— `tool-generator`, correlation `77bbab58-950d-4076-af9a-e7c54b7ea0e1`, published through
+`scripts/kafka-publish-lib.sh` with the receipt asserted (never hand-rolled `kcat`, which
+exits 0 on publishing nothing).
+
+### 22.1 What went right
+
+The run `COMPLETED`, and — verified at the artefact, not from the status:
+
+- a `content_components` row `tool-fight-calendar-boxingonline-com`, **`component_level='tool'`**,
+  16,098-byte template, **with a `<script>` and with controls**. That is exactly what Rule B
+  wants and what `event-list` structurally could not provide.
+- **no duplicate page.** `UpsertPageForRole` attached to the existing
+  `tool-fight-calendar` (`4b74ff1f`) as designed — its `Refresh: []string{}` is empty on
+  purpose — and a companion guide page was created, consistent with the site's other four
+  tools.
+
+### 22.2 What went wrong, and why it is this bug and not a new one
+
+`[MEASURED 2026-09-03]` the tool ships **12 inline fixtures that are fabricated and stale**:
+
+- **Fabricated.** Real, named people with specific claims: `Canelo Alvarez vs Jermell Charlo,
+  2025-05-03, T-Mobile Arena, DAZN`; `Tyson Fury vs Oleksandr Usyk, 2025-06-21, Kingdom
+  Arena, Riyadh`; `Deontay Wilder vs Anthony Joshua`. **Nothing verified any of it against
+  `evidence_base`.**
+- **Stale.** Every date runs `2024-01-13` → `2025-12-06`. Today is **2026-09-03**. So under
+  the tool's own "past fights drop out of the default view" behaviour, **the default view
+  renders EMPTY** — the precise symptom this bug was filed about, reproduced by the fix for it.
+
+**This is §3/§4's root cause restated, not a separate defect.** Nothing on the estate turns a
+confirmed event into a dated fact, so when a generator needs fixtures it invents them. The
+research spec's own `lessons.avoid[]` already names the harm: *"Stale calendar entries — a
+wrong fight date actively harms readers."* Related but distinct: `bugs_open/449` (no fence the
+tool generator writes ever asserts a number) is the numeric sibling of the same missing
+control.
+
+### 22.3 What I did about it
+
+**Nothing fabricated has been deployed.** `pages.deployed_at` is still
+`2026-09-03 15:10:36.708975+00` — the verified state from §20. The queued
+`page_rerender` for this page (`f0fe578b`, `triaged`) was **cancelled**, with the reason
+recorded in its `result`, so the invented fixtures cannot reach `portfolio-sites/` while this
+is decided. The tool component was **kept**: the mechanism is right and only its data is
+wrong, so deleting it would throw away the good half.
+
+**This is the owner's call, and it is a real one:**
+
+1. **Wire the tool's fixture array to real dated facts** — i.e. actually build what this bug
+   asks for, and re-dispatch. The tool's brief already specified that the array be shaped so a
+   later pipeline can regenerate it without changing the interface, so this is the intended path.
+2. **Ship the mechanism with an empty/placeholder array** and an honest "fixtures to follow"
+   state, so the page is a real tool with no false claims.
+3. **Hand-curate a small set of genuinely verified upcoming fights** into `evidence_base` first,
+   then regenerate.
+
+**Option 1 is the only one that closes 427 rather than moving it**, but it is also the one
+that needs the missing mechanism to exist. Recommend 2 as the interim if the site must be
+delivered before that lands — an empty calendar that says so is not a false claim; twelve
+invented ones are.
+
+**Do not simply re-dispatch `tool-generator` and hope.** It produced this output from a brief
+that explicitly asked for real upcoming events; the generator has no source of truth to draw
+on, which is the whole of this bug.
