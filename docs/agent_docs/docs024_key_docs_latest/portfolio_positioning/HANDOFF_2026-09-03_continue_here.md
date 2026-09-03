@@ -57,7 +57,21 @@ the webdesign.uk referral). So a plan produced now should be broadly right **eve
 cannot read the brief directly.** It also renders the WRONG classification, so check the plan against
 `BRIEF_2026-09-03c_copyonline_co_uk_REV3_for_review.md` rather than assuming.
 
-## 1z. ⚠ ADDED ~19:30Z — the owner ANSWERED (evening), and these are now the first tasks
+## 1y. ⚠ ADDED ~20:35Z — RETIREMENT IS DONE; §1z's re-fire task is CLOSED. What is live now:
+
+- **Migration 764 is HOLD, council-submitted (`888e7319-01ae-4371-846d-76fe227a1ebc`), NOT applied.**
+  Read the verdict: `SELECT body FROM doc_notes WHERE categories ? 'council-gate' AND body LIKE '%888e7319%' ORDER BY created_at DESC LIMIT 1;`
+  APPROVED → the OWNER picks the moment (two shared agents, fleet-wide). Apply by hand, then **make it
+  run once** exactly as the file header says — read the new `classification.reasoning` for a
+  `.text`-less site; do not call it done before that. REVISE → resubmit with `RESUBMIT_CORR=888e7319…`.
+- **Retirement, final state:** six archived + six retracted (repo commits `1b0c148…`, `44da691f…`,
+  `f14a638e…`), three nav rows `inactive`, survivors untouched, verified at the repo with a present
+  control. One `phantom_internal_link` item on `tool-insight-injector-guide` may still read `triaged` —
+  its page's `content_data` is already clean; it is a no-op, not a stall. Six archived rows keep
+  `pages.deployed_at` (315/359 shape) — expected members of any archived-and-deployed census.
+- Everything in §1z below about the re-fire is DONE; keep it for the record.
+
+## 1z. ⚠ ADDED ~19:30Z — the owner ANSWERED (evening), and these are now the first tasks — SUPERSEDED BY §1y for the retraction items
 
 Both §2 decisions below are MADE and executed; §2 is kept for the record. What is live and owed:
 
