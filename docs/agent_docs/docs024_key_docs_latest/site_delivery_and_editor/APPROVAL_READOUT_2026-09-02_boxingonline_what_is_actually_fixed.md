@@ -165,3 +165,26 @@ remains `garden-tools.uk` — `/index` new, `/care` old, everything else held co
   the next tick, not a failure.
 - **Chrome refresh `ec92320f` is FAILED 3/3** (`bugs_open/457`), so chrome propagation on this site
   is hand-filed until that code fix.
+
+## Logo — the fleet result, for context on his ruling 7
+
+His ruling was general ("the background behind a logo shouldn't be part of the logo"), so the fleet
+answer matters more than this site's. **All four sites regenerated through the fixed matte carry
+PNG colour type 6 at the SERVED bytes:**
+
+| site | fully transparent |
+|---|---|
+| seotools | 92.21% |
+| designblog | 88.5% (dark-marked, so no light-background legibility risk) |
+| websitepromotion | 87.4% |
+| **boxingonline** | **80.10%** |
+
+`bugs_closed/424_HANDOFF_2026-09-02_transparency_is_not_a_promptable_property_so_the_model_paints_a_checkerboard.md`
+— and its closing statement is the sentence worth pinning: **the matte AND its guard are live on
+v1.0.1356, not merely committed.** So the ruling is implemented estate-wide and demonstrated on
+four sites, not just satisfied on this one.
+
+⚠ **The guard was the blind part, and that is the transferable lesson:** `border_keyed` scored
+**1.000 on a 0.0%-transparent failure** and on an 87.4% success alike, because it counted
+border-flood REACHABILITY rather than transparency. **Verify a logo at the PNG bytes — colour type
+6 or 4, OR a `tRNS` chunk, testing for both — never at the adapter's own confidence signal.**

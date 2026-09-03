@@ -127,7 +127,7 @@ finding, not a pass.
 | Fight calendar + comparator data; the research mechanism | `bugs_open/427` | **session ended — needs restarting** |
 | Card visual design | offer analyser / visual designer lane | active |
 | Article-header imagery (assets exist, no component can show them) | `editorial_design_uplift` | active |
-| Transparent logo | `bugs_open/424` | fix aboard v1.0.1356; test queued here |
+| Transparent logo | ~~`bugs_open/424`~~ → **`bugs_closed/424_HANDOFF_2026-09-02_transparency_is_not_a_promptable_property_so_the_model_paints_a_checkerboard.md`** | **CLOSED.** Matte AND its guard live on v1.0.1356 (not merely committed). boxingonline verified at the SERVED bytes. ⚠ Re-pointed 2026-09-03: `bugs_open/424` resolves to nothing — verified at HEAD with `git ls-tree`, exactly one path, so the move is complete and not a pathspec-commit copy |
 | Raw feed residue on the news page | `bugs_open/332` addendum | **unstaffed** |
 | Nightly listing/tool/nav checks | `experience_loop` (rules A/B/C live) | running |
 
