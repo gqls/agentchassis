@@ -4774,4 +4774,33 @@ re-composing advertise and websitepromotion becomes an evidenced improvement rat
   been destroyed. The join was failing, not the data. **A LEFT JOIN that silently drops a row reports
   absence indistinguishably from deletion** — the check that separated them was `component_id IS NULL`
   versus `points_at_missing_row`, and it took one query.
+- **(ii) FIXED 2026-09-03 14:01:10Z — the six orphaned tool rows are relinked.** Guarded UPDATE:
+  refuses unless exactly 6 orphaned rows exist and each maps to exactly ONE active site-specific
+  tool component (`cc.function = pc.slot_name`, `name LIKE '%-seotools-co-uk'`); byte safety asserted
+  by snapshotting each row's `md5(rendered_html)`, length and digest into a temp table BEFORE the
+  update and comparing after. `UPDATE 6`, all verifications passed, `rendered_html` untouched, no
+  rerender triggered (none needed — the served bytes were already correct).
+  **Verified at the served bodies with a SOUND test: the tool's own instance-scoped id
+  (`id="c-tool-<function>-"`), which nothing else emits** — 11–19 occurrences per page on all six,
+  plus 40 on websitepromotion's channel-prioritiser. **7 of 8 tools genuinely serving.**
+  The eighth, `tool-serp-snippet-previewer`, is built and linked (15,335 B, `component_id` intact)
+  but shows 0 tool ids because its page has never been re-rendered since last night
+  (`deployed_at` 00:08:16Z) — its `page_rerender` is still queued, and its
+  `unbuilt_internal_link` item failed 3× on the component floor.
+- **MY VERIFY BLOCK'S OWN FALSE ALARM, and it is the third instance of one class today.** The first
+  version asserted `rendered_html_digest IS DISTINCT FROM md5(rendered_html)` across ALL the site's
+  tool rows and REFUSED with "the repair altered bytes". The predicate was right; the conclusion was
+  false and the scope was wrong. `IS DISTINCT FROM` convicts a **NULL** digest; 4 unrelated rows
+  carry one; and **a NULL digest is a normal state — 206 of 3220 rows fleet-wide, with only 34
+  genuinely mismatched.** My update never touched `rendered_html` at all. **The fix was to compare
+  the rows I ACTUALLY UPDATED, before against after, rather than asserting an absolute property of
+  a population I had not measured.** Same shape as 450's false receipt and as my own layout-cause
+  claim: a correct test wrapped in an untested inference.
+- **Class NOT repaired here, and reported instead:** `idea.uk` and `loanzy.uk` each carry one
+  orphaned tool row (other lanes'), and **20 orphaned `page_components` rows of all slot kinds exist
+  across 7 sites** [MEASURED 2026-09-03 14:0xZ]. The mechanism: `save_page_sections`' insert takes
+  `component_id` from `section.ComponentID` in the payload it is handed
+  (`save_page_sections_action.go:1036-1041, 1125-1127`), so a preservation path that carries a slot's
+  HTML without its ComponentID nulls the reference on re-insert. The 450 lane has made this their
+  lane's first job ahead of their blocked migration; measurements sent.
 
