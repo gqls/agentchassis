@@ -300,7 +300,27 @@ Normalised and delivered: `domain_valuation/inbound/nominet_domains_2026-09-03.c
 
 OPP-015 proof state: **every verb now live-proven** — probe, login, info,
 set-ns(+apply), and now list/walk. `check` remains unexercised (read-only,
-low-risk). Told them the three retail-registrar inventories
+low-risk).
+
+## 2026-09-03 — INBOUND: independent corroboration of 1,606, and two domains that answer the owner's own question
+
+Valuation session cross-checked the CSV against the owner's Afternic export
+(a separate source, his dashboard, dated 2026-09-03): **683 of 692
+Afternic-only names appear in my 1,606** — independent confirmation the walk
+is sound, settling any residual doubt from the 3-bug chain above. Combined
+estate: 1,606 (Nominet) + 1,339 (retail registrars, zero overlap) = **2,945**.
+
+The 9 names in neither source answer the owner's own question ("list the
+domains not in my registrars, they must have expired"): 3 genuinely gone
+(RDAP 404), 2 undetermined (.co has no RDAP, whois blocked from here), and
+**2 registered but not on our tag anywhere** — `cheapbuild.co.uk`,
+`enables.co.uk`. Checked at the registry myself: both sit on infrastructure
+we do not control (`cheapbuild.co.uk` → Cloudflare `ben/fay` — a DIFFERENT
+Cloudflare account from ours; `enables.co.uk` → GoDaddy `ns13/14.domaincontrol.com`),
+both with live A records. Reads as lapsed-and-re-registered-by-someone-else,
+not "ours, filed under a forgotten registrar" — told the valuation session
+so, for whatever they pass to the owner. Not a nominet-lane action item;
+recorded because it touches the tag's completeness question directly. Told them the three retail-registrar inventories
 (Dynadot 451 mostly-.com / Porkbun 683 / Spaceship 203, all measured 09-02)
 live in the domains_cloudflare_rollout lane with proven read clients — .com
 being in scope makes those their next asks, not ours.
