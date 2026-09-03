@@ -2,8 +2,10 @@
 
 **Status:** stage A LIVE (migration 751, 2026-09-03 17:12:21Z); architecture round **APPROVED**
 (council corr `dc6d2a54-bd73-4827-8267-49c5500467ac`, 2026-09-03 17:43Z, "approved with 4
-advisory objections — none high-severity", 6 abstentions); **stage B REDESIGNED on the
-guardian's advisory and NOT yet written.** Filed at the architecture seat's request so the
+advisory objections — none high-severity", 6 abstentions); ~~**stage B REDESIGNED on the
+guardian's advisory and NOT yet written.**~~ **UPDATED 2026-09-03 19:3xZ: stage B WRITTEN as migration
+`752_…_HOLD.sql`, its round APPROVED (corr `c400d333`, §3b), revised for that round's advisories, re-proven, and HELD
+on ONE remaining gate — the owner's shed-level answer.** Filed at the architecture seat's request so the
 reasoning is citable rather than buried in migration 751's header. Owner ruling verbatim
 (2026-09-03): **"extend it, reducing council spend is a fairly easy save if it comes to the
 crunch."** Lane: `dispatch_throughput`. Register: **AGOV-013**.
