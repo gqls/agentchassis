@@ -169,6 +169,17 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    the components and use more interesting ones for the cards, probably different carousel like
    structures. Please ask them to be imaginative, research good alternatives and apply them."* Routed:
    see NOTES 21:20Z (the editorial_design_uplift lane / design-critique-agent — whichever took it).
+   **SPLIT 21:28Z (uplift lane's CONTRIB in this dir, `a85bcedea`): this lane chooses and applies the
+   card/carousel components on /index.html — AFTER reading the critique report; resolve by FUNCTION not
+   name (section_type ≠ function on all seven); count the three placement rows; canary case-studies-grid
+   ALONE with the words byte-identical at the served page; six of seven candidates are
+   render_mode='agent'. The uplift lane does the infographics: hand-authored `site_plan_imagery` rows at
+   kind='infographic' for this page's concept sections (the planner prompt says "most plans will have
+   zero"; fleet census infographic=1; a fleet prompt change is the planner owners' call). Three
+   construction constraints (no funcmap arithmetic; no words in SVG; non-text contrast) in NOTES 21:30Z.
+   `design_critique_run` `204f1ff7` filed 21:16Z → report in `doc_notes` categories 'design-report'.
+   Widget replace `e1b2bcf8` LANDED 21:18Z (verified; six section hashes unchanged); served when
+   `page_rerender` `d4f151bc` completes — then re-run `cdp_chat_probe.py` and grep the pair text.**
    Homepage today: hero, features, differentiators-section, case-studies-grid (17.7 KB), departments-grid,
    call-to-action; library carousel-like sections: hero-card-carousel, swipeable-insight-carousel,
    image-hover-card-grid, teaser-reveal-panel, info-card-grid (carousel defaults ON at resolution).
