@@ -551,8 +551,15 @@ are candidates.**
    ⚠ **The additive half and the re-typing half are not the same change.** Adding a `guide`
    page_type to the vocabulary is additive and inert. RE-TYPING the existing 167 pages changes what
    every blog/guide LISTING resolves on 20 sites — that is a change to what a shared mechanism
-   guarantees, i.e. architecture-scope under the 2026-07-29 ruling §1, not a config edit. Routed to
-   the site-planner/page-type owners with that split stated; this lane is a consumer, not the owner.
+   guarantees, i.e. architecture-scope under the 2026-07-29 ruling §1, not a config edit. ~~Routed to
+   the site-planner/page-type owners~~ **MISROUTED then corrected the same hour: `site-design-planner`
+   is composition resolution only (layout/typography/palette) and reads or writes NO `page_type`.
+   Page types are `build-site-planner`'s `plan_site` / `write_site_plan_action.go`, currently owned
+   by the `bugs_open/427` session (they shipped migration 687 today on a related page-type
+   decision). Re-routed there with the split stated.** That lane also warns the
+   `site-design-planner` / `build-site-planner` name collision misrouted four things in one
+   afternoon and is now a LANDMINES entry — read it before routing anything page-shaped. This lane
+   is a consumer, not the owner.
 4. **Form endpoint: he has opened his own thread.** Nothing owed by this lane beyond the D1 review
    already delivered (`REVIEW_2026-09-02_form_endpoint_preplan_D1_vs_publish_seam.md`).
 5. **Palette / visual designer: "should respond soon, if not please let me know."** Asked the
