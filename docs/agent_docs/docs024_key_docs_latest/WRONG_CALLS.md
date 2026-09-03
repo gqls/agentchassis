@@ -64320,3 +64320,113 @@ mid-flow on something else are independent. The cheap check is to use a heredoc
   the page-level ones. Three seconds, and it is the difference between a retraction and a report.
 - **Cost.** One wrong owner-facing message and two documents needing visible correction. No action was
   taken on the false premise, because the owner had not answered.
+
+## 2026-09-03 — a clean grep of the page HTML made me call a LIVE client-side overwrite "latent", and the code it looks for is not in the page by design (`bugs_open/332`)
+
+- **The claim.** Investigating why raw markdown reaches visitors, I found that
+  `/data/news-archive.json` is served completely unstripped, and that the `news-listing`
+  component's `js_content` fetches it and does `container.innerHTML = html`. I then wrote in
+  my own plan file that this was **"latent, not live"**, and sized the JSON as a secondary
+  surface.
+- **What was true.** It is live on **five** sites. Every news page carries
+  `<script src="/tools/assets/news-listing.js">`, the asset is a published **200** on every
+  host checked, and the overwrite is **unconditional** on a successful fetch — the
+  `hasServerRenderedItems` guard only covers the empty-feed and fetch-failed branches. So for
+  any JS-enabled visitor the unstripped JSON is what gets read, and the August server-side
+  strip is cosmetic for that audience.
+- **What misled me.** `grep -c 'news-archive.json' <served page>` returned **0**, and I read
+  that as "nothing fetches it". The script is an **external asset the page merely points at**,
+  so its code is not in the page and that grep could never have found it, whatever the truth
+  was. A clean zero from a query that cannot match is the worst kind of answer, because it
+  looks like an answer.
+- **Why it mattered.** It inverted the severity in the safe-looking direction and would have
+  mis-ranked the fix: I nearly treated the JSON as a tidy-up behind the page fix, when it is
+  the surface that WINS in the browser. It also meant I nearly shipped the sweep-script arm as
+  optional.
+- **What caught it.** One command — `curl /tools/assets/news-listing.js` — run only because
+  the finding felt too convenient. The published asset is 3,587 bytes and contains both the
+  fetch and the `innerHTML` assignment.
+- **The cheap check that would have.** **Follow the `<script src>`.** Before concluding any
+  client-side behaviour is absent, grep the page for `<script[^>]*src=` and fetch each asset,
+  rather than grepping the page for the behaviour's own code. My own memory index already
+  carries this as *"a client-side absence is not an absence"* — I had read the line that
+  session and still made the call, because the zero arrived first.
+- **Cost.** None shipped: caught inside the same session, before the plan was approved. The
+  entry is here for the tally — this is a documented lesson hit anyway, which is the pattern
+  worth counting rather than the individual miss.
+
+## 2026-09-03 — my own new detector scored ZERO on the file it was written to catch, and I nearly committed it green (`bugs_open/332`)
+
+- **The claim.** I added a `/data/*.json` arm to `sweep_site_defects.sh` §1.4, ran the sweep on
+  boxingonline, and it printed `data/news-archive.json: 0 field(s) carrying markdown`.
+- **What was true.** That exact file carries **10** such fields, which I had measured myself
+  half an hour earlier — 7 ATX headings and 9 markdown links.
+- **What misled me.** The regex `'"(summary|title)":"[^"]*"'`. The JSON is
+  `json.MarshalIndent` output, so every key is followed by a colon **and a space**. It could
+  not match anything, on any file, ever.
+- **Why it mattered.** A green result from a new check reads as a fix working. Had I not
+  already had an independent measurement of the same file in front of me, "0 fields" would
+  have been indistinguishable from success — and the check would have gone into the fleet's
+  acceptance sweep certifying every site clean for ever.
+- **What caught it.** Running the new check on **its own motivating case** and comparing
+  against a number I already had. Nothing else would have; the sweep has no self-test.
+- **The cheap check that would have.** A new detector needs a **positive control**: run it on
+  the known-dirty input and require a non-zero, before you trust its zero anywhere else. I now
+  keep both — the dirty file must score >0 and a hand-written clean file must score 0.
+  Generalises past this regex: *a detector's first run belongs on the case that caused it.*
+- **Cost.** None shipped. Fixed to `": *"` with the reason beside the line, and the trap in
+  the lane RUNBOOK.
+
+## 2026-09-03 — a guard test that failed for a reason other than the rule it guards, which would have been "fixed" by weakening the innocent pattern (`bugs_open/332`)
+
+- **The claim.** Adding an unclosed-bold rule, I wrote a guard test asserting
+  `"in Python use **kwargs and **args here"` passes through unchanged — an adversarial review
+  had named it as the realistic false positive. It failed: the string came back as
+  `"in Python use kwargs and args here"`.
+- **What was true.** My new rule never fired on it. The strip came from the **pre-existing**
+  complete-bold pattern (`\*\*([A-Za-z][^*\n]{0,80})\*\*`), because the text between the two
+  `**` pairs — `kwargs and ` — is itself a valid bold match. That behaviour has been live since
+  August and is not something this change introduced.
+- **Why it mattered.** The obvious response to a failing guard test is to tighten the rule the
+  test guards. Doing that here would have weakened a **new, correct** pattern to fix a
+  **pre-existing, unrelated** one — and left the actual false positive untouched.
+- **What caught it.** A four-line probe applying the two regexes separately to the same input,
+  written instead of reasoning about which one fired.
+- **The cheap check that would have.** When a guard test fails, first prove **which rule
+  fired**. If a change adds pattern B beside existing pattern A, a failure on an A-shaped input
+  is evidence about A. Isolating them is one `go run`, and it is the difference between a fix
+  and a regression.
+- **Also recorded, because it went the other way and is the same discipline:** the residual my
+  rule DOES have (`"pass **kwargs to the function"` fires) is now stated in the test, and
+  measured — it occurs in **none** of the 5,112 live feed rows.
+- **Cost.** None shipped.
+
+## 2026-09-03 — a `curl -o` loop that reported one host's numbers under another host's name (`bugs_open/332`)
+
+- **The claim.** A five-site census of literal markdown on served news pages, written into my
+  plan file as evidence the bug is fleet-wide.
+- **What was true.** Four of the five numbers were real. `fundamentallyai.com` returned
+  **HTTP 000** (the fetch failed), and the row printed under its name was **idea.uk's**.
+- **What misled me.** `curl -o file` only **overwrites on success**. The loop reused one
+  `page.tmp`, so a failed fetch left the previous host's body in place and every grep ran
+  against it. The output looked entirely plausible — a plausible number is the dangerous kind.
+- **What caught it.** Noticing `HTTP 000` in the same line as a full set of counts, which
+  cannot both be true.
+- **The cheap check that would have.** One file per host, `rm -f` before each fetch, and an
+  explicit branch that prints **`NO MEASUREMENT (fetch failed)`** rather than falling through
+  to the grep. **Make a failure look different from a result** — the loop's default is to make
+  them look identical.
+- **Cost.** None shipped; caught before the plan was approved and the numbers re-taken.
+
+## 2026-09-03 — I bisected eight regexes looking for a syntax error that was a Postgres LIMIT (`bugs_open/332`)
+
+- **The claim.** A census failed with `ERROR: invalid regular expression: invalid repetition
+  count(s)`, and I spent a round testing each of eight patterns individually, assuming a bad
+  escape or a bracket-expression quirk.
+- **What was true.** Postgres caps regex repetition counts at **255**. One pattern used
+  `{0,300}`. The message says "invalid", which reads as malformed, and never mentions a bound.
+- **The cheap check that would have.** When a regex engine rejects a pattern that is valid in
+  Go or Python, suspect a **limit** before a syntax error, and test the numeric quantifiers
+  first — they are the only part with an engine-specific ceiling.
+- **Cost.** A few minutes. Recorded because the error text actively points away from the cause,
+  which makes it worth a line in a file people grep.
