@@ -1534,3 +1534,15 @@ with eighteen site rebuilds queued behind it, and is the planner owners' call, s
 it. The narrow route for this page is to author its infographic entries by hand, which is what the
 uplift lane will do. Words and figures in those graphics will be real HTML text over real facts, not
 pictures of text, because the claims checks cannot read text inside an image.
+
+**2026-09-03, 22:50 BST, three small things for you on the infographics.** The uplift lane has
+scoped what they would draw: a concept diagram in the "what fine-tuning is" section (your documents,
+the small trained part, a model you host), and the £99 against roughly $5,000 comparison, which is
+backed by the research figure registered on 2026-08-18. They would not draw one for the departments
+section, because a list of departments is a taxonomy and a graphic there is decoration unless it shows
+something measurable. They also noticed the page has no "three steps" section as such; the steps are
+described inside the fine-tuning section. So: do you want a dedicated three-steps section added to the
+homepage, or is a diagram inside the existing section enough? And do you want the narrow route (these
+graphics authored for this page by hand, reversible) or the fleet-wide change to the planner's
+instruction? They will not write anything to the site until you have said, and until their own
+session is cleared to.

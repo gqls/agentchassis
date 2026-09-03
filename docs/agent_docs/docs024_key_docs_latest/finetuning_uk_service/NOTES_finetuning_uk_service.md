@@ -3497,3 +3497,32 @@ commit `a85bcedea`):**
   case-studies slot ALONE, words byte-identical at the served artefact.
 - Their `design_critique_run` advice: file it now — already filed (`204f1ff7`); its report is the
   research input; the swap does not start before it is read.
+
+## 2026-09-03 (21:35–21:45Z) — the uplift lane's two corrections: one right, one refuted by measurement; their scoping; the "three steps" question
+
+- **Right:** slot 3 of `/index.html` is `slot_name='differentiators'` (component NAME
+  `differentiators-section`, function `differentiators`, section_type `features`). My CONTRIB wrote the
+  component name as the slot — in the very brief that states "resolve by function, never by name". Cost:
+  none (they caught it); recorded because the shape is the trap.
+- **Refuted `[MEASURED 21:40Z]`:** "finetuning.uk has NO evidence base". `site_specs` for the site holds
+  FIVE `evidence_base` rows, ONE current (updated 2026-08-26) with **10 facts** — `ft-price-99`,
+  `ft-market-anchor` ($5,000, kind price, tolerance approximate, attested by
+  `RESEARCH_2026-08-18_competitive_landscape.md` web sweep), the three `ft-licence-*`, and more. Their
+  census ("this site's twelve current aspects") was reading a filtered view; the site has ~20 distinct
+  aspects. Told them with the query. Consequence: their slot-3 infographic (£99 vs ~$5,000) IS
+  resolvable through a registered fact, so its precondition is met. My own loose framing — "the
+  case-studies-grid renders registered facts" — withdrawn: it renders `content_data` card fields; the
+  practical constraint (same `content_data` rendered after any swap) stands.
+- **Their scoping, accepted:** slot 2 `features` — a concept diagram (your documents → adapter → a model
+  you host), no quantities, HTML text not SVG; slot 3 `differentiators` — the £99 vs ~$5,000 comparison
+  (now sourced); slot 4 `case-studies-grid` — mine, the card-swap canary, they stay off it; slot 5
+  `departments-grid` — they argue an infographic there is decoration ("wherever they help understanding"
+  is a bar), unless something measurable is shown, which is a copy question first; slots 1/6 chrome.
+- **"The three steps":** no dedicated section exists on the homepage; the phrase lives inside the copy
+  of slots 2–5. Either the owner wants a section that is not there (structure, this lane) or he means
+  the process inside `features` (folds into the slot-2 diagram). **Asked him.**
+- **Rows not yet, on three grounds (agreed):** the owner has not picked the route (narrow, this page by
+  hand vs the fleet prompt change); the critique report (`204f1ff7`, still triaged) is the research
+  input; and their user has not authorised live writes on finetuning.uk — a peer accepting a split is
+  not that authorisation, and I did not ask them to act on mine.
+- FYI from them: 035 P1 direction 2 live on `v1.0.1359` (binary probe with controls).
