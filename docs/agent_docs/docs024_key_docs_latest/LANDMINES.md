@@ -20319,3 +20319,12 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** the session-start landmine "`save_page_sections` can now REFUSE a save, so a green orchestration status no longer means the sections were written" (same family — this is the SKIP arm rather than the refusal arm, and it predates the guards); MEMORY [[a-complete-work-item-is-not-a-repaired-artefact]]
 - **source:** 2026-09-03, noted_rebuild lane (migrate CTA retarget); `noted_rebuild/NOTES_noted_rebuild.md` (09-03 entry)
 - **added:** 2026-09-03, noted.co.uk lane
+
+### `site-design-planner` and `build-site-planner` are two different agents, one hyphenated token apart — a session/message named for either routinely misroutes to the other
+
+- **footprint:** cross-session messages, `who-owns.py` lookups, and any handoff doc naming either agent by ear (`site-design-planner` = composition resolution only, `platform/orchestration/actions/resolve_composition_{layout,typography,pallette}_action.go` + `install_site_composition_action.go`; `build-site-planner` = page/section planning, `write_site_plan_action.go`/`plan_site` — zero code overlap, different `agent_definitions.type` string)
+- **fires when:** anyone reads or writes "the design planner" / "the site planner" from memory rather than the exact `type` string. Confirmed **3 times in one session, 2026-09-02/03** (`site_design_planner` lane, `docs024_key_docs_latest/site_design_planner/NOTES_site_design_planner.md`): a scope-check from `bugs_open/427` assuming overlap that didn't exist, then a genuine, well-evidenced `build-site-planner` prompt-refusal finding sent to `site-design-planner` by a different session, both caught only because the receiving lane checked the exact agent type before acting rather than accepting the name at face value.
+- **the check:** before acting on ANY cross-session message naming "design planner"/"site planner", grep the `agent_definitions.type` the finding actually cites (a step name, an action file, an `agent_type=` in an `llm_call_log` query) — never route on the English words in the session/lane name alone. `who-owns.py` reads commits, not this distinction, so it will not catch a misroute either.
+- **relations:** MEMORY_workstreams.md's `site-design-planner` entry already states the boundary explicitly; this entry exists because stating it once was not enough to stop the second and third occurrence.
+- **source:** 2026-09-02/03, `site_design_planner` lane, three occurrences same thread
+- **added:** 2026-09-03, `site_design_planner` lane
