@@ -5276,3 +5276,81 @@ here there is nothing to wait for, and the two are indistinguishable from the `p
 **What does not change:** the brief reaches nothing, six derived specs were written blind, the site is
 being designed as a marketplace, `needs_strategy` is queued and the plan has not run. What changes is
 the cost of option A, which is now internal rework with no public exposure.
+
+### (rr) 2026-09-03 ~17:55Z — MAJOR CORRECTION to (pp): a THIRD consumer reads the brief and it works, the planner gets the brief second-hand, and my recommendation to hold the build was wrong
+
+Entry (pp) concluded that the owner-approved brief "reaches neither of its two consumers" and I widened
+that to the owner as *"your approved brief reaches none of the agents that decide what the site
+becomes"*. **The widening is refuted by an artefact written eleven minutes after I wrote it.**
+
+**1. `domain-strategist` wrote `site_specs.strategy` at 17:44:34Z and it is faithful to the brief.**
+
+```
+site_type    : "authority-portal"          <- NOT the marketplace the classifier decided
+growth_path  : "Launch with the AI-first editorial argument, the four core tool pages,
+                … the copywriter directory seeded from initial research, and the lead route…
+                Add the tone-of-voice consistency checker as the aspirational fifth tool…
+                Route inbound leads from webdesign.uk and other estate siblings…"
+revenue      : primary_model "lead_generation" — "the site already has a designed lead route
+                as its single converting page … initially to the site owner and later to paying
+                lead recipients"
+sponsored    : "The randomised listing approach at launch is the right trust-building default"
+```
+
+It names the brief's **four tools** (headline scorer, readability checker, CTA tester, length
+counter) and its **fifth aspirational** one, the lead route as the single converting page, the
+copywriter directory, the Copy Clinic, the glossary, the AI-first opening — **and two instructions the
+owner gave me in chat and I wrote into the brief: randomised directory listings at launch, and routing
+webdesign.uk leads here.** Re-running (pp)'s own marker test with `strategy` included: it hits lead
+route, `headline scorer`, `randomised listing` and `webdesign.uk`. The six earlier specs hit none.
+
+**2. The mechanism, and it is at the TEMPLATE, not the data.** [MEASURED 2026-09-03 17:53Z, from the
+live `agent_definitions` rows]
+
+| agent | how its prompt names the brief | result |
+|---|---|---|
+| `domain-research-classifier` | `{{if .site_specs.specs.mission_brief}}` … `{{.site_specs.specs.mission_brief.text}}` | `<no value>` |
+| `build-site-planner` | identical pair | `<no value>` |
+| **`domain-strategist`** | **`{{.site_specs}}` — no mission-brief reference at all** | **works** |
+
+The strategist renders the entire specs blob unfiltered, so the structured brief arrives as text and
+the model simply reads it. **The data was never missing from any of the three.** `site_specs` is in
+the planner's `input_fields` and reaches the classifier too. The defect is two template expressions
+reaching for a `.text` child that brief-writer output does not have — and **a working reference
+implementation has been sitting in the same estate the whole time.**
+
+**3. The planner is blind to the brief but NOT to its content.** Its full render list:
+
+```
+{{toJSON .site_specs.specs.strategy}}      <- the WHOLE strategy object, and the strategy is faithful
+{{.site_specs.specs.classification}}       <- the whole (wrong) classification
+{{.site_specs.specs.identity}}  {{.site_specs.specs.briefing}}
+{{.site_specs.specs.mission_brief.text}}   <- <no value>, the defect
+{{.site_specs.specs.roadmap_brief.text}}   <- same shape, same trap, different aspect
+```
+
+So the brief's content reaches the planner **second-hand and in detail**, through a strategy spec that
+is rendered whole. The planner will see the four tools, the lead route and the directory. It will also
+see the wrong classification, so the risk is real — but it is "one good input against one bad one",
+not "no input".
+
+**4. What this does to my recommendation, which was wrong.** I recommended holding the build. On this
+evidence **the right action is to leave it alone and judge the plan on its output.** The pipeline has
+partially self-corrected: the strategist caught what the classifier missed, because it reads
+generously. Intervening now would have disturbed a run that is recovering on its own, on the strength
+of a claim I had over-generalised from two agents to all of them.
+
+**5. What I got wrong, and how.** (pp)'s measurement was sound and its conclusion was scoped correctly
+— *neither of its two consumers* — and then I widened it in the owner-facing message to *"none of the
+agents that decide what the site becomes"*, which is a different and much larger claim I had not
+tested. I had enumerated the consumers of `mission_brief.text` and then spoken about consumers of
+**the brief**, which is a bigger set reached by more than one route. **Enumerating the readers of a
+FIELD is not enumerating the readers of the INFORMATION.** The check that would have caught it is the
+one I eventually ran by accident: grep every active agent's prompt for `{{.site_specs}}` as well as
+for the specific path.
+
+**6. What remains true and unchanged.** The classifier ran blind and said so; its classification is
+wrong. The tool-suggester ran blind and five tool pages were built that are not the brief's, three of
+them seotools duplicates on an open owner question. 7 of 23 current briefs lack `.text`. Nothing is
+published. The template defect is real and worth fixing properly at `bugs_open/453` — and is now a
+two-expression change with a proven pattern beside it.
