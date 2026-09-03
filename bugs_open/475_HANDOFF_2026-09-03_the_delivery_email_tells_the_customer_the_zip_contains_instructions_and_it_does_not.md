@@ -85,10 +85,32 @@ URL — a hardcoded one cannot be checked and will rot silently.
    customer with no way to do the thing the next paragraph tells them to do. Acceptable only as an
    immediate stop-gap if a delivery were imminent, and one is not: delivery is HELD on boxingonline.
 
-**Open question for the owner, and it is the only thing blocking:** where do the instructions live,
-and are they the same for every customer or per-site? A generic "how to put a folder of HTML on free
-hosting" page is one artefact for everyone and can be written once. Anything naming their domain or
-their host is per-site and needs generating.
+~~**Open question for the owner**~~ **ANSWERED 2026-09-03: "all three I think"** — the page, the
+pointer in the ZIP, and per-site content naming their domain.
+
+**That is one body of copy with three exits, not three documents**, and treating it as three is how
+they drift apart:
+
+| exit | carries | why this one |
+|---|---|---|
+| the page | everything, slots filled for that customer | correctable after the email has gone. A free host changing its signup becomes one edit for everyone, including people mailed last month |
+| the ZIP's `README.txt` | what the folder is, and the page's address | the ZIP outlives the email. Somebody who keeps their files and returns in a year has the folder and no message |
+| per-site | the `{{slots}}` only | the slots are the only part that differs between customers |
+
+**The rule that keeps them honest: anything that can go out of date lives on the page, never in the
+README.** Free hosts change their signup flows, our prices change, and a ZIP cannot be edited once a
+customer has it.
+
+Draft copy for all three, written to the house plain style and marked with its slots:
+`docs024_key_docs_latest/site_delivery_and_editor/DRAFT_2026-09-03_customer_instructions_copy.md`.
+It names five things it does NOT settle, and one of them is load-bearing:
+
+> ⚠ **NOBODY HAS EVER PERFORMED THESE INSTRUCTIONS.** The hosting section says to drag the unzipped
+> folder onto `app.netlify.com/drop`. That is written from knowledge, not from having done it today
+> with this actual ZIP, and free tiers change their signup without notice. **Instructions nobody has
+> followed are a guess with formatting** — and shipping them would repeat this bug's own root cause
+> one level along: telling a customer something we have not checked. Somebody must do it once, end to
+> end, with this ZIP, and write down what they actually saw.
 
 ## How to verify the fix
 
