@@ -155,3 +155,22 @@ row's own `industry_tags` (not a copy of the list). The reusable `assert_layout_
 
 **Not done, deliberately:** no site re-composed (owner: fix forward only); `layoutmatch`
 extraction; `internal/cronchecks`; `cmd/layout-fit-check`.
+
+## 2026-09-03 (k) — the Go fix MISSED the chassis build, and a pattern-check advisory answered
+
+**`76db94fc7` is not in `v1.0.1358`.** The pods started 12:06:47Z; my commit landed later (I
+was running the mutation proofs when the build was cut — the right trade: an unproven predicate
+change fleet-wide is worse than one roll later). `portfolio_positioning` measured it first with a
+NUL-split probe of `/proc/1/exe`, both controls; I confirmed: `enforceListingItemSources` 2,
+`layout_match_score` 0, `weak_tag_fit` 0, absent control 0. **In HEAD, in no binary.** So
+copyonline's `resolved_composition` row will have the OLD shape (no `layout_match_score`) even if
+it composes onto the new layout — expected, not a regression. I had written "should ride it" in
+the first draft of the handoff; corrected to MEASURED / NOT ROLLED.
+
+**Pattern-check advisory on the 736 commit:** `new-capability-surface` — NOTES proposes
+`cmd/layout-fit-check/`, which does not exist. Answer, for the record: no existing `cmd/`
+scores layout fit or reads the `sites → style_collections → css_themes → layouts` join;
+`cmd/verifier-remit-check` is the *template* (fleet-wide finding, `system.internal` shelf), not
+a substitute. And per the owner's 2026-09-03 decision the new check is to be built on
+`internal/cronchecks` (RFC_024 option 2) rather than as another copy — which is the concern the
+advisory exists to raise.
