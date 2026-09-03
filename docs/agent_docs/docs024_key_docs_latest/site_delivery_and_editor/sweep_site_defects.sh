@@ -196,6 +196,47 @@ for f in "$TMP"/*; do [ -f "$f" ] || continue
 done
 [ "$es" = 0 ] && echo "      none"
 
+echo "--- 5.1b ORPHAN component rows, and the duplicate listings they cause (added 2026-09-03)"
+# WHY THIS IS ITS OWN CHECK. A page_components row with component_id NULL is
+# assembled like any other. ⚠ CORRECTED 2026-09-03 by the components lane after
+# the bugs_open/384 lane challenged their first answer: such a row is NOT
+# necessarily stranded. resolveComponent (rerender_page_sections_action.go:361-393)
+# falls through to schemas[s.slotName] when componentID is empty, and
+# loadComponentSchemas (plan_sections_action.go:1981-2002) indexes by Name AND
+# Function — so an orphan whose slot_name matches an ACTIVE component's FUNCTION
+# resolves and re-renders normally. Fleet, 2026-09-03: of 14 orphan rows on 7
+# pages, 12 resolve (all by function, none by name) and 2 are genuinely stranded.
+# THE TWO DEFECTS SEPARATE, and so do their remedies:
+#   emptiness  -> a re-render CLEARS it on a resolving orphan;
+#   duplication-> only DELETION removes the extra rows (bugs_open/457 candidate 4).
+# Two consequences this check exists to catch:
+#  1. the page serves N COPIES of its listing — measured on boxingonline
+#     /articles/index.html 2026-09-03: SIX orphan rows, 6 distinct blog links but
+#     36 card headlines and 6 "Latest Articles" headings, i.e. a reader sees the
+#     same six articles six times;
+#  2. any template-class count taken from such a page is a MIXTURE OF TEMPLATE
+#     ERAS that no re-render can normalise, so 5.1's empty-slot numbers there
+#     attribute to the wrong cause. The components lane's rule, adopted verbatim:
+#     non-zero orphan rows means STOP before reading a class count off the page.
+rows "SELECT '      ⚠ '||p.url||': '||count(*)||' ORPHAN row(s) (component_id NULL), created '||to_char(min(pc.created_at),'MM-DD HH24:MI')||' → '||to_char(max(pc.created_at),'MM-DD HH24:MI')||' — 5.1 counts here are UNRELIABLE until a re-render (each row is frozen at its own template era); a re-render clears the EMPTINESS, only deletion removes the DUPLICATION (bugs_open/457 cand. 4)' FROM pages p JOIN page_components pc ON pc.page_id=p.id WHERE p.site_id='${SITE_ID}' AND pc.component_id IS NULL GROUP BY p.url ORDER BY p.url;"
+echo "    of those, how many are genuinely STRANDED (no active component matches the slot by name OR function):"
+# ⚠ the obvious name-only version returns EVERY orphan as stranded — slot names
+# match by FUNCTION here (12 of 14 fleet-wide, none by name). Components lane's query.
+rows "SELECT '      ⚠ STRANDED: '||p.url||' slot '||pc.slot_name FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE p.site_id='${SITE_ID}' AND pc.component_id IS NULL AND NOT EXISTS (SELECT 1 FROM content_components cc WHERE (cc.name = pc.slot_name OR cc.function = pc.slot_name) AND cc.is_active);"
+norph=$(q "SELECT count(*) FROM page_components pc JOIN pages p ON p.id=pc.page_id WHERE p.site_id='${SITE_ID}' AND pc.component_id IS NULL;")
+[ "${norph:-0}" -gt 0 ] && finding "${norph} orphan component row(s) on this site — see the per-page lines above"
+echo "    duplicate listings at the SERVED page (distinct item links vs total):"
+dupe=0
+for u in "${URLS[@]}"; do f="$TMP/$(echo "$u" | tr '/' '_')"; [ -f "$f" ] || continue
+  # ⚠ EXCLUDE `/index.html` targets: the nav and footer link the SECTION INDEXES
+  # on every page, and counting those as items inflated both sides and made the
+  # repeat factor wrong by integer division (measured 2026-09-03: 40/8 -> "5x"
+  # where the real listing repeat was 36/6 = 6x).
+  tot=$(grep -oE 'href="/(blog|guides|news)/[^"]+"' "$f" | grep -v '/index\.html"' | wc -l)
+  dis=$(grep -oE 'href="/(blog|guides|news)/[^"]+"' "$f" | grep -v '/index\.html"' | sort -u | wc -l)
+  [ "$dis" -gt 0 ] && [ "$tot" -gt $((dis*2)) ] && { dupe=$((dupe+1)); finding "$u serves ${tot} item links for only ${dis} distinct items — the listing is repeated $((tot/dis))x"; }
+done
+[ "$dupe" = 0 ] && echo "      none"
 echo "--- 5.3 unsubstituted placeholders"
 hard=$(body_all | grep -oE 'placehold\.co|\bEXAMPLE\b|\bTODO\b|\bLorem ipsum\b|_ADDRESS\b' | wc -l)
 echo "      placehold.co / hard tokens: ${hard}"

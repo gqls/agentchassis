@@ -713,3 +713,28 @@ palette row with a boxing subject. ⚠ **Do NOT re-seed to obtain it** (§9.5, `
   40px and reads as boxing, the reason for a wordmark largely goes away, so whether the header
   still fails to name the site is a question for the owner AFTER he has seen the new mark — not now,
   and not a reopening of ruling (2) in the meantime.
+
+### Orphan rows on /articles/index.html — the REMEDY changed (components lane, 2026-09-03 ~15:5xZ)
+
+~~Only deletion repairs it~~ **CORRECTED: the six rows DO resolve**, so a re-render WOULD clear the
+14 empty `article-card__category` and 2 empty `article-card__excerpt` elements. What a re-render
+cannot fix is that six rows EXIST — the 36-cards-for-6-articles duplication needs DELETION. The two
+defects and their remedies separate cleanly. Mechanism, read at the code by them after the
+`bugs_open/384` lane challenged their first answer: `resolveComponent`
+(`rerender_page_sections_action.go:361-393`) falls through to `schemas[s.slotName]` when
+`componentID` is empty, and `loadComponentSchemas` (`plan_sections_action.go:1981-2002`) indexes by
+**Name AND Function** — these rows' `slot_name` is `generic-text-block`, which matches an active
+component by FUNCTION. Fleet 2026-09-03: of 14 orphan rows on 7 pages, **12 resolve, 2 stranded**
+(finetuning.uk /blog, gamesdesign.co.uk /game-jelly-invaders); neither is boxingonline. Their
+earlier "8 rows on 3 pages" was lifted from 457's older census and re-stamped `[MEASURED]` with
+today's date — their own correction; **this lane's independent count of 14 on 7 corroborates the
+corrected figure**, and is where the discrepancy I noticed came from.
+
+**This lane is NOT firing a re-render on that page, and the reason is not caution but arithmetic.**
+A re-render leaves six FRESH decks where there should be one, so the reader-visible defect — the
+same six articles six times under six "Latest Articles" headings — survives it. It repairs the
+smaller half of the defect and none of the half the owner would see. Their own untested inference
+adds a second reason to hold: migration 316 refuses a row byte-identical to one already present,
+and six rows rendering the same deck from the same data is exactly that shape, i.e. `bugs_open/457`'s
+own failure mode, so the save may refuse. **If that test is worth running it should run on one of
+the six OTHER orphan-carrying pages, not on the held paid site** — told them so.
