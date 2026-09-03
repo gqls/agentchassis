@@ -189,3 +189,89 @@ owner chooses, with no restart hazard.
 entry only removes the timing constraint on it.
 
 Kept in `bugs_open/` per the owner ruling of 2026-08-06 (a finished bug stays).
+
+---
+
+# UPDATE 2026-09-03 — the code leak is CLOSED FLEET-WIDE, and this file's own banner has been blocking the remediation for 15 days
+
+Verified today by the `bugfix_329_takeover_claim` lane, which picked this up as an unowned bug
+(no lane directory, no live session, untouched 23 d). **Nothing here was inferred from a roll —
+every claim below is a probe or a census with a control.**
+
+## 1. The "STILL LEAKING" pod is fixed — probed at the binary, three ways
+
+`render-audit-adapter` now runs `browser-runner-adapter:**v1.0.1359**` (overlay
+`kustomization.yaml:19` pins that tag), not the `v1.0.1194` this file records.
+
+| probe on `/proc/1/exe` | result | reads as |
+|---|---|---|
+| `NewS3Client` (unrelated to the fix) | PRESENT | **control** — the `grep -a` mechanism works |
+| `access_key_present` (added by the fix) | **PRESENT** | the fix **shipped** |
+| `B2_APPLICATION_KEY from env` (removed by the fix) | **ABSENT** | the leak is **gone** |
+
+The control is what makes this a measurement: a broken probe returns ABSENT for all three and reads
+as "still leaking".
+
+## 2. Fleet census, with the control that stops it being vacuous `[MEASURED 2026-09-03 ~16:2xZ]`
+
+Every Deployment **and** CronJob image:
+
+- **35** images whose version tag parsed — **min tag = max tag = `v1.0.1359`**. The whole estate is
+  on one tag, 85 releases past the `v1.0.1274` fix.
+- **0** parsed images older than `v1.0.1274`.
+- **19** images the version regex could not parse — all third-party (`postgres:16-alpine`,
+  `ollama/ollama:latest`, `edoburu/pgbouncer`, `linuxserver/wireguard`, `bitnami/kubectl`). **None is
+  our Go code, so none can carry our leak string.** Recorded as *unjudged* rather than folded into
+  the zero.
+
+⚠ Without the min/max control, "0 images older than v1.0.1274" would read identically if the regex
+had matched nothing at all.
+
+**So no running workload can write a new leak line.**
+
+## 3. ⚠ THIS FILE'S BANNER HAS BEEN OBSOLETE FOR 15 DAYS, AND IT GATES AN OWNER ACTION
+
+The banner says *"STILL LEAKING: `render-audit-adapter`, which runs `browser-runner-adapter:v1.0.1194`
+— 80 tags behind, pinned since the pod was created"*, and roots the pin in **`bugs_open/237`**.
+
+**`237` was CLOSED on 2026-08-19** — *"fixed, LIVE and verified on `v1.0.1314`. Owner ruled to
+close."* `render-audit-adapter` was unfrozen 2026-08-10 and the class fix (one declaration per set +
+`check-release-coverage`, **BLD-022**) shipped 08-17.
+
+**So the blocker was discharged fifteen days ago and this file never said so.** This is the
+`a-closed-blocker-keeps-being-obeyed` class, second recorded instance: a stale status line does not
+merely mislead, it **prevents the correct action**, because the action it gates looks premature.
+
+## 4. THE ROTATION-ORDERING CONSTRAINT IS DISCHARGED — rotating is now safe
+
+This file told the owner:
+
+> *"Rotating the B2 keys while that pod is still on v1.0.1194 means the NEXT restart writes the NEW
+> key into its log in plaintext … So: roll `render-audit-adapter` to a ≥v1.0.1274 image BEFORE
+> rotating."*
+
+**That roll has happened** (§1). The named reason to wait is gone. **A rotation performed today
+cannot be re-leaked by any pod in the fleet**, because no image contains the emitting code.
+
+## 5. What is NOT established, stated plainly
+
+- **Whether the exposed credentials have been rotated: `[UNVERIFIED]`, and I cannot verify it.** The
+  secret `personae-storage-secrets` carries `creationTimestamp 2025-08-02` and no rotation
+  annotation — but ⚠ **`creationTimestamp` survives an in-place update**, so it cannot distinguish
+  "never rotated" from "rotated in place". Per the owner ruling of 2026-08-23 I did not read any key
+  value. **This is the owner's to answer, and it is the only thing standing between this file and
+  closure.**
+- **Whether any retained log buffer still holds the credential: NOT READABLE, not "clean".** The
+  three pre-fix `component-render-check` pods (25–27 d old) return **0** leak lines — out of
+  **0 total lines**. ⚠ **A zero from an empty log is vacuous**, which is a caveat this file's own
+  earlier check was careful about ("a non-empty log, so the zero is meaningful"). Their logs have
+  expired; the question cannot now be answered for them. The `render-audit-adapter` pod that *did*
+  hold one has been replaced, so that buffer is gone with it.
+
+## 6. Disposition
+
+**The CODE defect is fixed and live everywhere** — that half meets the `bugs_closed/` bar. **Left
+OPEN deliberately**, because moving this file is exactly how the outstanding remediation gets
+forgotten, and the remediation is the part that actually ends the exposure: **the keys were emitted
+in plaintext and should be treated as compromised until rotated.** Close it when the owner confirms
+the rotation, or rules that it is not needed.
