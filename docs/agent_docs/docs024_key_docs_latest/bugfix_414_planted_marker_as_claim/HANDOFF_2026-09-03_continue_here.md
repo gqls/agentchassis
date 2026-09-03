@@ -1,5 +1,14 @@
 # HANDOFF 2026-09-03 — `bugfix_414_planted_marker_as_claim`
 
+> ## ⚠ SUPERSEDED — read `HANDOFF_2026-09-03b_continue_here.md` instead
+>
+> Written 10:34 BST 2026-09-03 and **stale in three rows within the hour** (the demand control was
+> already planted by its owner; `farmerinsurance`'s gap had been discharged the previous evening;
+> and "the one genuine gap" was one of thirteen). Its own §3/§4 carry those corrections inline, and
+> NOTES §(q) records the staleness as a finding. **This file is kept for the trajectory, not for
+> state** — everything current, plus `loancash.co.uk`'s register, the 13:28 build, the vetcomparison
+> question and the three outstanding owner decisions, is in the `-03b` handoff.
+
 **Supersedes** `HANDOFF_2026-09-02_continue_here.md` (which supersedes `HANDOFF_2026-08-31…`).
 Read this one; the older two are kept for the trajectory, not for state.
 
