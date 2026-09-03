@@ -41,11 +41,14 @@ Nominet-held domains, and chasing the second-TAG application.
     move to the second TAG when Nominet grants it.
 - **Second TAG application**: SUBMITTED 2026-08-11 (Channel Partner shape —
   Nominet allows one Self-Managed tag per registrar). **No status heard since.**
-- **Estate size**: ~1,500 `.uk` domains on the tag (owner estimate 2026-08-19).
-  **Never enumerated** — no walk has run, no CSV export exists (verified
-  2026-09-02: no `all_domains.txt` anywhere on this machine). Every retail
-  registrar got its inventory on 2026-09-02 (Spaceship 203, Dynadot 451,
-  Porkbun 683); Nominet, the largest holding, has none.
+- **Estate size**: **1,606 `.uk` domains, ENUMERATED 2026-09-03** (`walk
+  --months 120`, exit 0, 120/120 list calls 1000, zero parser-mismatch
+  warnings) — ahead of the owner's ~1,500 estimate (08-19), plausible growth.
+  Delivered to the domain_valuation and sedo lanes as
+  `domain_valuation/inbound/nominet_domains_2026-09-03.csv`
+  (`domain,expiry_month`). The walk itself needed three bug fixes on its
+  first real run (nested XML, undeclared std-list extension, wrong parser
+  element) — see NOTES 2026-09-03 and the two LANDMINES entries it produced.
 
 ## Constraint that shapes everything: sessions cannot run credentialed EPP or CF writes
 
@@ -65,12 +68,10 @@ session; anything credentialed-mutating is owner-run.
   zones behind it; all four are dark/going dark. Recovery staged:
   `scripts/domains/cf-zone-bootstrap.sh` (read paths proven; owner runs the
   mutating form).
-- **P1 — the tag inventory.** Two routes, owner's pick:
-  (a) CSV export from Online Services — preferred, checkable total;
-  (b) the twelve-month expiry walk (staged, RUNBOOK §2). Then classify with
+- **P1 — the tag inventory: DONE 2026-09-03** (`walk --months 120`, 1,606
+  domains, delivered — see above). Still owed: classify with
   `classify_nameservers.py` and reconcile into the estate picture alongside the
-  three registrar inventories. **Sanity-check the count against ~1,500** — the
-  walk is silently short if an expiry falls outside the window.
+  three registrar inventories.
 - **P2 — NS rollout for Nominet-held domains → Cloudflare.** The
   domains_cloudflare_rollout lane owns the Cloudflare half (zones, records,
   routes, token); this lane owns the Nominet half (EPP `domain:update`, or
