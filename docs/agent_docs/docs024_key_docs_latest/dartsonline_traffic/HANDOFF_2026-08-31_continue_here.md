@@ -285,6 +285,32 @@ a prose section; for `grip-styles`, where each h3 (Ring / Razor / Shark) wants e
 > >    into **`site_plan_sections`**, tier 1, *the authority*. Articles are therefore born with a
 > >    layout in the cache and nothing in the authority.
 > >
+> > **WHO CAN WRITE THE AUTHORITY — the constructive half, verified here 2026-09-03 and NOT relayed.**
+> > `[MEASURED 2026-09-03 — a writer census, and this class goes STALE BY ADDITION: `RFC_008`'s
+> > "ten writers" was correct when written and wrong by a new file's birthday. Re-run before
+> > quoting: `git log --since=2026-09-03 --diff-filter=A -- platform/ internal/`.]`
+> >
+> > | writer population | count | on the article-creation path? |
+> > |---|---|---|
+> > | **Go** — `write_site_plan_action.go`, `apply_gap_plan_action.go` | **2** | **neither** |
+> > | live `agent_definitions` config SQL touching the table | 2 rows | **reads only — no writer** |
+> > | **operator SQL in the repo** (`INSERT INTO site_plan_sections`) | **15 files** | n/a — applied by hand |
+> >
+> > The `agent_definitions` row is a **real negative control, not a formality**: config-embedded SQL
+> > is the estate's documented blind spot for code-only censuses (it is why `cmd/config-key-audit`
+> > is in council scope), the two live rows that mention the table could have been writers, and they
+> > are `build-site-planner` and `required-fields-missing-handler`, both **reads only**.
+> >
+> > **So there are THREE shapes phase one could take, not two:** change one of the two Go writers so
+> > article creation writes the authority; add a third; or **backfill by operator SQL — which is
+> > already exercised, 15 files across many lanes.**
+> >
+> > **⚠ And this lane is the cautionary worked example of the third.** `SQL_2026-07-29d` is one of
+> > those 15, and it is the entire reason any dartsonline article has a plan row. **A backfill fixes
+> > the pages that exist and nothing about the route**, so the 14 articles created here since 07-29
+> > have none, and every future one will arrive the same way. Backfill is the cheap unblocker for a
+> > canary; it is not phase one.
+
 > > **⚠ The consequence that matters for the fix, and it only becomes visible once (2) and (3) are
 > > separated: "just pass richer `post.Sections`" does NOT unlock per-section binding.** It would
 > > change what the page is composed of and still leave the plan empty, so the ordinal has nothing
