@@ -1327,3 +1327,12 @@ still no per-answer fees, but roughly ten to twenty pounds a month for the box. 
 placement choice for you, and it is the only thing between the route, which is written, tested
 and with the council, and a working demo. The model I loaded this morning still gave us the
 speed measurement, so that work stands.
+
+2026-09-03, 14:10. The chat route passed review, on the fourth attempt, with every seat approving.
+The three rounds it took were worth it: they caught a real trap in how migrations are filed (one of
+the files I was copying had already been applied to the wrong database back in August), pushed the
+duplicated security wiring for the two chat tools into one place, and made me check a claim I had
+given you as fact rather than as a guess. That claim was that the tools box cannot reach the model
+server we already run in the cluster. It turns out to be true, but I had asserted it before testing
+it, and it is the reason the demo needs a machine of its own. So the placement question stands, and
+it is now the only thing between a reviewed, tested chat route and a working demo on the page.

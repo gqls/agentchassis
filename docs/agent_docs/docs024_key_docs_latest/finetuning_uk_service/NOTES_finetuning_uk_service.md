@@ -2797,3 +2797,25 @@ end (edit only the block, keep apis.uk's pre-flight/verify/equality census, resu
 bring him the exact bytes, apply by hand, tell 443 and us). Their CONTRIB:
 `CONTRIB_2026-09-03_from_framework_prompts_the_lead_sentence_options.md`. Planner nudge follows as
 its own migration. Stage B here waits on their apply.
+
+## 2026-09-03 (13:54Z) — council **APPROVED** the playground route, round 4, all reviewers (`63be72d1`)
+
+Four rounds, one correlation. Advisories, all acted on rather than filed:
+- **prior_art_librarian (low):** *"'the in-cluster Ollama is NOT reachable from the island by
+  design' has no citation and is asserted as fact … exactly the ASSERTED-ABSENCE shape."* Correct
+  catch. **Now measured** `[2026-09-03 14:05Z]`, from the island: cluster service DNS does not
+  resolve (`getent hosts ollama-adapter.ai-persona-system.svc.cluster.local` → nothing) and
+  `162.209.114.65:11434` is refused. The claim happens to be true; it was not evidence when I made
+  it, and it is load-bearing for the owner's placement decision.
+- **debug_historian (med):** the post-ship probe used the ROUTE LITERAL; a linker can split it.
+  Switched to the SYMBOL `PlaygroundChatHandler`, with `GripperChatHandler` present-control and an
+  impossible absent-control — locally **2 / 2 / 0** on a freshly built binary. In the RUNBOOK.
+- **guardian (low ×2):** nothing builds a browser group by hand except the pre-existing gauntlet
+  (`grep -n 'CORSMiddleware(' server.go` → gauntlet line 137 + `mountBrowserGroup` 236); nothing
+  outside `cmd/tools-api/main.go:13` imports `internal/tools-api/api`.
+- **architecture (low):** doc comment on `mountBrowserGroup` now says a THIRD browser tool calls it.
+- **prior_art_librarian (low ×2):** the aiservice-has-no-streaming claim re-checked by grep (nothing);
+  `chat-input-box` was verified against `content_components` before the claim (id `d6a8f57b`).
+Registered: **PUB-006** (the playground route group) and **PUB-007** (`mountBrowserGroup`), with
+index rows. Code is committed and HEAD builds with tests. **Nothing is deployed**: island sites row,
+five env keys, image swap, and a model host — the last is the owner's open decision.

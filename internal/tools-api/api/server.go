@@ -228,6 +228,12 @@ func mountGripper(r *gin.Engine, pool *pgxpool.Pool, g *config.GripperConfig, de
 // diverge quietly" case starting over). The gauntlet group predates it and
 // keeps its flat RPS bucket; it is not a browser-band group of this shape.
 //
+// A THIRD browser-facing tool calls this rather than re-deriving the order
+// (council 63be72d1 round 4, architecture): the convergence is only worth
+// anything if the next tool added in a hurry inherits it instead of copying
+// two Use() lines. The gauntlet group above is the one hand-built chain left,
+// and deliberately so — its flat RPS bucket is a different shape.
+//
 // Cluster-facing routes (the gripper's /requests) never come through here:
 // they need the internal-key group instead, and putting one behind CORS is
 // the landmine on this file. A caller that needs both builds both.

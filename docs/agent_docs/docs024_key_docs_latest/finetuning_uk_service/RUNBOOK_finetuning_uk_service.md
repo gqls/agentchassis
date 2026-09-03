@@ -691,3 +691,44 @@ Gotchas: the Ollama container has no curl/wget/python, so measure with `ollama r
 (prints load duration, prompt eval rate, eval rate); the PVC had 4.9 GB free before this 1.06 GB
 file — check `df -h /root/.ollama` in the pod before adding another; a Job with the same name
 must be deleted before re-running (`ttlSecondsAfterFinished: 7200` handles it after two hours).
+
+## Playground tool — step 2: ship the chat route to the island (added 2026-09-03, council APPROVED 63be72d1)
+
+The route is committed and approved; NONE of the deployment is done, and it needs a model server
+that does not exist yet. In order, on the island (`root@toolsapisuk.vs.mythic-beasts.com`):
+
+```bash
+# 1. CORS allowlist — without this every browser call from finetuning.uk is 403 "origin not allowed".
+#    The island keeps its OWN sites table; the CLUSTER's row does not count (council r1 read the wrong one).
+scp docs/agent_docs/sql_for_agents/737_tools_api_island_sites_finetuning_uk_ISLAND.sql root@toolsapisuk.vs.mythic-beasts.com:/opt/island/
+ssh root@toolsapisuk.vs.mythic-beasts.com 'cd /opt/island && docker compose exec -T postgres \
+  psql -U tools_api -d tools_api -v ON_ERROR_STOP=1 < 737_tools_api_island_sites_finetuning_uk_ISLAND.sql'
+# then ledger it in island_migrations (198's precedent)
+
+# 2. env — five keys in /opt/island/.env; the group stays unmounted until the first one is set.
+#    PLAYGROUND_OLLAMA_URL=http://<model-host>:11434   (no trailing slash; http(s) or the process refuses to start)
+#    PLAYGROUND_MODEL=finetuning-demo · _MAX_TOKENS=150 · _NUM_CTX=2048 · _MAX_BODY_BYTES=8192
+
+# 3. image swap in /opt/island/docker-compose.yml (aqls/tools-api:<tag>), then docker compose up -d
+```
+
+**Verify at the artefact, with a SYMBOL not the route literal** (council round 4, debug_historian:
+a route path can be split by the linker; a symbol survives):
+
+```bash
+ssh root@toolsapisuk.vs.mythic-beasts.com \
+  'docker exec island-tools-api-1 grep -ac PlaygroundChatHandler /proc/1/exe;  # target
+   docker exec island-tools-api-1 grep -ac GripperChatHandler   /proc/1/exe;  # present control
+   docker exec island-tools-api-1 grep -ac zzzAbsentControlZzz  /proc/1/exe'  # absent control (expect 0)
+# locally on a freshly built binary these read 2 / 2 / 0.
+docker logs island-tools-api-1 2>&1 | grep -m1 'playground route group'   # "mounted (ollama=…)" or "NOT mounted"
+curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' -X POST https://tools.apis.uk/api/v1/tools/playground/chat \
+  -H 'Origin: https://finetuning.uk' -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"hello"}]}'          # expect 200 text/event-stream
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST https://tools.apis.uk/api/v1/tools/playground/chat \
+  -H 'Origin: https://example.invalid' -H 'Content-Type: application/json' -d '{}'   # expect 403
+```
+
+⚠ The island is **1 vCPU / 1 GB** and has no Ollama: it cannot host the model, and it **cannot
+reach the cluster's** (`[MEASURED 2026-09-03]` cluster DNS does not resolve there and
+`162.209.114.65:11434` is refused). `PLAYGROUND_OLLAMA_URL` must name a host the island can reach.
