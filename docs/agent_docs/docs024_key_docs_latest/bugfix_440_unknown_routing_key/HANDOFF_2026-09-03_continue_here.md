@@ -1,10 +1,11 @@
-# HANDOFF 2026-09-03 (rev 3, night) — bugfix 440: PHASE 3 IS BUILT, PROVEN BY EXECUTION, AND HELD AT ONE SIGNATURE
+# HANDOFF 2026-09-03 (rev 4, night) — bugfix 440: PHASE 3 IS BUILT, COUNCIL-APPROVED r1, AND HELD AT ONE SIGNATURE
 
 Written for a session with none of this context. Every claim carries its check; cite symbols,
 never line numbers. Rev 3 supersedes rev 2 in place (same filename, deliberately: one canonical
-"continue here" per lane). **What changed since rev 2: phase 3 is written and tested end to end,
-D1 turned out to need a code change, and the flip was found to leave a NEW blind spot in this
-bug's own drift class.**
+"continue here" per lane). **What changed since rev 3: the council round came back APPROVED r1
+(`56047b18`, 4 advisory objections, 12 minutes); the write-door CHECK was SPLIT into migration 742
+on the guardian objection; and two objections are answered with measurements while one is a
+decision waiting on the owner.**
 
 ## The bug in one paragraph
 
@@ -34,46 +35,39 @@ forever). Split + refusal = RFC_062; evidence = `bugs_open/440_HANDOFF_2026-09-0
 | phase 1a (livespec foundation, REB-008) | **APPROVED r1 `55def842`; SHIPPED** | `platform/livespec/rerender_routing_key{,_test}.go`, commit `a3758c399`. ⚠ never literal-probe zero-caller code — DCE strips it |
 | phase 1b (creator stamps the key) | **APPROVED r1 `934327db`; SHIPPED** | `create_rerender_items_action.go`; stamps in LOCKSTEP with `spec.reason` |
 | phase 2 (producer conversion + raw-SQL door) | **APPROVED `c7dab2c1` + `3b484a74`; LIVE AND PROVEN IN PRODUCTION** | `[MEASURED 2026-09-03]` **14** items now carry `routing_reason` (12 earlier the same day) — the converted `check_misdirected_cta.go` path is stamping. One conversion DEFERRED: `refresh_evidence_base_action.go` (another session had 245 uncommitted lines in it) |
-| **phase 3 (THE FLIP)** | **BUILT, PROVEN, HELD** | `docs/agent_docs/sql_for_agents/741_refuse_unknown_rerender_routing_key_HOLD.sql` + `_ROLLBACK` + `_VERIFY`; the Go half is `fail_work_item`'s `error_message_template` (**WII-038**). **NOT through council yet** — see "what to do first" |
+| **phase 3 (THE FLIP)** | **BUILT, APPROVED r1 `56047b18`, HELD on the 404 co-sign** | TWO migrations now, apply in order: `741_..._HOLD.sql` (read door: the guard step, the refusal, the transition clause) THEN `742_page_rerender_routing_reason_write_door_HOLD.sql` (the CHECK). Each has its own `_ROLLBACK`; `741_..._HOLD_VERIFY.sql` covers BOTH. Go half is `fail_work_item`'s `error_message_template` (**WII-038**). Commits `83407cd37`, `d1f84b584` |
 | narrowing (phase 3b) | **BLOCKED and quantified** | 1,804 pending items route on `reason`, 14 on `routing_reason` |
 
 ## WHAT TO DO FIRST, in this order
 
-1. ~~**Dispatch the council round for phase 3.**~~ **DONE 2026-09-03 14:1xZ, after the chassis
-   roll landed** (`v1.0.1359`, replicaset `85c4984f77` 2/2 ready, pods 38 min old — well past the
-   ~300s window in which a spawn is silently dropped, and after the roll rather than before it,
-   because a roll KILLS an in-flight council).
-   **`SUBMISSION_CORR = 56047b18-9e0a-4107-a781-007df8ff59bd`** — submission
-   `submission_440_phase3_r1.json` (6 edits, 10 `grounded_in` quotes, 7 stated risks).
-   **READ THE VERDICT FIRST, before anything else in this list:**
-   ```sql
-   SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
-   WHERE correlation_id='56047b18-9e0a-4107-a781-007df8ff59bd' AND kind='council_report'
-   ORDER BY created_at;
-   SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
-   ```
-   Budget ~30 minutes, not ~2 — the council itself takes 2–5 min but the dispatch queues behind
-   the fleet. A missing orchestration row is almost always latency, not a dropped dispatch; do not
-   retry on that evidence. REVISE → resubmit with `RESUBMIT_CORR=56047b18-…`.
-   ⚠ **The code commit `83407cd37` carries NO trailer and will list as un-reviewed in the `098`
-   report.** That is accurate rather than an oversight: the round was dispatched *after* the
-   commit, deliberately, because a chassis roll was imminent and forward-only forbids an amend.
-   The `Council-Submitted:` trailer is on the follow-up commit that carries the submission JSON,
-   so the correlation is in the git record. Do NOT write `Council-Reviewed:` anywhere until you
-   have read an approved verdict — `098` buckets that as MISMATCH, its dishonesty surface.
-   ⚠ Two things that already cost this lane something, for the resubmit if there is one: the
-   pre-dispatch self-check (every symbol named in `symbol` must appear in its sketch, and every
-   symbol NAMED must be visibly defined or explained) caught
-   `TestErrorMessageTemplateIsAbsentFromEveryLiveStep` named but shown only as a comment — the
-   exact class that drew a medium at round `c7dab2c1`. And `DRY_RUN=1` caught `operation:
-   "create"`, which is not in `allowedFixOperations` (a new file is `add`) — free, before credits.
+1. ~~Dispatch the council round.~~ **DONE — APPROVED r1, corr
+   `56047b18-9e0a-4107-a781-007df8ff59bd`**, 4 advisory objections, none high-severity, 3
+   abstained of 16 seats, **12 minutes end to end** (so this lane's old "~30 minutes" figure is
+   load-dependent, not a constant). Verdict read and every objection dispositioned in NOTES
+   (2026-09-03 night). Two ACTIONED, two ANSWERED with measurements, one is **item 1a below**.
+   `Council-Reviewed:` is on `d1f84b584`.
+1a. **⚠ THE ONE OPEN DECISION, AND IT IS THE OWNER'S — `keys_disagree`.** `bug_historian`
+   [medium] wants the state actively refused NOW rather than measured at zero and deferred to
+   phase 3b. It **cannot be done in config**: the evaluator compares a field to a LITERAL
+   (`compareValues(resolveFieldValue(field), expected)`) and cannot compare two fields, so
+   `routing_reason != reason` is not expressible in a `conditional` step. Real options:
+   (a) pull phase 3b's reader change forward — make `rerender_page_sections` prefer
+   `routing_reason` — which makes the state HARMLESS rather than merely detected, and is the
+   real fix; (b) a transition-only lockstep CHECK, needing a second migration to drop it at
+   narrowing; (c) leave it, with `_VERIFY` section C counting it. All three re-phase or accept a
+   gap in a RULED RFC, which is why it did not get decided by a session. **Do not action this
+   without the owner.**
 2. **Get the 404 co-sign (D2/D7).** That is the only release condition on 741. The lane is
    `docs024_key_docs_latest/bugfix_404_rerender_reason_vocabulary/`, dormant since 2026-08-26; a
    CONTRIB asking for the co-sign has sat in their NOTES since 2026-09-02. If it stays dormant,
    this is the owner's call, not a session's — and note the premise has WEAKENED: their two
    Declarations turn out not to need editing at all (below).
-3. **Apply 741 — AND COMMIT THE LIVESPEC DECLARATION EDITS IN THE SAME COMMIT.** The five
-   specific edits are enumerated in 741's own header. They are held back on purpose: the daily
+3. **Apply 741 THEN 742 — AND COMMIT THE LIVESPEC DECLARATION EDITS IN THE SAME COMMIT.** The
+   five specific edits are enumerated in 741's own header (and (d) is owed only once 742 has
+   applied). Both intermediate states are safe and stated in the files; each migration is
+   independently reversible. ⚠ **Then verify the Go half AT THE POD**, not from git or the
+   migration test (`debug_historian` [low]): the `error_message_template` path only exists in a
+   binary built after `83407cd37`, which the live chassis (`3043885191b2`) predates. They are held back on purpose: the daily
    auditor's own note says to fix a declaration *"in the same commit as the migration that moved
    it"*, and today's row reads `probed 15 live object(s); 0 finding(s)` — committing them ahead of
    the apply turns that clean 0 red every morning and masks real drift.
