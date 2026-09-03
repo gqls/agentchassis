@@ -137,6 +137,32 @@ live before its tools will fill its tool URLs with prose, and every 200 hides it
    made deliberate. Recipe: `portfolio_positioning/RUNBOOK_remake_release.md` §2b. UNEXERCISED
    on a remake; answer §7 above before pointing it at seotools.
 
+## ⚠ FALSIFIED 2026-09-03 13:3xZ — THE GUARD DID NOT REFUSE A GENERIC WRITE. Read this before acting on anything below.
+
+**36 `page_component_history` writes across SIX of the seven canonical seotools shells,
+13:05:14Z–13:24:36Z**, producer **`needs_content_page` → `page-build-handler`** (the generic
+builder), on pages with **zero tool rows ever** and `rebuild_policy='generic'`. **Zero
+`owned_page_review` rows of any class in that window** — so the guard neither refused nor left a
+receipt. It WAS live: those pods ran `v1.0.1358` / stamp `d0252fd4d`, which carries `587666be8`.
+
+Not a metric artefact — that was checked first. After `29b40e8bc` a RE-RENDER write to a shell page
+is expected by design, so "writes to a shell page" could have been measuring the wrong thing. It
+was not: the producer is a generic content builder, and these are the exact pages this bug exists
+for.
+
+**Established:** `page-build-handler` DOES declare `refuse_owned_page: true`; the items were minted
+2026-09-03 by **`rerender_single_page_action`** and `tool-generator` — a producer this bug never
+accounted for, and NOT `tool-deployer`; the writes split 18 with a resolvable `source_item_id` / 18
+without, so there are likely **two write paths**, neither identified.
+
+**NOT diagnosed, and deliberately not guessed.** Both the `load_page_record` arm and the
+then-live `save_page_sections` arm should have refused. ⚠ **`29b40e8bc` removed the tool arm from
+`save_page_sections`** on the argument that every generic path is caught earlier — this is evidence
+that argument may be FALSE, in which case that commit removed the backstop that would have caught
+this. **Settle that first.** Four candidate explanations, the queries to separate them, and the
+current stamp (`v1.0.1359` / `3043885191…`, rolled 13:28Z, which behaves differently) are in
+`docs/agent_docs/docs024_key_docs_latest/bugfix_450_tool_page_shells/HANDOFF_2026-09-03_continue_here.md` §1.
+
 ## FIX IN FLIGHT — the door half is COMMITTED, INERT until the next roll (2026-09-03, `bugfix_450_tool_page_shells` lane)
 
 **Owner from 2026-09-03: `docs/agent_docs/docs024_key_docs_latest/bugfix_450_tool_page_shells/`**
