@@ -808,3 +808,36 @@ The check that would have caught it was two greps at the named mechanism —
 correlation (pinned AND missing field) reported as causation. 114 grepped
 here: the phantom split never reached the bug file; inline guide imager
 warned off mirroring it.
+
+## 2026-09-03 — the dartsonline data point SURVIVED a kill attempt; 690 now discriminates THREE classes
+
+inline guide imager tried to dissolve the face-value reading (mundane
+explanation: no hero exists for that page, so not writing one is correct) and
+**the dissolution FAILED, measured**: no page-scope hero plan row for
+tool-brand-comparator (arm 1 misses) — but **arm 2 hits**
+(`content_hero_tool_brand_comparator`, `purpose='content_hero'`,
+`status='active'` — the Lane-B route that exists precisely to give a hero to
+a page the planner skipped); arm 3 moot. So a resolvable hero existed by the
+resolver's own arms, the sections path ran at 00:40:40Z, and
+`background_image` stayed EMPTY. Recorded in 114 as a **failed dissolution**
+("someone tried to explain it away and could not" > one more agreement).
+
+**The stake widened: IMG-075 itself rides on this same sections path**
+(`site_assets.illustration`). If the path doesn't write newly-resolved
+values, apis.uk/index's six figures will fail to bind at next re-render for
+a reason unrelated to the binding code — and the natural-but-wrong reading
+would be "IMG-075 doesn't work". **That alternative explanation is now
+pre-registered in 114 BEFORE the event.** So batch 690 discriminates the
+hero class + deck class (425 §2) + per-section imagery at once.
+
+**Control experiment may already be FREE:** they proposed apis.uk/index as
+the existing-declared-field control (image_url on illustrated-text-block
+since 08-24, values stored) — and per the fleet workstream index, the apis
+lane ALREADY fired a `section_data_resolved` index rerender on 09-02 (GTM
+head). Pointed inline guide imager at the apis lane (session "apis.uk") to
+read that artefact + attribute by source_item_id rather than asking anyone
+to dispatch anything new; caveat flagged that the apis page is deliberately
+LOCKED so the run needs the owning lane's interpretation. The pair (690:
+newly-declared write; apis: existing-field re-resolve) separates "never
+writes resolver-sourced values" from "never writes fields added after the
+row was last built".
