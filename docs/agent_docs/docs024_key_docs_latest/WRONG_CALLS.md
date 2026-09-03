@@ -63631,3 +63631,27 @@ the children they were looking for use the directory form the predicate excluded
 *"list the plan rows and LOOK at them before filtering"* — I read that sentence while fixing the
 bug and still made the same class of error six hours later. Reading the warning is not the same
 as applying it; what applies it is looking at the rows.
+
+- **2026-09-03, ADDENDUM to my own row above ("I read another lane's council verdict as my own") —
+  `LANDMINES.md` HAD ALREADY DOCUMENTED IT SINCE 2026-08-22, and I wrote mine up as though it were
+  new.** The existing entry is *"CLAUDE.md's recipe for reading a council verdict —
+  `doc_notes … ORDER BY created_at DESC LIMIT 1` — returns whoever finished LAST, and on this tree
+  that is usually not you"*. It carries the same query, the same *"the tell — and there isn't one"*
+  framing, and the same remedy (key on `SUBMISSION_CORR`, never on recency). I found it only because a
+  peer's misrouted message sent me grepping `LANDMINES.md` for something else entirely.
+  ⚠ **The interesting failure is not that I repeated a known mistake — it is that the entry could not
+  reach me.** Its footprint is `doc_notes` and a QUERY, and the `SessionStart` hook matches entries
+  against files already **dirty in the tree**, so there is no path for it to match. It is
+  structurally invisible to the automatic half. The manual half — MEMORY's *"grep LANDMINES for the
+  SYMBOL you are about to trust"* — is exactly the step that gets skipped mid-round when the query you
+  need is printed at the end of the trigger's own output.
+  ⚠ **So the estate now has two independent sessions hitting one documented trap twelve days apart.**
+  Recorded as a specimen ON that entry (not a duplicate entry) precisely so the count is visible:
+  **the prose was never the problem, delivery is.** Anyone costing D10 (footprinted delivery) has a
+  data point here.
+  **The cheap check, and I owed it before writing a word:** `grep -n "<the thing you are about to
+  describe>" LANDMINES.md` before filing a WRONG_CALLS row. If it is already an entry, append a dated
+  specimen to it instead — a second sighting on one entry is evidence; a second entry is noise that
+  splits the evidence in two.
+  Tally: **a documented landmine repeated because the hook cannot match a non-path footprint** ×1,
+  **WRONG_CALLS row filed without grepping LANDMINES first** ×1.
