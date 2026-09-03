@@ -1234,3 +1234,23 @@ And the prompt change is written up as a starting document for the new thread yo
 all the prompts in the framework. It has your words, the four drafts and why three were rejected,
 how a prompt actually reaches the model here, and a count of every live prompt as of this morning:
 141 of them, and only 7 read the one shared voice block.
+
+2026-09-03, mid-morning. You read the three offer pages and the homepage and gave me four things.
+
+The missing link from the offer page to the playground is fixed at the source, so the next
+rebuild of that page carries it. The homepage verdict has gone to the copy quality lane in your
+words, with your ruling on the "not tied to one provider" line: keep the first half, drop the
+rest. The technical-details brief asked for exactly the three-model listing you found unhelpful,
+so that brief needs rewriting before the page is rebuilt with the new prompt.
+
+The tool is the big one. The plan from July designed the playground as a live chat with your
+model, served from a GPU box for a booked hour, and in August we proved that works by hand:
+about three and a half minutes from asking for the box to the first reply. What went live last
+night was only the booking page. Making the chat real needs three pieces: the chat box on the
+page (we have one in the library to copy), a route in the tools service to carry the messages,
+and the model server behind it. The one choice that is yours: should a visitor be able to try a
+demo model on the public page without booking, or does the chat only work inside a booked hour?
+I'd do both. The demo can run on the small server we already have in the cluster.
+
+Separately, the prompt change is written, reviewed and rehearsed by the apis.uk lane, and is
+waiting only on you reading the final words. They are in my message.

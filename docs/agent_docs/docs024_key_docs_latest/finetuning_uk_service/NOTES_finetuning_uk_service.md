@@ -2344,3 +2344,52 @@ row for this page after 09:30Z; served h2s STILL repeat (expected; report as Sta
 > so this rebuild is a full regeneration and the Stage B distinct-h2s assertion is sound. The 443
 > lane pinned "assert the item's spec carries no `mode` key before dispatching" in their
 > `HANDOFF_2026-09-03_continue_here.md` §Stage B.
+
+## 2026-09-03 (~10:00Z) — the owner read all three offer pages and the homepage; four verdicts, what was done, and what "the tool" is
+
+**His words (verbatim):** *"https://finetuning.uk/your-own-model.html has duplicate content and no
+tool and no links to the playground. https://finetuning.uk/playground.html the playground has no
+playground it is a description of process. https://finetuning.uk/technical-details.html is
+duplicate content and an unhelpful page listing on 3 types of model. The homepage looks like it is
+written by AI with all sorts of negativity, "instead of"s, "rather than"s "so"s "not just"s
+"Nothing ... unless" "We're not tied to one provider, so you get the model that fits the task, not
+the model we happen to sell." We only need the first bit, not the "not" please talk to the copy
+quality two stage lane about this. Please sort out the tool"*
+
+| verdict | disposition |
+|---|---|
+| duplicate content ×2 | `bugs_open/443`; Stage A canary in queue (item `896bb245`), 641 SQL now written+council-approved by apis.uk, awaiting his read |
+| your-own-model has no link to the playground | **DONE**: `content_direction.required_links` now `["/contact.html","/playground.html"]` (`UPDATE 1`); carried by the next rebuild (Stage B) |
+| homepage negativity, talk to copy lane | **DONE**: `copy_quality_two_stage/CONTRIB_2026-09-03_from_finetuning_owner_read_the_homepage_and_named_the_negation_tells.md` + message to their live session. His ruling on the quoted line: keep "We're not tied to one provider", drop the rest |
+| technical-details "unhelpful page listing on 3 types of model" | the brief asked for exactly that (its §2). **Brief to be rewritten before Stage B rebuilds it**; not started |
+| playground "has no playground"; "sort out the tool" | the GPU-served chat the PLAN designed (§ "A GPU playground in named hours") and Phase 0 rehearsed by hand on 2026-08-17 (dispatch→first token 3 m 23 s on an a6000). The page shipped without it. Findings below |
+
+**What exists for the playground chat, `[MEASURED 2026-09-03]`:**
+- Library precedent: `content_components.chat-input-box` (id `d6a8f57b`), tags
+  `[chat, intake, backend, requires-backend]`, hand-authored, POSTs same-origin to `/api/chat`;
+  its backend is a systemd service on the webdesign.uk box, off-cluster. Fork-on-deploy (TLIB-001)
+  is the framework path to put a chat widget on a page.
+- The deploy gate for it: `tool_backend_provision.go` (TL-043) refuses a requires-backend tool on
+  a site whose `deploy_config.capabilities` lacks `'backend'` and raises a `backend_provision`
+  item for a human. **finetuning.uk's `deploy_config` is empty** (query returned NULL), so today
+  the gate would refuse and hand over.
+- tools-api (`internal/tools-api`) has gauntlet + gripper routes only; **no chat/playground
+  route**. The PLAN's design routes playground chat through tools-api (httpguard limiter,
+  body cap, CORS) to the box.
+- Provisioning from a workflow exists for training: `thunder_ssh_exec_dispatch`,
+  `thunder_prepare_resume_url_dispatch`, `thunder_decommission_dispatch`,
+  `mark_training_run_terminal` actions; the adapter itself exposes only /health, /ready (Kafka-driven).
+- In-cluster CPU ollama (`ollama-adapter`, 1 replica) holds `mistral-small3.1` (15 GB) and
+  `nomic-embed-text`; the PLAN (07-31) said "not CPU-Ollama to start" for the paid hour, but a
+  1.7B demo GGUF (Phase 0's, 1.06 GB in B2) would run there for a public try-it.
+
+**So "sort out the tool" is three pieces, none quick:** (1) a chat tool component on
+`/playground.html` (fork `chat-input-box`, endpoint repointed); (2) a tools-api route
+`/api/v1/tools/playground/chat` that proxies to whichever model server is live for the session
+and refuses outside one; (3) the model server: per booked hour a GPU box (the Phase 0 path, made
+a workflow) and, if the owner wants the public page to be usable without a booking, the demo
+model on the in-cluster ollama. Plus `deploy_config.capabilities += backend` for the gate.
+**Owner decision needed before (3):** public demo (always-on, in-cluster, near-zero marginal
+cost, a sample model) vs booked-hours only (the page shows the chat but it is live only in a
+booked window). Lane recommends BOTH: demo for the public, GPU box for the paid hour.
+Phased in PLAN (to add); nothing built yet; no hand-authored HTML.
