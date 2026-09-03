@@ -1,4 +1,4 @@
--- 750: pages.cta_rank_deliberate_nav_order — "this page winning the site's
+-- 755: pages.cta_rank_deliberate_nav_order — "this page winning the site's
 -- primary CTA is DELIBERATE, stop flagging it" (bugs_open/436, owner ruling
 -- 2026-09-03; bugfix_436_cta_eligibility lane).
 --
@@ -93,16 +93,16 @@ BEGIN
     SELECT data_type INTO col_type FROM information_schema.columns
      WHERE table_name = 'pages' AND column_name = 'cta_rank_deliberate_nav_order';
     IF col_type IS NULL THEN
-        RAISE EXCEPTION '750: column cta_rank_deliberate_nav_order absent after ADD COLUMN';
+        RAISE EXCEPTION '755: column cta_rank_deliberate_nav_order absent after ADD COLUMN';
     END IF;
     IF col_type <> 'integer' THEN
-        RAISE EXCEPTION '750: cta_rank_deliberate_nav_order is %, expected integer', col_type;
+        RAISE EXCEPTION '755: cta_rank_deliberate_nav_order is %, expected integer', col_type;
     END IF;
 
     -- The whole point of the default: this migration acknowledges nothing.
     SELECT count(*) INTO acked FROM pages WHERE cta_rank_deliberate_nav_order IS NOT NULL;
     IF acked <> 0 THEN
-        RAISE EXCEPTION '750: % rows already carry an acknowledgement — this migration must add none', acked;
+        RAISE EXCEPTION '755: % rows already carry an acknowledgement — this migration must add none', acked;
     END IF;
 END $$;
 

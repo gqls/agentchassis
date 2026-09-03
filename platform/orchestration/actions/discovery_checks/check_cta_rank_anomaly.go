@@ -51,7 +51,7 @@
 // a trivia quiz; demoting nav_order does the same AND moves the visible menu.
 // The estate could say "never use this page as a CTA destination"
 // (eligible_as_cta_target, 714) but had no way to say "this page SHOULD win,
-// I have looked, stop asking". `pages.cta_rank_deliberate_nav_order` (750) is
+// I have looked, stop asking". `pages.cta_rank_deliberate_nav_order` (755) is
 // that sentence, and ctaRankAcknowledged below is the only thing that reads it.
 //
 // ⚠ AND "JUST DISMISS THE WORK ITEM" IS NOT A THIRD REMEDY — THIS FILE USED TO
@@ -68,7 +68,7 @@
 // one. Measured on cv1.co.uk 2026-09-03: resolved to `complete` 10:00:35Z, a
 // fresh identical item inserted 10:02:24Z. So dismissal is not durable, and
 // perversely it is leaving the item OPEN that suppresses duplicates. Corrected
-// at both sites, and 750 exists because of it.
+// at both sites, and 755 exists because of it.
 package discovery_checks
 
 import (
@@ -206,7 +206,7 @@ func (c *CTARankAnomalyCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 		// wont_fix, failed, unresolved, cancelled), so a closed item releases
 		// the key and the next pass re-files an identical one — measured on
 		// cv1.co.uk 2026-09-03 (complete 10:00:35Z, fresh item 10:02:24Z). The
-		// durable "I have accepted this" is migration 750's column, read by
+		// durable "I have accepted this" is migration 755's column, read by
 		// ctaRankAcknowledged above; closing the item is not a substitute and
 		// the fix text now says so.
 		ItemKey: fmt.Sprintf("cta_rank_anomaly_%s_%d_%s", winner.Name, winner.NavOrder, dctx.SiteID),
@@ -216,7 +216,7 @@ func (c *CTARankAnomalyCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, err
 }
 
 // ctaRankAcknowledged reports whether a human has accepted THIS page winning
-// the site's primary CTA AT ITS CURRENT nav_order (migration 750).
+// the site's primary CTA AT ITS CURRENT nav_order (migration 755).
 //
 // The equality against the page's own live nav_order is the whole design, not
 // a sanity check: it makes the acknowledgement SELF-EXPIRING. A boolean would

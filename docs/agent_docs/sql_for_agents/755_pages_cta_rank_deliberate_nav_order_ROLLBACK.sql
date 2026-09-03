@@ -1,4 +1,4 @@
--- ROLLBACK for 750 (bugs_open/436). Hand-apply only; the runner never applies
+-- ROLLBACK for 755 (bugs_open/436). Hand-apply only; the runner never applies
 -- an UPPERCASE-suffixed sidecar.
 --
 -- ⚠ THIS DROPS ACKNOWLEDGEMENTS, WHICH ARE HUMAN JUDGEMENTS AND ARE NOT
@@ -24,7 +24,7 @@ DECLARE
     n      integer;
 BEGIN
     SELECT count(*) INTO n FROM pages WHERE cta_rank_deliberate_nav_order IS NOT NULL;
-    RAISE NOTICE '750_ROLLBACK: % acknowledgement(s) about to be destroyed:', n;
+    RAISE NOTICE '755_ROLLBACK: % acknowledgement(s) about to be destroyed:', n;
     FOR r IN
         SELECT s.domain, p.name, p.cta_rank_deliberate_nav_order AS ack, COALESCE(p.nav_order,100) AS nav
         FROM pages p JOIN sites s ON s.id = p.site_id
@@ -41,7 +41,7 @@ DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'pages' AND column_name = 'cta_rank_deliberate_nav_order') THEN
-        RAISE EXCEPTION '750_ROLLBACK: column still present after DROP';
+        RAISE EXCEPTION '755_ROLLBACK: column still present after DROP';
     END IF;
 END $$;
 
