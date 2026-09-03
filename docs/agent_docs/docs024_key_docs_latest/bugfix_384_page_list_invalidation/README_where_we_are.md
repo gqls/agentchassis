@@ -465,3 +465,40 @@ appear — that is the one thing left to prove before I would say this seam is d
 The other items you asked to stay open are unchanged: three pages under customer ownership that
 this mechanism deliberately cannot touch, and a nightly sweep that has still never run because it
 is blocked behind a different bug. Neither is affected by today.
+
+---
+
+**2026-09-03, mid-afternoon. It works. Proved it on a real page, and a visitor can see it.**
+
+I asked the system to rebuild the designblog listing on the repaired code. It ran at 12:54 and the
+four pictures appeared. The page now serves all four, the image files themselves load, and there
+are no empty picture slots left on it. That listing had been blank for seven and a half hours
+across two earlier attempts, so this is the mechanism doing the thing it was built to do.
+
+**One detail worth telling you, because it is the reason I trust this result.** Another session
+happened to look at that page's record at 12:54 for an unrelated reason and wrote down what it saw
+— four articles, no pictures, unchanged since half past five. My rebuild landed seconds later. So
+the "before" was recorded by someone with no interest in my test passing. That is a much better
+kind of evidence than me measuring my own experiment, and I would not have arranged it.
+
+**And a warning I have put in bold in three places.** The rebuild job reported "4 sections, 4
+rebuilt, 0 skipped, no problems" — which is *exactly* what the broken jobs reported this morning
+before producing four blanks. The job's own report cannot tell you whether it worked. Only looking
+at the page can. Anyone checking this class of fault from the job log will get a clean answer either
+way, and that is worth knowing across the estate, not just here.
+
+**I also re-checked the one number I was still carrying from the bad measurement.** I had told you
+three customer-owned pages were still showing blanks. That number was taken the same wrong way as
+the 37%, so it had to be redone properly — and it holds up, and it is worse than I said. It is not
+"some blanks on three pages": it is **every** picture missing on those three pages, and the
+listings have not been rebuilt since 17 July, 30 July and 12 August. Three to seven weeks.
+
+That is not the mechanism failing. Those pages are customer-owned, and the system deliberately
+refuses to overwrite a customer's page — which is right. But it means those three will stay wrong
+until someone routes them through the editor path instead, and that belongs to a different piece of
+work, not this one. I have named the exact pages so whoever picks it up does not have to re-find
+them.
+
+**Where that leaves this.** The thing this workstream was built to do is working and proven. What
+is still open is the list you already have: those three owned pages, and a nightly sweep that has
+never run because it is blocked behind a separate bug. Neither is the mechanism itself.

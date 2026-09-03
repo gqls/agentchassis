@@ -1330,3 +1330,37 @@ unchanged.** The discriminator is to project the state each write REPLACED:
 `SELECT h.created_at, (h.content_data->'articles'->0 ? '<key>') AS present_BEFORE_this_write FROM
 page_component_history h WHERE h.page_id = $1 ORDER BY h.created_at;` — joined on `page_id`, never
 `component_id`.
+
+## UPDATE 2026-09-03 15:2xZ — the standing residual, RE-MEASURED with the card joined: **generic is clean, owned is 14/14 and stale by 22–48 days**
+
+The "14 blanks / 3 pages" owned figure was measured with the same uncarded shape as the retracted
+~37%, so it had to be re-checked before it could be carried anywhere. **It survives, and it is
+worse than a rate — it is total.** `[MEASURED 2026-09-03 15:2xZ]` every entry in a live
+`query.*`-sourced listing array whose target page has an active card:
+
+| `rebuild_policy` | carded entries | still blank | pages | with image |
+|---|---|---|---|---|
+| `generic` | 640 | **1** (in-flight) | 1 | **99.8%** |
+| `owned` | 14 | **14** | 3 | **0.0%** |
+
+- **The one generic blank is NOT damage.** advertise.co.uk/index, card landed **0.1 h** ago, array
+  last written 22 minutes ago — i.e. **written before the card existed**. Its re-resolve has not
+  come round yet. That is the transient window this lane has measured all along, caught mid-flight.
+- **The owned 14 are all `tool-cta` slots on three pages**, and their arrays have not been rewritten
+  in **three to seven weeks**:
+
+| site | page | array last written | card age |
+|---|---|---|---|
+| leopardessconsulting.co.uk | `llm-cost-calculator` | **2026-07-17** | 548 h |
+| leopardessconsulting.co.uk | `tool-ai-vendor-trust-checklist` | **2026-07-30** | 548 h |
+| finetuning.uk | `llm-cost-calculator` | **2026-08-12** | 598 h |
+
+**This is the shape that distinguishes it from everything else in this file.** A generic page's
+blank is a window measured in hours and it closes by itself; an owned page's blank is permanent,
+because `save_sections` refuses the page and no other writer touches that array. 22–48 days is not
+a slow repair, it is no repair. **It is still NOT 384's to close** (the seam is working as
+designed — it declines to overwrite a customer-owned page), but the figure is now card-joined and
+therefore quotable, and it names the exact three pages and the `tool-cta` slot for whoever takes
+the `section_edit` → `section-editor` route (migration `486`).
+
+Detail query: `scripts/residual_by_policy.sql` in the workstream directory.

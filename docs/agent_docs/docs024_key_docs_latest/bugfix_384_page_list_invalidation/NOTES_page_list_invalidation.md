@@ -697,3 +697,42 @@ after it, every one of them a light re-render.** The split at the commit is tota
 fixed binary. Checked first that 450's `pageRefusesGenericBuild` does not fire on it
 (`page_type='landing'`, `rebuild_policy='generic'`) — a refusal and a failed re-resolve are
 indistinguishable at the array, and I would have read one as the other.
+
+## 2026-09-03 12:5x–15:2xZ — the canary repaired, and the owned residual survives the card join
+
+**The verification passed.** designblog.co.uk/index, filed 12:35:51Z, ran 12:54:41Z
+(`page-rerender` / `section_data_resolved`) and took the `content-listing.articles` array from
+4-of-4 blank to 0-of-4. `rendered_html` 2,494 → 3,327 B. Served page 200 with four card `<img src>`
+and zero `src=""`; all four .jpg files 200 at 35–62 KB.
+
+**What made it evidence rather than an assertion was somebody else's read.** The `bugs_open/427`
+lane happened to read that row at 12:54Z — for an unrelated reason, checking a chassis-roll claim —
+and recorded "4 articles, 0 with images, updated_at still 05:25:28Z, html 2,494 bytes", seconds
+before the write landed. A baseline taken by a session with no stake in my dispatch passing is
+worth more than any measurement I could have taken of my own canary. They then verified the served
+page independently by WebFetch, and got a false negative first from querying the wrong field name
+(`image_url` for `image`) before correcting it.
+
+**The trap I put in bold everywhere, because it would have let a broken binary pass:** that run
+reported `section_count 4, rerendered 4, carried 0, escalated false` — **byte-for-byte what the
+BROKEN runs on the same page reported at 05:06:19 and 05:08:24**, which produced four blanks.
+Verify 454-class fixes at the artefact or not at all.
+
+**Then re-measured the owned residual, because it had the same defect as the ~37%.** The
+"14 blanks / 3 pages" figure was taken with the uncarded shape. It **survives**, and it is total
+rather than partial: `generic` 640 carded entries / **1** blank (in-flight — card 0.1 h old, array
+written before it existed); `owned` 14 / **14**, 0.0% with image, on three `tool-cta` pages whose
+arrays were last written **2026-07-17, 2026-07-30 and 2026-08-12**. Three to seven weeks. That is
+not a slow repair, it is no repair, and it is the correct behaviour of a seam that refuses an owned
+page — but the number is now quotable and it names the pages.
+
+**Misstep, small but the honest kind.** I called that residual query's `array_written 14:58:16`
+anomalous — "ahead of the clock" — and started debugging it. The clock was mine: I had anchored on
+a `date -u` taken two and a half hours earlier and never re-read it. The DB and the machine agreed
+all along. **In a long session, re-read the clock before calling a timestamp impossible** — the
+peer lane's own messages carried 14:05 and 15:14 timestamps I had already read past.
+
+**Also worth knowing for anyone reading git history:** my `LANDMINES.md` append was swept into
+`09e7aa75b` (an unrelated fence-file landmine from another lane) about 30 seconds before my own
+`git commit` on that file, which then found nothing to commit. Nothing lost, forward-only holds —
+but the 384 landmine is not findable by its commit message. Same-file passenger; no hook prevents it.

@@ -50,8 +50,10 @@ equals the row count; no carry bucket names it. **The only observable is a negat
 - **Fixed** `9831e9ab4`, 2026-09-03 10:00:40Z. Council **APPROVED** round 1 (`075cfedd`).
 - **LIVE** in chassis `d0252fd4dab2a3a583d1cc8eb8e1b26e9c422d85` (v1.0.1358) since ~12:05Z
   `[MEASURED 12:33Z]`. Proven live at the artefact by the owning lane (`6f3116af0`).
-- **Owned by** `bugfix_427_event_render` (session `bugs_open/427 [2e9752]`, live). I sent them this
-  lane's census as corroboration 12:5xZ. **Do not fork an account of it.**
+- **CLOSED 2026-09-03** and moved to `bugs_closed/454_…md`, owned by `bugfix_427_event_render`.
+  That lane took this lane's census as its §14 evidence and re-ran the SQL rather than quoting it
+  (reproduced exactly: 144 rows, pre 132/132/0, post 12/5/7), and verified my designblog canary
+  independently by WebFetch. **Do not fork an account of it.**
 
 **`WebPath()` is also exonerated** — the last surviving candidate from the previous handoff, and a
 two-line read as it predicted: `DeployedWebPath` → `DeployedAssetPath` (`platform/storage/url_helpers.go:317-347`)
@@ -159,7 +161,7 @@ case this lane has ever had — the runs will be inside retention, unlike everyt
 
 ## 7. What belongs to other lanes — do not fix here
 
-- **`bugs_open/454`** → `bugfix_427_event_render`. Fixed, approved, live. §2 above.
+- **`bugs_closed/454`** → `bugfix_427_event_render`. Fixed, approved, live, **CLOSED**. §2 above.
 - **`bugs_open/450`** → its own lane. Its guard refuses tool pages; the 427 lane raised the reach
   measurement with them and the scope call is theirs.
 - **`bugs_open/389`** (owned by `bugfix_308`): the two-strike arm counting SUCCESSES as strikes —
