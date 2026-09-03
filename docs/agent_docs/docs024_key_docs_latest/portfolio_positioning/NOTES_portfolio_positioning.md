@@ -5122,4 +5122,27 @@ superseded by a stronger one that is measured: the brief was not there at all.**
   either the brief-writer emits a rendered `text` alongside the object, or the template renders the
   object. The data-side fix is live-immediately and testable; **but copyonline is mid-build and the
   owner has said not to change a running build**, so this is his call, not mine.
+- **(oo) THE BLAST RADIUS IS THE WHOLE CHAIN, and the two consumers fail DIFFERENTLY.**
+  **[MEASURED, config]** exactly two live agents' prompts reference the brief, and **both reference
+  `mission_brief.text`**; **zero** reference `mission_brief` any other way:
+  `domain-research-classifier.classify_and_extract` and `build-site-planner.plan_site`. Those are the
+  two steps that decide what a site IS and what pages it HAS.
+  **[MEASURED, artefact]** `llm_call_log`, `plan_site` prompts filtered by the site they are FOR
+  (`LIKE 'Plan a website for <domain>%'` — an earlier filter of mine matched prompts that merely
+  MENTIONED a domain and returned gamedesign's prompt three times; corrected):
+  | site | plan_site prompt has a `## Pre-Defined Mission` heading |
+  |---|---|
+  | advertise.co.uk (2026-09-02 13:09) | **no** |
+  | designblog.co.uk (16:10) | **no** |
+  | seotools.co.uk (16:13) | **no** |
+  | websitepromotion.co.uk (16:15) | **no** |
+  | gamedesign.uk (2026-09-02 17:33, a `.text` brief) | yes |
+  **So the two failures are not the same failure.** In the CLASSIFIER the guard OPENS and the child is
+  empty — heading plus "the mission is the primary source", then `<no value>`. In the PLANNER the
+  heading does not appear at all, so the guard never opened, which is a different cause (the brief is
+  absent from that step's template data, not merely missing a child key). **Both end at the same
+  place: the brief reaches neither.**
+  ⚠ **Do not use "contains `<no value>`" as the tell** — every `plan_site` prompt sampled contains one
+  somewhere, including gamedesign's working one. The heading's presence is the discriminating check.
+  **Net: for all four live remakes, both the classification and the plan were made without the brief.**
 
