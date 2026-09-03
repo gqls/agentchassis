@@ -61725,3 +61725,24 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
   `&&`, not `set -e`. Also: locate anchors by `grep -n` first, not by memory of indentation.
 - **Cost.** Three corrective commits and three misleading messages in `git log` for the day; the
   content itself was never lost.
+
+- **2026-09-03 — bugfix_329_takeover_claim — I read another lane's council verdict as my own, and it
+  was coherent enough that nothing jarred.** My submission came back REVISE, so I ran the query
+  CLAUDE.md prints for reading a verdict — `SELECT body FROM doc_notes WHERE categories ?
+  'council-gate' ORDER BY created_at DESC LIMIT 1` — and got a detailed REVISE about **finetuning.uk's
+  playground page**: a tools-api route group, CORS-by-deployed-site-Origin, an Ollama streaming
+  timeout, a gripper mount-order landmine. **None of it was mine.** `LIMIT 1` returns the most recent
+  council note **on the fleet**, and on an estate this concurrent another lane's round lands between
+  your dispatch and your read as a matter of course.
+  ⚠ **Nothing errored and nothing looked wrong.** The objections were specific, well-argued, and
+  plainly about *a* submission — which is exactly what I was expecting to read. Had I acted on them I
+  would have spent a round answering CORS objections about a page I have never touched.
+  ⚠ **CLAUDE.md already tells you the answer and I had read it that morning:** *"Use
+  `SUBMISSION_CORR` — the correlation is the key the artifacts are written under, so it always
+  resolves."* I used the human-readable convenience query instead, because it was the one printed at
+  the end of the trigger's output and it was right there.
+  **The cheap check:** read the report by YOUR correlation —
+  `SELECT body FROM diagnosis_artifacts WHERE correlation_id LIKE '<SUBMISSION_CORR>%' AND
+  kind='council_report' ORDER BY created_at DESC LIMIT 1` — and before believing a verdict, confirm
+  its `plan summary` describes the change you submitted. Mine named a domain I have no lane on.
+  Tally: **another lane's artefact read as mine because the query was ordered by time, not identity** ×1.

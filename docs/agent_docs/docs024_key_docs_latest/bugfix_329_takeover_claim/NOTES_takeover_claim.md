@@ -301,3 +301,75 @@ narrower basis** than I gave:
 So the evidence I actually gathered supported the conclusion; **the sentence I wrote to justify it
 did not.** That is the more embarrassing shape, because a right answer with a wrong reason survives
 review and propagates, and the next reader inherits the reason, not the answer.
+
+## (i) 2026-09-03 ~12:5xZ — council round 1: REVISE, and it earned its keep
+
+**Verdict: REVISE**, gated by `prior_art_librarian`. **8 of 11 seats approved — including
+`architecture`**, which settles the scope question I had argued (guarantee NARROWED, not widened,
+2026-07-29 §1) rather than leaving it asserted. Objectors: `prior_art_librarian` (high + medium +
+low), `guardian` (medium + 2 low), `bug_historian` (medium).
+
+### ⚠ MISSTEP FIRST: I read another lane's verdict as mine
+
+I ran `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1`
+— the query CLAUDE.md prints for reading a verdict — and got a REVISE about **finetuning.uk's
+playground page**, a tools-api route change with CORS and Ollama objections. Nothing in it is mine.
+`LIMIT 1` returns the most recent council note **on the fleet**, and on this estate another lane's
+round lands between yours and your read as a matter of course.
+
+**The tell I nearly missed:** the objections were coherent, specific, and about a submission — they
+just were not about *my* submission. Nothing errored. **The check:** CLAUDE.md already says to use
+`SUBMISSION_CORR`, because *"the correlation is the key the artifacts are written under"* — so read
+`diagnosis_artifacts WHERE correlation_id LIKE '<your corr>%' AND kind='council_report'`, never the
+LIMIT 1. Logged in `WRONG_CALLS.md`.
+
+### The gating objection was RIGHT to be raised and WRONG in its worry — the answer is a citation
+
+`prior_art_librarian [high]`: the design rests on `ExecuteWithOptimisticLocking` reloading **and
+re-invoking the mutator closure** each attempt; its sibling `UpdateStateWithRetry` is landmined for
+the OPPOSITE (`*state = *reloaded`, discarding local mutations); if it shares that defect, *"the plan
+would ship the bug it claims to close."*
+
+It does not, and I had asserted "safe machinery to reuse" **without citing a line**, which is the
+objection. `state.go:1417-1437`: fresh `GetState` at `:1421`, `currentVersion` at `:1426`,
+**`fn(state)` re-invoked at `:1429`**, CAS against that attempt's version at `:1434`. The sibling
+(`:1079-1100`) calls `UpdateState` on the **caller's** pointer and overwrites it from `reloaded` on
+conflict — which is exactly why it is landmined and exactly why this design uses the other one.
+
+### The objection I thought was procedural found a real defect
+
+`guardian [low]` + `prior_art_librarian [medium]` both asked what a caller of the deleted
+`ClearExecutingStep` would look like **if the compiler could not see it**. I had `go build ./...`
+clean, no reflection on `StateRepository`, and only comment references in `.go`. So I grepped
+**outside** `.go` — and found a **live database row**: `orchestration_status_vocabulary.RUNNING.written_by`
+= `'StateRepository.ClearExecutingStep (state.go:1428)'`, seeded by migration 466.
+
+**Not a caller, invisible to the compiler, and now false.** Nothing would ever have flagged it.
+Migration `736` fixes it (documentation column — `is_terminal`/`is_pausable`, which the reaper and
+cleanup actually read, are untouched).
+
+⚠ **The lesson is not "grep harder", it is that "no caller" and "no reference" are different
+questions,** and a deletion needs the second. A live row seeded by a migration is a reference that
+outlives every compile-time check.
+
+### And answering the gating objection turned up a false claim in my OWN comment
+
+Checking whether the claim really refreshes `last_activity`, I found my comment said
+`UpdateStateWithVersion` *"bumped Version and LastActivity on this pointer"*. It bumps `Version` in
+memory (`:1074`) and stamps `last_activity` in the **database** from a local `now` (`:1051`) — it
+does **not** write `LastActivity` back onto the struct. Harmless to the design (the next taker reads
+the database, which is where the refresh lives) but **false where a reader would rely on it**. Fixed.
+
+### `bug_historian [medium]` — accepted in full, and acted on
+
+The residual (a live driver judged stuck) is an incomplete fix of a class this platform has
+documented repeatedly. **Filed as `bugs_open/461`** rather than re-disclosed in a risk block — with
+the 24× gap between `defaultLocalActionTimeout` (7200 s) and `StuckOrchestrationTimeout` (300 s),
+why widening the threshold cannot work, and the heartbeat flagged as architecture-scope.
+
+⚠ One thing that changes the seat's calculus and is in 461: **the instrument to size it did not
+exist until this fix.** `processing_history` action `stale_takeover_claimed` is the first durable
+record a takeover has ever left. 461 says plainly not to size the bug until that query has data, and
+that today it necessarily returns 0 because the fix is not rolled.
+
+**Round 2 resubmitted** under the same trail (`RESUBMIT_CORR=3beb3f54…`, run orch `43181b1a`).
