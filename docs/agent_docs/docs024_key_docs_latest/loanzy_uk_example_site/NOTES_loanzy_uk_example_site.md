@@ -2473,3 +2473,19 @@ had it only seen part of the input.**
   summariser's quote is a paraphrase until grepped in the raw page** (their WRONG_CALLS
   entry). Same arbiter as everything else today: the production matcher, not any reader —
   tool, human, or model.
+
+## 2026-09-03 — morning sweep: three APPROVED, the door is LIVE, 437 taken and root-caused
+- 702 (48eec07c), 713 (cea2a32c), 716 (7e927a7b): **all APPROVED overnight.** The register
+  programme's work on my two sites is fully reviewed.
+- **WDS-020 growth door LIVE**: overnight roll carries c2349955d (binary stamp 7bf1ff674,
+  merge-base ancestor check with present + absent controls). No site holds — that switch
+  remains the owner's one-UPDATE verb (RUNBOOK), now effective the moment he runs it.
+  Induced proof deliberately NOT forced: a hand INSERT bypasses the Go door (SQL doesn't
+  run writeWorkItem), the discovery path is inside loanzy's 30-day cooldown, and a full
+  tool-suggester run just to witness a hold spends real credits on a synthetic question —
+  the first owner-named hold site proves it in production for free.
+- **437 taken**: candidate 1 committed this morning (a0044e73b) by its taker — root cause
+  ONE LEVEL DEEPER than my file's candidates: extractArrayItemFields projects the nested
+  element schema to flat field NAMES, so the writer prompt DECLARED branches a string and
+  the writer obeyed. "The writer is obedient throughout" — my candidate 1 (fix the writer)
+  was aimed at the wrong actor; the bug file's candidate 2 (schema side) was right.
