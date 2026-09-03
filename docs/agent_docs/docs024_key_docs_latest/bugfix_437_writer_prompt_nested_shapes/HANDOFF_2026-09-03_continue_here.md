@@ -5,9 +5,13 @@
 
 ## The one-line state
 
-**The fix is committed, deployed on `v1.0.1358`, verified live three independent ways — and
-it does not take effect. Builds still fail with the identical error. Candidate 1 is NOT
-closed.** Everything else in this lane (diagnosis, migration, records, council) is done.
+**UNRESOLVED, and the earlier "deployed and broken" verdict is NARROWED — read the 12:55Z
+addendum at the bottom before acting.** The fix is committed and deployed on `v1.0.1358`;
+the executions that failed were measured at 12:07–12:20Z and **probably ran on agent pods
+spawned before the roll**. The current `agent-page-build-handler` pod DOES carry the fix
+(binary-probed, with control). It has not been exercised on a mechanism-flow page since. So
+the open question is no longer "why does correct code not work" but "does it work now" —
+and that is one build away from an answer.
 
 ## What the bug is (settled, do not re-derive)
 
@@ -58,9 +62,14 @@ absence means `StructuredItemShape` returned **empty at runtime**.
    "org.opencontainers.image.revision"` → `d0252fd4dab2a3a583d1cc8eb8e1b26e9c422d85`;
    `git merge-base --is-ancestor a0044e73b d0252fd4d` PASSES, with the current HEAD as a
    negative control that correctly FAILS.
-2. **Not missing from the binary.** On the running pod, `grep -c "never a sentence of prose"
-   /proc/1/exe` → 1 (present); long-lived control present; nonsense control absent. Struct
-   tag `value_shape` present 3×, same as `item_fields`.
+2. **Not missing from the binary** — ⚠ **BUT SEE THE ADDENDUM: I PROBED THE WRONG POD.**
+   The original probe ran on an `agent-chassis` *deployment* pod
+   (`agent-chassis-554857f96f-kx69c`): `grep -c "never a sentence of prose" /proc/1/exe` → 1,
+   long-lived control present, nonsense control absent, struct tag `value_shape` present 3×.
+   That pod is **not** where `plan_sections` executes — per-agent pods
+   (`agent-page-build-handler-*`) do. Re-probed correctly at 12:55Z: the fix literal IS
+   present there too, with control. So the conclusion survives for the CURRENT pods; what it
+   never covered is the pods that ran the 12:07–12:20 executions, which no longer exist.
 3. **Not missing from the built tree.** `git show d0252fd4d:…/plan_sections_action.go |
    grep -c StructuredItemShape` → **2**; the helper file exists at that revision; there is
    exactly **one** `llmFieldSpecs = append` site (line 2723) and it carries both new fields.
@@ -162,3 +171,60 @@ states the wrong type with the schema's full authority. `016b` §9 — the same,
 pattern, with the two-minute diagnosis. RUNBOOK — never put a placeholder in a council
 sketch; rehearse migrations twice; `--record-only` needs `--note`; the `jsonb_typeof(...)`
 NULL trap.
+
+
+---
+
+## ⚠ ADDENDUM 2026-09-03 12:55Z — the architecture I had missed, and why the verdict is narrowed
+
+**1. No new chassis build has been deployed** (checked when asked to verify one). `IMAGE_TAG`
+in the makefile, the `agent-chassis` deployment spec, and the running pods are all
+**`v1.0.1358`**, pods started 12:06:47Z / 12:07:16Z, `rollout status` reports complete. There
+is no newer local image. So there was nothing new to verify — the build being referred to is
+either still in progress, or is the same 12:06Z roll already covered above.
+
+**2. THE THING I HAD MISSED: agent work runs in PER-AGENT PODS, not in the `agent-chassis`
+deployment.** `kubectl get pods --sort-by=.status.startTime` shows ephemeral pods named
+`agent-page-build-handler-*`, `agent-page-content-writer-*`, `agent-site-review-agent-*`,
+`agent-landmine-verifier-*` … each running the chassis image and spawned per job. A fresh
+crop appeared at 12:49–12:52Z.
+
+**This invalidates the pod I used for elimination #2.** I probed
+`agent-chassis-554857f96f-kx69c`, a deployment pod, and treated it as "the running binary".
+`plan_sections` executes inside an `agent-page-build-handler` pod. Re-probed at 12:55Z on
+`agent-page-build-handler-2c993dc2-cvfl5`: the fix literal IS present (1), with the
+long-lived control present (3). **So today's agent pods carry the fix.**
+
+**3. Which reframes the failure.** The five orchestrations I measured ran 12:07:57–12:20:25Z,
+i.e. within ~14 minutes of the deployment roll. Agent pods are spawned per job and outlive a
+single one, so those executions plausibly ran on pods created BEFORE 12:06Z, on the previous
+image — which would explain a correct, deployed fix emitting nothing, with no contradiction
+anywhere. **I cannot prove this retroactively** (those pods are gone), and I am not asserting
+it: it is now the leading hypothesis, ahead of the `comp.InputSchema` one.
+
+Checked and NOT the explanation: neither `page-build-handler` nor `page-content-writer` is
+image-pinned (`default_config.pin_image_tag` unset; `agent_image.go:201`), and both rows'
+`image_tag` reads `v1.0.1358`.
+
+⚠ Noted, unexplained, probably harmless: the agent pod's environment carries
+`AGENT_IMAGE_TAG=v1.0.44` while the pod's actual image is `v1.0.1358`. Worth a glance if
+image resolution ever comes back into question — it is not evidence of anything on its own.
+
+**4. THE DECISIVE TEST, and it is already armed.** No mechanism-flow page has been written
+since the fresh pods came up (0 writer calls mentioning `branches` after 12:40Z), so the fix
+is simply un-exercised. A background watcher is polling for the first such prompt after
+12:52Z and will report `nested_exemplar` / `old_flat` / `shape_note`. If `nested_exemplar` is
+true, **candidate 1 is done and this lane closes** pending the artefact check on a stored
+page. If it is false on a pod proven to carry the fix, the `comp.InputSchema` hypothesis
+returns and instrumentation is the next step.
+
+**Nothing needs to be fired to make this happen:** advertise.co.uk's `e75f5880`
+(`needs_content_page`, `triaged`) will dispatch on its own and is on a fresh key, so one
+failure costs nothing. The `portfolio_positioning` lane has been told to keep holding and
+why.
+
+**5. The lesson, which is this estate's own and I still walked into it:** *"`-l app=<subsystem>`
+may be the WRONG SERVICE (one image, every label); before believing a clean grep, ask which
+pod could have produced the line."* I asked which pod ran the code only after exhausting
+every other explanation. **Probe the pod that does the work, not the one that shares its
+name.**

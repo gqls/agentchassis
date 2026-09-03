@@ -110,7 +110,21 @@ SELECT s.domain, w.item_key, w.status, left(w.summary,80)
  ORDER BY s.domain, w.updated_at DESC;
 ```
 
-## ⛔ POST-ROLL 2026-09-03 13:xx — THE FIX IS DEPLOYED AND DOES NOT TAKE EFFECT. CANDIDATE 1 IS NOT CLOSED.
+## ⛔ POST-ROLL 2026-09-03 — THE FIX DID NOT TAKE EFFECT ON FIRST OBSERVATION. CANDIDATE 1 IS NOT CLOSED.
+
+> **⚠ NARROWED 12:55Z, SAME DAY — read this before the section below.** The measurements
+> below are sound but were taken 12:07–12:20Z, minutes after the deployment roll, and I had
+> **missed that agent work runs in PER-AGENT PODS** (`agent-page-build-handler-*`,
+> `agent-page-content-writer-*`, spawned per job) rather than in the `agent-chassis`
+> deployment. My binary probe used a deployment pod — the wrong one. Re-probed on a real
+> `agent-page-build-handler` pod at 12:55Z: **the fix literal IS present, with control.** So
+> those failing executions plausibly ran on agent pods spawned BEFORE the roll, which would
+> reconcile every observation below with a fix that is simply correct. Not proven (the pods
+> are gone), but it now leads the hypothesis list. No mechanism-flow page has been written
+> since the fresh pods came up, so the fix is **un-exercised, not disproven**. Neither agent
+> is image-pinned and both rows read `v1.0.1358`. Full account:
+> `docs024_key_docs_latest/bugfix_437_writer_prompt_nested_shapes/HANDOFF_2026-09-03_continue_here.md`
+> §ADDENDUM.
 
 **Read this before trusting any earlier line in this file about candidate 1.** The chassis
 rolled to `v1.0.1358` at 12:06Z. The fix is provably present and the defect is unchanged:

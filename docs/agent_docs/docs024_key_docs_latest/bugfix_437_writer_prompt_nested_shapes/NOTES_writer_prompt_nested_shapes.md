@@ -321,3 +321,39 @@ elimination list and ranked hypotheses: `bugs_open/437` §POST-ROLL and
 **Docs corrected rather than left optimistic:** `bugs_open/437` candidate 1 and register
 PBP-052 both now lead with the post-roll failure, because as written they would have told
 the next reader this mechanism works.
+
+## 2026-09-03 12:55Z — I probed the wrong pod, and the estate's own landmine says so
+
+Asked to verify a fresh chassis build. **There isn't one:** makefile `IMAGE_TAG`, the
+`agent-chassis` deployment spec and the running pods are all `v1.0.1358` from 12:06Z, rollout
+complete, no newer local image. Reported rather than papered over.
+
+But looking for it surfaced what I had missed all along. `kubectl get pods --sort-by=
+.status.startTime` shows **per-agent pods** — `agent-page-build-handler-*`,
+`agent-page-content-writer-*`, `agent-site-review-agent-*` — each running the chassis image,
+spawned per job, a fresh crop at 12:49–12:52Z. **`plan_sections` runs in those, not in the
+`agent-chassis` deployment pod I spent the morning probing.**
+
+So elimination #2 of my own handoff ("not missing from the binary") was verified on a pod
+that never ran the code. Re-probed on `agent-page-build-handler-2c993dc2-cvfl5`: the fix
+literal IS present, control behaves. Today's agent pods carry the fix.
+
+**Which reframes everything.** The five failing orchestrations ran 12:07:57–12:20:25Z, within
+~14 minutes of the roll. Agent pods outlive a single job, so those executions plausibly ran
+on pods created before 12:06Z on the previous image — reconciling every observation with a
+fix that is simply correct. Unprovable retroactively (the pods are gone) and I am not
+asserting it, but it displaces the `comp.InputSchema` hypothesis at the top of the list.
+Checked and excluded: neither agent is image-pinned (`pin_image_tag` unset,
+`agent_image.go:201`) and both rows read `v1.0.1358`.
+
+**The lesson is one this estate already wrote down and I still walked into:** *"`-l
+app=<subsystem>` may be the WRONG SERVICE (one image, every label); before believing a clean
+grep, ask which pod could have produced the line."* I asked which pod ran the code only after
+exhausting every other explanation — having first written a landmine, this same day, about
+reading the artefact rather than the thing that shares its name. **Probe the pod that does
+the work.**
+
+Status: the fix is **un-exercised, not disproven**. No mechanism-flow write since the fresh
+pods. A background watcher is armed on the next such prompt; if it shows the nested exemplar
+the lane closes, and if it does not — on a pod proven to carry the fix — the
+`comp.InputSchema` hypothesis returns and the next step is instrumentation.
