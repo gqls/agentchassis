@@ -80,12 +80,22 @@ names could not be checked (that registry publishes no lookup service we can
 reach). Worth acting on: **the three dead names are still listed for sale on
 Afternic**, advertising domains that can't be delivered.
 
-**Your Afternic prices are confirmed high, and now there's a number on it.**
-Where a name has both an Afternic asking price and an independent appraisal,
-the ask is a median of **5.4 times** the appraisal. Also worth knowing: only
-419 of your 1,634 Afternic entries have an actual asking price at all — the
-rest carry only a minimum-offer floor, and those floors run about 5.8 times
-appraisal too.
+**Your Afternic prices need more than lowering — corrected later the same day.**
+I first reported that your asks run about 5.4 times the independent appraisal.
+That figure is arithmetically right but it describes the wrong problem, and the
+real one matters more. Your prices were applied in **bulk bands**, not per
+domain: of 419 asking prices, 250 are the identical figure $4,999 and 136 are
+$25,000; of 1,215 minimum-offer floors, 845 are exactly $10,000. And the bands
+do not track quality — names in the $4,999 band and names in the $25,000 band
+have essentially the same appraisals ($1,549 against $1,646 median), so two
+names of equal worth are priced five times apart. The $10,000 floor band covers
+names appraised anywhere from $25 to $24,511.
+
+So the job isn't to scale your prices down by a factor. It's to give the
+portfolio per-domain pricing for the first time — which will move some prices
+down a long way and some genuinely good names **up**. Also worth knowing: only
+419 of your 1,634 Afternic entries carry an asking price at all; the rest have
+only a minimum-offer floor.
 
 On valuations themselves: the appraisal tool turned out to value *any* domain
 name, not just ones you own — which matters because it refuses .co.uk entirely.
