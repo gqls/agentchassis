@@ -20097,3 +20097,38 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **relations:** `bugs_open/454` (the case, the census query, and why a `090` run was substituted for rather than skipped) · `bugs_open/427` §14 (the symptom it was found through, with two of that lane's own claims corrected) · `bugs_open/182` (the carry buckets — right instrument, wrong failure) · `bugs_open/238` (`carryStored`, one of the two maskers) · `bugs_closed/184` (the resolved-data markdown strip, dead since the regression) · `016b` §9, same date · MEMORY [[a-pathspec-commit-still-takes-a-same-file-passenger]] (how committing this fix broke HEAD) · [[two-defects-can-wear-one-symptom]] · [[a-post-fix-zero-needs-a-demand-control]]
 - **source:** 2026-09-03, `bugs_open/427` lane, taking the first of the two next steps its own handoff had named as untried. Test written before the fix and mutation-proven at committed HEAD with `scripts/verify-head-builds.sh --with` (the shared working tree did not compile at the time — another session's dirty `datahelpers/claims.go`).
 - **added:** 2026-09-03, `bugs_open/427` lane
+
+### A `needs_content_page` row can be an audit VERDICT, not a brief — copy its `spec` into a rebuild and the run completes with a page shaped by one audit note
+
+- **footprint:** `site_work_items` where `item_type='needs_content_page'`, `spec.filing_mode`,
+  `spec.not_dispatchable`, `spec.routed_status`, `content-quality-audit_needs_content_page_*`,
+  `design-audit_needs_content_page_*`, `page-build-handler`, `gap_plan_new_page`
+- **fires when:** you rebuild an already-deployed page through page-build-handler by "copying the
+  `spec` from the page's last complete `needs_content_page` item" (the recipe that works for a
+  page born from a `gap_plan` brief). A page born from the SITE BUILD has no gap_plan item; its
+  only `needs_content_page` rows are audit seats' **verdict rows** (RFC_056 `filing_mode=record`,
+  `not_dispatchable` set, routing preserved in `spec.routed_handler`, `bugs_closed/077` convention)
+  whose `suggestion` is ONE narrow finding ("add an audience statement above the fold")
+- **the tell:** same table, same `item_type`, same `status='complete'`, so `ORDER BY created_at
+  DESC LIMIT 1` hands you one without complaint. Nothing downstream objects: the copied item is
+  `triaged`, the page is `planned`, the handler runs, `save_page_sections` replaces every
+  agent-writable component, the item lands `complete` — and a six-section page has been
+  regenerated to a one-line audit note as its whole brief. If the dispatcher honours
+  `not_dispatchable` on a `triaged` row (`[UNMEASURED]`) the failure is the quieter one: the item
+  is never picked and the page sits `planned`, serving its old copy, with no error anywhere
+- **the check:** read the row you are about to copy, then assert on the row you wrote, in the same
+  transaction:
+  ```sql
+  -- the candidate: an audit verdict row has these keys; a brief has 'check','sections','suggestion'
+  SELECT item_key, spec ? 'not_dispatchable', spec->>'filing_mode', spec ? 'sections', left(spec->>'suggestion',120)
+    FROM site_work_items WHERE id = :candidate;
+  -- the row you wrote: refuse to COMMIT unless it is a brief
+  ... IF EXISTS (SELECT 1 FROM site_work_items WHERE id=:new_row AND (spec ? 'not_dispatchable' OR spec ? 'mode'
+                 OR NOT (spec ? 'sections') OR item_key NOT LIKE 'gap_plan_new_%')) THEN RAISE EXCEPTION ...
+  ```
+  When the page has no gap_plan item, WRITE a clean `gap_plan_new_page` spec (page_name, page_url,
+  sections as they stand, a direction-only suggestion) rather than adapting a verdict row
+- **source:** finetuning.uk `index`, 2026-09-03 10:13Z, item `1513b86a`: the INSERT copied the
+  2026-08-31 `content-quality-audit` verdict row; caught on the read-back of `jsonb_object_keys(spec)`
+  and rewritten in place under `claimed_by IS NULL` before the trigger's next tick. Recipe with the
+  guard: `finetuning_uk_service/RUNBOOK_finetuning_uk_service.md` ("Rebuild an ALREADY-DEPLOYED page")

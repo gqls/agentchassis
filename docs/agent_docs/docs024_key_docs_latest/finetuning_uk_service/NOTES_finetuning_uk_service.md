@@ -2438,3 +2438,13 @@ the writer produces "rather than" freely (71% of gate rewrites), so "is it zero"
 test. Compare on `content_data` only; served HTML carries chrome no component owns (7 vs 5).
 Correlations for both items owed to them when the trigger claims (watches armed: `bhs0wb272`
 for `896bb245`, `be12xyk5h` for `1513b86a`).
+
+**10:20Z — copy lane pinned the HOMEPAGE pre-gate baseline too** (`copy_quality_two_stage/BASELINE_2026-09-03_index_homepage_pre_gate.md`,
+commit `f46f54d2c`), captured 10:15Z with `1513b86a` verified still triaged and unclaimed: **14 shape
+hits in `content_data`** (x_not_y 8, instead_of 2, rather_than 1, negative_reveal 1, one each of the
+two v3 candidates); served HTML had read 26 for the same reason as before (chrome no component
+owns). Both baselines are on `content_data` with one regex set. They also noted a consequence of
+the owner's ruling: **"We're not tied to one provider" is now sanctioned copy AND a negative
+opening frame**, which the house voice rule forbids; a v3-vintage question for the owner, recorded
+in the baseline, not acted on. The audit-verdict-row misstep is filed as a landmine
+(`LANDMINES.md`, "A `needs_content_page` row can be an audit VERDICT, not a brief").
