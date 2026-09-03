@@ -57,3 +57,13 @@ The valuation session has been sent its copy of the prices, as agreed,
 marked with today's date and "USD-assumed" until an export ever states
 the currency. Next step on this lane is still the bulk-change template
 (`bulk_upload_sample_v3.xlsx`) when you want prices changed.
+
+## 2026-09-03 (later) — the 6 dead listings are gone, and a new registration
+
+You removed all six listings yourself and registered `enables.uk` — noted,
+and thank you for confirming. I don't have a fresh export to check the
+removals actually took on Afternic's side (the file I'm holding is from
+before you did this), so I'll treat that snapshot's 6 rows as gone rather
+than re-quoting them, and I've told the valuation session so their
+portfolio bookkeeping updates too. Next time you export, I'll confirm the
+six are really gone and see whether `enables.uk` needs listing.

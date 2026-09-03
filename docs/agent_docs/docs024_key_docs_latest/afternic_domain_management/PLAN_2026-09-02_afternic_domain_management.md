@@ -80,12 +80,15 @@ pricing, sales + leads, verification + NS state.**
   **First named customer (2026-09-02): the domain_valuation lane's
   bottom-~500 repricing** — the owner considers current Afternic prices
   generally overpriced; the valuation lane produces the new prices, this
-  lane turns them into the bulk upload. **Second item queued for the same
+  lane turns them into the bulk upload. ~~**Second item queued for the same
   run (2026-09-03): 6 listing removals** — chicklets.co.uk, demisexual.uk,
   protecty.co.uk, cheapbuild.co.uk, enables.co.uk, qlp.us advertise domains
   the owner cannot deliver (NameSilo-lost or registered to others; owner
   ruling relayed via the valuation lane, NOTES 2026-09-03). Do not act as a
-  special trip — ride the next bulk change.
+  special trip — ride the next bulk change.~~ **DONE 2026-09-03 (later): owner
+  removed all 6 directly in the dashboard, ahead of any bulk-XLSX run, and
+  registered `enables.uk` (new registration, distinct from the removed
+  `enables.co.uk`). Unconfirmed against a fresh export — see NOTES.**
 - **P5 — cadence.** Owner exports on a rhythm he chooses; each ingest
   reports the diff (sales show up as removed/changed rows; leads/views as
   count movement). Revisit whether any of this earns automation.

@@ -167,6 +167,26 @@ whois egress is blocked here). None of the three are Afternic listings
 anyway (checked: not in the 2026-09-03 export) — the caveat is about a
 different sweep, kept here only so nobody in this lane conflates it.
 
+## 2026-09-03 (later still) — owner removed the 6 dead listings; registered enables.uk
+
+Owner acted directly in the Afternic dashboard (not via this lane's tooling
+— no bulk-XLSX run happened): removed all 6 queued listings (chicklets.co.uk,
+demisexual.uk, protecty.co.uk, cheapbuild.co.uk, enables.co.uk, qlp.us) and
+**registered `enables.uk`** (a new .uk registration — distinct from the
+just-removed `enables.co.uk`; not yet known to be Afternic-listed or on any
+registrar this lane has enumerated).
+
+**`[UNVERIFIED]`** — no new export exists to confirm the removals landed;
+the held snapshot (`portfolio_2026-09-03.json`) is now KNOWN STALE on these
+6 rows (pre-dates the owner's action). Do not quote "1,634 listed" or the
+6 domains' presence from that snapshot without this caveat. Verify at the
+next export: the 6 should be absent, and `enables.uk` — if the owner lists
+it — would be a NEW row, not a rename of the removed `.co.uk`.
+
+PLAN's queued-removal item is now DONE (struck there, not deleted, per the
+correction convention). Told the valuation session (they asked to be kept
+informed) so their provisional/unaccounted-for bookkeeping updates too.
+
 **Spec CONFIRMED by the valuation session (same day)**, with one refinement
 adopted: the currency ASSUMPTION must travel in the cell, not sit silently
 in our docs — so the default currency value is now the literal
