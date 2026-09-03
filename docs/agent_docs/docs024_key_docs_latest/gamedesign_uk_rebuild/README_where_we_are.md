@@ -396,3 +396,20 @@ targeted text corrections instead. Worth knowing the About page carried it too, 
 the fix had failed, when it had worked; then that plans across the whole estate were damaged, when it
 was my own query that was wrong. Both times what saved it was checking the thing itself instead of
 trusting the summary. I have written both down where the next person will see them.
+
+## 2026-09-03, evening — your new contact address is live on every page
+
+Done and checked on the live site, not just in the database: every page now shows
+gamedesignuk@contactforsales.com and none shows the old one — home, about, contact and the
+articles page, including the footer that appears on all of them.
+
+It took four separate corrections, which is worth a sentence because it explains why I reported
+"done" and then kept finding more. The address was stored in four different places — the site's
+settings, the text of three page sections, a separate site-level field that feeds the footer, and
+the footer itself as already rendered — and fixing each one made my checks read clean while the
+live page still showed the old address. The only check that never lied was reading the actual page
+as a visitor would. I have written that down for whoever does this next.
+
+The articles are still waiting on the fix another thread finished this afternoon; it is written but
+not yet running on the live system. They will tell me when it is, and only then will I re-plan —
+doing it sooner would just have the same articles deleted again. Nothing needs a decision from you.

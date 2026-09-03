@@ -1035,3 +1035,30 @@ deletes new children, and the write path no longer relocates them to `/blog/`), 
 stands: `parent_section` DID matter — on the write path, not in Pass C. **Do not re-plan until they
 say the image has rolled.** They also filed **`bugs_open/467`** while in there: a re-plan cannot add
 ANY new page to a site of 20+ pages (`truncatePreservingRealised`), 26 of 42 sites affected.
+
+## 2026-09-03, ~17:40Z — CONTACT ADDRESS LIVE on every page, verified at the served bytes
+
+The four child `page_rerender` items spawned by the chrome refresh completed 17:31–17:33Z.
+Cache-busted served bytes (`?v=<epoch>`), 17:34Z: **index 2, about 3, contact 5,
+articles/index 2 — ALL `gamedesignuk@contactforsales.com`, ZERO of the bare `gamedesign@` form.**
+Pass condition met on all four pages. The owner's midday ruling is delivered.
+
+**One row lags the artefact, and it is the INVERSE of the usual trap.** `pages.index` still reads
+`build_status='needs_rebuild'`, `deployed_at 2026-09-02 20:20:54` — yet its served file's
+`last-modified` is **17:32:43Z**, inside the child-rerender window, and its bytes carry the new
+footer. So index WAS deployed; the row was not updated (the `needs_rebuild` set by the 11:03
+failure guard appears to make the deploy step skip the row write). All day the lesson was "status
+green, artefact stale"; here it is "artefact right, status stale". **Same rule either way: the
+served bytes are ground truth; a `pages` row is a claim.** Leave `needs_rebuild` on index — a full
+rebuild under the fixed planner is wanted anyway once 463 rolls.
+
+**Full chain for the address, for the record — four surfaces, seven seeds' worth of learning:**
+`site_specs` (09-03c) → 3 components' `content_data` via `section_edit` (09-03e) → `sites.email`
+(09-03f) → rendered chrome via `needs_rerender{refresh_site_components}` (09-03g) → its four
+spawned `page_rerender` children → deploy. Each of the first three verified clean at its own table
+while the live page still served the old value. `last-modified` on the served file was the
+instrument that separated "CDN lag" from "not yet deployed" (15:12Z at 17:20Z = nothing deployed
+since before any fix).
+
+**Re-plan: STILL ON HOLD** at the 463 lane's request until `9b540c2e6` rolls and they verify
+children land at `/articles/` (not `/blog/`). Live chassis `30438851` as of 17:20Z.
