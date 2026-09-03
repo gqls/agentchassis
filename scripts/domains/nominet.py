@@ -166,9 +166,12 @@ def login_xml(tag, pw):
 
 
 def list_xml(month):
+    # <list:expiry> is a SIMPLE element holding the month directly (pattern
+    # \d\d\d\d-\d\d) — the nested <list:month> form inherited from epp.pl drew
+    # 2001 "Element content is not allowed" on its first live run 2026-09-02.
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <epp xmlns="{EPP}"><command><info><list:list xmlns:list="{LST}">
-<list:expiry><list:month>{esc(month)}</list:month></list:expiry></list:list>
+<list:expiry>{esc(month)}</list:expiry></list:list>
 </info><clTRID>list-{esc(month)}</clTRID></command></epp>"""
 
 

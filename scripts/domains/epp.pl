@@ -92,7 +92,7 @@ if (($code // '') eq '1000' && $mode eq 'list' && $month) {
 qq{<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <epp xmlns="urn:ietf:params:xml:ns:epp-1.0"><command><info>
 <list:list xmlns:list="http://www.nominet.org.uk/epp/xml/std-list-1.0">
-<list:expiry><list:month>$month</list:month></list:expiry></list:list>
+<list:expiry>$month</list:expiry></list:list>
 </info><clTRID>list-$month</clTRID></command></epp>}
     );
     my $resp = rd() // '';
