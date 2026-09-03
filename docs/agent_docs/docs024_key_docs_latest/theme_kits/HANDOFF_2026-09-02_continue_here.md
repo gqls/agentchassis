@@ -163,6 +163,51 @@ available today, and it needs no theme kit — it is driven by classification ta
 
 ## 3a. KNOWN DEFECTS IN WHAT SHIPPED — found after apply, none yet fixed
 
+> **⚠ (i) BELOW IS RIGHT IN ITS CONCLUSION AND WRONG IN ITS REASON — corrected
+> 2026-09-03 from `bugs_open/445`'s layout split. Read this first.**
+>
+> I wrote that the seed set is defective because it "narrows toward the already-dominant
+> layouts". The defect is real; that is not why. **Because `apply_theme_kit` names a
+> layout id and bypasses the tag matcher entirely:**
+>
+> > **A kit's marginal value is inversely proportional to how reachable its layout
+> > already is by tag matching.**
+>
+> - `tool-portal-light` kit — **near-worthless.** 14 sites already reach that layout by
+>   tags; a kit changes nothing for them.
+> - `brochure-formal` kit — **near-worthless, and worse in kind.** It is the resolver's
+>   hard-fallback layout (*"fell back to brochure-formal"*), so its 6 sites likely landed
+>   there by fallback, not by tags. A kit there dresses the default up as a choice.
+> - `soft-editorial` kit — **the most valuable thing in the set.** [MEASURED 2026-09-03,
+>   445] above zero on 27 of 33 sites but scoring **0.50, the same-scheme bonus ALONE,
+>   zero tags**; and in `portfolio_positioning`'s complementary count it is one of **nine
+>   of eighteen layouts NO site's tags reach at all.** So the kit is the only existing
+>   route to that look. **Keep it — but record it as a workaround for a tag-vocabulary
+>   defect, not as a design choice.**
+> - `docs-sidebar` kit — 445 buckets it "correctly unused" (never scores above zero for
+>   any current site). I part-disagree *for kits specifically*: that bucket's argument
+>   ("no site of that shape exists, so a kit invents demand") is weaker when kits bypass
+>   matching — nobody's tags reaching it does not mean nobody would *choose* it. Call it
+>   **pre-positioned, not demanded**: speculative, cheap (an unselected kit is inert),
+>   honest only if the register says so.
+>
+> **So the defect is not "too few unused layouts" — it is that two of four kits are
+> REDUNDANT WITH THE MATCHER**, the opposite end of the same mistake.
+>
+> **The mechanism underneath, verified here:** it is not tag *count*, it is tag
+> *dialect*. Layouts whose tags are form/capability words the classifier emits
+> (`interactive-platform`, `tool-portal`, `publication`, `editorial`) get selected;
+> layouts whose tags are a designer's industry dialect (`law`, `boxing`, `bakery`,
+> `artisan`) do not. `social-lobby` carries the MOST tags of any layout — 15 — and has
+> one site. 445's formulation: *"a layout's tags name an industry; what makes a layout
+> right for a site is its form."*
+>
+> **DO NOT CURATE BY TASTE.** 445 is building a fleet scorer as a shared package;
+> simulate a kit candidate against the live fleet and read who moves and by how much.
+> Their own trial of a new archetype moved only some of a 7-site cluster — two still won
+> on a single tag at 6–8% coverage — because the tag set they invented decided
+> everything. **Wait for the scorer.** If the owner asks for curation first, say that.
+
 **(i) The seed set narrows toward the layouts that are already dominant.** The four
 seeded kits name `brochure-formal`, `docs-sidebar`, `soft-editorial`,
 `tool-portal-light`. [MEASURED 2026-09-03] `tool-portal-light` is on 14 sites,
@@ -284,6 +329,22 @@ caught by someone else.
    disqualification was a parenthetical I wrote *in the same sentence* and ranked anyway.
 5. **I told gamedesign.uk `mission.preferred_palette` was the reliable lever.** It was —
    for the composition — and had no effect on the site.
+
+6. **I quoted an all-time count from a rolling window** — told `bugs_open/445` I had
+   "verified independently — exactly 1 row" for `needs_new_layout_candidate`. It is
+   **2**: `site_work_items` archives terminal rows to `site_work_items_archive`.
+   Corrected figure, union shown: **2 ever, both the no-tags degenerate arm, 0 library
+   judgements, across 63,007 work items (29,657 live ∪ 33,350 archived)**. Worse than a
+   miss — **this exact check is a standing entry in my auto-loaded memory index**, which
+   already carried a note saying it had failed to fire for me once before. Third strike
+   on a rule I wrote for myself twice. The durable lesson is 445's, not mine:
+   **independent corroboration is not protection when both parties inherit the same
+   framing** — we each queried the table the question named. When a second check agrees,
+   ask what *both* checks assumed. Cheap guard before quoting any "ever" figure:
+   `SELECT table_name FROM information_schema.tables WHERE table_name LIKE '%work_item%'`
+   (four tables here).
+7. **I diagnosed the chrome bottleneck from the wrong end** — measured the library and
+   the pins, never the *data*. See §3a(iii).
 
 The through-line: **a confirmed diagnosis is not a working fix, and a successful test
 makes the wrong fix look safer.** Both lessons are in
