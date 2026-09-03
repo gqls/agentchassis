@@ -327,3 +327,60 @@ as the intermediate step (williama-only) but draft5 supersedes it.
 
 Notified valuation lane of both new withdrawals for their `keep_override`
 model. Prices remain the only outstanding item.
+
+## 2026-09-04 (later still) — cross-lane reconciliation: "all domains will be in afternic", a real landmine, an open check
+
+**copy_quality_two_stage relayed** an owner remark from an UNRELATED
+conversation about about-page copy: "All domains will be in afternic" —
+raised because it sits on top of `about_page_commercial`'s D1
+(2026-07-24), which deferred the multi-route (Sedo/Flippa/direct)
+question rather than deciding it. They deliberately did not act on it or
+interpret it, and asked this lane + domain_valuation to reconcile.
+
+**Resolved with first-hand evidence from this lane**: the message that
+opened THIS thread today said, verbatim, "correspond with them to
+establish the right price for listing on sedo AND afternic" — specific,
+recent, and about pricing consistency across both, not Afternic-exclusive
+routing. Read as: every domain gets an Afternic presence (and the
+about-page's enquiry link), which is compatible with ALSO cross-listing
+on Sedo — the two questions (which marketplaces list the domain vs. what
+the on-site CTA points to) are orthogonal. copy_quality_two_stage agreed;
+D1's multi-route deferral stays parked, untouched by this. Not treating
+this exchange as a formal ruling — it's a reconciliation between two
+sessions' partial evidence, not an owner decision — but no contradiction
+survived it.
+
+**A real, measured bug came out of this same thread** (domain_valuation,
+reconciling their wyke-farm withdrawal against my fence files): their
+joiner globbed `EXCLUDED_live_cloudflare_*`, which matched my OLD
+2026-09-02 fence name and silently missed the current
+`EXCLUDED_live_2026-09-03.txt` sitting beside it — so their model read a
+19-domain fence, not 50, and counted **31 live sites as sellable stock for
+most of 2026-09-04** (webdesign.co.uk, idea.uk, mortgagecalculator.co.uk,
+loancalculator.co.uk, 27 more). My rename (dropping "cloudflare" from the
+name when the method widened beyond NS-only) was reasonable on its own but
+broke a downstream consumer I had no way to see. **Filed as a landmine**
+(LANDMINES.md, "A downstream consumer that globs a fence file by its FULL
+historical name…") — the check: consumers glob the stable stem
+(`EXCLUDED_live*`) and UNION every match, never pick one file.
+`landmines-verify-dispatch.sh` found nothing pending (another session's
+concurrent sync had already consumed the "new" flag — the exact trap the
+file itself warns about), so triggered verification directly:
+`trigger-landmine-verifier.sh 'LANDMINES.md#a-downstream-consumer...'`,
+correlation `a83710be-6f10-4d47-8021-7babe826dae8`. Also confirmed: their
+own separate discovery that wykefarm.co.uk/.uk should ALSO be in their
+owner-withdrawn set (not just the live-site fence), reasoning a withdrawal
+outranks and outlives a fence that could lapse — sound; worth mirroring
+into my own wykefarm/pasturedegg file next time it's touched (not done
+yet, no output change since they're already excluded via the live fence).
+
+**Open, unverified**: copy_quality_two_stage additionally reports **6
+domains the estate does not own** (3 expired, 3 registered to others) are
+"already listed at Afternic at $10k–$50k, undeliverable," and asked
+whether my sheet shares the same 6. `[UNVERIFIED]` — asked
+domain_valuation for the actual 6 names to check by name rather than rely
+on the structural argument (my sheet is built only from the four raw
+registrar/registry list_domain exports, never their derived
+appraisal_queue files, so an unowned domain has no route in) — structural
+soundness is not the same as checked. Resolve before the owner's next
+upload if the names arrive in time; otherwise flag as still open.
