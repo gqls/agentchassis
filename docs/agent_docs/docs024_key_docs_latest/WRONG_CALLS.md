@@ -65189,3 +65189,42 @@ finding bigger.
   "nothing ever closes them" invites "so nobody can", which was never the problem; 1-in-334
   says somebody did, once, and you would have no way of finding out — which is precisely what
   a machine record fixes.
+
+**Fourth addendum, same session — my CORRECTION of the previous entry was wrong in the same
+shape as the error it corrected.**
+
+I corrected *"nothing ever closes a `section_source_drift` item"* to *"two were closed, both on
+the day they were filed"*. `[MEASURED 2026-09-03]`, after the `bugs_open/469` lane checked it:
+both were closed at **2026-07-19 13:48:11**, **83 milliseconds apart**, by **one** thread
+(`handled_by = 'bugfix thread (bugs_open/002 C)'`) — two and three days after filing. Not
+same-day. Not two people.
+
+**The cause is the same class as the error, one column over.** I read **`updated_at`**. On these
+rows `updated_at` was never bumped on close and still equals `created_at` exactly — so it
+*looks* like a closure timestamp and reads as "closed the day it was filed". The real column is
+**`completed_at`**.
+
+**And the reason `updated_at` is untrustworthy here is worth more than the fix:** different
+writers treat it differently. My own migration `753` sets `updated_at = NOW()` when it closes a
+row, so on rows *I* closed it does track closure. A column that means "closure time" for some
+writers and "creation time, never touched" for others cannot be read as either without knowing
+who wrote the row. **`completed_at` exists precisely so you do not have to know.**
+
+**Three errors, one shape, one session** — worth stating together because the pattern is the
+finding, not any of the three:
+
+| claim | instrument used | why it could not have been right |
+|---|---|---|
+| "nothing fabricated shipped" | the **preview** host | it lags the deploy target; stale looked like success |
+| "nothing ever closes these items" | **`site_work_items`** | closed rows leave the table; the query cannot see successes |
+| "closed same-day by two people" | **`updated_at`** | not a closure timestamp; unbumped, it mimics one |
+
+Each check **passed because it was blind**, not because the answer was good. In all three the
+correct instrument existed and was cheap — `gh api` on the deploy path, `UNION` the archive,
+`completed_at`. The generalisable question, which none of the three asked, is: **"if the thing I
+am claiming were false, would this query be able to tell me?"**
+
+**Credit where it is owed:** all three were caught by someone else checking — a subagent told to
+critique rather than agree, and a peer lane that verified my correction instead of accepting it.
+The 469 lane's framing of that is the right one: *a correction should be more accurate than the
+error, rather than merely different from it.*

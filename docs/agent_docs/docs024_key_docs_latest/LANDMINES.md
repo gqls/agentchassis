@@ -21790,7 +21790,10 @@ END $$;
      ⚠ **CORRECTED 2026-09-03 (this entry's own author): the heading's "nothing ever closes
      one" is TOO STRONG.** Two WERE closed, both on the day they were filed —
      `section_source_drift:contact` (2026-07-16) and `:who-we-help` (2026-07-17) — with
-     hand-written narrative receipts. **They sit in `site_work_items_archive`, so a census of
+     hand-written narrative receipts (closed **2026-07-19 13:48**, 83ms apart, by ONE thread —
+     `handled_by='bugfix thread (bugs_open/002 C)'`; ⚠ read **`completed_at`**, NOT
+     `updated_at`, which on these rows was never bumped and still equals `created_at`).
+     **They sit in `site_work_items_archive`, so a census of
      the live table cannot see them**, and that is exactly how the overstated claim was made.
      The true defect is narrower and still real: closure is **manual, undriven, and invisible
      once it happens**. Two people caught one same-day in July; the six that followed did not

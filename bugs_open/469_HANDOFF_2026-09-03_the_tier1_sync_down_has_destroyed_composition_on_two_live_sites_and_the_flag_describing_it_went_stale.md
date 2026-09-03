@@ -81,9 +81,18 @@ Three properties compound:
 
 > **CORRECTED 2026-09-03 (later) — "nothing ever closes an item" is FALSE, and the way I got
 > it wrong is the more useful finding.** `[MEASURED 2026-09-03]` **two** `section_source_drift`
-> items were closed, both **on the day they were filed**, in July 2026:
-> `section_source_drift:contact` (filed and closed 2026-07-16) and
-> `section_source_drift:who-we-help` (2026-07-17). Both carry hand-written narrative receipts.
+> items were closed: `section_source_drift:contact` (filed 2026-07-16) and
+> `:who-we-help` (filed 2026-07-17). Both carry hand-written narrative receipts.
+>
+> ⚠ **CORRECTED AGAIN, same day, by the `bugs_open/469` lane — and my first correction was
+> itself wrong in the same shape.** They were NOT "closed on the day they were filed by two
+> people". Both were closed at **2026-07-19 13:48:11**, *83 milliseconds apart*, by **one**
+> thread (`handled_by = 'bugfix thread (bugs_open/002 C)'`) — two and three days after filing.
+> I read **`updated_at`**, which on these rows was never bumped on close and still equals
+> `created_at`. The closure timestamp is **`completed_at`**. So `updated_at` is not a closure
+> time, and it is unreliable as one *because different writers treat it differently* — my own
+> migration `753` sets `updated_at=NOW()` when it closes a row, so on rows I closed it does
+> track closure. **Read `completed_at`.**
 >
 > **I could not see them because they are in `site_work_items_archive`, and my census queried
 > only the live table** — which returns 6. A closed row leaves the table you are counting in,
