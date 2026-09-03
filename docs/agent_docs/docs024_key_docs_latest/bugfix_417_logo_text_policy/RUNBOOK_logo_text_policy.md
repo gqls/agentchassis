@@ -308,3 +308,75 @@ FROM site_components sc JOIN sites s ON s.id=sc.site_id
 JOIN content_components cc ON cc.id=sc.component_id
 WHERE s.domain='<domain>' AND sc.slot_name='header';
 ```
+
+## Measure whether a logo is LEGIBLE against its header (bugs_open/462)
+
+Transparency and legibility are different questions and only the first is instrumented. This is the
+instrument for the second.
+
+**Step 1 — get the backdrop, and confirm it at the USAGE, not the declaration.** The whole ratio
+rests on this one number, and a CSS custom property that is defined and never applied reads
+identically in source.
+```bash
+curl -sS "https://<domain>/index.html" -o page.html
+grep -oE '\-\-color-header-bg:[^;]*;' page.html                 # the declaration
+grep -oE '[^;{}]*var\(--color-header-bg[^;]*;' page.html        # ⚠ the USAGE — must be non-empty
+```
+⚠ Note the fallback form `var(--color-header-bg, var(--color-surface))`: resolve the fallback too, or
+you have only proven one of the two paths. On websitepromotion both resolve `#FFFFFF`.
+
+**Step 2 — measure the mark.** sRGB relative luminance (WCAG 2.x), opaque pixels only:
+```bash
+python3 -c "
+from PIL import Image
+def lum(r,g,b):
+    f=lambda c:(c/255)/12.92 if c/255<=0.03928 else (((c/255)+0.055)/1.055)**2.4
+    return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b)
+im=Image.open('logo.png').convert('RGBA'); px=list(im.getdata())
+cs=sorted(1.05/(lum(*p[:3])+0.05) for p in px if p[3]>200)   # 1.05 = white backdrop
+print(f'median={cs[len(cs)//2]:.2f} darkest5%={cs[int(len(cs)*0.95)]:.2f} max={cs[-1]:.2f}')"
+```
+**Read `max`, not `median`.** A median below 3:1 only says the mark is mostly pale; `max` below 3:1
+says *no part of it* clears the floor, which is the decisive figure. websitepromotion: max **2.55:1**.
+seotools, same pipeline same day: max **7.64:1** — always measure a second artefact, because one
+reading alone is indistinguishable from "this is just how the pipeline works".
+
+**Is the ground actually gone, or is it white-on-white?** A look cannot tell you: opaque white and
+transparent are identical over a white page. Count it.
+```bash
+python3 -c "
+from PIL import Image
+px=list(Image.open('logo.png').convert('RGBA').getdata())
+op=[p for p in px if p[3]>200]
+print('near-white OPAQUE:', sum(1 for p in op if min(p[:3])>240), 'of', len(op))"
+```
+Zero means the matte reached the interior. (I formed the opposite hypothesis from the image alone
+and this refuted it in one command — see NOTES 2026-09-03.)
+
+## Regenerate one site's logo — reset the work item, never hand-build a dispatch
+A hand-built `orchestrate` publish missing the ORCHESTRATION headers is refused **before any state
+row exists**: receipt PUBLISHED, exit 0, nothing in `orchestration_states`, indistinguishable from
+queue latency. The reset avoids the entire class.
+```sql
+UPDATE site_work_items
+SET status='triaged', triaged_at=now(), claimed_at=NULL, claimed_by=NULL,
+    completed_at=NULL, result='{}'::jsonb, error=NULL,
+    attempt_count=0, retry_after=NULL, updated_at=now()
+WHERE id='<item id>' AND item_key='needs_imagery:site:-:logo';
+```
+⚠ `item_type` is **`needs_imagery`**, not `needs_logo` — that type exists but is not what these rows
+use. Match on `item_key ILIKE '%site:-:logo%'` or the domain join.
+
+**Decide `attempt_count` deliberately.** Reset to 0 for a *fresh* request (the previous run
+succeeded); leave it for a genuine retry of a failed run. The margin is real, measured 2026-09-03:
+seotools needed **2** of 3 attempts, gamedesign **3** of 3, designblog exhausted all 3 and stored
+nothing. A single remaining attempt against this guard is close to a coin toss.
+
+## ⚠ A `failed` item after a roll: refusal or roll-kill? They look identical
+Both leave a failed item with no artefact. Read `site_work_items.error`:
+- **Refusal** carries the guard's own statistic — `border_keyed=0.000, want >= 0.95 — refusing to
+  store`. Correct, designed behaviour.
+- **Roll-kill** leaves no such line while still consuming an attempt.
+Then compare the failure timestamp with the pod start (`kubectl get pods -o custom-columns=...
+START:.status.startTime`). Reporting a roll-kill as a refusal puts a false black mark against
+whoever owns the guard.

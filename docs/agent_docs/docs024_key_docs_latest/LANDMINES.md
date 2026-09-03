@@ -20690,3 +20690,46 @@ for comments, and **outside `.go`** for config, SQL seeds and migrations. That l
 theoretical — deleting `ClearExecutingStep` (`bugs_open/329`) left a live
 `orchestration_status_vocabulary.written_by` row naming it, seeded by migration 466, invisible to
 every compile-time check and to the index (migration `736`).
+
+---
+
+## A `failed` work item whose run was killed by a roll is indistinguishable from one a fail-closed guard correctly REFUSED — and reporting the wrong one blames another lane's fix
+
+- **footprint:** `site_work_items` · `site_work_items.status='failed'` · `site_work_items.error` · `needs_imagery:site:-:logo` · any "did the fix work?" question answered from a work item's status after a deploy
+
+**the trap:** you reset an item, a deploy happens, and afterwards the item reads `failed` with
+`attempt_count` at `max_attempts`, `completed_at` NULL and no artefact stored. **Those four fields
+are byte-for-byte identical in two cases that mean opposite things.** Either a fail-closed guard
+looked at the output, judged it bad and refused to store it — which is the fix *working exactly as
+designed* — or the chassis rolled mid-run and the attempt was destroyed, which says nothing about
+the output at all and **still consumes an attempt from the ladder**. A roll silently eats in-flight
+work, so this is not a rare alignment; it is the default outcome of resetting items near a release.
+
+⚠ The natural reading is the wrong one, and it is wrong in the expensive direction: "three attempts,
+all failed, nothing stored" reads as *the fix does not work*, and lands as a false black mark on
+whichever lane owns the guard. Measured 2026-09-03 on `designblog.co.uk`
+(`24dff15c-1989-4332-aeaa-62b0929a8a88`): genuinely three real refusals — but a chassis roll landed
+at 12:06:47Z the same morning, so the ambiguity was live and had to be resolved rather than assumed.
+
+**the check:** read `error`, not `status`. A refusal carries **the guard's own statistic**, which a
+killed run cannot fabricate:
+```sql
+SELECT status, attempt_count, updated_at, left(error, 300) FROM site_work_items WHERE id = '<id>';
+-- refusal:   "...border_keyed=0.000, want >= 0.95 — refusing to store; source_format=jpeg"
+-- roll-kill: no such line (generic step/child-orchestration failure, or NULL)
+```
+Then place the failure against the pod that would have run it — ancestry of events, not vibes:
+```bash
+kubectl -n ai-persona-system get pods -l app=agent-chassis \
+  -o custom-columns='NAME:.metadata.name,START:.status.startTime,IMAGE:.spec.containers[0].image'
+```
+A failure timestamped **before** the pod's `startTime` cannot have been killed by that roll. Here
+11:36:58Z against a 12:06:47Z start settled it in one command.
+⚠ Compare in **one timezone**. `kubectl` prints UTC; `git log --date=format:` prints the commit's
+`+01:00` with no visible offset, and `TZ=UTC` does **not** fix it — that hour lands squarely in the
+direction that manufactures a false near-miss.
+
+⚠ **A refusal is also not evidence for whatever else you were measuring.** It stored no artefact, so
+it cannot be eye-checked, counted as a clean run, or used to bound a rate. Counting refusals as
+successes pads an evidence base with runs that never exercised the thing under test —
+`bugs_open/417`'s fence trigger, where three refusals would have inflated 8 clean generations to 11.
