@@ -31,6 +31,36 @@ turned out to be three jobs, then this file for what is done and what is left.
 > - **0b(c) boxingonline: STILL OPEN.** Latest audit is still **06:23Z, pre-694, 3 pages**. The
 >   sweep takes one site per 900s tick across ~54 sites and has not returned. **Wait for it.**
 >
+> ### ⚠ UPDATED 2026-09-03 08:53Z — `orchestration_states` is a 24-HOUR ROLLING WINDOW, so 0b(b)/0b(c) must NOT be checked there
+> `[MEASURED 2026-09-03 08:53Z]` oldest row **2026-09-02 08:35**, newest now, window
+> **1 day 00:17**, 9,312 rows. Boxing Online's pre-694 audits (06:23Z on 09-02) that this
+> handoff quotes have **already aged out** — the same query that returned 3 rows last night
+> returns **0** today. **That zero means "reaped", not "never audited", and the two look
+> identical.** Any check written against `orchestration_states` expires within a day.
+>
+> **Use `llm_call_log` instead — it is NOT reaped** (it is the estate's training corpus; rows go
+> back to April). The seat's widening is visible there as an input-token step change, which is
+> durable evidence no reaper can remove:
+> ```sql
+> SELECT date_trunc('hour', created_at) AS hour, count(*) AS calls, round(avg(input_tokens)) AS avg_in,
+>        count(*) FILTER (WHERE NOT success) AS failed
+> FROM llm_call_log WHERE agent_type='content-quality-auditor' AND created_at > '2026-09-02 14:36:08+00'
+> GROUP BY 1 ORDER BY 1 DESC;
+> ```
+> **Result over the 18 hours since the apply: 36 calls, ZERO failures, average ~7,000 input tokens
+> (range 3,612–11,129), against a pre-694 average of 1,744.** The seat has run widened,
+> continuously, across many sites, and straight through the `v1.0.1355` roll. That is the durable
+> form of 0b(b) and it PASSES.
+>
+> **0b(c) restated:** you can no longer ask "has boxingonline been audited post-694" of
+> `orchestration_states` unless it happened in the last 24h. Either catch it inside the window, or
+> accept the fleet-level evidence above and judge the seat on a site you can observe.
+>
+> **Chassis status 2026-09-03 08:53Z:** a new build was announced for "within the hour" on 09-02
+> evening; as of this check the pods are **still `v1.0.1355`** (up 2026-09-02 20:56/20:57Z), so it
+> has NOT landed. 694 re-verified intact on the current chassis. The §0b checks are **per-roll,
+> not once** — re-run them when the new tag appears.
+
 > ### ⛔ `scratchpad/fire_cqa.sh` IS NOT A WORKING DISPATCHER — do not copy or re-run it
 > I fired it at boxingonline twice (`30b5a2c5`, `34cb071c`). Both produced **zero
 > `orchestration_states` rows AND zero `llm_call_log` rows** — they did nothing at all, twice.
