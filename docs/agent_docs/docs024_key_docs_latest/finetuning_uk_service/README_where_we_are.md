@@ -1431,3 +1431,11 @@ domain thread say where. The catalogue shape is drafted as a discussion document
 gets in, accounts and the agreement click, removal, pricing by GPU class as a choice, and the ways
 people could cheat with a control for each. It ends with questions for you and a build order. The
 password rotation is left as you said.
+
+**2026-09-03, on the three domains.** You said rationale.uk, egret.co.uk and proverb (.co.uk and .uk)
+could each take one angle of what you offer, narrower and in more depth, proverb first. I have written
+that down where the finetuning plan keeps your direction, and added it to the note leopardess has, so
+they know the copy leaving finetuning.uk is more likely heading to proverb than to them. I have not
+started any of those sites: each is its own site row and brief through the framework, and that belongs
+with the domain thread you are talking to. When proverb's brief is being written, the finetuning lane
+can hand over the list of what it would give up, page by page.

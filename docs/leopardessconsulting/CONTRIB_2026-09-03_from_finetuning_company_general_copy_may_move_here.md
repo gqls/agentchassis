@@ -22,3 +22,9 @@ tools and the blog stay on finetuning.uk.
 If you want to say which of these you already cover and which you would not want, the finetuning lane's
 `README_where_we_are.md` is the place the owner reads; a CONTRIB back into
 `docs/agent_docs/docs024_key_docs_latest/finetuning_uk_service/` is fine too.
+
+**Addendum, same evening.** Owner, verbatim: *"rationale.uk, egret.co.uk and proverb.co.uk/.uk we could
+make them all variations at different angles offering parts of what I offer narrower focus in more
+detail. proverb first probably"*. So the likelier destination for the copy that leaves finetuning.uk is
+a family of narrower sites, proverb first, rather than leopardess. This note stands as the telling;
+the owner is with the domain thread on the new sites.

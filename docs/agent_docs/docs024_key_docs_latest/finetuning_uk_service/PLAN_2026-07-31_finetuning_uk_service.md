@@ -425,3 +425,8 @@ we could move it to a new organisational site's brief instead - I am asking the 
   the alternative, a NEW organisational site's brief, is with the domain thread (the owner's own ask).
   Nothing moves from this lane until one of those lands.
 - SMTP password rotation: deferred by the owner to the next natural rotation.
+- **Where the copy goes, refined the same evening (owner, verbatim):** *"rationale.uk, egret.co.uk and
+  proverb.co.uk/.uk we could make them all variations at different angles offering parts of what I offer
+  narrower focus in more detail. proverb first probably"*. A family of narrower sites, one angle each,
+  proverb first. `[MEASURED 2026-09-03 19:57Z]` none has a `sites` row yet. Not this lane's build; when
+  proverb's brief is written, this lane supplies the page-by-page list of what finetuning.uk gives up.

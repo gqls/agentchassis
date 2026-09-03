@@ -3191,3 +3191,27 @@ llm-cost-calculator-guide…): the floor fires often here. **A4 short opening li
 `resolveToolPageIdentity`), attached as it stands. Dispatch file written:
 `playground_widget_add_tool_dispatch.sql` (the route contract, copied from `playground.go` at
 `9b540c2e6`, IS the brief; static copy fixed; acceptance list a checker can read).
+
+**19:55Z — prompts lane confirmed cause (2) FIRST-HAND** (md5 `b4fd73f0…`, 3,295 chars, byte-identical
+across the six prompts; chain traced in code: `aliasGuidanceIntoSuggestion` fills `spec.suggestion`
+from `spec.content_guidance`, page-build-handler maps it through its optional `rewrite_guidance` key,
+the writer renders it per section inside the loop). Filed by them as a DIAGNOSIS RUN, not a block
+patch; my instruction-sentence suggestion is parked until the diagnosis reports, so the owner's next
+read of the bytes is not spent papering over a cause 2 KB further down that affects every
+multi-section page in the estate. **The irony, for the record: the brief itself says "no two sections
+may open on the same claim" while handing every section all six sections' material.** Their rule: if
+your-own-model fails its third retry, do NOT loosen the floor; report it. Agreed. Spec addendum rules 7
+(short subject invites a short section; the floor cannot tell tighter from truncated) and 8 (the subject
+is not the loudest instruction) now in `CONTRIB_2026-09-03b_…`.
+
+**19:56Z — owner, on where the company-general copy goes (verbatim):** *"rationale.uk, egret.co.uk and
+proverb.co.uk/.uk we could make them all variations at different angles offering parts of what I offer
+narrower focus in more detail. proverb first probably"*. So the destination for the copy leaving
+finetuning.uk is a FAMILY of narrower sites, each one angle of the offer in more depth, proverb first.
+Recorded in PLAN DIRECTION and the leopardess CONTRIB; nothing built — a new site is a site row + specs
++ `082_submit_domain_unified` through the framework, and that is a lane of its own (the owner is with
+the domain thread on it). Checked `sites` for the three domains: see the query result in this entry's
+follow-up line.
+Follow-up `[MEASURED 19:57Z]`: none of `rationale.uk`, `egret.co.uk`, `proverb.co.uk`, `proverb.uk` has a
+`sites` row (only `leopardessconsulting.co.uk` does: deployed, 55 pages), and no lane HANDOFF/PLAN names
+any of the three. They are unstarted domains, not sites.
