@@ -401,6 +401,20 @@ status `detected` on this site, dated 2026-07-26 → 2026-08-03, naming `/assets
 control returns 404**, so the domain is not a catch-all and the 200s are real. The images are fine;
 the ROWS are the defect. A month-old `detected` row is not evidence of current state.
 
+**ROUTING SETTLED, and not by this lane:** the wiring of the `unwired` heroes belongs to
+`bugfix_114_imagery_wiring` — answered 2026-09-02 in `bugs_open/412` §10, found with
+`scripts/who-owns.py 412` in 0.3s. The fix (`wirePageHeroOnLanding`, IMG-078) is **built and PRESENT
+in `v1.0.1359`** but gated behind the opt-in `wire_hero_on_landing`, which **zero** live
+`agent_definitions` rows name. Built ≠ armed.
+
+⚠ **And do not let anyone hand-wire those pages.** Migration `664` did exactly that on 2026-08-26
+with a verify block that ASSERTED 9 of 9 — and `[MEASURED 2026-09-03]` it is now **3 of 9**, six
+pages lost in eight days. 412 §10 predicted it verbatim. Written up for the owning lane in
+`bugfix_114_imagery_wiring/CONTRIB_2026-09-03_…_664_has_decayed_9_to_3_in_eight_days.md`
+(`c816aa28a`). **The general form is worth more than the case: a migration's verify block proves the
+state at COMMIT and nothing re-checks it after — an asserted repair with no `last_verified_at` is a
+dated claim wearing the clothes of an invariant.**
+
 **Papers:** the ask and its constraints —
 `editorial_design_uplift/CONTRIB_2026-09-03_from_finetuning_owner_asks_for_more_imaginative_card_structures_on_the_homepage.md`;
 this lane's answer — `finetuning_uk_service/CONTRIB_2026-09-03_from_editorial_design_uplift_answer_on_the_homepage_cards_and_infographics.md`

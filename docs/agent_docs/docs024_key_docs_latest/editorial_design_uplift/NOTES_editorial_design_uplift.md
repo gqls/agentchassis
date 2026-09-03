@@ -1718,3 +1718,44 @@ the same lesson as the night's `tail` landmine — ask the schema, do not assume
 `affected_url`, and a query naming the wrong column returns nothing through a `grep`, which looks
 exactly like an empty result. Both were caught by reading `information_schema` before believing an
 empty answer.
+
+### 2026-09-03 (late, cont.) — the routing question answered by reading rather than deciding, and a hand-repair caught decaying 9 → 3
+
+The peer asked whether wiring four `unwired` heroes was mine, the 114 lane's, or 412's owner's. **It
+was already answered and I did not need to decide it** — `scripts/who-owns.py 412` surfaced
+`bcb1260d2` *"412 section 10: ownership of candidate 1 ANSWERED"*, and §10 says plainly: **the
+`bugfix_114_imagery_wiring` lane builds it**, with three reasons, the first being that 412's own lane
+is a SITE lane redirected to service work and *"holding it here is how a candidate becomes an
+orphan"*. `who-owns.py` cost 0.3s and replaced an argument.
+
+**And the fix is built, shipped, and switched off** `[MEASURED 2026-09-03]`: `wirePageHeroOnLanding`
+is PRESENT in `v1.0.1359` (pod probe, controls on opposite sides), called from
+`flag_page_image_rebuild_action.go:210` behind the opt-in `wire_hero_on_landing`, and that key is
+named by **zero** live `agent_definitions` rows. Built ≠ armed, and the gap is one config change with
+a REVISE outstanding on round `bd78490d`.
+
+**THE FINDING — a hand-repair measured decaying, which is the argument the 114 lane needed.**
+Migration `664` wired these exact pages on 2026-08-26 and its verify block **asserted** the result
+(`RAISE EXCEPTION … want 9`). It passed: 9 of 9. Today, against 664's own `IN (…)` list: **3 of 9.**
+`about`, `careers`, `services` hold their key; `approach`, `case-studies`, `contact`,
+`model-approach-selector`, `tool-ai-readiness-checker`, `use-cases` have lost it. **Six pages in eight
+days**, from a state a migration guard proved complete.
+
+412 §10 predicted it in writing — *"If imagery is generated for these pages again it will orphan
+again"* — and 664's own header says the same. So this is not a new discovery so much as **the first
+time the prediction has been measured**, and it converts "the cheap remedy is not the fix" from a
+caution into a number. Written into the owning lane as a CONTRIB (`c816aa28a`), not worked here.
+
+**The generalisable bit:** *a migration's verify block proves the state at COMMIT, and nothing
+re-checks it afterwards.* 664 is honest, guarded, and was correct on the day. Eight days later it is
+two-thirds wrong, and only a detector built for a different purpose noticed. **An asserted repair
+with no `last_verified_at` is a dated claim wearing the clothes of an invariant** — which is exactly
+what the peer independently asked `bugfix_168` for on the stale 404 rows, the same evening, about a
+different check. Same disease, two lanes, one night.
+
+**Two blind predicates on the way, both mine, both caught before they left:** matching 664's pages
+against a hand-written thirteen-name list (matched four — a guess-list is not a census), and grepping
+664 for `content-hero-` (returned **zero**, because it builds the path by concatenation so the literal
+never appears). The table that shipped is extracted from the migration's own `IN (…)` clause and
+measured against live rows with a `LEFT JOIN` from a literal array, so a missing hero component would
+show as such rather than vanish from the count.
