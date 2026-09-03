@@ -256,3 +256,13 @@
   apis.uk** — load-bearing for interpreting our detector's fire-rate (a silently eaten rule
   17 would read as planner non-compliance). Their trap (once 729 lands, 720_ROLLBACK refuses
   until 729_ROLLBACK runs) flagged back as LANDMINES-worthy, theirs to write.
+- **450 closed the neighbour loop (`c357cfd65`):** rule 17 defended in 729 + its ROLLBACK,
+  literal verified against the LIVE row (position 28860, sentence ends "...REQUIRED on every
+  entry whose component name appears more than once on the same page"); our
+  wrong-conclusion-crossing-lanes reasoning embedded as the migration's comment. Their
+  LANDMINES entry generalises well: **shared agent_definitions prompt rows form an ORDERED
+  STACK — an anchored replace assumes later edits are unwound, and the refusal names the
+  INNOCENT file.** Their md5 baseline went stale within the hour (someone landed between
+  rehearsals) → self-baselining rehearsal recipe now in bugfix_450_tool_page_shells/RUNBOOK
+  §10 — the pointer if this lane ever stages a prompt migration. No further literals asked of
+  them: rule 17 is the one load-bearing sentence for our detector's interpretation.
