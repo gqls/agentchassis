@@ -263,13 +263,29 @@ file assumed were safe. Kept here as a record of a reasonable watch pointed the 
 ## 8. Still open, and what closes this file
 
 - **The roll.** Go changes are inert. Re-measure the five-host table (expect zero), both
-  `/data/*.json` files (**the load-bearing check** — 20 dirty items today), and relojistas'
-  `feed.xml` for the item-count/empty-description signal.
-- **The self-heal premise, which is falsifiable.** All 9 affected `page_components` were
-  rewritten within 19 hours, three within the hour [MEASURED 2026-09-03 16:20Z], so a
-  producer-side fix should repair every page unaided within about a day. **Falsifier: re-run
-  the five-host census after the roll and expect it to reach zero on its own. If it does not,
-  the self-heal premise broke, not the fix.**
+  `/data/*.json` files (20 dirty items today), and relojistas' `feed.xml` for the
+  item-count/empty-description signal.
+- **⚠ EVERY SERVED CHECK ABOVE EXPIRES THE MOMENT THIS ROLLS, and it must not be read as
+  evidence about the stored data afterwards** (the `news_feed_ingestion` lane's catch,
+  2026-09-03, found on their own migration-746 verification plan before it was found here).
+  A clean JSON post-roll means **the strip ran** — nothing more. A table full of raw markdown
+  and a spotless one produce byte-identical served output once the projection sits in front of
+  them, so the check cannot come out otherwise. That is an undisconfirmable measurement wearing
+  the clothes of *"judge at the served artefact"*, which is exactly the rule that walks you
+  into it. **Two questions, two instruments:** *is the visitor seeing junk?* → the served
+  surface. *Is ingestion clean?* → `content_feed_items`, never the surface. And note the
+  corollary of the switch now living in the projection: flipping
+  `DISABLE_NEWS_MARKDOWN_STRIP` fills yesterday's "verified clean" surfaces with junk that was
+  in the table all along.
+- **The self-heal premise, which is falsifiable — WITH A DEMAND CONTROL, corrected 2026-09-03.**
+  All 9 affected `page_components` were rewritten within 19 hours, three within the hour
+  [MEASURED 2026-09-03 16:20Z], so a producer-side fix should repair every page unaided within
+  about a day. The falsifier as first written — *"re-run the five-host census and expect zero"* —
+  was **incomplete**: a page can read zero because that day's feed carried no markdown, which
+  proves nothing about self-healing. **Pair it:** the page must read zero WHILE the site's own
+  feed rows still carry the shape in the column. Zero on both is not a better result, it means
+  the census is broken. If the page does not reach zero while the column is dirty, the
+  self-heal premise broke, not the fix.
 - **Council `803f0d81-02be-4bb6-9e65-363439ff87ba`** — submitted, verdict owed and to be read.
 - Two things routed out rather than folded in: **`bugs_open/472`** (the same JSON inserted into
   `innerHTML` unescaped — 14/5,863 rows carry markup, none executable; an exposure, not a

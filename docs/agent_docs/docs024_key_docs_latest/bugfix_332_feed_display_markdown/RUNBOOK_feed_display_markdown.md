@@ -172,7 +172,30 @@ fetch report the *previous* host's numbers. The explicit NO MEASUREMENT branch i
 2026-09-03 baseline (pre-fix): boxingonline 5/1/1 · fundamentallyai 3/0/0 · robot-hands 2/0/0
 · ai-agent-orchestration 2/1/0 · idea.uk 2/1/0. Controls all 404.
 
-### The JSON surfaces — the load-bearing check, and the one the sweep cannot see
+### The JSON surfaces — the check the sweep cannot see, and ⚠ its expiry date
+
+> **⚠ CORRECTED 2026-09-03 (the feed lane's catch, on their own doorstep first).** This section
+> called the JSON scan "the load-bearing check". **That is true only until the projection
+> rolls, and false immediately after**, so the phrase is retired here.
+>
+> **A clean `/data/news-archive.json` post-roll means the strip RAN. It says nothing about
+> what is in `content_feed_items`.** A table full of raw markdown and a spotless one produce
+> byte-identical served output once the projection is in front of them, so the check cannot
+> come out any other way — an undisconfirmable measurement wearing the clothes of this
+> estate's most-repeated invariant, *"judge at the served artefact"*. That invariant is what
+> walks you into it.
+>
+> **Split the two questions and never let one answer the other:**
+> - *Is the visitor seeing junk?* → the served page and the served JSON. The projection is
+>   what fixes it, and a zero here is a real pass **for that question**.
+> - *Is my ingestion clean?* → the **column**, never the surface:
+>   `SELECT count(*) FILTER (WHERE source_summary ~ '\]\([^)]*$') FROM content_feed_items
+>   WHERE site_id = '<id>' AND created_at > now() - interval '30 days';`
+>
+> **And the sharpest form, which is a property of moving the kill switch into the projection:**
+> flipping `DISABLE_NEWS_MARKDOWN_STRIP` would fill yesterday's "verified clean" surfaces with
+> junk **that was in the table the whole time**. Good behaviour from the switch; a trap for
+> anyone reading an old verification and calling it a regression.
 
 ```bash
 curl -s "https://boxingonline.ugg2.com/data/news-archive.json?cb=$RANDOM" -o "$S/na.json"
