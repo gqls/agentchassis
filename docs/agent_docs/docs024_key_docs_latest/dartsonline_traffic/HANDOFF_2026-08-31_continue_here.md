@@ -407,6 +407,38 @@ failure mode §3.2 warned about — five sections sharing one image — **did no
 `IMG-075`'s per-section binding is proven on a real page for the first time. That half is done and
 is re-runnable in minutes: **the five grip illustrations remain as active assets.**
 
+> ### ⚠ ADDED 2026-09-03 (later) — IMG-075's DURABILITY property was exercised here after all, and it PASSED. I had said the opposite.
+>
+> I told `inline_guide_imagery` the figures were never rewritten over, so the durability half was
+> untested. **That was wrong, and the error was in my query window, not my reasoning.** I searched
+> `llm_call_log` for `12:45–13:05` because that is when I expected the build, and never asked
+> whether anything ran *later*. Their re-run found it and I have confirmed it.
+>
+> **There were TWO writer runs, not one** `[MEASURED 2026-09-03]`:
+> run 1 `orchestration_id` ending `…13:00Z`, and **run 2 `74d6b7e4-c081-437a-af78-d942785aae84`,
+> 11 calls, 14:01:22–14:10:20Z** — triggered by the `image_landed` item my own asset landings filed.
+> Run 2 **rewrote the prose of all eleven sections**, and the five figures were still correct
+> afterwards: my page snapshot taken at **16:49Z** — after run 2, with nothing running in between —
+> carries all five distinct illustrations, one per section.
+>
+> **So a full prose regeneration ran over the built page and every per-section figure survived it.**
+> That is the property IMG-075 exists for, and on this page it holds. The figures came from the
+> resolver re-deriving them from `site_plan_imagery`, not from the carry — on this page the carry
+> *could not* have supplied them even in principle, because five sections sharing one `slot_name`
+> are dropped from the carry map by `ensureStoredContent`'s conflict rule.
+>
+> **Caveat, stated because the distinction is live:** no work item of `item_type='content_rewrite'`
+> was ever fired at this page. If that literal item type is what "survives a `content_rewrite`"
+> means, it remains untested. If it means the EVENT — prose rewritten over a built page — it is
+> tested and passed, and an 11-section regeneration is a superset of a targeted rewrite.
+>
+> **And run 2 reproduced the writer defect independently**, which matters because it rules out a
+> bad roll: its prompts were *also* duplicated, in a *different* grouping — `27b25b8b` to three
+> sections, `c86df725` to two, `a1db019c` to four. **Across BOTH runs: 38 writer prompts, `0`
+> carrying any of the five subject strings, `38` mentioning the page's topic** — a negative with a
+> positive control, so it could have come out otherwise. Instrument credited to
+> `inline_guide_imagery`.
+
 ### What failed — `bugs_open/443`'s symptom on a PLANNED page with subjects set
 `[MEASURED 2026-09-03]` 10 `h2`s, seven of them paraphrases of one another; `h3` **"Ring grip" ×6,
 "Razor grip" ×6, "Shark grip" ×5**; three consecutive sections opening with the same sentence
