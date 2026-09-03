@@ -4586,3 +4586,38 @@ Owner: *"please fix the classifier to read the register."* RFC_037's DB half shi
   the prompt variable too, or reverting would leave a reference to an unsupplied field rendering
   `<no value>` — the exact failure being fixed.
 
+### (gg) 2026-09-03 12:4xZ — ALL EIGHT TOOLS BUILT; the sectionless variant repaired CLEANER than the shelled ones
+
+- **8 of 8 complete.** Seven on seotools 09:34–09:54Z, and websitepromotion's
+  `tool-channel-prioritiser` at **12:36:06Z** — it waited ~3.5 h for the dispatcher, not for anything
+  wrong. Every one adopted its EXISTING page at its EXISTING url (`page_adopted: true`), no duplicate
+  page rows minted.
+- **The 8th is the interesting one, and it repairs BETTER than the seven.** Because it was the
+  SECTIONLESS variant it never got a prose shell, so its page now carries **exactly one component —
+  the tool, 29,859 B — with no leftover `generic-text-block` and no position-2 collision.** The seven
+  seotools pages each carry the tool AND the shell's prose at the same position 2.
+  **So the shell is not merely cosmetic damage: it leaves debris the repair cannot remove.** The
+  variant that "parked" (7 HITL items and a needs_content_page, which read as worse at the time)
+  turns out to be the one that heals cleanly. Told the 450 lane — it strengthens their case for
+  holding empty-sectioned tool pages, from the opposite direction to the one they argued.
+- **Still unpublished: 0 of 7 seotools pages, and the 8th is `planned`/`deployed_at` NULL.** The
+  7 `page_rerender` items remain `triaged`. **Checked rather than assumed** — seotools is unlocked,
+  `deployed`, has 43 dispatchable items and ZERO claimed siblings, i.e. fully eligible; it has simply
+  moved 20th → 14th → **5th** in the pending-site queue behind relojistas, remortgagecalculator,
+  dartsonline and idea.uk. Advancing, not starving. Its 7 rerenders are not even its oldest item
+  (`nav_drift` 09:34:09.482Z is), and the loop takes ≤8 items per pass, so 43 items is several passes.
+- **v1.0.1358 rolled 12:06–12:07Z.** Nothing of ours rode it (all DB config). 450's guard has not
+  taken effect yet either — **0 `owned_page_review` rows carry `refusal_class='tool_pending'`** and
+  the 19 `unbuilt_internal_link` rows touched since 12:00Z are all still `triaged`, so their
+  `wont_fix` wave has not begun.
+- **437: HOLD REAFFIRMED and the goalposts moved honestly.** v1.0.1358 DOES carry their `a0044e73b`,
+  but their own go/no-go probe now returns FALSE post-roll — the writer prompt still shows the flat
+  `"branches": "..."` exemplar and builds still fail identically. They withdrew "fire after the roll"
+  and published a full elimination list (ancestry with a negative control; both literals in
+  `/proc/1/exe` with present/absent controls; no service skew; migration intact; helper correct in
+  isolation) plus their leading hypothesis (a schema serialised as a JSON string, where their helper's
+  first guard is stricter than `extractArrayItemFields`' entry condition) — and called that asymmetry
+  their own design error. **Our `e75f5880` stays untouched: one failure on a fresh key is harmless;
+  it is the second and third on the SAME key that earn the sticky brand.** Their lane doc:
+  `docs024_key_docs_latest/bugfix_437_writer_prompt_nested_shapes/HANDOFF_2026-09-03_continue_here.md`.
+
