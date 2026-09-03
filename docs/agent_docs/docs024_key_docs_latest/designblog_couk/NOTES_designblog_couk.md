@@ -1076,3 +1076,25 @@ lanes.
   (needs_briefing `5cce64a6`, triaged 11:44:45Z) is the first plan written
   under rule 20 (+718 imagery, +720 gate). They report either way; a
   zero-article result comes to me before anyone builds on it.
+
+## 2026-09-03 — the rule-20 canary is properly instrumented (gamedesign's watch design, recorded for reuse)
+
+Their monitor: fires when the new plan lands (reports article-role count +
+total pages), exits LOUDLY on failed/needs_human_review/unresolved — so
+**silence means "still queued", never "quietly broken"** (the fired≠ran
+family, designed against this time). ETA ~12:45–13:00Z. Three disciplines
+worth copying for any future canary here:
+1. **A pass confirms the COMBINATION** (718+720+730/731 exercised at once),
+   not any single migration — they will not claim it as isolated rule-20
+   evidence.
+2. **A failure has a discriminator built in**: 720's gate firing again
+   (`capability_gap` `builder_needed=section_children:articles-index`) is the
+   tell that rule 20 specifically did not take — the gate and the rule sit on
+   opposite sides of the same fork.
+3. **The subjects question ships with a check that can FAIL**: verbatim
+   planned titles/subjects against the brief's own named disciplines and its
+   real-published-games demand; failure shape = subjects that would sit
+   equally well on a generic design blog or name no game. ⚠ Their site is a
+   FAVOURABLE case (classifier + imagery guide re-seeded for the vertical's
+   temperature) — generic subjects there would be WORSE news than on a bland
+   brief.
