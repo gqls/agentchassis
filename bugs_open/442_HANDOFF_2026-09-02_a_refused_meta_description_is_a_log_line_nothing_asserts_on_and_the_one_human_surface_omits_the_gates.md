@@ -327,3 +327,100 @@ exactly the set already documented, and returns a complete-looking list. **A gre
 literal form of a value cannot see the call site that passes it through a variable**, and that is
 the transferable form: it is not about this file, it is about auditing a vocabulary by grepping its
 members instead of its writers.
+
+---
+
+## 10. ⚖ OWNER RULING 2026-09-03 — "make them loud". Candidate 1 BUILT, and why it is not the version §5 describes
+
+Owner, verbatim, in answer to §9c's measurement: **"yes, make them loud"**.
+
+Built as commit `776511e70`. Config half **applied and live** (migration `734`); Go half
+committed and **inert until the chassis rolls**. Council `76288ff9-3cde-46e6-b65a-22564fac8f6d`
+(`Council-Submitted:`, verdict owed a read).
+
+### 10a. The measurement that changed the design, and it is the finding of this section
+§5 candidate 1 says "file a work item". §9c warned the obvious queue is a graveyard. Before
+building, the question was made answerable: **is the graveyard about humans, or about the shape
+of the row?**
+
+`[MEASURED 2026-09-03, site_work_items UNION site_work_items_archive]`
+
+| shape | items | complete | % | parked |
+|---|---|---|---|---|
+| **WITH a `handler_agent`** | 56,315 | 46,465 | **83%** | 407 |
+| **NO handler (flag-only)** | 6,699 | 1,142 | **17%** | 989 |
+
+And `voice_tells`, the queue this refusal would naturally have joined: **69 rows, every one
+`handler_agent = ''`** — 3 complete, 66 parked, nothing filed since 2026-08-27.
+
+**So the graveyard is not a fact about busy humans. It is what filing without an actor looks
+like.** A `needs_human_review` row with no handler would have looked like a fix and been one more
+row in the 17%. That single comparison is what candidate 1 was missing, and it is cheap: one
+query, both arms, the demand control built in.
+
+### 10b. What was built
+`save_page_meta_description` files `meta_description_refused` **at an actor** —
+`meta-description-repair` (migration `734`), status `triaged`, page-scoped dedup key. That agent
+re-asks for the sentence **with the refusal quoted back** and saves through the **same gated
+action**, so the same voice gate and banned-claims sweep judge the retry. The gate stays inside
+the action, never in the workflow (the 2026-08-02 §2 rule: a gate a workflow author can forget to
+wire is a comment).
+
+**The reason the first attempt failed is the one piece of information the hourly backfiller never
+had.** It has re-offered the same page every hour with the same instructions and no knowledge of
+why the last sentence was rejected.
+
+⚠ **A second refusal parks at `needs_human_review`, deliberately, despite the 17% above.** The
+alternative is `fail_work_item`'s ordinary ladder, which brands a two-striker `unresolved` —
+terminal and silent, which is the defect this file exists about. **Parking is the terminal state
+AFTER a genuine automated attempt, not instead of one**, and the row then carries the original
+candidate, the rule that refused it, and the rewrite that also failed.
+
+### 10c. What is deliberately NOT filed, each for its own reason
+- **The four cheap reasons.** Nothing was published and nobody must judge anything.
+- **`voice_gate_unreadable`.** The tempting one, and wrong here: it means the gate could not be
+  LOADED — an infrastructure fault, not a copy judgement. A rewrite handler is the wrong actor;
+  the retry would produce a new sentence, the gate would still be unreadable, and the item would
+  churn against its own dedup key for as long as the fault lasted. **Residual, recorded rather
+  than folded in: a persistently unreadable gate still leaves a page blank for ever and is still
+  only a `logger.Warn`.** It needs an operational surface, not a rewrite.
+- The classifier is an **allow-list**, not "everything except the cheap four", so an **eighth
+  reason is silent by default rather than loud by default**. §4 is the evidence that this
+  vocabulary grows by addition without anyone noticing.
+
+### 10d. ⚠ A MUTATION FOUND A REAL DEFECT IN MY OWN TEST — reported, not hidden
+The arm asserting §6's second requirement — *"a clean candidate must still write silently, with
+no spurious item filed"* — was written as: register **no** sqlmock expectations, then assert
+`ExpectationsWereMet() == nil`, with a comment claiming this "cannot pass by accident".
+
+**It passes unconditionally.** `ExpectationsWereMet` reports UNFULFILLED expectations; with none
+registered it is nil whatever the code does. Deleting the classifier's early return — so that
+*every* reason files — left the test GREEN, because the unexpected `BeginTx` merely returned an
+error to the code under test, which logged it and returned.
+
+Rewritten as an **inverted assertion**: register `ExpectBegin()` and require it to be
+**unfulfilled**. Now red for all six reasons under that mutation. Five Go mutations proven red in
+total (no handler · `needs_human_review` · delete the early return · drop the page id from the key
+· allow-list → deny-list), plus two on the migration (the save step bypassing the gated action ·
+both branches routing to the same step).
+
+**This is §6's own warning landing on the person who wrote it**: "induce both arms, or the test
+proves nothing" — and the arm I got wrong was the negative one, which is always the easier one to
+write vacuously.
+
+### 10e. Stated gaps, so they are not discovered as surprises
+- **No verifier is registered for `meta_description_refused`.** `complete_work_item` completes
+  without one, as it does for `content_rewrite` and most types (23 `RegisterVerifier` calls
+  fleet-wide). Registering one is **not** a one-line change: it fails five build guards and needs
+  a live migration amending the claimed-item-timeout sweep's `pre_query`, merged with any other
+  lane's pending amendment — `discovery_checks/verify_required_fields_missing.go` documents the
+  exact sequence. **Named follow-up, not smuggled in.**
+- **§9d's second silent path is still open.** The writer omitting a page never reaches the action,
+  so this filing cannot see it. The fifth candidate (compare `pages_missing_meta.count` against
+  the length of `written.result.descriptions`) is unbuilt.
+- **Nothing has exercised this yet**, and it cannot be exercised on demand: `[MEASURED
+  2026-09-03]` zero active pages are both blank and clearing the backfiller's `> 200` gate, so
+  there is no page to refuse. The first real proof will be the first `meta_description_refused`
+  row. ⚠ **Do not read "no rows" as "it does not work"** — read it with the demand control:
+  `SELECT count(*) FROM pages WHERE status='active' AND COALESCE(meta_description,'')='' AND
+  page_visible_text_len(id) > 200;` If that is 0, nothing could have filed.
