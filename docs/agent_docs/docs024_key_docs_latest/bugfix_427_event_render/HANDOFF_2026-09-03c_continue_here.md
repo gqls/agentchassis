@@ -69,12 +69,15 @@ next roll.**
 OWNED_PAGE_GUARD: page tool-fight-calendar is page_type=tool with no tool component
 ```
 
-⚠ **The reach census disagreed with the 450 lane's and the difference is ENCODING, not fact.**
-Mine: 58 matched / 53 serving / 9 sites (`status='active'` + a `build_status='deployed'` row).
-Theirs: 67 / 54 / 10. Re-run to locate it: **53 vs 54 is `deployed` versus any non-`removed`
-row** — one page holds a live-but-not-yet-deployed component. The 58-vs-67 and 9-vs-10 gaps are
-**[UNRECONCILED]** from this side. It changed nothing: every encoding says the arm refused
-several times more repair than harm.
+⚠ **The reach census: use the 450 lane's number, not this lane's first one.** The guard refuses
+`[MEASURED 2026-09-03 ~14:00, using the guard's OWN predicate]` **66 pages / 15 sites**. This
+lane first reported **58 / 12**, which was a **floor read as a total**: `toolShellPredicateFor`
+(`owned_page_guard.go:160-168`) carries `AND cc_g.is_active = true` and my census asked only
+whether a `component_level='tool'` row existed at all, so it missed **exactly 9 pages on 5
+sites** holding an INACTIVE tool component. The `53`-vs-`54` half was `deployed` versus any
+non-`removed`, worth one page. Full account and the WRONG_CALLS entry: `bugs_open/427` §18.
+**The check: when the thing you are measuring IS a mechanism, copy its predicate — do not
+paraphrase it.** The direction was never in doubt, but nobody should quote 58.
 
 **Council:** `075cfedd` (454's fix) **APPROVED** round 1, advisories adjudicated in
 `bugs_open/454` §11. `ff91e666` (427's migrations) — round 1 REVISE, round 2 REVISE (gated by
@@ -137,6 +140,10 @@ indexing exactly onto `hero-tool@1, event-list@2`, armed count 0.
   because the submission sketched one test where two had been written.
 - **"It will work once X lands" is a prediction about a CHAIN.** This lane wrote that twice today
   and had verified only its own link both times.
+- **Copy a mechanism's predicate; never paraphrase it.** This lane sized another lane's guard
+  with a query about "pages with a tool component" while the question was "pages this guard
+  refuses" — a floor, reported in the same units as a total, sent to that lane as the basis for a
+  scope decision. The two sentences are different and no result could have revealed it.
 - **A guard whose harm is masked by an unrelated defect looks free until the defect is fixed.**
   Refusing those 53 saves cost nothing observable while `454` meant they were writing back
   unchanged bytes anyway. The guard's arrival and the repair vehicle's return to working landed
