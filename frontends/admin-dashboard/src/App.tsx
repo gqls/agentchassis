@@ -1337,13 +1337,28 @@ function WorkItemsList({ token, siteFilter, onBack, reviewQueueMode = false }) {
                                 )}
                                 {/* RFC_056 record verdict (bugs_open/428): the ONLY route this
                                     row can leave 'deferred' by is a human reviewing it here and
-                                    choosing to release it — nothing else may dispatch it. */}
+                                    choosing to release it — nothing else may dispatch it.
+                                    The button is gated on routed_handler AND routed_status being
+                                    present, because HandleReleaseRecordVerdict requires both in
+                                    its WHERE clause. Some record verdicts deliberately carry
+                                    neither — the recommended_type_gap rows written by
+                                    validate_site_plan's strategy reconciliation have no automatic
+                                    repair to release, so the endpoint refuses them by
+                                    construction. Without this gate they would show a green button
+                                    that always 404s, which is a worse lie than no button. */}
                                 {selectedItem.status === "deferred" && selectedItem.spec?.filing_mode === "record" && (
-                                    <button onClick={() => handleRelease(selectedItem.id)} disabled={actionLoading} style={{
-                                        ...btnPrimary, background: "#059669",
-                                    }} title={`Would route to: ${selectedItem.spec?.routed_handler || "(none)"} / ${selectedItem.spec?.routed_status || "(none)"}`}>
-                                        Review & Release → {selectedItem.spec?.routed_handler || "?"}
-                                    </button>
+                                    selectedItem.spec?.routed_handler && selectedItem.spec?.routed_status ? (
+                                        <button onClick={() => handleRelease(selectedItem.id)} disabled={actionLoading} style={{
+                                            ...btnPrimary, background: "#059669",
+                                        }} title={`Would route to: ${selectedItem.spec.routed_handler} / ${selectedItem.spec.routed_status}`}>
+                                            Review &amp; Release → {selectedItem.spec.routed_handler}
+                                        </button>
+                                    ) : (
+                                        <span style={{ fontSize: 12, color: "#64748b", alignSelf: "center", fontStyle: "italic" }}
+                                            title="This verdict is a record for a person to read. It names no handler and no target status, so there is nothing for the release endpoint to dispatch — read spec.omission_class and spec.builder_needed and decide what to do about it yourself.">
+                                            record only — no automatic route
+                                        </span>
+                                    )
                                 )}
                             </div>
 
