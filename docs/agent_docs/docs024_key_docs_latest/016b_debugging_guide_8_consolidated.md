@@ -15776,3 +15776,56 @@ the verification query: `bugs_open/470`. Related: *"a detector whose output nobo
 neutral — it is actively misleading"* (`bugs_open/083`, quoted at itself by
 `check_archived_page_still_serving.go:104`) — this is that sentence one step further: a
 detector whose output cannot RETRACT is misleading even to the one person who does read it.
+
+### A SANITISER APPLIED WHERE THE TEXT IS TRUNCATED CAN NEVER SEE THE DAMAGE ITS OWN TRUNCATION CAUSED — and the surviving defects are all the shape its regex is built to miss (2026-09-03, `bugs_open/332`)
+
+**The symptom that will bring you here:** a strip, an escape or a validator was shipped,
+verified at the artefact, and is running — and the same defect it removes is served on the
+same page months later. The temptation is to conclude the mechanism regressed, was switched
+off, or never shipped. Check all three (they are cheap) and then stop, because there is a
+fourth answer that looks like none of them.
+
+**The mechanism.** A well-formed-pattern matcher requires both delimiters. Something upstream
+cuts the text at a fixed size. Every value cut *through* a pattern becomes a half — `[text](htt`
+with no closing paren, `**Text` with no closing pair — and a matcher that needs the closing
+delimiter walks past **all of them, for ever**, by construction. The mechanism is not broken
+and not disabled. It is BLIND, and blind to exactly one shape: the one the truncation makes.
+
+**The tell, and it is a control you already have.** Compare two patterns the mechanism handles
+*differently by construction* — one that can be truncated and one that cannot. In `332` the
+served pages carried **ZERO** ATX headings while 1,177 source rows had them, and 14 markdown
+links. A heading marker is at the START of a line, so a tail cut never destroys it; a link's
+closing paren is at the END, so a tail cut always does. **That pair cannot be explained by a
+disabled strip** — a disabled strip leaks both. One clean class beside one dirty class is a
+BLINDNESS signature, and it localises the fault to the pattern rather than the plumbing.
+
+**Then find the truncator, and expect it to be yours.** `332`'s bug file recorded the stored
+text as arriving pre-truncated and marked the writer `[UNVERIFIED]` for a fortnight. It was
+ours: `snippet[:197] + "..."`, hardcoded, four lines above code another lane had edited the
+day before without remarking on it. `grep -rn "\[:[0-9]" --include='*.go'` and the truncation
+constants are a five-minute census, and the answer changes which fix is even possible.
+
+**Three consequences worth having in advance:**
+
+1. **Strip before truncate, at EVERY truncation site, or the rule is decorative.** `332`'s
+   sibling bug established that ordering in one of four places. The other three were a
+   duplicated function in two packages and two hardcoded literals — and the estate had the
+   rule written down while three call sites violated it.
+2. **The repair must PRESERVE the truncation marker.** Removing `[text](url…` deletes the
+   trailing `...` with the URL, turning a visibly-severed fragment into a grammatical sentence
+   the source never wrote. **No test and no served-artefact grep can see that**: a
+   strip-only-length assertion passes, and the result scans clean by construction. This is the
+   one failure in the class with no detector at all, and it is strictly worse than the defect,
+   because a broken-looking page invites a bug report and a plausible false one does not.
+3. **Count the readers of the column before you fix the reader you found.** `332` was filed
+   naming three readers of one field; there were four, and the unnamed one — a public JSON file
+   that a published script uses to **overwrite** the sanitised HTML in the browser — carried
+   most of the damage. `grep -rn "<the column name>" --include='*.go'` enumerates them in one
+   command, and the question to ask of each is not "does it strip?" but "is its output SEEN by
+   a person?"
+
+**Related:** the LANDMINES pair added the same day (*"the served news page HTML is OVERWRITTEN
+in the browser"* and *"a `(?m)^` pattern means BLOCK start on one surface and LINE start on the
+other"*) · CQ-019 (five layers now, and a tiered pattern set) · *"a pass from a blind check
+outlives the blindness"* — this is the generating case: the August measurement was honest,
+correct, and taken over a population that has since changed.
