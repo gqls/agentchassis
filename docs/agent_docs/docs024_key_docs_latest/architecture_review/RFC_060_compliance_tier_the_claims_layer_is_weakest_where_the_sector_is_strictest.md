@@ -1,8 +1,12 @@
 # RFC_060 — a COMPLIANCE TIER: the claims layer is weakest exactly where the sector is strictest
 
-**Status: OWNER-DECIDED 2026-09-02 on Q1, Q2, Q3 AND Q4 — the tier design is fully decided; Q6's fix
-is OWNER-APPROVED to build (relayed via the lendzy lane, confirmation pending directly in the
-claims-verification thread).** Open: **Q5** (§3b) — citation-code recognition is finance-only, doesn't
+**Status: FULLY OWNER-DECIDED — NOTHING ON THIS RFC IS OPEN.** Q1–Q4 ruled 2026-09-02;
+**Q5, Q6 and Q7 all ruled 2026-09-03 (§3f)** — Q6 and Q7 build-as-proposed, and **Q5 decided WITH
+the sector presets its own section had offered as optional**, because the owner named veterinary and
+legal as imminent and that is the exact fact my "don't design ahead of a second consumer"
+recommendation turned on. What remains is BUILD, not decision — tracked in §3c and §3f, owned by the
+claims-verification lane. Historical statement of the questions follows.
+~~Open: **Q5** (§3b)~~ — citation-code recognition is finance-only, doesn't
 generalise to other regulated sectors. **Q6** (§3d) — a citation can be substantively true and still
 name the wrong rule; CONFIRMED STRUCTURAL — the FCA Handbook has no rule-level URL, so a fact
 registered through the fully-verified path can still name the wrong rule, permanently. Fix sketched
@@ -377,6 +381,66 @@ the mitigation, but it is a weak one. If this ever needs strengthening, the hone
 regulatory figures is a candidate for re-posturing — which is cheap to build on the machinery that
 already exists and would be the natural Phase 2. **Not proposed now**; recorded so it is a decision
 rather than an oversight.
+
+## 3f. OWNER DECISIONS 2026-09-03 — Q5, Q6 and Q7 all RULED; nothing on this RFC is now undecided
+
+Given directly, in one message, closing every open question. **Q6: "do as you suggest."
+Q7: "fix as you suggest." Q5: "I will be extending to vet and legal quite soon so let's fix it
+with those in mind."**
+
+**Q6 — DECIDED: build the fix as proposed in §3d.** Span-match within the already-fetched text, no
+new fetch. This confirms directly what had been relayed via the lendzy lane, so the "confirmation
+pending" note above is now discharged.
+
+**Q7 — DECIDED: build the fix as proposed in §3e.** The `banned_claims` half is already built and
+council-APPROVED (`e5b1a0f01`); this ruling covers the **facts** half — the register's second write
+path, the hand-written/migration one that all four of §1d's registers used, which bypasses
+`VerifyAndRegisterCitationsAction` entirely. Build it into the same daily loop, per §3e's own
+"one loop, two guarantees".
+
+**Q5 — DECIDED, AND THE ANSWER INVERTED, because the owner supplied the fact the recommendation
+turned on.** I recommended the plain per-site field and explicitly advised holding the sector
+PRESETS back — *"add sector presets only once a second sector actually needs one, per this RFC's own
+instinct not to design ahead of a second consumer"* (§3c track 3). That instinct was sound and its
+premise was simply false: **a second and third consumer are imminent and now named — veterinary and
+legal.** So the third bullet of §3b's proposed fix, offered as optional, is **IN**:
+
+- `evidence_base.citation_codes: []string`, per-site declared data — as proposed;
+- the hardcoded FCA list stays the always-on default and `citation_codes` unions on top — as
+  proposed, so no regression and no forced migration;
+- **plus** named sector presets a site opts into (`veterinary` → RCVS/VMD, `legal` → SRA, `medical`
+  → GMC/MHRA/CQC). **Note `legal` was NOT in §3b's sketch** — that listed veterinary and medical —
+  and it is now a first-class target rather than an "…" at the end of a list.
+
+**Four constraints the builder inherits, none of them optional:**
+
+1. **The matching rule does not change.** Exactly what `fad209b92` shipped: **case-sensitive**, and
+   the code must be **immediately followed by a digit**. That is what stops a bare `FCA` — or a bare
+   `RCVS`, `SRA`, `GMC` — exempting any number that happens to sit near it. Two-letter codes stay
+   excluded. A preset that relaxes any of these is a different mechanism wearing this one's name.
+2. **§1c's ordering warning applies PER SECTOR, not once** — *"arm the check before the sector's
+   false-positive shapes are handled and it produces noise"*. Each preset is measured against that
+   sector's live copy **before** it arms. `vetcomparison.uk` is deployed today and is this RFC's own
+   `relied_upon` worked example, so veterinary is a real corpus to measure against, not a
+   hypothetical one.
+3. ⚠ **The failure mode INVERTS relative to `banned_claims`, and it is the more dangerous
+   direction.** A broken banned-claim pattern makes a guard **inert** — it fails open on the ban.
+   A wrong or over-broad `citation_codes` entry makes the numeric scan **BLIND** — it fails open on
+   *detection*, silently exempting numbers that should have been caught, on exactly the sites this
+   RFC exists to protect. Both are silent; this one is worse, because a disarmed check and a clean
+   site produce identical output. **So probe-fire each preset in BOTH directions: codes that must be
+   exempted, AND numbers that must still be CAUGHT.** An exemption list validated only on what it
+   should exempt is untested.
+4. **A preset is shared vocabulary distributed to N sites**, which is the same distribution
+   mechanism `LANDMINES` warns propagates one author's typo into N sites at once. Compile and
+   probe-fire at distribution time, as migration 707 did.
+
+**Sequencing note, 2026-09-03:** none of Q5/Q6/Q7 is written yet, so none rides the chassis build
+rolling now. What that build DOES carry is `e5b1a0f01` — after which the pattern detector fires on
+the next daily `evidence-freshness` pass, and **its first findings are the thing to read**, not the
+roll.
+
+---
 
 ## 3b. ADDENDUM 2026-09-02 (Q5, NEW — undecided): citation recognition is finance-only and does not
 generalise across sectors
