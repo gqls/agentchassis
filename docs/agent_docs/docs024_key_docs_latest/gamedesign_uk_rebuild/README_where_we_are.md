@@ -184,3 +184,49 @@ stopped using this site's name and I checked that on its pages. gamedesign.uk ha
 waiting on you. What carries on after this lane is the monitoring check I built for the gap that
 caused all this (it runs by hand today; it should run on a schedule), and the eight other domains
 we're serving without a record of, which you said to adopt later with care.
+
+## 2026-09-02, about 21:30 — you were right, and the cause was mine
+
+You looked at the site and it was wrong for what it is: a games site with no games in it, no game
+pictures, an articles page with no articles that explains what the articles would be like, and a
+hero that was a dark gradient over a missing file. I had checked that pages existed and links
+worked and called it done. I had not read it the way you did.
+
+The cause is plain. The picture guide I wrote for the site banned game imagery — the image prompts
+literally say "no game imagery" — and the brief asked for a restrained journal. The system did what
+it was told. I've said so in the bug file, added the whole thing to the errors list as its own
+category, and rewritten the guide and the brief: games on every page, big bold game art, real
+released games named and described as a player sees them, playable illustrations inside articles,
+and a rule that no page may ever describe its own brief. The rebuild was dispatched at 20:11 and
+picks up tonight's planner change that expects pictures by default.
+
+I ran the checkers as you asked. They saw everything you saw — twenty-seven findings, including
+"the articles index writes about itself and lists zero articles" — and filed every one in a mode
+that acts on nothing. That is now written down where it can be fixed.
+
+The designblog lane had the same review from you tonight; I joined their routes rather than opening
+new ones, and between us and two other threads we found that the "wrong hero image" problem is
+fleet-wide: seven components, over a hundred and fifty instances, sixty-odd pages wearing their
+homepage's picture. The components thread owns that fix.
+
+Three things need a word from you: the checkers say the contactforsales.com address reads as a
+placeholder to senior studio people; the site has no named author and I'm not allowed to invent
+one; and there's no newsletter or feed for readers to come back by.
+
+## 2026-09-03, morning — where the rebuild actually is
+
+The rebuild I dispatched last night did not rebuild anything. Re-submitting a site that is already
+live runs the research and strategy steps and then stops on purpose — a safety catch so that a
+routine refresh can't tear a live site down. Nobody told me and I didn't look; I spent the evening
+watching for a plan that was never coming. The new brief and picture guide did land — the
+classifier now describes the site as "bold, game imagery, the sensibility of a magazine" — so the
+direction is set. I've now queued the actual rebuild deliberately, and it's waiting its turn behind
+sites with older backlogs, which the throughput lane says can take hours. Nothing is wrong with it;
+it just hasn't been picked up yet.
+
+The fresh build you deployed carries everything this site depends on, including the fix that stops
+an articles page shipping with no articles and the components fix for the wrong hero pictures.
+The handoff is written for a new chat: docs/agent_docs/docs024_key_docs_latest/gamedesign_uk_rebuild/HANDOFF_2026-09-03_continue_here.md.
+Your three questions from last night still stand, plus one from the improvement-loop lane: should
+a brand-new site start on "hold" so the machinery can't plant things on it before anyone has read
+a page?

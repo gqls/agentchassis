@@ -661,3 +661,17 @@ second mechanism (the planned article had `parent_section` EMPTY at `/blog/`).
 `parent_section`, imagery rows — against 444's predicate and 446 §3.3's "site-scope hero"), any
 `add_tool` filed in RECORD shape (WDS-020's demand test), and the served hero `url()`s after the
 rerender for `components`' migration 721 (their first live test).
+
+---
+
+## 2026-09-03, ~09:30Z — fresh build read; handoff #2 written
+
+Stamp `7bf1ff674021` (09-03; roll in progress 91/322 at 09:16Z). Ancestors, HEAD→stamp NO:
+`6525b45ae` (444 gate), `c2349955d` (WDS-020), `d777cb4d2`, `8eca969cb` (315). Migration 720
+(444's gate needs it) NOT verified — `schema_migrations` has no `version`/`name` column by those
+names; check `\d schema_migrations`. The `needs_briefing` I filed at 08:31:19Z was still `triaged`
+at 09:16Z: no lock, nothing claimed, the dispatch loop cycling gamesdesign.co.uk / fundamentallyai /
+gaswholesalers every ~4 min — `dispatch_throughput/RUNBOOK` (bug 413: a pinned old row freezes a
+site's age; younger sites starve; "hours" is normal). Not hand-spawned; recorded. New cold-start
+doc: `HANDOFF_2026-09-03_continue_here.md`; third SUMMARY. Artefact monitor timed out 09:16Z;
+re-arm in the next session.

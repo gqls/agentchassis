@@ -120,21 +120,17 @@ outside 359's detector by construction. See NOTES for whether this earns its own
   Deliberately contains no `"` or `\` so 082's single-line JSON folding is lossless
   (checked by running its exact `sed | tr | sed` pipeline over the file).
 
-## 5. Phasing (rewritten 2026-09-02 evening — see HANDOFF_2026-09-02_continue_here.md §5 for the step-by-step)
+## 5. Phasing (rewritten 2026-09-03 — the 09-02 version ended "close the lane"; the owner's review reopened it)
 
-1. ~~Diagnose the live state with controls~~ **DONE.**
-2. ~~Establish why the adoption broke it~~ **DONE, re-verified on a second model, 7 details corrected in place.**
-   The publish defect is closed for NEW publishes (guards live in the running binary — fresh
-   build stamp `ebf27c60377f`, 2026-09-02 ~16:19, all three commits ancestors, both controls
-   pass). NOT closed for already-served empties with zero component rows — `bugs_open/432` §3a.
-3. ~~File the detector gap~~ **DONE — `bugs_open/432`, UNOWNED.**
-4. ~~Agree differentiated positioning~~ **DONE — practice seat; GD1/GD2 in the register.**
-5. ~~Draft the mission brief~~ **DONE — awaiting owner approval (decision A4).**
-6. ~~BLOCKED on owner decisions A1–A4~~ **ALL FOUR RULED 2026-09-02 ~16:45Z** (HANDOFF top block).
-7. ~~Pre-seed~~ **DONE 17:04Z** — SEED file applied; site `8f17eb73…`; + `mission`/`design_intent` carrying theme kits' values.
-8. ~~Clear the old artefacts~~ **DONE** — sites `40bd35f19`, verified 404 at the artefact, bucket = 1 object.
-9. ~~Dispatch~~ **DONE 17:07:55Z** — corr `f07313f6-976c-4593-9e5e-44892008fb74`; `needs_domain_research` triaged.
-10. Verify at the artefact (RUNBOOK §8): every file non-empty `<main>`, legal pages + sitemap
-    200, no empty `mailto:`, control still 404, positioning constraints honoured on the served copy.
-11. First SUMMARY; append README; tell `Portfolio positioning` if the brief landed elsewhere.
-12. Close the lane. `bugs_open/432` stays open — separate owner (decision C).
+1–5. ~~diagnose · root cause · file 432 · positioning · brief v1~~ DONE 09-02.
+6–10. ~~seed · retract old tree · dispatch · verify build #1~~ DONE 09-02 18:00Z — **and build #1 was
+   WRONG FOR THE VERTICAL** (owner review 20:30Z; `bugs_open/446`; SITE_DEFECT_CATEGORIES §10).
+11. ~~improvement loop~~ RAN — 27 record-mode verdicts, none dispatched (446 §4a); tool plant HELD
+    (447; SEED d); growth_posture=hold (SEED e).
+12. ~~re-seed imagery/evidence/design_intent v2 + brief v2; re-dispatch~~ DONE 20:10Z 09-02 — but 082 on
+    a deployed site is a STRATEGY REFRESH (RUNBOOK §7a); chain enqueued by hand 08:31Z 09-03 (SEED 09-03).
+13. **IN FLIGHT:** `needs_briefing` 95d834f8 unclaimed → briefing → site_plan → reconcile → build.
+14. Verify as a READER (HANDOFF_2026-09-03 §6): plan shape (444), heroes (721, owed to components),
+    imagery prompts (10.1), hub lists articles (10.2), copy, held growth items (WDS-020).
+15. Owner decisions: email · author · newsletter · born-hold · 447 ownership.
+16. Close when the owner reads the site and does not have to say it again. 432 stays open (scheduling).
