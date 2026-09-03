@@ -37,6 +37,25 @@
 > **gamesdesign.co.uk** and **loanandmortgagecalculator.co.uk** — both are `unwired` **0**
 > today (17 `no_image_slot` each).
 >
+> **ETA for those four, and whether to force it.** `[MEASURED 2026-09-03 ~17:15Z]` rotation
+> stamp → due (`stamp + 7 days`): **loanzy.uk 08-27 06:22 → ALREADY OVERDUE** ·
+> **ai-agent-orchestration.com → 09-04 12:27** · **webdesign.co.uk → 09-05 00:29** ·
+> **vonc.com → 09-05 09:31**. With `LIMIT 1`/3h and ~7 sites already overdue ahead of it,
+> webdesign.co.uk realistically lands **09-05→09-06**. A `oneshot-design-discovery-*`
+> scheduled task would force it today (precedent: `oneshot-design-discovery-mcalc-20260814`,
+> `-rh-20260730`, both now disabled) — **I deliberately did NOT**, because a sweep fires all
+> 25 checks, `content_image_missing` among them **files generation work** (today's sweeps
+> inserted 2–32 items each), and bringing fleet generation spend forward on the estate's
+> largest site is an owner call this lane already has flagged as unasked. The observation is
+> confirmatory, not load-bearing — the detector is already proven 15/15 — so waiting costs
+> nothing. If the owner wants 114 shut today, forcing it is the lever; say so in the message.
+>
+> ⚠ **`orchestration_states` IS A ROLLING WINDOW — ~26h.** `[MEASURED 2026-09-03]` the oldest
+> row of ANY owner type is 2026-09-02 15:26Z. So "no design-discovery row for this site"
+> means **not swept in the last day**, NOT never swept — three of the four above read NULL
+> for that reason alone. Do not turn that NULL into a claim about coverage; use the rotation
+> stamp, which is durable.
+>
 > **New scope arrived, not started:** `CONTRIB_2026-09-03_from_mcalc_lane_OWNER_HANDS_YOU_THE_WHOLE_TOOL_IMAGERY_JOB.md`
 > in this directory — the owner handed this lane mortgagecalculator.co.uk's whole tool-imagery
 > job (18 tool pages, both mechanisms, and the spend decision). 701 removed the blocker that
