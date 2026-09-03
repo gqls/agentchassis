@@ -61,6 +61,17 @@ BEGIN
     RAISE EXCEPTION '752 VERIFY 5/6: gate SQL and governor_admits_agent disagree at the live level';
   END IF;
 
+  -- 5b. THE BINDING, not just the SQL (added 2026-09-03 after the first live run fell open with
+  --     42P18 'could not determine data type of parameter $1'): PREPARE with an unspecified
+  --     parameter type forces the same server-side inference the driver triggers. A literal
+  --     spliced in for $1 cannot see this; only PREPARE can.
+  BEGIN
+    EXECUTE 'PREPARE p752v AS ' || q;
+    EXECUTE 'DEALLOCATE p752v';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE EXCEPTION '752 VERIFY 5b/6: the gate query does not PREPARE with an untyped $1 — it will FAIL at runtime and FALL OPEN on every council run: %', SQLERRM;
+  END;
+
   -- 6. council-gate is still mapped (an unmapped agent is ADMITTED forever — the gate would be a no-op)
   SELECT count(*) INTO n FROM governor_agent_class_map WHERE agent_type='council-gate';
   IF n <> 1 THEN
