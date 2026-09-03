@@ -118,26 +118,41 @@ func metaDescriptionRefusalItemKey(pageID uuid.UUID) string {
 
 // fileMetaDescriptionRefusal records a copy-gate refusal as a work item.
 //
-// NEVER returns an error and never changes what the caller returns: the refusal
+// NEVER returns an error and never changes the action's control flow: the refusal
 // itself is correct behaviour that has already been decided by the time this
 // runs, and a bookkeeping failure must not turn a correct refusal into a failed
-// step. Every exit logs. This mirrors emitSectionDeadControlItem's posture.
+// step. This mirrors emitSectionDeadControlItem's posture.
+//
+// ⚠ BUT IT REPORTS WHETHER IT SUCCEEDED, and that is not decoration — it closes the
+// hole the council's bug_historian seat found in the first cut (corr 76288ff9,
+// [medium]): every branch below used to be a bare `logger.Warn` + `return`, so if
+// the write of the LOUD RECORD failed, the refusal was back to being a log line —
+// "the exact defect this plan exists to close, now one hop deeper and harder to
+// notice because the design narrative says it's already fixed". That is the
+// bugs_closed/034 shape (validation errors dropped with no durable record) and the
+// seat was right to name it.
+//
+// So the outcome goes into the action's OWN result map as `filed` (+ `file_error`),
+// which is the surface migration 728's operator message already tells a reader to
+// read. A failed filing is now visible exactly where a refusal is visible, instead
+// of being the one part of this mechanism that fails quietly.
 func fileMetaDescriptionRefusal(
 	ctx context.Context,
 	params ActionParams,
 	config map[string]interface{},
 	candidate, reason, detail string,
 	logger *zap.Logger,
-) {
+) (filed bool, fileError string) {
 	if !metaDescriptionRefusalIsLoud(reason) {
-		return
+		// Not an outcome to report: nothing was supposed to be filed.
+		return false, ""
 	}
 
 	siteID := resolveMetaDescriptionSiteID(params)
 	if siteID == uuid.Nil {
 		logger.Warn("meta description refused, but no site_id resolvable — not filed",
 			zap.String("reason", reason))
-		return
+		return false, "no site_id resolvable from collected data"
 	}
 
 	// Resolved HERE rather than before the gate, so this cannot change the
@@ -148,7 +163,7 @@ func fileMetaDescriptionRefusal(
 	if err != nil || pageID == uuid.Nil {
 		logger.Warn("meta description refused, but no page id resolvable — not filed",
 			zap.String("reason", reason), zap.Error(err))
-		return
+		return false, fmt.Sprintf("no page id resolvable: %v", err)
 	}
 
 	spec := map[string]interface{}{
@@ -169,7 +184,7 @@ func fileMetaDescriptionRefusal(
 	if err != nil {
 		logger.Warn("meta description refused: could not marshal spec — not filed",
 			zap.String("reason", reason), zap.Error(err))
-		return
+		return false, fmt.Sprintf("could not marshal spec: %v", err)
 	}
 
 	summary := fmt.Sprintf("Meta description refused by the %s gate — page left blank: %s",
@@ -181,7 +196,7 @@ func fileMetaDescriptionRefusal(
 	tx, err := params.DB.BeginTx(ctx, nil)
 	if err != nil {
 		logger.Warn("meta description refused: begin tx failed — not filed", zap.Error(err))
-		return
+		return false, fmt.Sprintf("begin tx failed: %v", err)
 	}
 	inserted, err := insertWorkItem(ctx, tx, workItem{
 		siteID:       siteID,
@@ -202,12 +217,12 @@ func fileMetaDescriptionRefusal(
 		_ = tx.Rollback()
 		logger.Warn("meta description refused: insert work item failed — refusal stays a log line",
 			zap.String("reason", reason), zap.Error(err))
-		return
+		return false, fmt.Sprintf("insert work item failed: %v", err)
 	}
 	if err := tx.Commit(); err != nil {
 		logger.Warn("meta description refused: commit failed — refusal stays a log line",
 			zap.String("reason", reason), zap.Error(err))
-		return
+		return false, fmt.Sprintf("commit failed: %v", err)
 	}
 
 	// `inserted` false is the ORDINARY case on the second and later hours: the
@@ -219,4 +234,10 @@ func fileMetaDescriptionRefusal(
 		zap.String("reason", reason),
 		zap.String("handler", metaDescriptionRefusalHandler),
 		zap.Bool("inserted", inserted))
+
+	// `inserted` false means the dedup key already holds an open row for this page
+	// — the ORDINARY case from the second hour onward, and a success for our
+	// purposes: the durable record exists. `filed` answers "is this refusal
+	// recorded somewhere a reader will find it", not "did I write a new row".
+	return true, ""
 }

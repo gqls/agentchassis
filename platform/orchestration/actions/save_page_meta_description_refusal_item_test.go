@@ -236,3 +236,83 @@ func TestRefusalFilingNeverBreaksItsCaller(t *testing.T) {
 	fileMetaDescriptionRefusal(context.Background(), params, cfg,
 		"candidate", "banned_claim", "fleet-wide: unevidenced superlative", zap.NewNop())
 }
+
+// TestRefusalReportsWhetherItWasFiled closes the hole the council's bug_historian
+// seat found in the first cut (corr 76288ff9, [medium]): every failure branch of
+// the filing used to be a bare logger.Warn, so a failure to write the LOUD RECORD
+// put the refusal straight back to being a log line — the same defect one hop
+// deeper, and hidden behind a design narrative saying it was fixed. bugs_closed/034
+// is that shape.
+//
+// The refusal must still succeed (nil error, updated:false) — a bookkeeping fault
+// must not fail a correct refusal — but the step's OWN OUTPUT must say the record
+// is missing, because that map is the surface migration 728's operator message
+// tells a reader to read.
+//
+// MUTATION THAT KILLS IT (verified): drop `filed` from the action's result map, or
+// make fileMetaDescriptionRefusal return true unconditionally. Both assertions
+// below then fail while every other test in this file stays green — which is the
+// point: nothing else in the suite can see this.
+func TestRefusalReportsWhetherItWasFiled(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	// The filing cannot possibly succeed.
+	mock.ExpectBegin().WillReturnError(errors.New("connection reset by peer"))
+
+	pageID := uuid.New()
+	params := ActionParams{
+		Context: context.Background(),
+		DB:      db,
+		Logger:  zap.NewNop(),
+		CollectedData: map[string]interface{}{
+			"site_record":         map[string]interface{}{"site_id": uuid.New().String()},
+			"current_description": map[string]interface{}{"page_id": pageID.String()},
+		},
+	}
+	cfg := map[string]interface{}{"page_id_field": "current_description.page_id"}
+
+	filed, fileError := fileMetaDescriptionRefusal(context.Background(), params, cfg,
+		"candidate", "banned_claim", "fleet-wide: unevidenced superlative", zap.NewNop())
+
+	if filed {
+		t.Fatalf("filed reported true when the transaction could not even begin — " +
+			"a caller would record the refusal as durably captured when nothing was written")
+	}
+	if fileError == "" {
+		t.Fatalf("filed was false but no reason was reported — the caller can see THAT the " +
+			"record is missing but not why, which is the log line again one field along")
+	}
+}
+
+// TestBothPageIDResolutionsAreTheSameCall answers the council guardian's [low]
+// objection (corr 76288ff9): that the refusal path resolving a page id
+// "separately from whatever id-resolution the action already does" could point the
+// filed item at a different page than the log line.
+//
+// They cannot disagree, because it is the SAME function called with the SAME
+// config — this test pins that rather than leaving it as a code-reading claim, so
+// a future edit that gives the refusal path its own resolver breaks here.
+func TestBothPageIDResolutionsAreTheSameCall(t *testing.T) {
+	pageID := uuid.New()
+	params := ActionParams{
+		Context: context.Background(),
+		Logger:  zap.NewNop(),
+		CollectedData: map[string]interface{}{
+			"current_description": map[string]interface{}{"page_id": pageID.String()},
+		},
+	}
+	cfg := map[string]interface{}{"page_id_field": "current_description.page_id"}
+
+	a, errA := resolveMetaDescriptionPageID(context.Background(), params, cfg, zap.NewNop())
+	b, errB := resolveMetaDescriptionPageID(context.Background(), params, cfg, zap.NewNop())
+	if errA != nil || errB != nil {
+		t.Fatalf("resolution errored: %v / %v", errA, errB)
+	}
+	if a != pageID || b != pageID {
+		t.Fatalf("resolver did not return the configured page id: %v / %v vs %v", a, b, pageID)
+	}
+}

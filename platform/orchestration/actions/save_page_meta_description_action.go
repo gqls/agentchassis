@@ -197,12 +197,21 @@ func SavePageMetaDescriptionAction(ctx context.Context, params ActionParams) (in
 		// an actor that can repair it. This CANNOT change what we return — see
 		// fileMetaDescriptionRefusal, which never errors: the refusal is already
 		// correct and a bookkeeping fault must not turn it into a failed step.
-		fileMetaDescriptionRefusal(ctx, params, config, candidate, reason, detail, logger)
-		return map[string]interface{}{
+		filed, fileError := fileMetaDescriptionRefusal(ctx, params, config, candidate, reason, detail, logger)
+		out := map[string]interface{}{
 			"updated": false,
 			"reason":  reason,
 			"detail":  detail,
-		}, nil
+			// Whether the DURABLE record of this refusal was actually written.
+			// Council 76288ff9, bug_historian [medium]: without this, a failure to
+			// file leaves the refusal as a log line again — the same defect one hop
+			// deeper, and hidden behind a design narrative that says it is fixed.
+			"filed": filed,
+		}
+		if !filed && fileError != "" {
+			out["file_error"] = fileError
+		}
+		return out, nil
 	}
 
 	pageID, err := resolveMetaDescriptionPageID(ctx, params, config, logger)
