@@ -274,3 +274,49 @@ narrowly missed the fix. Wrong order. In UTC: `0d2feee2f` committed **20:24:45Z*
 after** the roll, so it was never a candidate for that build. Verdict unchanged (not live); the
 near-miss framing was mine and it was wrong. Cause: comparing `kubectl`'s UTC `Z` timestamps against
 `git log`'s default output, which renders in the commit's own +01:00 zone and prints no offset.
+
+## CLOSING SUMMARY — 2026-09-03, fixed AND live, verified on all four affected sites
+
+**Stated plainly, because the file's own last word above says "not live" and that is now stale:
+both fixes are LIVE.** `b2322a203` (round 1, the prompt contradiction) and `fcbe6071c` (round 2,
+`BorderKeyed` measuring flood-fill reachability instead of final alpha) are both confirmed live as
+of **chassis `v1.0.1356`** — verified independently, twice, by different methods: build-provenance
+log line + a full positive/negative-control binary probe on `agent-chassis`, and separately
+`git merge-base --is-ancestor` for both commits against the `v1.0.1356` stamp
+(`7bf1ff674021f2d57dfd0aa41324541070646c3a`), with a negative control (a later commit, correctly
+absent) proving the check discriminates. Not taken on any single report — confirmed at the
+artefact by this lane directly.
+
+**All four sites the original defect touched are now genuinely fixed, verified at the served
+bytes (not a DB status), on `v1.0.1356`/`v1.0.1358`:**
+
+| site | fully transparent | border transparent | despill fringe | notes |
+|---|---|---|---|---|
+| `seotools.co.uk` | 92.21% | 99.92% | 0.085% | attempt 2 of 3 |
+| `gamedesign.uk` | 62.0%–92.2% (methods differ) | 100% | 0.17%/0.01% (methods differ) | attempt 3 of 3, after the `bugs_open/455` billing outage cleared |
+| `boxingonline.com` | 80.10%–80.82% (methods differ) | 99.91% | 0.038% | separate lane, own authorisation |
+| `designblog.co.uk` | 88.48% | 99.92% | 0.088% | **5 attempts across two reset rounds**; specifically checked and confirmed dark-marked, no light-mark legibility risk |
+
+(Minor cross-lane measurement differences above are methodology — pixel-counting scripts differ
+slightly in what counts as "opaque"/"magenta-like" — not disagreement about outcome. Every row is
+colour type 6, no site left on a checkerboard or a silently-accepted near-opaque logo.)
+
+**What this closes.** The original defect — the platform asking an incapable model for
+transparency, painting the picture of it instead, and (after the interim/round-1 mechanism) a
+guard that could not tell a real success from a real failure — is fixed in code, live in
+production, and demonstrated correct on every real site it touched, including under load from an
+unrelated billing outage and a genuinely adversarial light-marked case found by live testing.
+
+**What this deliberately does NOT close** (tracked elsewhere, not blocking this bug):
+- `bugs_open/421` (multi-panel design comp) — this fix never verified single-composition and must
+  not be read as having cleared it.
+- `bugs_open/462` (mark legibility against a deployment background) — a real, owner-ruled-on gap
+  this fix's guard cannot see by construction (background transparency ≠ foreground legibility).
+  `websitepromotion.co.uk`'s illegible result is being kept live, on purpose, as 462's test case.
+- `bugs_open/433` (fleet-wide `assets.mime_type` gap, plus every sampled logo source object being
+  JPEG stored under a `.png` name) — surfaced by this incident's verification, not caused by it.
+- `bugs_open/455` (the Gemini billing outage) — resolved same-day, unrelated to this fix's code.
+
+Full chronology, every correction, every cross-lane exchange:
+`docs024_key_docs_latest/bugfix_424_logo_transparency/NOTES_logo_transparency.md`. Current-state
+handoff: `docs024_key_docs_latest/bugfix_424_logo_transparency/HANDOFF_2026-09-02_continue_here.md`.
