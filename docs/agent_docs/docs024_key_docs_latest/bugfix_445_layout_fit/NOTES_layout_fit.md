@@ -174,3 +174,207 @@ scores layout fit or reads the `sites → style_collections → css_themes → l
 a substitute. And per the owner's 2026-09-03 decision the new check is to be built on
 `internal/cronchecks` (RFC_024 option 2) rather than as another copy — which is the concern the
 advisory exists to raise.
+
+## 2026-09-03 (l) — the roll landed; the verdict I was waiting for never existed
+
+Picked up from `HANDOFF_2026-09-03_continue_here.md`. Ran its §1 liveness table first, as it
+instructs. Two of the three rows changed.
+
+**Phase 1 IS LIVE. `v1.0.1359`, pods started 13:28:18Z and 13:28:43Z.** The handoff's row 1 said
+NOT ROLLED and that is now superseded.
+
+⚠ **The instrument the handoff named did not work, and it failed in the direction that produces a
+false answer rather than an empty one.** Two separate causes, stacked:
+
+1. The pods were **3h05m old** by the time I looked (16:33Z), so the `build provenance` startup
+   line had rotated out. `--tail=400` and `| head -200` both returned nothing on the structural
+   grep. That is the documented time-limit, and an empty result there means *out of range*, not
+   *unstamped*.
+2. **The unstructured grep the handoff quotes returned a HIT anyway** — and the hit was
+   `LANDMINES.md` prose *about* build provenance, synced into `doc_notes`, injected into an agent
+   prompt, and logged by the chassis. Exactly the trap at `LANDMINES.md` §"`logs | grep 'build
+   provenance'` now matches LANDMINE TEXT". It fired on me verbatim. **The text I got back was
+   the landmine warning me not to trust the text I was getting back.**
+
+So I used the structural match (`"caller":"…/main.go:NN","msg":"build provenance","git_commit":…`),
+got nothing, and fell through to the binary probe, **with both controls, on BOTH replicas**:
+
+| literal | nrqf7 | phgh2 | meaning |
+|---|---|---|---|
+| `weak_tag_fit` | 1 | 1 | Phase 1 present (was **0** on v1.0.1358) |
+| `layout_match_score` | 1 | 1 | Phase 1 present (was **0**) |
+| `enforceListingItemSources` | 2 | 2 | must-be-present control holds |
+| `zzq_literal_that_cannot_exist_4417` | 0 | 0 | must-be-absent control holds |
+
+`git merge-base --is-ancestor 76db94fc7 HEAD` → yes. **The fit evidence and the widened signal are
+now in the running fleet.**
+
+### The verdict I was told to read was never produced
+
+The handoff says "the two council verdicts, neither read at handoff". Only one of them exists.
+
+- **Phase 5 (migration 736, `39942a14`) — APPROVED**, round 1, "approved with 2 advisory
+  objection(s) — none high-severity". Read in full from `diagnosis_artifacts kind='council_report'`.
+  Eleven seats; nine approve, editquality and bug_historian object advisorily.
+- **Phase 1 (`76db94fc7`, `34d57f60`) — NO VERDICT, and there never was one.** The run stalled at
+  `council_decide` with `last_activity` 12:05:46Z and was swept to `FAILED` at **16:07:33Z**. There
+  is a `fix_plan` artifact and **no `council_report` row at all**.
+
+**Why it died, and it was not random.** Seven runs carry that identical `updated_at`
+(`2026-09-03 16:07:33.448202+00`), and every one has `last_activity` between 12:05:35Z and
+12:06:05Z. The previous chassis (`v1.0.1358`) started **12:06:47Z**. So the roll killed six
+in-flight council runs plus one `generic-process`, they sat in `EXECUTING_STEP` for four hours,
+and a stale sweep marked them FAILED. This is the known "a roll KILLS an in-flight council"
+shape — what is new is what it leaves behind, below.
+
+**Two of the seven belong to other lanes and are still orphaned** (checked their `fix_plan`
+bodies): `45ae3ad3` is a `seed_analytics_default.go` submission, and `f0ad8366` is
+`portfolio_positioning`'s **migration 734** round 2. Both had drawn a REVISE in round 1 and both
+resubmissions were killed. Three of the seven (`8745ad9e`, `63be72d1`, `76288ff9`) do have later
+completed runs, so those lanes are covered.
+
+### MISSTEP AVOIDED, and the trap is worth more than the fix: AWAITING reads as *queued*, for ever
+
+I nearly wrote this session off as "Phase 1 is submitted, `098` will credit it when the verdict
+lands". It never would. `098`'s `db_decision` reads **only** `diagnosis_artifacts`; it never looks
+at `orchestration_states`. A commit carrying `Council-Submitted:` for a **dead** run is bucketed
+`AWAITING` and annotated **`no report yet (queued, or evidence cleared)`** — a string that says
+*still coming*. There is no elapsed-time bound and no status join, so it says that for ever.
+
+The discriminator is one query and nothing runs it automatically:
+```sql
+SELECT current_step, status, last_activity FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = '<corr>';
+```
+`FAILED` there, with no `council_report`, means **resubmit** — not wait. Written up in
+`LANDMINES.md` (footprint `098_REPORT_unreviewed_commits_v1.sh`, `Council-Submitted`,
+`orchestration_states`).
+
+**Resubmitted Phase 1: new correlation `adfa4d03-67a8-419f-bc22-d0ef125f94ee`** (dry run first —
+admission passed free). The submission JSON was unchanged and still accurate; the code it describes
+is now live rather than pending, which is a fact for the reader, not a change to the plan.
+
+### An advisory objection checked rather than accepted, and it does not hold
+
+Phase 5's editquality seat objected (medium) that the reachability guard "treats the tag
+`editorial` as canonicalising to `editorial-publication` for counting purposes, inflating the
+reachable-site count (5 sites on `editorial` vs 1 on `editorial-publication`)… asserted, not
+verified against the actual classifier/matcher behaviour".
+
+**It is verified, in the matcher, and the objection is refuted:**
+
+- `canonicalTag` maps it explicitly — `fork_theme_composition.go:146`,
+  `case "editorial", "publication", "magazine", "editorial-content": return "editorial-publication"`.
+- **Both sides go through it**: site terms at `:227` (`siteTerms := canonicalSet(append([]string{category}, industryTags...))`)
+  and layout tags at `:278` (`layoutTags := canonicalSet(lr.tags)`).
+- The seeded row carries `editorial-publication` (verified at the live row).
+
+So a site emitting `editorial` genuinely does reach `content-hub-tools`, and the guard's count
+stands. The seat said in its own notes that `layouts`/`site_specs` were outside its schema, so this
+was a flagged blind spot, not a bad read — **the answer was one `grep` the seat could not run.**
+The other objections (partial `--section-*` check; no positive assertion that the CSS covers
+`faq-item` / `featured-article__*` / `category-listing`) are **real and unanswered**; they are
+verify-block gaps, not defects in the seeded row, and they belong to the Phase 4 work.
+
+### The peer retraction, verified rather than taken on trust
+
+`portfolio_positioning` retracted migration 734: its register step's `query_database` used `$1`
+with no `params` array, so every classifier run after 11:39Z failed with
+`expected 1 arguments, got 0`. They rolled that step back and kept the `input_fields` half.
+
+Checked both halves myself at the live row rather than accepting it:
+- `input_fields` = `["input_data","search_results","scraped_data","site_specs","layout_taxonomy"]`
+  — **`layout_taxonomy` retained**, so the fix for the 87%-unmatchable finding is intact.
+- Step list has `read_layout_taxonomy` and **no register step** — the rollback landed.
+
+⚠ **The consequence for this lane is a corrected boundary, and it invalidates a line in our own
+README.** 11:39Z is NOT a before/after boundary: nothing classified successfully between 11:39Z and
+16:01:39Z, because every attempt died at their broken step. **No classification has yet run with a
+real tag list.** Our README said "that went live at 11:39" — corrected there in place.
+
+### What the roll does NOT yet prove
+
+Zero `resolved_composition` rows have been written since 13:28Z, and
+`count(*) WHERE data->'lineage' ? 'layout_match_score'` is **0 fleet-wide**. `content-hub-tools`
+still has **0** sites. So the handoff's §4 step 2 — *the first post-roll composition must carry
+`layout_match_score`* — is **still owed and still the right test**. The roll is proven at the
+binary; the fit evidence is unproven until a composition runs.
+
+## 2026-09-03 (m) — the canary fired, and the first datum attacks my own metric
+
+**The real before/after boundary is `2026-09-03 16:54:12Z`** — the first classification ever to run
+with the layout tag library rendered. Not 11:39Z (retracted, see (l)). Verified independently at the
+artefact before writing this down, on the one `classify_and_extract` row that exists today
+(`created_at 16:54:07.139237+00`, `llm_call_log`):
+
+| check | result |
+|---|---|
+| tag-list region contains `null` | **false** (was true on every prior run) |
+| prompt contains `content-hub` | **true** — 736's new tags reached the classifier |
+| prompt contains `editorial-guides` | **true** |
+| 735's promise sentence removed | **true** |
+
+So **734's surviving half, 735 and 736 are all proven at the artefact in a single prompt.** Before
+today `llm_call_log` had zero `classify_and_extract` rows for 2026-09-03 — I checked that first,
+because "the migration is verified at the live row" says nothing about whether a run has ever
+exercised it. 735 had been applied-and-unexercised for five hours, exactly as 734 was.
+
+### The result, from `portfolio_positioning`, and it is not the good news it looks like
+
+copyonline emitted **10 tags, 10 of them matchable — 100%**, against the ~13% (28/216) baseline.
+Coverage did exactly what my pre-registered prediction 1 said it would.
+
+**And the tags describe the wrong site.** `marketplace, directory, community-platform, b2b,
+professional-services, content-platform, creative-agency, interactive-platform,
+practitioner-platform, industry-hub`, `category=hub`. Copyonline is positioned as an editorial
+authority on writing commercial copy, with tools; its directory is one page and a marketplace is an
+explicit must-not. **Not one tag says copywriting, editorial, guides or long-form.** So
+`content-hub-tools` will not win it, and the classifier has typed the site the brief exists to
+replace.
+
+### ⚠ This is a disconfirmation of MY work, not only theirs, and I want it recorded as one
+
+Their formulation is the sharp one: **"matchability is not accuracy, and coverage cannot
+distinguish them — a site typed entirely in borrowed vocabulary scores 100%."**
+
+That lands directly on the metric I shipped in Phase 1. `TagCoverage` measures *what fraction of a
+site's emitted tags the chosen layout addresses*. It has no view on whether those tags describe the
+site. So:
+
+- **The weak-fit arm will stay SILENT on copyonline** — high coverage, no signal — even though this
+  is precisely a site the library serves badly. My detector's first live encounter with a
+  mis-typed site is a miss, and it is a miss BY CONSTRUCTION, not by threshold.
+- **The 0.50 threshold cannot be re-derived on post-16:54 data.** Prediction 1 in the handoff says
+  "coverage should rise fleet-wide; if new compositions land inside 38–62% the cut was a 33-site
+  artefact". That test is now **contaminated**: the rise is caused by the classifier being steered
+  toward library vocabulary, so re-deriving the cut on that population is fitting the metric to
+  itself. **Prediction 1 is retired as a threshold test.** What it can still do is flag a *fall*.
+- **A `[MEASURED]` coverage figure after 16:54Z is not comparable to one before it.** Any
+  before/after on this metric must say which side of 16:54:12Z it sits.
+
+**What I am NOT claiming.** n=1. The peer names an alternative I cannot exclude either: copyonline's
+brief leads with its marketplace heritage and its directory, so the classifier may be reading the
+brief correctly and the *brief* may be over-weighting. Testable on the next remake and on a
+re-classification of this one. **One site is not a rate.**
+
+**A risk in my own migration I should have flagged when I wrote it** `[UNMEASURED]`: 735's
+form-over-industry sentence quotes four live library tags as examples (`long-form`, `tool-portal`,
+`content-hub`, `comparison`). MEMORY carries the trap that *a quoted exemplar in a prompt ships
+verbatim*. copyonline emitted none of the four, so there is no evidence of copying yet — but the
+next few classifications are the place to look, and if exemplar tags start appearing at rate, the
+sentence needs rewording to describe the shape without naming instances.
+
+### An unrelated live defect found in the same prompt, contributed rather than filed
+
+The same rendered prompt carries one `<no value>` — the **Pre-Defined Mission** block. The template
+guards on the parent (`{{if .site_specs.specs.mission_brief}}`) and prints a child
+(`{{.site_specs.specs.mission_brief.text}}`); copyonline's `mission_brief` is a rich structured
+object with **no `text` key**. `[MEASURED]` **7 of 23** current `mission_brief` specs lack it. The
+block is load-bearing — migration 464 licenses a regulated business model only when a Pre-Defined
+Mission "is present above and explicitly asks for one" — so on those 7 the licence renders and the
+constraint does not.
+
+`who-owns.py 453` shows that lane six commits deep in exactly this class today, so it is written up
+as a **CONTRIBUTION into `bugs_open/453`**, not a new bug number, and I have not touched the
+template. Their `--template-input-fields` lint cannot catch it: the root `site_specs` **is** in
+`input_fields`, so it is their shape 3 (root present, sub-field absent), decidable only at render.

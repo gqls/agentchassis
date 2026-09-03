@@ -130,3 +130,95 @@ is the first candidate and they have promised to tell me what it does.
 **What is still owed:** the fleet-wide sweep that checks every site's fit daily (it needs the
 shared cron harness first, as you decided), the reusable "is this layout reachable" guard as a
 function rather than a block inside one migration, and reading the two council verdicts.
+
+## 2026-09-03 (later still) — the new build carries the fix, and one thing I told you was wrong
+
+**The measuring fix is now running.** A fresh build of the system went out this afternoon and I
+have confirmed the change is inside it, on both machines that run this service. Until now it was
+written and committed but not actually running anywhere. It is running now.
+
+I want to be precise about what that does and does not mean. It means that **from the next site
+that gets composed**, the system will record how much of that site's own description its chosen
+layout actually addresses, and will raise a note when the answer is poor. It does not mean
+anything has been measured yet, because **no site has been composed since the build went out**.
+So the proof I actually want — the first site whose record carries that number — is still owed. It
+costs nothing to wait for; the next site to be built produces it.
+
+> **CORRECTION to what I wrote earlier today.** Above, I said the other session's fix for the
+> thrown-away tag list "went live at 11:39". **That is not true and I am withdrawing it.** They
+> came back this evening and retracted it themselves: the step they added was broken, every site
+> classification attempted after 11:39 failed outright, and they have rolled that step back. I
+> checked both halves myself rather than take their word for it. The half that matters to us — the
+> classifier finally being shown the real list of layout tags — **is intact and is genuinely in
+> place**. What is not true is that anything has yet been classified using it. Nothing has. So
+> "before and after 11:39" is not a comparison anybody should make, including me.
+
+**On the review of the two pieces of work.** The estate runs an automated review council over
+changes like these. I said last time that two verdicts were outstanding. In fact only one of them
+ever existed.
+
+The new layout was **approved**, first time, with two advisory comments and nothing blocking. One
+of those comments questioned a number I had used — whether the word "editorial" really counts
+towards a layout tagged "editorial-publication" when working out how many sites can reach the new
+layout. **I checked, and it does**: the system treats them as the same word, in a piece of code I
+was able to point at. The reviewer had said itself that it could not see those tables. So the
+count I gave you stands. Two of its other comments are fair and still unanswered, and they belong
+with the remaining piece of guard work.
+
+The review of the **measuring fix** is a different story, and it is worth knowing why. It never
+produced a verdict at all. The run was **killed by the earlier build going out at 12:06** —
+restarting the service kills any review in flight — and then sat there looking busy for four
+hours until a cleanup marked it failed. Six other reviews died in the same moment, two of which
+belong to other people's work and are still stranded.
+
+**The part of that worth your attention is not the lost review, it is what it leaves behind.** Our
+coverage report, the thing that answers "which changes went in without review", reads a dead run
+and a queued run **identically** — both show as "awaiting, no report yet". There is no time limit
+and nothing that checks whether the run is still alive. So a change whose review died reads as
+"review still coming" indefinitely, and nobody is told. I have written that up as a trap for
+everyone, with the one-line check that tells the two apart, and I have resubmitted our own review.
+
+**Nothing about any of this changes which layout any site gets.** That remains true, deliberately.
+
+## 2026-09-03 (night) — the first real test happened, and it went against me
+
+At **16:54 this evening** the system classified a site for the first time with the layout list
+actually in front of it. That is the moment everything today was building towards, and it is the
+honest before/after line — not 11:39, which I withdrew above.
+
+**All three fixes are proven working.** The list is really there, our new layout's words are in it,
+and my corrected wording is in the same prompt. I checked the actual text sent to the AI rather
+than the settings, because the settings had been right and unused for five hours.
+
+**The number looks like a triumph and I do not think it is one.** Before today, of the words the AI
+invented to describe sites, about **13%** matched anything in our library. On this first run with
+the real list, **all ten matched. 100%.**
+
+**But the ten words describe the wrong site.** copyonline is meant to be an authority on writing
+commercial copy, with tools. The words that came back were marketplace, directory, community
+platform, business-to-business, professional services, creative agency, industry hub. Not one of
+them says copywriting, editorial, guides or long-form. It has described the old 2015 site that this
+rebuild exists to replace.
+
+The other session put it better than I can: **being matchable is not the same as being right, and
+the measurement I built cannot tell the two apart.** If you hand the AI a list and ask it to prefer
+words from that list, it will, and the score goes up whether or not the words are true.
+
+**That is a real hit on my own work and I would rather say so plainly.** The thing I built today
+measures how much of a site's own description its layout covers. It has no opinion on whether that
+description is accurate. So on this site — one that our library genuinely serves badly — my new
+alarm will stay quiet, because the words matched. The first live case it met, it missed, and it
+missed by design rather than by a setting I can tune.
+
+It also means the test I registered in advance — "watch whether coverage rises" — is now spoiled.
+Coverage will rise, the rise is real, and it proves nothing about fit. I have retired that test
+rather than quietly reinterpret it later.
+
+**What I am not saying.** This is one site. There is a competing explanation neither of us can rule
+out yet: copyonline's brief itself leads with the old marketplace and the directory, so the AI may
+have read the brief correctly and the brief may be the thing that is off. The next site built will
+tell us. I am not treating one result as a trend.
+
+**Nothing here is broken and nothing needs a decision from you tonight.** No site has moved, the new
+layout still has nobody on it, and the fixes all work. What has changed is that we now know the
+number to watch is not the one I thought.

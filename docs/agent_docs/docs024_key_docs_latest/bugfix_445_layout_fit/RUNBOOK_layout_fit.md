@@ -126,3 +126,71 @@ on 29 of 30 sites** — that agreement is the control; without it the simulation
 `simulate.py` adds a candidate layout and re-scores the fleet, printing who moves.
 ⚠ Re-derive `df`/`N` after appending a layout, or every weight is computed against the old
 library size.
+
+## r10. Is the Go fix in the running fleet? (three instruments, in order, with controls)
+
+The `build provenance` recipe failed here for **two** reasons at once. Do them in this order.
+
+```bash
+# (a) which build, and how old are the pods?
+kubectl -n ai-persona-system get pods -l app=agent-chassis \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[0].image}{"\t"}{.status.startTime}{"\n"}{end}'
+
+# (b) the startup stamp — MATCH THE STRUCTURE, never the phrase
+kubectl -n ai-persona-system logs <pod> --tail=400 2>/dev/null \
+  | grep -oE '"caller":"[a-z-]+/main\.go:[0-9]+","msg":"build provenance","git_commit":"[a-f0-9]{40}"'
+#   then: git merge-base --is-ancestor <your-commit> <that sha>   (+ a control that must NOT be)
+```
+⚠ **`grep 'build provenance'` on the chassis returns a HIT that is not a stamp.** LANDMINES prose
+about build provenance is synced into `doc_notes`, injected into agent prompts, and logged. I got
+back the landmine warning me about this exact trap. The structural pattern above cannot match it.
+⚠ The stamp is a **startup** line: at 3h05m old both replicas had rotated it out. Empty there means
+*out of range*, **not** *unstamped*.
+
+```bash
+# (c) the binary probe — no shelf life. BOTH controls, EVERY replica.
+for lit in <your-new-literal> <another> <must-be-PRESENT-control> <must-be-ABSENT-control>; do
+  kubectl -n ai-persona-system exec <pod> -- grep -ac "$lit" /proc/1/exe
+done
+```
+Measured 2026-09-03 on `v1.0.1359` (both pods): `weak_tag_fit` 1, `layout_match_score` 1,
+`enforceListingItemSources` 2, `zzq_literal_that_cannot_exist_4417` 0. On `v1.0.1358` the first two
+were **0**, which is what makes this a measurement rather than a reading.
+⚠ Never grep the binary for **your commit sha** — only the build's own commit is stamped, so absent
+proves nothing. Ancestry is a git question.
+
+## r11. Did my council submission actually get a verdict — or did the run die?
+
+**`098` cannot tell you this and will say "queued" for ever.** Ask the run, not the report:
+
+```sql
+SELECT orchestration_name, current_step, status, last_activity
+FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+
+SELECT kind, created_at FROM diagnosis_artifacts       -- a verdict exists iff council_report does
+WHERE correlation_id = '<SUBMISSION_CORR>' ORDER BY created_at DESC;
+```
+`FAILED` + no `council_report` ⇒ **resubmit**, do not wait. A `fix_plan` row alone is not a verdict.
+⚠ The bare correlation query is a **jsonb path scan and times out** on this table. Bound it:
+`WHERE updated_at > now() - interval '10 hours' AND owner_agent_type='council-gate'`, then filter.
+
+Reading the verdict itself (the note is a summary; the report has the per-seat objections):
+```sql
+SELECT body FROM doc_notes WHERE categories ? 'council-gate' AND body LIKE '%<corr-prefix>%';
+SELECT body FROM diagnosis_artifacts
+WHERE correlation_id='<corr>' AND kind='council_report' ORDER BY created_at DESC LIMIT 1;
+```
+
+## r12. Answering an "asserted, not verified" objection about tag matching
+
+Seats are told `layouts`/`site_specs` are outside their schema, so they flag tag-vocabulary claims
+they cannot check. The answer is usually one grep, and **both sides must canonicalise**:
+
+```bash
+grep -n "func canonicalTag" -A 25 platform/orchestration/actions/fork_theme_composition.go
+grep -n "siteTerms := canonicalSet\|layoutTags := canonicalSet" platform/orchestration/actions/fork_theme_composition.go
+```
+`editorial|publication|magazine|editorial-content → editorial-publication` (`:146`); site terms
+canonicalised at `:227`, layout tags at `:278`. So a site emitting `editorial` **does** reach a
+layout tagged `editorial-publication`. Checking only one side would have "confirmed" the objection.

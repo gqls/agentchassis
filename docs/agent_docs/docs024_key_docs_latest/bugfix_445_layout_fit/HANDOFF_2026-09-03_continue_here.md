@@ -1,3 +1,12 @@
+> **⚠ SUPERSEDED 2026-09-03 (evening) by `HANDOFF_2026-09-03b_continue_here.md` — in the same
+> directory. Do NOT act on §1 or §3 of this file.** Two of §1's three liveness rows have
+> flipped: the Phase 1 Go fix IS now live (`v1.0.1359`), and the second council verdict §1
+> tells you to read **never existed** (its run was killed by the 12:06Z roll and swept FAILED;
+> resubmitted as `adfa4d03-67a8-419f-bc22-d0ef125f94ee`). §3's pre-registered prediction 1 has
+> been **RETIRED by evidence** — coverage rose to 100% on the first real classification and
+> the tags described the wrong site, so the threshold cannot be re-derived on post-16:54Z
+> data. Kept unedited below as the record of what this lane believed at midday.**
+
 # HANDOFF — bugs_open/445, the layout library gap — 2026-09-03 — continue here
 
 **Read this, then `README_where_we_are.md` (plain prose), then `NOTES_layout_fit.md` (the
