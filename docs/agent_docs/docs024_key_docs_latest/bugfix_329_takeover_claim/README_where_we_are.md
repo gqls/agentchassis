@@ -102,3 +102,46 @@ check in periodically, which is a separate piece of work and I have not smuggled
 **Still to come:** the automated reviewers have the design and have not reported back yet, and the
 fix cannot be confirmed working in production until it is built and rolled out. I will check both
 rather than assume either.
+
+---
+
+**2026-09-03, mid-afternoon — the reviewers sent it back, and they were right to.**
+
+The automated reviewers returned **revise**. Eight of the eleven approved, including the
+architecture reviewer, which settles the question I had been arguing on my own account — that this
+change narrows what the system promises rather than widening it, and so is an ordinary fix rather
+than something needing a full design round. Three objected. I have answered all three and sent it
+back for a second look.
+
+**One of the objections found something I would never have found.** Two reviewers asked the same
+awkward question: I deleted a function, and I had proved that by searching the code and by building
+the whole system successfully — but what would a user of that function look like if it were
+somewhere the compiler cannot see? I went and looked outside the code, and there it was: a row in
+the live database, put there by an earlier change, that names the function I had just deleted as the
+thing responsible for one of the system's states. It is documentation rather than machinery — nothing
+runs because of it — but it is documentation an engineer would trust, and it is now false. I have
+written a small database change to correct it.
+
+The general lesson is sharper than the instance: **"nothing calls this" and "nothing refers to this"
+are different questions**, and deleting something needs the second one answered. A compiler can only
+ever answer the first.
+
+**A second objection I accepted outright rather than defending.** A reviewer pointed out that the
+limit I had disclosed — that a machine genuinely working on a long task can still be judged dead —
+is an incomplete fix of a problem this system has had repeatedly, and that on a page-writing job it
+could silently lose content. That is fair. Leaving it described in a paragraph of my own submission
+is not the same as it being owned by anyone, so I have filed it as its own bug with the mechanism
+worked out, and noted the thing that makes it newly measurable: until this fix, a takeover left no
+permanent trace at all, so nobody could have counted them. Now they can.
+
+**And answering the reviewers turned up a mistake of my own.** A comment I had written claimed the
+save updates two fields on the record in memory. It updates one in memory and the other only in the
+database. It makes no difference to whether the fix works — but it was wrong, and it was sitting in
+the one place someone would go to check.
+
+**On the build you mentioned.** A new chassis did go out, and my fix is **not in it**. I checked
+rather than assumed: the running program states which version of the code it was built from, and my
+change is not an ancestor of it. I also ran a control — an older change that *should* be in there,
+and is — so the answer is a measurement rather than a command that might simply have been failing.
+The fix rides the build after this one. Until then nothing about this behaviour has changed in
+production, and I will not describe it as fixed.
