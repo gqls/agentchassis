@@ -61678,3 +61678,28 @@ a-citation-is-not-a-read, a-quiet-test-passes-when-the-rule-is-gone.
 - **Cost.** None here — the item was filed correctly by accident (priority 5 is right for the
   within-site ordering) — but the corrected mechanism is now in the handoff and NOTES, because
   the next lane to hit a slow queue will otherwise re-derive the wrong lesson.
+
+- **2026-09-03 — bugfix_329_takeover_claim — I appended two landmines, the dispatch script printed
+  "Dispatched 1, 0 failed to publish", and BOTH of mine had been silently skipped.** I wrote the
+  entries with `##` headings and a bare `**footprint:** …` line. The documented format is `###` plus
+  a **bulleted** field — `- **footprint:** …` — and `landmines_lib.FIELD_RE` is
+  `^-\s+\*\*(?P<label>[a-z ]+):\*\*` , so an unbulleted footprint line is not a field at all. The
+  entry then has no footprint and `parse()` **drops it**.
+  ⚠ **Every surface said success.** `landmines-verify-dispatch.sh` ended "Dispatched 1, 0 failed to
+  publish" — a true statement about somebody else's entry. The file looked right. `git` was happy.
+  Only `./scripts/landmines-sync.py --check` said `skipped (no footprint):` — and it says it in a
+  block of routine advisory noise I could easily have scrolled past, having already seen the word
+  "Dispatched".
+  ⚠ **The cost would have been invisible and total:** a landmine that is not in `doc_notes` reaches
+  no council seat, no agent, and no `SessionStart` hook. It would have sat in the file looking
+  filed, and the whole point of an entry is that it finds the next session *before* they have a
+  symptom. **This is the file's own documented failure mode** — the parser comments record that a
+  `##` heading once cost TWO entries their delivery, mine included the same mistake, and I had read
+  that file's rules an hour earlier.
+  **The cheap check, which is the one the guidance already names:** after appending, do not read the
+  dispatch line — read `./scripts/landmines-sync.py --check` for `skipped`, and then confirm at the
+  destination rather than the source: `SELECT subject_key FROM doc_notes WHERE categories ?
+  'landmine' AND body LIKE '%<a phrase unique to your entry>%'` must return one row per footprint.
+  Mine now returns five.
+  Tally: **a success-shaped tool line about somebody else's work read as confirmation of mine** ×1,
+  **format rule read, then not followed, in the file that documents its own silent-skip** ×1.

@@ -20472,3 +20472,89 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **source:** `bugs_open/442` §10f (found while registering **SEO-008**, AFTER the council round
   had been submitted — so that round never weighed it); `bugs_open/320` §15; verified live
   2026-09-03 with the control above
+
+### `UpdateState` on `orchestration_states` IS a version CAS — and two bug files tell you it is not
+
+- **footprint:** `platform/orchestration/state.go` · `UpdateState` · `SetExecutingStep` · `ClearExecutingStep` · `bugs_open/329` · `bugs_closed/294`
+
+**the trap:** you are reasoning about a concurrency defect in `platform/orchestration`, and the two
+documents that describe it — `bugs_open/329` (`[MEASURED 2026-08-19]`) and `bugs_closed/294`, where
+it was used to answer a council guardian objection — both state that the takeover writes are
+**unversioned**: *"ends in `r.UpdateState(...)`, not `UpdateStateWithVersion`"*. It is false.
+`state.go:883-885` is a one-line delegating wrapper and `UpdateState` **is**
+`UpdateStateWithVersion`. Believing it costs you a fix: 329's candidate (2), "version the write
+instead", was a **no-op** that would have changed nothing, and it sat there for fifteen days.
+
+**the check:** when an argument turns on *which* function is called, **open it** — a one-line
+delegating wrapper is exactly where a name stops describing behaviour, and it is invisible to the
+grep that found the call site. Then ask what question the guard you found actually answers: "has
+this row changed since I read it?" (a version CAS around a write) is **not** "does this row still
+satisfy the condition I decided on?" (a check-then-act across two reads). Corrected in both files
+2026-09-03; the real defect and its fix are `WFA-025` / commit `b55f837ef`.
+
+### A `sync.WaitGroup` start-line test on the orchestration takeover arms shows the BROKEN code PASSING
+
+- **footprint:** `platform/orchestration/coordinator.go` · `handleOrchestrationStatus` · `StuckOrchestrationTimeout` · `ClaimStaleOrchestration` · `platform/orchestration/stale_takeover_claim_test.go`
+
+**the trap:** you want to prove the takeover race, so you start two goroutines against one stale
+orchestration from a common start line — the canonical way to test a race. **Exactly simultaneous
+takers never double-executed**, even before the fix: both writes go through the version CAS and the
+loser's fails, so the arm returns an error. Your test goes green on unfixed code and you conclude
+the bug is not real, or that your fix is unnecessary. The disconfirming case is the **SEQUENTIAL
+interleaving** — taker A wins and refreshes `last_activity`; taker B arrives seconds later still
+holding a stale snapshot and re-judges nothing.
+
+**⚠ and there are THREE guards in series, so the locus matters as much as the interleaving:**
+(i) the chassis intake serialisation claim (`ClaimSerialisationKey`, keyed on the orchestration_id,
+`agent-chassis` **only** — `intake.go` refuses the mode when `a.spawned`); (ii) the arms themselves;
+(iii) per-path CASes below, e.g. the work-item claim in `claim_work_item_action.go`. **A test on the
+dispatch path passes with the fix reverted**, because (iii) absorbs it independently.
+
+**the check:** test at `handleOrchestrationStatus` directly — below (i), above (iii) — with sqlmock,
+which fails on any unexpected statement, so the expectation list IS the span's complete DB traffic
+and there is no other guard in it to pass on your behalf. And run the test against unfixed HEAD
+first: `scripts/verify-head-builds.sh --with <your test> --test ./platform/orchestration/`. If it
+does not go red there, it is not testing what you think.
+
+### A jsonb absence filter written with `jsonb_typeof` returns ZERO rows, and zero reads as a finding
+
+- **footprint:** `jsonb_typeof` · `jsonb_each` · `input_schema` · `content_components` · `agent_definitions.default_config` · `collected_data` · any census counting rows where a jsonb key is ABSENT · `NOT (jsonb_typeof(x->'a'->'b') = 'c')`
+
+**the trap:** you are counting how many rows do NOT carry some nested jsonb shape — the ordinary
+census this estate runs constantly. You write the discriminator the way you'd say it out loud:
+
+```sql
+COALESCE(jsonb_typeof(def->'items'->'properties')='object', false) AS legacy   -- correct
+       (jsonb_typeof(def->'items'->'properties')='object')         AS legacy   -- silently fatal
+...
+WHERE NOT legacy
+```
+
+On a row where the path is **absent**, `->` yields SQL NULL, `jsonb_typeof(NULL)` is NULL, the
+comparison is **NULL** — and `WHERE NOT NULL` is NULL, which `WHERE` discards. So **every row you
+were trying to count is dropped, and the query returns 0 with no error, no warning and no empty-set
+complaint.** Measured 2026-09-03 on the per-item declaration census: the same intent over the same
+data returned **43** components written one way and **0** the other. Zero is the answer that reads
+as a discovery — I briefly believed the flat convention did not exist in the library at all.
+
+**⚠ why it is worse than an ordinary bug: the failing direction is the one you are asking about.**
+The rows that HAVE the shape compare cleanly (`'object' = 'object'` → true) and survive. Only the
+absent ones go NULL. So a query that counts *presence* is correct and a query that counts *absence*
+is empty — and the two sit side by side in the same `SELECT`, one of them right, which makes the
+result look internally consistent. A count of 0 alongside a healthy non-zero sibling does not look
+like an instrument fault.
+
+**the check:** use the containment operator, not the type function, for any ABSENCE test —
+`def->'items' ? 'properties'` returns **false** for a missing key and never NULL, so `NOT` behaves.
+Where you must keep `jsonb_typeof`, wrap it: `COALESCE(jsonb_typeof(...) = 'x', false)`.
+And give the census a row whose answer you already know: run the presence half and the absence half
+in one query and check they **sum to the total**. Here `43 + 5 = 48` of 57 with a shape at all —
+the arithmetic is what exposes a NULL-eaten branch, because a dropped-row bug still returns a
+plausible-looking number on its own.
+
+**relations:** WRONG_CALLS 2026-09-03 (`sql-three-valued-logic-silently-dropped-every-row`) ·
+`bugs_open/361` (the lane that hit it) · CGV-030's per-item verify-later, whose figures it nearly
+falsified · MEMORY [[measurement-discipline-index]] — *a measurement that cannot come out false*,
+of which this is the mechanical rather than the conceptual form. A peer lane's equivalent query
+survived by **operator choice, not care** (`?` reads better than `jsonb_typeof`), so do not assume
+existing census SQL in the repo is deliberate about this.

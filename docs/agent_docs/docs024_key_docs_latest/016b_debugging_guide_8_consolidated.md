@@ -7236,6 +7236,47 @@ See `/bugs_closed/README.md`.
 > "indexed to 099" marker; until someone does that, **§9 above is the current part of
 > this document and this table is an archive of the first 99.**
 
+### A concurrency guard can be PRESENT and answering a different question — and the obvious test then shows the BROKEN code passing (2026-09-03, `bugs_open/329`)
+
+**The symptom shape:** a code path that "has no lock" and demonstrably races, where the lock turns
+out to have been there all along.
+
+`bugs_open/329` and `bugs_closed/294` both stated, marked `[MEASURED]`, that the orchestration
+takeover arms write through *"`r.UpdateState(...)`, **not** `UpdateStateWithVersion`"* — i.e. no
+compare-and-swap. `state.go:883-885` is a one-line delegating wrapper: `UpdateState` **is**
+`UpdateStateWithVersion`. The CAS was always present. It stood for fifteen days and produced a fix
+candidate that was a **no-op**.
+
+**The actual defect was a CHECK-THEN-ACT ACROSS TWO READS:** the caller judged a predicate
+("this row is stale") on its **snapshot**, and the guarded write that followed did its **own fresh
+read** → mutate → CAS which **never re-tested that predicate**. Every write was properly versioned
+and two actors still both proceeded, because each CAS-ed against the version it had just read. The
+guard was doing exactly its job — "has this row changed since *I* read it?" — which is a different
+question from "is this row still stale?".
+
+**⚠ THE TEST THAT LOOKS OBVIOUS IS INVERTED, and this is the transferable half.** Exactly
+**simultaneous** actors never double-executed: the loser's CAS failed and its caller returned the
+error. So a `sync.WaitGroup` start-line test — the canonical way to test a race — **shows the broken
+code passing**. The disconfirming case is the **sequential interleaving**: actor A wins and refreshes
+the field the predicate reads; actor B arrives seconds later still holding a stale snapshot.
+
+**What to do instead of adding a lock:** move the predicate INSIDE the guarded write, so judging and
+claiming are one step. Then the winner's write invalidates every other actor's judgement, and no new
+lock, column or mechanism is needed.
+
+**The checks, in the order they are cheap:**
+1. **When a claim turns on "it calls X, not Y", open X.** A one-line delegating wrapper is exactly
+   where a name stops describing behaviour, and it is invisible to the grep that found the call.
+2. **Ask what question the guard you found actually answers.** "Has this row changed since I read
+   it?" and "does this row still satisfy the condition I decided on?" are different, and only the
+   second is closed by a version CAS around the write.
+3. **Before writing a concurrency test, work out which interleaving is disconfirming.** If the
+   simultaneous case is absorbed by an existing guard, a start-line test is worse than none — it is
+   a green light on unfixed code.
+4. **Count the guards in SERIES before believing any green.** 329 had three (an intake serialisation
+   claim above, the defect, per-path CASes below); a test run on the path with the third guard passes
+   with the fix reverted. Pick a locus with nothing behind it and say why it has none.
+
 ### A confident claim in our own knowledge base is not evidence (2026-07-19)
 
 **Symptom.** A review, a plan or a debugging session is stopped by a stated
