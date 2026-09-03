@@ -903,3 +903,56 @@ sanctioned lever to force re-composition is `recompose_pages` on the `needs_site
 `spec` (migration 385; `v3_site_actions.go:7892`) — **but the briefing agent creates that item, so
 it cannot be pre-set from here.** Note `v3_site_actions.go:4455` warns the redesign can silently
 no-op if the planner re-emits the realised composition anyway.
+
+## 2026-09-03, ~15:40Z — the re-plan RAN. Rule 20 worked; validate_site_plan deleted its output. Root cause found: bugs_open/463
+
+**Chain completed while my watcher was blind** (see the watcher note below). `needs_briefing`
+claimed 13:42:43Z → complete 13:43:52Z; `needs_site_plan` claimed 14:12:27Z → complete 14:15:59Z;
+pages/imagery/rerender all complete by 15:02:57Z. New plan **`005fb393`** (14:15:25Z).
+
+**`site_plan_pages` for the new plan: FOUR pages, zero articles — the same as before.** My first
+reading was "rule 20 did not fire". **That was wrong, and I checked before reporting it.**
+
+**Rule 20 DID fire and the planner obeyed it.** `llm_call_log` `00fe50c7`, 14:15:16Z: rule 20
+present in `prompt_rendered` (grep count 1), and `strategy_notes` says *"Five launch articles are
+planned as blog-post pages, each on a real subject drawn from the editorial programme's four
+strands"*. No deferral language. It proposed `article-sign-off-problem`, `article-gdd-abandonment`,
+`article-design-engineering-handoff`, `article-narrative-design-pipeline`,
+`article-principal-transition` — with real games named in the section subjects (Hades, Slay the
+Spire, Dead Cells, Baldur's Gate 3, Divinity: Original Sin 2, Cyberpunk 2077, Elden Ring, Disco
+Elysium, The Witcher 3, God of War Ragnarök, Horizon Forbidden West), each grounded in what a
+player can observe, as the evidence rules require.
+
+**`plan_site` = 9 pages. `validate_plan` = 4.** Silently — `capability_gaps_emitted: 0`, no
+`agent_error_log` row, orchestration COMPLETED. Root cause read in the code: **Pass C**
+(`v3_site_actions.go:7599`) drops an LLM page whose `slugOf` matches a realised section stem, and
+BOTH `slugOf` (`:6467`) and `sectionStemOf` (`:6447`) reduce to **the first path segment** — so
+`/articles/the-sign-off-problem.html` and the hub `/articles/index.html` both yield `articles`, and
+a legitimate child is indistinguishable from a flat collider. Invisible since 2026-05-21 because
+`Pass A: union` restores **realised** pages afterwards; a NEW child has nothing to restore it.
+**Filed as `bugs_open/463`.** Interlocks with 444's gate: Pass C drops the children, the gate then
+holds the childless hub — two guards in series.
+
+**TWO of my own measurement errors today, both caught before they were reported, both worth the
+same lesson: I asked a question I had encoded rather than the one I meant.**
+
+1. **"Rule 20 did not fire."** I read `site_plan_pages` (4 rows) and was about to report a failed
+   fix to two lanes building on it. The planner's raw output said the opposite. **Read the step
+   boundary, not the end state** — `plan_site` vs `validate_plan` page counts are one query and
+   they localise the defect exactly.
+2. **"Three sites have zero children in their plans."** My census filtered
+   `url NOT LIKE '%/index.html'`, and the surviving children use the DIRECTORY form
+   `/guides/<slug>/index.html`. **My predicate excluded every one of them** and produced a clean
+   fleet-wide zero that would have inverted the diagnosis. Fixed by LISTING mortgagecalculator's
+   plan rows and looking at them. Recorded in 463 §3.
+
+**And a third, about my own instrument.** After the first monitor timed out I re-armed it with a
+"better" query carrying a fleet-wide `GROUP BY` for queue position. That query consistently
+exceeded the 60 s timeout, so the watcher was **blind from 13:01Z to 13:57Z** — exactly the window
+the chain ran in. It reported `WATCHER BLIND` every 4–5 minutes only because I had added an
+explicit consecutive-failure counter; without it, `|| true` + `2>/dev/null` would have rendered the
+failures as "no change". **Making a watcher smarter made it blind. Keep the probe cheap, and make
+silence prove itself.**
+
+**Where the site stands:** still four pages, still no articles. Nothing further this lane can do
+about the articles until 463 is fixed — a fourth re-plan would be deleted by the same pass.
