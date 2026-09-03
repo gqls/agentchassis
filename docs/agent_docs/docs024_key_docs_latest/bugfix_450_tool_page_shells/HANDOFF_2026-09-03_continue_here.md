@@ -81,6 +81,62 @@ recognise as one of its own planned sections, and drops the `component_id`.** Th
 pages names `hero-tool` and `generic-text-block`; the tool slot is not in it, so the save carries
 the bytes forward without the reference.
 
+### MECHANISM — verified in code 2026-09-03, so this is no longer a question
+
+`save_page_sections_action.go:1036-1041` takes `componentIDPtr` from **`section.ComponentID` in the
+payload it is handed**; the insert at `:1124-1127` writes whatever that is:
+
+```go
+var componentIDPtr *uuid.UUID
+if section.ComponentID != "" { if parsed, err := uuid.Parse(section.ComponentID); err == nil { componentIDPtr = &parsed } }
+...
+INSERT INTO page_components (..., rendered_html_digest, slot_name, component_id, ...)
+VALUES ($1,$2,$3, md5($3), $4, $5, ...)
+```
+
+**The reference is CARRIED, never resolved from the database at insert time.** So any preservation
+path that keeps an unrecognised slot's HTML without also carrying its `ComponentID` nulls the
+reference — which is why the bytes survived and the link did not. **The fix therefore probably
+belongs in whatever assembles the section list, not in the insert.** (Found by the
+`portfolio_positioning` lane; verified here at the lines.)
+
+Note in passing: `rendered_html_digest` is `md5($3)` on this path, so it is always set here — a
+NULL digest elsewhere comes from a different writer. That matters for §1's repair guard, below.
+
+### FLEET SCOPE `[MEASURED 2026-09-03 ~14:0xZ]` — 20 orphaned rows across 7 sites, and it is NOT tool-specific
+
+`page_components` rows with `component_id IS NULL` and `build_status <> 'removed'`:
+
+| kind | rows | where |
+|---|---|---|
+| **tool slots** | **8** | seotools ×6 (**REPAIRED 14:01:10Z** by the portfolio lane), `idea.uk/tool-funding-fit`, `loanzy.uk/tool-loan-vs-savings` |
+| blog-index listings | 8 | boxingonline `articles-index` ×6, finetuning `blog`, ai-agent-orchestration `blog` |
+| content sections | 3 | finetuning `our-position-on-ai` |
+| **a 25,901-byte `game` slot** | 1 | `gamesdesign.co.uk/game-jelly-invaders` |
+
+**Both remaining tool pages are SERVING REAL TOOLS** — probed at the body: `idea.uk/tools/funding-fit/`
+**2 forms / 40 inputs / 8 scripts**; `loanzy.uk/tools/loan-vs-savings/` **0 forms / 7 inputs /
+1 select / 6 scripts**. So they are over-reported as shells by this lane's census exactly as the six
+were, and they are one rerender from losing their tools. **They are the outstanding repair.**
+
+⚠ **The `game` slot is the one to look at hardest.** 25,901 bytes with no reference, on a page type
+this lane never considered — evidence the class is about *any* plan omitting a slot another
+producer inserted, not about tools.
+
+### THE REPAIR, and one trap already paid for
+
+The portfolio lane's shape, which worked: a **guarded** `UPDATE` that refuses unless the expected
+number of orphans exist and each maps to exactly one active component via **`cc.function =
+pc.slot_name`** (the acceptance coupling), with each row's `md5(rendered_html)` and length
+snapshotted to a temp table **before** and compared **after**. Result `UPDATE 6`, bytes untouched,
+no rerender needed because the served bytes were already correct.
+
+> ⚠ **DO NOT assert digest integrity across a POPULATION.** Their first verify block used
+> `rendered_html_digest IS DISTINCT FROM md5(rendered_html)` and refused with "the repair altered
+> bytes" — falsely. `IS DISTINCT FROM` convicts a NULL digest, and **a NULL digest is a normal
+> state: 206 of 3,220 rows fleet-wide, of which only 34 genuinely mismatch.** Compare the rows you
+> actually touch, before against after — not the population.
+
 First moves:
 
 ```bash
@@ -199,8 +255,13 @@ read 0 forms / 0 inputs / 0 selects, which is a much stronger signal than 0 form
 
 Not reworked here — flagged as an open item. Whoever touches it: the sound version probably keys on
 interactive controls generally (`<input>`, `<select>`, `<button>` beyond the mobile-menu toggle,
-and script count) with a known-real tool as an in-run control, and should carry the two zero-form
+and script count) with a known-real tool as an in-run control, and should carry the zero-form
 tools as fixtures so the new probe is proved against the case that broke the old one.
+
+**A named fixture, measured here 2026-09-03:** `loanzy.uk/tools/loan-vs-savings/` serves a working
+tool at **0 forms / 7 inputs / 1 select / 6 scripts**. Independent second confirmation of the
+portfolio lane's finding, from a different site. `idea.uk/tools/funding-fit/` is the positive
+control at 2 forms / 40 inputs / 8 scripts.
 
 ## §6 Traps this lane paid for — read before touching anything
 
