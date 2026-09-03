@@ -638,3 +638,162 @@ it.
 **Read `bugs_open/443` before touching that file:** a different defect in `create_blog_posts`
 (it writes `pages.sections`, the cache, and never `site_plan_sections`, the authority). 460 says
 not to conflate them.
+
+## 13. Status update, 2026-09-03 (session "428") — the residual is FIXED IN THE FRAMEWORK, not in the prompt
+
+The CONTRIB and its addendum above leave this bug at a precise point: 687's "name your reason"
+obligation is met, and **the reason it produces is not checked against anything**. That is now
+closed by code rather than by more prompt text. Committed `eee40b554`, `91173c6d7`, `8739b1ad2`;
+council correlation `ee84dfb6-2574-4744-8f06-18eed91fea49`; register **BLD-030**. **Inert until a
+chassis roll** — it is unconditional in code, so there is no key to arm.
+
+### 13.1 What was actually wrong, stated once in plain terms
+
+`strategy_notes` **has no reader**. `grep -rn 'strategy_notes' platform/ --include=*.go` returns
+nothing outside tests; `write_site_plan_action.go:618` inserts `site_plans` with
+`(site_id, source_agent, created_by)` so `site_plans.notes` is never written; and
+`ValidateSitePlanAction` never read `recommended_page_types` at all. So 687 obliged the planner to
+justify itself into a channel with no consumer. A false justification and a true one were the same
+artefact.
+
+### 13.2 The fix, and the one design decision that matters
+
+`platform/orchestration/actions/recommended_type_reconciliation.go` runs at the end of
+`ValidateSitePlanAction` and enforces one invariant: **a page_type the strategy recommended either
+appears in the final plan, or a durable record names the stage that removed it.**
+
+It reads **three** snapshots of the page set — the planner's own output before any pass, the set
+before the two source gates, and the final set — because a recommended type can be missing for
+three different reasons that are indistinguishable from the output alone:
+
+| class | meaning | artefact |
+|---|---|---|
+| `planner_omitted` | the planner never proposed it | warning finding + parked gap, **unless** its named producer is running |
+| `dropped_in_validation` | the planner proposed it and this action deleted it | warning finding + parked gap, `builder_needed=plan_page_identity` |
+| `held_by_gate` | a source gate held it | info finding only — the gate already filed its own gap |
+
+**A deferral is not automatically a defect, and that arm is the discriminating control.** The
+planner keeps the licensed final say 687 preserved. What is checked is whether the mechanism it
+NAMED is running. A deferral to a live producer files nothing and is recorded `info`. Without that,
+the check would fire on every deferral and the queue would be worth nothing.
+
+### 13.3 The measurement that reshaped the design, verified first-hand before I built on it
+
+Reported by the `gamedesign.uk` lane and re-verified here at the orchestration row
+(`9fe9660e-7272-4f51-b968-2ff769738086`) rather than accepted on report:
+
+| | |
+|---|---|
+| `collected_data->'plan_site'->'result'->'pages'` length | **9** |
+| `collected_data->'validate_plan'->'pages'` length | **4** |
+| page_types the planner emitted | `blog-post, content, index, section-index` |
+| page_types after validation | `content, index, section-index` |
+| `capability_gaps_emitted` | **0**, no `agent_error_log` row, no error |
+
+**The planner did its job and validation deleted the output.** A check reading only this action's
+OUTPUT would have reported "blog-post planned" and seen nothing wrong. That is why the pre-pass
+snapshot exists. The Pass C identity collision behind it is **`bugs_open/463`** (filed by the
+gamedesign.uk lane, `bc1cb0ca2`) — **this is the detector for its whole class, not its fix**, and it
+deliberately says WHICH STAGE and never WHICH PASS, so it does not go stale when the passes are
+renumbered and is not wrong for a future drop in the same stage.
+
+### 13.4 Liveness: the instrument choice is the load-bearing part
+
+Read from `agent_run_stats` — upserted at every orchestration start on the resolved type, and **not
+pruned**. The two rolling windows both misled sessions on this exact question within one week:
+`orchestration_states` spans ~24 h, and `site_work_items` archives closed rows (all 14 of
+`blog-content-planner`'s driver items are archive-only, so the live table "proves" it never ran).
+`llm_call_log` reaches back further but has a live `cleanup_old_llm_logs` function in `pg_proc`, so
+an all-history read from it can silently become a windowed one — flagged by the `designblog.co.uk`
+lane and taken.
+
+⚠ **`agent_run_stats` is FORWARD-ONLY.** `[MEASURED 2026-09-03]` its tracking began 2026-08-02, and
+`blog-content-planner`'s real last run was 2026-04-24 — **before tracking**. So it has no row, and
+"no row" cannot support "never ran". The verdict is therefore `never_since_tracking`, and every
+finding carries `liveness_tracking_since` so no reader can quietly upgrade the claim.
+
+### 13.5 The stated blind spot, COUNTED rather than admitted
+
+The check is TYPE-level. On an established site, Pass A's union restores realised pages, so a type
+keeps its presence even when new children of it were dropped — and the check goes quiet. **That
+asymmetry is why `bugs_open/463` hid from 2026-05-21**: a site with existing children looks healthy,
+and only a site with none showed it. Raised by the gamedesign.uk lane against the first commit.
+
+Not converted into a per-page rule — the preserve/union machinery legitimately reshapes page sets
+every re-plan, so per-page would be noise. Instead the shrink is recorded as
+`present_but_fewer_pages` on the always-written audit row, per type, proposed vs final.
+**An admitted blind spot that is not counted is an unmeasurable one.**
+
+### 13.6 The parked rows are the FIRST record verdicts with no route — and that found a live defect
+
+They are RFC_056 `filing_mode='record'` (so no promoter can dispatch them, per §4's ruling) and
+carry **no** `routed_handler`/`routed_status`, deliberately: there is no automatic repair for "your
+strategy asked for a page type you have none of", so `HandleReleaseRecordVerdict` refuses them **by
+construction** rather than by intention.
+
+That exposed a real defect in the surface §9 built: the **Review & Release** button was shown for
+every `filing_mode='record'` row, while the endpoint's WHERE clause requires both routed fields
+non-empty. All 13 of IMP-056's original verdicts happen to carry `routed_handler='page-build-handler'`,
+so **nothing had ever exercised the other path**. Without the fix these rows would have shown a green
+button that always 404s. Now shows "record only — no automatic route". Verified by BUILDING the
+frontend (docker, throwaway tag, image deleted) and grepping the served bundle with a must-be-present
+and a must-be-absent control — not by reading braces.
+
+### 13.7 The `090` run: UNVERIFIABLE, and what I substituted, per the 2026-07-31 ruling
+
+Filed before asserting the structural claim (intake `df18bcbc`, run `e2e35519-c12d-468f-a198-107d0d940002`).
+**Verdict: NOT CONFIRMED, stopped by iteration-cap** — the same failure mode as `d6d350ec` on this
+same bug. It did not refute anything; it ran out of iterations, and it confirmed one citation
+directly supporting the claim (`write_site_plan_action.go`'s three-column INSERT, quoted verbatim in
+its trail).
+
+It named exactly three things it lacked. **All three are now verified first-hand, and this is the
+declared substitution the ruling permits:**
+
+1. *"the actual prompt text that supposedly OBLIGES the LLM to name every omitted entry"* — pulled
+   the LIVE `prompt_template` and read it: line 223 carries 687's sentence verbatim.
+2. *"the FULL response_text of `7b3bffdd`, including its pages[] array"* — parsed it: 4 pages,
+   page_types `content, index, section-index`; zero `blog-post`, zero `blog-index`.
+3. *"whether validate_plan runs with `enforce_listing_sources=true` for build-site-planner"* —
+   pulled the live step config: `enforce_listing_sources: true`, and `enforce_tool_sources` **absent**
+   (450's gate is not armed). **This was a good catch by the loop**: its bundle showed
+   `page-build-handler`'s step config, not `build-site-planner`'s, and it refused to link them by
+   name-match.
+
+### 13.8 What is left
+
+- [ ] **Read the council verdict** on `ee84dfb6` and act on a REVISE/REJECTED — the code is already
+  on the shared branch, so this is owed, not optional.
+- [ ] **Apply migration 748 AFTER a chassis carrying `eee40b554` rolls**, then `--record-only` it.
+  Not before: it would ask the planner to emit a field nothing reads, which is this bug's own defect
+  one migration along.
+- [ ] **First live evidence.** After the roll, read
+  `SELECT error_code, count(*) FROM agent_error_log WHERE error_code LIKE 'RECOMMENDED_TYPE_%' GROUP BY 1;`
+  ⚠ A zero on the omission codes with a non-zero `RECOMMENDED_TYPE_RECONCILED` means *"plans are
+  clean"*; a zero on ALL of them means *"the check has not run"* — that is what the audit row is for.
+  ⚠⚠ **AND THE `dropped_in_validation` BUCKET HAS A DEADLINE ON IT, flagged 2026-09-03 by the `463`
+  lane, who are fixing its producer.** Once their Pass C narrowing rolls, `dropped_in_validation` for
+  a `blog-post` under a section prefix **should go to zero** — which is the fix working, and which
+  will look identical to this detector having stopped firing. **Take the baseline BEFORE the next
+  chassis roll, or the two are indistinguishable.** The demand control is the audit row: a run with
+  `RECOMMENDED_TYPE_RECONCILED` present and no `_DROPPED_IN_VALIDATION` is a clean plan; no rows at
+  all is a check that did not run. Do not read a post-fix zero as either without it.
+- [ ] **Phase 2, not started and not this lane's call alone:** rule 20 in migrations 730/731
+  hand-dates `blog-content-planner`'s dormancy in prompt text. The liveness read now computes that
+  fact, so the literal could be replaced by the instrument. The `designblog.co.uk` lane owns rule 20
+  and has agreed in principle; **do not edit it without them**, and note both 730_ROLLBACK and
+  731_ROLLBACK anchor on current text and will refuse afterwards.
+- [ ] **Still not this lane's:** `bugs_open/463` (the Pass C fix — offered to the gamedesign.uk lane,
+  who surfaced it to their user rather than accepting; treat as UNOWNED), `bugs_open/460` (why the
+  producer stopped), `bugs_open/206`'s data-coverage gap, and §6 candidate 2 as originally worded.
+- [ ] **OWNER RULING PENDING A SEQUENCING CALL, routed here 2026-09-03 by the `site_delivery_and_editor`
+  lane: "guides should be a type of their own."** Recorded, NOT started, and deliberately not folded
+  into this bug. The additive half (a `guide` page_type, inert until named) touches the planner's
+  canonical page-type table, `normalisePageType`, `builderForPageType` — where the honest first entry
+  is probably NO builder — and `IsSectionIndexRole`. **Re-typing the existing 167 guide pages on 20
+  sites is a different, architecture-scope change** (2026-07-29 ruling §1) because it changes what
+  every blog and guide listing resolves. Two facts from that lane: boxingonline already serves a
+  working guides index without the type existing, via a per-site fork of `content-listing` on
+  `query.pages_where_type:guide` (fork `b475fe54`), which becomes redundant the day the type lands;
+  and **BLD-030 is now a consumer** — a new type that strategies may not recommend would read as
+  never-planned everywhere, so the two must be sequenced together.

@@ -21390,3 +21390,69 @@ END $$;
   as a caller — a third way to be one too many.
 - **source:** `bugs_closed/464` §7.1 (a bug whose entire content was a population, filed on an
   unaudited grep and wrong in BOTH directions); `WRONG_CALLS.md` 2026-09-03
+
+### `agent_run_stats` is FORWARD-ONLY and started counting on 2026-08-02 — "no row" means "not since we began", NEVER "never ran", and the estate's most-cited dormant agent is on the wrong side of that line
+
+- **footprint:** `agent_run_stats`, `diagnose_dormant_agents_action.go`, `dormantGatherNeverRun`,
+  `platform/discovery/agent_discovery.go`, `readProducerLiveness`,
+  `recommended_type_reconciliation.go`, any "has agent X ever run / is X dormant / which agents are
+  unused" question
+- **fires when:** you reach for `agent_run_stats` **because it is the right table** — and it is.
+  It is the instrument this estate correctly recommends over the two rolling windows
+  (`orchestration_states` ~24 h; `site_work_items`, which archives closed rows out from under you),
+  and `diagnose_dormant_agents_action.go`'s own header says so in as many words. Being right about
+  the table is exactly what makes the next step feel safe.
+- **the tell:** none. A missing row and a never-run agent return the same empty result, and the
+  stronger claim is the more useful one, so it is the one that gets written down.
+  `[MEASURED 2026-09-03]` the table's whole tracking window is `min(first_ran_at)` =
+  **2026-08-02** (`build-site-planner`'s first recorded run) — about a month. **`blog-content-planner`,
+  the producer three open bugs discuss as dormant, last ran 2026-04-24, four months BEFORE tracking
+  began.** It therefore has no row for a reason that has nothing to do with dormancy, and a query
+  that reads "never ran" from that is right by accident today and would be wrong the moment the
+  agent had run in, say, September 2026 but not since.
+- **the check:** never select the agent alone — select the WINDOW in the same statement, so the
+  answer cannot be quoted without it:
+  ```sql
+  SELECT s.run_count, s.last_ran_at, t.tracking_since
+  FROM (SELECT min(first_ran_at) AS tracking_since FROM agent_run_stats) t
+  LEFT JOIN agent_run_stats s ON s.agent_type = '<agent>';
+  ```
+  A one-row aggregate on the left of the LEFT JOIN also separates the two zeros: `tracking_since`
+  non-null with `run_count` null is "not since we began"; both null is "the table is empty", which
+  is a different and much worse problem. Then say `never_since_tracking`, not `never ran` — and if
+  you need all-history, `llm_call_log` reaches back to 2026-03-25, **but it has a live
+  `cleanup_old_llm_logs()` in `pg_proc`, so an all-history read from it can silently become a
+  windowed one.** There is no instrument here that is both complete and safe; state which one you
+  used and what it can see.
+- **source:** `bugs_open/428` §13.4; `bugs_open/460` (the dormancy itself); BLD-030
+
+### A `filing_mode='record'` verdict with no `routed_handler` shows a green "Review & Release" button that ALWAYS 404s — and every row that existed when the button was built happens to have one
+
+- **footprint:** `write_audit_findings_action.go`, `recordOnlyFinding`, `filing_mode`,
+  `spec.routed_handler`, `spec.routed_status`, `spec.release_recipe`,
+  `HandleReleaseRecordVerdict`, `internal/core-manager/admin/site_admin_handlers.go`,
+  `frontends/admin-dashboard/src/App.tsx`, `site_work_items` rows with `status='deferred'`
+- **fires when:** you file a NEW record-mode verdict (RFC_056 / IMP-056) for a finding that has no
+  automatic repair — a gap, an absence, an opinion about a site's shape — and reasonably leave the
+  routing fields off, because there is nothing to route to.
+- **the tell:** none in the row, and the UI actively lies. `HandleReleaseRecordVerdict`'s WHERE
+  clause requires `COALESCE(spec->>'routed_handler','') <> '' AND COALESCE(spec->>'routed_status','') <> ''`,
+  so a routeless row can never be released — correct, and by construction. But the dashboard used
+  to render the Release button on `status='deferred' && spec.filing_mode === 'record'` alone, so the
+  operator got a green button that returned 404 with a message listing four possible causes.
+  **The path had never been exercised: all 13 of IMP-056's original verdicts carry
+  `routed_handler='page-build-handler'`** (`[MEASURED 2026-09-02]`), so the button was correct for
+  every row in existence and wrong for the first new shape to arrive.
+- **the check:** decide the question explicitly when you file — *is there a real handler that would
+  repair this if a human said yes?* If YES, set both `routed_handler` and `routed_status` and the
+  release path works. If NO, leave both absent **deliberately**, say so in the spec (a
+  `not_dispatchable` string that explains it), and confirm the UI does not offer the button:
+  ```sql
+  SELECT id, spec->>'filing_mode', spec->>'routed_handler', spec->>'routed_status'
+  FROM site_work_items WHERE status='deferred' AND spec->>'filing_mode'='record';
+  ```
+  Any row with a filing_mode of `record` and an empty routed_handler must show
+  "record only — no automatic route", not a button. **Do not add a route just to make the button
+  work** — that dispatches a repair nobody chose, which is the `bugs_closed/238` shape RFC_056
+  exists to prevent.
+- **source:** `bugs_open/428` §13.6; IMP-056; BLD-030

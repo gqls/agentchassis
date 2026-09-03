@@ -63432,3 +63432,26 @@ your-measurement-answers-the-question-you-encoded.
 
 Family: who-owns-is-blind-to-uncommitted-sessions, a-closer-census-cannot-see-what-it-succeeded-at,
 your-action-moves-you-to-the-back-of-the-selector, a-count-of-things-must-carry-the-date-it-was-counted.
+
+- **2026-09-03 — bugfix_329_takeover_claim, on `bugs_open/233` — a bug file's banner blocked the
+  owner's key rotation for FIFTEEN DAYS after its own blocker was closed, and nothing in the file
+  could ever have said so.** 233 (B2 keys logged in plaintext) carries a prominent banner: *"STILL
+  LEAKING: `render-audit-adapter`, which runs `browser-runner-adapter:v1.0.1194` … pinned since the
+  pod was created"*, and an explicit instruction to the owner — **roll that service BEFORE rotating
+  the keys**, because a rotation would otherwise write the NEW key into that pod's log. The pin's
+  root cause was `bugs_open/237`. **`237` was closed 2026-08-19**; the service was unfrozen 08-10 and
+  the class fix shipped 08-17. Verified today: it runs `v1.0.1359`, and the binary probe says leak
+  string ABSENT / fix string PRESENT / control PRESENT.
+  ⚠ **The banner was accurate when written and became a false instruction by someone else's fix.**
+  Nobody edited it because nobody who fixed 237 was reading 233 — the dependency points one way, from
+  the blocked file to the blocker, and closing a blocker does not walk back up it.
+  ⚠ **The cost is not confusion, it is INACTION.** A stale "wait for X" line makes the correct action
+  look premature, so it does not get done and nothing ever surfaces as wrong. Fifteen days of a
+  plaintext-emitted credential staying live because a file said to wait. Second recorded instance of
+  this class (`a-closed-blocker-keeps-being-obeyed`, the first cost 20 days).
+  **The cheap check, and it belongs to whoever CLOSES a bug, not whoever waits on it:**
+  `grep -rln "bugs_open/<the number you just closed>" bugs_open/ docs/` before closing — every hit is
+  a file whose instructions may now be wrong. It takes seconds and it is the only direction the
+  dependency can be walked.
+  Tally: **a-closed-blocker-keeps-being-obeyed** ×2, **a stale banner caused INACTION rather than a
+  wrong action** ×1.

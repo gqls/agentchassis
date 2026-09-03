@@ -127,3 +127,66 @@ someone runs `make admin-dashboard`. Logged as a near-miss in
 `docs024_key_docs_latest/WRONG_CALLS.md` (2026-09-02, "committed... stood in
 for usable"). **This file is not being kept as the live status record going
 forward — bugs_open/428 §10/§11 is; read there.**
+
+---
+
+## 7. Phase 2, 2026-09-03 (session "428") — the residual, fixed in the framework rather than the prompt
+
+Picked up by a fresh session after `gap planner` went idle. §4 above asked a follow-up question
+("sample the next N calls and check whether strategy_notes now names the specific page_type
+per-omission"). The `gamedesign.uk` lane answered it before this session started: **yes, 687 works**
+— all 6 `plan_site` calls since it landed named every omitted type. And the answer exposed the next
+rung, which is what this phase fixes.
+
+### 7.1 The decision, and what it turns on
+
+687 made the planner's obligation *specific*. It could not make it *true*, because
+**`strategy_notes` has no reader** — no Go source reads it, `site_plans.notes` is never written, and
+`validate_site_plan` never read `recommended_page_types` at all. So the obligation was discharged
+into a channel with no consumer and a false reason cost nothing.
+
+Two options were on the table and only one of them survives §9's own reasoning:
+
+- **Tighten the prompt again** (a third pass at wording). Rejected: it is the same move that
+  produced this residual. More prose into an unread channel is more of the defect.
+- **Give the channel a reader.** Taken. The framework now computes the omission set itself and
+  never trusts the planner's account of it.
+
+### 7.2 The design decision that matters, and why it is not the obvious one
+
+The obvious check compares `recommended_page_types` against the plan. **That check would have been
+silent on the case that motivated it.** `[MEASURED 2026-09-03]` gamedesign.uk's re-plan: the planner
+emitted 9 pages including five `blog-post` pages, and `validate_site_plan` returned 4 with
+`blog-post` gone — so a comparison against this action's OUTPUT reports "planned" and sees nothing.
+
+So the reconciliation reads **three** snapshots and classifies by WHICH STAGE removed the type:
+`planner_omitted`, `dropped_in_validation`, `held_by_gate`. Three findings, three owners, where
+before there was one silence.
+
+**Corollary decision, recorded because it constrains any future edit:** the classifier names the
+STAGE and never the PASS. Naming Pass C would go stale the moment the passes are renumbered, and
+would be wrong for a future drop in the same stage. The `463` lane, who own the Pass C fix,
+independently agreed this is the right boundary and said they would have got it wrong.
+
+### 7.3 The second decision: a deferral is not automatically a defect
+
+The check fires only when the mechanism the planner NAMED is not running. A deferral to a live
+producer files nothing. Without that arm the check would fire on every deferral — including every
+correct one — and a queue that cries wolf is one nobody reads. It is also the arm that keeps the
+licensed final say 687 deliberately preserved: the planner may still decline a type; it may not
+decline it by citing something that has stopped.
+
+### 7.4 What was NOT built, and why each is a decision rather than an omission
+
+- **No `validate_site_plan` hard failure.** §1's reasoning stands unchanged; this does not reverse it.
+- **No fix for Pass C.** That is `bugs_open/463`. Offered to the gamedesign.uk lane, who surfaced it
+  to their user rather than accepting; the `463` lane has since taken it. This lane built the
+  detector for its class only.
+- **No automatic dispatch.** The rows are RFC_056 record verdicts. §3's refusal is intact.
+- **No tenth optional config key.** `validate_site_plan` has nine and no `ActionInputSpec`, so a
+  tenth is invisible to WFA-013's budget. Ships armed with an env kill switch instead.
+- **No per-page rule.** The type-level blind spot is COUNTED (`present_but_fewer_pages`) rather than
+  closed, because the preserve/union machinery legitimately reshapes page sets every re-plan.
+- **The `guide` page_type owner ruling is NOT started.** Routed here 2026-09-03; recorded in
+  `bugs_open/428` §13.8 as needing an owner sequencing call, because BLD-030 is now a consumer of the
+  page-type vocabulary and the two must move together.

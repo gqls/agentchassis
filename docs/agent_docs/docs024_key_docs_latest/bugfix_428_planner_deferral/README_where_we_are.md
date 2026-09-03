@@ -58,3 +58,60 @@ reported success.
 So: the release surface is fully live, front and back. Nobody has actually used
 it on a real flagged item yet — that's still a genuine human decision, not a
 code task, same as before.
+
+---
+
+2026-09-03. A new session picked this back up. The short version: the fix we shipped last time
+worked, and working is exactly how we found the next problem.
+
+Last time we told the site planner that if it decides not to build a page type the strategy asked
+for, it has to name that type and give a real reason. It now does that, every time. But nobody had
+ever checked whether the reasons were TRUE — and it turned out our system had no way to. The
+planner writes its reasoning into a notes field that literally nothing in the code ever reads. So a
+good reason and a made-up one were the same thing to us.
+
+The made-up one duly turned up. On one site the planner said the articles would be "satisfied by the
+blog infrastructure". There is a piece of software by that description, it is real, and it stopped
+running on 24 April and nobody noticed for four months. So the site shipped with no articles and a
+tidy explanation.
+
+What I have built is a check that does the reading. After the planner finishes, the system now
+compares what the strategy asked for against what the plan actually contains, and writes down
+anything missing along with which step lost it.
+
+The part I did not expect, and the reason this took the shape it did: another session found that
+sometimes the planner does its job and WE throw the work away. On one site the planner produced nine
+pages including five real articles, and our own validation step silently deleted five of them and
+kept four. No error, no warning, nothing recorded. It had been doing that since May, and it was
+invisible because on an established site the deleted pages get restored a moment later — only a
+brand-new site shows the loss.
+
+That changed my design. The check now looks at the pages three times — what the planner proposed,
+what survived our processing, and what came out the end — so "the planner didn't want it", "we
+deleted it" and "we deliberately held it back" are three different, separately recorded things
+instead of one shared silence. Before this, all three looked identical from the outside, which is
+why nobody caught any of them.
+
+One thing I was careful about: this does not tell the planner off for every decision. If it declines
+a page type and points at some other mechanism, the system now checks whether that mechanism is
+actually running. If it is, that is a sound decision and nothing is flagged. Only a promise pointing
+at something that has stopped gets recorded. A warning system that cries wolf is one people learn to
+ignore.
+
+There is also a small honesty fix to the admin page. The "Review & Release" button was being offered
+on every flagged item, but for the new kind of item there is nothing to release — they are notes for
+a person, not repairs waiting for a yes. Clicking would have failed with a confusing error. It now
+says "record only — no automatic route" instead. That was only visible because I built the page and
+looked at it rather than reasoning about the code.
+
+Nothing here is live yet: it needs the next routine rebuild of the system, which happens on its own
+schedule. The database part is written but deliberately NOT switched on, because switching it on
+early would ask the planner to fill in a field that nothing reads — which is the exact mistake this
+whole ticket is about.
+
+One decision I need from you when you have a moment. Somebody passed on your ruling that guides
+should be their own page type. I have written it down and NOT started it, because there are really
+two jobs in there: adding the type (cheap, changes nothing on its own) and re-labelling the 167
+guide pages already live across 20 sites (not cheap — it changes what every blog and guide listing
+on those sites resolves to). The second one wants a proper review. Tell me whether you want the
+cheap half now or both together, and I will sequence it.

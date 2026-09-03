@@ -89,3 +89,66 @@ than trusting the migration's own `COMMIT` as proof.
 All three pieces submitted to council review and committed with
 `Council-Submitted:` trailers (not yet resolved as of this note — check the bug
 file's status section for current verdicts).
+
+---
+
+2026-09-03, session "428". Resumed the lane. `who-owns.py 428` said OWNED/active but only on the
+filing sessions' own commits; `ListAgents` showed `gap planner` idle with an away-summary. Messaged
+five lanes before touching anything (`gap planner`, `bugs_open/427`, `gamedesign.uk`,
+`designblog.co.uk`, `bugs_open/450`) and all five confirmed clean working copies on
+`v3_site_actions.go`, `listing_item_sources.go`, `tool_item_sources.go` and the planner prompt row.
+That was worth doing: two of the five came back with findings that changed the design.
+
+**Found migration 687 was NOT in `schema_migrations`** — only `agent_definitions_bak_687` and the
+live prompt text proved it had been applied. Verified both, then `--record-only`'d it. A ledger gap
+on an applied file is one scoped `--apply` away from a replay.
+
+**The finding that reshaped the whole phase came from the `gamedesign.uk` lane, and I verified it
+first-hand before building on it rather than accepting the report.** They reported that
+`validate_site_plan` silently drops new children of a section index. Re-read at the orchestration
+row (`9fe9660e-7272-4f51-b968-2ff769738086`): `plan_site` 9 pages, `validate_plan` 4, `blog-post`
+present in the LLM's page_types and absent from the validated ones, `capability_gaps_emitted` 0.
+Also confirmed `site_specs` IS in `collected_data` at validate time (4 recommended types) — which
+the check needed and which I would otherwise have had to assume.
+
+**Consequence: I had the design wrong before that message.** My first shape compared
+`recommended_page_types` against the validated plan — one snapshot. That check is SILENT on
+gamedesign's case, because the type WAS planned. Three snapshots, not one, and the pre-pass snapshot
+must sit before Pass A's union as well as Pass C (their caution; verified — it is taken immediately
+after the pages array is parsed, ~70 lines before `reconcilePlanWithRealised`).
+
+**Two missteps of my own, both logged in `WRONG_CALLS.md`:**
+
+1. A mutation that "failed" only because it stopped compiling. Deleting the
+   `omissionDroppedInValidation` case left the constant unreferenced; `go test` printed `FAIL` for
+   the package and I was one step from recording a kill. No test ran. Re-ran as `case false:`,
+   which compiles and kills exactly one test. **Check for `--- FAIL: Test` lines, not for `FAIL`.**
+2. I wrote the mutation protocol from the mutations' INTENT before running them, predicted one
+   failure for the `Live()` mutation and measured three. Corrected the prediction rather than
+   narrowing the tests — the two extra failures are the honest ones.
+
+**`090` run: UNVERIFIABLE, stopped by iteration-cap** (run `e2e35519`), the same failure mode as
+`d6d350ec` on this bug. It refuted nothing and confirmed one citation supporting the claim. It named
+three things it lacked; all three are now verified first-hand and the substitution is declared in
+`bugs_open/428` §13.7 per the 2026-07-31 ruling. Worth recording that its third gap was a **good
+methodological catch** — its bundle showed `page-build-handler`'s step config rather than
+`build-site-planner`'s, and it refused to link them by name-match.
+
+**The frontend defect was found by building the thing, not by reasoning about it.** The Review &
+Release button renders on `filing_mode==='record'` alone, while the endpoint requires
+`routed_handler` and `routed_status`. My rows are the first record verdicts with no route, so the
+button would have 404'd. Fixed, and verified by running `make build-dashboard` under a throwaway tag
+and grepping the served bundle with a must-be-present and a must-be-absent control, then deleting
+the image. No `node`/`npm` in this environment, but docker is there, which the earlier session's
+"could only verify by careful manual read" note did not consider.
+
+**Migration 748 held, not applied**, and rehearsed apply→rollback in one doomed transaction: md5
+`369ec3eb…` → `581f9766…` → `369ec3eb…`, byte-exact. Both guards INDUCED rather than assumed (double
+apply raises "already applied"; a deliberately damaged rule 20 raises "730/731 damaged"). Live row
+re-read afterwards: unchanged.
+
+**Owner ruling arrived mid-session from the `site_delivery_and_editor` lane — "guides should be a
+type of their own"** — after two lanes had misrouted it. Recorded, not started, and deliberately not
+folded into this bug: the additive half is inert but BLD-030 is now a consumer of the page-type
+vocabulary, so a new type nothing may recommend would read as never-planned everywhere. Needs an
+owner sequencing call.
