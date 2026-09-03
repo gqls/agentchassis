@@ -191,3 +191,12 @@ lane never touched). First background attempt gated on `go build`, which passes 
 are broken, so its three FAILs were void, not evidence — re-run gated on `go vet`. Recorded
 because "the gate I chose could not see the failure I cared about" is this estate's most-repeated
 error, and I made it again in the checking apparatus rather than in the claim.
+
+**RESOLVED, same session** `[MEASURED 2026-09-03]`. The `go vet` re-run named above was ALSO the
+wrong gate — it fails on any lint finding anywhere in the package (`unreachable code` in a third
+lane's file), so it could never open. Correct gate: `go test ./pkg -run ZzzNoSuchTestZzz`, which
+builds the test binary and runs nothing (exit 0 iff the test files compile). With it: baseline
+**ok** → mutation B **`--- FAIL: TestUnknownReasonProducesNoRoutingKey`** → reverted **ok**, 0
+mutation lines remaining. The hardened tests are mutation-proved, not merely passing. Both wrong
+gates are logged in WRONG_CALLS 2026-09-03 — one too weak to see the failure, one too strong to
+see the success.
