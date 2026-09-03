@@ -1,0 +1,76 @@
+{
+  "submitter": "bugfix_451_457_433_unowned_queue lane",
+  "rationale": "bugs_open/433. [MEASURED 2026-09-03] assets.mime_type is empty on 1,023 of 1,418 rows, and\nthe writer census answers the question the bug file left open as candidate 3: TWO writers account\nfor all of it \u2014 StoreAssetAction (957 rows) and recordDerivedAsset (66). The 389 rows that DO carry\na type all come from derive_card_asset, which encodes its own JPEG and so could state it truthfully.\n\nTHE DESIGN QUESTION THE BUG FILE NEVER ASKED, answered here because it decides everything else: a\nrow describes TWO artefacts and the columns already split cleanly. assets.url and assets.filename\nare written by deploy_image_asset and describe the DEPLOYED artefact; only storage_path describes\nthe source object in B2. So mime_type describes the artefact at assets.url, and the writer that\npublishes the bytes is the one that records what they are. A consequence to accept and state\nplainly: a row stored but never deployed keeps NULL, so the fleet number will NOT reach zero, and\nany claim that it should is wrong.\n\nA CLAIM OF MINE WAS REFUTED BEFORE THIS SHIPPED AND IT CHANGED THE DESIGN. I had argued\nprocessed.ContentType was truthful by construction, because DownloadOptimizeAndPrepare derives it\nfrom the same extension that selects png.Encode vs jpeg.Encode. Both readings were correct and the\nconclusion was false: DownloadAndOptimizeImage returns the ORIGINAL, un-re-encoded bytes when\noptimisation fails (it logs \"Optimization failed, using original\"), and the content type was derived\nfrom the PURPOSE rather than from the bytes. Propagating that would have filled ~1,000 empty rows\nwith a confidently wrong value \u2014 strictly worse than the empty column, because empty is honest and\ngreppable whereas wrong looks repaired and can only be disproved by re-reading every object. That is\nthe 417/420 lane's stated objection to the bug file's own candidate 2, and it was right.\n\nWHY THERE IS NO FALLBACK, and this is the single most load-bearing decision in the change. Every\ndefect this bug documents began as a plausible default. mimeFromKey's `default: return \"image/png\"`\ncarries the comment \"PNG is the safest fallback\". uploadImage's key extension and Content-Type are\nunconditional literals. GetImageConfig silently falls back to its `default` purpose. So\nSniffImageExtAndMIME returns (\"\",\"\") for anything it does not recognise, and the callers write NULL.\nAn empty answer is a question someone can find; a confident wrong one is not.\n\nWHY A DISAGREEMENT IS LOGGED AND NOT REFUSED. Refusing when the bytes disagree with the purpose's\nextension is the tidier invariant and it would take sites down: nothing in this repo registers a\nwebp decoder, yet image/webp is a possible provider response, so such an image is committed under a\n.png name today and browsers sniff it. Turning that into a hard failure removes a site's logo to fix\na metadata field. Publish what we have; say plainly that the name and the bytes disagree.\n\nTHE GATE MEASUREMENT, run first because it could have vetoed the whole semantics:\nTestEveryImagePurposeEncodesToItsDeclaredExtension feeds every purpose in ImagePurposes the OPPOSITE\nformat and asserts the output's magic bytes match the extension it deploys under. It passes for\nevery purpose today, which is what licenses reading a deployed artefact's format from its purpose at\nall. The 417/420 lane's \"extension is a lie\" finding is about the SOURCE object, where nothing\nre-encodes; conflating the two is the one mistake that would make a backfill wrong, so this test\nexists rather than an assertion.\n\nDELIBERATELY NOT IN THIS CHANGE: (a) the object-level lie \u2014 uploadImage names every generated object\n.png and uploads it as image/png while 12 of 12 measured logo objects are JPEG. That has a LIVE\nconsumer, which the bug file and I both initially missed: referenceFetcher derives a reference\nimage's MIME from the key extension (fetchS3) or from B2's response header (fetchHTTP) and feeds it\nstraight into Gemini's inlineData part. So it is a correctness fix with a named consumer, not\nhousekeeping, and it deserves its own change and its own tests \u2014 including that sniffing in the\nfetcher retro-fixes every existing mislabelled object with no re-upload. (b) Any backfill: the\ndeployed half is sizeable (806 rows carry a deployed url) but 40 of those have purposes not in\nImagePurposes (illustration 32, infographic 7, one empty) where GetImageConfig falls through to\n`default` silently \u2014 so a purpose-derived backfill would guess on the strength of a fallback. That\nneeds an enumerated predicate and a byte spot-check, separately.",
+  "plan": {
+    "summary": "One no-fallback byte-sniff helper in platform/storage; the deployer's content type becomes byte-derived; all four asset writers record mime_type or explicit NULL; a ban-shaped ratchet keeps the fifth writer honest.",
+    "edits": [
+      {
+        "file": "platform/storage/image_format.go",
+        "symbol": "SniffImageExtAndMIME, ImageExtAndMIME",
+        "operation": "add",
+        "rationale": "One place that answers what format the bytes are, for three call sites that each had their own answer. Magic bytes rather than image.DecodeConfig: Go's image registry is process-global and populated by whichever blank imports the linked binary pulls in, so a decode-based answer would differ between binaries; magic bytes are deterministic and testable against fixed slices. NO FALLBACK \u2014 unrecognised returns empty. Recognises webp deliberately even though nothing here can decode one: the point is to be able to SAY what was stored.",
+        "sketch": "png 89504E470D0A1A0A; jpeg FFD8FF; gif GIF87a/GIF89a; RIFF....WEBP; default ('','')"
+      },
+      {
+        "file": "platform/storage/image_processing.go",
+        "symbol": "DownloadOptimizeAndPrepare",
+        "operation": "modify",
+        "rationale": "ContentType now comes from the bytes about to be published, not from the purpose. This is the line that was wrong on the DownloadAndOptimizeImage fallback path, and its value is what deploy_image_asset writes into the column. A disagreement with the purpose's extension is logged at Warn, not refused \u2014 see the rationale on webp.",
+        "sketch": "if ext, mime := SniffImageExtAndMIME(data); mime != \"\" { contentType = mime; if ext != extension { logger.Warn(...) } } else { contentType = \"\"; logger.Warn(...) }"
+      },
+      {
+        "file": "platform/orchestration/actions/deploy_image_asset_action.go",
+        "symbol": "DeployImageAssetAction",
+        "operation": "modify",
+        "rationale": "Records mime_type in the same UPDATE that already writes filename and url, from processed.ContentType which it already held and only logged. NULLIF so an unidentifiable image records NULL. No lock guard added, deliberately: asset_lock_guard_test.go records why this writer is outside that population \u2014 it publishes bytes the row already points at, and mime_type describes those same bytes.",
+        "sketch": "SET ... filename = $2, url = $3, mime_type = NULLIF($4, '') WHERE id = $1"
+      },
+      {
+        "file": "platform/orchestration/actions/derive_card_asset_action.go",
+        "symbol": "(card upsert)",
+        "operation": "modify",
+        "rationale": "Two defects. The literal 'image/jpeg' is replaced by a sniff of the bytes this action itself encoded \u2014 value-identical today, drift-proof after. And the DO UPDATE SET omitted mime_type entirely, so an upsert onto a row born at StoreAssetAction refreshed every other column and left the type stale or empty forever.",
+        "sketch": "_, cardMIME := storage.SniffImageExtAndMIME(cardBytes); VALUES ... NULLIF($10,'') ...; DO UPDATE SET ... mime_type = EXCLUDED.mime_type"
+      },
+      {
+        "file": "platform/orchestration/actions/derive_brand_head_assets_action.go",
+        "symbol": "recordDerivedAsset",
+        "operation": "modify",
+        "rationale": "Takes a mimeType parameter, captured from the PNG bytes each caller just encoded. This is the one writer where a literal would have been true (encodePNG produces them); sniffing anyway is what makes all four writers obey ONE rule rather than three plus an exception, and it survives someone changing the encoder.",
+        "sketch": "var faviconMIME, ogCardMIME string; set from SniffImageExtAndMIME inside each guard block; INSERT gains mime_type NULLIF($5,''), DO UPDATE SET carries it"
+      },
+      {
+        "file": "platform/orchestration/actions/v3_site_actions.go",
+        "symbol": "StoreAssetAction",
+        "operation": "modify",
+        "rationale": "Explicit NULL at birth (this action stores the SOURCE object and never reads its bytes, so it cannot honestly say what they are), and mime_type = NULL in the DO UPDATE SET. That second half is the non-obvious one: the upsert resets url to a fresh presigned source url on every regeneration while any existing mime_type describes the previously DEPLOYED artefact, so keeping it leaves the row asserting a type for bytes it no longer points at. Clearing is part of the invariant, not an omission from it.",
+        "sketch": "column lists gain mime_type with a NULL value; DO UPDATE SET gains mime_type = NULL"
+      },
+      {
+        "file": "platform/orchestration/actions/asset_mime_writer_test.go",
+        "symbol": "(new file)",
+        "operation": "add",
+        "rationale": "BAN-shaped, not baseline-shaped: after this change every writer complies, so the exemption map is EMPTY and the fifth writer must declare itself. It asserts COLUMN-LIST MEMBERSHIP, never value non-NULL-ness \u2014 a source scanner cannot judge that, and a NULL written by a writer that sniffed and failed is exactly right. It reads the STATEMENT, never a line window, because this package logs zap.String(mime_type, ...) near several of these writes; a window scan is the mistake that cleared the one page_components writer actually violating its rule earlier the same day. Carries the empty-set trap guard and a synthetic-fixture mutation test.",
+        "sketch": "TestEveryAssetsWriterThatSetsURLAlsoSetsMimeType + TestAssetsWriterMimeRuleFiresOnASyntheticWriter"
+      },
+      {
+        "file": "platform/storage/image_format_test.go",
+        "symbol": "(new file)",
+        "operation": "add",
+        "rationale": "Every assertion runs against REALLY ENCODED bytes, in the shape of keyground_test.go's IHDR colour-type test \u2014 a test comparing string constants would pass just as happily against the literals this change removes. Includes TestEveryImagePurposeEncodesToItsDeclaredExtension, the gate on the whole deployed-artefact semantics, and TestSniffImageExtAndMIMEHasNoConfidentDefault, whose killing mutation is adding any default arm.",
+        "sketch": "png/jpeg/gif encoded in-test; opposite-format round trip per purpose; nil/short/html inputs must return empty"
+      }
+    ],
+    "grounded_in": [
+      "[MEASURED 2026-09-03 ~16:0xZ] SELECT coalesce(nullif(mime_type,''),'(EMPTY)'), count(*) FROM assets GROUP BY 1 -> 1,023 empty / 390 image/jpeg / 5 image/png. Yesterday's figures in the bug file were 910/362/5, so the population is growing.",
+      "[MEASURED 2026-09-03 ~16:0xZ] writer attribution by asset_key shape: card_* (derive_card_asset) 389 rows all populated, none empty; favicon/og_card (recordDerivedAsset) 66 empty + 2 png; everything else (StoreAssetAction path) 957 empty + 3 png + 1 jpeg. Two writers account for all 1,023 empties.",
+      "[MEASURED 2026-09-03 ~16:0xZ] extension-vs-mime cross-tab: png-named + EMPTY 1,013; jpg-named + image/jpeg 390; jpg-named + EMPTY 10; png-named + image/png 5. Rows written at 15:17-15:20Z the same day still carry EMPTY, so the defect is live, not historical.",
+      "platform/storage/image_processing.go DownloadAndOptimizeImage: on optimisation error it logs 'Optimization failed, using original' and returns the ORIGINAL imageData; DownloadOptimizeAndPrepare then derived contentType from GetImageConfig(purpose)'s extension. Those two together are why 'truthful by construction' was false.",
+      "internal/adapters/imagegenerator/dynamic_adapter.go mimeFromKey: switch on the key's suffix with 'default: return image/png', commented as the safest fallback. fetchS3 sets mime from mimeFromKey(key); fetchHTTP prefers the response Content-Type header. Both feed banana/provider.go's ReferenceImage.MimeType and thence Gemini's inlineData \u2014 so the object-level lie has a live consumer.",
+      "417/420 lane measurement, 2026-09-02: first 4 bytes of 12 of 12 asset_key='logo' source objects across 2026-08-10 to 2026-09-02 are ffd8ffe0 (JPEG); none is 89504e47. All stored under a .png key with filename logo.png. So extension, filename and url are all unusable as a backfill source.",
+      "[MEASURED 2026-09-03 16:2xZ] of active rows with no mime_type, 806 carry a deployed /assets/images/ url and 175 do not; within the 806 the purposes include illustration (32), infographic (7) and one empty \u2014 none of which is a key of ImagePurposes, so GetImageConfig falls through to 'default' silently. Hence the backfill needs an enumerated predicate and is not in this change.",
+      "Test-run evidence 2026-09-03: TestEveryImagePurposeEncodesToItsDeclaredExtension passes for every purpose in ImagePurposes (each fed the opposite format and re-encoded to its declared extension). Mutation proof of the ratchet: removing mime_type from deploy_image_asset_action.go's UPDATE makes TestEveryAssetsWriterThatSetsURLAlsoSetsMimeType fail naming that file; restoring it returns the package to green."
+    ],
+    "risks": "(1) DownloadOptimizeAndPrepare's ContentType can now be EMPTY where it was previously always a concrete string. Its only consumer is deploy_image_asset_action.go, which NULLIFs it \u2014 but any future consumer that assumes non-empty would break, and the empty case is reachable in production the moment a format we cannot sniff is deployed. (2) The Warn on extension/format disagreement may be noisy if the DownloadAndOptimizeImage fallback fires often; I have NOT measured how often it does in the live fleet, and that measurement is owed before anyone treats the log line as an alert. (3) StoreAssetAction now CLEARS mime_type on upsert. If any reader ever starts depending on the column between a regeneration and the next deploy, it will see NULL where it previously saw a stale value \u2014 which is the intended semantics but is a behaviour change on a column with one existing reader (HandleListAssets, which passes it through without branching). (4) The ratchet's glob covers one package, so cmd/webdesignport/import.go is outside it; the advisory twin in scripts/pattern-check.py is NOT in this change and is owed. (5) Nothing here changes what is stored in B2 \u2014 the .png-named JPEG objects remain, and the row will now honestly describe the DEPLOYED artefact while storage_path still points at a mislabelled source object."
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "submitter": "bugfix_451_457_433_unowned_queue lane",
+  "rationale": "bugs_open/457. rebuild_blog_listing appended an orphan page_components row on every\nrun and now hard-fails on migration 316's byte-identical guard, which aborts the rerender-pages\nworkflow before create_rerender_items \u2014 so a chrome refresh on boxingonline.com re-renders the three\nsite_components and then creates NONE of its ~18 child page rerenders.\n\nTHE ROOT CAUSE IS ONE LEVEL ABOVE THE INSERT THE BUG FILE BLAMES, and that is what this change fixes.\nfindBlogListingSlot has four exit paths and only ONE (strategy 1) ever queried page_components. The\nother three returned a slot NAME with uuid.Nil, and the caller's test on that nil read it as\n\"this slot is free\". It never meant that \u2014 it meant \"strategy 1 did not fire\". On the motivating page\nthe plan names no listing-class section, so strategy 2b GUESSED generic-text-block (a slot that page\nuses for prose) and the caller appended there, once per run: six rows in two days, all at the\nhard-coded position 3, all component_id NULL, each freezing the listing template of its own birthday\ninto rendered_html. The served page carries 36 cards where 6 belong. Migration 316 did not prevent\nthe accumulation \u2014 all six digests are distinct \u2014 it only reported it, on the first run whose render\nhappened to match a row already present, by failing the whole action.\n\nTHE TRAP THIS SUBMISSION MOST WANTS REVIEWED. The obvious fix is to bind component_id (the id is\nalready in hand \u2014 loadContentListingTemplate selects the template and discards the row id). Doing\nthat ALONE would make things worse: uq_page_components_no_byte_identical_duplicate is\nNULLS NOT DISTINCT, so a row carrying a real component_id no longer collides with the NULL-id rows\nalready there. The loud duplicate-key failure becomes a silent seventh append, and the only\ninstrument currently reporting this defect is removed. So the occupancy check and the component_id\nbinding land in ONE commit, occupancy first in the code path \u2014 and the write decision is taken in Go,\nbefore the write, never by consulting the constraint.\n\nA REFUSAL MUST NOT RETURN AN ERROR, and this constrains the whole design. rebuild_blog_listing is an\nunconditional step of rerender-pages between render_site_components and get_pages, and that workflow\ndeclares no error_step. An error return therefore reproduces the very outage the bug is about. Every\nrefusal logs at Error and returns a result map with rebuilt:false.\n\nWHY 2b AND 3 REFUSE RATHER THAN CREATE. A guessed name is by construction not a listing slot \u2014\nstrategy 1 or 2a would have matched if it were. Measured 2026-09-03 16:2xZ across all four live\nblog-index pages: ai-agent-orchestration.com and leopardessconsulting.co.uk both already hold a\nblog-listing row (1 occupant, so UPDATE), finetuning.uk holds article-grid (strategy 1, UPDATE), and\nboxingonline holds 7 rows in the guessed slot (REFUSE). The insert branch is unreachable on every\nblog-index page on the estate today, so the conservative rule costs nothing now and removes the need\nto defend a judgement about which default is right. Disconfirming result would have been a page with\nzero occupants at its resolved slot; there is none.\n\nA SECOND, LATENT DEFECT FOUND WHILE FIXING THIS, included because it is in the same function.\nloadContentListingTemplate's function='content-listing' lookup with ORDER BY created_at DESC LIMIT 1\nis not unique: measured 2026-09-03 there are TWO active rows \u2014 the shared content-listing (created\n2025-11-28) and content-listing-guides-boxingonline-com (created 2026-09-02). The newest wins, so one\nsite's fork is currently every site's blog-listing template. They are byte-identical today (same\nmd5), so this is latent rather than live damage. The fix prefers the canonical row (name = function)\nand LOGS the ambiguity rather than refusing \u2014 refusing would stop every site's listing rebuilding\nwhile two forks exist, and RFC_034 makes N forks per function the intended future.\n\nNOT DONE, deliberately: no unique index on page_components(page_id, slot_name). LANDMINES records\nthat it would break 11 legitimate pages where a slot repeats. And the six existing orphan rows are\nnot touched \u2014 paid customer site; the code fix plus one rebuild is the right instrument, and the\nper-row identities have been handed to site_delivery_and_editor.",
+  "plan": {
+    "summary": "Make every findBlogListingSlot exit path report occupancy, decide the write in Go from (origin, occupants), bind component_id, derive position from the plan, and make refusals non-fatal.",
+    "edits": [
+      {
+        "file": "platform/orchestration/actions/rebuild_blog_listing_action.go",
+        "symbol": "blogSlotOrigin, blogListingSlot",
+        "operation": "add",
+        "rationale": "The caller needs to know HOW a slot name was resolved, because that is what licenses writing there \u2014 not the presence of a component id. OccupancyKnown exists so a failed lookup cannot read as an empty slot.",
+        "sketch": "type blogSlotOrigin int; const (None|ExistingRow|PlanListing|PlanFallback|Default); type blogListingSlot{Name, Origin, Existing uuid.UUID, Occupants int, PlanPos int, OccupancyKnown bool}"
+      },
+      {
+        "file": "platform/orchestration/actions/rebuild_blog_listing_action.go",
+        "symbol": "blogListingSlotOccupancy",
+        "operation": "add",
+        "rationale": "One single-row lookup, run on EVERY exit path \u2014 the fix. Uses the shared pageComponentNotRemovedSQL, deliberately WIDER than migration 316's NULL-blind partial predicate, so a row the index cannot see is still counted and the error direction is refusal, never an append. Existing is set only when Occupants==1, never a silently picked first row of several.",
+        "sketch": "SELECT count(*), COALESCE((array_agg(id ORDER BY position, id))[1]::text,'') FROM page_components WHERE page_id=$1 AND slot_name=$2 AND <notRemoved>"
+      },
+      {
+        "file": "platform/orchestration/actions/rebuild_blog_listing_action.go",
+        "symbol": "findBlogListingSlot",
+        "operation": "modify",
+        "rationale": "Returns blogListingSlot instead of (string, uuid.UUID). Strategy 2a now records the plan index so position stops being a literal; 2b and 3 are still resolved so a refusal can NAME the slot it declined. Strategy 1's probe gains the not-removed filter it lacked.",
+        "sketch": "resolve := func(name, origin, planPos) blogListingSlot { occupancy; on error leave OccupancyKnown false }"
+      },
+      {
+        "file": "platform/orchestration/actions/rebuild_blog_listing_action.go",
+        "symbol": "decideBlogListingWrite",
+        "operation": "add",
+        "rationale": "Pure, so the whole table \u2014 especially the cases that must NEVER write \u2014 is testable with no database. It never consults migration 316; the decision is taken before the write, which is what stops the NULLS NOT DISTINCT trap.",
+        "sketch": "!OccupancyKnown->refuseUnknown; >1->refuseAmbiguous; ==1->update; PlanListing->insert; ExistingRow->refuseUnknown (row vanished mid-flight); default->refuseNoSlotAuthority"
+      },
+      {
+        "file": "platform/orchestration/actions/rebuild_blog_listing_action.go",
+        "symbol": "RebuildBlogListingAction",
+        "operation": "modify",
+        "rationale": "Branch on the decision, not on a nil id. Refusals log at Error and return a result map \u2014 an error return would abort rerender-pages before create_rerender_items, which IS the reported outage. The INSERT arm binds component_id and the plan-derived position, and a failed insert also degrades to a result rather than aborting the chain.",
+        "sketch": "slot := findBlogListingSlot(...); op, refusal := decideBlogListingWrite(slot); if op not update/insert { log.Error; return result map, nil }"
+      },
+      {
+        "file": "platform/orchestration/actions/rebuild_blog_listing_action.go",
+        "symbol": "loadContentListingTemplate",
+        "operation": "modify",
+        "rationale": "Returns the component id it already had in hand, so a created row is attributable. Prefers the canonical row (name = function) over the newest, because function=content-listing is not unique and ORDER BY created_at DESC was serving one site's fork to every site. uuid.Nil on the built-in default branch \u2014 no row, so no honest id, so NULL.",
+        "sketch": "SELECT html_template, id::text, count(*) OVER () ... ORDER BY (name = function) DESC, created_at ASC LIMIT 1; warn when count>1"
+      },
+      {
+        "file": "platform/orchestration/actions/rebuild_blog_listing_slot_test.go",
+        "symbol": "(new file)",
+        "operation": "add",
+        "rationale": "Eight tests, each with a stated killing mutation. Load-bearing: NeverInsertsWhenTheSlotIsOccupied (the NULLS NOT DISTINCT trap, mutation-proven by disabling the Occupants>1 arm), UpdatesTheSingleOccupantWhateverStrategyNamedTheSlot (the root cause), RefusalPathsReturnNoError (the outage), OccupancyErrorDoesNotReadAsAnEmptySlot (the swallow class), and InsertBindsComponentID which reads the INSERT column list rather than a window around the statement \u2014 a window scan matches the component_id zap log field three lines below and cleared the one file that was actually violating the rule.",
+        "sketch": "pure-function table tests over (origin x occupants); two scoped source assertions"
+      },
+      {
+        "file": "platform/orchestration/actions/page_component_divergence_test.go",
+        "symbol": "TestPageWritersStampDigestInSameStatement",
+        "operation": "modify",
+        "rationale": "Its anchor for the listing INSERT spelled the COLUMN ORDER and the literal position, so it reddened on exactly the change it should be indifferent to. Replaced with a property-shaped anchor that spans the column list without ordering it; the stamp check still enforces the only property that matters. The sibling save_page_sections entry already records this same lesson about its own over-tight predecessor.",
+        "sketch": "anchor spans [^)]* across the column list; stamp md5($5)"
+      }
+    ],
+    "grounded_in": [
+      "rebuild_blog_listing_action.go findBlogListingSlot pre-fix: strategy 1 selects id from page_components and returns (candidate, pcID); strategies 2a/2b/3 each return a name with uuid.Nil and issue no page_components query at all.",
+      "rebuild_blog_listing_action.go pre-fix INSERT arm: INSERT INTO page_components (page_id, slot_name, position, rendered_html, rendered_html_digest, content_data, build_status) VALUES ($1, $2, 3, $3, md5($3), $4::jsonb, deployed) \u2014 no component_id column, position literal 3, unconditional, no existence check.",
+      "316_page_components_no_byte_identical_duplicate.sql: unique index on (page_id, slot_name, md5(content_data::text), md5(rendered_html), component_id) NULLS NOT DISTINCT WHERE build_status <> removed. component_id is IN the key, which is the trap; that file's own blast-radius note already credits this action with the check-then-update-else-insert pattern it only half-implements.",
+      "[MEASURED 2026-09-03 16:2xZ] duplicate (page_id, slot_name, position) rows with component_id IS NULL, fleet-wide: exactly one group \u2014 boxingonline.com /articles/index.html, generic-text-block, position 3, 6 rows, first 2026-08-31 16:29:47, latest 2026-09-02 16:28:02. All six md5(rendered_html) distinct (a49768f2, 2f84ab40, 13ea5fd0, fc99a8b5, 9352d6a2, 5b91bfe5), which is why 316 did not catch the accumulation as it happened.",
+      "[MEASURED 2026-09-03 16:2xZ] occupancy of all four live blog-index active pages by (slot_name, position) with the not-removed predicate: aiao /blog.html blog-listing pos2 1 row; leopardess /blog.html blog-listing pos1 1 row; finetuning.uk /blog.html article-grid pos5 1 row; boxingonline /articles/index.html generic-text-block pos2 1 row AND pos3 6 rows. The insert branch is unreachable on all four.",
+      "[MEASURED 2026-09-03 16:1xZ] the action's own template query returns TWO rows: content-listing-guides-boxingonline-com (2026-09-02 17:14) and content-listing (2025-11-28 13:36), both md5(html_template)=1b957ae35b08d1236e571b10f59f031d \u2014 byte-identical, so latent not live, but ORDER BY created_at DESC selects the per-site fork for every site.",
+      "033_rerender_pages_action.sql: rebuild_blog_listing is inserted at {workflow,steps,rebuild_blog_listing} with next_step get_pages, and render_site_components.next_step plus check_refresh_components.else_step both point at it \u2014 so its failure aborts the run before create_rerender_items.",
+      "Mutation proof run 2026-09-03: replacing the Occupants>1 arm with a disabled condition makes TestBlogListingRefusesToWriteIntoAnOccupiedGuessedSlot and TestBlogListingNeverInsertsWhenTheSlotIsOccupied fail (op becomes insert for plan_listing_slot at 2, 6 and 7 occupants); restoring it returns the package to green."
+    ],
+    "risks": "(1) The refusal is a BEHAVIOUR CHANGE on boxingonline: that page's listing will now never be rebuilt until the six orphan rows are removed, where previously the action attempted a write and failed. Both states leave the listing unrefreshed, but the refusal is silent where the failure was loud, and the discovery check that should file the gap is deliberately NOT in this commit (it needs its own item_type, handler and register entry). Between the two commits the gap is legible only in the action's Error log. (2) Concurrency: the occupancy check is check-then-insert, so two simultaneous rerender-pages runs on one site could both see zero occupants; the second now degrades to a result rather than aborting the chain, but a duplicate row is still possible if their rendered bytes differ. An advisory lock or a 23505 catch would close it and is deliberately not in this change. (3) The canonical-row preference changes which template a site renders with IF the two content-listing rows ever diverge \u2014 today they are byte-identical so this commit alters no stored byte, but it does change which row a future divergence would follow. (4) position now comes from the plan index rather than the literal 3; position is not in migration 316's key so this cannot affect duplicate detection either way, but it does change where a newly created listing renders on the page."
+  }
+}

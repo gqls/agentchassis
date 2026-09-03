@@ -328,3 +328,102 @@ alone.
 lane's machine, so `scripts/probe-page-url.sh` fails its own sibling control and correctly refuses
 to answer rather than reporting damage. If you cannot fetch it either, the served figures above are
 the delivery lane's and the row-level ones are reproducible from the database.
+
+---
+
+## FIX SHIPPED 2026-09-03 (commit `f895616d7`, council `13273c8c`) — and the root cause was one level above the INSERT this file blames
+
+Picked up by the `bugfix_451_457_433_unowned_queue` lane because this bug was unowned for the FIX:
+the components lane filed it and wrote *"Not fixed by me and not touched"*, and
+`site_delivery_and_editor` declined it as a code fix on a paid site. `scripts/who-owns.py` says
+OWNED, but it reads commits — what it sees is two lanes contributing measurements, not working it.
+
+### The root cause is sharper than §"The defect, in one INSERT"
+
+This file blames the INSERT's hard-coded `position 3`, missing `component_id` and lack of an
+existence check. All three are real, and none is the cause. **`findBlogListingSlot` has four exit
+paths and only strategy 1 ever queried `page_components`.** Strategies 2a, 2b and 3 returned a slot
+NAME with `uuid.Nil`, and the caller's `if existingComponentID != uuid.Nil` read that nil as *"this
+slot is free"*. It never meant that — it meant *"strategy 1 did not fire"*. That is why the append
+was deterministic rather than racy, and it is why fixing the INSERT alone would not have helped.
+
+### ⚠ The trap in this file's own fix candidate 2, which we nearly walked into
+
+Candidate 2 says "set `component_id`". **Doing that ALONE would have made this bug worse and
+silent.** `uq_page_components_no_byte_identical_duplicate` is `NULLS NOT DISTINCT`, so the six
+orphans collide with each other *because* their `component_id` is NULL. A row carrying a real id
+stops colliding — the loud duplicate-key failure becomes a seventh silent append, and the only
+instrument currently reporting this defect is removed. **The occupancy check and the id binding must
+land in one commit, occupancy first in the code path.** They do, and
+`TestBlogListingNeverInsertsWhenTheSlotIsOccupied` is mutation-proven against exactly that.
+
+### ⚠ And a constraint neither this file nor its CONTRIBs states, which shaped the whole design
+
+**A refusal must NOT return an error.** This action is an unconditional step of `rerender-pages`
+between `render_site_components` and `get_pages`, and that workflow declares no `error_step` — so an
+error return aborts the run before `create_rerender_items` and creates none of the ~18 page
+rerenders. That IS the outage in §"Blast radius today". A refusal that errors reproduces it under a
+new name. Every refusal now logs at Error and returns `rebuilt:false`.
+
+### What shipped
+
+Every exit path runs an occupancy lookup, and the write decision is a pure function of
+`(origin, occupants)` taken in Go before the write: one occupant → UPDATE (whichever strategy named
+the slot); plan names the slot and it is empty → INSERT; **guessed (2b) or defaulted (3) → REFUSE**;
+several occupants or an unreadable count → REFUSE. A guessed name is by construction not a listing
+slot, or strategy 1/2a would have matched — and on this page it named `generic-text-block`, a slot
+the page uses for prose. `position` now comes from the plan's section index; `component_id` is bound
+from the component that rendered the bytes, NULL on the built-in-default branch where no row exists.
+
+`[MEASURED 2026-09-03 16:2xZ]` occupancy of all four live blog-index pages: aiao `/blog.html`
+`blog-listing` pos 2 (1 row), leopardess `/blog.html` `blog-listing` pos 1 (1 row), finetuning.uk
+`/blog.html` `article-grid` pos 5 (1 row, strategy 1), boxingonline `generic-text-block` pos 2 (1)
+**and pos 3 (6)**. So the INSERT branch is unreachable on every blog-index page on the estate today
+— which is why refusing on 2b/3 costs nothing now. Disconfirming result would have been a page with
+zero occupants at its resolved slot; there is none.
+
+### A second, LATENT defect found in the same function
+
+`loadContentListingTemplate`'s `function='content-listing' … ORDER BY created_at DESC LIMIT 1` is not
+unique. `[MEASURED 2026-09-03 16:1xZ]` **two** active rows: `content-listing` (2025-11-28) and
+**`content-listing-guides-boxingonline-com` (2026-09-02)** — so one site's fork was every site's
+listing template. Both `md5(html_template) = 1b957ae3…`, byte-identical, so this is latent, not live
+damage. Now prefers the canonical row (`name = function`) and **logs** the ambiguity rather than
+refusing; refusing would stop every site's listing rebuilding while two forks exist, and RFC_034
+makes N forks per function the intended future.
+
+### The orphan rows are NOT touched — handed to `site_delivery_and_editor`
+
+Owner's call, 2026-09-03: the lane that holds the served baseline and owns every dispatch at that
+site does the deletion. The exact target, so nobody has to discriminate by count:
+
+| id | position | created | md5(rendered_html) | bytes | component_id |
+|---|---|---|---|---|---|
+| `3de9aa68` | **2** | 08-31 14:30:43 | *(NULL html)* | — | **set — KEEP** |
+| `cf6f06a9` | 3 | 08-31 16:29:47 | `a49768f2` | 4,429 | NULL — remove |
+| `dbb4f217` | 3 | 08-31 18:14:32 | `2f84ab40` | 4,638 | NULL — remove |
+| `b14358a8` | 3 | 09-01 01:31:57 | `13ea5fd0` | 5,195 | NULL — remove |
+| `99160af4` | 3 | 09-01 01:58:36 | `fc99a8b5` | 6,335 | NULL — remove |
+| `b1f9cd4e` | 3 | 09-01 02:34:51 | `9352d6a2` | 6,334 | NULL — remove |
+| `1ef994d5` | 3 | 09-02 16:28:02 | `5b91bfe5` | 6,070 | NULL — remove |
+
+The legitimate row is unambiguous on three independent axes: position 2, a real `component_id`, and
+a NULL `rendered_html` (it renders from `content_data` at assemble time, which is why it is not one
+of the six frozen copies). **All six orphan digests are distinct** — which is why 316 did not catch
+the accumulation as it happened and only fired when a later render finally matched one.
+Prefer `build_status='removed'` (reversible, assembly-excluded, and it drops the rows out of 316's
+partial index too) over a DELETE, and check `site_plans` → `site_plan_sections` → `pages.sections`
+first per LANDMINES. ⚠ **Deletion is not what fixes the empty slots** — the six rows resolve by
+`function`, so a re-render alone moves 14/2 → 0 and leaves 36 cards and 6 headings untouched. If the
+empties clear and the card count stays at 36, a re-render happened and the deletion did not.
+
+### Still open after this commit
+
+- The discovery check that should FILE the gap when a blog-index page has no listing slot. Between
+  now and then the refusal is legible only in the action's Error log. It needs its own `item_type`,
+  a registered handler and a register entry, so it is a separate commit — deliberately not smuggled
+  in here.
+- **Concurrency:** the occupancy check is check-then-insert. Two simultaneous `rerender-pages` runs
+  could both see zero occupants; the second now degrades to a result rather than aborting the chain,
+  but a duplicate is still possible if their bytes differ. An advisory lock or a `23505` catch would
+  close it.

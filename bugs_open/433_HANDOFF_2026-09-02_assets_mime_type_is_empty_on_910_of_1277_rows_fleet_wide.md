@@ -127,3 +127,103 @@ real PNG after 424's matting will still be written under the same hardcoded cons
 Fetch recipe for the bytes (through a pod, no key in session):
 `docs024_key_docs_latest/bugfix_417_logo_text_policy/RUNBOOK_logo_text_policy.md`,
 §"Fetch a generated asset's BYTES and LOOK at it".
+
+---
+
+## FIX SHIPPED 2026-09-03 (commit `afcf3ebdb`, council `82989388`) — candidate 3 is ANSWERED, and candidate 2 was right to be amended
+
+Picked up by the `bugfix_451_457_433_unowned_queue` lane: this bug was unowned for the fix. It was
+split out of `bugs_open/424`'s verification by a session that said plainly *"I have not looked at the
+writer and am not claiming which"*, and the 424 lane closed the same day.
+
+### Candidate 3 (which writer?) — answered by census, not by reading code
+
+`[MEASURED 2026-09-03 ~16:0xZ]`, by `asset_key` shape:
+
+| writer | rows | mime_type |
+|---|---|---|
+| `card_*` → `derive_card_asset_action.go` | 389 | **all populated**, none empty |
+| `favicon` / `og_card` → `recordDerivedAsset` | 68 | 66 empty + 2 png |
+| everything else → the `StoreAssetAction` path | 961 | **957 empty** + 3 png + 1 jpeg |
+
+**Two writers account for all 1,023 empty rows.** The populated ones are not a different era or a
+different origin_type — they are a different *writer*, the only one that encodes its own bytes and
+could therefore state the type truthfully. Refreshed totals: **1,023 empty / 390 jpeg / 5 png** of
+1,418 (this file's 910/362/5 was 2026-09-02 — the population grows).
+
+### The question this file never asked, and it decides everything else
+
+A row describes **two** artefacts. `url` and `filename` are written by `deploy_image_asset` and
+describe the **deployed** artefact; only `storage_path` describes the source object in B2. So the
+rule shipped is: **`mime_type` describes the artefact at `assets.url`, recorded by the writer that
+publishes those bytes, or NULL.** A consequence to state rather than hide: a row stored but never
+deployed keeps NULL, so **the fleet count will not reach zero**, and anyone quoting "still 175
+empty" as a failure will be wrong. `[MEASURED 2026-09-03 16:2xZ]` 806 of the empties carry a
+deployed url; 175 do not.
+
+### ⚠ Candidate 2's amendment was right, and it was nearly re-made in a NEW place
+
+The 417/420 CONTRIB warns against propagating `uploadImage`'s hardcoded `"image/png"`. Correct. But
+I then argued that `deploy_image_asset`'s `processed.ContentType` was *"truthful by construction"*,
+because `DownloadOptimizeAndPrepare` derives it from the same `extension` that selects `png.Encode`
+vs `jpeg.Encode`. **Both readings were right and the conclusion was false.**
+`DownloadAndOptimizeImage` returns the **original, un-re-encoded bytes** when optimisation fails
+(logging `"Optimization failed, using original"`), and the content type was derived from the
+**purpose**, not the bytes. Propagating it would have filled ~1,000 rows with a confidently wrong
+value in a second place. Recorded in `WRONG_CALLS.md` 2026-09-03; the cheap check is *for any "X and
+Y cannot disagree" claim, read every path that can produce X.*
+
+### What shipped
+
+`platform/storage/image_format.go` — one place that answers *what format are these bytes, really*,
+by **magic bytes** (not `image.DecodeConfig`: Go's image registry is process-global, so a
+decode-based answer differs between binaries). **It has NO FALLBACK.** Unrecognised input returns
+empty. Every defect in this file began as a plausible default — `mimeFromKey`'s
+`default: return "image/png"` is literally commented *"PNG is the safest fallback"*.
+
+`DownloadOptimizeAndPrepare` now sniffs the bytes it is about to publish, and **logs** a disagreement
+with the purpose's extension rather than refusing. Refusing is the tidier invariant and would take
+sites down: nothing in this repo registers a webp decoder, yet `image/webp` is a possible provider
+response, so such an image ships under a `.png` name today and browsers sniff it.
+
+All four writers now obey one rule: `deploy_image_asset` records it beside the `filename`/`url` it
+already writes; `derive_card_asset` sniffs its own encoded bytes instead of restating `'image/jpeg'`
+**and gained `mime_type` in its `DO UPDATE SET`, which it lacked — so an upsert onto a
+StoreAssetAction-born row refreshed every other column and left the type stale forever**;
+`recordDerivedAsset` takes the type from the PNG bytes it just encoded; and `StoreAssetAction`
+writes explicit NULL **and clears it on upsert**, because that upsert resets `url` to a fresh
+presigned *source* url while any existing `mime_type` describes the previously *deployed* artefact.
+Clearing is part of the invariant, not an omission from it.
+
+Framework half: `TestEveryAssetsWriterThatSetsURLAlsoSetsMimeType` is **ban-shaped** — the exemption
+map is empty, because after this every writer complies. It asserts column-list membership, never
+value non-NULL-ness (a source scan cannot judge that, and a NULL from a writer that sniffed and
+failed is exactly right), and it reads the **statement**, never a line window — this package logs
+`zap.String("mime_type", …)` near several of these writes.
+
+### The gate that licensed the whole design, run first
+
+`TestEveryImagePurposeEncodesToItsDeclaredExtension` feeds every purpose in `ImagePurposes` the
+**opposite** format and asserts the output's magic bytes match the extension it deploys under. It
+passes for every purpose. That is what makes "read a deployed artefact's format from its purpose"
+legitimate — the 417/420 lane's "extension is a lie" finding is about the **source** object, where
+nothing re-encodes, and conflating the two is the one mistake that would make a backfill wrong.
+
+### ⚠ Correction to this file's framing: the object-level lie HAS a live consumer
+
+This file (and I) treated the `.png`-named JPEG as a labelling problem with no reader. It is read.
+`referenceFetcher.fetchS3` derives a reference image's MIME from the **key extension** via
+`mimeFromKey`; `fetchHTTP` takes **B2's response header** — the literal `image/png` `uploadImage`
+set. Both feed `banana/provider.go`'s `ReferenceImage.MimeType` and thence Gemini's `inlineData`.
+So the platform tells Gemini `image/png` over JPEG bytes on the live style-anchoring path. That
+makes fixing it a correctness fix, not housekeeping — **and sniffing in the fetcher retro-fixes
+every existing mislabelled object with no re-upload.** Deliberately NOT in this commit; it needs its
+own tests.
+
+### Backfill: still NO, and here is the trap inside the obvious predicate
+
+Of the 806 empties carrying a deployed url, the purposes include **`illustration` (32),
+`infographic` (7) and one empty** — **none of which is a key of `ImagePurposes`**, so
+`GetImageConfig` falls through to `default` silently. A purpose-derived backfill would assign
+`image/jpeg` to 40 rows on the strength of a fallback rather than a fact. Any backfill needs an
+**enumerated** purpose list (766, not 806) plus a byte spot-check of ≥5 deployed artefacts first.
