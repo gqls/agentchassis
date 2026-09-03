@@ -617,3 +617,37 @@ before the 18:30Z commit — the new check is not in the deployed binary. It nee
 roll (owner's call — releases are whole-fleet), and even once rolled it is inert until the NEXT
 daily `evidence-freshness` tick (~09:09). Two gates, and "built" must not be read as "covering the
 fleet" until both clear.
+
+## 2026-09-03 — Q5/Q6/Q7 all built and council-submitted; a demand-control probe is planted and PENDING tomorrow's 09:10 UTC tick
+
+Full detail lives in `RFC_060` (§3f onward) and this session's memory — this entry is so the
+**pending action below survives a session boundary**, since it cannot resolve until a scheduled
+tick that may fall after this session ends.
+
+**Owner ruled Q5/Q6/Q7 directly** (held for direct confirmation rather than acting on an earlier
+relay — see the RFC's own note on this). All three built same day: Q6 (`ac670badf`, council
+`57a9939f` APPROVED, one follow-up fix `3c1e1b61c` after a real objection about marker letters),
+Q7 facts half (`6ec879212`, council `17fb9105` APPROVED unanimously), Q5 (`939593e4c`, council
+`9b11752c`, verdict pending). None of the three is deployed yet.
+
+**PENDING ACTION — check this first if picking up after 2026-09-03 09:10 UTC (tomorrow's date):**
+A demand-control probe is live on `buytoletcalculator.uk` (status='test', 0 pages, harmless):
+`site_specs` row `623c1de8-6893-4700-b0c6-88f177cb955c`, one deliberately-broken `banned_claims`
+pattern (`guaranteed(`). Planted 2026-09-03 09:34 UTC to prove the `e5b1a0f01` write path
+(`createInvalidBannedClaimPatternItems`) fires outside mocks — the one arm still unproven in
+production. As of 13:59 UTC the daily `evidence-freshness` tick has not run since 09:10:22 (before
+the plant), so nothing has been tested yet.
+
+**Check (per the `bugfix_414` lane's design, verified independently before trusting it):**
+```sql
+SELECT last_completed_at FROM scheduled_tasks WHERE name='evidence-freshness'; -- wait for > 2026-09-04 09:10 UTC
+SELECT count(*) FROM site_work_items WHERE item_type='invalid_banned_claim_pattern'; -- expect >= 1 once ticked
+```
+Two arms in the next tick: **write** (`buytoletcalculator.uk`, expect `patterns_checked=1,
+invalid=1` in the log + one work item — proves the write path) and **read** (`loancash.co.uk`,
+freshly registered today with 19 facts/6 valid `banned_claims`, expect `patterns_checked=6,
+invalid=0` — proves the check reads real data and correctly finds it clean, no plant needed). If
+loancash logs 6 but the probe files nothing, the defect is isolated to the write function
+specifically, not the check.
+
+**THEN REVERT THE PROBE** — `UPDATE site_specs SET is_current=false WHERE id='623c1de8-6893-4700-b0c6-88f177cb955c'` (or delete the row; it has no history value). It is harmless today but is a live register inside the daily fleet sweep and will be re-read until removed. Do not leave it in place after the answer is known.
