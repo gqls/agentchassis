@@ -119,7 +119,19 @@ of any site whose fences came from `tool-generator`.
 until the next chassis roll** — they are Go. The *cause* (neither authoring agent knows the type)
 is unchanged, so this bug is still reproducible and does not move to `bugs_closed/`.
 
-> ⚠ **A ROLL HAS SINCE HAPPENED AND DID NOT CARRY THEM — do not read the tag as the answer.**
+> ✅ **UPDATE 2026-09-03 ~14:0x — P1+P2 ARE NOW LIVE IN THE BINARY (`v1.0.1359`), and the council
+> verdict is APPROVED** (round 2, 13:11:41Z, `Council-Reviewed: 8745ad9e-1802-4e08-a9b0-eb493cd11243`).
+> Probed at `/proc/1/exe` with controls on both sides: `fence_asserts_no_value`, `liveness_only` and
+> `Scope of this verdict` all **PRESENT**, positive control present, invented negative control absent.
+> ⚠ **LIVE IS NOT EXERCISED.** As of the probe, **zero** `fence_asserts_no_value` notes exist and the
+> newest `acceptance-run` note (08:47Z, before the roll) does **not** carry the scope line — because no
+> tool PLAN has been written and no Tier-4 run has completed since the roll. **First-fire checks are in
+> the lane HANDOFF §3.** Until one of them returns a row, P1/P2 are unproven in production.
+>
+> The paragraph below records the PREVIOUS roll, which did not carry them. Kept, not deleted: it is the
+> evidence for why a tag advancing proves nothing.
+>
+> ⚠ **A ROLL HAD ALREADY HAPPENED AND DID NOT CARRY THEM — do not read the tag as the answer.**
 > `agent-chassis` went **v1.0.1356 → v1.0.1358** with pods restarting ~13:07 BST on 2026-09-03,
 > after the 12:47 commit, and `0b9a5c9e1` *is* an ancestor of HEAD. All three facts held and the
 > binary still does not carry the change: probed at `/proc/1/exe`, `fence_asserts_no_value` and
