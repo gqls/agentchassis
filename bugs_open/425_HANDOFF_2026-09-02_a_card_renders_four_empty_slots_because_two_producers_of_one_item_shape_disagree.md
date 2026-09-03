@@ -1066,3 +1066,43 @@ such relationship.
 the next session to touch these item shapes needs it, and because it is the strongest evidence yet
 that this bug is a class rather than a site defect: the same column, the same table, the same
 component family, and two contracts that cannot both be honoured by one rule.
+
+### ⭐ IT GENERALISES TO THE WHOLE ESTATE — 1,729 items, three orthogonal signals, zero exceptions
+
+The `bugs_open/420` lane took the discriminator fleet-wide and I re-ran their census independently
+before agreeing with it, because a perfectly clean split is exactly when to doubt the instrument.
+`[MEASURED 2026-09-03 16:25Z]` a full recursive walk of **every object at any depth** in
+`page_components.content_data` carrying a `name` key:
+
+| | n | `name` has uppercase | has a space | is a pure lowercase slug |
+|---|---|---|---|---|
+| **no `url` sibling** (display contract) | **825** | **825 — all** | 752 | **0** |
+| **`url` sibling, non-empty** (identity contract) | **904** | **0** | 0 | **904 — all** |
+| `url` key present but empty/null | **0 — the state does not occur** | | | |
+
+**Zero crossover, on three properties at once.** One is structural (the sibling) and two are lexical
+(case, slug shape), and they partition 1,729 items identically. That is what retires *"is the split
+an artefact of how I bucketed?"* — a single clean result cannot, and independent signals agreeing
+can. Two lanes' queries sharing no code returned the same 904 / 825 / 0 / 0.
+
+> ⚠ **DO NOT READ THE PERFECT LEXICAL AGREEMENT AS LICENCE TO USE THE LEXICAL TEST.** It is a
+> consequence of who the current producers are, not a guarantee about them; a producer that starts
+> emitting title-case slugs breaks it silently and estate-wide. **The `url` sibling is structural
+> and survives that.** Case and slug-shape are corroboration of the partition, and the right thing
+> to do with them is assert them in a test so the day the assumption breaks is a failing test
+> rather than a rewritten identity.
+
+**A measurement note worth keeping.** My first pass walked only *top-level* arrays in `content_data`
+and returned **795** where the full recursive walk returns **825**. The 30-item gap is entirely
+objects nested deeper than a top-level array. **A `content_data` traversal that stops at the first
+array level under-reports by ~4% on this population**, and the items it misses are the unusual
+shapes — which is the wrong 4% to miss. Walk recursively, and assert the walker's reach with a
+fixture nested two levels down.
+
+**The fix is the `420` lane's and so is the register entry** (offered to this lane, declined: they
+built the mechanism, took the estate-wide census, and made both design calls; an entry owned by a
+closed lane is the stale-owner problem the register keeps hitting). Their two decisions, recorded
+because they are better than what this lane proposed: the **bare `url`-sibling test** rather than my
+stem test — mine covers only 188 of 904 and would have left 716 falling through to the value
+heuristic, i.e. the "protected by luck" state — and the protection as a **rejection reason in the
+judge** rather than only a walker filter, which covers callers who never see the filter.
