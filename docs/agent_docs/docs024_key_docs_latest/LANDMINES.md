@@ -21184,3 +21184,52 @@ git ls-tree -r HEAD --name-only -- bugs_open/ bugs_closed/ | grep '<NNN>_'
 - **relations:** LANDMINES "`kubectl run -i --rm … kcat -P < file` drops roughly 4 publishes in 5 AT EXIT 0" (the transport half) · `scripts/kafka-publish-lib.sh` / OPP-009 · MEMORY [[a-receipt-nobody-asserts-on-is-a-log-line]] and [[a-doc-comment-is-not-an-enforcement-mechanism]] — a `SAFETY:` comment is not a safety property · `experience_loop` HANDOFF §8 (a publish receipt proves the message LEFT and nothing about anything consuming it)
 - **source:** 2026-09-03, `experience_loop` lane, needing to fire the auditor at one site for a peer lane. Caught by reading the file before running it, on the strength of this repo's own "read before write on any file you did not create". The predecessor session's separate hand-rolled dispatcher had already produced zero rows twice.
 - **added:** 2026-09-03, `experience_loop` lane
+
+## A migration's verify block that inspects the block's OWN variable passes on a write that never landed — and on your own half-finished edit
+
+- **footprint:** `docs/agent_docs/sql_for_agents/*.sql` · any `DO $$ … END $$` verify following an `UPDATE` · `agent_definitions.default_config` prompt edits · `content_components.input_schema` edits · anchored `replace()` migrations · `RAISE NOTICE` used as evidence
+
+**the trap:** you build the new value in a PL/pgSQL variable, `UPDATE` with it, then verify — and you
+verify the **variable**, because it is right there and the assertions are easy to write against it.
+Every assertion passes, the `NOTICE` prints a confident summary, the ledger stamps, and **you have
+proved only that PostgreSQL's string functions work.** It says nothing about the row. The same shape
+one step along: a verify whose *needle* has drifted from what the migration now writes.
+
+⚠ **The `NOTICE` is the part that makes this dangerous**, because it prints the length, the step name
+and a description of the change — it reads exactly like a receipt. Migration `667` is the estate's
+worked case from the other direction: guards passed, `NOTICE` printed, ledger stamped, and the
+producer superseded the row 55 seconds later.
+
+**it fired for real on 2026-09-03, on the author, mid-edit.** Migration `747` re-worded its own
+replacement text after a peer review and did not update the verify block's needle. The `UPDATE` ran.
+The `NOTICE` printed. The **independent live-row read** failed with `ABORT: the softened rule is not
+in the LIVE row — the write did not land`, and that was the only thing between a half-finished edit
+and a green apply. **A verify that re-reads the LIVE row catches an author's own incomplete change; a
+verify that reads its own in-memory copy cannot.**
+
+**the check:** make the verify a **separate `DO $$` block that re-SELECTs the row**, never a tail
+section of the block that did the write:
+```sql
+DO $$
+DECLARE p text; n int;
+BEGIN
+    SELECT <the column> INTO p FROM <table> WHERE <the predicate the migration targeted>;
+    IF p IS NULL THEN RAISE EXCEPTION 'ABORT: the write did not land'; END IF;
+    -- assert the NEW text present, the OLD text ABSENT, and COUNT both
+    n := (length(p) - length(replace(p, '<new>', ''))) / length('<new>');
+    IF n <> 1 THEN RAISE EXCEPTION 'ABORT: new text appears % times, expected 1', n; END IF;
+    IF position('<old>' in p) > 0 THEN RAISE EXCEPTION 'ABORT: the old text survives'; END IF;
+END $$;
+```
+- **assert the ABSENCE as well as the presence.** A migration that appends instead of replacing
+  satisfies every presence check.
+- **COUNT, never `position(...) > 0`.** A presence check cannot tell one occurrence from two, which
+  is how migration `723` shipped a replacement that re-embeds its own anchor: a second run stacks a
+  second copy and every presence assertion still passes.
+- **induce the failure once before you ship.** Point the verify's needle at a string no write
+  produces and watch it abort. A guard you have never seen fire is decoration, and it reads as done
+  either way.
+- **source:** 2026-09-03, vigilant designer + offer/benefit analyser lane, caught on its own migration
+  `747` after a peer (copy_quality_two_stage) pushed for a re-run rather than trusting an earlier
+  green. Related: `723`'s non-idempotent `replace()`; `667`'s superseded row.
+- **added:** 2026-09-03, vigilant designer + offer/benefit analyser lane.
