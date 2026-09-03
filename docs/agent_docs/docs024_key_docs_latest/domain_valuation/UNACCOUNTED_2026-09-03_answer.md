@@ -34,8 +34,8 @@ domain.
 | chicklets.co.uk | **404 — registered to nobody** | EXPIRED and dropped |
 | demisexual.uk | **404 — registered to nobody** | EXPIRED and dropped |
 | protecty.co.uk | **404 — registered to nobody** | EXPIRED and dropped |
-| cheapbuild.co.uk | live, exp 2027-03-30, registrar **Voove Limited** | registered, NOT on the DESIGNCONSULT tag |
-| enables.co.uk | live, exp 2027-03-09, registrar **123-Reg** | registered, NOT on the DESIGNCONSULT tag |
+| cheapbuild.co.uk | live, exp 2027-03-30, registrar **Voove Limited** | **LOST** — lapsed and re-registered by someone else (see below) |
+| enables.co.uk | live, exp 2027-03-09, registrar **123-Reg** | **LOST** — lapsed and re-registered by someone else (see below) |
 | pocketvaginas.com | live, exp 2027-06-09, registrar **Dynadot** | at Dynadot but absent from the Dynadot inventory |
 | qlp.us | live, exp 2027-01-19, registrar **NameSilo** | a registrar we hold no account for |
 | healthinsuranceconsultant.co | **UNDETERMINED** | .co publishes no RDAP service; whois egress blocked here |
@@ -45,9 +45,15 @@ domain.
 
 1. **Three names are gone** and are still listed for sale at Afternic. Those
    listings should come down — they advertise domains that cannot be delivered.
-2. **Two are registered elsewhere** (Voove, 123-Reg). Either they were allowed
-   to lapse and were caught by someone else, or they are held in an account
-   nobody has told us about. Worth a look: did you ever use either registrar?
+2. **Two more are lost, not merely misfiled** — `cheapbuild.co.uk` and
+   `enables.co.uk`. Raised by the nominet lane and verified here independently
+   `[MEASURED 2026-09-03]`: both serve live sites on infrastructure we do not
+   control. `cheapbuild.co.uk` is on Cloudflare nameservers **ben/fay** — a
+   different Cloudflare account, since every zone of ours uses alexis/leah
+   (older sites) or betty/ivan (the four new ones); `enables.co.uk` is on
+   **GoDaddy** (ns13/14.domaincontrol.com). Somebody else is running them.
+   That makes the total genuinely gone **five**, not three, and these two are
+   not recoverable by finding a forgotten login — only by buying them back.
 3. **Two sit at registrars outside the four we enumerate** — one at Dynadot but
    missing from Dynadot's own account listing (a second Dynadot account?), one
    at NameSilo. **If a NameSilo account exists, it holds domains this valuation
