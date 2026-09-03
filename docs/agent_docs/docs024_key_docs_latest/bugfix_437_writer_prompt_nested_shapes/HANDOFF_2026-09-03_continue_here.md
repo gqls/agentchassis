@@ -5,13 +5,23 @@
 
 ## The one-line state
 
-**UNRESOLVED, and the earlier "deployed and broken" verdict is NARROWED — read the 12:55Z
-addendum at the bottom before acting.** The fix is committed and deployed on `v1.0.1358`;
-the executions that failed were measured at 12:07–12:20Z and **probably ran on agent pods
-spawned before the roll**. The current `agent-page-build-handler` pod DOES carry the fix
-(binary-probed, with control). It has not been exercised on a mechanism-flow page since. So
-the open question is no longer "why does correct code not work" but "does it work now" —
-and that is one build away from an answer.
+**✅ CANDIDATE 1 IS FIXED, LIVE AND PROVEN AT THE ARTEFACT (2026-09-03 13:25Z).** The writer
+is shown the nested shape and produces it. **The bug stays OPEN** — candidates 2 and 3 are
+untouched, and they are what leave the already-stuck pages stuck.
+
+**The proof, first mechanism-flow write on a post-roll agent pod (`llm_call_log` 13:24:58Z):**
+prompt carries `"branches": [{` and the shape note; the old flat `"branches": "..."` is gone;
+the model's reply carries **four `branches` values, all arrays** — one populated with real
+`{label, body}` objects, three `[]` where a step has no decision point. Those empty arrays
+are the omission advice being obeyed, which is the accepted over-production risk behaving
+correctly on its first exercise.
+
+**Failures:** 7 today before the fresh agent pods, **0 after** — ⚠ on a demand control of
+exactly **1** exercise. A real end-to-end pass, not yet a rate. Re-census after traffic.
+
+⚠ **A later chassis build was announced as this was written.** The fix is committed
+(`a0044e73b`) so it rides every later build; nothing is owed. But re-cite the tag and date
+when you check it, and remember the roll below.
 
 ## What the bug is (settled, do not re-derive)
 
@@ -228,3 +238,40 @@ may be the WRONG SERVICE (one image, every label); before believing a clean grep
 pod could have produced the line."* I asked which pod ran the code only after exhausting
 every other explanation. **Probe the pod that does the work, not the one that shares its
 name.**
+
+
+---
+
+## ✅ RESOLVED 2026-09-03 13:25Z — and the morning's "it does not work" was my own measurement error
+
+The watcher fired. The fix works; see §The one-line state.
+
+**What actually happened, and it is the most transferable thing in this lane:** I spent the
+middle of the day proving, with controls, that a correct and deployed fix "did not take
+effect" — because **I probed the wrong pod**. Agent work runs in ephemeral **per-agent pods**
+(`agent-page-build-handler-*`, `agent-page-content-writer-*`), spawned per job, not in the
+`agent-chassis` deployment whose pod I grepped. The executions I measured (12:07–12:20Z) ran
+on agent pods spawned *before* the 12:06Z roll, so they legitimately lacked the fix while
+every artefact I chose to look at legitimately showed it present.
+
+Every one of my eight eliminations was individually sound. The failure was in the question:
+I asked "is the fix in the binary?" and never "in WHICH binary did the code that produced
+this row run?" **The estate's own landmine says exactly this** — *"`-l app=<subsystem>` may
+be the WRONG SERVICE (one image, every label); before believing a clean grep, ask which pod
+could have produced the line"* — and I had re-read it that morning.
+
+**The cheap check that would have saved hours:**
+`kubectl get pods --sort-by=.status.startTime` and look at what is actually running. The
+per-agent pods are visible in one line of output and I never listed them.
+
+## What is owed next
+
+1. **Re-census after traffic.** The 0-failures result rests on one exercise. §Verify in
+   `bugs_open/437` has the query and the demand control.
+2. **Tell `portfolio_positioning` they can proceed** — done as of this session; advertise's
+   `e75f5880` is on a fresh key and can now be allowed to run.
+3. **Candidates 2 and 3 remain OPEN**, and 3 (nothing escalates an active, linked,
+   never-built page) is the more valuable — it is why these sat for weeks.
+4. **Read the council round-2 verdict** — corr `6de0f6f2-4f37-492a-9cbd-1ae886311a9b`.
+5. **The re-mint hazard is now decaying in the right direction**, since builds can succeed
+   again. Re-measure rather than quoting the morning's table.

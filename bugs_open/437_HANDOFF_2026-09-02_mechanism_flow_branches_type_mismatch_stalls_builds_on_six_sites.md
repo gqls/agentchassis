@@ -110,7 +110,44 @@ SELECT s.domain, w.item_key, w.status, left(w.summary,80)
  ORDER BY s.domain, w.updated_at DESC;
 ```
 
-## ⛔ POST-ROLL 2026-09-03 — THE FIX DID NOT TAKE EFFECT ON FIRST OBSERVATION. CANDIDATE 1 IS NOT CLOSED.
+## ✅ CANDIDATE 1 IS FIXED AND LIVE — PROVEN AT THE ARTEFACT 2026-09-03 13:25Z
+
+**The writer is now shown the nested shape and produces it.** First mechanism-flow write on a
+post-roll agent pod, `llm_call_log` 13:24:58Z:
+
+| check | result |
+|---|---|
+| prompt carries `"branches": [{` (nested exemplar) | **true** |
+| prompt still carries `"branches": "..."` (old flat) | **false** |
+| prompt carries the shape note (`must be an array of objects`) | **true** |
+| model's reply — 4 `branches` values | **all four ARRAYS**: one populated with real `{label, body}` objects, three `[]` |
+
+**The three empty arrays are the second half of the result, not a shortfall.** They are the
+omission advice being obeyed: a step with no decision point sends `[]` rather than inventing
+one. That was the accepted over-production risk named in the council submission and in
+PBP-052, and on this first exercise it behaved correctly.
+
+**Failures since:** `[MEASURED 2026-09-03]` mechanism-flow/branches failures today: **7
+before** the fresh agent pods (12:52Z), **0 after**. ⚠ **With a demand control, and the
+control is thin:** exactly **1** mechanism-flow writer call has run since, so the zero rests
+on a single exercise. It is a genuine end-to-end pass, not yet a rate. Re-run the §Verify
+census after more traffic before calling the class closed.
+
+**This bug stays OPEN** — candidates 2 and 3 below are untouched, and they are what leave the
+already-stuck pages stuck.
+
+---
+
+### How the earlier "it does not work" reading arose (kept, because the mistake is instructive)
+
+> Everything below was measured 12:07–12:20Z and was accurate for those executions. The
+> error was mine and structural: **agent work runs in PER-AGENT PODS**
+> (`agent-page-build-handler-*`, spawned per job), not in the `agent-chassis` deployment I
+> probed, and those executions ran on pods spawned before the roll. The fix was correct and
+> deployed the whole time. **Probe the pod that does the work, not the one that shares its
+> name** — the estate's own landmine, which I had re-read that morning and still walked into.
+
+## ⛔ SUPERSEDED — the first post-roll observation, and why it read as a failure
 
 > **⚠ NARROWED 12:55Z, SAME DAY — read this before the section below.** The measurements
 > below are sound but were taken 12:07–12:20Z, minutes after the deployment roll, and I had

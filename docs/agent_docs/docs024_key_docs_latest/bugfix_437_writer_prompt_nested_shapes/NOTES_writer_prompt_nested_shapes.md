@@ -357,3 +357,28 @@ Status: the fix is **un-exercised, not disproven**. No mechanism-flow write sinc
 pods. A background watcher is armed on the next such prompt; if it shows the nested exemplar
 the lane closes, and if it does not — on a pod proven to carry the fix — the
 `comp.InputSchema` hypothesis returns and the next step is instrumentation.
+
+## 2026-09-03 13:25Z — it works, and the morning's failure verdict was my own measurement error
+
+The watcher fired on the first mechanism-flow write on a post-roll agent pod
+(`llm_call_log` 13:24:58Z): prompt carries `"branches": [{` and the shape note, the old flat
+exemplar is gone, and the reply carries **four `branches` values, all arrays** — one
+populated with real `{label, body}` objects and three `[]` where a step has no decision
+point. The empty arrays are the omission advice obeyed: the accepted over-production risk
+behaving correctly on its first exercise. Failures today: 7 before the fresh agent pods, 0
+after, on a demand control of exactly 1 exercise — a real pass, not yet a rate.
+
+**The lesson is not the fix, it is the four hours before it.** I proved with controls that a
+correct, deployed fix "did not take effect", and every individual elimination was sound. The
+error was the question: I asked *"is the fix in the binary?"* and never *"in WHICH binary did
+the code that produced this row run?"* Agent work runs in ephemeral per-agent pods
+(`agent-page-build-handler-*`) spawned per job; I grepped an `agent-chassis` deployment pod.
+The executions I measured ran on pods spawned before the roll, so they genuinely lacked the
+fix while every artefact I chose showed it present. Both facts were true; they were about
+different processes.
+
+`kubectl get pods --sort-by=.status.startTime` shows the per-agent pods in one line of
+output. I ran it only after exhausting eight other hypotheses — and the estate's landmine
+(*"before believing a clean grep, ask which pod could have produced the line"*) was one I had
+re-read that morning. **Ask which process produced the row before you audit the artefact you
+happen to know how to reach.**
