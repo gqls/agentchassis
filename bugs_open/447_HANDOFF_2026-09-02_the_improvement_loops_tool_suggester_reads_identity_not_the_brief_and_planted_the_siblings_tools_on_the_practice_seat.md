@@ -242,3 +242,25 @@ The `structure_floor_unmet` rows are in this lane's flag-only backlog (25 rows /
 default goes to the owner from here. **Candidates 1 and 2 are the tool-suggester and tool-deployer
 owners' and I am not taking them** — 7b does not make candidate 1 unnecessary, because a held
 suggester is still a suggester that cannot read the document defining the site.
+
+## Instance at CLUSTER scale, not just P5 pairs (2026-09-03 08:2xZ, portfolio_positioning lane)
+
+The same seat-blindness flattens a cluster's differentiation. The marketing cluster's three
+remakes (advertise.co.uk = flagship per the owner's 2026-09-02 ruling; websitepromotion.co.uk
+and seotools.co.uk briefed with explicit FLAGSHIP DEFERENCE) received their tools from the
+design rotation overnight (seotools 21:48Z, websitepromotion 03:49Z), and the suggester reused
+library tools across the cluster — read from the component names, which carry their source
+site [MEASURED 2026-09-03 08:2xZ, `page_components ⋈ content_components`, `component_level='tool'`]:
+- **CPM / CPC Benchmark Comparator on ALL THREE** (advertise's, copied to seotools AND websitepromotion);
+- A/B Test Significance Calculator: advertise + seotools · Ad Budget Calculator: advertise +
+  websitepromotion · Keyword Intent Classifier: seotools + websitepromotion · Robots.txt
+  Generator: seotools + websitepromotion · SEO Schema Generator (webdesign.co.uk's): seotools
+  + websitepromotion.
+Nothing in the briefs asked for this; the briefs' deference clause is in `site_specs`, which
+the suggester does not read (this bug's mechanism). The brief-fidelity auditor recorded
+nothing — no `add_tool` on either site was held. Whether the duplication is acceptable is the
+owner's call (recorded in `portfolio_positioning/README_where_we_are.md` 2026-09-03); the
+mechanism is this bug's. Separately, the suggester's names never coincide with the PLANNED
+tool pages (`bugs_open/450` §7: 0 of 8 matched on seotools), so a site ends up with both the
+suggester's tools and the planner's empty stubs.
+

@@ -1,12 +1,17 @@
 # 450 — a plan names tool pages before their tools exist, nothing consumes the `owned_page_review` hold, and the phantom-link repair builds the tool URLs as prose shells that serve 200
 
 **Filed 2026-09-02 ~22:1xZ by the portfolio_positioning lane** (remake №3, seotools.co.uk).
-**Diagnosis loop FIRED at filing** — intake `40879ff3`, run `96e97dc4` (`diagnosing` at 21:42Z);
-verdict not yet read. Per the 2026-07-31 ruling the interim substitute is stated: every link
-below was read at the rows (`pages`, `site_plan_sections`, `page_component_history`,
-`site_work_items`) or at the cited code lines, with a control (advertise.co.uk) that came out
-the other way. **Read the 090 verdict before extending this file:**
-`SELECT body FROM doc_notes WHERE body LIKE '%96e97dc4%' ORDER BY created_at DESC LIMIT 1;`
+**Diagnosis loop: CONFIRMED** — intake `40879ff3`, run `96e97dc4`, verdict 2026-09-02 22:11:33Z,
+`stopped_by: confirmed`, grounded by `[static] owned_page_guard.go: "return policy ==
+ownedRebuildPolicy, true"` + `const ownedRebuildPolicy = "owned"`, and `[state]` reads of
+`pages` (seotools tool-* rows `generic | tool`), `content_components ⋈ page_components`
+(`hero-tool | section`, `Generic Text Block | section`), the `owned_page_review` rows, and
+`page_component_history`. The loop also requested `check_phantom_internal_links.go` by content
+before ruling. ⚠ The verdict lives in the `needs_diagnosis` item's `result`
+(`WHERE spec->>'dispatch_correlation_id' LIKE '96e97dc4%'`), NOT in `doc_notes` — the
+`doc_notes` query this file first pointed at returns nothing. Filed on first-hand verification
+(rows + code lines + the advertise control) with the loop run alongside, per the 2026-07-31
+ruling.
 
 ## Symptom at the artefact
 
@@ -49,11 +54,27 @@ The only record that the tool is missing is the `owned_page_review` row in the h
    hero-tool 12→5 class attributes) — a by-product, closed with this reference.
 6. **The URL now serves 200, so every link-shaped detector clears itself**
    (`dead_internal_link_live` ×7 will resolve on re-probe) and the shells look finished.
-7. **What `tool-deployer` does when `evaluate_tools` finally lands on a page that already
-   carries generic components: [UNVERIFIED].** On advertise it CREATED the page rows itself
-   (`pages.created_at` 13:06:11Z = the component time). Whether it upserts into, duplicates, or
-   refuses an existing row is the question to answer before firing a one-shot discovery at
-   seotools (see candidate 5).
+7. ~~**What `tool-deployer` does when `evaluate_tools` finally lands on a page that already
+   carries generic components: [UNVERIFIED].**~~ **ANSWERED 2026-09-03 08:2xZ, at the rows —
+   it does NOTHING to them.** The design rotation reached seotools at 21:48:01Z (evaluate_tools
+   → 8 `add_tool`, complete 22:31–22:32Z) and websitepromotion at 03:49Z (7 `add_tool`).
+   `tool-deployer` CREATED its own page rows under its own names — seotools now has
+   `tool-ab-test-calculator`, `tool-canonical-checker`, `tool-cpm-cpc-benchmark-comparator`,
+   `tool-keyword-intent-classifier`, `tool-robots-txt-generator`, `tool-seo-schema`,
+   `tool-social-card` (+ guides), each with a real `component_level='tool'` row of 15–22 KB —
+   and **the planner's names and the suggester's names are DISJOINT: 0 of 7 planned pages
+   matched** (`robots-txt-tester` planned, `robots-txt-generator` built). So the seven planned
+   shells persist, were re-deployed by a rerender wave at 00:07–00:09Z, and at 08:2xZ still
+   serve 0 forms / 0 inputs; the site carries 15 tool URLs of which 7 are prose. The
+   websitepromotion variant is the other branch of the same fork: its planned
+   `tool-channel-prioritiser` had NO `site_plan_sections`, so the link repair's builder parked
+   all 7 `unbuilt_internal_link` items at `mark_no_ready_sections` (HITL) instead of writing a
+   shell, and a `needs_content_page` ("0 component rows — build it") joined them at 04:01Z. The
+   shell therefore needs planned generic sections; without them the page parks (187 family).
+   **Consequences:** (a) holding planner tool stubs starves nothing — the producer makes its own
+   rows (the 444 CONTRIB's deadlock branch is refuted, its door-closing point stands); (b) the
+   planner's tool pages are pure liability — no producer ever fills them; (c) cleanup of the
+   shells is instance work, and each remake will owe it until (1)–(3) land.
 
 ## Two vocabularies of "owned"
 
@@ -91,7 +112,9 @@ live before its tools will fill its tool URLs with prose, and every 200 hides it
 > holds every tool page on every fresh build, and whether that starves the rotation is exactly
 > §7. **Read as: (2) and (3) are the door-closers; (1) is conditional on §7 and, if built, a
 > SIBLING key (`enforce_tool_sources`, default OFF) on `c610898d1`'s derived pattern; (4) is
-> churn; (5) is this lane's interim.** Also from them: 444's live defer-half does NOT mitigate
+> churn; (5) is this lane's interim.** **§7 ANSWERED 2026-09-03: holding planner tool stubs
+> starves nothing (tool-deployer creates its own rows, names disjoint), so (1)'s deadlock hazard
+> is retired; its limit — it cannot close the link-repair door — stands.** Also from them: 444's live defer-half does NOT mitigate
 > 450 (`hero-tool`/`generic-text-block` declare no required query fields), and the seven
 > seotools shells are realised pages now — no plan-side gate removes them; cleanup is instance
 > work.
