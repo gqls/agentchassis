@@ -830,3 +830,14 @@ the >4h-stale floor) and confirm: rollups appear on the sites the census predict
 at plausible counts, with the orchestrations completing. A fleet-wide pattern of
 plausible rollups = bar met; a fleet-wide silence after full rotation = an unexercised
 detector and a bug, not a clean fleet.
+
+### 2026-09-03 afternoon — second roll (`v1.0.1358`), check survived it, coverage on track
+
+Re-probed after the 12:06Z roll: `unrendered_page_imagery` on **73/73** reporting pods,
+controls clean. Coverage since the 09:16Z enablement: **3 sites swept → 3 rollups, all
+plausible** (idea.uk 6 / garden-tools.uk 3 / remortgagecalculator.uk 1, all
+`no_image_slot`, all dated), **5/5 design orchestrations COMPLETED**. The closure
+criterion still waits on the census-predicted `unwired` (webdesign.co.uk et al) and
+`fragment_slot` (the 16 tool rows) sites entering the rotation — expected within ~a day.
+`flag_page_image_rebuild_action.go` gained the 440 lane's routing_reason conversion
+(`d44644635`) — coexists with step 2b; noted in the handoff so round 2 re-reads the file.

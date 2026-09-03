@@ -1,5 +1,19 @@
 # HANDOFF 2026-09-03 — bugs_open/114 imagery wiring: continue here
 
+> **UPDATE 2026-09-03 afternoon (second roll of the day, `v1.0.1358`, pods born
+> 12:06Z):** the check SURVIVED the re-roll — capability re-probed **73/73** reporting
+> pods with positive + negative controls clean. Sweep coverage since enablement:
+> **3 sites swept, 3 plausible rollups filed** (idea.uk `no_image_slot` 6 ·
+> garden-tools.uk `no_image_slot` 3 · remortgagecalculator.uk `no_image_slot` 1), and
+> **5 of 5** design-discovery orchestrations COMPLETED — the check is breaking nothing.
+> **The closure gate (§What closes 114) is PROGRESSING, not yet met**: no `unwired` or
+> `fragment_slot` rollup has appeared because the sites the census predicts them on
+> (webdesign.co.uk, gamesdesign.co.uk, mortgagecalculator.co.uk) have not been selected
+> by the rotation yet — at ~5 sites/3h the fleet completes within ~a day of the 09:16Z
+> enablement. Also note: `flag_page_image_rebuild_action.go` was edited the same day by
+> the 440 lane (`d44644635`, routing_reason producers) — coexists cleanly with our step
+> 2b; re-read the file before the wiring's round 2 rather than assuming the 09-02 shape.
+
 **Supersedes `HANDOFF_2026-08-22_continue_here.md`** (read only its §Traps if you read it
 at all). Cold-start for whoever picks this lane up. Read this, then the 2026-09-02/03
 entries of `NOTES_imagery_wiring.md` (evidence + missteps), then
