@@ -125,15 +125,18 @@ is why item 1 above is both the fix and the test.
   deployed, and illegible passes every gate.**
 - **No prior art.** Nothing in `bugs_open/` or `bugs_closed/` covers logo legibility (the grep hits
   are 417 itself, 322's head block, 231's spec defaults, 131's og-card — all different).
-- **No owner.** 424's lane has explicitly scoped it out — *"transparency mechanism vs mark
-  legibility against arbitrary backgrounds are genuinely different problems"* — and agreed to hand
-  it off explicitly rather than absorb it.
+- **OWNER: THIS LANE, as of 2026-09-03.** 424's lane scoped it out — *"transparency mechanism vs
+  mark legibility against arbitrary backgrounds are genuinely different problems"* — and then
+  **handed it over explicitly**: *"I'll leave it with you rather than take formal ownership."*
+  So it is no longer ownerless, and `scripts/who-owns.py` will not tell you that (it reads commits,
+  and there is no bug file yet). **If you are the next session on this lane, this is yours.**
 
-**Why it is not filed here:** the owner asked for a handoff, not a new bug, and I said I would check
-ownership before filing. The check is done and the answer is "nobody". **Filing it is now a short
-job** — the measurement, the three code citations and the negative prior-art search are all above,
-which satisfies the 2026-07-31 ruling's *"stated equivalent first-hand verification"* escape hatch
-without a `090` run.
+**Why it is STILL not filed:** the owner asked for a handoff, not a new bug, and offered to say the
+word. **A peer handing me ownership is not the owner saying "file it"** — that is the one thing a
+cross-session message cannot supply, so the decision stays with him. **Everything else is done:**
+the measurement, the three code citations and the negative prior-art search are all above, which
+satisfies the 2026-07-31 ruling's *"stated equivalent first-hand verification"* escape hatch without
+a `090` run. **Filing is ~10 minutes and needs no new evidence.**
 ⚠ **Do not let this wait on `bugs_open/424` closing.** That is the exact shape of MEMORY's
 *"closing a bug does NOT retract the deferrals pointing AT it"* — 20 days lost last time.
 
