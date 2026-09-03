@@ -36,10 +36,33 @@ all NULL-component, alongside whatever legitimately sits there.
 | 3 | call-to-action | 1 | 08-31 14:30 | 08-31 14:30 |
 | 3 | **(NULL)** | **6** | **08-31 16:29** | **09-02 16:28** |
 
-Six orphans accumulated over two days beside the legitimate `call-to-action`. Fleet-wide, NULL-component
-rows at position 3: **boxingonline/articles-index 6, gamesdesign.co.uk/game-jelly-invaders 1,
-idea.uk/tool-funding-fit 1** — 8 rows, 3 pages. **12 pages fleet-wide carry more than one row at
-the same position**, so the position collision is broader than the NULL-component symptom.
+Six orphans accumulated over two days beside the legitimate `call-to-action`.
+
+> **CORRECTED 2026-09-03, same day — my first fleet figure was misleading and the
+> `site_delivery_and_editor` lane caught the predicate.** I wrote *"12 pages fleet-wide carry more
+> than one row at the same position, so the position collision is broader"*. That count groups by
+> `(page_id, position)` only, so it sweeps in pages where **different slots legitimately share a
+> position** — which `LANDMINES.md` records as normal (generic-text-block used 2–3× on one page).
+> It is not a count of this defect.
+>
+> Re-run grouped by `(page_id, slot_name, position)` — the predicate that isolates *the same slot
+> duplicated*:
+>
+> | page | slot | pos | rows | NULL-component |
+> |---|---|---|---|---|
+> | **boxingonline.com / articles-index** | generic-text-block | 3 | **6** | **6** |
+> | webdesign.co.uk / tool-html-minifier | tool-html-minifier | 2 | 2 | 0 |
+> | webdesign.co.uk / tool-svg-optimizer | tool-svg-optimizer | 2 | 2 | 0 |
+> | webdesign.co.uk / tool-ab-test-calculator | tool-ab-test-calculator | 2 | 2 | 0 |
+>
+> **Four pages, and only ONE is an accumulator via this defect.** The three webdesign pages carry
+> two rows each with non-NULL components — a different phenomenon, not this one.
+>
+> ⚠ **AND THE CENSUS HAS A BLIND SPOT BY CONSTRUCTION, which that lane named:** a page whose
+> `sections` is `[]` falls through `findBlogListingSlot` to the *default blog-listing* path rather
+> than to the strategy-2b branch that produces a position-3 generic-text-block. `ai-agent-orchestration`
+> and `leopardess` are in that state, so **no position-or-slot census of this shape can see them.**
+> Any fleet number here is a lower bound until that path is enumerated separately.
 
 ## Why it only started failing now
 
