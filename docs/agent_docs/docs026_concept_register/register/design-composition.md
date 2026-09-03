@@ -879,9 +879,45 @@ deduplication begins; the "raw extractions" count above and the per-concept
   sketch never showed, so it was unverifiable from the submission. Resubmitted
   on the same correlation 2026-09-03 with the guard sketched, every
   predicate-dependent figure carrying a runnable query, and one of round 1's
-  own evidence claims retracted as false (see the landmine bullet below).
-  **Verdict of round 2 unread at the time of writing** — do not upgrade this
-  bullet without reading it.
+  own evidence claims retracted as false — **that retraction was itself wrong
+  and is withdrawn; see the landmine bullet below.**
+  **ROUND 2 VERDICT READ: `revise` again, 2026-09-03 15:32:59Z, and it found a
+  REAL DEFECT — the most useful output of this whole review.** See the ordering
+  bullet immediately below. Round 3 submitted on the same correlation
+  (accepting the objection, withdrawing the false retraction, and correcting a
+  second evidence claim that round 2's own reviewer check contradicted); its
+  verdict was unread at the time of writing, so **do not record this work as
+  approved.**
+- **⚠⚠ THE DEFECT THAT MATTERS MOST, AND IT IS UNFIXED: A KIT APPLIED BEFORE
+  CLASSIFICATION SILENTLY LOSES PALETTE AND TYPOGRAPHY, SO KITS ARE DEFEATED ON
+  EXACTLY THE PATH THE OWNER ASKED FOR.** Found by the council gate, round 2,
+  not by the author. On the FRESH path (`082` with no `--from`)
+  `domain-research-classifier` writes `design_intent` AFTER `apply_theme_kit`
+  does, and `write_site_spec` supersedes the current row after a deep merge in
+  which **scalar keys are overwritten by the incoming value** — so the kit's
+  `reference_values` are discarded. `[VERIFIED 2026-09-03 by reading the file]`
+  **there is no guard**: `grep -n "classifier\|domain-research"` in
+  `apply_theme_kit_action.go` finds only comments about the ruling, never a
+  predicate.
+  - **layout SURVIVES** — it is read from aspect `theme_kit_adoption`, which
+    the classifier does not write.
+  - **palette is discarded** — moot for appearance, since no `design_intent`
+    palette reaches the 8 core slots anyway.
+  - **TYPOGRAPHY IS DISCARDED AND TYPOGRAPHY IS THE DIMENSION THAT RENDERS.**
+    This is the one that costs something.
+  - **`design_intent.<dim>.locked` does NOT protect against this** — do not
+    read this entry's ruling bullet as saying it does. `locked` is read when
+    `apply_theme_kit` writes; **nothing makes the CLASSIFIER respect it**, and
+    the key survives the deep merge while the values do not, so the row ends up
+    **asserting a human pin over a classifier's values.**
+  **So a kit works on an ALREADY-CLASSIFIED site and is silently defeated on a
+  new one — the inverse of the owner's *"by default it can start with a
+  theme"*.** Recorded with three costed remedies as **`bugs_open/438` §6d** (a
+  CONTRIB, because 438 §6a-bis already owns the mechanism), and documented in
+  the action's own header. **Not fixed:** the preferred remedy — refuse or warn
+  when no classifier-written `design_intent` exists yet — is a behaviour change
+  to a live shared action and owes its own council round; the other two are
+  architecture-scope or build on 438's defect.
   > **CORRECTED 2026-09-02, same day as filing.** This entry first read
   > "deployed … live since commit `0902039c0`". **Both halves were false and
   > the check took one command each**, which is exactly the shape this
