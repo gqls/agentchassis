@@ -596,3 +596,125 @@ works".
 it is a decision about `site_plan_sections`' immutability (§19) and a downstream detector's own
 schedule (the nightly `experience_loop` reclassification). Written up as the lane's actual
 remaining state rather than left implicit.
+
+---
+
+## 2026-09-03 evening — session "427" (lane resumed from HANDOFF_2026-09-03d)
+
+### The handover, and why it was not taken on trust
+
+The prior session was messaged before anything was written. It replied that it was not
+still on it, and — better — it re-verified both of my findings at the source before
+agreeing, rather than accepting handoff continuity. It also volunteered a second gap in its
+own closeout (that it named the experience check as the closing signal without checking
+whether that check *could* fire given what it had built). Recording that because a clean
+handover is not the norm this file usually documents.
+
+### Misstep 1 (mine): I said "this settles it" before I had read the reverting path
+
+I read the re-plan path first, found `reconcilePlanWithRealised`'s snap
+(`v3_site_actions.go:7701-7724`), confirmed live that `load_existing_pages` really does
+supply `p.sections` and `p.build_status`, and concluded — out loud, to the owner — that
+§19.2 was refuted and the migrations were safe. That was the same error §19.2 made, one
+file along: I had read a **writer** and had not read the **reader** of the store that was
+left stale.
+
+What caught it: opening `discovery_checks/check_section_source_drift.go` and reading its
+file header, which states the whole trap in six lines and names migration 153/154 as the
+worked case. It was in the tree the whole time, and it is the header of the detector that
+had already filed a work item about this exact page at 12:24 that morning.
+
+The cheap check, now in `WRONG_CALLS.md`: **ask which code path READS the store you left
+stale, and grep for it.** `grep -rn "FROM site_plan_sections" --include=*.go platform/`.
+
+### Misstep 2 (mine): my triage query encoded the wrong definition of "authority"
+
+First pass joined only tier 1 and reported `leopardessconsulting.co.uk/index` as a LIVE
+DIVERGENCE. It is served by **tier 2** (the `site_specs.site_plan` aspect) and agrees. The
+check's precedence is `COALESCE(tier1, tier2)`; mine was `tier1`. A NULL tier-1 read as
+"divergent" instead of "look one tier down".
+
+The tell was the **shape** of the output — `live_authority` came back NULL rather than a
+list — not the number. Had I not noticed, migration 753 would have left a resolved item
+open on the grounds that it was divergent.
+
+### Misstep 3 (mine): a migration-number collision I created and then had to undo
+
+Checked the highest migration number, got 747, wrote 750 (correct). Wrote the second
+migration as 751 — and by then two other sessions had taken 751 and 752. No file was
+overwritten (different basenames) but the number was duplicated, so I renumbered to 753
+including its `$pre$`/`$post$` dollar-quote tags and every `751 ABORT` / `751 VERIFY`
+string. **The number must be re-checked immediately before writing the file, not once at
+the start of the session** — mine went stale inside forty minutes. Three separate 750s now
+exist in the directory.
+
+### What was verified, with the queries
+
+Pre-state, all `[MEASURED 2026-09-03]`:
+- `site_plan_sections` for the current plan: 3 rows, ids `d7bdc4c8` / `d74518a8` /
+  `16a18d39`, `assigned_fact_ids='[]'`, `subject` NULL, and **all four** of
+  `component_version_id`/`palette_id`/`layout_id`/`typography_set_id` NULL.
+- exactly **one** `site_plans` row for boxingonline.com, `is_current`, and equal to the
+  page's `built_from_plan_version`.
+- **zero** `site_specs` rows with `aspect='site_plan'` — tier 2 does not exist for this
+  site, so creating one (as migration 153 did for robot-hands) would have handed tier 2 a
+  permanent say over tier 3 on every page.
+- **zero** locked `page_components` rows — so `MergeLockedPageSlots` is the identity here
+  and a raw list comparison is exactly what the drift check does.
+
+Post-apply: the loader's own query returns `hero-tool, event-list`; its sync-down guard
+(`:562`) would update 0 rows; **artefact byte-identical** — `hero-tool`/3,859 B,
+`event-list`/2,498 B, `pages.updated_at` still `15:10:36.708975+00`.
+
+### The induced failures — both fired
+
+- **750**: pointed the post-write needle at `["hero-tool","advertising"]`, a value no write
+  produces. Result: `UPDATE 1`, `DELETE 1`, `UPDATE 1`, then `ERROR: 750 VERIFY FAILED`,
+  transaction rolled back, tier 1 still the stale triple. So the guard fires *and* the
+  transaction is genuinely atomic.
+- **753**: removed the "stores agree" predicate so it would close every open item. Result:
+  `UPDATE 5` — including `apis.uk` — then `ERROR: 753 VERIFY FAILED: apis.uk/index should
+  still be open (found 0 open items)`, rolled back. That is the guard that matters, because
+  the whole design of 753 is "close by predicate so another lane's live case is excluded by
+  the data".
+
+### Council: `b290bef5` APPROVED round 1 — and the objections were worth reading
+
+12 reviewers, 5 abstained, 4 advisory objections, none high-severity, no truncation.
+Two were genuinely actionable and I checked both rather than banking the approval:
+
+1. **`editquality`, MEDIUM: "727/728 are tagged in LANDMINES as instances of the
+   `jsonb_agg(DISTINCT)` idiom that silently reorders — so tier 3's order may itself be
+   corrupt, undermining your premise that you are aligning to a *correct* live page."**
+   A very good catch about a real hazard, and **already closed**: the scrambling was done
+   by **719** (`["hero-tool","generic-text-block","advertising"]` →
+   `["advertising","hero-tool","event-list"]`) and **727 exists to repair it**. 728
+   explicitly avoids the idiom. Confirmed the current order is right by agreement with
+   `page_components` position order (1 `hero-tool`, 2 `event-list`). Premise holds — and
+   now on evidence rather than assumption. Note 727's own header says that defect was found
+   *"not by any detector"*.
+2. **`guardian` LOW + `guidelines` missing: "closing the work item by direct UPDATE bypasses
+   the verifier registry."** Checked: **no verifier is registered** for
+   `section_source_drift`. It sits in `verifier_coverage_test.go`'s `catMechanical` backlog
+   (`"predicate is check_section_source_drift"`), and `grep RegisterVerifier` finds nothing
+   for it. So there was nothing to bypass. Worth knowing this is a *gap*, not an absence of
+   risk — a mechanical item type with no verifier is exactly how the backlog in
+   `bugs_open/469` accumulated.
+
+Objections answered by the **file** but not by my **sketch** (a lesson in itself — the
+council reviews the sketch): `editquality`'s "no `site_id` filter on the work-item UPDATE"
+(the file has one), `guardian`'s "rollback should verify `plan_id`" (it aborts if the
+current plan is not `bba66eda`), and `editquality`'s "assert non-zero row counts" (the
+pre-check asserts the exact three-row aggregate). **Write the sketch as the file, not as a
+paraphrase of it.**
+
+Recorded and not actioned: `guardian` MEDIUM — the safety case rests on `decideEmit`'s
+evaluation order, which SQL cannot enforce. True. Accepted as residual; the framework fix
+is where a guard for it belongs. `debug_historian` MEDIUM — no dump/backup before a
+production mutation. Fair; the induced-failure run and a hand-reconstructing rollback are
+weaker than a dump.
+
+**The `architecture` seat's objection is the one that matters, and it was already
+satisfied:** *"file the RFC now rather than defer again"*, plus — the sharpest line in the
+round — *"a detector that fires and does not prevent the loss it detects is not a working
+safeguard; it is a log."* `RFC_064` was committed the same session.

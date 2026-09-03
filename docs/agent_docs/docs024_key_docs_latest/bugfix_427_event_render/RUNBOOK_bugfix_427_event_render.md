@@ -430,3 +430,148 @@ pattern); this session was fooled by exactly that shape once today before catchi
 build reported" claim that turns out to be the SAME standing pods, SAME commit, started BEFORE
 your fix's own commit timestamp is a real, common failure mode — record it as a dated negative
 (with the four checks and their readings) rather than silently re-checking later and hoping.
+
+---
+
+## Correcting a page's composition in the AUTHORITY (added 2026-09-03, migration 750)
+
+**When you need this:** you have changed what sections a page has by editing
+`pages.sections`, and you want it to survive. It will not, on its own — the next page
+**build** reads `site_plan_sections` (tier 1) and syncs it down over the cache.
+
+### 1. Establish which tier actually serves the page
+
+Do this first; the answer changes what you must write, and a tier-2-served page looks
+authority-less if you only query tier 1.
+
+```sql
+-- tier 1
+SELECT sps.id, sps.ordering, sps.component_name, sps.assigned_fact_ids, sps.subject,
+       sps.component_version_id
+  FROM site_plan_sections sps JOIN site_plans sp ON sp.id = sps.plan_id
+ WHERE sp.site_id = '<site>' AND sp.is_current AND sps.page_name = '<page>'
+ ORDER BY sps.ordering;
+-- tier 2 — zero rows for most sites, but NOT all; check, do not assume
+SELECT count(*) FROM site_specs WHERE site_id = '<site>' AND aspect = 'site_plan';
+```
+
+### 2. The four things you must not disturb
+
+`ordering` is a positional join key. Before writing anything, list what is keyed to it:
+
+```sql
+-- section imagery binds to the ORDINAL, never the component name
+SELECT scope_ref, key, kind FROM site_plan_imagery
+ WHERE plan_id = (SELECT id FROM site_plans WHERE site_id='<site>' AND is_current)
+   AND scope = 'section' AND scope_ref LIKE '<page>:%';
+```
+`assigned_fact_ids` (`'[]'` ≠ `NULL`), `subject`, `page_components.position`, and
+`site_plan_imagery.scope_ref`. **So rename in place at the same `ordering`; never
+delete-and-reinsert.** Migration `154` is the delete-renumber-insert shape and is the one
+you will find first — it predates three of those four consumers.
+
+### 3. Safety preconditions to assert (not to assume)
+
+```sql
+SELECT count(*) FROM site_plans WHERE site_id = '<site>';          -- superseded plans?
+SELECT built_from_plan_version FROM pages WHERE site_id='<site>' AND name='<page>';
+-- locked rows: if non-zero, a raw list comparison is NOT the drift check's comparison
+SELECT count(*) FROM page_components pc JOIN pages p ON p.id = pc.page_id
+ WHERE p.site_id='<site>' AND p.name='<page>' AND COALESCE(pc.build_status,'') <> 'removed'
+   AND NOT (pc.locked_at IS NULL
+            OR (pc.lock_type='timed' AND pc.lock_expires_at IS NOT NULL AND pc.lock_expires_at < NOW()));
+```
+Only the `is_current` plan may be written. Mutating a **superseded** plan's rows falsifies
+build history for every page stamped to it.
+
+### 4. Write the verify block as `DO`/`RAISE`, and induce a failure before shipping
+
+A verify block of bare `SELECT`s **cannot abort the transaction** — `ON_ERROR_STOP` ignores
+a non-empty result. And never inspect a variable the block itself set; re-`SELECT` the live
+row.
+
+```bash
+# 1. copy the migration, point ONE needle at a value no write produces
+sed 's/<expected>/<impossible>/' <mig>.sql > "$SCRATCH/induced.sql"
+# 2. apply it — it must ABORT and roll back, leaving the pre-state intact
+cat "$SCRATCH/induced.sql" | kubectl -n ai-persona-system exec -i postgres-clients-0 \
+  -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1
+# 3. re-query the pre-state to prove nothing moved, THEN apply the real file
+```
+This proves two things at once: the guard fires, and the transaction is atomic.
+
+### 5. Apply, then record — recording is part of applying
+
+```bash
+cat <mig>.sql | kubectl -n ai-persona-system exec -i postgres-clients-0 \
+  -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1
+MIGRATIONS_DIR=docs/agent_docs/sql_for_agents ./scripts/migration/run-migrations.sh \
+  --record-only <mig>.sql --note "<what you actually verified>"
+```
+Never `--apply` the directory: it takes every other session's pending files.
+
+### 6. Prove it, and prove it did NOT change the artefact
+
+An authority correction on an already-correct page must alter **nothing** downstream.
+
+```sql
+-- the loader's OWN query (load_page_sections_from_spec_action.go:142-148)
+SELECT sps.component_name FROM site_plan_sections sps JOIN site_plans sp ON sp.id = sps.plan_id
+ WHERE sp.site_id='<site>' AND sp.is_current AND sps.page_name='<page>' ORDER BY sps.ordering;
+-- its sync-down guard (:562) must be a no-op
+SELECT sections FROM pages WHERE site_id='<site>' AND name='<page>';
+-- and the artefact must be untouched — capture BEFORE, compare AFTER
+SELECT pc.position, pc.slot_name, length(pc.rendered_html) FROM page_components pc
+  JOIN pages p ON p.id=pc.page_id WHERE p.site_id='<site>' AND p.name='<page>' ORDER BY pc.position;
+SELECT updated_at, deployed_at FROM pages WHERE site_id='<site>' AND name='<page>';
+```
+**`pages.updated_at` moving is a finding, not a success.**
+
+### 7. ⚠ Do NOT dispatch a rebuild to "pick up" the fix on a tool page
+
+`page-build-handler`'s `load_page_record` carries `refuse_owned_page: true` and refuses any
+`page_type='tool'` page with zero `component_level='tool'` components. You will get an
+`OWNED_PAGE_GUARD` failure and a fresh `owned_page_review` item. Forcing past it produces the
+TP-004 clobber — a generic prose page where the tool belongs. There is nothing to pick up
+anyway: the artefact is already correct; the migration only removed a latent revert.
+
+**And note the ordering that follows:** that refusal is *derived, not stored*. It
+self-clears the moment a real tool component lands. So on a tool page, **correct the
+authority BEFORE building the tool**, or the build arms the very revert you removed.
+
+## Triaging the `section_source_drift` backlog (added 2026-09-03, migration 753)
+
+Never read the item's `spec` — it is frozen at filing time and reads as current. Re-derive
+both sides live, mirroring the check's precedence exactly:
+
+```sql
+WITH tier1 AS (
+  SELECT sp.site_id, sps.page_name, jsonb_agg(sps.component_name ORDER BY sps.ordering) AS auth
+    FROM site_plans sp JOIN site_plan_sections sps ON sps.plan_id = sp.id
+   WHERE sp.is_current GROUP BY sp.site_id, sps.page_name
+), tier2 AS (
+  SELECT ss.site_id, pg->>'name' AS page_name, pg->'sections' AS auth
+    FROM site_specs ss, LATERAL jsonb_array_elements(ss.data->'pages') pg
+   WHERE ss.aspect='site_plan' AND ss.is_current AND jsonb_typeof(ss.data->'pages')='array'
+)
+SELECT s.domain, wi.spec->>'page_name',
+       COALESCE(t1.auth, t2.auth) AS live_authority, p.sections AS live_cache,
+       CASE WHEN COALESCE(t1.auth,t2.auth) IS NOT DISTINCT FROM p.sections THEN
+              CASE WHEN p.sections = wi.spec->'pages_sections' THEN 'cache_held'
+                   WHEN p.sections = wi.spec->'authoritative'  THEN 'AUTHORITY WON'
+                   ELSE 'third_list' END
+            ELSE 'LIVE DIVERGENCE' END AS verdict
+  FROM site_work_items wi JOIN sites s ON s.id = wi.site_id
+  LEFT JOIN tier1 t1 ON t1.site_id=wi.site_id AND t1.page_name=wi.spec->>'page_name'
+  LEFT JOIN tier2 t2 ON t2.site_id=wi.site_id AND t2.page_name=wi.spec->>'page_name'
+  LEFT JOIN pages p ON p.site_id=wi.site_id AND p.name=wi.spec->>'page_name'
+ WHERE wi.item_type='section_source_drift' AND wi.status NOT IN ('complete','cancelled','rejected');
+```
+
+⚠ **`COALESCE(tier1, tier2)`, not `tier1`.** Joining only tier 1 reports a tier-2-served
+page as divergent, because its tier-1 authority is NULL. That mistake was made and caught
+here on `leopardessconsulting.co.uk/index`.
+
+**`AUTHORITY WON` means a human's edit was destroyed.** Close it so it stops blocking the
+dedup key, but record the direction in `result` — closing it as a plain success ratifies
+the loss. See `bugs_open/469`.

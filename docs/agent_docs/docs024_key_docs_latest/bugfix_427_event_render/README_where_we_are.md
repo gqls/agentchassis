@@ -341,3 +341,63 @@ particular page gets replanned — that's a decision, not more coding, and I've
 flagged it clearly rather than either ignoring it or trying to force through a
 fix at the end of a long session. And there's one automatic check, running
 overnight, that will be the final independent confirmation everything worked.
+
+---
+
+### 2026-09-03, evening — the calendar fix was one rebuild away from vanishing, and now it isn't
+
+Picked this lane up from the handoff the last session wrote for exactly that purpose. Short
+version of the day: the fight calendar fix was real but it was stored in the wrong place,
+and it would have quietly disappeared the next time that page was rebuilt. It won't now.
+
+**What was actually wrong.** A page's list of sections is kept in three places at once. One
+of them is the master copy; the other is a photocopy that gets refreshed from the master
+every time the page is built. Yesterday's fix wrote the photocopy. So the page looked right,
+the deploy was real, the fixture was genuinely on the site — and the master copy still said
+the page should have the old advertising block and no event list. The next build would have
+copied the master over the photocopy and the calendar would have gone back to being empty,
+with nothing reporting an error.
+
+**One correction to what I told you earlier today.** For about ten minutes I had this
+backwards and said so out loud: I'd found a mechanism that protects the page when the site
+is *re-planned*, and concluded the fix was safe. It is safe from re-planning. It was not
+safe from an ordinary page rebuild, which is a different and much more common event. I was
+wrong in the same way the previous session's write-up was wrong — we both looked at the code
+that *writes* the store and not the code that *reads* it. That's now written down as the
+cheap check that would have caught both of us.
+
+**This has happened before, and twice it wasn't caught.** The same trap was documented in
+July, with a fix migration written for it. Since then two other sites have quietly lost
+sections to it: robot-hands lost its gripper spec sheet — which is the very thing that July
+migration was written to rescue — and idea.uk lost a guide list. In both cases the system's
+own detector had spotted the problem and filed a warning, and the warning just sat there.
+Nobody was ever going to action it, because that detector was built to flag and not to fix.
+The architecture reviewer put it better than I would: *a detector that fires and does not
+prevent the loss it detects is not a safeguard, it's a log.*
+
+**What I've done.**
+- Corrected the master copy for the fight calendar page, and proved the page itself didn't
+  change by so much as a byte — which is the point, since the page was already right.
+- Cleared a backlog of six of those unactioned warnings, the oldest from 28 July. Four were
+  describing problems that had already resolved themselves one way or the other; I closed
+  those and recorded *which side won*, so a case where someone's work was destroyed doesn't
+  get filed away looking like a success. One was a genuine live problem on another team's
+  site, so I left it alone and warned them instead — they fixed it within the hour, and gave
+  me back a detail I didn't know that has improved the permanent fix.
+- Filed the two destroyed pages as a bug of their own. Whether those sections should be put
+  back needs someone who knows what those pages are for; a machine can't tell a deliberate
+  removal from this bug's handiwork.
+- Written up the permanent fix as an architecture question for you. There's no proper way to
+  do this correction today, so every team hand-writes database surgery for it, and about
+  half get it wrong — five instances in seven weeks, two of them today by different teams.
+  The question is one sentence and it's at the top of the document.
+
+**The thing you should know that isn't good news.** The signal the last session named as
+"the way we'll know 427 is finished" cannot actually fire. The nightly check that grades
+tool pages ran four minutes after yesterday's deploy and still reports this one as *"a page
+about a tool, not a tool"* — because what was added is a static list, and the page is
+classified as a tool, which is held to needing something you can actually use. That check
+was never going to pass. You've decided we build a real calendar mechanism, which is the
+right call, and I've made sure that work happens in the right order: correcting the master
+copy had to come first, because the only reason the page hadn't already reverted is a guard
+that switches itself off the moment a real tool is added to it.
