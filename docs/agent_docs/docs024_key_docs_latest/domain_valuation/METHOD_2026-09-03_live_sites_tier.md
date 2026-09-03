@@ -125,3 +125,32 @@ have surfaced by accident in one day (`free.co.uk`, `holidaytime.com`), each
 overturning a model number by an order of magnitude. Any other domain he has
 sold, been offered real money for, or paid significantly for is worth more to
 this valuation than another 300 algorithmic appraisals.
+
+## The near-miss that justifies the whole hold-out rule
+
+`healthcare.uk` cost the owner **£40,000** (stated 2026-09-03). The model valued
+it at **$149** — a **~340× error**, the largest yet — and it sat inside
+`health-medical/general`, **the single lowest-median block and therefore the
+first block in the provisional sell cut**. Without intervention it would have
+been offered at the $200 floor.
+
+**It was caught, and by a rule written hours earlier for a different reason.**
+`healthcare` is a single English dictionary word, so it had already been pulled
+into `PREMIUM-REVIEW` when that class was created in response to `free.uk`. The
+rule was designed against one case and immediately caught a worse, unrelated one.
+That is the argument for keeping it broad: 183 domains are held, most of which
+will turn out to be ordinary, and the cost of holding an ordinary name back for a
+week is nil against the cost of selling a £40,000 asset for £160.
+
+**What it says about the model, precisely:** in that block the model gave
+`healthcare.uk` **$149** and `healthcarecareers.uk` **$149** — *the identical
+figure*. It is not that the model under-values premium names by some factor that
+could be corrected; it is that the model **cannot distinguish them at all**,
+because both inherit the same subcategory median. No multiplier fixes that. Only
+a real per-name appraisal, or the owner's knowledge, can.
+
+**Calibration gained:** £40,000 for a single-word `.uk` is consistent with the
+top of that market rather than an overpay — the comparables put `digi.uk` at
+£18,000 (2026) and `seo.uk` at £55,827 (2025). So the £2,000–£5,000 band this
+research found for one-word `.uk` generics describes the *ordinary* ones; the
+best words clear five figures, and `free.uk`'s sibling cleared six.

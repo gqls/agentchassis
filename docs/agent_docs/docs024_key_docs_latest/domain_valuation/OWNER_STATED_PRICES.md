@@ -11,6 +11,7 @@ must travel labelled as his statement, never as a valuation.
 | `webdesign.uk` | **">£1,000,000"** | aspirational, forward-looking — *"probably going to be worth that in a year or so"* | 2026-09-03, via the sedo lane |
 | `free.co.uk` | **~£160,000 REALISED** | **an actual completed SALE**, his own, some years ago — the only realised sale price known anywhere in this estate | stated 2026-09-03 |
 | `free.uk` | *(still owned)* | the retained sibling of the £160k sale | — |
+| `healthcare.uk` | **£40,000 PAID** | **acquisition cost** — the largest known. The model valued it at **$149**: a **~340× miss**, and it sat in the block leading the sell cut | stated 2026-09-03 |
 | `holidaytime.com` | **$12,000 REALISED** | an actual completed sale, "once" — no date given. The model had it at **$995** | stated 2026-09-03 |
 | `webdesign.co.uk` | same tier | confirmed in scope for the high-value tier alongside `.uk` | 2026-09-03 |
 
