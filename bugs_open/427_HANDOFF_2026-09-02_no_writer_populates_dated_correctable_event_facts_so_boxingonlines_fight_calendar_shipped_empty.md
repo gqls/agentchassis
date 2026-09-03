@@ -775,3 +775,109 @@ copied elsewhere, that is a fleet question this lane has not answered.
 **719's header is left unedited on purpose.** It is an applied migration and the runner's
 drift guard hashes it; its now-refuted paragraph about the items defect ("No log line from
 either function appeared…") is corrected in §14 above and in `bugs_open/454` §5 instead.
+
+## 16. Status update, 2026-09-03 — `ff91e666` round 2 came back REVISE, and every gating objection was right
+
+`ff91e666` round 2: **REVISE** at 11:11:24Z, `decided_by: "gating objection from guardian"`,
+5 abstained, no truncation. Seven seats approved (`guidelines`, `diagnosis_guardian`,
+`render_guardian`, `constitution`, `mission`, `prior_art_librarian`, `architecture`); five
+objected. **Not one of the objections was wrong**, and two of them found live conditions this
+lane had named and then failed to act on. Recorded here before round 3 because the findings
+outlive the round.
+
+### 16.1 The census three seats asked for — run, and it does not say what a tidy story would
+
+`guardian` (HIGH/LOW), `bug_historian` (MEDIUM) and `reuse_agent` (MEDIUM) all pushed on the
+same gap: 727 fixed one page and the plan admitted no fleet census. `bug_historian` was
+explicit that *"approve is reachable if the fleet census check comes back clean."*
+
+`[MEASURED 2026-09-03]` over live `page_components` on active pages, positions indexable into
+`pages.sections`:
+
+| | count |
+|---|---|
+| indexable live rows fleet-wide | **2,719** |
+| aligned (index names the row's own slot or function) | **2,610** |
+| **misaligned** | **109** |
+| pages carrying at least one misalignment | **68** |
+| sites | **21** |
+
+**It did not come back clean, and the honest reading is narrower than the number.**
+Disaggregated, because the total conflates two different defects: **95** of the 109 have their
+own name present ELSEWHERE in the array — an ordering/offset shape — while **14** are absent
+from it entirely, which is a declared-vs-realised divergence and a different bug. And **72 of
+the 109 sit on pages whose declared entry count differs from their live row count**, which
+offsets indices by construction and has nothing to do with any reordering transform.
+
+**So: I am NOT attributing the 109 to 719's idiom, and nobody reading this should.** The
+causal share is unmeasured. What the census establishes is that the misalignment *class* is
+fleet-wide and mostly pre-existing, not that this lane caused it.
+
+**The containment fact, which is the one that answers the guardian: 0 of the 109 have an empty
+`slot_name`.** `section_editor_actions.go`'s positional match arm is gated on
+`pc.slot_name IS NULL OR pc.slot_name = ''`, so it cannot currently fire on a single one of
+them. Fleet-wide the misalignment is LATENT, exactly as it was on this page — and it goes live
+the moment a build leaves a slot name empty.
+
+### 16.2 `bug_historian` asked whether the anti-pattern was guarded against reuse. It is not, and it is already reused five times
+
+`[MEASURED 2026-09-03]` five other migrations rebuild `pages.sections` with
+`jsonb_agg(DISTINCT x)` and no `ORDER BY`: **248, 252, 255, 266, 267**, each appending a slot.
+**`267`'s own header recommends the idiom** — *"both statements are naturally idempotent:
+NOT EXISTS on the slot, and `jsonb_agg(DISTINCT)` on sections"* — which is true of membership
+and false of order. So the trap is written into this repo as good practice, which is exactly
+why 719 reached for it.
+
+Now carried as a **LANDMINES entry** (footprinted on `pages.sections`, the idiom, and the three
+positional readers), with the check being: write the literal array in position order, gate the
+UPDATE on the exact prior value, and verify the JOIN rather than the value. Nothing lints for
+it; that entry is the only guard.
+
+### 16.3 `guardian`'s second MEDIUM was live, not hypothetical — and 727's header was wrong to leave it
+
+> *"The 'advertising' array entry with no page_components row is left in place… Author names it
+> but does not close it or explain why it is safe to leave."*
+
+727's header called it "pre-existing, left exactly as found". That was true and it **was not a
+justification**. Checked against `check_unresolved_sections.go:36-56`'s actual predicate, all
+four arms held: page `active`, `build_status='deployed'`, a live non-forked component matches
+the name (`ad_zone_inline`, `function='advertising'`), and no `page_components` row joins to it.
+**The next sweep would have marked this page `needs_rebuild`** and routed it into the
+full-rebuild pipeline this entire correlation exists to avoid.
+
+**Closed by migration `728`** — remove the declaration rather than realise it, because
+`[MEASURED 2026-09-03]` there are **ZERO** `page_components` rows fleet-wide joining to
+`function='advertising'`, across every site and every non-removed status. The component exists
+in the library and nothing has ever placed one. Three active pages declare it, all on
+boxingonline.com: `index` (already `needs_rebuild`), `cruiserweight-boxings-best-kept-secret`,
+and this page. Fleet population armed by the same predicate today: **18 pages across 3 sites**.
+
+728 is guarded by two `RAISE` pre-checks (exact pre-state; and a refusal if an advertising row
+has appeared since the census, in which case dropping the declaration would be wrong), and its
+verify block asserts **both** that the page no longer arms the detector and that 727's index
+alignment survived. Rehearsed under `BEGIN`/`ROLLBACK` and induced-failure-proven: leaving the
+entry in makes the verify `RAISE`. Live after apply: `["hero-tool", "event-list"]`, armed 0,
+alignment intact.
+
+`[NOT ESTABLISHED]` and deliberately not asserted: whether a rebuild would realise an
+advertising row at all. If it would not, those pages are on a permanent re-arm treadmill
+(marked → rebuilt → still unresolved → marked). I have not read the build path far enough to
+claim it.
+
+**Scope stated rather than silently narrowed:** 728 touches ONE page. The other two boxingonline
+pages are named and untouched — `index` is already `needs_rebuild` so its door has already
+opened, and `cruiserweight-…` is a content page this lane has no business re-planning.
+
+### 16.4 The objections I am answering with words rather than code
+
+- **`reuse_agent` MEDIUM ×2** — 719 and 727 hand-write SQL against `pages.sections` instead of
+  going through `save_page_sections_action.go`, the typed writer, or `ReconcileSitePlanAction`.
+  **The seat is right that this was never checked, and the order-loss defect is the direct
+  consequence it predicts.** Round 3 will say so plainly rather than defend it.
+- **`debug_historian` MEDIUM/LOW** — no pre-mutation dump before production jsonb surgery. 727
+  and 728 were each rehearsed under `BEGIN`/`ROLLBACK` and each carry a hand rollback statement,
+  but a rehearsal is not a backup and the seat is right that the protocol asks for one.
+- **`editquality` LOW ×2** — edit 2 changes nothing functional and should have been labelled a
+  review-context annotation, not a `modify`; and 727's exact-match pre-check makes it
+  non-idempotent against other drift, which **was intentional** (this migration corrects one
+  specific prior value and must refuse anything else) and should have said so.

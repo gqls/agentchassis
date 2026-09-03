@@ -20558,3 +20558,60 @@ falsified · MEMORY [[measurement-discipline-index]] — *a measurement that can
 of which this is the mechanical rather than the conceptual form. A peer lane's equivalent query
 survived by **operator choice, not care** (`?` reads better than `jsonb_typeof`), so do not assume
 existing census SQL in the repo is deliberate about this.
+
+### A function can carry a parameter its only caller cannot supply — and the file will explain, in capitals, why that parameter is FORCED
+
+- **footprint:** `platform/orchestration/actions/component_hierarchy_recompose.go`,
+  `platform/orchestration/actions/section_editor_actions.go`, `recomposeAncestors`,
+  `ApplySectionEditAction`, `hierarchyDB`, `stampedExecContext`, `*sql.Tx`,
+  `features_open/035_FEATURE_component_hierarchy.md`
+- **fires when:** you read a Go file's header to learn how it must be called, and the header
+  reasons about the CALLER's state — "it runs inside X's transaction", "the caller holds the lock",
+  "this is called after Y". Also when you inherit a helper that looks finished (written, reviewed,
+  committed, well-commented) and assume its absence of callers is a scheduling matter.
+- **the tell — and it is an absence, so there is nothing to notice.** `recomposeAncestors` shipped
+  2026-08-31 after **three council rounds** with a `tx *sql.Tx` parameter, under a header heading
+  reading *"THE db/tx SPLIT IS FORCED, not stylistic"* that explained at length which reads had to
+  see "the uncommitted edit" inside `apply_section_edit`'s transaction. **`ApplySectionEditAction`
+  has no transaction** — `[MEASURED 2026-09-03]`
+  `grep -nE 'BeginTx|\.Begin\(|Commit\(\)|Rollback\(\)' section_editor_actions.go` → nothing; it
+  persists via `updatePageComponentAfterEdit(ctx, params.DB, …)` on the autocommit connection. So no
+  call could compile, the function sat uncalled for three days, and Go's linker dropped it — after
+  which a binary probe reports the SYMBOL ABSENT, which reads like a missing commit.
+- **the check:** **a comment about the caller is a claim about a different file, and nothing
+  type-checks it.** Before trusting one, grep the caller for the thing it asserts — the whole check
+  here was one `grep -nE 'BeginTx|\.Begin\('` and it takes seconds. Then, for any helper you are
+  about to build on: `grep -rn '<name>(' --include=*.go | grep -v _test | grep -v '<its own file>'`.
+  **Zero production callers is a fact about the CODE, not about the roadmap** — ask why, because
+  "nobody got to it yet" and "nobody could" look identical from the outside.
+- **the reason a design review cannot catch this class, stated because three rounds did not:** the
+  rounds argued about the seam, and the defect is one level below it — in what the callers actually
+  hold. A plan review reads the plan; only compiling a call reads the caller. The same attempt found
+  three more defects nobody had seen: the write carried **neither** the tombstone nor the lock
+  predicate every sibling write on that path carries, it read **zero rows affected as success**, and
+  it was **unstamped** (`bugs_open/355` A1) though it wrote an archived column.
+- **⚠ the second half is the one with no detector.** An absent guard is invisible to this estate's
+  existing checks: `TestNoHandSpelledTombstonePredicate` catches a **wrong spelling** of the
+  tombstone predicate and never a **missing** one, and `page_component_writer_coverage_test.go` asks
+  only about the floors. So when you add a writer of `page_components.rendered_html`, do not infer
+  from a green suite that it is guarded — the suite cannot see the question. List the predicates on
+  a sibling write and match them deliberately.
+- **relations:** MEMORY [[a-helper-with-no-callers-is-not-a-refactor]] (the same shape without the
+  cause) · [[a-doc-comment-is-not-an-enforcement-mechanism]] · `editorial_design_uplift/NOTES` and
+  `HANDOFF_2026-09-02` §9, which recorded the absence correctly as "not reachable in this build" ·
+  fix + tests in commit `1007be27d`, council `cab931b1-8b45-461e-8a37-0dbdfa6aa928`
+- **source:** `features_open/035` P1 direction 2, wired 2026-09-03
+- **added:** 2026-09-03, editorial_design_uplift lane
+
+### `jsonb_agg(DISTINCT x)` rebuilding an ORDER-BEARING jsonb array silently REORDERS it — and it is the idiom this repo's own migrations reach for, praised in one of them as "naturally idempotent"
+
+- **footprint:** `pages.sections` · `jsonb_agg(DISTINCT` in `docs/agent_docs/sql_for_agents/` · migrations `719`, `727`, `728`, `248`, `252`, `255`, `266`, `267` · `platform/orchestration/actions/save_page_sections_action.go` (:1979, :415) · `platform/orchestration/actions/adopt_fragment_section.go` · `platform/orchestration/actions/section_editor_actions.go` (`loadPageComponentBySlotRO`) · `platform/orchestration/actions/discovery_checks/check_unresolved_sections.go` · `bugs_open/427`
+- **fires when:** you add or remove one entry from a page's `sections` array in a migration. The obvious, idempotent-looking spelling is `SELECT jsonb_agg(DISTINCT x) FROM jsonb_array_elements(COALESCE(sections,'[]') || '["new-slot"]') x`. It is idempotent about MEMBERSHIP and destroys ORDER.
+- **the mechanism:** `jsonb_agg` with `DISTINCT` and no `ORDER BY` has no defined input order — Postgres returns the deduplicated set in whatever order the aggregate happened to see it (in practice sorted). `pages.sections` is order-bearing **by index**, not by membership: `save_page_sections_action.go:1979` states it outright ("stores the planned section names in position order (1-indexed)"), `adopt_fragment_section.go` replaces a section with `planned[Position-1]`, and `section_editor_actions.go`'s `loadPageComponentBySlotRO` carries a match arm on `trim(both '"' from (p.sections->(pc.position - 1))::text) = $3`. Worked case: `719` turned `["hero-tool","generic-text-block","advertising"]` into `["advertising","hero-tool","event-list"]` where the intent was `["hero-tool","event-list","advertising"]`, so `page_components` position 1 indexed to `"advertising"` and position 2 to `"hero-tool"`.
+- **⚠ why the wrong result looks exactly right:** the statement succeeds, the row count is 1, the new entry IS present, the old one IS gone, and `sections @> '["x"]'` — the check every one of these migrations actually writes — passes. **Membership is what you assert and order is what you broke.** Nothing errors, no page changes appearance, and the damage is silent in both directions downstream: a wrong-but-present name matches nothing rather than raising.
+- **⚠ IT IS A REUSED IDIOM, NOT ONE AUTHOR'S SLIP.** `[MEASURED 2026-09-03]` **five other migrations** rebuild `pages.sections` this exact way — `248`, `252`, `255`, `266`, `267` — every one appending a slot with `jsonb_agg(DISTINCT x)` and no `ORDER BY`. **`267`'s own header comment recommends it**: *"both statements are naturally idempotent: NOT EXISTS on the slot, and `jsonb_agg(DISTINCT)` on sections."* True of membership, false of order — so the trap is documented in this repo as good practice.
+- **the check, before you write the UPDATE:** don't aggregate. **Write the literal array you intend**, in position order, and let a `WHERE sections = '<exact prior value>'::jsonb` make it refusable. Then verify the JOIN rather than the value: ```sql SELECT count(*) FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN content_components cc ON cc.id=pc.component_id WHERE pc.page_id=$1 AND COALESCE(pc.build_status,'pending')<>'removed' AND pc.position BETWEEN 1 AND jsonb_array_length(p.sections) AND trim(both '"' from (p.sections->(pc.position-1))::text) <> cc.function; ``` Zero, in a `DO $$ … RAISE EXCEPTION`, not a printed `SELECT` — asserting the alignment also catches drift your own migration did not cause. `727` and `728` are the worked pattern.
+- **the fleet position, so you can size a repair rather than guess:** `[MEASURED 2026-09-03]` of **2,719** indexable live rows fleet-wide, **109** are misaligned, across **68** pages and **21** sites. Disaggregated, because the total conflates two causes: **95** of the 109 have their own name present ELSEWHERE in the array (an ordering/offset shape) and **14** are absent from it entirely (a different, declared-vs-realised defect). **⚠ Do NOT attribute the 109 to this idiom** — 72 sit on pages whose declared count differs from their live row count, which offsets indices by construction; the causal share is unmeasured. **And the containment fact: 0 of the 109 have an empty `slot_name`**, so `section_editor_actions.go`'s positional arm — which is gated on `pc.slot_name IS NULL OR pc.slot_name = ''` — cannot currently fire on any of them. Fleet-wide this is LATENT, exactly as it was on the page that found it. It goes live the moment a build leaves a slot name empty.
+- **relations:** `bugs_open/427` §15–16 (the case, the census, and the council round that demanded it) · `bugs_open/454` (the same lane, same week: a value silently not carried, with the same "every signal is healthy" shape) · `016b` §9 *"a transform you can HASH is a transform you can prove"* — this is that lesson's Postgres instance · MEMORY [[order-fix-candidates-by-what-closes-the-door]] · [[a-migration-verify-block-of-selects-cannot-stop-the-commit]]
+- **source:** 2026-09-03, `bugs_open/427` lane. Found while writing an honest council rationale for the migration that caused it — not by any detector — and the five sibling migrations were found only because the council's `bug_historian` seat asked whether the anti-pattern was guarded against reuse. It was not, and still is not: nothing lints for it.
+- **added:** 2026-09-03, `bugs_open/427` lane
