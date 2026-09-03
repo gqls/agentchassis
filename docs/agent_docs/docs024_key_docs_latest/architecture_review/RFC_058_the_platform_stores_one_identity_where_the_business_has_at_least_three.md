@@ -214,3 +214,103 @@ the owner asked after reading it.
 classifier-derived contact can still reach the published column with nobody asked. It is a live
 gap, not a theoretical one, and it is the strongest argument for doing this properly rather than
 adding a sixth store.
+
+---
+
+# OWNER RULING 2026-09-03 — **Option C**, plus two additions, and the second one changes the shape
+
+Relayed via the `site_delivery_and_editor` lane, which put the question to the owner directly.
+Quoted where quoted; nothing inferred beyond what is marked as this lane's reading.
+
+## The choice: **Option C — four identities**
+
+> *"Option C would be my preference of the original choices."*
+
+So: **ordering party · operating party · published contact · subject**. The lane had recommended B
+with the subject derived and owned by the register; the owner has taken the subject as a
+**first-class identity** instead. That is the stronger reading and it settles §5.3 directly — an
+evidence register that must say *whose* claim it holds is better served by an identity it can point
+at than by one derived at read time.
+
+## Addition 1 — a FIFTH identity, the selling party. **Named today, deferred by the owner.**
+
+> *"There may in future be an identity as to who or what site is selling the web build service if
+> say we have another site operated by another person."* … *"We don't have to do the first one today
+> if you don't want."*
+
+The platform itself may be sold through more than one front, operated by different people. **The
+owner explicitly permits deferring it.** Recorded here so it is not rediscovered as a surprise —
+and see the synthesis below, because deferring it is only safe under one of the two candidate
+shapes.
+
+## Addition 2 — **more than one contact per identity. NOT deferred.**
+
+> *"also there may be more than one contact detail for any of these."*
+
+**This is a cardinality change, not a fifth option, and it is the larger of the two.** The
+`site_delivery_and_editor` lane flagged it as such and this lane agrees.
+
+**It kills the "one column per identity" shape outright.** Four identities × one contact each is a
+column design; four identities × *n* contacts each is a relation. No amount of adding columns to
+`sites` satisfies *"there may be more than one"*.
+
+### And it sharpens §5.2, the sharpest constraint, rather than sitting beside it
+
+§5.2 says a two-state field cannot express **"we asked and the answer is none"** as distinct from
+**"not yet known"**. With multiple contacts per identity, that constraint **moves down a level and
+gains a state**:
+
+- **consent is per CONTACT**, not per identity — the 2026-08-31 class ruling attaches to a published
+  surface, and with several contacts each one is separately publishable or not;
+- so the consent state belongs on the **contact row**, not on the identity;
+- and a *third* distinction appears that no field on `sites` can hold: **"this identity has contacts
+  recorded, none of them published"** is different from **"this identity has no contacts recorded"**,
+  and different again from **"we asked and the answer is none"**.
+
+**A fill-only-if-empty writer is more dangerous here, not less.** §5.2's inversion trap was proved
+at two layers already; with a relation, "empty" is no longer even a single observable — a writer
+seeing no *published* contact could add one while a deliberate "none" decision sits on a sibling row
+it never read.
+
+## This lane's synthesis: the two additions point the same way
+
+**They are not independent asks.** A relation is the only shape that satisfies addition 2 — and a
+relation is also what makes addition 1 **safe to defer**, because a fifth identity is then a **row**,
+not a schema change. Under a columns-on-`sites` design, deferring the selling party means a later
+migration; under a relation, it means an insert.
+
+> **So the deferral the owner offered is only actually cheap under the shape addition 2 already
+> forces.** Taking addition 2 seriously is what buys the right to postpone addition 1. If a future
+> session is tempted to shortcut addition 2 back into columns "for now", it should know that doing so
+> silently converts the owner's deferral into future migration work.
+
+**Direction of travel, recorded as this lane's reading and NOT as a decision** — no schema is
+proposed here, per §7, and none is proposed now: **identities as rows, contacts as rows beneath
+them, each contact carrying its purpose and its own consent state.** `sites.email` then becomes a
+**derived view of "the published contact"** rather than a store — which is what §5.4's four writers
+and fourteen readers are really a census of.
+
+## What is now UNBLOCKED, and what is still owed
+
+- **Unblocked:** the identity set is decided, so the model can be designed.
+- **Still owed before any migration, unchanged and now more load-bearing:** §5.4's census. **Writers
+  refreshed 2026-09-03 — still four.** **The fourteen readers remain dated 2026-08-31 and MUST be
+  re-run**, because under this ruling every one of them has to learn which identity it is reading,
+  and a reader missed is a reader that keeps reading the old column.
+  ⚠ **The census trap is now a `LANDMINES.md` entry** (filed by `site_delivery_and_editor`, credited
+  to this lane, and confirmed at `site_admin_handlers.go:339` `Email *string`, `:364` the appended
+  `email = $N`, `:389` the assembled `UPDATE sites SET %s`): **a writer that builds its SET clause at
+  runtime is invisible to a literal-SQL census.** Census by **column name, independent of the SQL
+  verb.**
+- **Delivery chain, now measured at the code rather than relayed** (`site_delivery_and_editor`,
+  stronger than §5.5's original "convention, not code" on one half): `send_delivery_email_action.go:55`
+  declares `customer_email` **REQUIRED** and `:99-102` errors *"customer_email resolved empty"* — the
+  action **refuses to guess**. Which value is passed is still convention, in the step's
+  `input_mapping`. Nothing in the delivery path reads `sites.email`; its live readers are all
+  published-contact uses (`rerender_page_sections_action.go:1096`, `maintenance_actions.go:171`,
+  `check_contact_form_undeliverable.go:254`). **So §5.5 is cheap to honour whichever identity wins** —
+  the delivery address must be NAMED in the 651 recipe, and nothing currently inherits it.
+- **Still the owner's, and unchanged:** `bugs_open/420` §C — whether the narrow consent ruling
+  extends to *derived* contacts. **Under this ruling it is arguably subsumed**: a derived contact is
+  a contact row like any other, and the question becomes what consent state a classifier is allowed
+  to write. Worth re-asking in those terms rather than the old ones.

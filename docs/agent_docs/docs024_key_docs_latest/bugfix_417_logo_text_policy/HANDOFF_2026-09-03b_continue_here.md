@@ -22,14 +22,22 @@ that stamp — `b2322a203` (417's prompt fix), `fcbe6071c` (424's guard fix), `6
 with HEAD as a negative control (correctly not an ancestor). **Re-verify against the CURRENT stamp,
 not this one; another roll has been announced since.** Use ancestry, never dates.
 
-### The four logo generations today, read at the served bytes with 404 controls
+### All four logo generations today, read at the served bytes with 404 controls — FINAL
 
-| site | outcome | key date | lettering? | legible? |
-|---|---|---|---|---|
-| seotools.co.uk | landed, attempt 2 | `20260903/` | **none** | max 7.64:1 ✅ |
-| gamedesign.uk | landed, attempt 3 | `20260903/` | **none** | max 6.46:1 ✅ |
-| websitepromotion.co.uk | landed, attempt 2 | `20260903/` | **none** | **median 1.01:1 ❌ WORSE than before** |
-| designblog.co.uk | 3 refusals, then reset again by the 424 lane | `20260902/` | **no artefact** | still serving the pre-fix logo |
+| site | outcome | key date | carried a licence? | lettering? | legible? |
+|---|---|---|---|---|---|
+| seotools.co.uk | landed, attempt 2 | `20260903/` | no | **none** | max 7.64:1 ✅ |
+| gamedesign.uk | landed, attempt 3 | `20260903/` | no | **none** | max 6.46:1 ✅ |
+| websitepromotion.co.uk | landed, attempt 2 | `20260903/` | no | **none** | **median 1.01:1 ❌ WORSE than before — `bugs_open/462` §6** |
+| **designblog.co.uk** | **landed 14:30:30Z, attempt 3 of round 2** | `20260903/` | **YES — `letterform`** | **none** | **min 5.83:1 ✅ best of the day** |
+
+**All four are settled and all four are text-free.** The `licence?` column is the one that matters
+for 417: only designblog's prompt actually put the override in an argument, so it is the only row
+that is evidence about *adjudication* rather than about the model's default behaviour.
+
+**The two extremes are the same code on the same day**, which is the cleanest single piece of
+evidence that 462 is per-generation variance and not a systemic defect: median **1.01:1** against
+**11.05:1**, hours apart.
 
 ---
 
@@ -69,12 +77,6 @@ not this one; another roll has been announced since.** Use ancestry, never dates
    in `bugs_open/417`, "THE DECISIVE RUN". **The adjudication case is now n=1 and it passed — but
    n=1 bounds nothing, so the trigger does NOT close.** The next evidence comes from the other 12
    licence-carrying sites when they regenerate, not from sites carrying no licence.
-   ~~original text:~~ The 424 lane reset it again (owner-authorised) and it was on
-   attempt 2 of 3 at ~12:56Z, `retry_after` 13:24:20Z. **It is worth more than the other eight runs
-   combined for 417**, because it is the ONLY site whose current plan still carries a permitting
-   phrase — *"abstract letterform or typographic symbol"* — immediately followed by *"no lettering or
-   words of any kind"* in the same sentence. **Eye-check it the moment it lands**; the UPSERT destroys
-   the artefact and the 424 lane has been asked to grab the old bytes first.
 4. **The fence decision (417)** — still deliberately not taken, and the grounds have MOVED. See §3.
 5. **417, 420 and 462 all stay OPEN.** 417 on the fence residual and item 3; 420 on its §C residual.
 
@@ -152,7 +154,22 @@ itself. That is the disconfirmation control all three earlier attempts lacked. E
 
 ## 6. STILL THE OWNER'S — unchanged, see the 09-02 handoff §5
 
-1. **RFC_058, the identity model** — lane recommends **B**, subject derived by the register.
+1. ~~**RFC_058, the identity model** — lane recommends B~~ **RULED 2026-09-03: OPTION C** (ordering
+   party, operating party, published contact, **subject as first-class**, not derived as this lane
+   had recommended). **Plus two owner additions — read the RFC's ruling section, because the second
+   one changes the SHAPE, not just the branch:**
+   - a **fifth identity**, the selling party (the platform sold through more than one front),
+     **named and explicitly deferred by the owner**;
+   - **more than one contact per identity — NOT deferred.** This kills "one column per identity"
+     outright and pushes the consent state down onto the *contact*, adding a third distinction no
+     field on `sites` can hold: *"has contacts, none published"* vs *"has no contacts"* vs *"we
+     asked and the answer is none"*.
+   ⚠ **The two additions point the same way and a future session must not decouple them:** a
+   relation is what addition 2 forces, and a relation is also what makes addition 1 cheap to defer
+   (a fifth identity becomes a ROW, not a migration). Shortcutting addition 2 back into columns
+   silently converts the owner's deferral into future migration work.
+   **Unblocked now; what is still owed is §5.4's reader census** (writers refreshed today, still 4;
+   the 14 readers remain dated 2026-08-31 and every one must learn which identity it reads).
 2. **The 420 §C residual** — does the narrow ruling extend to *derived* contacts? 28 specs carry one.
 3. **Ordering cannot reopen until the intake chat asks the contact question** — box-side.
 4. **`bugs_open/421` still has no owner.**
