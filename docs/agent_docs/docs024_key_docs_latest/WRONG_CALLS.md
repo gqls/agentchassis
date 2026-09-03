@@ -59941,3 +59941,41 @@ hardest are the ones you find yourself repeating.
   and had not mirrored it into `bugs_open/114`. It was retracted in both lanes within the hour,
   and the cancelled work item's stated reason now carries a dated correction so the row does not
   lie to the next reader.
+
+---
+
+## 2026-09-03 — "the owner's Afternic asks run 5.4x appraisal" — a ratio over a variable that turned out to be a CONSTANT
+
+- **the claim, and where it went:** that the owner's Afternic prices are "confirmed high, and
+  now there's a number on it — a median of **5.4 times** the appraisal". Written into the
+  domain_valuation NOTES, the owner-facing `README_where_we_are.md`, and said to the owner in
+  chat. Also passed to the sedo and afternic lanes as a pricing input.
+- **it is arithmetically true and it describes the wrong thing.** The asks are not per-domain
+  judgements at all. Measured afterwards: **419 buy-now asks carry 21 distinct values, 250 of
+  them the single value $4,999; 1,215 min-offer floors carry 12 distinct values, 845 of them
+  exactly $10,000.** The prices were applied in bulk bands. So a per-name ratio of ask to
+  appraisal is not measuring the owner's pricing judgement — with one side nearly constant, it
+  is measuring **the spread of the appraisals**, which is why its quartiles (p25 1.78, p75 13.7)
+  are so wide.
+- **the finding the band structure actually supports is bigger, and I nearly shipped past it.**
+  The bands do not track quality: names in the $4,999 ask band have a median appraisal of
+  **$1,549**, names in the $25,000 band **$1,646** — statistically the same names, priced 5x
+  apart. The $10,000 floor band spans appraisals from **$25 to $24,511**. So the defect is not
+  "prices are too high by a factor"; it is **"there is no per-domain pricing at all"**, which
+  makes them wrong in both directions and changes what repricing means — introducing per-name
+  prices for the first time, not scaling existing ones down.
+- **THE CHECK, and it is one line:** **before reporting a ratio, count the distinct values on
+  each side.** `Counter(values).most_common()` would have shown 250 identical asks instantly.
+  A ratio, correlation or median-of-quotients is only about both variables if both vary; when
+  one is banded or constant, the statistic silently becomes a description of the other.
+  Related in kind to [[a-plausible-external-cause-is-when-to-doubt-your-instrument]]: the number
+  was believable, so it was not interrogated.
+- **what it would have cost:** the owner acting on "lower my prices by about 5x" — which would
+  have preserved the actual defect (flat banding) while appearing to fix it, and would have
+  under-priced the genuinely good names, since the top of the estate is inside the same flat
+  bands as the tail.
+- **what caught it:** looking for a *second* valuation signal. I hoped the owner's own floors
+  encoded his per-name judgement and could corroborate the appraisals; counting the distinct
+  values to see how much signal was there is what exposed that there was none. **The check ran
+  because I wanted to USE the data, not because I doubted it** — a claim I had already written
+  into three documents and told the owner.
