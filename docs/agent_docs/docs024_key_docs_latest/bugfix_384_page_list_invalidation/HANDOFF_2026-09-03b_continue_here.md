@@ -9,7 +9,7 @@ Cold-start: **this file** → `bugs_open/384_…md`, the **12:4xZ** update first
 
 ---
 
-## 1. STATE — the seam is SOUND, and now PROVEN on the fixed binary (§5). The defect that broke it 09-02→09-03 is `bugs_open/454`, fixed and live.
+## 1. STATE — the seam is SOUND: 132/132 before the regression, 0/7 during, 18/18 after (§5). The defect that broke it 09-02→09-03 is `bugs_open/454`, fixed and live.
 
 **384 STAYS OPEN** (owner ruling 2026-09-03: *"keep it open until those are checked and fixed"*).
 But what is left is smaller and different from what the last handoff said.
@@ -25,6 +25,11 @@ produced, split at `94f81cc60`:
 | **before** `94f81cc60` | `action:rebuild_blog_listing` | 1 | 1 | 0 |
 | **after** `94f81cc60` | `save_page_sections` | 11 | 4 | **7** |
 | **after** `94f81cc60` | `action:rebuild_blog_listing` | 1 | 1 | 0 |
+
+**AND THE THIRD ERA IS IN** (added 15:3xZ). The `components` lane (`bugs_open/425`) drained its
+whole class on the fixed binary: **17 new shape / 0 old at 15:27Z**, six of them a batch with
+baselines recorded BEFORE dispatch. With designblog that is **18 repaired / 0 blank after the fix**.
+So the seam reads **132/132 before the regression · 0/7 during it · 18/18 after**.
 
 And in the post-regression window the attribution is total — each write joined to the last
 orchestration on its page within 20 minutes:
