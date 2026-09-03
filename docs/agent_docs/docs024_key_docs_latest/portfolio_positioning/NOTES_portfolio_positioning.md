@@ -5160,3 +5160,77 @@ superseded by a stronger one that is measured: the brief was not there at all.**
   a heading" is only evidence if you searched for the heading that artefact actually emits. The check
   that saved it was reading the planner's template rather than trusting my own earlier query.
 
+
+---
+
+### (pp) 2026-09-03 ~17:30Z — the brief-visibility defect is no longer a prediction: copyonline is building a different site, and BOTH consumers that have run say so in their own words
+
+Entry (oo) reported that the owner-approved brief reaches neither of its two consumers, evidenced at
+the rendered prompt (`<no value>` where the mission should be). That was an instrument reading. This
+entry records the **outcome**, which is worse and needs no instrument at all — the agents wrote their
+own confession into the artefacts they produced.
+
+**1. Both agents state, unprompted, that they had no brief.**
+
+`site_specs.classification.reasoning`, written 16:57:10Z by `domain-research-classifier`, verbatim:
+
+> "Confidence is moderate because **no mission brief was supplied** and the existing site content is
+> sparse — the strategic direction has been inferred from the site's own stated rules and the domain."
+
+`site_specs.tools.reasoning`, written 16:01:52Z by `tool-suggester`, verbatim:
+
+> "**Without existing pages loaded, I'm inferring from the domain** that visitors are likely businesses
+> or individuals seeking copywriting services…"
+
+This is the strongest evidence class available and I should have looked for it first. Entry (oo)
+measured the *prompt* (an input) and reasoned forward to the consequence. The `reasoning` field is the
+*output*, and the model narrates its own inputs there for free. **When a defect is "an agent cannot see
+X", read what the agent said about its inputs before building a prompt-render harness.** Cheaper,
+earlier, and it cannot be argued with. Filed as a check in WRONG_CALLS.
+
+**2. The classification it produced is not the site the owner approved.**
+
+| | |
+|---|---|
+| `category` | `hub` |
+| `industry_tags` | marketplace, directory, community-platform, interactive-platform, professional-services, b2b, creative-agency, content-platform, practitioner-platform, tool-portal |
+
+Inferred from the **old Drupal 7 rules page** — the classifier says so. The brief describes a
+copywriting authority site with one converting page. It has been classified as a two-sided marketplace.
+
+**3. Zero of the 30 planned pages are among the 10 built. [MEASURED 2026-09-03 17:25Z]**
+
+Built (all 10, all `active`, all deployed today 16:15–17:20Z): five library tool pages —
+Website Brief Starter, SERP Snippet Previewer, Insight Injector, Keyword Intent Classifier,
+Title Tag Scorer — and one companion guide each.
+
+The brief's four tools are Headline Scorer, Readability and Clarity Checker, Call-to-Action Tester,
+Length and Character Counter (plus Tone-of-Voice Consistency Checker). **Intersection with what was
+built: empty.** So is the intersection with its 26 planned guides, editorials and data pages. The AI
+opening angle the owner asked to lead with (three guides), the lead-route page carrying the whole
+conversion aim, and the UK Copywriter Directory are all unbuilt.
+
+`needs_content_page` items name only the ten tool/guide pages. The site is being built as an SEO tools
+portal, which is a coherent site — just not this one.
+
+**4. The three duplicate tools shipped while the owner's decision on them was open.**
+
+`serp-snippet-previewer`, `title-tag-scorer` and `keyword-intent-classifier` duplicate seotools. I
+recorded them in the handoff as "pages exist as `planned`, undeployed" and put the retire-or-keep
+question to the owner. They are now `active` and deployed (16:22:43Z, 16:39:58Z, 16:34:42Z). **A
+question put to a human does not pause the pipeline**, and I wrote the status line as though it would.
+Any "undeployed, so the decision is still cheap" phrasing needs a re-read before it is relied on.
+
+**5. Not caused by this lane.** copyonline carries **no `add_tool` work items**. The five tool pages
+came through the tool-deployer's own page-creating path (`bugs_open/450` §7), driven by the
+`tool-suggester` spec above. The 7+1 `add_tool` items this lane fired were the 450 instance, a
+different site.
+
+**6. The window is still open, narrowly.** `plan` is still absent and `resolved_composition` has not
+been written, so the 30 pages are not yet foreclosed — the planner has not run. Everything above was
+decided by the classifier and the tool-suggester, both of which have already run blind.
+
+**Not acted on.** The fix is written, guarded and verified in
+`SQL_2026-09-03c_make_briefs_visible_to_the_classifier_and_planner_HOLD.sql` and is NOT applied. The
+owner's standing instruction is not to change a running build, and he has not answered. What has
+changed since I last asked is only the evidence, not the permission.
