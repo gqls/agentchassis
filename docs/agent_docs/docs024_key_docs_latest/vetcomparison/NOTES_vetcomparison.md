@@ -1957,3 +1957,21 @@ queue-era casualties — left UNDIAGNOSED and said so. **OWNER DECISION OUTSTAND
 the two 08-11 `chrome_divergence_overwritten` items — a hand-patched HEADER was overwritten by
 chrome rebuild, content safely archived (2,952 + 3,094 bytes in site_component_history), awaiting
 restore-or-drop. Surfacing to the owner in the next summary.
+
+> **CORRECTED 2026-09-03, minutes after writing (caught by my own follow-through check):** I
+> closed the third-blue item with evidence saying "the accent now does real at-rest work as the
+> independence trust signal" — **FALSE. The independence-banner ELEMENT renders NOWHERE**: 0
+> elements across 7 live pages, 0 page_components rows, 0 site_components rows. All 18
+> "independence" mentions on the served homepage are CSS rules + variable definitions. The
+> vestigial chain in full, each level found by a different check this week: accent declared but
+> unconsumed (theme kits) → ink slots served but unconsumed (planner) → banner styles served but
+> NO ELEMENT (this). The audit item that filed the "third blue" flagged CSS values without
+> checking the element existed — neither the old blue nor the new green ever painted a pixel.
+> Item f7f819e1 stays complete (the CSS defect AS FILED is resolved, values palette-driven,
+> verified) with the correction appended to its result. **The owner's use-the-accent ruling is
+> NOT yet satisfied** — back with the planner: place the banner (new copy → owner, content
+> freeze) or give the green an already-rendered home (my named candidate: the directory's
+> claimed-listing chip — real trust signal, existing copy, 51 claimed listings sort first when
+> claimed-first rolls). The green tint/border values remain correctly in palette + chrome for
+> whichever home is chosen. Lesson, same family as WRONG_CALLS 08-27: **a closure evidence line
+> is a published claim — run the element-existence check BEFORE writing it, not after.**
