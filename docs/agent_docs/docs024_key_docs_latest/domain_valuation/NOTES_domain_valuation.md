@@ -162,3 +162,46 @@
   appraisal (n=181). The owner's judgement CONFIRMED and now has a scale:
   keen pricing near appraisal ≈ a ~5× cut from current asks. [Sample is the
   first 326 appraisals — re-run at walk completion.]
+  > **CORRECTED same day — the ratio measured the WRONG VARIABLE.** The asks are
+  > banded, not per-domain: **250 of 419 buy-now asks are the identical $4,999**
+  > (21 distinct values total), **845 of 1,215 floors are exactly $10,000** (12
+  > distinct). With one side near-constant the median ratio describes the spread
+  > of the APPRAISALS. And the bands do not track quality — the $4,999 and
+  > $25,000 ask bands hold names of median appraisal **$1,549 vs $1,646**, and
+  > the $10,000 floor band spans **$25–$24,511**. The defect is the ABSENCE of
+  > per-domain pricing, not a multiple. Caught by counting distinct values while
+  > trying to USE the floors as a second signal (they carry none). Logged in
+  > `WRONG_CALLS.md`; README corrected by APPEND after I first rewrote it in
+  > place, which the append-only rule forbids and the pattern check caught.
+
+## 2026-09-03 (evening) — estate complete, valuation provisional
+
+- **Nominet CSV ingested**: 1,606 domains (their `f8ca8389d`), expiry by MONTH.
+  Zero overlap with the 1,339 retail ⇒ **owned estate = 2,945**. Their walk had
+  never actually run before; three EPP bugs fixed the same evening, incl. one
+  that would have returned ZERO silently. Corroborated independently here: 683
+  of the 692 listed-but-unaccounted names are in their CSV, and the RDAP sweep
+  independently returns 683 registered to the owner's DESIGNCONSULT tag.
+- **RDAP sweep COMPLETE, 692**: 687 registered (683 owner, 4 others),
+  **3 NOT-REGISTERED** (chicklets.co.uk, demisexual.uk, protecty.co.uk),
+  2 unsupported (.co has no RDAP service; whois DNS blocked from here).
+  cheapbuild.co.uk + enables.co.uk are **LOST not misfiled** — NS verified
+  (ben/fay Cloudflare = another account; GoDaddy domaincontrol), live sites we
+  don't run. **qlp.us at NameSilo ⇒ possible unseen account.**
+  ⇒ `UNACCOUNTED_2026-09-03_answer.md` (the owner's question, answered).
+- **Categorisation COMPLETE for the whole estate** (`CATEGORIES_2026-09-03b_
+  estate.csv`): 2,951 rows = 2,945 owned + 6 marked NOT-OWNED-*. Nominet second
+  pass 578/578 (subcategories reused verbatim from earlier passes; no new
+  category needed). Top: home-garden 357, financial 342, web-digital 318,
+  consumer-products 256, ai-tech 194.
+- **⚠ THE VALUATION IS PROVISIONAL AND MUST NOT DRIVE THE CUT YET.** Only
+  **588/2,945 (20%)** have their own appraisal; **Nominet is 0/1,606**. The
+  other 80% inherit category medians, so within-category RANKING — the exact
+  thing the bottom-500 cut needs — is not yet real for them. Only 7 categories
+  have ≥20 own appraisals; the eye-catching ones (education $3,601,
+  agriculture $2,689) rest on 5 and 9 samples and mean nothing.
+- **Queues built for the remaining 2,357** (~8 windows):
+  `inbound/appraisal_queue_direct_2026-09-04.csv` (1,482 .com/.net/.uk) and
+  `inbound/appraisal_queue_proxy_2026-09-04.csv` (875 .co.uk/.org.uk/.me.uk via
+  the .com string equivalent, recorded as a PROXY). 12 domains on untested TLDs
+  (org/cv/vin/biz/ai/io) need one probe each first.
