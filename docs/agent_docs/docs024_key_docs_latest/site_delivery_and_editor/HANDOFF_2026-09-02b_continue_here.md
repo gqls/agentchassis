@@ -1,4 +1,12 @@
 # HANDOFF 2026-09-02b (late evening) — the roll LANDED (v1.0.1355, all four fixes aboard); one dispatch is ours to fire, three convergence waves to watch, then the pre-delivery sweep and the 651 rehearsal
+> # ⛔ SUPERSEDED 16:46Z on 2026-09-03 — START AT `HANDOFF_2026-09-03_continue_here.md` (same dir).
+>
+> This file took FIFTEEN in-place correction blocks in one day and is no longer a cold read: several
+> of its §1 items are struck, corrected, and then corrected again further down, so a reader who stops
+> at the first statement of an item will act on a retracted one. **Do not work from it.** It is kept
+> as the working record of how the day actually went — the wrong turns are the part that cannot be
+> rederived — and every live item, ruling and falsifier is carried forward into the 09-03 file.
+
 
 **Supersedes** `HANDOFF_2026-09-02_continue_here.md` (every item resolved or carried
 below — its §1.2/1.5/1.6/2 in-place updates are folded in). **Joint picture**
