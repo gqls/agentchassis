@@ -1943,3 +1943,17 @@ chrome_divergence_overwritten incident (check for hand patches first), and fix-t
 the-row. Third-blue review item stays OPEN until the callout serves green. The stylesheet's own
 6 amber fallbacks (news rules duplicated into styles.css by the generator) are the same
 source-level question — noted for the same patch.
+
+**Chrome entanglement resolved by events (2026-09-02 21:51 → 09-03):** the planner's hold
+question was overtaken — the 21:39 stale_chrome item ran at 21:51 and PROVED their stale-snapshot
+read: head chrome's source is clean ({{.theme_css}} injects the current stylesheet), and the
+refreshed chrome now carries the green callout (#ecfdf5 ×2, #f0f9ff 0). The run minted 16
+per-page rerenders (batch d913fe1c) — the SERVED green arrives when index's rerender flows
+(monitor armed on the artefact). LAST amber source, located: styles.css ITSELF emits the
+news-card rules with amber fallbacks (~lines 775-861) — the webdesign-agent's component-CSS
+emission is the true source; dormant (var always defined), left as a planner judgement call.
+The 5-day unresolved stale_chrome backlog: today's identical item succeeded, so those read as
+queue-era casualties — left UNDIAGNOSED and said so. **OWNER DECISION OUTSTANDING (3 weeks):**
+the two 08-11 `chrome_divergence_overwritten` items — a hand-patched HEADER was overwritten by
+chrome rebuild, content safely archived (2,952 + 3,094 bytes in site_component_history), awaiting
+restore-or-drop. Surfacing to the owner in the next summary.
