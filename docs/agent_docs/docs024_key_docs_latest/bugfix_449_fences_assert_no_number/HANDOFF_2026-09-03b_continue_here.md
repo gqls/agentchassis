@@ -28,7 +28,7 @@ the two blockers this lane was holding it behind have been answered and dissolve
 | **P1** verdict states its scope | **LIVE and PROVEN in production** | `acceptance-run` note, `tool-idea-stage-identifier`, **14:00:07.683828+00**, carries the `Scope of this verdict: ⚠ LIVENESS ONLY` line; all pre-roll notes do not |
 | **P2** door records a blind fence | **live in binary, NOT yet exercised — and NOT blocked** | 0 notes; 0 post-roll tool PLANs. See §3 — the reason is upstream, benign, and measured |
 | **P3** daily sweep | **LIVE and PROVEN** | CronJob `fence-value-assertion-check` @ `40 7 * * *`; note written (241 fences, 58 driving-and-blind, 13 new) |
-| **P4** teach the prompt | **WRITTEN + ROUND-TRIP TESTED, NOT APPLIED** — migration `749`, council-submitted | §4d |
+| **P4** teach the prompt | **ROUND 2 SUBMITTED, NOT APPLIED** — migration `749`; round 1 was REVISE and changed the file | §4d |
 | **P5** door refuses | **deferred, trigger written down** | PLAN §P5 |
 | council | **APPROVED** round 2 | `Council-Reviewed: 8745ad9e-1802-4e08-a9b0-eb493cd11243` |
 
@@ -177,7 +177,25 @@ and its `_ROLLBACK` sidecar.
 
 Byte-identical round trip; nothing was committed to the database.
 
-**Council: SUBMITTED, verdict not yet read.**
+**Council: ROUND 1 = REVISE (16:56Z); ROUND 2 SUBMITTED on the same correlation, verdict not yet read.**
+
+Round 1's gating objection was against my **submission**, not the file — I had put a placeholder in
+the sketch. Round 2's sketch is the file itself from `BEGIN;` to `COMMIT;`, so they cannot diverge.
+**Three objections changed the artefact and are already in it:**
+
+- `snapshot_agent('tool-generator', …)` in the pre-guard, after the idempotency return (raised
+  independently by `tooling_provenance` and `debug_historian`). Verified: backup rows 0 → 1 → **1**,
+  pre-image reads back at 2766 chars. ⚠ It writes to **`agent_definitions_backup`**, NOT to
+  `agent_definitions` with `is_snapshot=true` — a count against the latter reads 0 and looks broken.
+- The prompt gained **literal input vectors** and the **value/format split**, from the
+  `loancalculator` lane's answer (§§A–C of the bug).
+- The containment claim is now an **enumeration of all five `improve_tool` producers**, not one grep.
+
+**One objection is NOT closed and I have not claimed it is:** `bug_historian` — the refusal arm is
+prose with no code-side check. The named follow-on is a detector comparing a new `expect_values`
+against what the tool itself renders, flagging a MATCH where `## Dependencies` shows no working.
+
+
 `Council-Submitted: dda64bd1-2d34-4ee5-b903-c5bb2644733a`. Budget ~30 minutes, not ~2 — the dispatch
 queues behind the fleet. Read it with:
 

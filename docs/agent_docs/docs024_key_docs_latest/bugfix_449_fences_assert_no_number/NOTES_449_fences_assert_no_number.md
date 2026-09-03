@@ -836,3 +836,115 @@ terms this prompt actually has available.
 > £ signs and ⚠ — so anyone checking cap compliance in bytes will read ~10% high and "fix" a document
 > that was never over. This is `MEMORY.md`'s own byte-vs-char trap arriving in a new place. Caught by
 > the round-trip test printing `length()` = 2766 against my published 2783.
+
+## 2026-09-03 (~17:0x) — council round 1 REVISE, and the loancalculator lane answered. Both improved the file
+
+Two things landed within minutes of each other, and folding them into one round-2 revision was luck
+of timing rather than planning.
+
+### Round 1: REVISE, gated by editquality — and the defect was in my SUBMISSION, not my file
+
+> *"The sketch's actual UPDATE statement substitutes the anchor text with the literal
+> `$new$<<<the anchor sentence, then the block below>>>$new$` — a placeholder marker, not the real
+> prompt text ... applying it inserts a broken string into the live prompt rather than teaching
+> computed_values at all."* — editquality, **HIGH**
+
+**The objection was right and the file was fine.** The shipped migration always carried the real
+dollar-quoted text — that is what the 2766→5046 round trip measured — but I had put a placeholder in
+the *sketch* and moved the real text to trailing `--` comments to keep the submission short. The
+seat could not distinguish "documentation shorthand" from "a migration that writes a literal
+placeholder into the live prompt", and it was right not to guess.
+
+⚠ **The RUNBOOK already says "reviewers judge the sketch; it is the only view of your code they
+get", and I read that line before submitting and still economised on exactly the part under review.**
+Fixed structurally rather than by retyping: **the round-2 sketch is the file itself, sliced from
+`BEGIN;` to `COMMIT;`.** Sketch and artefact now cannot diverge. That also answers debug_historian's
+LOW objection that no `BEGIN`/`COMMIT` was visible.
+
+### The objection that changed the CODE: no `snapshot_agent()` — raised independently by TWO seats
+
+`tooling_provenance` and `debug_historian` both MEDIUM: mutating `agent_definitions.default_config`
+with no pre-update snapshot, "a byte-swap rollback file is not equivalent to a queryable pre-image
+row". **Correct, and it is the house convention** (`731`, `734`, `741` all call it).
+
+Added: `PERFORM snapshot_agent('tool-generator', '749_...: pre-update')` in the pre-guard, **after**
+the idempotency `RETURN` so a re-run does not mint a pointless snapshot.
+
+⚠ **And I nearly recorded it working on a count that said it was not.** My first check counted
+`agent_definitions WHERE is_snapshot=true` and got **0** while the NOTICE said "Snapshot captured".
+Rather than shrug at the contradiction I read `pg_get_functiondef(snapshot_agent)`: **it copies the
+row into a SEPARATE TABLE, `agent_definitions_backup`**, and does not touch `agent_definitions`.
+Measured properly, in the rolled-back transaction:
+
+| | backup rows for `tool-generator` |
+|---|---|
+| before | **0** |
+| after first apply | **1** |
+| after second apply | **1** (idempotent — no pointless snapshot) |
+
+and the stored pre-image reads back at **length 2766**, exactly the pre-change prompt. **A recovery
+point you cannot query is not a recovery point** — the count that disagreed with the notice was the
+useful signal, not noise.
+
+### The objection I had EARNED: containment checked one function and generalised
+
+`prior_art_librarian`, MEDIUM: my "Tier 2 cannot dispatch `tool-improver`" claim rested on
+`evaluateStaticCriteria` alone, and a landmine names a second route
+(`component_level='tool'` → `check_tool_health` → `improve_tool`) that is **not** gated by
+`no_auto_fix`.
+
+**This is `an-objection-naming-one-file-is-naming-a-category` exactly, and I walked into it.** The
+claim survives — but only after enumerating every producer of an `improve_tool` item:
+
+| producer | reads the fence? | effect of adding `computed_values` |
+|---|---|---|
+| `check_tool_acceptance.go:274` (Tier 2) | yes | none — no `computed_values` arm, falls to `default: skip`; its 3 shell checks run "independent of the criteria" |
+| `check_tool_health.go:308` | **NO** — `grep 'criteria\|doc_plans'` = **0 hits** | none — it cannot see a fence |
+| `refresh_evidence_fact_drift.go:415` | yes | none — honours `no_auto_fix`, routes to `fact_drift_review` |
+| `tool_acceptance_actions.go` (Tier 4) | yes | none — `no_auto_fix` fence "never reaches tool-improver at all" (`:38`) |
+| `confirm_work_item_handler.go:98` | n/a | human-initiated, not automatic |
+
+**Zero rows — now by enumeration rather than by one grep.** The seat was right that the argument was
+unsound even though the conclusion was true.
+
+### The objection I could NOT close, and did not pretend to
+
+`bug_historian`, MEDIUM: the refusal arm is prose in a prompt, with no code-side check that the
+asserted value is genuinely derivable — *"nothing stops the same model that just built a heuristic
+scorer from convincing itself the score is a published formula"*. **Accepted as stated.** A prompt
+cannot detect that. What round 2 does instead is (a) make the honest path reachable — see below —
+and (b) name the enforcement point as a follow-on: a detector comparing a newly authored
+`expect_values` against what the tool itself renders, flagging the case where they MATCH while
+`## Dependencies` names no rule and shows no working. That is mechanically checkable, and it is
+deliberately not in this migration.
+
+### The peer lane's answer, which changed the prompt text
+
+The `loancalculator_couk` lane replied in `bugs_open/449` §§A–C (asked 2026-09-03; they explicitly
+did not take the bug). Two findings changed the file:
+
+1. **"An input vector is PART OF THE EXPECTATION'S IDENTITY."** Their bug 385 established that stored
+   and composed bytes are **different name-spaces on this exact pipeline** — and my generator reads
+   *draft* markup while the checker drives the *deployed* artefact. Added: **write the inputs as
+   LITERAL values, never "the page default", never a reference the checker resolves later.**
+2. **The format/locale trap**: fill `300000`, the page displays `300,000`. Since the comparison
+   collapses whitespace and is otherwise exact, **a correct derivation can fail on presentation.**
+   Added: **DERIVE THE VALUE FROM THE RULE; READ THE FORMAT OFF THE CODE.** These are separable — the
+   value is an arithmetic fact about the world, the format is a presentation fact about the code —
+   and without the split a model that cannot predict the format must either refuse or read the whole
+   value off the page. **The second is precisely `bug_historian`'s failure mode, so this change is
+   load-bearing for that objection too, not cosmetic.**
+3. **Not taken, filed instead:** their **relational assertions** rung (monotonicity, sign, bounds),
+   derivable from a tool's PURPOSE with no known-good state, which would catch the
+   0%-APR-computes-nothing class that reactivity passes. It is a better answer than refusal for many
+   of the tools this prompt now teaches to refuse — **but it needs a NEW check type in the runner**,
+   so it is a follow-on with its own footprint, not something to smuggle into a prompt migration.
+
+They also warn the label vocabulary must be **single-sourced** (one shared enum, not three lanes'
+private strings) or we re-mint their `LOCK-009` drift, and that **REGISTER** should mean "derives
+from a fact id in the site's `evidence_base`" — which this step cannot reach anyway
+(`input_fields` are `input_data`, `site_record`, `generated_html`), so 749 licenses **DEFINITION
+only**. Both recorded for the follow-on.
+
+**Round 2 resubmitted on the same correlation** (`RESUBMIT_CORR=dda64bd1-…`) so the trail
+accumulates. Re-tested after every change: **2766 → 6013 → (re-apply: `UPDATE 0`) → 2766.**

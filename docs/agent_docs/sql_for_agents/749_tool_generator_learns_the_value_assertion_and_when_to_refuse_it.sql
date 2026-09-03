@@ -97,6 +97,14 @@ BEGIN
     IF n_cap <> 1 THEN
         RAISE EXCEPTION '749 ABORT: expected exactly 1 live tool-generator carrying the "under 3000 characters" anchor, found %. Do not apply the vocabulary half without the budget half: the new check costs ~400 characters of a document capped at 3000, so applying one without the other trades a value assertion for a truncated PLAN.', n_cap;
     END IF;
+
+    -- Pre-update backup, the house convention for mutating default_config
+    -- (see 731, 734, 741). Raised as a MEDIUM objection by BOTH the
+    -- tooling_provenance and debug_historian seats in council round 1: a
+    -- hand-rolled literal-swap _ROLLBACK file is not equivalent to a queryable
+    -- pre-image row. It sits AFTER the idempotency RETURN above, so a
+    -- re-run does not mint a pointless snapshot.
+    PERFORM snapshot_agent('tool-generator', '749_tool_generator_learns_the_value_assertion_and_when_to_refuse_it.sql: pre-update');
 END
 $guard$;
 
@@ -113,7 +121,9 @@ ONE further check type exists and it is NOT an interaction, so the sentence abov
 {"id":"<kebab-id>","type":"computed_values","profiles":["desktop"],"steps":[{"action":"fill","selector":"#realInput","value":"5000"}],"expect_values":{"#realResult":"$2,000.00"}}
 "expect_values" maps a selector to the exact text it must read once "steps" have run. Whitespace is collapsed on both sides; everything else must match as the page renders it, including currency symbols, thousands separators and decimal places. Step actions are "fill" (with "value"), "click" and "select" (with "value").
 EMIT IT ONLY IF YOU CAN DO THE ARITHMETIC YOURSELF WITHOUT READING ANY NUMBER OFF THE HTML ABOVE. That is possible only when the tool implements a rule that is published and checkable independently of this code: a standard financial formula, a statutory or tax rate, a unit conversion, a published index, or arithmetic that follows from the spec (volume x margin per unit). Choose the input values yourself, work each expected output out from that rule, and state the rule and your working in "## Dependencies" so a reviewer can check the expectation without trusting the tool.
-OTHERWISE OMIT THE CHECK ENTIRELY and write one line in "## Dependencies" beginning "No value assertion:" and naming what is missing. Anything that scores, rates, ranks, grades or classifies by a heuristic invented for this tool has NO independent source: the only "expected" value available is whatever this code happens to print, and pinning that makes today's bug tomorrow's specification. A GUESSED EXPECTATION IS WORSE THAN NONE — omitting the check is the correct answer far more often than not, and it is not a failure to report.
+DERIVE THE VALUE FROM THE RULE; READ THE FORMAT OFF THE CODE. These are two different acts and only the first must be independent. The number itself must come from the published rule, but how the page renders it — currency symbol, thousand separators, decimal places, any suffix — you must copy from the tool's own formatting code above, because the comparison collapses whitespace and is otherwise exact. A correct answer written in the wrong format fails as loudly as a wrong one.
+WRITE THE INPUTS AS LITERAL VALUES in "steps" — never "the page default", never a reference for the checker to resolve later. The fence is run against the DEPLOYED page, not the draft markup you are reading, and a reference resolves differently on the two sides; the input vector is part of the expectation's identity, so it must travel with it.
+OTHERWISE OMIT THE CHECK ENTIRELY and write one line in "## Dependencies" beginning "No value assertion:" and naming what is missing. That line is the honest label for "we could only establish that the tool responds", and it is the correct answer far more often than not. Anything that scores, rates, ranks, grades or classifies by a heuristic invented for this tool has NO independent source: the only "expected" value available is whatever this code happens to print, and pinning that makes today's bug tomorrow's specification. A GUESSED EXPECTATION IS WORSE THAN NONE — omitting the check is the correct answer far more often than not, and it is not a failure to report.
 WHEN you do include a computed_values check, add these two keys at the TOP LEVEL of the criteria object, beside "profiles" and "container": "no_auto_fix": true, and "no_auto_fix_reason": "arithmetic assertion — a failure means the formula or the law moved, which is a human's decision and not a rewriter's".$new$
         )),
         false)
