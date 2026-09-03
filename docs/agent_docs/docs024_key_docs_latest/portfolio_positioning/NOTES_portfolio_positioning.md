@@ -5078,3 +5078,48 @@ heritage and the new directory, so the classifier may be reading the brief corre
 be over-weighting the directory. That is testable on the next remake and on this one's re-classify.
 **No `resolved_composition` yet** — composition has not run, so the layout prediction is still open.
 
+### (oo) 2026-09-03 17:0xZ — **EVERY BRIEF THIS LANE HAS WRITTEN HAS BEEN INVISIBLE TO THE CLASSIFIER.** Five built sites were classified from web research alone.
+
+Found by the 445 lane while reading the same 16:54Z prompt I was reading, and verified here at the
+artefact for three sites.
+
+**The mechanism.** `classify_and_extract`'s template guards on the PARENT and prints a CHILD:
+```
+{{if .site_specs.specs.mission_brief}}## Pre-Defined Mission
+This site has a strategic mission provided by the owner. Use this as STRONG guidance … the mission is the primary source.
+
+{{.site_specs.specs.mission_brief.text}}
+```
+A brief-writer `mission_brief` is a **structured object** — `proposition, audience, stance,
+content_plan, must_nots, reader_intent, differentiation, open_questions, tool_opportunities,
+directory_opportunity, confidence, research_quality, regulated_subject` — and carries **no `text`
+key**. So the guard opens, the preamble asserting an owner mission renders in full, **and the mission
+renders `<no value>`.**
+
+**MEASURED at the rendered prompt** (`llm_call_log`, most recent classification of each):
+advertise.co.uk, seotools.co.uk and copyonline.co.uk all show the heading, the "primary source"
+sentence, and then `<no value>`, followed straight by Search Results.
+
+**MEASURED across the fleet:** of 23 current `mission_brief` specs, **7 lack `.text` — and they are
+exactly this lane's seven brief-writer briefs**: advertise, buytoletcalculator, copyonline,
+designblog, indoorplanters, seotools, websitepromotion. All 16 with `.text` are hand-authored or
+older missions. **The split is not random; it is by producer.**
+
+**So all four live remakes and copyonline had their `identity`, `classification`,
+`content_direction` and `design_intent` written from web research alone**, while the model was told an
+owner mission existed and was primary. copyonline's marketplace/directory tags are now explained:
+research on `copyonline.co.uk` returns the 2015 marketplace and "THE COPY CO (UK) LTD"; the brief that
+says otherwise never arrived. **My "the brief may be over-weighting the directory" hypothesis is
+superseded by a stronger one that is measured: the brief was not there at all.**
+- **This dwarfs RFC_037.** That RFC is about the classifier not seeing its SIBLINGS. It cannot see its
+  own site's BRIEF — the artefact the owner personally reviews and approves before release.
+- ⚠ **Migration 464 licenses a regulated business model off this same block** (445's finding), so on
+  those 7 sites the licence text renders and the constraint does not.
+- **Class is `bugs_open/453`'s** (the 445 lane contributed the general case there rather than filing a
+  new number, and that lane is deep in this class today). **The lane-specific consequence — every
+  brief-writer brief, five built sites — is ours and is recorded here.**
+- **Fix shape, NOT yet applied and not to be rushed** (I broke the classifier today by rushing one):
+  either the brief-writer emits a rendered `text` alongside the object, or the template renders the
+  object. The data-side fix is live-immediately and testable; **but copyonline is mid-build and the
+  owner has said not to change a running build**, so this is his call, not mine.
+
