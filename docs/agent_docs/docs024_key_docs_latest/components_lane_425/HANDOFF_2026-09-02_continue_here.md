@@ -63,6 +63,57 @@ correct everywhere while the pages still serve the old image.
 > `--since 2026-09-02` re-derives it. **A census does not go wrong; it goes stale, and yours can
 > be stale because of you.**
 
+## 0j. ⭐ START HERE — the consolidated elimination list and the one pair to work from
+
+**The open question, stated exactly:** two `page_rerender` items with `reason='section_data_resolved'`
+produced the NEW item shape and a third produced the OLD one. Same code path, same reason, same
+binary, same component row. **What differs is per-INSTANCE and is not any of the following.**
+
+**ELIMINATED — sixteen candidates, each by measurement across all 17 live instances** (jointly with
+the boxingonline lane, 2026-09-02/03):
+
+| | |
+|---|---|
+| the render **path** | refuted — a rerender produced the NEW shape twice |
+| the **reason** string | NEW and old both appear under `section_data_resolved` |
+| the **component** | `content-listing` on both sides |
+| the **source** declaration | `query.blog_posts` on both sides |
+| the **binary** | both rolls predate instances on each side; pods unchanged since 09-02 20:56 |
+| **time of run** | old-shape writes both precede and follow new-shape ones |
+| **locks** (`locked_at`, `lock_type`) | unlocked, 17/17 |
+| `component_version_id` | set, 17/17 — and it is **write-only**, nothing reads it |
+| `content_item_id` | NULL, 17/17 |
+| `schema_mode` | NULL, 17/17 |
+| `build_status` | `deployed`, 17/17 |
+| `built_from_plan_version` | cuts across both groups |
+| `suppressed_sections` | 2 instances have it, both old — but 10 old ones do not; and suppression does not touch `planSection` |
+| **per-section wiring** | `pages.sections` is a flat array of slot-name STRINGS — nothing there to differ |
+| **empty resolve** (`queryListBelowContract` → `handleMissingField`) | every site has a non-zero eligible population; stored counts match what the query returns, both sides |
+| **overnight config change** | `agent_definitions` 0 rows changed in the window; `content-listing` last updated 09-02 **10:43:56**, before all three rerenders |
+
+**THE PAIR TO WORK FROM — `garden-tools.uk`, and nothing else comes close:**
+
+| | `/index` | `/care` |
+|---|---|---|
+| shape | **NEW** | **old** |
+| site, component, source | identical | identical |
+| stored items / eligible posts | 4 / 4 | 4 / 4 |
+| **written by** | `empty_section` · page-build-handler | `page_rerender` · `template_changed` |
+
+Everything a census can hold constant is constant. Whatever the difference is, it is visible in
+that pair or it is not in the database.
+
+**The declaration everything hangs on**, so nobody re-derives it:
+```json
+"articles": {"type":"array","source":"query.blog_posts","required":true,
+             "on_missing":"skip_section","missing_reason":"No blog posts published yet"}
+```
+
+**Method note worth keeping:** the model that had to be refuted fitted the first two data points
+perfectly. It died at n=4 and would have died at n=17 immediately. **Go to the whole population
+first and theorise second** — a story that fits everything and forbids nothing feels like
+understanding and is the most expensive thing to carry into a handoff.
+
 ## 0i. ⛔ THE PATH-SPLIT MODEL IS REFUTED — a rerender DID produce the new shape
 
 **Read this before §2 and §0h; both are framed on a model this refutes.**
