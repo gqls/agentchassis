@@ -38,9 +38,14 @@ it, it calls out to a research agent with a 90-second budget, and its output is 
 `research_result` — so it looked like we were paying for research and throwing it away.
 
 Then I went to measure it, and that is not what is happening. **The research agent has never
-run since 18 January — seven and a half months.** The switch that would turn it on (`needs_research` on a component) is
+run — not once, ever.** The switch that would turn it on (`needs_research` on a component) is
 never set to true, anywhere. So of 391 page-writing runs in the last month, zero reached the
 research step.
+
+> **⚠ THE SENTENCE ABOVE IS WRONG — see the dated correction at the foot of this file
+> (2026-09-03).** Left exactly as written rather than edited away: this log is append-only, and a
+> claim that turned out false is evidence about how we get things wrong. Short version: "never,
+> ever" came off a table that keeps two days. It last ran on 18 January.
 
 So the honest position is: **nothing is broken today**. Two things are dead, and each one
 hides the other. The research never runs, so nobody notices the template block is dead; the
