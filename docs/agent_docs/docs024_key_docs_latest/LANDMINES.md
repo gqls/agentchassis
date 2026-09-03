@@ -21989,3 +21989,49 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 - **relations:** the three `build provenance` entries above, of which the 2026-08-17 one is authoritative · the entry on a READ-TIME repair making the served artefact stop being evidence — same session, same lane, and its sibling: that one is about which LAYER answers your question, this is about whether your INSTRUMENT can answer it at all · MEMORY [[logs-deploy-reads-one-pod-of-n]] · [[a-post-fix-zero-needs-a-demand-control]] · `LANDMINES` "`| head -N` … is an UNMARKED TRUNCATION"
 - **source:** 2026-09-03, `news_feed_ingestion` lane. Two independent instances in one day — `build provenance` matching a ~5 MB council payload while verifying a roll, and `stripped literal markdown` matching 6 unrelated mechanisms while correcting a peer's ship-check. The 332 lane proposed filing the first as new; it was not new, and saying so is the point of this entry being an index.
 - **added:** 2026-09-03, `news_feed_ingestion` (feed lane).
+
+## A dispatch REFUSED for missing headers is indistinguishable from queue latency — and the estate's own "do not retry on a missing orchestration row" guidance then tells you to wait for ever
+
+- **footprint:** `scripts/kafka-publish-lib.sh` (`kafka_publish_checked`, `kafka_verify_landing`) ·
+  `system.agent.generic.requests` · `orchestration_states` · `INCOMING_MESSAGE_REJECTED` ·
+  `docs/agent_docs/sql_for_agents/651_delivery_review_and_email_agents_HOLD.sql` ·
+  CLAUDE.md § "Council review of platform changes" (the "budget ~30 minutes … a missing orchestration
+  row is almost always latency" paragraph)
+- **fires when:** you hand-dispatch any agent from a recipe in a doc or seed header, then look for
+  the orchestration row and do not find one. **Every hand-written dispatch recipe in this estate is a
+  candidate**, because the required header set is not stated in most of them.
+- **why the wrong result looks exactly right — and this is the sharp part, because BOTH documents
+  are individually correct.** CLAUDE.md's guidance is right: a missing orchestration row usually IS
+  latency, and retrying costs a duplicate round. A seed's dispatch recipe listing three headers looks
+  complete because it is a recipe. Put them together and a REFUSED message — consumed, rejected,
+  never to run — presents as the exact symptom you have been told to wait through. **The more
+  faithfully you follow the guidance, the longer you wait.** `client_id` and `orchestration_id` are
+  required and `651`'s recipe named neither; measured 2026-09-03, that cost 37 minutes of waiting on
+  a message that had been rejected within seconds.
+- **the check, and it is one line — run it BEFORE you conclude latency, not after:**
+  ```bash
+  . "$REPO_ROOT/scripts/kafka-publish-lib.sh"
+  kafka_verify_landing "$corr" 30
+  #  0 = landed
+  # 13 = published, NOT landed  -> this really is latency; wait, do not resend
+  # 12 = CONSUMED AND REFUSED   -> it will never run; the error text NAMES the
+  #      missing headers. Fix the envelope; resending it unchanged is pointless
+  ```
+  `kafka_publish_checked` returning 0 does **not** cover this: it asserts the message was PUBLISHED,
+  which it was. Publication and acceptance are different questions and only the second one predicts a
+  run. **A green publish receipt is not a green dispatch.**
+- **the header set that actually works** (proven 2026-09-03, `delivery-review-filer` on `idea.uk`,
+  landed and COMPLETED in under 25 seconds): `orchestration_id`, `orchestration_name`, `client_id`,
+  `request_id`, `message_id`, `step_name`, `message_type`, `action`, `from_agent_type`,
+  `from_agent_id`, `responses_topic`. Copy it from a script that is *known to run today* —
+  `097_TRIGGER_council_review_v1.sh:300-310` is the live reference — never from a prose recipe.
+- **⚠ and the latency figure itself does not generalise.** The measured "publish→run start was 29
+  minutes" (2026-07-20, council dispatch under fleet load) is quoted in CLAUDE.md as a budget. The
+  same day's `delivery-review-filer` dispatch ran in **under 25 seconds**. A slow dispatch is a
+  reason to VERIFY, not a reason to assume you are inside a known-good window.
+- **relations:** `a receipt nobody asserts on is a log line` (OPP-009, the library this extends) ·
+  `bugs_open/327` · `651`'s header (corrected 2026-09-03) · WRONG_CALLS 2026-09-03
+- **source:** 2026-09-03, `site_delivery_and_editor`, starting the owner-authorised delivery
+  rehearsal on a non-customer site. The library's own `kafka_verify_landing` is what caught it; the
+  recipe, the DB and the guidance all agreed on the wrong answer.
+- **added:** 2026-09-03, `site_delivery_and_editor` lane

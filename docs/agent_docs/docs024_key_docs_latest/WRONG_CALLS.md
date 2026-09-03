@@ -64678,3 +64678,41 @@ comm-and-sort-disagree-on-collation, grep-silent-on-non-utf8.
   disagreement to trigger it.
 - **Cost.** None. Recorded because it went the right way for the wrong reason: the number
   happened to conflict with my model, and had it agreed I would not have looked.
+
+## 2026-09-03 (b) — `site_delivery_and_editor`: I told the owner twice that a dispatch was "inside the measured latency window" when it had been rejected within seconds
+
+**The claim.** I dispatched `delivery-review-filer` to start the rehearsal, saw no orchestration row,
+and wrote — in a status report to the owner, then again in a summary — *"at 27 minutes … right at the
+measured 29-minute queue latency, so not a retry signal."* I repeated it at 37 minutes.
+
+**What was actually true.** The message was **consumed and refused** within seconds:
+`INCOMING_MESSAGE_REJECTED :: missing required header(s): client_id, orchestration_id`. It was never
+going to run. The re-dispatched version, with the full envelope, landed and COMPLETED in **under 25
+seconds** — so the 29-minute figure did not describe this dispatch at all, in either direction.
+
+**Why it was a comfortable thing to believe.** Everything agreed with it. The publish receipt was
+green (`kafka_publish_checked` exit 0 — correctly, the message WAS published). CLAUDE.md says a
+missing orchestration row is almost always latency and warns against retrying on that evidence. The
+seed's own dispatch recipe listed the three headers I sent. **Three sources agreed, and all three
+were describing something other than what had happened.**
+
+**What caught it.** `kafka_verify_landing`, one call, which exists precisely to separate
+"published, not landed — wait" from "consumed and refused — fix the envelope". I ran it only after
+the wait had gone past the number I was leaning on, which means the number was doing the work a check
+should have been doing.
+
+**The cheap check, and the rule that follows.** Run `kafka_verify_landing` **at the first check**,
+not as an escalation. It costs one call. More generally: **I used a remembered figure as a reason not
+to look.** "27 is less than 29, so this is fine" is not evidence about this dispatch — it is a prior
+borrowed from a different agent under different load, and the thing it displaced was a check that
+would have answered in seconds. A quoted benchmark is at its most dangerous when the observation
+falls just *inside* it, because that is when it stops feeling like an assumption.
+
+**And a green receipt is not a green dispatch.** `kafka_publish_checked` asserts PUBLICATION. Whether
+the consumer accepted the envelope is a different question, and only the second one predicts a run. I
+had asserted the receipt — the thing OPP-009 exists to make me do — and read that as covering both.
+
+**Cost.** 37 minutes of the rehearsal, and two status claims to the owner that were wrong when made.
+No wasted dispatch (I did not retry, which was right for the wrong reason) and nothing broken. The
+recipe in `651`'s header is now corrected and the trap is filed in `LANDMINES.md` — it would have hit
+anyone dispatching either delivery agent from that seed.
