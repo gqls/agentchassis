@@ -1,5 +1,24 @@
 # HANDOFF 2026-09-03 — continue here (bugs_open/257, round 2: the class came back in a new shape)
 
+> ## ✅ DELIVERED 2026-09-03 (later the same day) — §5 steps 1 AND 2 are WRITTEN AND COMMITTED (`51357cf51`)
+>
+> **Do not start this work; it is done.** Read this file for the ANALYSIS, then go to
+> `bugs_open/257…md` §2026-09-03b for what actually shipped and what is still owed.
+>
+> **⚠ §4's census below is WRONG in three places, and §5 step 1 is therefore NARROWER than what
+> shipped.** `companies_house_llm_review_action.go` and `execute_vision_prompt_action.go` are listed
+> as *"reads config, no literal — acceptable"*: the first passed an EMPTY options map, the second read
+> the key with no `> 0` guard. And `feed_actions.go`'s Perplexity path hardcoded `4096` in a raw HTTP
+> body — invisible to this census and to the three before it, because they all grep `\.GenerateText(`.
+> All five are fixed. Details and the transferable lesson: `WRONG_CALLS.md` and `LANDMINES.md`
+> (*"A budget census keyed on the CLIENT INTERFACE is blind to a provider called over raw HTTP"*),
+> both 2026-09-03.
+>
+> **Still open, and still what a next session should pick up:** §5 step 3 (`llm_call_log` blindness),
+> candidate 2 (merging the last two copies — a human call), the four dead `site-adoption-agent`
+> `config.max_tokens` declarations found while doing this, and the post-roll live verification.
+> Council: `c8660cfb-690d-4dd2-8b1f-25828305133e`.
+
 **Written by:** the session that picked 257 up on 2026-09-03 after 18 days quiet.
 **Status of that session's work: RESEARCH AND DOCUMENTATION ONLY. NO CODE WAS WRITTEN OR COMMITTED.**
 **The fleet build of 2026-09-03 (`v1.0.1359`) therefore carries NOTHING from this session** — it is
