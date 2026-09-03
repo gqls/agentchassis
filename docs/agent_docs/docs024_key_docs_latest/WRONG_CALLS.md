@@ -62545,6 +62545,46 @@ after.
 Family: a-report-is-not-a-measurement, prior-art-search-goes-stale,
 a-subagent-report-is-another-doc, a-measured-marker-proves-a-measurement-was-claimed.
 
+## 2026-09-03 — `news_feed_ingestion`: I WIDENED a peer's sound measurement into an unsound one, and sent it to two lanes as a strengthening
+
+**The claim.** A peer measured that `site_plan_pages.parent_section` is empty on 109 of
+109 `blog-post` rows, evidence that nothing populates the column. I re-ran it, confirmed
+it, and then *extended* it: empty on **76 of 76 `section-index` and 4 of 4 `news-index`**
+rows too, therefore "the column is unpopulated **fleet-wide**, which is a wider fact than
+the 463 lane's own measurement." I put that in a CONTRIB to one lane, my own NOTES, and a
+message back to the peer, explicitly flagged as strengthening their case.
+
+**It was wrong, and it weakened the case rather than strengthening it.**
+`CanonicalisePage` **deliberately ignores** `ParentSection` for the index family — a
+section index *is* its own section. Only `tool`, `guide`, `game`, `blog-post` and
+`entity-page` have a `dir := parent` arm (`page_canonical.go:181, 192, 203, 217, 233`).
+So those 80 rows being empty is **correct behaviour**, not evidence of a defect, and
+quoting them invites a reviewer to dismiss the real 109-of-109 finding along with them.
+
+**What caught it.** The peer I sent it to, who read the switch. Not my own check.
+
+**The mechanism of the error, which is the transferable part.** I measured *a column's
+emptiness across roles* without first checking *whether the code reads that column for
+those roles*. The query was correct, the numbers were correct, the `[MEASURED]` marker
+was honestly earned — and the inference was still unsound, because the population I
+widened to does not have the semantics the claim requires. This is "your measurement
+answers the question you ENCODED" in its most seductive form: **widening a sample feels
+like more rigour, and is the opposite when the added rows are governed by different
+code.**
+
+**The cheap check that would have prevented it:** before extending a measurement to a
+new population, grep the consuming code for that population and confirm it reads the
+thing you are measuring — here, `grep -n "dir := parent" page_canonical.go` and reading
+which `case` arms contain it, one command. **And the rule of thumb:** if a peer's figure
+already carries the argument, adding a wider one buys nothing and risks exactly this.
+The 109 of 109 was always sufficient.
+
+Corrected visibly in the designblog CONTRIB, in this lane's NOTES, and carried as an
+explicit carve-out warning in `bugs_open/468` §3 so the next reader does not repeat it.
+
+Family: a-measured-marker-proves-a-measurement-was-claimed, measurement-discipline-index,
+a-closer-census-cannot-see-what-it-succeeded-at, cite-the-arm-not-the-function.
+
 **Third call, same session, and the most instructive:** I appended a landmine about
 `grep -m1 'build provenance'` matching the wrong log line — and **two entries already
 had that trap**, one of them from 2026-08-17 with a *better* remedy than mine (the 293
@@ -63908,3 +63948,33 @@ self-heal after the roll. `332` owns the fix and is adding the `/data/*.json` an
   than five automated "repairs" of correct calculators. I set it for an unrelated reason.
   Tally: **transform-and-its-verifier-shared-a-wrong-key** ×1,
   **edited-a-format-without-reading-its-struct** ×1.
+
+## 2026-09-03 — designblog_couk lane: I dispatched a needs_page item at a handler that cannot create pages
+
+**The claim (implicit, in migration 726's design).** A `needs_page` item on `page-build-handler`
+with `page_name: tools-index` would BUILD the newly-planned page. I copied the item shape from a
+recent needs_page row — which was a REBUILD of an existing page — and assumed the handler's
+capability transferred to creation.
+
+**What was true.** `page-build-handler` cannot create a page: its `check_page_found` step routes
+`page_record.found == false` straight to `complete_error`, and the step's own description says so
+("audit findings for new pages will skip here"). The item completed at 10:30:20Z having built
+nothing; its `result` was the spawn-record echo (bugfix-287's known shape). Page CREATION belongs
+to the plan pipeline's `sync_pages`. Fixed by 732 (materialise the pages row + plan sections
+surgically, then re-file — a replan being unsafe that day per Pass C).
+
+**What caught it.** My own served-side follow-up on the estate rule "a complete work item is not
+a changed artefact": item `complete` + `SELECT count(*) FROM pages … = 0`, five hours later. The
+gap between complete and caught is the cost — the GTM chrome wave could have fired in it and
+"finished" a nav rebuild with no page for the link.
+
+**The cheap check that would have.** Before dispatching ANY item shape at a handler, read the
+handler's workflow for its refusal branches — one query
+(`jsonb_each(default_config->'workflow'->'steps')`, then the conditional steps' `else_step`s).
+An example row teaches the SHAPE of a dispatch, not the handler's CAPABILITY — the example I
+copied happened to be a rebuild, and nothing about the item schema distinguishes build from
+rebuild. Same family as the day's other finding (the handler cannot create ≈ the component
+cannot receive): **a dispatch lands only where a branch exists to catch it.**
+
+**Tally:** **an-example-teaches-the-shape-not-the-capability** ×1 (new);
+**a-complete-work-item-is-not-a-changed-artefact** ×(n+1) — this time as the safety net that worked.
