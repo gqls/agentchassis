@@ -108,7 +108,22 @@ pages/imagery/rerenders → `deployed` by pipeline action.
   links) and a `needs_content_page` "0 component rows — build it" follows (websitepromotion's
   `tool-channel-prioritiser`). Neither fork builds the planned tool.
 
-## 2b. Mitigation for №5 onward — fire a one-shot design discovery when the PLAN completes (UNEXERCISED on a remake; №5's third canary duty)
+## 2b. ~~Mitigation — fire a one-shot design discovery when the PLAN completes~~ **UNNECESSARY: the natural ordering already does it (MEASURED on №5, 2026-09-03)**
+
+**Do not create the one-shot task. It is not needed.** On copyonline (№5) the discovery sweep created
+`needs_composition`, `needs_design` and `evaluate_tools` **within 6 minutes of the unlock**
+(15:49 → 15:55:06Z), and `evaluate_tools` COMPLETED at 16:01:52Z — **before classification and before
+the plan**. That is exactly the ordering this section was invented to force, and it happens by itself
+on any released site. advertise got it by luck in the sense that the rotation reached it early; a
+NEWLY RELEASED site gets it structurally, because unlocking is what the sweep keys on.
+
+Two things to do instead, both cheap:
+1. **Eye the `add_tool` wave the moment it lands** (see the ⚠ below) — it now runs with LESS context
+   than usual, because on a fresh release it fires BEFORE any `classification` spec exists.
+2. **Check the plan names the tools that were built**, not tools nobody will build (`bugs_open/450`).
+
+The original text is kept below for the record, since the one-shot recipe is still the right tool for
+a site that is ALREADY live and never got a sweep — which is a different situation from a release.
 
 Until 450's platform fix lands, make advertise's lucky ordering deliberate: tools before links.
 The worked shape is `scheduled_tasks` row `oneshot-design-discovery-mcalc-20260814` (owner
@@ -133,6 +148,14 @@ VALUES ('oneshot-design-discovery-<short>-<yyyymmdd>',
   a plan written before the sweep names tools nobody will ever build.** After the sweep: the
   planner's own tool stubs are dead weight to retire (instance work, every remake until 450
   lands).
+- ⚠ **WORKED INSTANCE, №5, 2026-09-03 — the wave arrives with NO classification at all.** copyonline's
+  sweep fired at 16:01:52Z when only `mission_brief` existed, and suggested six tools: three that fit
+  (`Website Brief Starter`, `Copy Brief Builder`, and `Insight Injector`, which lands on the site's AI
+  angle) and **three that duplicate `seotools.co.uk` by name and function** — `SERP Snippet Previewer`,
+  `Title Tag Scorer`, `Keyword Intent Classifier`, all three live pages on seotools already. The
+  brief's own must_not forbids exactly this and the suggester cannot read it. **So: read every
+  `add_tool` wave against the sibling sites before it builds. Cancelling a `triaged` `add_tool` is
+  cheap; retiring a published page is not.**
 - ⚠ **The suggester is CLUSTER-blind as well as seat-blind (447, instance 2026-09-03):** it
   copied advertise's CPM/CPC comparator onto BOTH cluster siblings, and five more tools are
   duplicated pairwise across advertise/seotools/websitepromotion. The brief's flagship-deference
