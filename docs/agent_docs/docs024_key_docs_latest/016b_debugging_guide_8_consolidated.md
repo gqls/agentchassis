@@ -15444,3 +15444,56 @@ and update the same row this way: `noted` selects zero rows however much the lev
 
 Case detail, the fix candidates ordered by what makes the bad state unrepresentable, and the
 stated substitution for a `090` run: `bugs_open/459`.
+
+### An artefact can pass every gate by being perfectly correct in every dimension anyone measures — when two SOUND exclusions leave a gap, neither one is wrong and nothing reports it (2026-09-03, `bugs_open/462`)
+
+**Symptom.** The artefact is generated, transformed, stored, deployed, referenced and rendered.
+Every one of those is checked, and every check passes. A human opens it and it is unusable. There is
+no error, no failed status, no parked finding, and no counter sitting at a suspicious number — the
+defect has no representation anywhere in the system.
+
+**Why it is worth an entry.** The usual hunt is for a check that is *broken*: a selector matching
+nothing, a detector silenced by an allow-list, a threshold set too loose. This class has none of
+that. Every check in the path is working exactly as designed and as documented. The measured case:
+a logo with a real alpha channel, correctly matted, deployed on 25 of 25 served pages, whose darkest
+pixel anywhere reaches **2.55:1** against its header — no part of it clears the 3:1 legibility floor.
+
+**Diagnose.** Enumerate the checks that *could* have caught it and read what each one says its remit
+is — at the deciding arm, not the filename. Then, for each, ask the question that actually separates
+this class from a broken check: **does the stated reason for declining still apply to my case?**
+
+- The render audit declined it because its remit is *"text contrast against the effective
+  background"* — an image's own luminance is not text.
+- The findings writer declined image-adjacent contrast because *"the adapter's own header calls the
+  backdrop **unknown**; filing approximations at a fixer manufactures churn."*
+
+**Root cause — and the part that generalises.** Both exclusions are *correct*. Text over an
+arbitrary photograph genuinely has no single backdrop colour, so filing approximations at an
+automated fixer genuinely would manufacture churn. But the case at hand **inverts every term of that
+reason**: the image *is* the subject, and its backdrop is a solid colour the site's own theme
+declares. Nothing is approximated; both operands are available exactly.
+
+> **A gap between two sound decisions is not a flaw in either, and that is precisely why nobody
+> finds it.** A broken check has a symptom — a wrong finding, a stuck row, a count that will not
+> move. Two correct exclusions produce *silence*, and silence is what a healthy system also looks
+> like. Neither owner is wrong, neither will be paged, and no audit of either path will surface it.
+
+**Fix.** File it as its own gap, and do not reflexively extend the nearest existing pipeline — the
+reason that pipeline declines your case is usually load-bearing. Here, routing to the CSS fixer
+would have been wrong on three counts at once (different operand, different fixer, different dedup
+unit). Rank candidates by what makes the bad state unrepresentable: a fail-closed statistic at store
+time, in the same place and shape as the guard already there, beats a post-hoc finding, which beats
+a prompt clause.
+
+**The cheap check that finds this class before a human does.** When you measure an artefact, measure
+a **second one from the same pipeline in the same run**. A single bad reading is consistent with
+"this is just how the pipeline works" and invites no follow-up; two readings that *disagree* —
+2.55:1 against 7.64:1, same generator, hours apart — prove the pipeline can already do it right and
+convert the finding from a constant into a variance defect with no control over it. That reframing
+is what tells you a check is missing rather than a prompt being weak.
+
+⚠ **Confirm your backdrop operand at the USAGE, not the declaration.** The whole measurement rests
+on it, and a CSS custom property that is defined and never applied reads identically in source.
+Here `--color-header-bg: #ffffff` was genuinely consumed by four `background: var(...)` rules, one
+via a fallback that also resolved white — checked, because an unapplied token would have made every
+ratio above meaningless while looking perfectly well-sourced.
