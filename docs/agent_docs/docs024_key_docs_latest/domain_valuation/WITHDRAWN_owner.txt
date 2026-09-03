@@ -13,3 +13,26 @@ kathyappleby.co.uk
 kathyappleby.com
 oliverappleby.co.uk
 williamappleby.co.uk
+
+# 2026-09-03 — williama.co.uk confirmed by the owner as part of the Appleby
+# group (raised as an open question here, then answered).
+williama.co.uk
+
+# 2026-09-03 — owner: "remove anything like wyke or wykefarm or pasteured egg".
+# That is a PATTERN instruction, so the estate was grepped independently rather
+# than taking a supplied list: wyke → 4, pastur → 6, and "egg" additionally
+# matches aggeggi.com (Italian, gadgets) and veilig-beleggen.com (Dutch,
+# investing), which are unrelated and deliberately NOT withdrawn.
+# wykefarm.co.uk/.uk are ALSO live sites and appear in the live-site fence;
+# they are listed here too because an owner withdrawal outranks and outlives a
+# fence entry.
+wyke-farm.co.uk
+wyke-farm.uk
+wykefarm.co.uk
+wykefarm.uk
+pasturedegg.co.uk
+pasturedegg.uk
+thepasturedegg.com
+thepasturedeggcompany.co.uk
+thepasturedeggcompany.com
+thepasturedeggcompany.uk

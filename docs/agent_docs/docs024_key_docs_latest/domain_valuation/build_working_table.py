@@ -153,12 +153,30 @@ def main():
             if ps:
                 row['category_comps_median'] = f'{ps[len(ps)//2]:.0f}'
 
-    fence = latest(os.path.join(SEDO_FENCE, 'EXCLUDED_live_cloudflare_*.txt'))
-    if fence:
+    # UNION of every live-site fence file, not the latest one.
+    # Two reasons, both learned the hard way on 2026-09-03:
+    #  - the naming is not stable. This globbed `EXCLUDED_live_cloudflare_*`
+    #    and silently missed `EXCLUDED_live_2026-09-03.txt`, so it read a
+    #    19-domain fence while a 50-domain one sat beside it — 31 live sites,
+    #    including webdesign.co.uk, idea.uk and mortgagecalculator.co.uk, were
+    #    being treated as sellable stock. A glob that matches nothing new fails
+    #    silently and looks exactly like "no new fence".
+    #  - the harms are wildly asymmetric. Over-fencing costs a domain sitting
+    #    unsold; under-fencing means listing a live business site for sale. So
+    #    take every file and union them, and let a domain leave the fence only
+    #    by an explicit decision, never by a filename drifting.
+    fences = sorted(glob.glob(os.path.join(SEDO_FENCE, 'EXCLUDED_live*.txt')))
+    fenced = set()
+    for fence in fences:
         for line in open(fence):
-            d = line.strip().lower()
-            if d in rows:
-                rows[d]['keep_override'] = 'live-site'
+            d = line.split('#')[0].strip().lower()
+            if d:
+                fenced.add(d)
+    for d in fenced:
+        if d in rows:
+            rows[d]['keep_override'] = 'live-site'
+    print(f'live-site fence: {len(fenced)} domains from {len(fences)} file(s) '
+          f'{[os.path.basename(f) for f in fences]}')
 
     # Owner-withdrawn names. Deliberately applied AFTER the live-site fence and
     # with its own value, because the two reasons are not interchangeable: a
