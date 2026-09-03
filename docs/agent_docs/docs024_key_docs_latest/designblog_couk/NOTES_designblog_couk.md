@@ -747,3 +747,35 @@ experiment; both predicates now stated and dated.
 - The state-vs-transition trap ("a measurement that cannot distinguish
   *became* from *was*") is now in 114's permanent record; the 57-vs-61
   predicate difference likewise, reconciliation after the experiment.
+
+## 2026-09-03 — the dartsonline read found the REAL split: 33 of 57 are PINNED and unreachable by any rerender
+
+The free data point paid off three ways (components, attributed by
+`source_item_id`):
+
+1. **It was NOT a sections-path failure.** Item `2ff429ac`
+   (`section_data_resolved`, complete, 00:40:40Z) genuinely ran the sections
+   path and wrote nothing — because the page_component is **PINNED to a
+   component_version created 08-26**, a week pre-721, which has NO
+   `background_image` field. The resolver consulted the pinned schema:
+   correct behaviour, wrong conclusion at face value. (The estate's standing
+   pin landmine — "the PIN predicate is NOT the POOL one" — new instance.)
+2. **The class splits three ways** [MEASURED 2026-09-03, across the 57
+   repairable instances]: **33 instances / 18 sites PINNED pre-721 —
+   unreachable by ANY rerender, need a pin-repoint or rebuild decision
+   (owner question put to components: theirs / per-site / owner ruling)**;
+   **24 instances / 12 sites unpinned — the genuine test population**; and
+   the still-open question of whether the sections path resolves
+   `site_assets.*` at all. The discussed wave would have been ~58% futile
+   regardless of reason string.
+3. **Batch 689 was CANCELLED before producing a false negative**: its test
+   page (advertise.co.uk/about) is itself pinned pre-721 — the result would
+   have read "sections path can't resolve site_assets.*" and redirected
+   three lanes. Cancellation reason written into the row. **Re-filed as
+   batch 690**: remortgagecalculator.uk/about, `image_landed`, instance
+   `228921ba`, NOT pinned, live field type=image, page untouched since
+   08-23 — a valid test of the actual question. (That site has its own lane,
+   offline RC session; no conflict.)
+
+161's inverted remedy: grepped clean in the components lane. Their 66/0
+survived this whole chain because it keyed on the ITEM, not the timestamp.
