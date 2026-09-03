@@ -563,6 +563,80 @@ queues were healthy throughout; it was backlog, not breakage. Budget hours, not 
 
 ---
 
+## 3.4 WHY ARTICLES HAVE NO PLAN ROWS — answered 2026-09-03, at the code and the data
+
+Earlier sections established *that* ~83% of the estate's articles carry no `site_plan_sections`
+row, and named `create_blog_posts_action` as not writing them. **That was the mechanism, not the
+reason.** The reason is three facts that compose, and no single one of them is a defect.
+
+**1. The plan is a SNAPSHOT taken once, not a running register.** `write_site_plan_action`
+enumerates the site's pages at planning time and writes their sections. Whatever exists — or is
+decided — at that moment gets rows. **The data shows this directly** `[MEASURED 2026-09-03]`,
+comparing each page's `created_at` against its site's current plan:
+
+| page_type | in plan | absent | avg days page created AFTER the plan |
+|---|---|---|---|
+| `content` | 106 | 42 | **−27.4** (page predates the plan) |
+| `landing` | 44 | **1** | **−6.1** |
+| `section-index` | 47 | 7 | **−2.5** |
+| `guide` | 24 | 71 | −3.8 |
+| `tool` | 49 | **251** | **+6.5** |
+| `blog-post` | 40 | **226** | **+14.5** |
+
+**Pages older than the plan are in it; pages born after it are not.** Articles arrive on average
+**two weeks** after their site was planned. (`guide` is the honest outlier — a negative average with
+71 absent means the population is bimodal and the mean is hiding it. Do not quote that row.)
+
+**2. Articles are born with the CACHE filled instead of the authority.**
+`create_blog_posts_action` writes `pages.sections` — tier 3, the *materialised cache* — from
+`sections := post.Sections; if len(sections) == 0 { ["hero","article-body","call-to-action"] }`,
+and the string `site_plan_sections` does not occur in that file.
+
+**3. Nothing on the article's build path backfills the authority — and this is the load-bearing
+fact I had missed.** `ensure_page_section_layout` is the ONE action that writes plan rows for a
+page that lacks them, and it is fill-only (it refuses when rows already exist). **It is carried by
+exactly one handler.** `builder_routing.go` says so in its own words:
+
+> *"that handler is the only one whose workflow carries `ensure_page_section_layout`, so it is the
+> only one that can build a page whose layout is missing from every source. page-build-handler
+> no-ops on exactly that case ("no sections ready to build") — which is the whole of
+> `bugs_open/206`."*
+
+**Confirmed at the artefact, not from the comment** — the live agent config carries that action on
+**`directory-build-handler` only**:
+```sql
+SELECT type FROM agent_definitions WHERE default_config::text ILIKE '%ensure_page_section_layout%'
+  AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;   -- → directory-build-handler
+```
+And `directory-build-handler` serves only `entity-directory` and `section-index`. **Every
+article-shaped type routes to `page-build-handler` instead** — `blog-post` explicitly, `guide` by
+falling through to the generic default, `tool` via an `unavailableBuilders` entry naming a
+`tool-builder` that does not exist. So the backfill is real, it works, and articles never reach it.
+
+### The reason the gap is invisible, which is the part that matters
+**Filling the cache is exactly what makes an article buildable.** Tier 3 satisfies the section
+loader, so the page builds, deploys and serves correctly. `bugs_open/206` is what the *absence* of
+even a cache looks like — `page-build-handler` no-ops with *"no sections ready to build"*. So the
+shortcut is not sloppiness; **it is what stops articles hitting 206.** The cost is that the
+authority is never written, and **everything keyed on the authority silently degrades instead of
+failing**: per-section imagery binding stands down to page-wide (IMG-075's first stated degrade
+case), and per-section subjects have no tier-1 home.
+
+**So it is not a defect in any one route.** It is a design in which the article path was given a
+shortcut that makes the authority unnecessary *for building*, and every consumer that needs the
+authority for something else loses quietly. That is why no error is raised anywhere, why 83% is
+the steady state rather than a backlog, and why it will not fix itself.
+
+**The cheapest honest repair, if a lane wants it** — not ours to decide, and stated as an option
+rather than a recommendation: give `page-build-handler` the same `ensure_page_section_layout` step
+`directory-build-handler` already carries. It is fill-only and refuses where rows exist, so it
+cannot disturb a planned page; it would write the same three-section default the cache already
+holds; and it would put articles on tier 1 from birth. **That is a platform change on a shared
+seam and belongs in the council gate**, not in a site lane. Related and already owned:
+`bugs_open/443` (subjects), `bugs_open/206` (the no-sections no-op).
+
+---
+
 ## 4. Affiliates — unchanged, and unblocked
 
 Apply where the gate is **not** traffic: **Awin → Red Dragon** (10%, 60-day, £5 refundable deposit),
