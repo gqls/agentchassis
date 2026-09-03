@@ -175,3 +175,57 @@ One more thing from the same evening: the owner critique of gamedesign.uk
 turned out to be the same problem classes, that thread has joined the same
 routes, and their site will re-plan under the new prompt — so your two reviews
 are now feeding one set of fixes.
+
+## 2026-09-03 — you ruled on everything, and here is what happened to each ruling
+
+All eight answers landed and were carried out or routed the same morning. The
+short version of where each one stands:
+
+Page archetypes were already live — you'd told the theme kits thread directly.
+One number to keep next to it: 94.4% of live pages get their structure from
+the planner, not the fallback the archetypes replace, so this mechanism
+governs roughly one page in eighteen. Real, but not the whole sameness fix.
+
+The two switches (illustrated text block, card carousel) are accepted and
+first in the vigilant designer's queue, with a proper before-and-after
+measurement already prepared — including a page that already has the carousel
+on, so "on" has a known signature to compare against.
+
+Bug 445's thread confirmed it owes both the detector and the new layout
+design, in that order, for a good reason: the measurement tells them what the
+layout should be, rather than designing from three examples.
+
+The glossary decision ("both") and the featured-content registration are
+recorded in the bug that owns them; briefs stop promising glossaries and
+inspiration pages until the producer exists.
+
+The feed ruling is done: the page keeps its type and will fill from child
+pages; the news-source work re-scoped itself around that within the hour.
+
+The tools link: done through the framework. The hidden cause was tidy — the
+four tool pages were always marked for the nav, but tool-typed pages are
+deliberately barred from it; nothing had ever planned a hub. There's now a
+Tools hub page in the site's plan with its build queued, and the nav link
+appears when the page deploys and the chrome next re-renders.
+
+The header pin I held back, and I want you to know why rather than have it
+look like foot-dragging: the thread that owns that mechanism corrected its
+own advice an hour before I would have pinned. The alternative headers are
+old, never-rendered components that need about a dozen pieces of site data
+designblog doesn't carry — the likeliest result was a visibly broken header
+on the site you'd just critiqued. Worse, all three candidates are wrong in
+kind for a blog: a search form with no search behind it, cart machinery, tool
+labels. A genuinely different designblog header needs the chrome work, not a
+pin of a stale part. The pin experiment still matters for the estate and
+moves to the next remake instead.
+
+And your seotools critique: right, and already in hand before it reached me.
+The morning's automated check had caught all seven fake tool pages at 07:41;
+the diagnosis existed (bug 450 — the plan named tool pages before any tools
+existed, and a generic builder filled them with prose); you'd ruled "build
+the tools" and all seven real tools were built by 09:54. They aren't visible
+yet — the rebuilt pages are queued behind a stale deploy marker that reads
+"deployed" while serving the old prose — and a watcher reports each page the
+moment it actually serves its tool. Two lasting lessons went into the errors
+file: the repair lands beside the promising prose rather than replacing it,
+and a "deployed" status only records that a deploy once happened.

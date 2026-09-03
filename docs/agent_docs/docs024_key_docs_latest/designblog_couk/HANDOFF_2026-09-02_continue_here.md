@@ -115,7 +115,23 @@ within ~300s of a chassis pod (re)start** (a fresh build rolled ~21:00 2026-09-0
 | planner-vs-fallback share measurement | theme kits (asked) | sizes page_archetypes vs planner-prompt as the structure lever |
 | the-design-feed source wiring | feed lane (ACKed at handoff time) | queued as their priority 4 — design-vertical source, NOT WebProNews; their cold-start: `docs/agent_docs/docs024_key_docs_latest/news_feed_ingestion/HANDOFF_2026-09-02b_continue_here.md` §4 |
 
-## 5. OWNER DECISIONS GATHERED (put these to him when he asks "what's waiting on me")
+## 5. OWNER DECISIONS — ✅ ALL 8 RULED 2026-09-03 ("1: apply page-archetypes, 2: switch the switches 3: a thread has taken bug 445, 4: yes, 5: both, 6: section index 7: do it now, 8: register")
+
+> **Dispositions (full detail: NOTES, 2026-09-03 RULINGS DAY entry):** 1 was already live
+> (report with the 94.4%-planner-fed sizing number, always). 2+4 accepted by vigilant
+> designer, first in their new handoff; before-read done with controls. 3 confirmed —
+> 445's session takes BOTH detector and archetype, detector-first. 5+8 contributed into
+> bugs_open/444 (session ended; durable route). 6 executed — feed lane re-scoped P4. 7
+> HALF-executed: **tools hub DONE (migration 726 applied, Council-Submitted `0e1ededf`,
+> verdict OWED — read it)**; **header pin HELD** on theme kits' own correction (empty
+> content_data cannot feed the legacy headers' ~12 variables; all three candidates
+> semantically wrong for a blog; the pin experiment moves to a non-flagship venue).
+> **NEW seotools critique**: verified, already diagnosed as `bugs_open/450`, all 7 tools
+> rebuilt 09:30–09:54Z, awaiting rerenders — ⚠ written-not-SERVED behind stale
+> `build_status='deployed'` stamps; portfolio positioning's watcher reports each URL as
+> it serves. Rule B had detected all 7 at 07:41:01Z, before the critique.
+
+### The list as it stood before the rulings (for context)
 
 1. theme kits' `page_archetypes` apply/roll (committed, inert).
 2. Pre-flight gate assignment (vigilant designer offered: cohort component-overlap +

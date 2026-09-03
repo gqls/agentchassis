@@ -166,10 +166,33 @@ both 2026-09-02.
 A "comparison tool" with 18 empty inputs. A calculator is not a tool if we bring nothing.
 **AUTOMATED:** experience-loop rule B — a `page_type='tool'` page serving no control, no inline
 data and no runtime fetch.
+**⚠ A clean rule B result is valid ONLY where stored and served agree** (added 2026-09-03,
+experience loop's own finding): the detector reads STORED `rendered_html`, so in the window where
+a repair is written to the DB but not deployed it goes FALSE-CLEAN — certifying a page at exactly
+the moment it is most misleading. The cheap discriminator is one join: a page whose newest
+`page_components.updated_at` postdates `pages.deployed_at` must not be reported clean. Their
+detector is being fixed to refuse there; until then, pair any clean rule B with that join.
 **Check by hand for the softer case:** name the reader-supplied inputs and the site-supplied data
 separately. **An empty site-supplied set means it is a form, not a tool.**
 ⚠ Read STORED component markup, not the served page — site chrome carries a mobile-menu `<button>`
-that makes every served page look like it has a control.
+that makes every served page look like it has a control (and see the stored-vs-served caveat
+above: each side lies in a different window; the honest read takes both).
+**Seen (2026-09-03, seotools.co.uk — the harder variant: prose that PROMISES the tool):** seven
+tool pages served description copy saying "Paste in your title and description…" with 0 inputs /
+0 textareas / 0 selects. Cause chain (`bugs_open/450`, 090-CONFIRMED): the plan named tool pages
+before any tool existed, phantom-link repairs routed the shells to the GENERIC page builder, and
+the design rotation later built DIFFERENT tools under its own names (planned robots-txt-TESTER,
+built robots-txt-GENERATOR) — the shells were never going to be filled. **Detected by rule B's
+first-ever scheduled run, 2026-09-03 07:41:01Z, before the owner's critique** — detection worked;
+visibility/routing was the gap. TWO carried defects survive the repair: (i) **the repair lands
+BESIDE the promising prose, not instead of it** — `create_tool_component` hardcodes position 2
+without consulting the page, so a repaired page serves the tool AND the description in an order
+nothing declares; (ii) **repair written-not-deployed behind `build_status='deployed'`** — all
+seven repairs (components 09:34–09:54Z) sit behind deploys from ~00:08–00:19Z; `build_status`
+records that a deploy once HAPPENED, not that current components shipped (same 7 instances,
+found by the deployed_at-vs-max(updated_at) join + served-bytes confirmation). Class door-closers
+are 450's candidates 2+3 (make the hold a real control; never route a tool target to the generic
+builder).
 
 ### 3.2 A page presents a set, has no set, and has no empty state
 The visitor cannot tell whether there is nothing or whether it is broken.

@@ -866,3 +866,109 @@ Status corrections:
   a `complete` item that repaired nothing; `updated_at` moving without a
   rerender). The workstream index said the apis lane "fired" the reasoned
   rerender — true, and it failed, and the index line couldn't show that.
+
+## 2026-09-03 — RULINGS DAY: the owner answered all 8 decisions; execution + dispositions
+
+Owner's answers, verbatim order: "1: apply page-archetypes, 2: switch the
+switches 3: a thread has taken bug 445, 4: yes, 5: both, 6: section index
+7: do it now, 8: register" + a NEW critique (seotools tools are description
+pages). Dispositions, all same-day:
+
+1. **page_archetypes — ALREADY LIVE** (owner had told theme kits directly):
+   v1.0.1355 capability-probed, migs 689+691 applied scoped, 4 kits + 14
+   fleet archetype rows, adoption 0. ⚠ **Attach the sizing number wherever
+   this is reported: 94.4% of live pages are planner-fed, so page_archetypes
+   governs ~1 page in 18** (theme kits' measurement, their insistence).
+2. **Both flips — accepted by vigilant designer**, queued first in their NEW
+   handoff (they handed off; deliberately not started in a dying session).
+   Their before-read is DONE with a natural positive control (leopardess
+   services.html is the ONE carousel:true instance — its served signature:
+   carousel 19 / scroll-snap 6 / icg- 6 / prev+next 10+10) and a negative
+   control (`overflow-x` = 2 on BOTH sides and must NOT change — it's the
+   wide-table styling that caused the original misclassification). Config
+   alone won't be accepted as evidence; `carousel` is source:static so the
+   flip must be set per instance; where-the-default-lives is their open
+   design question. ⚠ their mig 723 shipped an idempotency defect (replacement
+   re-embeds its own anchor — do-not-reapply) — the anchored-replace class
+   biting its own practitioner; council caught it latent.
+3. **445 — CONFIRMED taken, scope = BOTH detector AND archetype** (session
+   "bugs_open/445"; my scope flag answered explicitly: "445's thread owes the
+   archetype, and 445's thread is me"). Sequencing detector→archetype for a
+   real reason: the fit measurement IS the archetype's design brief (three
+   examples don't design a layout; the measurement says which of the 18
+   remakes share the shape). Their finding for the record:
+   `needs_new_layout_candidate` has fired ONCE ever fleet-wide (zero-tags
+   case) — **the owner's eye was the only detector**. Nothing they plan
+   queues work against designblog; they'll message before if that changes.
+4. **Pre-flight gate — assigned, accepted** (vigilant designer; takes the
+   RUNBOOK queries as-is with the three-names + both-greps + dated-population
+   caveats).
+5. **Glossary/inspiration = BOTH** — producer build now owner-sanctioned
+   (contributed into bugs_open/444, session ended — durable route) + briefs
+   hold such pages meanwhile (portfolio positioning has it in the next-18
+   directions). Their flag: copyonline's brief plans a glossary as a PROSE
+   GUIDE with inline definitions — read as COMPLIANT by both of us (the
+   ruling targets unfillable listing surfaces, not authored prose).
+6. **the-design-feed = SECTION-INDEX** — no replan; fills via child pages
+   under the prefix. Feed lane re-scoped their P4 same hour (source = INPUT
+   that generates child pages, not a direct bind; not-solo, advertise/
+   WebProNews first as simpler case; their commit 36b0a7e2c). 444's
+   child-count arm is the operative resolver.
+7. **"Do it now" — EXECUTED IN HALF, the honest half:**
+   - **Tools hub: DONE — migration 726 applied 2026-09-03** (Council-
+     Submitted `0e1ededf`, verdict owed; commit `6f31eb357`; ledgered).
+     Root shape verified first: all four tool pages ALREADY carry
+     in_header=true nav_order 1-4 — §2.5 verbatim (type bar excludes
+     page_type='tool' from primary nav). Fix = plan row on live plan
+     a265bb7c (name tools-index, section-index, slug tools, nav_order 7,
+     label Tools, sibling-shaped) + deduped needs_page item on
+     page-build-handler (created_by stamped; dry-run round 1 caught a
+     created_by NOT NULL — fixed). Nav link appears at the next chrome
+     re-render after the page deploys (GTM wave covers it). 444's gate reads
+     the page PRODUCIBLE (4 real children).
+   - **Header pin: HELD, with the mechanism owner's own correction as the
+     reason.** Theme kits corrected their "available now" advice before I
+     pinned: the 4 alternative headers are `*_pre_037` legacy rows needing
+     ~12 content_data variables; designblog's header content_data is EMPTY
+     (0 keys); likeliest outcome a VISIBLY BROKEN header on the flagship
+     critique site ("chrome pinning selects a component; it does not
+     populate one" — nobody has ever populated a non-default header, part of
+     why 36/37 sites are identical). My sharpening, put to them: all three
+     candidates are semantically WRONG for a blog even populated (fake
+     search form / cart / tool-status = dishonest chrome, §6.2's cousin).
+     Additional stake from 445: all 6 existing pins coincide with the
+     default, so a genuine pin is the estate's DECISIVE mechanism experiment
+     — deferred to remake №5/non-flagship with populated content_data and
+     the three-way read (changed-right / unchanged / broken). **Back to the
+     owner as: the real distinct-header path is the chrome programme, not a
+     pin.**
+8. **featured_post = REGISTER** — contributed into bugs_open/444 (session
+   ended): option (a), one handler + SourceDependency entry; design question
+   (what is "featured") must be answered in what ships; serves all 8 sites;
+   council gate applies. This lane holds the HITL row meanwhile.
+
+**NEW seotools critique — VERIFIED, then found ALREADY DIAGNOSED AND FIXED
+IN FLIGHT:** /tools/serp-snippet-previewer/ says "Paste in your title…" and
+serves 0 inputs/0 textareas/0 selects (verified at the bytes). Portfolio
+positioning: `bugs_open/450` (090 CONFIRMED 09-02 22:11Z) — the plan named 7
+tool pages before tools existed → prose shells via the generic builder
+(phantom-link repairs, owned-page guard keys on rebuild_policy which planned
+tool pages never carry); the rotation landed but built DIFFERENT tools under
+its own names (planned robots-txt-TESTER, built robots-txt-GENERATOR).
+Owner ruled "build the tools" → all 7 BUILT 09:30–09:54Z (serp-snippet:
+2 inputs + textarea + script), watcher armed on the 8 URLs. **Rule B had
+detected all 7 at 07:41:01Z — SQ-005's first-ever scheduled run, 2.5h before
+the critique: detection WORKED; visibility was the gap.** Experience loop
+then found the delivery gap: **all 7 repairs sit written-not-SERVED behind
+build_status='deployed' stamps ~9h older than the components** — and their
+rule B goes FALSE-CLEAN in exactly that window (reads stored html); their
+fix = refuse-clean where max(updated_at) postdates deployed_at; they're
+re-checking yesterday's vetcomparison pass. Both carried defects + the
+detection dates written into SITE_DEFECT_CATEGORIES §3.1 (incl. the
+prose-BESIDE-tool defect: create_tool_component hardcodes position 2).
+450's candidates 2+3 are the door-closers; class stays open.
+
+Ops notes: git index.lock collision with another session mid-commit (waited,
+didn't touch it); transient model-classifier outage delayed two sends
+(retried clean); 726 is the THIRD number-collision near-miss this week
+(725 ×2 exist).
