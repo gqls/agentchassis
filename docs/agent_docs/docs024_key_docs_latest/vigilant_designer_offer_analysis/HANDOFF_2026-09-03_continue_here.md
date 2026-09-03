@@ -445,3 +445,97 @@ live change. In priority order:
    elsewhere; **page structure is a second precondition** nobody owned as of 09-02.
 6. **The parked-defect audit was offered twice and dropped** at the owner's implicit no. The
    vetcomparison case suggests those queues are worth less than their length.
+
+---
+
+# UPDATE — end of 2026-09-03. Read this before §2 and §3; it supersedes parts of both.
+
+**TWO MIGRATIONS ARE WRITTEN, COMMITTED, SUBMITTED AND *UNAPPLIED*. Neither is yours to re-derive.**
+
+| | what | corr | state |
+|---|---|---|---|
+| `740` | `info-card-grid`'s `carousel` defaults ON at resolution time | `2ac895f3-ca82-4dbe-8f4e-3335a04b8925` | **round 3 pending.** r1 REVISE (9/11 approving, `bug_historian` HIGH), r2 REVISE (`editquality`) |
+| `747` | `offer-analyser`: price may LEAD, and the exemplar names it | `aeaf9f88-4348-4453-8c9e-213e7fd548a7` | **round 1 pending** |
+
+## ⚠ THE OWNER RULED ON THE PRICE QUESTION, AND IT WENT TO A DIFFERENT LANE
+
+His words reached `copy_quality_two_stage`, not this lane's log. Verbatim:
+
+> *"we can add price in the exemplar, we don't need to be so strict as to not enable us to say what we
+> need to. It's not 'never a description of our inventory' its a **deprioritise and mostly leave it
+> very brief or out altogether**. Currently there is nothing wrong with this sentence that I can see:
+> 'why would I pay £29 when I can get AI to analyse my idea for free?' (**if we can't offer anything
+> better than the free model then we should think of another tool to create**.)"*
+
+Three things in that, and the last is the biggest:
+
+1. **Add price to the exemplar** — the direct answer to what we asked. `747` edit B.
+2. **The TASK 1 absolute is REPEALED.** *"a benefit to the reader, **never** a description of us or of
+   our inventory"* becomes a deprioritise. `747` edit A. **These two must ship together** or the
+   prompt argues with itself — naming price in the exemplar while the absolute four sentences earlier
+   forbids inventory description would tell the model to raise a doubt it is barred from answering.
+3. **The `idea.uk` question is FINE as written** — that corrects how it was framed, including by me.
+   The defect was never the question; it was that it is unanswerable and ranks 4.6. **Say it that way:
+   "the model ranked a bad question badly" and "the model ranked a GOOD question badly because it
+   could not answer it" read very differently to a later reader.**
+
+> **⚠⚠ AND THE ASIDE IS THE SHARPEST THING IN IT, AND IT IS NOT A COPY INSTRUCTION.** *"if we can't
+> offer anything better than the free model then we should think of another tool to create."*
+> **A doubt we cannot answer is information about the OFFER, not a copy defect to close.** That is
+> what the question hierarchy is actually FOR, and it took a product-shaped answer to show it. Not
+> this lane's to act on — `idea.uk` has its own lane — but carry it, because it reframes what the
+> whole instrument is for.
+
+## ⚠ MY ACCOUNT OF THE PRICE GAP WAS WRONG TWICE AND THE THIRD IS STRONG-BUT-THIN
+
+Both wrong versions are recorded in `747`'s header **because each one implies a different, wrong
+migration.** Do not resurrect either.
+
+- ✗ **"our sites do not address price"** — a property of the prompt. `money_flow`, `price`, `cost`,
+  `pay`, `charge`, `£` all occur **zero** times in its 9,591 chars. Implied an editorial campaign
+  across 18 sites.
+- ✗ **"unanswerable BY CONSTRUCTION, because the answer side only reads TASK 1's four fields"** —
+  **this is the dangerous one, because the migration it implies is "add `money_flow` to the four" and
+  that is the wrong edit.** `[MEASURED 2026-09-03]` `from_field` on `lead_with` points is **OPEN**:
+  competitive_position 17, content_strategy 13, **money_flow 5 across 4 sites**, revenue_models 2,
+  growth_path 1 — and **2 of 7 money_flow questions ARE answered.** A strong prior, not a wall.
+- ✓ **What `747` acts on.** Answered-rate by the question's own field: trust_threshold 29/30 ·
+  satisfaction_condition 24/24 · competitive_position 9/9 · recurring_value 15/16 · value_proposition
+  9/10 · **money_flow 2 of 7**. Uniquely, **ZERO money_flow questions are answered by a money_flow
+  point** though five exist. Exactly two sites carry both; **on both I read the pair and THE MODEL WAS
+  RIGHT TO REFUSE** — finetuning's point answers "will I be pressured to spend", idea.uk's lists
+  contents. **Both cite `money_flow` and neither states a price.** That is the absolute forcing the
+  price to be laundered into a non-price.
+- ⚠ **n=2 carries that mechanism.** "Zero of seven, uniquely" is a *very* clean number, and cleanness
+  is the tell this lane got wrong twice today. **A pre-registered post-apply check is in `747`'s
+  header**, including the outcome that would show the account is only half right: if money_flow points
+  start stating prices while the questions stay unanswered, the other half is that nothing asks a
+  point to engage the **alternative** the visitor names — a separate one-clause migration,
+  deliberately not folded in.
+
+## ⚠ THE `competitive_position` RULE, SETTLED PROPERLY RATHER THAN BY ASSUMPTION
+
+`copy_quality_two_stage` challenged it: "a point from field A covering a question from field B" is
+precisely the shape a stretch takes, so is competitive_position's clean record really stretch-in-
+disguise? **Ran it: no.** `[MEASURED 2026-09-03 15:43:30Z]` competitive_position 1 of 9 in the reuse
+set (11.1%) against a fleet 14 of 91 (15.4%) — **below**, not concentrated. n=9 cannot decide that, so
+**all nine pairs were hand-read**: eight tight single-use joins, one honest reuse. The formulation
+that survives is theirs, sharpened: **"answers the same doubt head-on", not "topical overlap"** —
+`value_proposition` IS the differentiation field, so it is not moonlighting.
+⚠ **Denominator trap, stated because I nearly published the ratio:** 5-of-86 counts reuse EVENTS,
+14-of-91 counts QUESTIONS touching a reused point. Different questions; never compare them directly.
+⚠ **OPEN, and not closed by implication:** the fleet stretch rate is still ~15% and now has one fewer
+explanation. Where the remaining stretches come from is a question my own instrument raises. **Not
+folded into either migration.**
+
+## What the next session owes, in order
+
+1. **Read both verdicts** (`2ac895f3…` r3, `aeaf9f88…` r1) and act on them. Both commits carry
+   `Council-Submitted:`, so `098` credits them automatically on approval.
+2. **Apply `747`** once approved — it is the owner's ruling and nothing moves until it applies.
+   Then **run the pre-registered check** in its header. ⚠ It edits the same prompt as `723`; `723` is
+   NOT idempotent (§2.1), so never model a future edit on it.
+3. **Apply `740`**, then ⚠ **run the component acceptance fence against a carousel placement** —
+   `leopardessconsulting.co.uk/services.html` has carried `carousel: true` since ~07-31, so **this can
+   be answered BEFORE apply** on an instance that already exists. `acceptance_run` is the item type.
+4. **Do NOT write the Illustrated Text Block migration** — see §3.2; its premise went stale today.
