@@ -6961,3 +6961,19 @@ all 8 banned_claims through its round-trip untouched. `created_by` is now
 **385:** no `needs_page`/`page_rerender` filed on this site since 09-02 noon, zero
 orphan rows — the build-arm close criterion has not been exercised; the bug stays open
 on it.
+
+### 2026-09-03, later — the harness discipline fed the 449 framework design (contribution, not work)
+
+The `bugs_open/449` lane (no generated tool fence ever asserts a number; 115 of 186 blind,
+live intake) asked this lane three design questions before generalising toolgolden's
+discipline into the fence rule. Answered as a CONTRIBUTION section in their bug file
+(committed): the DEFINITION/REGISTER/CONVENTION ladder generalises with a fourth honest
+NONE label and REGISTER redefined as evidence_base fact ids (inheriting the daily
+refresher); the per-page-defaults landmine's general form — **an input vector is part of
+the expectation's identity** — reappears at their proposer/deriver seam unless fences
+carry literal vectors re-fenced per generation; and the reactivity refusal is the right
+birth-time primitive WITH its three measured limits (wiring-not-values, gate-B verdict
+straddle, harness-health inheritance) — its recorded save being this lane's own
+`react=0` conviction of 385's dead duplicate. Also offered the relational-assertions
+middle rung (monotonicity/sign/bounds — safe at birth, catches the 0%-APR class).
+Nothing built; the seam is theirs.
