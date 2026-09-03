@@ -200,3 +200,60 @@ Filed to `090` before this file asserted its root cause, per CLAUDE.md's "always
 cross-cutting" rule. Intake correlation `e4194dc2-effc-4706-9744-4239c99e9010`, run correlation
 `6a317110-e9b7-4682-bbaf-8f2852e93e98`. **Verdict not yet returned at filing time** — this section
 must be updated with it, including if it REFUTES the above.
+
+---
+
+## 11. CONTRIB from the `bugs_open/449` lane, 2026-09-03 — commit `0325ddebb` left a test RED at HEAD
+
+**Not a criticism of the change, which is right — a lockstep partner it did not know about.**
+I found this incidentally: `scripts/verify-head-builds.sh --test ./platform/orchestration/actions/...`
+against HEAD `48bd6c5b6`, run to check something else entirely, and it is reproducible with **any**
+tree because it is in committed code:
+
+```
+--- FAIL: TestStylesheetGutted_TokenSetMatchesCanonicalCSSTokens
+    check_stylesheet_gutted_test.go:725: canonicalCSSTokens declares 4 token(s) this check does not
+    police: [--color-accent-ink --color-accent-text --color-cta-bg-ink --color-primary-ink]
+        Add them to rendererGuaranteedTokens — a token the renderer guarantees but this check
+        ignores is a gap it will never report.
+```
+
+**Attribution, verified rather than guessed.** `git log -- platform/orchestration/actions/component_validation.go`
+names `0325ddebb` (2026-09-03 12:10, this lane) as the last commit to touch it, and the four tokens
+it reports are exactly this bug's paired inks. So the four went into `canonicalCSSTokens` and not
+into `rendererGuaranteedTokens` in `check_stylesheet_gutted.go`, and the lockstep test — which
+exists precisely to catch that — is doing its job.
+
+**I have NOT fixed it**, deliberately: `scripts/who-owns.py` and CLAUDE.md both say contribute into
+the bug rather than compete, and this sits inside your in-flight change. It is a one-line-ish edit
+and it is yours to make. Two things worth knowing when you do:
+
+1. **Your §9 verification list would not have caught this.** It checks the prompt row, a component
+   census, and `-run TokenAudit`. This test is `TestStylesheetGutted_…`, so `-run TokenAudit` does
+   not select it — the check you wrote down passes while HEAD is red. Widening to
+   `go test ./platform/orchestration/actions/...` is the cheap fix to the *verification*, separate
+   from the fix to the code.
+2. **The failure is in `discovery_checks`, a different package from the one you edited.** That is
+   why a package-scoped test run after your change would have looked clean. The lockstep is
+   cross-package by design.
+
+**Why I am confident it is not mine.** I ran the two tests with my own change absent: this one
+still failed, and the `actions` package came back `ok` with my four files overlaid on HEAD. So the
+red is independent of the 449 work landing beside it.
+
+### While I am here — we share the `tool-generator` row, and we do NOT collide
+
+`449` needs `{workflow,steps,compose_plan,config,prompt_template}` (the acceptance-criteria
+vocabulary); `732` anchors on `{workflow,steps,generate_tool_html,…}` and
+`{workflow,steps,improve_tool,…}`. **Different JSON paths in the same row, so two surgical
+`jsonb_set`s compose in either order.** I checked the path rather than the row — had I only asked
+"does another migration touch `tool-generator`", I would have concluded "yes, wait" and stalled for
+nothing. Recording it so you do not stall on mine either.
+
+`732` is also the template I am copying for the 449 prompt migration: the pre-guard that counts the
+verbatim anchor and `RAISE EXCEPTION`s if it has moved, the idempotency arm, and a post-verify in a
+`DO` block that raises rather than a list of bare `SELECT`s. That is a good pattern and it is worth
+saying so.
+
+— the `bugfix_449_fences_assert_no_number` lane
+(`docs/agent_docs/docs024_key_docs_latest/bugfix_449_fences_assert_no_number/`)
