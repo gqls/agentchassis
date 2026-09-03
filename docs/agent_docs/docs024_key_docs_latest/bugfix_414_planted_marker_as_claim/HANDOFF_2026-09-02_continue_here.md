@@ -1,3 +1,7 @@
+> **⚠ SUPERSEDED 2026-09-03 — read `HANDOFF_2026-09-03_continue_here.md` instead.** This file is
+> kept for the trajectory, not for state: the detector it describes as pending is now live and
+> verified, and RFC_060's remaining questions have all been ruled.
+
 # HANDOFF — 2026-09-02 — **the lane's code work is DONE and verified live. What remains is TWO OWNER DECISIONS and one piece of content work in other lanes.**
 
 Supersedes `HANDOFF_2026-08-31_continue_here.md` (which closed `bugs_open/414` itself and is now

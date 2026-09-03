@@ -158,3 +158,30 @@ the new rule should warn rather than refuse — it's on the record so you can re
 have it settle by default. And there's a hole next door to this one that nobody has hit yet: our
 register of verified facts is the one thing no check inspects, because it's what the checks check
 *against*. If someone ever writes a fabricated fact into it, nothing we have would notice.
+
+---
+
+**2026-09-03 — the check is live, and we cannot yet prove it works**
+
+The new build went out this morning and it carries the detector that was approved on Tuesday night.
+I checked that properly rather than trusting the release: I asked the running program directly
+whether it contains the new code, and ran two control questions alongside it — one thing that must
+be there and one that must not — so that a misleading answer would have shown up as such. It is
+there. The daily sweep then ran at ten past nine and reported nothing wrong.
+
+Nothing wrong is what we expect, because I counted every pattern on every site on Tuesday and they
+were all sound. But here is the honest problem, and it is worth understanding because it will come
+up again: **the code is written so that a clean result leaves no trace at all.** If it runs and
+finds nothing, it says nothing. If it never runs, it also says nothing. Those two situations look
+identical from outside, and no amount of staring at the output will separate them.
+
+So we know the check is *installed* and we do not yet know it *works*. The way to settle it is to
+deliberately break something small and confirm the alarm goes off — plant a bad pattern on a
+throwaway site, watch it get reported, then take it away. I have handed that to the team that owns
+the code rather than doing it myself, because they wrote it and they are mid-way through the
+council round on it.
+
+Everything else on this piece of work is finished. The original bug is closed and the false
+sentence is gone from the live site. The wider design question you ruled on yesterday and this
+morning — all seven parts of it — is settled, and what is left of that is building, not deciding.
+Nothing on this lane is waiting on you.

@@ -259,3 +259,50 @@ Corrected in place in that handoff (`580d1351d`), original struck rather than re
 shape as the `scanned_fields` rule I logged on 08-31: **a reading rule is only as good as its ability
 to be performed by someone who does not already know the answer — and "which number" is part of the
 rule.** Two instances in three days, from one lane's instructions.
+
+---
+
+## 2026-09-03 — the detector shipped; the zero it produced is uninformative BY CONSTRUCTION
+
+**Deploy verified at the artefact, not at the commit.** New replicaset `75b987cbd7`, pods ~17 min
+old at 09:21 UTC. The `build provenance` startup line had already scrolled out of `--tail=400`
+(expected on a busy service; **an empty result there means "not in range", not "unstamped"**), so I
+probed the capability rather than the commit — which is the better question anyway:
+
+| probe on `/proc/1/exe` | result | meaning |
+|---|---|---|
+| `invalid_banned_claim_pattern` (target) | **6** | the detector IS in the running binary |
+| `zzz_not_a_real_symbol_qx7` (must be absent) | **0**, exit 1 | grep can return zero — not a blind pass |
+| `stale_evidence` (must be present) | **6** | grep can return non-zero — not a blind match |
+
+`evidence-freshness` then **ran at 09:10:23 and completed**, under pods that started ~09:04, so the
+sweep executed on the new binary. `site_work_items` with `item_type='invalid_banned_claim_pattern'`:
+**0**.
+
+**⚠ And that zero cannot be read as "the fleet is clean", even though the fleet IS clean.** Both
+result fields carry `omitempty`:
+
+```go
+InvalidBannedClaimPatterns        []invalidBannedClaimPattern `json:"invalid_banned_claim_patterns,omitempty"`   // :216
+InvalidBannedClaimWorkItemsCreated int                        `json:"invalid_banned_claim_work_items_created,omitempty"` // :221
+```
+
+So a clean result **serialises to nothing**. Measured: of **23** evidence runs since 09:00,
+**0** mention the field — and that figure is *identical* whether the code ran and found nothing or
+never executed at all. There is no log line on the clean path either (only a `Warn` on write
+failure), so nothing in the system distinguishes the two states.
+
+This is the `a-post-fix-zero-needs-a-demand-control` family, but sharper than usual: the blindness
+is **mechanical and citable at a line number** rather than a judgement about coverage. The clean
+case is *designed* to leave no trace, which is reasonable for log volume and fatal for verification.
+
+**What would actually prove it** — plant a deliberately broken pattern on a scratch site, confirm
+the next pass files an item, remove it. Handed to the `claims-verification` lane with the
+`omitempty` reasoning attached; **not run from this lane**, because they own the code and the
+council round.
+
+**Misstep worth recording in the same breath:** my first instinct was to grep the chassis logs for
+evidence of the run. There is nothing to grep — I only established that by reading the function
+rather than by grepping and finding nothing, which would have looked like the same answer and meant
+something different. *An absence in a log is only evidence once you have read the code that would
+have written the line.*
