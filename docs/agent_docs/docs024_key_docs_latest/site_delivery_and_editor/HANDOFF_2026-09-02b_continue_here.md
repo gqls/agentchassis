@@ -243,6 +243,22 @@ EXPECTED pre-convergence shape, not a failure).
    > The components lane's guides-index discriminator (`06210ec6`, template_changed, filed
    > 08:26Z) runs instead — guides-index already IS a new-shape baseline; ordering is by
    > `page_component_history.source_item_id`, not by who fires first.
+   > **OWNER RULING 09:54Z ("Scoped override, one run") — the refusal was protecting the
+   > copy he rejected.** The boxingonline session read the defended CTA: ~1.1k visible chars
+   > narrating the news feed and walking through four tools in full sentences — his item 1
+   > verbatim; the 167-char rebuild IS the repair, and a percentage floor cannot tell padding
+   > from substance. No per-item override exists (`save_sections_shrink_guard.go:246`,
+   > `single_slot_floors.go:112` read only the saving STEP's config); page-build-handler's and
+   > page-rerender's `save_sections` are separate configs (measured at the live rows).
+   > **Migration `725_boxingonline_index_rebuild_shrink_floor_window_HOLD.sql`** (applied by
+   > hand 09:53:26Z; `snapshot_agent` taken; `section_shrink_floor = 0.1` on page-build-handler
+   > `save_sections` ONLY; open `needs_page` fleet-wide at apply = 0) + its `_ROLLBACK`. Rebuild
+   > refiled as **`2d1f9c51-d5ce-433e-8d67-f3bfd79916b4`** 09:53:32Z. A monitor runs the
+   > ROLLBACK at that item's terminal state and prints the floor, the row read and the count of
+   > other builds that saved inside the window. **If you find the floor still 0.1 with `2d1f9c51`
+   > terminal, run the ROLLBACK by hand — the window must not outlive the item.** After it lands:
+   > new-shape baseline for the components lane's step 2; read the regenerated copy against the
+   > OWNER_REVIEW classes; featured-content drops (unknown `featured_post` source).
    > **What actually produces decks here:** the BUILD path — proven on this very site
    > (guides-index `needs_page` rebuild 17:23:02Z → excerpt PRESENT, suffix stripped;
    > §1.4 closed that way). A `needs_page` rebuild of `index` is the known-working route

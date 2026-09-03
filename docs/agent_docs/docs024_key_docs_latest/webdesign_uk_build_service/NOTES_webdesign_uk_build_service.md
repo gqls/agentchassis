@@ -8109,3 +8109,36 @@ lane's per the ownership ruling.
 - Watcher armed: terminal → asset row → adapter log lines (`border_keyed`, `pixels_keyed`,
   `source_format`) → item result. Stored-bytes check to follow via the 417 RUNBOOK recipe (probe
   from the pod, no key in session); served check after the mirror tick.
+
+## 2026-09-03 (09:54Z, clock-read) — the shrink refusal was defending the owner's item-1 copy; owner chose a scoped one-run floor window (mig 725); rebuild refiled `2d1f9c51`
+
+- **The reading that changed the call (boxingonline session, ~09:3xZ, credited):** the CTA slot
+  the guard defends is **1,347 visible chars** at the served page — "Stay on top of every card…
+  the list below is a running set of headlines… try the fight night countdown timer… the
+  boxing weight class finder… the boxing quiz… the fighter comparison tool…" — a call-to-action
+  that narrates the feed and tours four tools in prose: the owner's item 1 ("telling the user
+  what the site is doing rather than talking to the user") and SITE_DEFECT_CATEGORIES §1.5's
+  verbose-tool-link class. 1116→167 is the repair. The guard's own calibration comment says it
+  refuses ~one legitimate tightening rewrite a week; this is that one.
+- **No per-item override exists** `[read at the code]`: `save_sections_shrink_guard.go:246` and
+  `single_slot_floors.go:112` read `section_shrink_floor` from `params.StepConfig.Config` only;
+  the error text's "set it in the step config" IS the designed escape hatch (":328 lower
+  section_shrink_floor on the save_page_sections step (0 disables the guard)"). Page-build-handler's
+  and page-rerender's `save_sections` configs are DISTINCT rows (`jsonb_each` over
+  `workflow.steps` — an OBJECT, not an array; `jsonb_array_elements` errors) — so a build-step
+  change cannot reach the ~192 queued rerenders. Blast radius at apply: open `needs_page`
+  fleet-wide **0**; completion rate ~4/h.
+- **Owner (09:54Z-ish): "Scoped override, one run."** Written as the estate's migration pair so it
+  is recorded and reversible: `725_…_HOLD.sql` (asserts one active row, asserts the key ABSENT
+  so windows cannot stack, `snapshot_agent`, `jsonb_set … 0.1`, verify) + `725_…_ROLLBACK.sql`
+  (asserts the key is exactly 0.1, snapshot, `#-`, verify absent). 0.1 not 0: 15% passes, a
+  total wipe is still refused. **Applied 09:53:26Z** (NOTICE line); live row verified 0.1;
+  page-rerender verified absent. Rebuild `2d1f9c51-d5ce-433e-8d67-f3bfd79916b4` filed 09:53:32Z
+  (pre-flight: nothing in flight on index). Monitor `b6oiqc6kl` runs the ROLLBACK at terminal,
+  prints the floor after, the row read, and the count of OTHER builds completed in the window.
+- Council: not submitted — a temporary window closed within the hour under an owner ruling; the
+  pair is committed so the coverage report lists it honestly as unreviewed.
+- Logo run `d71b7877` still triaged behind the 424 lane's three; **seotools succeeded under the
+  fixed pipeline** (their reading: attempt 1 refused border_keyed 0.000 — the guard working;
+  attempt 2 border_keyed 0.9993; served PNG colour type 6, 92.21% fully transparent, 99.92% of
+  the border ring transparent, 0.085% magenta fringe). First real-world calibration point.

@@ -593,3 +593,25 @@ by the thread that owns that fix, so we get four readings from one window. I wil
 result by the image bytes and the safety check's own score together, never one alone, and by
 eye for a single clean mark. If the check refuses the result, the current solid mark stays, and
 that is still useful information rather than a failure.
+
+## 2026-09-03 (late morning) — the guard that refused the home-page rebuild was protecting the copy you rejected; on your word I opened a one-run window
+
+The boxingonline thread read the block the safety guard was defending. It is the home page's
+"call to action": about eleven hundred characters that describe the news feed and then walk the
+reader through four tools one sentence at a time. That is your first complaint from the
+review, word for word. The rebuilt version is a hundred and sixty-seven characters, which is
+why the guard refused it as a loss of text; it was a repair.
+
+You chose the scoped override. I have written it as a recorded, reversible change: the floor on
+the page BUILD step only, lowered from half to a tenth, taken at 09:53, with the rerender path
+untouched and no other builds queued anywhere at that moment. The rebuild went back in a few
+seconds later, and a monitor restores the floor automatically the moment the rebuild finishes,
+whichever way it goes. When it lands you get the cards with their summaries and the shorter
+call to action in one change, and the empty "featured content" block drops off the page
+because its data source does not exist. I will read the new copy against your review before
+calling it done.
+
+The logo test is still queued behind three sites the logo thread is retrying. One of those,
+seotools, has already come back right: a genuine transparent background, measured at the image
+itself, after the repaired safety check correctly refused a first attempt. That is the first
+real success of the mechanism.
