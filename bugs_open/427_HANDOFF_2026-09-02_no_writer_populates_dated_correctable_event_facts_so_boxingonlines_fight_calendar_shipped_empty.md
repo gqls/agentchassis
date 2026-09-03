@@ -1425,3 +1425,64 @@ containment — it removes one trigger from many.** Contain at the STORE (`build
 zero. And re-read the row identifiers immediately before writing: a concurrent framework
 rebuild renumbered the position and nulled the `component_id` this containment had planned to
 join on, inside two minutes.
+
+### 22.5 Why nothing stopped it: the claims perimeter is structurally blind to `<script>`, and a tool's data is ALWAYS in a script
+
+Asked what *should* have caught twelve invented fights about real named people on a paid
+site, and traced it. The answer is that the estate's claims machinery could not see them, by
+construction — not that it looked and was fooled.
+
+**The shared implementation.** `datahelpers/claims.go` provides `ExtractAssertionText` /
+`ScanBannedClaims` / `ScanUnregisteredNumbers`, and both claim surfaces use that one
+implementation so they "agree by one literal implementation on what counts as an asserted
+claim" — the build-time deploy gate (`validate_page_content` check 8) and the post-deploy
+audit (`discovery_checks/check_unverified_claims.go`).
+
+**The blind spot.** `claims.go:500` lists the non-assertion contexts:
+
+```go
+"script": true, "style": true, "noscript": true, "template": true,
+```
+
+`ExtractAssertionText` walks text nodes *outside* those. `check_unverified_claims`'s own
+header says it scans "assertion TEXT NODES only, never raw HTML/attributes", with a landmine
+about `placeholder="jane@…"` being an example rather than a claim — a correct rule for
+attributes that happens to exclude script bodies too.
+
+**Every one of the twelve fabricated fights lived in `var FIGHTS = [...]` inside `<script>`.**
+So they were invisible to the gate and to the audit simultaneously, and both were working as
+designed.
+
+**This generalises, and that is the point.** A `component_level='tool'` component ships its
+data *as code*, in a script block, by definition. So **no tool's data has ever been inside
+the claims perimeter** — not this one, and not the estate's other tools. The two scans that
+do run (banned claims, unregistered numbers) would not have caught it anyway: "Tyson Fury" is
+not on any banned list, and `"2025-06-21"` is not an unregistered *number* in the stat sense.
+
+**Consequences worth stating separately:**
+
+- It is not enough to make this tool read `query.upcoming_events`. A future generator can put
+  a literal array back, and nothing will object. The gate has to see script-borne data, or
+  the write path has to refuse a tool that carries its own factual data.
+- `bugs_open/449` ("no fence the tool generator writes ever asserts a number") is the
+  numeric sibling of exactly this hole, one layer down. The two want one fence, not two.
+- The honest scope claim: this is a **fleet-wide** blind spot in the claims perimeter, not a
+  boxingonline defect. It should be measured across every tool component before anyone sizes
+  the fix — do not assume this tool is the only one carrying invented facts.
+
+**Scope, measured rather than assumed** `[MEASURED 2026-09-03]`. Fleet-wide there are **333
+active `component_level='tool'` components**. **31** contain an ISO-date literal in their
+`html_template`; **0** carry the fabricated shape (a `date:`-keyed object array) — that one
+was unique, and is now `is_active=false`. Sampling the 31: they are overwhelmingly **dates in
+HTML comments** — provenance and change annotations such as `(loancalculator.co.uk/tools/
+interest-rate-stress-test.html, 2026-07-31)` and `/* THE VERDICT — FIXED 2026-08-03 */` — not
+assertions. One (`tool-blue-carbon-estimator`) carries a visible *"Figures captured
+2026-08-31"* line, which is a provenance claim and sits in a `<p>`, i.e. **inside** the
+claims perimeter already.
+
+So the honest reading is: **the fabrication looks like a first occurrence, not a widespread
+pattern — but the hole that let it through is fleet-wide.** The checker should be sized to
+close the hole, not to chase 31 comments. A detector keying on "any date literal in a tool
+template" would be ~31/31 false positives on today's data; one keying on *structured
+factual data* (an array of objects with date + named-entity fields) would have fired on
+exactly one component: this one.
