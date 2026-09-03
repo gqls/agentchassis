@@ -157,3 +157,28 @@ DRY_RUN=1 ./docs/.../097_TRIGGER_council_review_v1.sh <submission.json>   # free
 ⚠ `.plan.summary` is REQUIRED and is not in the header's field list I first worked from —
 the run refuses with `ERROR: .plan.summary is empty` after you have written everything
 else. Write it first. Corr for this change: `6de0f6f2-4f37-492a-9cbd-1ae886311a9b`.
+
+⚠ **NEVER put a placeholder in a sketch, however obviously it reads as shorthand to you.**
+Round 1 of this change was REVISED on exactly that: to fit the 32KB plan budget I wrote the
+migration's `repl_A` as `$ra724$...anchor_A...{{if .item_notes}}…$ra724$`, meaning "the
+anchor text, repeated, plus the tail". The `editquality` seat read it as the deployable
+artefact — correctly, that is the rule — and reported a HIGH objection that the migration
+would splice the literal string `...anchor_A...` into the live prompt. **A placeholder does
+not read as an abbreviation; it reads as a defect**, and where the artefact is a migration
+against a live row it reads as the worst kind. The committed file was always correct and
+the applied live row proves it, but the round was still spent. If you cannot fit a sketch,
+cut a different edit's prose — not the part under objection.
+
+Resubmit on the same trail so the accumulated round history and your existing commit
+trailer both keep working:
+
+```bash
+RESUBMIT_CORR=<the original corr> ./docs/.../097_TRIGGER_council_review_v1.sh <submission.json>
+```
+
+⚠ **Read the APPROVING seats' objections too.** Round 1's gating objections were all mine
+in the submission rather than in the code; the only finding that changed the artefact came
+from `bug_historian`, which **approved** — it spotted that the prompt's "or use `[]`"
+advice rested on the empty-STRING precedent by analogy rather than measurement. The test it
+prompted (`TestStructuredItemShape_EveryOmissionSpellingTheNoteRecommendsPassesTheGate`)
+is now the guard against a prompt that recommends a value the gate would refuse.

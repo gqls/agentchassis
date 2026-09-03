@@ -124,3 +124,63 @@ the test asserts on that string.
   but had NOT yet been observed at the artefact when this was written — no
   page-content-writer call had run in the ~20 minutes since the migration. That is the
   first thing to check next session.
+
+## 2026-09-03 — council round 1: REVISE, and all three gating objections were MINE, in the submission rather than the code
+
+Verdict on corr `6de0f6f2` at 09:56Z: **revise**, `decided_by: gating objection from
+editquality`. `bug_historian` approved. Four seats abstained.
+
+**editquality's three objections were all artefacts of my abbreviated SKETCHES**, and it
+was right to gate on them, because a reviewer can only judge what I showed:
+
+1. **HIGH.** My sketch wrote 724's `repl_A` as
+   `$ra724$...anchor_A...{{if .item_notes}}…$ra724$` — a **placeholder** where the anchor's
+   repeated text belongs. Read as the deployable artefact, that migration would delete the
+   anchor and splice the literal string `...anchor_A...` into the live prompt. The seat
+   also worked out that my guards check anchor COUNTS and a self-consistent length delta,
+   so **they would not catch it** — which is a fair criticism of the guard design, not just
+   of the sketch.
+2. **MEDIUM.** I elided `structuredPropNote`'s object arm as `// ... object arm`, so it
+   read as unimplemented.
+3. **MEDIUM.** Could not confirm the reused `datahelpers` helpers exist.
+
+**The committed code was correct on all three**, and for (1) the live row proves it: after
+applying, `Each item is an object with exactly these fields:` is present and
+`...anchor_A...` appears **zero** times. (2) is implemented and pinned by
+`TestStructuredItemShape_NestedObjectProperty`. (3) they all exist; the package builds and
+vets clean.
+
+**The misstep is mine and the runbook had already warned me:** *"reviewers judge the
+sketch"* and *"the sketch must be code, and it must show the part under objection."* I
+abbreviated to stay inside the 32KB plan budget and it cost a round. The sharper version of
+that lesson, now in the RUNBOOK: **a placeholder in a sketch does not read as an
+abbreviation, it reads as a defect in the deployable artefact** — and where the artefact is
+a migration against a live row, it reads as the worst kind. Resubmitted round 2 with every
+sketch verbatim from the committed file (31,991 bytes, just inside the cap), on
+`RESUBMIT_CORR=6de0f6f2` so the trail accumulates and the existing commit trailer still
+resolves.
+
+**The genuinely useful finding came from the seat that APPROVED.** `bug_historian` noted
+that my omission advice ("or use `[]`") rested on `IsEmptyContentValue`'s live precedent,
+which is a nested empty **STRING** — so `[]` at a nested position was reasoned **by
+analogy, not measured**. That is precisely this estate's documented failure mode and I had
+walked into it. Now measured (`53b2f46af`): all five spellings the note can produce — empty
+array, absent, explicit nil, empty string, whitespace — are driven through the real
+`ContentTypeViolations` at the nested position and all five pass, with
+nested-string-branches as the control that must still fail. **Had any failed, the prompt
+would have been recommending a shape the gate rejects — manufacturing this bug's own
+failure on exactly the pages where the writer obeyed most carefully.** The answer was
+favourable, but it was not knowable without the test.
+
+Its second advisory: does closed bug 044 (`plan_sections` defers empty-schema components by
+name heuristic) constrain the new branch? **Checked: disjoint.** 044 concerns components
+whose `input_schema` is EMPTY; this code runs only inside the per-field loop on the
+`source=='llm'` arm, which such a schema never reaches. No code change needed.
+
+**A residual worth carrying, from objection (1)'s deeper point:** an anchored-`replace()`
+guard built from occurrence counts and a length delta **cannot detect a replacement that
+fails to preserve its anchor's own text** — both numbers stay self-consistent. 724 happens
+to be covered, because its verify block asserts the flat arm and the field-list sentence
+survive, and the applied live row confirms it. That was fortunate rather than designed. The
+next anchored-replace migration on this estate should assert the anchor text is still
+present after the splice.
