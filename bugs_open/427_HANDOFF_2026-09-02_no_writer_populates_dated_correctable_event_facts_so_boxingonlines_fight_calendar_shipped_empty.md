@@ -1381,3 +1381,47 @@ invented ones are.
 **Do not simply re-dispatch `tool-generator` and hope.** It produced this output from a brief
 that explicitly asked for real upcoming events; the generator has no source of truth to draw
 on, which is the whole of this bug.
+
+### 22.4 Containment, and the near miss that proves one cancellation is not containment
+
+**Cancelling the queued rerender was NOT sufficient, and I was wrong to treat it as such.**
+`rerender_single_page_action.go:978-984` assembles **every** `page_components` row that is
+`NotRemoved`, `ORDER BY position` — it does **not** filter by `pages.sections` membership. So
+the fabricated component was assembly-eligible regardless of which work item fired, and four
+further `page_rerender` items were queued on that site the same minute.
+
+And a rebuild did fire, at **17:39:23**, from the `needs_content_page` items the toolgen run
+itself created. It renumbered the tool to position 3, rewrote `hero-tool` (3,859→3,601 B) and
+`event-list` (2,498→2,548 B), and **nulled the tool row's `component_id`** — `bugs_open/457`'s
+class, which is why a containment `UPDATE` joined through `content_components` matched zero
+rows. `pages.deployed_at` then moved to **17:39:50**.
+
+**Verified at the artefact, not inferred: nothing fabricated was published.** `WebFetch` of
+`https://boxingonline.ugg2.com/tools/fight-calendar/index.html` (the real publish target —
+`sites.publish_target='b2worker'`, `publish_project='boxingonline.ugg2.com'`; the customer
+domain is pre-handover and not DNS-live) names **only** Canelo Alvarez and Christian Mbilli,
+dated 2026-10-31, with the citation headline. It does **not** contain Charlo, Fury, Usyk,
+Wilder, Joshua or Inoue. The served page is the verified `event-list` output.
+
+**Containment now, by store rather than by trigger:**
+
+| store | state |
+|---|---|
+| `page_components` `0791ab91` | `build_status='removed'` → excluded by `NotRemoved`, so no assembly can pick it up |
+| `content_components` `e5e8fa33` | `is_active=false` → cannot be re-rendered, re-forked, or `deploy_tool_to_site`'d onto another site |
+| queued `page_rerender` `f0fe578b` | `cancelled`, reason in `result` |
+
+`[MEASURED 2026-09-03]` `SELECT count(*) FROM content_components WHERE html_template ILIKE
+'%Jermell Charlo%' AND is_active` → **0**.
+
+The component is kept, not deleted: the *mechanism* is right (interactive, controls,
+countdown — exactly what Rule B wants) and only its *data* is invented. It is the shell to
+rewrite against `query.upcoming_events`, not something to throw away.
+
+**The transferable lesson, for 016b §9:** on a page whose components are assembled by
+`NotRemoved` rather than by the declared section list, **cancelling a dispatch is not
+containment — it removes one trigger from many.** Contain at the STORE (`build_status`,
+`is_active`), then re-query every store for the offending content and require the count to be
+zero. And re-read the row identifiers immediately before writing: a concurrent framework
+rebuild renumbered the position and nulled the `component_id` this containment had planned to
+join on, inside two minutes.
