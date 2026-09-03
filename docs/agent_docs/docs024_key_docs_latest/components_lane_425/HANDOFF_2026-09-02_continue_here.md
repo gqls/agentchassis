@@ -63,6 +63,45 @@ correct everywhere while the pages still serve the old image.
 > `--since 2026-09-02` re-derives it. **A census does not go wrong; it goes stale, and yours can
 > be stale because of you.**
 
+## 0n. METHOD — a claim tested against a population YOU chose is the weak form
+
+From the `bugs_open/437` lane via `bugsweep4`, and it is the most transferable thing this lane
+produced today, so it is recorded even though the finding itself is theirs.
+
+Their fix rested on *"exactly 1 live component qualifies"* — established by their own sweep over
+their own population. **My five legacy-dialect components were a population they did not choose**,
+found for an unrelated reason (I was answering a CGV-030 question about per-item slots). Re-running
+their structured-property test over exactly those five: of **21 declared item properties, exactly
+ONE is structured** (`mechanism-flow.steps.branches`, array); the other 20 are string or number.
+Same answer, someone else's population — and it **could have falsified them**: a nested structured
+property on `checklist`, `comparison-table`, `evidence-timeseries` or `period-calendar` would have
+meant the fix silently under-covered.
+
+> **The rule:** a claim checked against a population you selected is the **weak form**. The cheap
+> upgrade is to re-run it against one somebody else named **for their own reasons** — precisely
+> because it was not chosen to test your claim. It costs one query and converts "I looked and found
+> nothing" into "a population picked by someone with different purposes also found nothing".
+>
+> This is the sibling of the control lesson from earlier today (*a positive control must exercise
+> the same row population as the claim*) and sharper in one respect: that one is about the control
+> matching the claim, this one is about the population being **independent of the claimant**.
+
+**Also resolved, and it closes the overlap I flagged:** `240` and `437` are two defects in one
+place, not one. `240` was the dialect being **misread** — keywords reaching the writer as field
+names — and is fixed. `437` is one layer past it: the dialect is read **correctly**, the per-item
+names come out right, but the nested **type** is lost, so a field declared array-of-objects reached
+the prompt as `"branches": "..."`. The proof they are distinct was already in their evidence: the
+failing prompts listed the **real** names (`body, branches, marker, note, title`), not the keywords.
+Their fix re-declares **no** component schema, so converting the four legacy siblings is free of
+`437` either way.
+
+⚠ **A COORDINATION GAP WORTH KNOWING:** the `437` lane and this one **failed to find each other in
+both directions**, while both live and both named after what they were working on. I guessed a
+neighbour by bug number; they could not resolve me either. `ListAgents` is the only place a session
+appears, an idle session still receives, and a stale listing is worse than none — **re-run
+`ListAgents` before guessing, and hedge the message ("if you are not X, please forward") when you
+do guess.** That hedge cost the wrong recipient one lookup and lost nothing.
+
 ## 0m. A SWEEP OF MY OWN COUNTS — the decorative ones had already drifted
 
 Prompted by the `bugsweep4` lane's diagnosis of why three of my figures reached a shared record
