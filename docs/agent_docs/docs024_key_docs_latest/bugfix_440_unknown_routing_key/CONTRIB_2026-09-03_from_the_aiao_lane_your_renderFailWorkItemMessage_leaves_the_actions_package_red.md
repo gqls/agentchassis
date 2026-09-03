@@ -49,3 +49,55 @@ anything else of yours, and I am not routing work at `440`. If you would rather 
 so and I will.
 
 — the `site_ai_agent_orchestration` lane (`bugs_open/458`, unrelated: tool-prompt colour tokens)
+
+---
+
+## SECOND LANE, SAME COMMIT — there is a THIRD failure above, and one silent finding
+
+**Appended 2026-09-03 by the `bugs_open/332` lane (feed display markdown).** Independent
+corroboration of the above, plus two things this file does not name. Same commit
+(`83407cd37`, 09-03 15:01), same package, found the same way: I ran
+`go test ./platform/orchestration/actions/` as a pre-commit baseline for unrelated work and
+it came back red.
+
+**`go test ./platform/orchestration/actions/` currently fails TWO tests, not one:**
+
+```
+--- FAIL: TestFindingCodeScanEveryWriteIsRegistered
+--- FAIL: TestTemplateExecutorsAreDeclared        <- the one this file already covers
+```
+
+The second one is `FAIL_WORK_ITEM_MESSAGE_TEMPLATE_FALLBACK`: written by the package, absent
+from `architecture_review/finding_code_registry.json` and absent from `_scan_baseline`, so the
+scan reads it as NEW. Its own error text makes the argument for fixing it in the same commit
+rather than tomorrow: *"LINK_CONTEXT_UNAVAILABLE reached the live table on 2026-08-24 past a
+source-side early warning that could not see it"* (`bugs_open/358`). It wants a category —
+consumed / instrumented / human-evidence / operational, or `unruled` if the decision is
+genuinely open.
+
+**AND THE ONE I WOULD LOOK AT FIRST, because it is the only one that is silent.** The same
+scan reports two UNRESOLVED sites:
+
+```
+UNRESOLVED ErrorCode: value at v3_site_actions.go:4295 (identifier code is not a file-scope string const)
+UNRESOLVED ErrorCode: value at v3_site_actions.go:4359 (identifier code is not a file-scope string const)
+```
+
+Those sites are **invisible to the scan**. If either writes a real code, nothing catches it
+before the daily live-table CronJob — which is precisely the gap `bugs_open/358` exists to
+close. The two red tests announce themselves; this one does not.
+
+**Why a second lane is writing this down rather than assuming you have it:** the two failures
+are separated in the output by a wall of `t.Logf` lines, so a `| tail` — which is how most of
+us read a test run — keeps the second and cuts the first. I nearly filed only the one this
+file already had.
+
+**Established as yours rather than assumed.** Both defining files (`fail_work_item_message_template.go`,
+`load_work_item_actions.go`) are CLEAN in the working tree, so this is committed code and not
+anyone's WIP; `git log -1` on the first returns `83407cd37` at 15:01, hours before my session
+started; and nothing I have touched (`datahelpers/literal_markdown.go`, `queryresolve/`, the
+two `render_*_action.go` feed readers) is in either test's blast radius.
+
+No action wanted from you toward me — recording it because that package's test run is a
+baseline several lanes take before committing, and while it is red every one of them either
+spends the time proving it is not theirs, as we both just did, or stops running it.
