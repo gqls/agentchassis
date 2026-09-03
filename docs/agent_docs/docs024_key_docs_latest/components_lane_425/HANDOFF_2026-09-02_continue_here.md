@@ -263,7 +263,15 @@ stripped and the other did not.
 **4 of the 14 pages were REFUSED** by the section COMPONENT floor (`bugs_open/253`) and
 **cancelled** with the reason written into each row. This fix trips that floor *by design* —
 every collapsed empty element carries layout classes, so the least-fed sites flatten hardest.
-⚠ **Do not set `section_component_floor`** as its error invites: it is read from
+⚠ **NARROWED 2026-09-03: a SCOPED override is possible and my earlier "fleet-wide" was too
+strong.** Each agent has its own `save_sections` step config — `[MEASURED]`
+`page-build-handler` carries `section_shrink_floor = 0.1` (owner-ruled, migration 725) while
+`page-rerender`'s is unset, and they do not touch each other. The standing caution is narrower:
+setting it on **`page-rerender`'s** step reaches the fleet's highest-volume pipeline, and even a
+per-agent override is per-pipeline-for-the-duration rather than per-page — pair it with a
+monitored rollback, as that lane did.
+
+⚠ **Do not set `section_component_floor` casually** as its error invites: it is read from
 `params.StepConfig.Config`, i.e. the `page-rerender` **step**, so setting it weakens the guard
 for every rerender in the fleet to land one page.
 

@@ -578,7 +578,19 @@ than visible text:
 so a page whose cards are mostly unfed flattens hardest. A pass at 51% and a refusal at 49% are
 the same change — the ratio is a property of how much data the site happens to have.
 
-**Do NOT set `section_component_floor`, which is what the error invites.** Checked at source:
+> **NARROWED 2026-09-03 — "fleet-wide" was too strong, and a peer proved it by doing it safely.**
+> The floor keys are read from **STEP config**, and each AGENT has its own step. `[MEASURED
+> 2026-09-03]` `page-build-handler.save_sections.config.section_shrink_floor = 0.1` (a scoped
+> override, owner-ruled, applied by migration 725) while `page-rerender.save_sections` has it
+> **unset** — the two are separate rows and setting one does not touch the other.
+> **So a scoped override IS possible: per AGENT-step, not global.** What stands is the narrower
+> caution: setting it on **`page-rerender`'s** step reaches every rerender in the fleet's
+> highest-volume pipeline, and even a per-agent override is not per-PAGE — it is
+> per-pipeline-for-the-duration, which is why the peer paired theirs with a monitored ROLLBACK at
+> the item's terminal state. **Scope it to the agent that needs it, time-box it, and roll it back
+> — do not reach for it as a way past a refusal you have not read.**
+
+**Do NOT set `section_component_floor` casually, which is what the error invites.** Checked at source:
 `save_sections_component_floor.go:158` reads it via
 `pruneFloorFromConfig(params.StepConfig.Config, …)` — **step** config, which lives in the
 `page-rerender` agent definition. "Set it for this page" does not exist; setting it lowers a
