@@ -189,3 +189,24 @@ sentence stays off until that's running.
 Worth saying at the end of a long day: the review council earned its keep repeatedly — it caught a
 repair that would have been inert, an insert that would have crashed, and a pattern-seeding bug
 that would have silently disarmed the tripwires. Every catch is now a guard or a test, not a memory.
+
+**2026-09-03, morning — the checking is running. This morning it ran for the first time, on its
+own schedule, and passed.**
+
+Just after nine this morning the daily checker made its first pass over lendzy's register: all
+eight facts re-fetched from the FCA's live handbook, every quoted sentence found exactly where we
+said it was, nothing flagged. So the thing you asked for on Tuesday — "check all financial facts
+against the FCA handbook" — is now something the system does every morning without anyone asking,
+and this morning it said: all true.
+
+Worth being precise about why this morning's quiet means something, because quiet usually doesn't:
+the pass demonstrably ran (all eight facts carry today's date), so the absence of alarms is a
+verified clean rather than a switched-off check. And the daily writer handled our custom fields —
+the rule numbers, the correction records, the banned-phrase tripwires — without losing any of
+them, which was the one thing three separate reviewers worried about.
+
+The sitemap also caught up overnight: all nine calculators now listed, thirty pages in total.
+
+One item left from Tuesday: the 47 stale link reports. They turned out to have missed being
+cleared yesterday by forty-four seconds — the daily sweep ran just before the repaired pages got
+their stamps. Today's sweep, mid-afternoon, should clear them; I'm watching it.
