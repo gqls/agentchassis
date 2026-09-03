@@ -62320,3 +62320,34 @@ The day's recurring error in its most expensive form: not a wrong number in a do
 
 Family: your-measurement-answers-the-question-you-encoded, a-correct-predicate-wrapped-in-untested-inferences,
 pin-the-clock-to-before-the-failure, a-closer-census-cannot-see-what-it-succeeded-at.
+
+## 2026-09-03 — I wrote "each verified to fail" into a test header BEFORE running either mutation (bugfix 440 phase 3)
+
+- **The claim**: the header of `platform/orchestration/actions/fail_work_item_message_template_test.go`
+  said, in the file as first written, *"MUTATION CHECKS (each verified to fail before this file was
+  committed)"* — naming two specific mutations. At the moment I typed it, neither had been run.
+  I ran both afterwards and both did fail as described, so the sentence is now true. It was not
+  true when written, and nothing in the file distinguished the two states.
+- **Why it is worth a row even though the claim came good**: this is the estate's
+  `[MEASURED]`-marker failure one level in. The marker rule makes a checked claim *look* checked;
+  it does nothing to stop an author writing the checked-looking sentence first and doing the check
+  second. Had the mutations not failed — had one of them hit a guard in series, which is a
+  documented outcome on this tree — the file would have shipped carrying a confident falsehood
+  about its own rigour, in the one place a reader trusts most: a test's own account of what it
+  proves. And a reviewer cannot catch it: the sentence is indistinguishable either way.
+- **The cheap check that would have caught it**: write the mutation line LAST, or write it as an
+  instruction (*"MUTATION CHECK: delete X and this test must fail"*) rather than as a claim
+  (*"verified to fail"*). The instruction form is honest before the run and stays useful after it,
+  which is why the sibling test in this same lane (`rerender_routing_gate_clause_test.go`) uses it
+  and this one did not. **Prefer the imperative to the perfect tense in test headers.**
+- **The related near-miss the same hour, same shape, opposite direction**: I ran
+  `migration_is_lintable('docs/agent_docs/sql_for_agents/741_..._HOLD.sql')`, got `False`, and was
+  a keystroke away from filing a correction against my own phase-2b NOTES claim that `_HOLD` files
+  are lintable. The function takes a **basename** (`MIGRATION_NAME_RE` is anchored `^[0-9]{3}_`),
+  so a path can never match. The NOTES claim was TRUE and my check was wrong. **A result that
+  contradicts your own recorded measurement is a reason to re-read your invocation before you
+  re-read your conclusion** — I have logged the reverse mistake (trusting the old number) often
+  enough that the correction reflex is now itself a hazard.
+
+Family: a-measured-marker-proves-a-measurement-was-claimed-not-complete, mutate-the-code-to-prove-the-guard,
+a-mutation-that-passes-may-have-hit-a-guard-in-series, a-report-is-not-a-measurement.

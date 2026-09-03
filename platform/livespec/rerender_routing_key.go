@@ -124,3 +124,54 @@ func CheckRoutingKnownConditionClause() string {
 	}
 	return strings.Join(parts, " OR ")
 }
+
+// RefuseUnknownRoutingKeyMessageTemplate renders the refusal message for
+// RFC_062 phase 3's `needs_human_review` step — owner ruling D1: "the message
+// names the bad key AND the vocabulary".
+//
+// ⚠ IT LIVES HERE, WITH THE VOCABULARY, FOR THE REASON THIS WHOLE FILE EXISTS.
+// The message has to list the legal values, so writing it in the migration
+// would put a FOURTH hand-maintained copy of RerenderSectionReasons into the
+// estate — after the gate condition, the Go reader and the fixer's raw INSERT,
+// which is the exact drift bugs_open/404 records (two lanes appended a value to
+// the live gate on one day in 2026-08 and neither touched Go). Rendered from
+// the list, a sixth value reaches the operator's message for free.
+//
+// The `{{...}}` is deliberate and is NOT this package's business to evaluate:
+// it is `fail_work_item`'s opt-in `error_message_template`, rendered by
+// text/template over the run's collected data at refusal time. That is what
+// names the OFFENDING VALUE — a static literal can name the field and the
+// vocabulary but never the key that was actually wrong, which is the half of
+// D1 that needed a code change (fail_work_item_message_template.go).
+//
+// PASTE the output into the migration; do not hand-write it.
+func RefuseUnknownRoutingKeyMessageTemplate() string {
+	return "This page_rerender item was REFUSED, not assembled: its spec." +
+		RoutingReasonSpecKey + " = '{{.input_data.spec." + RoutingReasonSpecKey +
+		"}}' is not in the sections-rerender vocabulary (" +
+		strings.Join(RerenderSectionReasonNames(), ", ") +
+		"). Before this refusal existed, an unrecognised routing key completed " +
+		"GREEN having changed nothing — bugs_open/440. If the value was meant as " +
+		"a note for a human, move it to spec.reason, which is free prose and is " +
+		"never validated. If it was meant to ROUTE, use a vocabulary value, or " +
+		"add one to RerenderSectionReasons in platform/livespec and paste the " +
+		"regenerated gate clause and this message into a migration. RFC_062."
+}
+
+// RefuseUnknownRoutingKeyMessageFallback is the STATIC message the same step
+// configures as `error_message`, used when the template above does not render.
+//
+// It exists because fail_work_item falls back to the literal rather than
+// failing — parking the item with a plainer message beats not parking it — and
+// a fallback that was EMPTY would park the item with no explanation at all.
+// It names the field and the vocabulary; only the offending value is lost,
+// and that value is one field away on the row the reader is already looking at.
+func RefuseUnknownRoutingKeyMessageFallback() string {
+	return "This page_rerender item was REFUSED, not assembled: its spec." +
+		RoutingReasonSpecKey + " is not in the sections-rerender vocabulary (" +
+		strings.Join(RerenderSectionReasonNames(), ", ") +
+		"). Read the offending value at spec." + RoutingReasonSpecKey +
+		" on this row. If it was meant as a note for a human, move it to " +
+		"spec.reason, which is free prose and is never validated. " +
+		"bugs_open/440 / RFC_062."
+}

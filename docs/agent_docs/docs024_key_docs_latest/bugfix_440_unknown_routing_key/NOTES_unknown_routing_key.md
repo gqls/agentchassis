@@ -400,3 +400,125 @@ check phase 2 converted — from 12:13 today. Data written by the converted path
 evidence than any binary probe. ⚠ The fleet is straddling two builds (98 pods `d0252fd4dab2`
 which contains the conversion, 43 still on `7bf1ff674021` which does not), so both behaviours are
 live at once — expected, and exactly why the transition clause exists.
+
+## 2026-09-03 (evening) — phase 3 BUILT, held at the co-sign; and the dry run found a defect the file review had not
+
+Two owner decisions opened this session (both put after the homework, not before):
+
+- **D1's "name the bad key" needed a code change, and the shape is the opt-in one.**
+  `fail_work_item`'s `error_message` is a config LITERAL with no interpolation — the read site
+  says so deliberately. `[MEASURED 2026-09-03]` **7 live steps across 6 agents** configure it and
+  **0** contain `{{`. So a static message can name the FIELD and the vocabulary but never the
+  offending VALUE, which is the half D1 asks for. Owner chose the opt-in `error_message_template`
+  over a static message: default OFF, byte-inert for all seven, RFC_022-exempt.
+- **D2's 404 co-sign: build it all, stop before applying.** The 404 lane has been dormant since
+  2026-08-26 and the CONTRIB asking for the co-sign (2026-09-02) is unanswered. So 741 ships as
+  `_HOLD`, and the release condition is the co-sign and nothing else.
+
+### The finding that matters most: BOTH of 404's declarations stay GREEN through the flip
+
+Verified by EXECUTION, not by reading: the old five-value clause is a substring of
+`TransitionRerenderModeConditionClause()` **exactly once**, so the `FragmentMatch` Min:1/Max:1
+holds, and the paired count still reads **5** because it counts `input_data.spec.reason ==`,
+which `input_data.spec.routing_reason ==` does not contain as a substring.
+
+**That is a BLIND SPOT, not a comfort.** Five new `routing_reason ==` disjuncts arrive asserted by
+NOTHING, so a sixth routing value appended to the live gate without touching Go would drift
+exactly the way `bugs_open/404` drifted — inside the change built to fix it. The existing
+declaration's own comment already states the principle it now fails: *"A fragment sees loss and
+mutation; only a count sees ADDITION."* The remedy (a `routing_reason ==` count Declaration) is
+written into 741's header as work the APPLIER owes, for the reason below.
+
+### Why the livespec Declaration edits are NOT in this commit
+
+The daily drift auditor's own `doc_notes` row says: *"fix whichever is wrong, in the same commit
+as the migration that moved it"*, and today's row reads `probed 15 live object(s); 0 finding(s)`.
+Committing declarations for a HELD migration would turn that clean 0 red every morning until the
+co-sign landed — and a permanently-red auditor masks real drift, which is worse than the gap it
+would be advertising. Probed and rejected: no Declaration can be honestly green both before and
+after the flip (pre-flip the probe returns NULL for a step that does not exist, so `Min:1` fails).
+So the five specific edits are enumerated in 741's header, in the file the applier must open.
+
+### The dry run found a defect that reading the file had not
+
+741 was executed against the live database inside a transaction and rolled back — twice, then a
+full round trip (apply 741 → run its VERIFY companion → apply the ROLLBACK → compare to the
+original → discard). Everything the file asserts about itself passed. What that caught:
+
+**`ALTER TABLE site_work_items ADD CONSTRAINT ... NOT VALID` is a LOCK HAZARD, measured both
+ways.** One dry run acquired `ACCESS EXCLUSIVE` in **2 ms**; an earlier one was **still waiting
+after 2 minutes** and had to be killed. The bad case is far worse than a slow migration: a
+QUEUED `ACCESS EXCLUSIVE` request blocks every subsequent reader and writer of the table behind
+it, so an unbounded wait here stalls the whole work-item pipeline while it waits. `SET LOCAL
+lock_timeout = '5s'` is now in the file, with the instruction to re-run in a quiet window rather
+than raise the timeout. ⚠ A single dry run would have "proved" either answer; it was running it
+twice that showed the truth is probabilistic.
+
+**And the round trip is what proved the ROLLBACK.** `-` on a jsonb object takes a key NAME, so a
+typo deletes nothing and a wrong name deletes the wrong step — silently, both ways. The rollback's
+verify block now asserts the three pre-existing steps SURVIVED, not merely that the three new ones
+went (step count 13 → 10, condition restored byte-exact).
+
+**The four pasted strings were proved against livespec at the ARTEFACT, not in the file.** Applied
+into a transaction, read back out of `agent_definitions`, diffed against the Go renderers:
+IDENTICAL, all four. That is stronger than diffing the file text, because it also proves the
+dollar-quoting and the JSON escaping did not alter them in transit.
+
+**Ordering trap recorded in the file**: nesting the two `jsonb_set` calls would read
+`default_config` from the ORIGINAL row for the outer merge and silently discard the inner
+condition change. Three separate statements, deliberately.
+
+### Missteps, in the order I made them
+
+1. **I concluded my own `_HOLD` file was not lintable, and my invocation was wrong.**
+   `migration_is_lintable()` takes a **basename** (`MIGRATION_NAME_RE` is anchored `^[0-9]{3}_`)
+   and I passed a full path, which cannot match. It returns **True**. The phase-2b NOTES claim
+   that `_HOLD` files are lintable STANDS — I nearly filed a correction against a true claim.
+2. **`python3 scripts/pattern-check.py <file>` printed nothing on a file that should fire.**
+   `main()` ignores positional arguments entirely: it reads `changed_files(ref)`, i.e. the git
+   index. Nothing was staged, so `files` was empty and it returned 0 — a clean pass from a
+   checker that never looked, which is the exact failure shape the phase-2b work was about. Both
+   traps are now LANDMINES entries.
+3. **My present-but-nil test silently tested the ABSENT case.** The helper skipped the assignment
+   when the value was nil, so `specWith(nil)` produced a spec with no key at all and the test
+   passed for the wrong reason. The two states are distinct at every layer of this bug — they are
+   distinct in the evaluator too — and a helper that collapses them cannot test either. Fixed;
+   both states now asserted, and each must fail through a DIFFERENT mechanism (`missingkey=error`
+   for absent, the `<no value>` guard for present-nil) so deleting one cannot be masked by the other.
+
+### Declaring one config key would have armed a detector against two others
+
+`checksConfig()` is `CheckConfig || len(ConfigKeys) > 0`, so `fail_work_item`'s config detector
+has been OFF (`checked=false`) for the whole of its life: `error_message` and `status_override`
+are read straight from `StepConfig.Config` and were declared nowhere. Declaring ONLY the new
+`error_message_template` would have armed `UnknownConfigKeys` against those two and emitted
+"silently ignored at execution" about keys the action demonstrably reads — a detector making a
+true statement about the new key and a FALSE one about the old ones. All three are declared in one
+move. `StrictConfig` stays unset, so an unknown key warns rather than rejecting a live workflow.
+Mutation-proved: drop `error_message` from `ConfigKeys` and the test fails naming it.
+
+### Measurements taken this session (all `[MEASURED 2026-09-03]`, live)
+
+| what | value |
+|---|---|
+| pending `page_rerender` items with a reason | **1,804** (was 1,803 this morning) |
+| of those, in-vocabulary | **1,804** — so zero pending items carry an out-of-vocabulary `reason` |
+| carrying `routing_reason` | **12**, rising to **14** during the session — the converted producer is live and stamping |
+| routing keys among them | `cta_links_stale` only, and `reason` identical on all — lockstep holds live |
+| **items that would be REFUSED on flip day** | **0** — no pending item carries a present-but-unknown routing key |
+| `rows_that_would_fail_validate` (whole table, all statuses) | **0** — so the CHECK can be VALIDATEd immediately after apply, not eventually |
+| `keys_disagree` (both keys present and different) | **0** |
+| `fail_work_item` live steps / agents / already templated | **7 / 6 / 0** |
+
+### The residual I am NOT closing, stated rather than left implicit
+
+`keys_disagree` is **0 today and nothing ENFORCES it.** If an item ever carries
+`routing_reason='literal_markdown'` with a free-prose `reason`, the transition clause routes it
+(it matches on either key) but `rerender_sections` is still handed `input_data.spec.reason`, so
+the single-value readers — `shouldStripLiteralMarkdown` and the CTA recompute — would see the
+annotation and silently under-deliver. That is this bug's own shape in miniature. It is empty
+because producers stamp in LOCKSTEP, which is a property of the producers and not of the gate.
+Per the lane PLAN those readers move to `routing_reason` when the gate NARROWS; the VERIFY
+companion counts `keys_disagree` so the state cannot arrive unnoticed. Flagged to the council
+as a known risk rather than fixed here — inventing a new constraint now would be re-deciding a
+ruled design.

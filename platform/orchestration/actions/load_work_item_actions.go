@@ -67,10 +67,26 @@ var CompleteWorkItemInputSpec = datahelpers.ActionInputSpec{
 // FailWorkItemInputSpec — work_item_id needs path resolution.
 // error_message is a config literal (e.g. "Content review not approved")
 // and is read directly from params.StepConfig.Config.
+//
+// ⚠ ConfigKeys DECLARES ALL THREE LITERALS TOGETHER, AND IT HAD TO.
+// `checksConfig()` is `CheckConfig || len(ConfigKeys) > 0`, so this spec's
+// config detector was OFF (`checked=false`) for the whole of this action's
+// life: `error_message` and `status_override` are read straight from
+// StepConfig.Config and were declared nowhere. Declaring ONLY the new
+// `error_message_template` would have ARMED UnknownConfigKeys against the two
+// that were already there — `[MEASURED 2026-09-03]` seven live steps across
+// six agents carry `error_message`, five of them `status_override` — and the
+// warning it emits says the keys "are silently ignored at execution", which
+// for these two would be FALSE. Arming a detector so that it makes a true
+// statement about the new key and a false one about the old keys is worse than
+// leaving it off, so all three are declared in one move. StrictConfig stays
+// unset, so an unknown key here warns rather than rejecting a live workflow.
+// bugs_open/440, RFC_062 phase 3.
 var FailWorkItemInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"work_item_id"},
-	Optional: []string{},
-	Defaults: map[string]interface{}{},
+	Required:   []string{"work_item_id"},
+	Optional:   []string{},
+	ConfigKeys: []string{"error_message", "status_override", "error_message_template"},
+	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{
 		"work_item_id_field": "work_item_id",
 	},
@@ -1315,20 +1331,69 @@ func FailWorkItemAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	// error_message is a config literal (e.g. "Content review not approved"),
 	// not a path — read directly from config to avoid path resolution
+	// ⚠ HOISTED above the message block below (bugs_open/440): the
+	// error_message_template fallback files an agent_error_log entry, and an
+	// entry needs the agent type. It used to be resolved after the message was
+	// settled; moving it earlier changes nothing about its value.
+	agentType := "unknown"
+	if params.ExecutionContext.Sender.AgentType != "" {
+		agentType = params.ExecutionContext.Sender.AgentType
+	}
+
 	// Start with the config literal as default
 	errorMsg, _ := params.StepConfig.Config["error_message"].(string)
 
+	// OPT-IN (bugs_open/440, RFC_062 phase 3, owner ruling D1): when the step
+	// configures `error_message_template`, the message is RENDERED over
+	// collected_data so a refusal can name the offending VALUE and not merely
+	// the field it sits in. Absent — which is every one of the seven live steps
+	// as of 2026-09-03 — nothing here runs and the literal above stands
+	// unchanged. Full argument, and why both failure modes are loud rather than
+	// best-effort: fail_work_item_message_template.go.
+	if tmplText, ok := params.StepConfig.Config["error_message_template"].(string); ok && strings.TrimSpace(tmplText) != "" {
+		rendered, tmplErr := renderFailWorkItemMessage(tmplText, params.CollectedData)
+		if tmplErr != nil {
+			// The human reading the parked item must be able to find out that
+			// the message is the fallback, so this is an error ENTRY and not a
+			// log line. Never fatal: parking the item with a plainer message
+			// beats not parking it.
+			logger.Error("FailWorkItemAction: error_message_template did not render; falling back to the error_message literal",
+				zap.String("item_id", itemIDStr),
+				zap.Error(tmplErr),
+				zap.String("bug", "bugs_open/440"))
+			LogActionEntry(ctx, params, agenterrors.Entry{
+				AgentType: agentType,
+				StepName:  params.StepConfig.Name,
+				Action:    "fail_work_item",
+				ErrorMessage: fmt.Sprintf(
+					"error_message_template did not render, so this item was parked with the static error_message instead — the refusal message a human reads is the FALLBACK, not the intended one: %v",
+					tmplErr),
+				ErrorCode: failWorkItemTemplateFallbackCode,
+				Severity:  "warning",
+				Context: map[string]interface{}{
+					"work_item_id": itemIDStr,
+					"template":     tmplText,
+					"bug":          "bugs_open/440",
+				},
+			}, logger)
+		} else {
+			errorMsg = rendered
+		}
+	}
+
 	// routeToErrorStep stores this at __step_error.message in collected_data.
 	// Prefer the actual error from the failed step (stored by routeToErrorStep)
+	//
+	// ⚠ THIS STILL WINS OVER THE TEMPLATE ABOVE, deliberately: it is today's
+	// semantics and a real error from a step that actually failed is better
+	// evidence than any message an author composed in advance. RFC_062's
+	// refusal step is reached from a CONDITIONAL's else branch as the second
+	// step of the workflow, so nothing can have failed before it and
+	// __step_error is empty there — pinned by test rather than reasoned about.
 	if stepError := datahelpers.ExtractNestedFieldString(params.CollectedData, "__step_error.message"); stepError != "" {
 		errorMsg = stepError
 		logger.Info("FailWorkItemAction: using real error from __step_error",
 			zap.String("error", errorMsg))
-	}
-
-	agentType := "unknown"
-	if params.ExecutionContext.Sender.AgentType != "" {
-		agentType = params.ExecutionContext.Sender.AgentType
 	}
 
 	// Check for status_override — used for HITL gates like needs_human_review.

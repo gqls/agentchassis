@@ -1,9 +1,10 @@
-# HANDOFF 2026-09-03 (rev 2, evening) — bugfix 440: phases 1a+1b APPROVED and shipped; the producer census RESIZED what remains; owner decisions D1–D5 are RULED
+# HANDOFF 2026-09-03 (rev 3, night) — bugfix 440: PHASE 3 IS BUILT, PROVEN BY EXECUTION, AND HELD AT ONE SIGNATURE
 
 Written for a session with none of this context. Every claim carries its check; cite symbols,
-never line numbers. Rev 2 supersedes this morning's rev 1 in place (same filename, deliberately:
-one canonical "continue here" per lane) — rev 1's five open decisions are now ruled, and the
-producer census below is new and material.
+never line numbers. Rev 3 supersedes rev 2 in place (same filename, deliberately: one canonical
+"continue here" per lane). **What changed since rev 2: phase 3 is written and tested end to end,
+D1 turned out to need a code change, and the flip was found to leave a NEW blind spot in this
+bug's own drift class.**
 
 ## The bug in one paragraph
 
@@ -14,7 +15,7 @@ routing key nobody understands completes green having changed nothing. Refusal i
 until the fields split (`spec.routing_reason` = vocabulary-only; `spec.reason` = annotation, free
 forever). Split + refusal = RFC_062; evidence = `bugs_open/440_HANDOFF_2026-09-02_…`.
 
-## OWNER RULINGS, 2026-09-03 — settled, do not re-open (full text: RFC_062 §Rulings)
+## OWNER RULINGS — settled, do not re-open (full text: RFC_062 §Rulings)
 
 | # | ruling |
 |---|---|
@@ -23,104 +24,121 @@ forever). Split + refusal = RFC_062; evidence = `bugs_open/440_HANDOFF_2026-09-0
 | D3 | **YES to the write-door CHECK constraint** (NOT VALID first, validated after census) |
 | D4 | **NO policing of `spec.reason`** — the annotation stays free prose forever |
 | D5 | phase 1b's courtesy gate on the 404 lane **LIFTED** (acted on: 1b shipped same day) |
+| **D6 (new, 2026-09-03 eve)** | **D1's message: use the OPT-IN TEMPLATE, not a static literal.** `fail_work_item`'s `error_message` is a config literal with no interpolation, so a static message can name the FIELD and the vocabulary but never the offending VALUE |
+| **D7 (new, 2026-09-03 eve)** | **D2's co-sign: BUILD IT ALL, STOP BEFORE APPLYING.** The 404 lane is dormant since 2026-08-26 and the co-sign CONTRIB is unanswered. Nothing goes live without it |
 
-## State — approved, shipped, verified
+## State
 
 | what | state | re-check |
 |---|---|---|
-| phase 1a (livespec foundation, REB-008) | **APPROVED r1 `55def842`; SHIPPED** | `platform/livespec/rerender_routing_key{,_test}.go`, commit `a3758c399`; in build `7bf1ff674021` by ANCESTRY. ⚠ never literal-probe zero-caller code — DCE strips it (LANDMINES 2026-09-02, verifier `dd777a91`) |
-| phase 1b (creator stamps the key) | **APPROVED r1 `934327db`; committed `ec66ed12b`** (+ advisory hardening) | `create_rerender_items_action.go` + `create_rerender_items_routing_key_test.go`. Stamps **in lockstep** with `spec.reason` — never on merely-known — so RFC_062's flip is byte-neutral for REB-001's designed degrade (`image_landed` without a component stamps neither) |
-| owner rulings | recorded | RFC_062 §Rulings, lane PLAN phase table, REB-008 |
-| coordination | done | CONTRIBs in 404's and 384's NOTES (`5b5c669dd`); 404's r4 = approved |
+| phase 1a (livespec foundation, REB-008) | **APPROVED r1 `55def842`; SHIPPED** | `platform/livespec/rerender_routing_key{,_test}.go`, commit `a3758c399`. ⚠ never literal-probe zero-caller code — DCE strips it |
+| phase 1b (creator stamps the key) | **APPROVED r1 `934327db`; SHIPPED** | `create_rerender_items_action.go`; stamps in LOCKSTEP with `spec.reason` |
+| phase 2 (producer conversion + raw-SQL door) | **APPROVED `c7dab2c1` + `3b484a74`; LIVE AND PROVEN IN PRODUCTION** | `[MEASURED 2026-09-03]` **14** items now carry `routing_reason` (12 earlier the same day) — the converted `check_misdirected_cta.go` path is stamping. One conversion DEFERRED: `refresh_evidence_base_action.go` (another session had 245 uncommitted lines in it) |
+| **phase 3 (THE FLIP)** | **BUILT, PROVEN, HELD** | `docs/agent_docs/sql_for_agents/741_refuse_unknown_rerender_routing_key_HOLD.sql` + `_ROLLBACK` + `_VERIFY`; the Go half is `fail_work_item`'s `error_message_template` (**WII-038**). **NOT through council yet** — see "what to do first" |
+| narrowing (phase 3b) | **BLOCKED and quantified** | 1,804 pending items route on `reason`, 14 on `routing_reason` |
 
-## ⚠ THE FINDING THAT RESIZED THE LANE (phase 1b's council round, `bug_historian` [medium])
+## WHAT TO DO FIRST, in this order
 
-`[MEASURED 2026-09-03]` by `created_by` over live `page_rerender` items: **the creator phase 1b
-fixed mints 1 of 3,172 reason-bearing items.** `completeness-discovery-agent` mints 1,882;
-`generic` 388; `derive_card_asset` 313; `render_news_section` 275; `component-template-fixer` 94;
-plus lane/migration producers. And **13 Go files write an in-vocabulary reason directly**, mostly
-as raw `{"reason":"x"}` literals that never touch the vocabulary constants
-(`render_news_section_html.go`, `refresh_evidence_base_action.go`, `render_directory_action.go`,
-`reconcile_section_data_action.go`, `flag_page_image_rebuild_action.go`,
-`store_generated_component_action.go`, `discovery_checks/check_misdirected_cta.go`,
-`…/check_literal_markdown.go`, `…/check_contact_form_undeliverable.go`, …).
+1. **Dispatch the council round for phase 3.** It was deliberately NOT dispatched: the owner said
+   a new chassis was about to be deployed, and **a roll kills an in-flight council**, wasting the
+   round. Submit once the roll has settled (and never within ~300s of a chassis pod restart — the
+   spawn is silently dropped). The submission JSON is not yet written; the material for it is in
+   RFC_062 §"Phase 3 as built" and the NOTES entry of the same date.
+   ⚠ **Everything in this commit that is IN council scope**: the three `741_*` files
+   (`_HOLD` IS in scope; `_ROLLBACK` and `_VERIFY` are refused client-side), plus
+   `platform/orchestration/actions/fail_work_item_message_template{,_test}.go`,
+   `load_work_item_actions.go`, `work_items_common.go`, `platform/livespec/rerender_routing_key.go`.
+   List EVERY one — this lane has been objected-to five rounds running on what the submission
+   SHOWED, never on what the code did.
+2. **Get the 404 co-sign (D2/D7).** That is the only release condition on 741. The lane is
+   `docs024_key_docs_latest/bugfix_404_rerender_reason_vocabulary/`, dormant since 2026-08-26; a
+   CONTRIB asking for the co-sign has sat in their NOTES since 2026-09-02. If it stays dormant,
+   this is the owner's call, not a session's — and note the premise has WEAKENED: their two
+   Declarations turn out not to need editing at all (below).
+3. **Apply 741 — AND COMMIT THE LIVESPEC DECLARATION EDITS IN THE SAME COMMIT.** The five
+   specific edits are enumerated in 741's own header. They are held back on purpose: the daily
+   auditor's own note says to fix a declaration *"in the same commit as the migration that moved
+   it"*, and today's row reads `probed 15 live object(s); 0 finding(s)` — committing them ahead of
+   the apply turns that clean 0 red every morning and masks real drift.
+4. **Then close 440** on an INDUCED unknown routing key landing in `needs_human_review` (recipe in
+   the RUNBOOK). A census of zero refusals proves nothing — it is equally consistent with
+   "nothing bad written yet" and "the refusal branch is unreachable".
 
-**Consequences (already written into RFC_062 and the bug file):** phase 2 is a **producer
-conversion programme**, not just a migration-authoring rule; the transition clause is
-**load-bearing**, not a drain-window nicety; and phase 3 gains a gate condition — **a census
-showing zero reason-bearing items from unconverted producers** before any narrowing. Narrowing
-early would route ~3,100 items to assemble: this bug's own shape, fleet-wide, inside its own fix.
+## ⚠ THE FINDING THAT MATTERS MOST: the flip leaves a NEW blind spot, in 404's own drift class
 
-## What REMAINS (this is the close-out list)
+`[MEASURED 2026-09-03, BY EXECUTION]` **both** of the 404 lane's live livespec Declarations stay
+**GREEN** through the flip, unchanged and un-edited:
 
-1. ~~**Phase 2 — producer conversion.** Convert the 13 Go writers…~~ **PART 1 DONE
-   2026-09-03** (commit below, council `c7dab2c1`): the pair is defined ONCE in
-   `livespec.RerenderReasonFields` / `StampRerenderReason` / `RerenderReasonJSONPrefix`, and
-   **four** call sites converted. ⚠ The "13 Go files" figure was corrected the same day — only
-   **five** are `page_rerender` producers (the rest file `needs_page`/`needs_rerender`/
-   `literal_markdown`; enumerate item types, never sweep). **One deferred**:
-   `refresh_evidence_base_action.go` — another session had 245 uncommitted lines in it, so the
-   conversion was written and reverted rather than sweep their WIP; do it when their work lands.
-   **PART 2 STILL OPEN**: the raw-SQL migration door — authoring rule + `scripts/pattern-check.py`
-   advisory (⚠ that file is IN council scope, 2026-08-24), its own round.
-   ⚠ Config door measured EMPTY 2026-09-03 (no live `agent_definitions` stamps an in-vocabulary
-   reason via `spec_literal`) — a snapshot, re-run it at phase 3.
-   **PART 2 DONE 2026-09-03** (council `3b484a74`, APPROVED): `check_rerender_routing_key` in
-   `scripts/pattern-check.py` reads the vocabulary FROM the Go constants (never a copy) and
-   refuses to run blind if it cannot — both blind modes mutation-proved; 11 findings across 844
-   migrations, so not noisy; ⚠ it only sees files a commit TOUCHES. Authoring rule = the
-   LANDMINES entry (synced). **Live findings carried forward**: two UNAPPLIED `_HOLD` migrations
-   (683, 701) mint `reason` with no routing key — `_HOLD` files ARE lintable, so the advisory
-   fires when they are touched, which applying one requires. The 9 applied migrations are
-   deliberately NOT edited (append-only history); their defect lives in the ITEMS, inside the
-   1,803 above.
-   **PHASE 2 IS LIVE AND PROVEN IN PRODUCTION**: 12 items carry `routing_reason`, written by
-   `completeness-discovery-agent` (the converted `check_misdirected_cta.go`) from 12:13 on
-   2026-09-03. ⚠ The fleet straddles two builds — `d0252fd4dab2` (98 pods) carries the
-   conversion, `7bf1ff674021` (43 pods) does not — so both behaviours are live at once.
-2. **Phase 3 — the flip** (RFC_062, co-signed per D2): gate reads the transition clause
-   (`TransitionRerenderModeConditionClause()`), refusal branch routes to `needs_human_review`
-   (D1) via `CheckRoutingKnownConditionClause()`, plus the CHECK constraint (D3). **Blockers:**
-   (a) ~~confirm the evaluator's MISSING-key vs `''` behaviour~~ **DISCHARGED 2026-09-03 BY
-   EXECUTION — and the assumption was FALSE**: a missing key does NOT match `== ''`, so the
-   renderer (approved, shipped) would have routed every pre-phase-2 item to human review. Fixed:
-   the clause now emits `== null` AND `== ''`; four-state table pinned in
-   `rerender_routing_gate_clause_test.go`; general trap in LANDMINES. ⚠ **That fix is committed
-   but has NOT been through council** — it rides phase 3's round (it is inert until the migration
-   pastes the clause). (b) the drain census — `[MEASURED 2026-09-03]` **1,803 pending items carry
-   an in-vocabulary reason and only 12 carry a routing key**, so the transition clause is
-   load-bearing and narrowing must wait; (c) 404 co-sign obtained.
-3. **Close 440** when refusal is **fixed AND live**: induce an unknown routing key → it lands in
-   `needs_human_review`; annotation-only prose still assembles unwarned; census clean. Then
-   `git mv` to `bugs_closed` naming BOTH paths on the commit, verify at HEAD.
-4. Riders: read the landmine verifier's verdict (`dd777a91`); flip REB-008's status wording at
-   phase 3 and lift its no-second-producer constraint only when RFC_062 lands.
+- the `FragmentMatch` on `CheckRerenderModeConditionClause()` holds — the old five-value clause is
+  a substring of `TransitionRerenderModeConditionClause()` **exactly once**, so Min:1/Max:1 is satisfied;
+- the paired count still reads **5** — it counts `input_data.spec.reason ==`, and
+  `input_data.spec.routing_reason ==` does not contain that as a substring.
 
-## Craft notes for the next session (each cost a round or a correction here)
+**That is convenient and it is a defect.** Five new `routing_reason ==` disjuncts arrive asserted
+by NOTHING, so a sixth routing value appended to the live gate without touching Go would drift
+exactly the way `bugs_open/404` drifted — inside the change built to fix it. The existing
+Declaration's own comment states the principle it now fails: *"A fragment sees loss and mutation;
+only a count sees ADDITION."* Remedy enumerated in 741's header (step (b) is the load-bearing one).
 
-- **Submission accuracy is where this lane keeps bleeding — not design.** Three consecutive
-  rounds (404's r3/r4, our 1a, our 1b) were gated or objected-to on what the submission SHOWED,
-  never on what the code did. Attach the query/grep OUTPUT; list EVERY file the commit touches
-  (our 1b omitted the register file and drew a medium for it); name the prior round's commit
-  when an edit builds on shipped-but-unlisted symbols (two seats asked whether livespec existed).
-- **On a shared tree, a test FAIL naming symbols you have never heard of is a neighbour's WIP —
-  NO DATA, not a result.** `platform/orchestration/actions` broke under this lane three times
-  today from other lanes' in-flight files.
-- **Gate a wait on the artefact you need**: `go test ./pkg -run ZzzNoSuchTestZzz` compiles test
-  files and runs nothing. `go build` skips `_test.go` (opens too early); `go vet` fails on any
-  lint anywhere in the package (never opens). Both mistakes made here — WRONG_CALLS 2026-09-03.
-- **Counting emissions**: exclude `fix_correlation_id IS NOT NULL` or you count council payloads
-  quoting your own string (WRONG_CALLS 2026-09-02).
-- `platform/livespec` package run FAILS at HEAD regardless of this lane
-  (`TestNoNewMigrationFileReadersOutsideTheAllowList`, 405 lane's `ffa1707b3`). Theirs.
+## Flip-day safety, measured rather than argued (all `[MEASURED 2026-09-03]`, live)
+
+| question | answer |
+|---|---|
+| pending items that would be REFUSED on flip day | **0** — no pending item carries a present-but-unknown routing key |
+| rows in the WHOLE table (every status) that would fail the CHECK | **0** — so VALIDATE can follow the apply immediately, not eventually |
+| items where the two keys DISAGREE | **0**, and **nothing enforces it** — the residual below |
+| pending items with an in-vocabulary `reason` / with `routing_reason` | **1,804 / 14** |
+| `fail_work_item` live steps / agents / already carrying `{{` | **7 / 6 / 0** |
+
+## The residual phase 3 does NOT close, stated rather than left implicit
+
+`keys_disagree` is 0 **as a property of the producers, not of the gate.** An item carrying
+`routing_reason='literal_markdown'` with free-prose `reason` would be routed by the transition
+clause (it matches either key) while `rerender_sections` is still handed `input_data.spec.reason`
+— so `shouldStripLiteralMarkdown` and the CTA recompute would see the annotation and silently
+under-deliver: this bug's own shape in miniature. Those readers move to `routing_reason` at the
+NARROWING (phase 3b); until then `_VERIFY` counts the state so it cannot arrive unnoticed. Flagged
+to the council as a known risk rather than fixed here — inventing a new constraint now would be
+re-deciding a ruled design.
+
+## Craft notes (each cost a round or a correction)
+
+- **Submission accuracy is where this lane keeps bleeding — not design.** Five consecutive rounds
+  were gated or objected-to on what the submission SHOWED. Attach the query/grep OUTPUT; list
+  EVERY file the commit touches; name the prior round's commit when an edit builds on
+  shipped-but-unlisted symbols.
+- **A single measurement of something PROBABILISTIC certifies whichever answer you got.** The
+  `ALTER TABLE ... ADD CONSTRAINT NOT VALID` in 741 took **2 ms** on one dry run and was **still
+  waiting after 2 minutes** on an earlier one. `NOT VALID` skips the SCAN, not the LOCK, and a
+  queued `ACCESS EXCLUSIVE` blocks every later reader and writer of `site_work_items` behind it —
+  so the bad case stalls the work-item pipeline. `SET LOCAL lock_timeout` is in the file; re-run
+  in a quiet window rather than raising it. LANDMINES has the general form.
+- **Dry-run a config migration by executing it and rolling back** — the migration's own `DO`-block
+  verify runs, and the pasted strings can be read back out of `agent_definitions` and diffed
+  against the Go renderers (verified IDENTICAL, all four). Recipe in the RUNBOOK. Then PROVE the
+  tree is clean rather than assuming the rollback happened.
+- **`python3 scripts/pattern-check.py <file>` ignores the filename** and lints the git INDEX — it
+  printed nothing on a deliberately bad migration. Call the check FUNCTION, with a positive control
+  in the same breath. And `migration_is_lintable()` takes a **basename**: passing a path returns
+  False and nearly produced a correction against a TRUE claim.
+- **Declaring one config key can arm a detector against every key that was already undeclared** —
+  and it then calls keys the action DOES read "silently ignored". Enumerate them all and declare
+  them in one move; assert with a live step shape AND a bogus-key negative control.
+- **On a shared tree, a test FAIL naming symbols you have never heard of is a neighbour's WIP.**
+  `platform/livespec` still FAILS at HEAD regardless of this lane
+  (`TestNoNewMigrationFileReadersOutsideTheAllowList`, now firing on another lane's
+  `write_audit_findings_origin_test.go`). Theirs — and it is also why this lane did NOT add a
+  Go test that reads 741's text.
+- **The git INDEX is shared too.** `git diff --cached --name-only` showed three other lanes' staged
+  files while this work was in progress. The pathspec on **`commit`** is what keeps them out.
 
 ## Key artefacts
 
 | what | where |
 |---|---|
-| bug file (producer census at the tail) | `bugs_open/440_HANDOFF_2026-09-02_a_routing_key_nobody_understands_completes_green.md` |
-| design + rulings | `docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_062_routing_key_annotation_split.md` |
-| lane docs | this directory — PLAN (phases, consumers) · NOTES (evidence, dispositions, missteps; newest at bottom) · RUNBOOK (census, emission-counting, inert-verification) · README (owner-facing prose) |
-| code | `platform/livespec/rerender_routing_key{,_test}.go` · `platform/orchestration/actions/create_rerender_items_action.go` (`rerenderMode.RoutingKey`) + `…_routing_key_test.go` |
-| commits | `ec2efc06e` `a3758c399` `0600eb6b3` `5b5c669dd` `544de50e0` `35de364dd` `624d3d2e8` `ec66ed12b` `8657c3cb4` `4e9d25caf` `866bba283` + phase 2 part 1 (this session's last) |
-| council | `55def842` (1a) · `934327db` (1b) · `c7dab2c1` (phase 2 part 1) · `3b484a74` (phase 2 part 2) — **ALL FOUR APPROVED r1**, all verdicts read and dispositioned in NOTES. ⚠ The evaluator fix (`== null`) is committed WITHOUT a round — it rides phase 3's |
+| bug file | `bugs_open/440_HANDOFF_2026-09-02_a_routing_key_nobody_understands_completes_green.md` |
+| design + rulings + §Phase 3 as built | `docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_062_routing_key_annotation_split.md` |
+| the flip | `docs/agent_docs/sql_for_agents/741_refuse_unknown_rerender_routing_key_HOLD{,_ROLLBACK,_VERIFY}.sql` |
+| the Go half | `platform/orchestration/actions/fail_work_item_message_template{,_test}.go`; register **WII-038** |
+| lane docs | this directory — PLAN (phases 3/3b) · NOTES (evidence + missteps, newest at bottom) · RUNBOOK (dry-run, paste-proof, induction, pattern-check) · README (owner-facing prose) |
+| council | `55def842` (1a) · `934327db` (1b) · `c7dab2c1` (2a) · `3b484a74` (2b) — all APPROVED r1. **Phase 3 has NO round yet**, and the evaluator `== null` fix rides it |

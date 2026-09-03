@@ -1,6 +1,6 @@
 # RFC_062 — split `spec.reason` into routing key + annotation, then refuse a routing key nobody understands
 
-**Status: DESIGN RULED BY THE OWNER 2026-09-03 — open questions closed, see §Rulings; implementation phased** · raised by `bugs_open/440` (spun out of 410's candidate 1, owner
+**Status: DESIGN RULED BY THE OWNER 2026-09-03 — open questions closed, see §Rulings. Phases 1a, 1b and 2 are SHIPPED AND LIVE. Phase 3 is BUILT, PROVEN BY EXECUTION, and HELD at migration `741_..._HOLD.sql` pending the 404 lane's co-sign (D2) — see §Phase 3 as built** · raised by `bugs_open/440` (spun out of 410's candidate 1, owner
 decision 2026-09-02) · owning lane `docs024_key_docs_latest/bugfix_440_unknown_routing_key/` ·
 prior art: `bugs_open/404` (whose livespec header names this split as "the real repair" and
 defers it here), owner rulings 2026-08-02 §2 (opt-in shape) and 2026-07-29 §1 (the RFC trigger).
@@ -97,6 +97,76 @@ mechanism that reaches a door Go cannot see).
 - **A vocabulary TABLE read by a trigger** (instead of pasted CHECK): softer to update but adds
   a runtime dependency and a second source of truth beside livespec; the paste idiom is already
   established and declaration-audited. Rejected for now; revisit if vocabulary churn accelerates.
+
+## Phase 3 as built — 2026-09-03, held at the co-sign
+
+The flip is written, executed against the live database inside a transaction and rolled back
+(twice, then a full apply → VERIFY → ROLLBACK → compare round trip). It ships as
+`docs/agent_docs/sql_for_agents/741_refuse_unknown_rerender_routing_key_HOLD.sql` with `_ROLLBACK`
+and `_VERIFY` companions. `_HOLD` because of D2 and nothing else: the 404 lane has been dormant
+since 2026-08-26 and the CONTRIB asking for the co-sign is unanswered, so the owner's decision of
+2026-09-03 was **build it all, stop before applying**.
+
+What it does: a new start step `check_routing_key_known` ahead of the gate (absent / empty / known
+→ on to the gate; present-but-unknown → refusal); `refuse_unknown_routing_key` parking the item at
+`needs_human_review` (D1) with a message that names the offending VALUE and the vocabulary;
+`check_rerender_mode` moved to the TRANSITION condition; and the CHECK constraint added NOT VALID
+(D3), scoped to `item_type='page_rerender'`.
+
+**D1 needed a code change, and it is the opt-in shape.** `fail_work_item`'s `error_message` is a
+config LITERAL with no interpolation — `[MEASURED 2026-09-03]` 7 live steps across 6 agents carry
+it and 0 contain `{{`. A static message can name the field and the vocabulary but never the key
+that was actually wrong. So `fail_work_item` gains an opt-in `error_message_template`, default OFF,
+byte-inert for all seven live steps: RFC_022-exempt on all three conditions, ordinary council gate.
+Both of its failure modes are loud (`missingkey=error` for an absent path, an explicit guard for
+text/template's `<no value>` on a present-but-nil key) and both fall back to the static literal
+with an `agent_error_log` entry, because a human must be able to find out that the refusal message
+they are reading is the second-best one.
+
+### ⚠ The flip leaves a NEW blind spot, and it is 404's own drift class
+
+`[MEASURED 2026-09-03, by execution]` **both** of the 404 lane's live Declarations stay GREEN
+through this flip, unchanged and un-edited:
+
+- the `FragmentMatch` on `CheckRerenderModeConditionClause()` holds, because the old five-value
+  clause is a substring of the transition clause **exactly once** (Min:1/Max:1 satisfied);
+- the paired count still reads **5**, because it counts `input_data.spec.reason ==`, and
+  `input_data.spec.routing_reason ==` does not contain that as a substring.
+
+That is convenient and it is a defect. Five new `routing_reason ==` disjuncts arrive asserted by
+**nothing**, so a sixth routing value appended to the live gate without touching Go would drift
+exactly the way `bugs_open/404` drifted — inside the change built to fix it. The existing
+Declaration's own comment states the principle it now fails: *"A fragment sees loss and mutation;
+only a count sees ADDITION."*
+
+The remedy is a `routing_reason ==` count Declaration plus entries for the guard step and the CHECK
+constraint. Those edits are **deliberately not in the phase-3 commit**: the daily auditor's own
+note says to fix a declaration *"in the same commit as the migration that moved it"*, and today's
+row reads `probed 15 live object(s); 0 finding(s)` — committing declarations for a HELD migration
+would turn that clean 0 red every morning until the co-sign landed, and a permanently-red auditor
+masks real drift. No Declaration can be honestly green both before and after the flip (pre-flip the
+probe returns NULL for a step that does not exist). So the five specific edits are enumerated in
+741's own header, in the file the applier must open.
+
+### The residual phase 3 does not close, stated
+
+`keys_disagree` — an item carrying `routing_reason` and a DIFFERENT `reason` — is **0 as of
+2026-09-03** and nothing enforces it. In that state the transition clause routes the item (it
+matches on either key) but `rerender_sections` is still handed `input_data.spec.reason`, so the
+single-value readers (`shouldStripLiteralMarkdown`, the CTA recompute) would see the annotation and
+silently under-deliver: this bug's own shape in miniature. It is empty because producers stamp in
+LOCKSTEP, which is a property of the producers, not of the gate. Per the lane PLAN those readers
+move to `routing_reason` when the gate NARROWS; the `_VERIFY` companion counts `keys_disagree` so
+the state cannot arrive unnoticed.
+
+### Narrowing is still blocked, and the number moved
+
+`[MEASURED 2026-09-03]` **1,804** pending `page_rerender` items carry an in-vocabulary `reason`
+and **14** carry a `routing_reason` (12 this morning — the converted producer is live and
+stamping). So the transition clause remains load-bearing and narrowing waits on the drain census.
+Two facts that make the flip itself safe today: **0** pending items carry a present-but-unknown
+routing key, so nothing would be refused on flip day; and **0** rows in the whole table (every
+status) would fail the CHECK, so it can be VALIDATEd immediately after apply rather than eventually.
 
 ## Rulings — OWNER, 2026-09-03 (these close the questions below; kept for the trail)
 

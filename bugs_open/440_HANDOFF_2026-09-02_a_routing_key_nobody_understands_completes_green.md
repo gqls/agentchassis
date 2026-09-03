@@ -184,3 +184,69 @@ narrowing census must drive to zero (or accept as drained) before the compat dis
   file, it is in the ITEMS they minted — and those items are inside the 1,803 above, covered by
   the transition clause and gated by the narrowing census. Recorded here so the absence of a fix
   is a decision with a reason, not an oversight.
+
+## 2026-09-03 (evening) — the FIX for the headline defect is BUILT and PROVEN, held at one signature
+
+`741_refuse_unknown_rerender_routing_key_HOLD.sql` (+ `_ROLLBACK`, `_VERIFY`) is the refusal.
+Written, then **executed against the live database inside a transaction and rolled back** — twice,
+then a full round trip: apply 741 → run its `_VERIFY` companion → apply the `_ROLLBACK` → compare
+to the original → discard. Every assertion the migration makes about itself passed, and the
+rollback restored the pre-flip state byte-exact (step count 13 → 10, gate condition identical).
+
+**Why it is not applied:** owner ruling D2 — the 404 lane co-signs the gate migration. That lane
+has been dormant since 2026-08-26 and the CONTRIB asking for the co-sign (2026-09-02) is
+unanswered. Owner decision 2026-09-03: build it all, stop before applying. The release condition
+is the co-sign and nothing else.
+
+### What closing this bug will need (unchanged in shape, now concrete)
+
+The bar is fixed AND live, and a census of zero refusals will NOT establish it: zero is equally
+consistent with "nothing bad has been written yet" and "the refusal branch is unreachable". So
+closure needs an INDUCED unknown routing key landing in `needs_human_review` with the message
+naming it — recipe in the lane RUNBOOK — plus annotation-only prose still assembling unwarned.
+
+### Flip-day safety, measured rather than argued (all `[MEASURED 2026-09-03]`, live)
+
+| question | answer |
+|---|---|
+| pending items that would be REFUSED on flip day (present-but-unknown routing key) | **0** |
+| rows in the WHOLE table (every status) that would fail the CHECK | **0** — so it can be VALIDATEd immediately after apply, not eventually |
+| pending items carrying `routing_reason` | **14** (12 earlier the same day — the converted producer is live and stamping) |
+| all of them, routing key and `reason` | `cta_links_stale` under both — lockstep holds live |
+| pending items carrying an in-vocabulary `reason` | **1,804**, so the transition clause stays load-bearing and narrowing waits |
+| items where the two keys DISAGREE | **0**, and nothing enforces it — see the residual below |
+
+### A NEW blind spot the flip creates, in this bug's own drift class
+
+`[MEASURED by execution]` both of the 404 lane's live livespec Declarations stay **GREEN** through
+the flip, unchanged: the `FragmentMatch` holds because the old five-value clause is a substring of
+the transition clause exactly once, and the paired count still reads 5 because it counts
+`input_data.spec.reason ==`, which `input_data.spec.routing_reason ==` does not contain.
+
+So five new `routing_reason ==` disjuncts arrive asserted by **nothing** — and a sixth routing
+value appended to the live gate without touching Go would drift exactly the way `bugs_open/404`
+drifted, inside the change built to fix it. The remedy (a `routing_reason ==` count Declaration,
+plus entries for the guard step and the CHECK) is enumerated in 741's own header as work the
+APPLIER owes in the same commit, because committing declarations for a HELD migration would turn
+the daily auditor's clean `0 finding(s)` red every morning and mask real drift.
+
+### The residual, stated rather than left implicit
+
+`keys_disagree` is 0 today **as a property of the producers, not of the gate.** An item carrying
+`routing_reason='literal_markdown'` with free-prose `reason` would be routed by the transition
+clause (it matches either key) while `rerender_sections` is still handed `input_data.spec.reason`
+— so `shouldStripLiteralMarkdown` and the CTA recompute would see the annotation and silently
+under-deliver. Those readers move to `routing_reason` when the gate NARROWS (lane PLAN); until
+then the `_VERIFY` companion counts the state so it cannot arrive unnoticed.
+
+### Two traps found while building it, both now LANDMINES entries
+
+- `ALTER TABLE site_work_items ADD CONSTRAINT ... NOT VALID` skips the SCAN, not the LOCK.
+  Measured both ways on the SAME statement: **2 ms** once, **still waiting after 2 minutes**
+  earlier. A queued `ACCESS EXCLUSIVE` blocks every later reader and writer behind it, so the bad
+  case stalls the work-item pipeline. `SET LOCAL lock_timeout` is now in the file. One dry run
+  certifies whichever answer it happened to get.
+- `python3 scripts/pattern-check.py <file>` ignores the filename and lints the git INDEX, so it
+  printed nothing on a deliberately bad migration — a clean pass from a checker that never looked,
+  which is the shape phase 2b existed to prevent. And `migration_is_lintable()` takes a BASENAME:
+  passing a path returns False and nearly produced a correction against a true claim.

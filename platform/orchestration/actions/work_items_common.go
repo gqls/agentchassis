@@ -201,6 +201,17 @@ var workItemStatusOverrideAllowed = []string{
 // declined". A reader querying it wants the misconfigured STEP, not a failure.
 const statusOverrideRefusedCode = "WORK_ITEM_STATUS_OVERRIDE_REFUSED"
 
+// failWorkItemTemplateFallbackCode names the case where an opt-in
+// `error_message_template` did not render and the item was parked with the
+// static `error_message` instead (bugs_open/440, RFC_062 phase 3).
+//
+// Its own code, for the same reason as the one above: it answers "the refusal
+// message a human is reading is the FALLBACK, not the intended one". Nothing
+// failed — the item parked correctly — so a reader querying it wants the
+// misconfigured TEMPLATE, and folding this into a generic failure code would
+// bury the one fact that distinguishes it.
+const failWorkItemTemplateFallbackCode = "FAIL_WORK_ITEM_MESSAGE_TEMPLATE_FALLBACK"
+
 // statusOverrideAllowed reports whether `status_override` may write s.
 //
 // The fail direction is deliberate and is the opposite of the caller's
