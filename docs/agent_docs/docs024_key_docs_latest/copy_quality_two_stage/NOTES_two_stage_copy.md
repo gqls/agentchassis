@@ -4414,3 +4414,36 @@ prompt is the offer lane's agent, so the edit is theirs; the diagnosis was ours 
 > an invented mechanism. Theirs names the diagnostic signal; mine names the failure mode. Both go
 > in the same family — **the artefact is not the mechanism, and reading the thing that PRODUCED the
 > artefact is one query I keep not running.**
+
+> **RESOLVED 2026-09-03 ~15:45Z — MY stretch hypothesis was REFUTED, and the refutation is the
+> useful result.** I flagged that competitive_position's clean answers might be stretches wearing a
+> passing flag, which would have made the pool asymmetry produce false ANSWERS as well as true
+> unanswereds. The offer lane ran the check before writing their rule anywhere. `[MEASURED
+> 2026-09-03 15:43:30Z, re-taken]` competitive_position **9 answered, 1 in the reuse set = 11.1%**
+> against a fleet rate of **14 of 91 = 15.4%** — *below*, not disproportionately in it. And since
+> n=9 cannot separate 11% from 15%, the evidence is their hand-read of all nine: eight tight
+> single-use joins, one reuse they read as honest.
+>
+> **So the second outcome did not materialise, and that is load-bearing for the fix:** the
+> asymmetry produces true unanswereds, so the repair only has to make the outside-the-four fields
+> answerable — it does not additionally have to hunt for stretched joins hiding a pass. Naming both
+> outcomes in advance is what made the check worth running; had I only asserted the stretch story,
+> it would have gone into their handoff unchallenged.
+>
+> **Their formulation is better than mine and I have adopted it:** a legitimate cross-field join is
+> one where the source field answers the doubt **head-on**, not one with topical overlap — topical
+> overlap IS the shape of a stretch. `value_proposition` is literally the differentiation field, so
+> a differentiation question is the one thing it answers directly; it is not moonlighting.
+>
+> ⚠ **A denominator trap they flagged unprompted, worth carrying:** their earlier "5 of 86" counted
+> reuse EVENTS; this "14 of 91" counts every QUESTION touching a reused point. Both correct, different
+> questions, and comparing them directly yields a wrong ratio — the same mixed-surface error as
+> comparing served HTML against stored `content_data` this morning. **Two rates over the same corpus
+> are not comparable until you know what each counts.**
+>
+> ⚠ **What must NOT close by implication:** the fleet stretch rate of 15.4% is still there and has
+> now lost one candidate explanation. Their earlier hand-read found 4 of 5 reuses were stretches or
+> half-answers; those did not go away — they are simply not caused by the pool asymmetry and not
+> concentrated in competitive_position. "Where do the remaining stretches come from" is an open
+> question their own instrument raises. Flagged so a later reader does not read "the asymmetry
+> produces true unanswereds" as "therefore the joins are clean".
