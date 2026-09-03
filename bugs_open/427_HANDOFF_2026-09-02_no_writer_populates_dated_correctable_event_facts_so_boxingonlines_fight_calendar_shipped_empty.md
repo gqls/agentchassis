@@ -967,7 +967,27 @@ today to find the encoding difference rather than assert one of us was right:
 | any status matched at all | 64 | — |
 
 So **53 vs 54 is `deployed` versus any-non-`removed`** — one page holds a live component row that
-is not yet `deployed`. The 58-vs-67 and 9-vs-10 gaps I could **not** reconcile from here; their
-figure may use a different status filter again, or a later snapshot. **[UNRECONCILED]**, and it
-changes nothing: every encoding says the arm refused several times more repair than harm, which
-is the finding that mattered and the one they acted on.
+is not yet `deployed`. They adopted that split; the more inclusive form is the honest one for
+"would be refused a repair", since a live-but-not-yet-deployed row is a page mid-maintenance.
+
+> **RECONCILED 2026-09-03 (the 450 lane), and the correction is MINE to own: my predicate was not
+> the guard's.** The 58-vs-67 gap is `cc.is_active`. `toolShellPredicateFor`
+> (`owned_page_guard.go:160-168`) carries `AND cc_g.is_active = true`; my census asked only
+> whether a `component_level='tool'` row existed at all. Verified first-hand: the gap is **exactly
+> 9 pages across 5 sites** that hold a tool component which is INACTIVE — ai-agent-orchestration
+> ×2, finetuning.uk ×3, gaswholesalers ×1, leopardessconsulting ×1, robot-hands ×2. Running the
+> guard's exact predicate (`status='active'`, `page_type='tool'`, `NOT EXISTS` a not-removed
+> `component_level='tool'` row with `is_active`) reads **66 pages / 15 sites** at 2026-09-03
+> ~14:00, against **57 / 11** for my looser form — the same 9-page gap, one page and a couple of
+> sites drifted since their snapshot.
+>
+> **Theirs is the operative number and mine answered a different question.** "How many pages does
+> this guard act on" is 66-67; "how many pages have a tool component of any kind" is 57-58. The
+> lesson is the one this estate keeps paying for: **I measured a guard's reach with a predicate
+> that was not the guard's**, so my figure was a floor and read as a total. When the thing being
+> measured IS a mechanism, copy its predicate rather than paraphrasing it.
+>
+> None of it changes the decision — every encoding said the arm refused several times more repair
+> than harm — and the 450 lane notes the same `is_active` seam was found from the opposite
+> direction by the portfolio lane four hours earlier, which they read as an argument for keeping
+> it (it is also what `create_tool_component` probes with).

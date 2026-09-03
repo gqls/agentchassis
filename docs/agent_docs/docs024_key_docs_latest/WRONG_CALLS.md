@@ -61916,3 +61916,37 @@ a-closer-census-cannot-see-what-it-succeeded-at, a-measured-marker-proves-a-clai
 
 Family: a-guard-only-guards-the-door-you-walk-through, a-doc-comment-is-not-an-enforcement-mechanism,
 your-fix-invalidates-a-peers-pending-test, a-claim-about-behaviour-is-not-the-behaviour.
+
+## 2026-09-03 — I measured a guard's blast radius with a predicate that was not the guard's, so my number was a floor and read as a total (`bugs_open/427` lane)
+
+- **The claim**: that `bugs_open/450`'s tool-shell guard refused **58** active tool pages across
+  **12** sites, **53** of them already serving. Sent to the owning lane as the measurement they
+  should size their scope decision on, and written into `bugs_open/427` and `454` and the lane
+  handoff as `[MEASURED 2026-09-03]`.
+- **What was actually true**: the guard's own predicate (`toolShellPredicateFor`,
+  `owned_page_guard.go:160-168`) carries `AND cc_g.is_active = true`. Mine asked only whether a
+  `component_level='tool'` row existed **at all**. So every page holding an INACTIVE tool
+  component — which the guard treats as a shell and refuses — was invisible to my census.
+  Verified first-hand once the 450 lane pointed at it: **exactly 9 pages across 5 sites**, and
+  `57 + 9 = 66` closes the gap against the guard's exact predicate. My number was a **floor**
+  presented in the same voice as a total.
+- **What caught it**: the owning lane re-running my census against their own and reporting the
+  disagreement rather than adopting my figure. I had already investigated the discrepancy once
+  and stopped at the half I could explain (`deployed` vs non-`removed`, worth 1 page), marking
+  the rest `[UNRECONCILED]` — which was honest labelling and not a substitute for the ten more
+  minutes it would have taken.
+- **The cheap check**: **when the thing you are measuring IS a mechanism, copy its predicate —
+  do not paraphrase it.** The guard is fourteen lines of SQL in one function; reading it and
+  pasting its `NOT EXISTS` would have cost less than writing my own version did. A paraphrase of
+  a predicate answers a neighbouring question and reports it in the same units, which is exactly
+  the shape that survives review.
+- **The tell I had and ignored**: I was answering "how many pages does this guard refuse", and
+  I wrote a query about "how many pages have a tool component". Those are different sentences.
+  Nothing in the result could have told me — both produce a plausible count on the same table.
+- **Why it mattered less than it might have**: the direction was unaffected, and the receiving
+  lane acted on the direction rather than the digit. It would have mattered a great deal had
+  anyone used 53 to decide whether the reach was small enough to leave alone.
+
+Family: your-measurement-answers-the-question-you-encoded,
+a-report-is-not-a-measurement, a-closer-census-cannot-see-what-it-succeeded-at,
+cite-the-arm-not-the-function.
