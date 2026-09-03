@@ -583,3 +583,9 @@ a subject. **A page can pass that detector and still produce precisely the outpu
 exists to predict.** Worth stating in §8, because a quiet detector there means "subjects supplied",
 not "sections distinguishable", and Stage A's acceptance criterion currently reads as though it
 means the second.
+
+> **⚠ ADDENDUM 2026-09-03 — the defect reproduced on a SECOND run of the same page, in a DIFFERENT prompt grouping. It is not a bad roll.**
+> My CONTRIB above measured one writer run. There were **two**: run 2 (`orchestration_id 74d6b7e4-c081-437a-af78-d942785aae84`, 11 calls, 14:01:22–14:10:20Z) regenerated every section again. Its prompts were **also** duplicated across sections given distinct subjects, but grouped differently — `27b25b8b…` to three sections, `c86df725…` to two, `a1db019c…` to four. Same defect, different partition, so the duplication is not an artefact of one dispatch.
+> **The stronger instrument, and it is `inline_guide_imagery`'s not mine — a negative WITH a positive control:** across **both** runs, **38** `page-content-writer` prompts, **0** containing any of the five subject strings, **38** mentioning the page's topic. It could have come out otherwise. They have offered you the grouping as a Stage B acceptance test — after 641, **N sections must show N distinct prompt hashes** — and I think that is the right shape, because it tests what the writer RECEIVED rather than what the config references.
+> **Correction to my own CONTRIB above, since it was found by a peer re-running my query and not by me:** I searched `llm_call_log` for a window ending 13:05 because that is when I expected the build to finish, and so I missed run 2 entirely and told two lanes the page had never been rewritten over. **A time-bounded query answers "what happened in the window I chose", never "what happened"** — the window was carrying my assumption.
+
