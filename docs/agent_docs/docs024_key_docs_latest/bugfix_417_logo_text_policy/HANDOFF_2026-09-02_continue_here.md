@@ -102,6 +102,20 @@ Ordered. Nothing here blocks moving to other bugs; items 1–2 are cheap and tim
    at `border_keyed=0`). `gamedesign.uk` (17:58Z) also generated and carries the clause but has
    **not been eye-checked** — that is the one cheap action left on this lane.
    **A 424 refusal is not a 417 signal** and a veiled background is 424's defect, not 417's.
+2c. **websitepromotion.co.uk: DONE and verified at the served pages (2026-09-03).** Chrome
+   re-rendered (header 2362→2633 B, `logo-img`, digest ok), then 11 assemble-mode `page_rerender`
+   items filed by hand and all 11 complete. **25 of 25 served pages now carry
+   `<img class="logo-img">`, 0 text, 0 non-200**, invented-path control 404, logo file 200
+   `image/png` 41,062 B. (25 not 11 because the site gained 14 pages while this ran; those were
+   built after the header fix and picked it up automatically.)
+   ⚠ **The artefact is poor even though the plumbing is right** `[MEASURED 2026-09-03]`: the mark is
+   a pale blue/lavender gradient, **median contrast 1.43:1 against the white header** (darkest 5%
+   1.70:1) versus the WCAG non-text minimum of **3.0:1** — so it is present, transparent, and close
+   to invisible. Plus a faint magenta halo (0.69% of pixels) left by 424's despill. **That is a
+   generation-quality matter, not this fix.** Unfiled — needs an owner decision; the render audit
+   (`request_render_audit`) measures contrast against the effective background but treats images as
+   broken/not-broken, so a *pale* logo is plausibly outside it `[UNVERIFIED]`.
+
 2b. **NEW, and not this lane's: 5 of 34 sites with a logo asset still render a TEXT header.**
    `site_components.slot_name='header'` holds `logo-text` and no `logo-img` on websitepromotion.co.uk,
    webdesign.co.uk, ai-agent-orchestration.com, loanandmortgagecalculator.co.uk, cookly.uk — while

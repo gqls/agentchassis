@@ -224,3 +224,30 @@ written advice for that symptom is "be patient, don't re-send". The way I caught
 whether *other* jobs were being created at the same time — 154 of them were, so mine had plainly
 been rejected rather than queued. Third attempt, with the full set of routing fields, worked in ten
 seconds. That is now written down as a trap, along with the check that tells the two apart.
+
+---
+
+**2026-09-03 — the logo is on websitepromotion, on every page. And it is too faint to see.**
+
+You approved the last step and it worked. The 11 re-assembly jobs ran, all completed, and every
+page on the site now carries the logo image instead of the site's name in text. I checked all 25
+served pages, not just the front one — 25 out of 25, with the usual controls to prove the check
+could have failed.
+
+**But I want to be straight with you about what is actually on the page now.** The logo is a pale
+blue-and-lavender mark on a transparent background, and the header behind it is white. I measured
+the contrast rather than guess: **1.43 to 1**, where the accessibility floor for a graphic like
+this is 3 to 1. It is genuinely there, and it is close to invisible. There is also a faint purple
+halo around the edges, left over from the background-removal step.
+
+So the mechanism you asked me to fix is fixed and proven, and the picture it is now delivering is
+not good enough. Those are separate problems and I have not touched the second one — regenerating
+the logo is a content decision, and the background-removal fix that would clean up the halo has
+been written by another lane but is not yet live.
+
+**What I would suggest, if you want it to look right:** wait for that fix to ship, then regenerate
+this one logo and look at it. Doing it now would produce another one with the same halo, and
+possibly another pale one, since nothing in the pipeline currently asks for a mark that reads
+against a white header. If you would rather I raise that last point as a proper bug — "nothing
+checks whether a logo is visible on the header it sits on" — say so and I will, once I have
+checked who owns the imagery-quality side.
