@@ -228,6 +228,15 @@ activity, not wall-clock. §1's 36 writes are far above that share and are the f
 - **`428`** — adding a record-only reconciliation block BELOW both gates and a page-type
   external-producer registry. **Warned** that the set of things that WRITE a tool page is wider
   than the set that PRODUCES its tool — §1 is the evidence.
+- **`ai-agent-orchestration`** — left a CONTRIB **in this lane's own directory**
+  (`CONTRIB_2026-09-03_from_the_aiao_lane_rule_4_of_the_tool_generator_prompt_now_has_appended_text.md`).
+  ⚠ **It was staged-but-uncommitted at handoff time, so `git log` may not show it — read it off
+  disk.** Its premise is WRONG and I have told them so: it believes 729 anchors on
+  `tool-generator`'s prompt. 729 touches only `build-site-planner`, so **their 732 and my 729
+  cannot collide** and neither needs to re-anchor. Their measurement is worth keeping though —
+  148 of 261 tool components ink a `--color-primary` fill with the page ground, against 0 of 151
+  non-tool, because the pairing rule lives in `component-creator`'s prompt and never reached its
+  two siblings.
 - **`apis.uk`** — owns 640's rule 17; confirmed the anchor 729 defends and added an EXTERNAL
   READERS note at their end.
 
