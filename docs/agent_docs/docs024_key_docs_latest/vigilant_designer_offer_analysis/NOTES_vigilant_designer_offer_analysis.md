@@ -3825,3 +3825,72 @@ satisfaction). For `idea.uk` — a £29 product whose competitor is free — *"w
 is free"* at rank 5 is an **ordering judgement I do not accept**, and ordering is the half of the
 seam that belongs to `copy_quality_two_stage`. That is the first thing the hierarchy has produced
 that is worth sending them.
+
+---
+
+## 2026-09-03, later — THE SECOND FLIP'S PREMISE IS STALE: `Illustrated Text Block` STARTED BEING CHOSEN TODAY, and I did not do it
+
+The handoff's §3.2 item 2b says *"`Illustrated Text Block` is still chosen on **one site**
+post-`IMG-074`"*, `[MEASURED 2026-09-02]`, and lists it as one of the two cheapest impact wins the
+owner has ruled I should switch on. **Before writing anything I re-took the count, and the premise
+has moved under it.**
+
+`[MEASURED 2026-09-03 15:35:02Z]` section instances created per day, all components vs this one:
+
+| day | all sections built | `illustrated-text-block` | sites |
+|---|---|---|---|
+| 08-24 | 45 | **0** | 0 |
+| 08-25 | 251 | **0** | 0 |
+| 08-26 | 320 | **0** | 0 |
+| 08-27 | 425 | **0** | 0 |
+| 08-28 | 129 | **0** | 0 |
+| 08-29 | 5 | **0** | 0 |
+| 08-31 | 168 | **0** | 0 |
+| 09-01 | 160 | **0** | 0 |
+| 09-02 | 359 | **0** | 0 |
+| **09-03** | **514** | **6** | **2** |
+
+**2,382 sections over nine days, zero. Then six today, on two sites** — `dartsonline.com` (5) and
+`advertise.co.uk` (1) — **all six created between 14:08:00Z and 14:10:47Z**, about 90 minutes before
+I looked. That is **1.2% of today's sections**, against a nine-day rate of exactly zero.
+
+> ⚠ **Note the filter, because it changes the number.** A bare instance count returns **12 across 2
+> sites**; pairing `build_status='deployed' AND status='active'` (the standing landmine — a selector
+> on `build_status` alone resurrects retired pages) returns **6**. Both numbers are of the same
+> thing; only the second is what is being served.
+
+### ⚠ I HAVE NOT ESTABLISHED WHAT CHANGED, AND I AM NOT GOING TO GUESS
+
+Two migrations landed in the hour before the instances appeared —
+`736_layout_content_hub_tools_archetype.sql` (12:42:25Z) and
+`687_build_site_planner_strategy_json_and_omission_reason.sql` (13:45:54Z) — and **neither names
+this component or its selection.** The timing fits 687 (22 minutes before) and it also fits a fleet
+roll, another lane's prompt work, or the two sites simply being the ones whose turn came. **A
+candidate that fits on timing alone is not a cause**, and attributing it would be precisely the
+[ASSUMED]-stated-as-[MEASURED] move this lane files other people's bugs for. Recorded as unattributed.
+
+### What this changes about the owner's instruction
+
+**The flip may no longer be the right action, and that is a finding, not an evasion.** The owner
+ruled "switch the switches" against a premise — *effectively never chosen* — that was true on 09-02
+and is not true today. Building a planner-prompt migration now would be spending a change on a stale
+premise, and it carries a real hazard the handoff already flags: migration `718` edited the same
+prompt's imagery block, so any anchored replace has to be on disjoint anchors.
+
+**The open judgement, which IS mine and which I cannot settle from one day's data: is 1.2% enough?**
+Zero was plainly wrong. 1.2% may be right, may be a first trickle, or may be two sites' idiosyncrasy.
+**One day is not a rate** — the honest position is that this needs three or four more days of the
+same table before anyone decides, and the table above is the instrument, re-runnable as it stands.
+
+⚠ **And one cross-lane fact that does not fit and should be checked by its owner.** The handoff §5
+records `agentchassis-ff`'s measurement that on `dartsonline.com` **all 22 content pages are
+`hero` + `article-body` + `call-to-action`, zero illustration-capable — "no page can host a
+per-section figure regardless of rows"**. `dartsonline.com` is where **5 of today's 6** instances
+landed. Either that measurement has been overtaken by a rebuild, or the two observations are counting
+different things. **It is their number and their site, so it goes to them rather than being resolved
+here** — but nobody should quote either figure until one of us has reconciled them.
+
+**This is the fourth instance of this lane's own residual #4** ("five for five built-but-undriven",
+already corrected to three of five, because two were driven within days). Make it three of six, or
+possibly two of six — **the pattern claim keeps shrinking every time it is re-measured, which is
+itself the finding.** Do not press it to the owner again without re-running it.
