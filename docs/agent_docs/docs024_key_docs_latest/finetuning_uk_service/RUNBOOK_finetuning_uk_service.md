@@ -672,3 +672,22 @@ POSITION (oldest triaged item per site) rather than eligibility. The handler's `
 `load_current_section_content` are opt-in on `spec.mode` (`recreate` / `edit_live`); an item whose spec
 has NO `mode` key gets full regeneration (verified 2026-09-03 at `load_existing_content_action.go:64-69`).
 Assert `NOT (spec ? 'mode')` before dispatching.
+
+## Playground tool — step 1: put a GGUF from B2 into the in-cluster Ollama (added 2026-09-03)
+
+Keys never leave the cluster: a Job on the Ollama NODE (the PVC is RWO) with the storage secret
+as env refs. Manifest: `playground_tool/fetch-demo-gguf-job.yaml` (edit KEY/DEST for another model).
+
+```bash
+kubectl apply -f docs/agent_docs/docs024_key_docs_latest/finetuning_uk_service/playground_tool/fetch-demo-gguf-job.yaml
+kubectl -n ai-persona-system wait --for=condition=complete --timeout=240s job/finetuning-demo-gguf-fetch
+kubectl -n ai-persona-system logs job/finetuning-demo-gguf-fetch | tail -5      # size must match the s3 ls line
+OP=$(kubectl -n ai-persona-system get pods -l app=ollama-adapter -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec $OP -c ollama -- ollama create finetuning-demo -f /root/.ollama/import/Modelfile.finetuning-demo   # ~70 s on CPU
+kubectl -n ai-persona-system exec $OP -c ollama -- ollama run finetuning-demo --verbose "In one sentence, what is fine-tuning?"   # prints eval rate
+```
+
+Gotchas: the Ollama container has no curl/wget/python, so measure with `ollama run --verbose`
+(prints load duration, prompt eval rate, eval rate); the PVC had 4.9 GB free before this 1.06 GB
+file — check `df -h /root/.ollama` in the pod before adding another; a Job with the same name
+must be deleted before re-running (`ttlSecondsAfterFinished: 7200` handles it after two hours).

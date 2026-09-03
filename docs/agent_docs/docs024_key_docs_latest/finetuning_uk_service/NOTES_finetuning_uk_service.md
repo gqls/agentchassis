@@ -2667,3 +2667,28 @@ Carried to the owner 11:35Z; no re-ask unless he overrules.
 filed `456_…one_undecodable_fact_disarms_a_whole_evidence_register` within hours of this lane's
 `456_…writer_emitted_a_malformed_closing_tag`). Every "456" in this lane's NOTES, CONTRIBs and
 commit messages today means the **malformed-closing-tag** file; refer to it by slug from here on.
+
+## 2026-09-03 (12:10Z) — Phase P step 1 DONE: the Phase 0 model runs in the in-cluster Ollama; CPU speed measured
+
+Fetch: one-off Job `finetuning-demo-gguf-fetch` (manifest `playground_tool/fetch-demo-gguf-job.yaml`;
+`amazon/aws-cli:2.17.0`, `envFrom`-style refs to `personae-storage-secrets` keys
+`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/`S3-ENDPOINT`/`S3-REGION`, so **no key touched this
+session**; pinned to the Ollama node `prod-instance-17735925437536833` because `ollama-models-pvc`
+is RWO; `s3 ls` first so an absent object fails loudly). Completed inside the 240 s wait:
+`s3://personae-model-training/finetuning/artefacts/phase0-20260815-1621/smollm2-1.7b-phase0-q4_k_m.gguf`
+= **1,055,609,504 bytes**, byte-equal on the volume; Modelfile written beside it
+(`FROM …gguf`, `PARAMETER num_ctx 2048`). `ollama create finetuning-demo` **1 m 12 s** (Phase 0 on
+GPU: 18 s); `ollama list` shows `finetuning-demo:latest` 1.1 GB.
+
+**Speed on the cluster CPU** `[MEASURED 2026-09-03 12:08Z, pod ollama-adapter-79dd67f59d-x7ww6, single user]`:
+
+| run | load | prompt eval | generation |
+|---|---|---|---|
+| cold | 2.41 s | 37.8 tok/s (33 tok) | **14.3 tok/s** (69 tok in 4.8 s) |
+| warm | 1.4 ms | 46.9 tok/s (19 tok) | **14.2 tok/s** (48 tok in 3.4 s) |
+
+So a 100-token demo reply ≈ 7 s single-user; concurrency divides it (2 CPU requested, 8 limit).
+Against Phase 0's a6000 (0.36 s first token, 139 tok/s) that is ~10× slower: fine for a free
+"try it" with a reply cap (~150 tokens) and streaming, not for the paid hour. The answer text
+itself was sensible ("papers, articles and blog posts from different authors and genres… assess
+the model's performance across different types of texts"). Next: step 2, the tools-api route.

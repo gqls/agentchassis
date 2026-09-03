@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: finetuning-demo-gguf-fetch
+  namespace: ai-persona-system
+  labels: {app: finetuning-demo-gguf-fetch, lane: finetuning_uk_service}
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 7200
+  template:
+    metadata:
+      labels: {app: finetuning-demo-gguf-fetch}
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/hostname: prod-instance-17735925437536833
+      containers:
+      - name: fetch
+        image: amazon/aws-cli:2.17.0
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          set -eu
+          KEY=finetuning/artefacts/phase0-20260815-1621/smollm2-1.7b-phase0-q4_k_m.gguf
+          DEST=/models/import/smollm2-1.7b-phase0-q4_k_m.gguf
+          mkdir -p /models/import
+          echo "listing object (fails loudly if absent):"
+          aws --endpoint-url "$S3_ENDPOINT" s3 ls "s3://personae-model-training/$KEY"
+          echo "fetching:"
+          aws --endpoint-url "$S3_ENDPOINT" s3 cp "s3://personae-model-training/$KEY" "$DEST" --only-show-errors
+          ls -l "$DEST"
+          printf 'FROM /root/.ollama/import/smollm2-1.7b-phase0-q4_k_m.gguf\nPARAMETER num_ctx 2048\n' > /models/import/Modelfile.finetuning-demo
+          cat /models/import/Modelfile.finetuning-demo
+          echo "DONE"
+        env:
+        - {name: AWS_ACCESS_KEY_ID, valueFrom: {secretKeyRef: {name: personae-storage-secrets, key: AWS_ACCESS_KEY_ID}}}
+        - {name: AWS_SECRET_ACCESS_KEY, valueFrom: {secretKeyRef: {name: personae-storage-secrets, key: AWS_SECRET_ACCESS_KEY}}}
+        - {name: S3_ENDPOINT, valueFrom: {secretKeyRef: {name: personae-storage-secrets, key: S3-ENDPOINT}}}
+        - {name: AWS_DEFAULT_REGION, valueFrom: {secretKeyRef: {name: personae-storage-secrets, key: S3-REGION}}}
+        resources:
+          requests: {cpu: 100m, memory: 128Mi}
+          limits: {cpu: "1", memory: 512Mi}
+        volumeMounts:
+        - {name: models, mountPath: /models}
+      volumes:
+      - name: models
+        persistentVolumeClaim: {claimName: ollama-models-pvc}

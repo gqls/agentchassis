@@ -343,7 +343,7 @@ cost me in llm fees?"* Decision recorded; the cost basis is below and in NOTES.
   `/playground.html`; `deploy_config.capabilities += backend` on the site row so TL-043's gate
   admits it.
 
-**Order:** (1) demo model into the in-cluster ollama, measure tok/s; (2) tools-api route +
+**Order:** (1) demo model into the in-cluster ollama, measure tok/s — **DONE 2026-09-03 12:08Z: 14.3 tok/s CPU, 2.4 s cold load (NOTES)**; (2) tools-api route +
 tests, council; (3) capability on the site row, fork the widget through the tool pipeline, rebuild
 `/playground.html` through the framework (never hand-authored); (4) booked-hour provisioning as
 a workflow, reusing the training-run actions; (5) the booking → session handoff. Each step
