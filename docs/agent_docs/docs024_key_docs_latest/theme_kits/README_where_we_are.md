@@ -168,3 +168,56 @@ from the step you decided should have it.
 This does not block anything. Nothing is broken while it stays open. But it is the third
 time this question has come up in a week, and each time it costs somebody an afternoon
 discovering it for themselves.
+
+---
+
+## 2026-09-03, last entry — the review found something real, and it is the thing you should know about
+
+The internal review council came back a second time asking for changes, and this time it
+was not about how I had written the submission. **It found a genuine fault in the running
+code, and it is the fault that matters most.**
+
+**A look applied to a brand-new site gets thrown away.**
+
+Here is the mechanism in plain terms. When a new site is submitted, a step runs that reads
+the brief and writes down the site's design intentions. If we have applied one of our looks
+to that site beforehand, that step overwrites it. Not partially, not with a warning — it
+simply replaces the values and the look's fonts and colours are gone. The record of what we
+asked for is still in the database as a superseded row, so nothing appears broken, and the
+site that comes out is plausible because the step read the same brief we did.
+
+**Which parts survive:** the page layout does, because it is stored somewhere that step
+does not touch. The colours do not, but as I explained above colours never reached the page
+anyway, so nothing changes there. **The fonts do not survive, and fonts are the one thing a
+look was actually delivering.**
+
+**So the fault is precisely the inverse of what you asked for.** You said a site should be
+able to start from a look and change it later. What we built works if the site has already
+been through the pipeline, and quietly fails if it hasn't. Applying a look to a finished
+site is fine. Applying it to a new one — the case you described — loses the fonts.
+
+There is also a trap I should flag because I built it. I added a way for a person to pin a
+value so nothing overwrites it. **That pin does not help here.** It is honoured by the piece
+of code I wrote and ignored by the step that does the overwriting, and worse, the pin marker
+itself survives while the values do not — so afterwards the record says "a human chose
+this" sitting on top of values a human did not choose. That is a worse state than having no
+pin at all, and it is now written down in three places so nobody trusts it.
+
+**I have not fixed it, and I want to be straight about why.** There are three ways to fix
+it. One changes what that classification step is allowed to overwrite, which affects every
+site we build and is not a change I should make on my own authority at the end of an
+afternoon. One works around it by writing the fonts somewhere else that happens to survive
+— but that only survives by accident, because of a separate bug we already have open, so it
+would be building on a defect. The third, and the one I would choose, is simply to refuse
+to apply a look to a site that hasn't been classified yet, and say so plainly instead of
+silently losing the values. That one is small and honest, and it still changes the behaviour
+of something live, so it should go through the same review rather than being slipped in
+today.
+
+It is all written up where the next session will find it, including which fix I recommend.
+
+**Nothing is on fire.** No site has a look applied, so nobody is affected today. But it does
+change my answer to the question I asked you earlier about whether a "look" is the right
+idea at all — because with this, three of the four things a look bundles don't work on a new
+site, and the fourth is the page layout, which we can already choose without any of this
+machinery.
