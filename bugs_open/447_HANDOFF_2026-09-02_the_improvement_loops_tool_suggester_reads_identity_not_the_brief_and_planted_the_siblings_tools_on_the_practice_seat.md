@@ -107,6 +107,15 @@ The loop owner's answer to "should record-mode verdicts dispatch": **no** — th
 seat a write path to the queue (new authority on a shared seam, 08-02 §2 ⇒ opt-in default OFF) to
 reach what one settings key already does. The real question, put to the owner with 447 as evidence:
 **should a brand-new site be born `hold` rather than `open`?** Born open is what 447 looks like.
+**RULED AND LANDED 2026-09-03:** born-hold-until-released — migration
+`722_new_sites_are_born_holding_growth.sql`, APPLIED, council trail `070347dd…` APPROVED r5; a
+`BEFORE INSERT` trigger (`trg_sites_born_holding_growth`), NOT a column default — the council killed
+the default because 2 of 15 site-creation paths name `settings` on INSERT (this lane's own
+`SEED_2026-09-02` did, for oxenunity.com) and a default is bypassed by exactly that. Existing rows
+untouched (gamedesign.uk's hand-set hold stands). **Adopted sites are held too, by owner ruling.**
+⚠ an upsert `DO UPDATE SET settings = EXCLUDED.settings` would re-hold a released site — refused at
+commit by `check_sites_upsert_excluded_settings` (pattern-check.py) + LANDMINES. Residual, theirs:
+nothing reports "held longer than N days".
 
 ## 6. How to verify
 
