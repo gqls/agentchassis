@@ -1975,3 +1975,31 @@ restore-or-drop. Surfacing to the owner in the next summary.
 > claimed-first rolls). The green tint/border values remain correctly in palette + chrome for
 > whichever home is chosen. Lesson, same family as WRONG_CALLS 08-27: **a closure evidence line
 > is a published claim — run the element-existence check BEFORE writing it, not after.**
+
+## 2026-09-03 — CALCULATOR LIVE AND AUDIT-CLEAN; accent placement escalated to the owner
+
+**tool-compliance-deadline-calculator BUILT, DEPLOYED 08:01:47, VERIFIED AT THE ARTEFACT** (a
+genuine create_result — not the false-complete shape; the 090 on that class runs separately).
+Audit of the served tool: **0 static calendar dates, 0 monetary figures**; draft-status stated
+×5; next-working-day rule ×2; the 15-FOPs size definitions ×3; all 17 obligations present; and
+the period mapping RECONCILES EXACTLY against the draft Order Article 3 table (large 3×7/6×5/9×6;
+small 6×10/12×7/3×1 — every histogram count matches the attested table). The Art 10 RCVS special
+renders as ruled: computed "no earlier than" 12-month marker + the later-of rule as text + "check
+the final Order". The build also minted its guide page (tool-compliance-deadline-calculator-guide,
+consistent with the estimator's shape). Both standing dead-link items closed (cd036c0c by me;
+bcc42497 went complete same day — likely the revalidator caught the 200 first). **Wired:
+in_header=true, nav_order 4** ("Deadline Calculator") — parity with the FIVE other in-nav tools
+(discovery en route: three MORE tools now live that this lane didn't know — insurance-needs-
+checker, price-transparency-benchmarker, transparency-checker-pet-owner — other lanes'/waves'
+work); nav pickup rides the next header-chrome render (in_header alone was insufficient once
+before on a MIS-TYPED page; this one is page_type='tool' like its siblings — verify nav at next
+check).
+
+**Accent placement — ESCALATED TO OWNER (planner + this lane agree):** the claimed-chip instinct
+FAILED the planner's fact-check — the directory template has only a NEGATIVE branch
+({{if not .is_claimed}}"Unclaimed listing"); claimed rows render NO badge, so a chip = a new
+template branch = new markup under the content freeze. Both real options (independence banner
+with copy; claimed checkmark-chip) need an owner content decision; the only zero-signoff option
+(broadening the ::before tick to more headings) is deliberately HELD so the accent question isn't
+quietly closed with a token. Options go to the owner with the planner's long-term recommendation
+(chip) attached.
