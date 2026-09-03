@@ -529,3 +529,16 @@ assuming — the whole discipline of this incident has been not trusting a stamp
 (`seotools.co.uk`, `gamedesign.uk`, `boxingonline.com`), 1 exhausted (`designblog.co.uk`) —
 and boxingonline is the first of these on an actual paying customer's site**, which is a
 meaningful proof point beyond the portfolio sites this lane's own remediation covered.
+
+## 2026-09-03, later still — owner authorised a second retry round for designblog.co.uk
+
+Owner said go. Gave both peer threads a heads-up before acting (`bugfix 417` — the `bugfix_420_417`
+lane appears to have renamed itself since the morning; `designblog.co.uk`, a session dedicated to
+that specific site that didn't exist earlier today) — both idle, action proceeded without waiting
+on replies given it's the same safe, already-established operation (a bad result still cannot get
+stored, only refused).
+
+**Reset with a genuinely fresh attempt budget this time** (`attempt_count=0`, not left at its
+exhausted value), `triaged_at`/`retry_after` cleared: `2026-09-03 12:50:50 UTC`. Same
+transaction shape as the original three-site reset, `RETURNING` confirmed the write. Watching via
+Monitor for the outcome.
