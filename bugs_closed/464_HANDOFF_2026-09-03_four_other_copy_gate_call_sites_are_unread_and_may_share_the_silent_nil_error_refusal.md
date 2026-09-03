@@ -102,3 +102,72 @@ tree, which is corroboration that the gap is real rather than my own scruple.
 **Related:** `bugs_open/442` (the instance, FIXED and live) · `bugs_open/320` (the owner
 requirement that added the gates 2026-08-19) · `bugs_open/338` / **CQ-035** (single-value gating) ·
 016b §9 silent-fallback family · concept register **SEO-004** / **SEO-008**
+
+---
+
+## 7. ⚖ RESOLVED 2026-09-03 (same day) — READ, not grepped. No second instance exists.
+
+**Every copy-gate caller on the tree has now been read. `save_page_meta_description` was the only
+one that returned a refusal as `(map, nil)` with nothing asserting on it, and it is fixed
+(`bugs_open/442`, live `v1.0.1359`).**
+
+### 7.1 ⚠ FIRST, TWO CORRECTIONS TO THIS FILE'S OWN POPULATION — both from the same grep
+
+§2's five-file table was wrong in **both directions**, and neither error is visible in a grep's
+output:
+
+**(a) A FALSE POSITIVE — it matched a COMMENT.** `section_editor_regulated_guard.go` is not a
+copy-gate caller at all. It names `checkBannedClaims` on **line 12**, in prose, explaining what it
+deliberately does *not* use:
+> *"`checkBannedClaims`, `ScanAllBannedClaims` or `scanSectionClaims` … have nothing to do with
+> this change. `ScanRegulatedClaims` is the minimum that…"*
+
+It calls `ScanRegulatedClaims`, a different scanner. **A grep for a symbol matches the document
+that says it is not using that symbol.**
+
+**(b) FALSE NEGATIVES, and these are worse.** §2's grep ran over
+`platform/orchestration/actions/*.go` — **one directory, top level only**. It could not see:
+`internal/agents/contentcreator/claims_guard.go`, `discovery_checks/check_voice_tells.go`,
+`discovery_checks/check_unverified_claims.go`, `provocation_gate_action.go`, `cmd/voicescan`,
+`cmd/regcheck`. **A directory-scoped census reports a complete-looking population and cannot say
+what it never looked at.**
+
+The corrected sweep (`platform/ internal/ pkg/ cmd/`, non-test, comment lines and the definitions
+themselves excluded) is the table below. It carries a control: it must find
+`ScanVoiceSingleValue` in `save_page_meta_description_action.go`, the known caller, or the sweep is
+broken. It does.
+
+### 7.2 THE ANSWER, one row per caller, read in the code
+
+| caller | when the gate fires it… | silent? |
+|---|---|---|
+| `save_page_meta_description_action.go:347,354` | **returned `(map, nil)`, nothing asserting** | **WAS — the 442 instance, FIXED** |
+| `save_sections_claims_guard.go:138` | returns `fmt.Errorf("claims floor blocked: …")` **and** `writeClaimsFloorLog` writes a durable row before it | no |
+| `validate_page_content.go:424` | appends a `blocker`-severity `ValidationIssue`; `valid:false`, and `validate_content`'s `error_step` routes to `mark_needs_review → needs_human_review` (register **CQ-002**) | no |
+| `rewrite_negations_action.go:831` | appends to `rejected` with `{field, reason, shape, from, to}` — the accounted pattern 016b §9 prescribes | no |
+| `provocation_gate_action.go:400` | `v.reject("claims","banned_claim", …)` onto the `gateVerdict` | no |
+| `discovery_checks/check_voice_tells.go:214` | **files a work item** — this IS the `voice_tells` queue | no |
+| `discovery_checks/check_unverified_claims.go:616` | files findings through the discovery-check machinery | no |
+| `internal/agents/contentcreator/claims_guard.go:123` | `recordClaimFindings` writes the durable half **by design** — its own comment: *"A pod log line is not a record — the floor's rule … and it applies harder here"* | no |
+| `cmd/voicescan`, `cmd/regcheck` | print to a human who ran them | n/a |
+| `section_editor_regulated_guard.go` | **not a caller** (§7.1a). Its sibling regulated scanner returns an error; `section_editor_actions.go:575/592/610` all `return nil, regErr` | no |
+
+**So 442's §7 blast-radius claim is confirmed as FORWARD-LOOKING, not realised:** the refusal
+shape travels with the gate, and it will bite the next single-value caller — but today there is
+exactly one, and it is fixed.
+
+### 7.3 Closing, and on what basis
+
+**CLOSED — not "fixed AND live", because there was nothing to fix.** The claim being closed is an
+absence, and it is closed on having *looked*, at every call site, in the code. The population is
+stated so a future reader can re-derive it rather than trust it; if a new copy-gate caller appears,
+this table is the thing to re-run, **with the whole-tree scope and the control**.
+
+⚠ **The one thing to carry forward:** the `reuse_agent` seat's round-3 objection asserted these
+callers *"already refuse saves silently"*. **They do not.** That was an inference from this file's
+own §2 wording before anyone had read them, and it is exactly the sort of confident restatement of
+an unverified claim this file was created to prevent. Read the table, not the objection.
+
+**Filed and closed the same day.** The council asked for a numbered bug so the gap could not be
+lost in a submission; the bug then took about forty minutes to answer properly. That is the case
+for filing it rather than leaving the caveat inline.
