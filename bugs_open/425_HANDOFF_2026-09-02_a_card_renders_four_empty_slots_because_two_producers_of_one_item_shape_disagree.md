@@ -737,14 +737,29 @@ Recorded here so the next reader of that row does not rediscover `nav_label` and
    narrower and I had it wrong.**
 
    > I wrote repeatedly that `input_schema` "has NO vocabulary for the fields INSIDE an array
-   > item", and told three lanes so. **False.** `[MEASURED 2026-09-03]` **48 of 57** active
-   > `{{range}}` components declare an element shape (`items` or `item_schema`), **268 per-item
-   > declarations** exist across the library, and the resolver reads them —
-   > `extractArrayItemFields` at `plan_sections_action.go:2730`.
+   > item", and told three lanes so. **False.** `[MEASURED 2026-09-03, re-measured the same day
+   > after my first cut lumped two conventions together]`:
+   >
+   > | | |
+   > |---|---|
+   > | active `{{range}}` components | 57 |
+   > | declaring `items`, **flat** convention | **43** |
+   > | declaring `items`, **legacy JSON-Schema** (keys are keywords) | 5 |
+   > | declaring `item_schema` | **0** |
+   > | flat per-item declarations | **253** (218 object-valued, 35 bare type-name strings) |
+   >
+   > and the resolver reads them — `extractArrayItemFields`, `plan_sections_action.go:2730`.
+   >
+   > ⚠ **My first figures were 48 and 268 and I had already given them to another lane, which
+   > published them.** The 268 counted the 5 legacy components' `items` keys as declarations, but
+   > those keys are the JSON-Schema **keywords** `type`/`required`/`properties`, not field names —
+   > about 15 phantoms — and my "2 carry `required`" was the same contamination counting a keyword.
+   > **Corrected with that lane the same hour.** The lumping happened because I answered a peer's
+   > question quickly rather than carefully.
    >
    > **What that vocabulary cannot express is the part I needed**, and this is the accurate claim:
-   > of those 268 declarations, **218 carry a `type`, 2 carry `required`, and ZERO carry
-   > `on_missing` or `source`.** `extractArrayItemFields`'s own doc says it "returns the sorted
+   > of those **253** flat declarations, **all carry a type** (218 as object-valued defs, 35 as bare
+   > type-name strings) and **ZERO carry `on_missing` or `source`.** `extractArrayItemFields`'s own doc says it "returns the sorted
    > field **names** each element must contain" — it feeds the **writer's prompt**, not the
    > renderer's missing-handling.
    >
