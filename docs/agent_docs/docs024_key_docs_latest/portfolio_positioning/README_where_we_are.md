@@ -1635,3 +1635,29 @@ built, three of which are the seotools duplicates you already have a question si
 What is genuinely worth fixing is the underlying fault, and it is now a much smaller job than I
 thought. It is two lines of template, and there is already a working example of the right way to do it
 sitting in the same system. I have written that up for the thread that owns it.
+
+**Ten past six — one more thing, and it changes what "wait and see" means.**
+
+I said a few minutes ago to leave copyonline alone and judge the page plan when it arrives. I should
+tell you that as of now there is nothing queued to produce one. The site's work queue is empty. It has
+its classification, its strategy, its identity and the rest, and it has neither a composition nor a
+page plan, and no job waiting to make either.
+
+What seems to have happened is a race rather than anything to do with your brief. The job that builds
+the composition was started six minutes into an hour-long classification run. It looked for the
+classification, did not find it, asked for one to be made, and closed itself down as done. The
+classification duly arrived an hour later. Nothing has gone back to restart the composition since.
+
+It may well fix itself. Another site, oxenunity, has two of these jobs about six hours apart, which
+looks like exactly this happening and something re-filing it. I have not read the code that does the
+re-filing and I am not going to guess at its schedule, so I would rather say plainly that I do not know
+whether copyonline will pick itself up in a few hours or sit there.
+
+For comparison, six other sites at the same stage all have their composition. Copyonline is the only
+one without.
+
+So the position is: nothing wrong is public, the site's direction has been correctly captured in the
+strategy despite the brief problem, and the build has quietly run out of road one step before the page
+plan. I am not going to prod it, because prodding a running build is the thing you asked me not to do
+and because I have already been wrong once today about how much intervention this needed. But if it is
+still sitting like this tomorrow, restarting the composition step is a small and obvious thing to do.
