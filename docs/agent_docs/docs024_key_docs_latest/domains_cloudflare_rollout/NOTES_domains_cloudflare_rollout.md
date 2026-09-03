@@ -768,3 +768,16 @@ once the site serves — no cleanup needed.
   this per-domain.
 - Today's window: 153 inventory stragglers completed (454 total incl. the aakn
   test), priority list running at message time.
+
+## 2026-09-03 (later) — CORRECTION: Nominet walk already landed, not a pending third step
+
+> **CORRECTED 2026-09-03:** an earlier entry today framed "Nominet once the
+> owner's walk lands" as a still-pending third queue step. The nominet lane
+> delivered it that same morning (`f8ca8389d`, 1,606 domains,
+> `inbound/nominet_domains_2026-09-03.csv`) — verified against the commit
+> directly. The valuation lane's two appraisal queues (direct 1,482 rows,
+> proxy 875 rows) already fold the .uk names in: the direct queue's 750 .uk
+> rows and the proxy queue's 855 .co.uk rows ARE the Nominet estate. There is
+> no separate Nominet step and nothing is waiting on the owner. What caught
+> it: the valuation lane read its own working table against my summary rather
+> than trusting it.
