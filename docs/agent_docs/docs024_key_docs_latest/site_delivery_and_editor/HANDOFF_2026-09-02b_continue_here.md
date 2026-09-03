@@ -41,7 +41,10 @@ EXPECTED pre-convergence shape, not a failure).
 > **⚠ ROLL INBOUND (owner, 08:39Z): a new chassis is being prepared for deployment within the
 > hour.** After it lands: (a) verify at the artefact, per service — image-generator-adapter
 > provenance line + `git merge-base --is-ancestor fcbe6071c <stamp>` (the 424 guard fix) and
-> the same for the chassis; if ABOARD, §1.1's unblock (a) is met and only owner decision #2
+> the same for the chassis (⚠ `fcbe6071c` adds NO function name or string literal — only a
+> local `finalAlpha` — so there is no binary-probe literal for it; ancestry at the stamp IS the
+> check, with `KeyOutBackground` PRESENT as the control that the binary is the adapter);
+> if ABOARD, §1.1's unblock (a) is met and only owner decision #2
 > (first test site) remains before a calibration run; (b) a roll kills whatever is CLAIMED
 > mid-run — re-read `ec92320f` (chrome refresh), `06210ec6` (components' discriminator) and
 > diagnosis row `0639080d` afterwards; a `failed`/reaped state there is the roll, not the
