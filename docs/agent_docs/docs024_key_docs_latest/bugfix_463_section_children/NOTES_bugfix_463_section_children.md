@@ -113,3 +113,40 @@ Worth noting the round cost about fifteen minutes and produced a materially bett
 which is the standing argument for revising rather than defending. It also did something I did
 not expect: the seats ran their own read-only checks and independently reproduced my
 109-of-109 `parent_section` measurement, so that figure now has a second, non-me source.
+
+## 2026-09-03, close of session — state, and the one thing still owed
+
+**Committed and green.** `9b540c2e6` (both code halves + tests), `244651c03` (the phantom-hub
+and mirror tests), plus the doc commits. `scripts/verify-head-builds.sh` passes on committed
+HEAD. Note HEAD was *already* red when I started, from another lane's `83407cd37` — two
+declaration tests, unrelated — so run HEAD alone first before attributing a failure to yourself.
+
+**Council: round 1 REVISE (accepted, submission fixed), round 2 in flight** at
+`review_reuse_agent` as of 17:17Z on correlation `9f6c6374-1b76-4094-9b4c-e04808d8428c`. The
+commit carries `Council-Submitted:`, so `098` credits it automatically once approved; no amend
+is needed and none is possible. **Read the verdict and act on it** — the code is already on the
+shared branch, so a REVISE or REJECTED is a live obligation, not a formality.
+
+**What is still owed, and it is the only thing:** verification at the artefact. Go changes are
+inert until the chassis image rebuilds and rolls, and that is a fleet-wide action this lane does
+not take. Both waiting lanes (`gamedesign.uk`, `designblog.co.uk`) have independently confirmed
+the live chassis stamp is `30438851…` and that `9b540c2e6` is NOT an ancestor of it, and both are
+holding their re-plans until told. The bar, in order:
+
+1. `proposed = survived` at the plan/validate step boundary (463 §7);
+2. **the children present in `site_plan_pages` at `/articles/<slug>.html`, not `/blog/<slug>.html`**
+   — a Pass-C-only fix passes (1) and fails (2), and the served page cannot tell them apart;
+3. only then the served hub, which also depends on `bugs_open/457` (another lane's, in flight).
+
+Use a site UNDER `bugs_open/467`'s 20-page cap. gamedesign.uk has 9.
+
+**Peer outcomes, all resolved.** `428` took my baseline warning into their bug as a blocking
+caveat with a demand control, and declined my offer to shape the drop record for their bucket —
+rightly: they record the STAGE, which survives passes being renumbered, and I record the PASS.
+The `feed lane` filed `bugs_open/468` for the `create_blog_posts` gap rather than leaving it as a
+residual in mine, on the argument that a residual stops being read the day its host bug closes;
+the two now cross-reference. `designblog.co.uk` corrected their own migration 732 rationale after
+my exemption finding — it had cited Pass C exposure for a proposed `tools-index`, which
+`isSectionIndexType` exempts, so their surgical route was right for one reason rather than two.
+`portfolio_positioning` corrected my routing and is watching copyonline.co.uk, released 15:49Z
+with no plan yet, as a possible live instance of the pair.
