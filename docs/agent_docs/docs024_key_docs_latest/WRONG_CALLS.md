@@ -60415,3 +60415,43 @@ cannot protect you from, mine is about **how long I left the window open**.
 
 Family: a-shared-tree-commit-can-break-head, committing-is-shipping-on-shared-head,
 a-pathspec-commit-still-takes-a-same-file-passenger, your-fix-invalidates-a-peers-pending-test.
+
+## 2026-09-03 — I built two lanes of practice on another lane's finding without ever asking what the mechanism REQUIRED to work (session portfolio_positioning)
+
+- **The claims.** Both written into `portfolio_positioning/RUNBOOK_remake_release.md` §6's
+  "fire-direction template v2" and acted on: (1) **"LAYOUT intent naming a distinct layout"** —
+  i.e. that naming a layout in the brief selects it; (2) the **chrome-pin experiment as a single
+  `UPDATE style_collections SET header_component_id`**, staged for remake №5 and intended for the
+  other 17. Both came from the theme-kits CONTRIB of 2026-09-02, which is a careful, measured
+  document — and both were fired into a real brief (copyonline, `8aac8250`).
+- **Why they were false.** (1) `resolve_composition_layout_action.go` scores ONLY
+  `classification.category` + `classification.industry_tags`, taking just the light/dark SCHEME
+  from `design_intent.style_direction`; its own comment reads *"layout resolution never consults
+  design_intent at all"*. A brief cannot name a layout — it can only hope the classifier copies
+  the name into `industry_tags` (which it demonstrably does: **12 sites carry a layout name there
+  as of 2026-09-03**, 8 × `magazine-grid`, 4 × `affiliate-hub` — that, not a "compromise match",
+  is how three remakes landed on one layout). (2) A pin SELECTS but does not POPULATE: the five
+  alternative headers need 11–19 template variables and **37 of 39 sites supply ZERO header
+  `content_data` keys** [MEASURED 2026-09-03; independently replicated by the theme-kits lane the
+  same day, separate queries, identical figures]. The pin would have rendered empty nav, empty
+  aria-labels and a form posting to itself — on a live site, 18 times.
+- **What caught it.** Not review, and not my own doubt: two other lanes asking questions.
+  `bugs_open/445` asked whether my briefs BYPASS the layout matcher — a question I could not
+  answer from belief, so I read the resolver. The theme-kits lane volunteered the pin correction
+  after checking the templates because designblog was about to pin one live.
+- **The mistake, precisely.** The source document measured **what exists** (18 layouts, 9 unused;
+  10 header functions, 6 pins) and **what was selected**. Neither it nor I ever measured **what any
+  of it REQUIRES in order to work** — the resolver's actual inputs, the components' actual
+  variables. A census of supply and of selection cannot see a requirement, and a mechanism you
+  have not read is a mechanism you are guessing about. The peer lane reached the same diagnosis of
+  its own error independently ("I counted what existed and what was selected, and never what any
+  of it needed in order to work").
+- **The cheap check that would have.** Before writing a lever into a template a fleet will use:
+  read the consumer. One `grep -n "func Resolve.*Layout" -A40` answered (1); one query pairing
+  `regexp_matches(html_template, '\{\{\.([a-zA-Z_]+)')` against `content_data` keys answered (2).
+  Minutes each, against 18 sites of consequence. **"Another lane measured it" is not a reason to
+  skip reading the mechanism — it is a reason to read the mechanism they measured.**
+- **Cost.** None realised: copyonline is still held at `needs_human_review`, so the layout claim
+  reached a brief but no build, and the pin was never applied. Had №5 released before either
+  question was asked, it would have shipped a broken header and a layout nobody chose, and the
+  recipe was written to be repeated 17 more times.

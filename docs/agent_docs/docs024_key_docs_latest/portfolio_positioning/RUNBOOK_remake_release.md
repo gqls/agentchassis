@@ -184,7 +184,12 @@ for t in <slug…>; do b=$(curl -s "https://<domain>/tools/$t/?cb=$RANDOM"); pri
 | | |
 |---|---|
 | Header components available to pin | `header-with-cart-or-nav` 11 vars · `header-with-search` 12 · `header-minimal-tool` 16 · `header-with-categories` 16 · `header-docs` 19 |
-| Sites supplying ANY header `content_data` | **2 of 39. The other 37 supply ZERO keys** (max anywhere: 5) |
+| Sites supplying ANY header `content_data` | **2 of 39. The other 37 supply ZERO keys** (the two supply 4 and 5) |
+
+**INDEPENDENTLY REPLICATED** — the theme-kits lane re-derived every figure with separate queries
+and got the same numbers (their `bead338cb`, which also retracts the claim at source; their §2
+recommendation table is struck rather than deleted, because each field is right and only the SET
+was incomplete). Two lanes, two query paths, one answer.
 
 [MEASURED 2026-09-03, `content_components.html_template` `{{.var}}` distinct count ×
 `site_components.content_data` key count where `slot_name='header'`.]
@@ -214,8 +219,13 @@ SELECT DISTINCT unnest(regexp_matches(html_template, '\{\{\.([a-zA-Z_]+)', 'g'))
 2. **Supply the candidate's vocabulary first** (one guarded UPDATE of that site's header
    `content_data`), choosing a component whose vocabulary the site can honestly fill — for
    copyonline `header-minimal-tool`'s tool-shaped keys are fillable (it ships four tools);
-   `header-with-search` needs a search endpoint that must really exist, and cart/docs are wrong
-   for it.
+   cart/docs are wrong for it. ⚠ **`header-with-search` carries a trap for LATER sites (theme
+   kits, 2026-09-03): its form action is `{{.search_action_url}}` and the template references no
+   handler and no `/search` — so supplying that variable COMMITS you to an endpoint that really
+   exists. A populated variable pointing at a 404 is worse than an empty one, because it looks
+   like it works.** ⚠ And do not fill a vocabulary the site cannot honestly answer:
+   `tool_status_label` on a site with no tools gets invented text, which is a worse failure than
+   an empty header.
 3. Pin by UUID (function names are NOT unique):
    `UPDATE style_collections SET header_component_id = '<uuid>'::uuid WHERE id = (SELECT style_collection_id FROM sites WHERE domain='<TARGET>');`
 4. Rerender, then diff the SERVED header against an unpinned sibling (cache-bust the curl).
