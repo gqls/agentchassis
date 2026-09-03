@@ -3301,3 +3301,19 @@ six opening lines they asked for.
 Housekeeping: `nav_drift` `ec17b214` completed (chrome re-rendered site-wide, page row flags unchanged);
 the playground `page_rerender` `50c2a394` is STILL triaged at 20:25Z (priority 80; the site's dispatch
 loop was busy with your-own-model until 20:22) — the widget is not served until it runs.
+
+**20:30Z — two more things the generator's run set in motion, read at the queue:**
+- **A companion GUIDE page was minted:** `/guides/playground-guide.html` (page `9b8f5823`, page_type
+  `blog-post`, planned, not in nav, noindex false), with a `needs_content_page` (`2ab8d11f`, claimed
+  20:11Z) whose brief is the generator's stock "Write an in-depth guide about Playground Chat. Explain
+  the concept, why it matters, common mistakes people make, and practical tips…". That is the estate's
+  tool-page pattern (every tool gets a `/guides/<tool>-guide.html`), not something this lane asked for,
+  and for a chat demo it is at best filler. It is mid-flight; when it lands, READ IT before it is linked
+  anywhere — if generic, archive it (`status`) and set `noindex`; the owner decides whether a playground
+  guide should exist at all. A second, duplicate build item for it (`d9c14961`, from
+  `page-rerender-empty-skip`: "0 component rows — a rerender cannot help; build it") was CANCELLED.
+- **`nav_drift` completing fanned out ~60 `page_rerender` items at 20:17:00** (every page on the site,
+  chrome re-render). Fleet-wide the rerender queue is alive (67 completed in the last 2 h, last at
+  20:16:50) but 65 deep; the playground's own rerender `50c2a394` (20:11:24) has a handful ahead of it
+  fleet-wide and the site's fan-out behind it. So the widget ships when the queue reaches it, not on
+  a clock; watcher armed.
