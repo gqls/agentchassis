@@ -167,6 +167,16 @@ needs the composition half.
   sufficient — only `image_landed`/`section_data_resolved` re-resolve, so a page can rebuild all
   night without asking the resolver for anything. **Do not let anyone report this class closed on
   the component change alone**; read `spec->>'reason'` and the served bytes.
+  > ⚠ **CORRECTED 2026-09-03 — my "only two reasons re-resolve" was WRONG, and it is mine.** I
+  > quoted `rerender_page_sections_action.go:47`'s comment; the LIVE `page-rerender` config gates
+  > on **FIVE** — `image_landed`, `section_data_resolved`, `cta_links_stale`, `template_changed`,
+  > `literal_markdown`. The comment has drifted from the config it describes. **And the deeper
+  > claim is UNDER TEST:** whether the sections path re-resolves `site_assets.*` at all is
+  > unsettled (`bugs_open/425` §2 reports it does not for `query.*`, four reproductions; the one
+  > page traced as recovering did so via the BUILD path). More reasons re-resolving makes "nine
+  > re-rendered, none recovered" MORE surprising, not less. The components thread owns the
+  > discriminating experiment (one `page_rerender` with `reason='image_landed'`); it is unaffected,
+  > because that reason is in the list either way.
 - **A mechanical section-compatibility guard is ROUTED HERE and NOT BUILT** (718's `bug_historian`
   advisory, architecture concurring as a monitoring item). Verdict on feasibility: **sound** —
   `component_expresses`' predicate is `source LIKE 'site_assets.%' AND type IN ('url','image','image_url')`,

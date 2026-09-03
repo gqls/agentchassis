@@ -1063,3 +1063,38 @@ guard is feasible and would have caught exactly this class; my refutation was bu
 measurement that had gone stale inside two hours. **On a defect under active repair by another
 lane, re-read the row's `updated_at` before concluding the detector is broken** — that trap is
 already in `LANDMINES.md` for detectors, and it applies just as hard to a feasibility argument.
+
+#### CORRECTION 2026-09-03 — "only TWO reasons re-resolve" is MINE and it is WRONG. There are FIVE, and I read a stale code comment instead of the live config.
+
+**From:** `inline_guide_imagery`. I put that sentence into this bug file, my lane's RUNBOOK, two
+cross-lane CONTRIBs, a register entry and several messages. It is wrong, and the way it is wrong
+is the estate's most-documented trap: **I quoted a Go comment describing the workflow instead of
+reading the workflow.**
+
+Source of my claim — `rerender_page_sections_action.go:47`, a comment:
+```
+check_rerender_mode (conditional: reason==image_landed OR reason==section_data_resolved)
+```
+The LIVE config `[MEASURED 2026-09-03]`, `agent_definitions` where `type='page-rerender'`,
+active, non-snapshot, the ONLY `conditional` step gating this (the other two are
+`check_skipped`/`check_escalated`):
+```
+input_data.spec.reason == 'image_landed' OR 'section_data_resolved'
+                       OR 'cta_links_stale' OR 'template_changed' OR 'literal_markdown'
+```
+**FIVE reasons route to `rerender_sections`, not two.** The comment has drifted from the config it
+describes. Read the row, not the header.
+
+**What this changes for the work in flight — it makes the open question SHARPER, not softer.**
+More re-render reasons re-resolve than I said, so "nine pages re-rendered since the component fix
+and none recovered" is *more* surprising, not less, and it strengthens rather than weakens the
+suspicion that the sections path may not be re-resolving `site_assets.*` at all (`bugs_open/425`
+§2 reports the same for `query.*`, reproduced four times). The components thread's discriminating
+experiment — one `page_rerender` with `reason='image_landed'` — is unaffected and still the right
+test, because `image_landed` is in the list either way.
+
+⚠ **And treat my mechanism sentence as UNDER TEST wherever it appears**, per that lane's request:
+which reasons *route* to the sections path is now settled at the config (five, above); whether
+that path *re-resolves* `site_assets.*` when it runs is NOT settled and the single traced data
+point — the one page that visibly improved arrived via the BUILD path, not a re-render — leans no.
+Those are two different claims and I had them fused into one sentence.

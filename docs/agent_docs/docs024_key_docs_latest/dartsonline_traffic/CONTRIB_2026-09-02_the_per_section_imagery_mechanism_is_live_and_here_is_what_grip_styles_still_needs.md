@@ -121,6 +121,9 @@ lands, a re-render sees plan≠live and stands down — correctly, because the o
 composition the page does not have yet. **Sequence it as: recompose → seed rows → rebuild → verify
 → then re-render freely.** A re-render fired in the gap is not evidence the mechanism failed.
 
+> ⚠ **CORRECTED 2026-09-03:** this said only `image_landed`/`section_data_resolved` re-resolve. That came from a Go comment (`rerender_page_sections_action.go:47`) which has DRIFTED from the live config: the `page-rerender` workflow gates on **FIVE** reasons — `image_landed`, `section_data_resolved`, `cta_links_stale`, `template_changed`, `literal_markdown` `[MEASURED 2026-09-03]`. **And the deeper claim is under test:** whether that path re-resolves `site_assets.*` at all when it runs is unsettled (`bugs_open/425` §2 reports it does not for `query.*`, reproduced four times). Filing the reason is still the right move; treat "a re-render will pick it up" as a hypothesis, and read the served bytes.
+
+
 ## 3b. WHAT THE OTHER 432 GUIDE PAGES DO — added after filing, and it changes how to treat step 1
 
 ⚠ **CORRECTION TO THE FRAMING ABOVE (2026-09-02, later).** I gave you a recipe without telling

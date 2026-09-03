@@ -130,6 +130,23 @@ for sym in PlanSectionsAction sectionRefForOrdinal planSectionOrder sectionOrder
 done
 ```
 
+⚠ **CORRECTED 2026-09-03 — the "only `image_landed`/`section_data_resolved` re-resolve" line I put
+in this RUNBOOK is WRONG.** I quoted `rerender_page_sections_action.go:47`'s comment; the LIVE
+`page-rerender` config gates on **FIVE** reasons — `image_landed`, `section_data_resolved`, `cta_links_stale`, `template_changed`, `literal_markdown` — and the comment has drifted.
+**Read the config, not the header:**
+
+```sql
+SELECT s.key, s.value->'config'->>'condition'
+  FROM agent_definitions a, jsonb_each(a.default_config->'workflow'->'steps') s
+ WHERE a.type='page-rerender' AND a.is_active AND COALESCE(a.is_snapshot,false)=false
+   AND a.deleted_at IS NULL AND s.value->>'action'='conditional';
+```
+
+⚠ **AND the second half is UNSETTLED:** whether the sections path actually re-resolves
+`site_assets.*` when it runs is under test (`bugs_open/425` §2 reports it does not for `query.*`,
+reproduced four times; the one page traced as recovering did so via the BUILD path). Do not quote
+"a re-render will pick it up" as fact until that experiment reports.
+
 ⚠ **`kubectl logs … | grep 'build provenance'` does NOT work on this service** — verified
 2026-09-02, and its failure is the dangerous kind: the phrase DOES appear in the logs, inside LLM
 prompt text describing the check, so a careless grep returns a hit that looks like a stamp. Probe

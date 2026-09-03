@@ -120,6 +120,9 @@ a no-op as a failure.**
 > check which you actually got before concluding anything:
 > `SELECT spec->>'reason' FROM site_work_items WHERE id='<the item>';`
 
+> ⚠ **CORRECTED 2026-09-03:** this said only `image_landed`/`section_data_resolved` re-resolve. That came from a Go comment (`rerender_page_sections_action.go:47`) which has DRIFTED from the live config: the `page-rerender` workflow gates on **FIVE** reasons — `image_landed`, `section_data_resolved`, `cta_links_stale`, `template_changed`, `literal_markdown` `[MEASURED 2026-09-03]`. **And the deeper claim is under test:** whether that path re-resolves `site_assets.*` at all when it runs is unsettled (`bugs_open/425` §2 reports it does not for `query.*`, reproduced four times). Filing the reason is still the right move; treat "a re-render will pick it up" as a hypothesis, and read the served bytes.
+
+
 ```bash
 curl -s https://apis.uk/index.html | grep -o 'src="[^"]*illustration[^"]*"' | sort
 ```
