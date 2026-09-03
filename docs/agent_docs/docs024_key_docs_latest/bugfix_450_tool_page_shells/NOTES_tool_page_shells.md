@@ -356,3 +356,45 @@ the exact ambiguity that makes an absence unreadable. With them, `A = 0` can onl
 **If A stays 0 once dispatch resumes and B/C have not moved, the guard did not fire** and the
 first thing to check is whether the image actually carries the commit (§7), not whether the
 predicate is right.
+
+## (n) 2026-09-03 12:0xZ — THE ROLL LANDED AND BOTH HALVES ARE LIVE, proven at the artefact
+
+Pods rolled 12:05:45–12:07:16Z onto `v1.0.1358`; `rollout status` reports successfully rolled out.
+⚠ Three ReplicaSets were briefly visible at once (`554857f96f`, `5987fcb597`, `59cff58d6b`) — that
+was mid-rollout churn, not three versions in service, and reading pod state during it would have
+been misleading. Waited for `rollout status` before concluding anything.
+
+**Proven at the artefact, not the tag** — the binary's own statement:
+
+```
+build provenance","git_commit":"d0252fd4dab2a3a583d1cc8eb8e1b26e9c422d85"
+```
+
+```
+git merge-base --is-ancestor 587666be8 d0252fd4d  → SHIPPED   (the door)
+git merge-base --is-ancestor 5e6fee47b d0252fd4d  → SHIPPED   (the plan-side gate, still keyless)
+git merge-base --is-ancestor 5bfc016d7 d0252fd4d  → SHIPPED   (the actioned objections)
+```
+
+So "did my fix ship?" was a query, not an inference — exactly what `bugs_open/153`'s stamping
+bought. **The tag alone would not have told me this**: `v1.0.1358` names an image, and one release
+can straddle several commits.
+
+**⚠ MIGRATION 729 IS STILL NOT APPLIED — and now for a NEW reason.** Its documented preconditions
+are both met (council APPROVED `4e7497ed`; a chassis carrying `5e6fee47b` is live). The apply was
+**refused by the session's permission classifier**, which is a correct guard on a live-database
+write and was NOT worked around. Surfaced to the owner for a decision. Until it applies, the
+plan-side gate remains inert: `enforce_tool_sources` is unset, so `enforceToolItemSources` never
+runs, and `capability_gap:tool:*` stays at 0. **The door half is unaffected and is live now.**
+
+**Verification deliberately NOT read yet.** At 12:09Z we were inside the ~300 s post-restart
+no-dispatch window, where spawns are silently dropped — so a reading of "0 receipts" would have
+been an artefact of the window, not a result. I said that in advance in (m) precisely so I could
+not rationalise it afterwards. A watch is armed that waits the window out, then reads
+receipts / open-link-items / open-build-items against the pre-roll baseline **0 / 16 / 59**.
+
+**What would falsify the fix, stated before the reading arrives:** receipts stay at 0 while the 16
+open link items are claimed and the shell pages get rebuilt anyway. The first thing to check then
+is NOT the predicate but whether the running binary really carries the commit — which the stamp
+above already answers, so a null result would point at the declaration probe
+(`refuse_owned_page` on `page-build-handler`) or at those items not being claimed at all.
