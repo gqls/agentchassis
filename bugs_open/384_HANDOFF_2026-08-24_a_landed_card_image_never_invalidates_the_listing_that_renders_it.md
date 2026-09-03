@@ -1078,3 +1078,42 @@ this table were invalid and I nearly published the first:
 the `090` now running** (`198a7b12-f465-4cc0-a414-cec69e5f3392`): not "why did this page fail" but
 **"why does the same re-resolve succeed on some runs and fail on others, on the same page, hours
 apart"**.
+
+### 2026-09-03 11:2xZ — THE QUERY IS NOT THE BUG. Ran it verbatim against live data; it returns the cards.
+
+I reconstructed the resolver's SQL exactly as `resolvePagesWhereType` builds it — the projection
+(`COALESCE(ca.asset_key,'')`), `PageImageJoinsSQL`, and `ListedPageEligibilitySQL` (the `listedOnly`
+branch `blog_posts` uses: `deployed_at IS NOT NULL AND jsonb_typeof(sections)='array' AND
+jsonb_array_length(sections) > 0`) — and ran it against the live database for
+`designblog.co.uk` / `page_type='blog-post'` `[MEASURED 2026-09-03 11:2xZ]`:
+
+| name | card_key |
+|---|---|
+| tool-aspect-ratio-guide | `card_tool_aspect_ratio_guide` |
+| tool-css-unit-converter-guide | `card_tool_css_unit_converter_guide` |
+| tool-css-variables-guide | `card_tool_css_variables_guide` |
+| tool-smart-contrast-guide | `card_tool_smart_contrast_guide` |
+
+**All four rows pass the eligibility floor AND carry a non-empty `card_key`.** So:
+
+- **The SQL is correct.** The join, the projection and the eligibility floor all work.
+- **The data is correct.** Verified independently earlier (pages active, cards active, `asset_key`
+  set, `site_id` matching).
+- **The timing hypothesis is dead.** The cards were all present by 05:05:10 and the failing run was
+  05:25:27 — and the same query returns them now.
+
+**So the defect is DOWNSTREAM of the resolver query.** The array the run persisted holds the four
+correct URLs with `image=''` — the run's own `sections_metadata` shows it — while the query that
+supposedly produced it returns card keys.
+
+**The surviving hypothesis, now the only one standing:** `plan.ResolvedData` does not contain
+`articles` on the failing runs, so `mergedContent` (stored ⊕ resolved, resolved winning) keeps the
+STORED blank array, and the section still counts as `rerendered` because it did render HTML from
+that merged content. The 8 successful repairs would be runs where `ResolvedData` did carry it.
+**That makes the question "why does planSection populate `articles` on some runs and not others,
+for the same component on the same page hours apart" — a conditional inside the resolve path, not
+a broken query.** Still UNTESTED; `WebPath()` returning "" for a non-empty `CardKey` is the only
+other survivor and is a two-line read.
+
+This is the input the `090` (`198a7b12-f465-4cc0-a414-cec69e5f3392`, at its verdict step) most
+needed and did not have when it was seeded.
