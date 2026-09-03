@@ -848,3 +848,73 @@ SUCCESSES as strikes" they have no baseline but would not defend it as design �
 
 **If leopardess resumes on/after ~2026-09-03 21:30Z, stamp the resume time into 389's evidence** —
 their request, and it is the confirmation that mechanism needs.
+
+## UPDATE 2026-09-03 09:2xZ — **THE PAGE IS REPAIRED, AND THE §4 CHAIN IS CONFIRMED** (my predicted date was wrong; the mechanism was not)
+
+`[ALL MEASURED 2026-09-03 09:1x–09:2xZ]`
+
+**The artefact.** `curl https://leopardessconsulting.co.uk/blog.html` → **13 of 13 card images**,
+42,483 bytes (was 11 of 13 / 38,319 bytes, byte-identical across 08-31, 09-02 morning and 09-02
+evening). Both guides carry their image. **The defect that kept 384 open is gone from the page.**
+
+**When and by whom.** `page_component_history`, keyed on `page_id`:
+- **2026-09-02 23:20:15** — `action:rebuild_blog_listing`, pre-image **13 articles / 2 blank**.
+  **This is the repairing write.**
+- 2026-09-03 00:28:14 — `action:rebuild_blog_listing` again, pre-image 13 / 0 blank (already fixed).
+
+**THE CHAIN IS CONFIRMED — by the BRAND, which is the discriminator the handoff specified, not by
+the timing.** The items that ran:
+
+| item_key | created | branded? | outcome |
+|---|---|---|---|
+| `deactivated_head` | 2026-09-02 23:12:18 | **NO** | complete 23:20:18 |
+| `stale_chrome` | 2026-09-02 23:12:18 | **NO** | complete 23:20:45 |
+| `improvement_rerender_leopardessconsulting.co.uk` | 2026-09-02 23:22:49 | **NO** | complete 09-03 00:28:20 |
+
+For six days every such item was born `unresolved` with the `[unresolved after N attempts]` brand.
+The moment the strike count on those keys fell below 2, items were filed **unbranded**, were
+dispatched, `rerender-pages` ran, and `rebuild_blog_listing` rebuilt the array. That is precisely
+the §4 chain, and the growth-posture door did **not** park anything (`growth_release_recipe` absent
+on every row).
+
+**⚠ MY PREDICTED DATE WAS WRONG BY ~21 HOURS, AND THE ERROR IS INSTRUCTIVE.** I computed the
+age-out from the **blog-listing key** (`page_rerender_blog_…_section_data_resolved`, second-newest
+strike 08-27 22:37 ⇒ ~09-03 22:37). But that key is not what gates `rerender-pages` service. The
+gating keys are `deactivated_head` (strikes 08-26 01:57:58, 08-26 21:21:48 ⇒ lifts **09-02
+01:57:58**) and `improvement_rerender_…` (08-26 02:02:26, 08-26 22:01:22 ⇒ lifts **09-02
+02:02:26**). Both lifted on **09-02 ~02:00**, ~21 hours before the repair.
+**Right mechanism, wrong key, therefore wrong date.** I predicted the age-out of the key whose
+SYMPTOM I was watching rather than the key whose SERVICE I needed. Logged in `WRONG_CALLS.md`.
+
+**On the roll as a confound — it is not one, but I cannot fully exclude it either.** The brand
+lifted ~02:00 on 09-02, **19 hours before** the 21:00Z roll, so the unblocking condition predates
+the roll and the roll cannot be the cause of the eligibility change. But the new items were filed
+at 23:12, **after** the roll, and I cannot prove the filing latency was rotation rather than a pod
+restart. **[UNRESOLVED, and it does not matter for the verdict]**: the brand evidence is decisive on
+its own, because an unbranded-then-dispatched item is exactly what the chain predicts and a pod
+restart does not un-brand anything.
+
+## WHAT REMAINS BEFORE 384 CAN CLOSE — three items, one of which is an owner decision
+
+`[MEASURED 2026-09-03 09:1xZ]` Fleet census, blank-where-a-card-exists:
+
+| policy | blanks | pages | assessment |
+|---|---|---|---|
+| generic | 5 | 2 | **all IN-FLIGHT** — designblog.co.uk/index (4 entries, cards landed 4.3h ago), oxenunity.com/tool-take-strength-scorer (1, 7.1h). Nothing stuck. |
+| owned | 14 | 3 | unchanged; structural, out of this seam's reach by design |
+
+1. **THE OWNER DECISION — does 384 close on "blog listings recover by rotation"?** The seam files
+   `page_rerender` → `page-rerender`, whose workflow has **no `rebuild_blog_listing` step**, so on a
+   blog listing the seam's own item still completes without rebuilding. leopardess was repaired by
+   `rerender-pages` on its ordinary rotation, not by the seam. Two readings, both defensible, laid
+   out in the handoff §2.
+2. **The owned-page residual (14/3)** — needs its own seam (`486`'s `section_edit` route). Must not
+   close inside this bug.
+3. **The sweep has still never run** (`page_list_stale`, 12 items, all born terminal). It is this
+   lane's artefact but the cause is `bugs_open/389`'s. Once 389 lands, the sweep needs re-validating
+   and §8.1's escalation watch re-doing from zero — the old "zero escalations" figure is vacuous.
+
+**NOT CHECKED, and it bears on item 1:** whether designblog.co.uk/index and
+oxenunity.com/tool-take-strength-scorer are `rebuild_blog_listing`-maintained (slow rotation path)
+or `save_page_sections`-maintained (the seam repairs them). If the former, they are a live second
+instance of the gap in item 1 and should be re-read in a few hours. The query is in the handoff.
