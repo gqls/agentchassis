@@ -3215,3 +3215,32 @@ follow-up line.
 Follow-up `[MEASURED 19:57Z]`: none of `rationale.uk`, `egret.co.uk`, `proverb.co.uk`, `proverb.uk` has a
 `sites` row (only `leopardessconsulting.co.uk` does: deployed, 55 pages), and no lane HANDOFF/PLAN names
 any of the three. They are unstarted domains, not sites.
+
+## 2026-09-03 (19:48–20:01Z) — path (a) DISPATCHED; the first run REFUSED by design (a live content page cannot be re-typed automatically); page given the tool role; re-dispatched
+
+**Run 1, item `74b725b6` (19:48:12Z → "complete" 19:53:49Z, orch `f5da1e98`):** the generator wrote
+the widget HTML (it is in the item's `result.generated_html`), then **`save_tool` FAILED** —
+`UpsertPageForRole`'s `hasShipped` arm: *"page playground is live as page_type=content
+(build_status=deployed); tool-generator wants to write it as tool. Re-typing a live page changes what
+it serves, so it is not done automatically (bugs_open/175)"* — deleted its own component row and
+filed the decision as `mistyped_deployed_page` `2a2725cc` (needs_human_review, resolution = one
+UPDATE). **Read at the artefact, not the status:** the item says `complete`, the orchestration ended at
+`complete_error` with `__step_error.failed_step = save_tool`, 0 components created, 0 pages created,
+the page row untouched, the served page unchanged. (The `complete`-with-error shape is the 099
+landmine: a failed step reads COMPLETED; the truth is in `__step_error`.) RFC_010 working as ruled:
+which page holds a role a visitor can reach is a human decision.
+
+**Decision taken here, on the owner's direction** ("the site is the tool"; path (a); the playground
+page IS the tool's page): `SQL_2026-09-03_playground_page_role_tool.sql` — `page_type` content → tool
+on `/playground.html` (previous value in the file; reversible), decision item `2a2725cc` closed with
+the reason. Applied 20:00:10Z after a ROLLBACK rehearsal. **What the tool role changes** (grep, non-test
+Go): tool-eligibility / tool-health / tool-recreation discovery checks now include the page;
+`owned_page_guard.toolShellPredicateFor` treats a tool-typed page WITH NO live tool component as a
+**tool shell and REFUSES generic builds on it** (consulted by `get_pages_to_build` and the work-item
+loader) — so between the re-type and the widget landing, a content rebuild of `/playground.html` is
+refused, which is protective (it is what stops a rebuild wiping the tool slot; bugs_open/450's
+class). page-build-handler / page-rebuild do not branch on it.
+
+**Run 2, item `15287da8`, 20:00:12Z**, same brief (G1/G2/G3 all passed: page named playground active,
+no tool-playground component, no open add_tool, adopt flag on). Watcher armed. Verify at the served
+page against the brief's ACCEPTANCE list, then a real chat from a browser.
