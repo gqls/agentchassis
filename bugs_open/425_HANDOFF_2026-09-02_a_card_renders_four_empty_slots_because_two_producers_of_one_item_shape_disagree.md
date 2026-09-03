@@ -995,3 +995,74 @@ cannot be confused with these because the assemble path writes **no** `page_comp
   Batch `…000690` (still queued) is now a third confirmation rather than the deciding test, and
   **its decision table inverts**: a matching `background_image` confirms what is already
   established, while an ABSENT key would be a **new** hero-specific finding beyond `454`.
+
+---
+
+## THIS BUG'S CLASS, ONE LEVEL ALONG — `name` carries TWO OPPOSITE CONTRACTS in the same column
+
+Found 2026-09-03 16:15Z because the `bugs_open/420` (negation-gate) lane asked before shipping,
+rather than after. Their change makes the copy gate scan `*.name` values that look prose-shaped,
+where today it skips them by field name — so a list item's `name` would become rewritable. They
+asked whether any shape this bug reconciles needs `name` byte-stable. **It does, and the honest
+answer is not "exclude it" either.**
+
+### Contract 1 — listing items: `name` is an IDENTITY, and the item's own `url` is built from it
+
+`[MEASURED 2026-09-03 16:15Z]` all **92** `content-listing` items carrying an `articles` array —
+the whole population, not a sample:
+
+| | |
+|---|---|
+| `name` is a real `pages.name` **on the same site** | **92 of 92** |
+| the item's `url` is literally built from it (`url LIKE '%/' \|\| name \|\| '.html'`) | **92 of 92** |
+
+Producer, `resolvePagesWhereType` (`queryresolve/queryresolve.go:~748`) — the identity and the
+display values sit side by side with nothing marking which is which:
+
+```go
+"name":  name,                    // raw pages.name — the IDENTITY
+"title": ListItemTitle(title),    // display, suffix-stripped
+"url":   url,                     // built from name
+"nav_label": navLabel,            // display
+```
+
+So a rewrite of `name` desynchronises the item from `pages.name` **and** from its own `url` in one
+stroke, and the page still renders afterwards — the expensive direction.
+
+### Contract 2 — directory and tracker items: `name` IS the display value, prose by design
+
+`queryresolve/business_directory.go:185` and `directory_items.go:224` both write
+`"name": html.EscapeString(e.Name)` — escaped *because* it is rendered. Live values:
+`Drewberry`, `Freedom Health Insurance`, `VitalityHealth`, `MBS Lending`,
+`Darlington Building Society`. The live templates reading `.name` are that family —
+`mortgage-lender-directory`, `health-insurer-directory`, `savings-provider-directory`,
+`adoption-tracker`, `protocol-tracker`, plus `product-card-with-cta` and `features`.
+
+### Why this belongs in THIS file
+
+It is this bug's own finding one level along, and worse in kind. `425` is *two producers of one
+item shape disagreeing about a field's spelling*. This is **two producers of one item shape
+disagreeing about whether a field is an identity at all** — and unlike the `excerpt` /
+`meta_description` case there is no marker in the data to tell you which contract you hold. **A
+fleet-wide rule of "skip `*.name`" and one of "scan `*.name`" are both wrong.**
+
+**Discriminate on the producing SOURCE, not on the key.** The listing family resolves from
+`query.blog_posts` / `query.pages_where_type:*`; the directory family from
+`query.business_directory` and the directory-entity resolvers. The component's `input_schema` names
+the source, so a gate can read it.
+
+**Cheap stopgap that fails safe:** skip any `name` that is also the stem of the same item's `url`.
+True for 92 of 92 listing items, false for every directory item, because directory items have no
+such relationship.
+
+> ⚠ **THE SHAPE HEURISTIC IS NOT A CONTROL HERE, AND ITS PASSING TODAY IS LUCK.** Listing `name`
+> values are hyphenated lowercase slugs, so a prose-shaped test probably skips them *today*.
+> `cruiserweight-boxings-best-kept-secret` is one tokeniser change away from reading as prose, and
+> the failure would be silent and estate-wide. "The heuristic happens not to fire" must not stand
+> in for an exclusion — same family as this estate's rule that a check is only evidence if it could
+> have come out otherwise.
+
+**Told to the `420` lane with the measurement rather than the conclusion.** Recorded here because
+the next session to touch these item shapes needs it, and because it is the strongest evidence yet
+that this bug is a class rather than a site defect: the same column, the same table, the same
+component family, and two contracts that cannot both be honoured by one rule.
