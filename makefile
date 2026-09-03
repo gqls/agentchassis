@@ -19,7 +19,7 @@ REGISTRY ?= docker.io/aqls
 # 21:53Z) while the locally built v1.0.1305 (sha256:6039e19c…, from 89a0cbeb7)
 # carries 252 newer commits, 24 of them touching platform/internal/pkg. A
 # same-tag re-release re-serves the cache, so the ONLY remedy is a new tag.
-IMAGE_TAG ?= v1.0.1358
+IMAGE_TAG ?= v1.0.1359
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)

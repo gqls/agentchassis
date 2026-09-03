@@ -11,4 +11,4 @@ labels:
 
 images:
   - name: docker.io/aqls/component-render-check
-    newTag: v1.0.1358
+    newTag: v1.0.1359

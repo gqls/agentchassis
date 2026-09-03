@@ -15,4 +15,4 @@ labels:
 # between runs with no diff anybody reviewed.
 images:
   - name: docker.io/aqls/render-truncation-check
-    newTag: v1.0.1358
+    newTag: v1.0.1359
