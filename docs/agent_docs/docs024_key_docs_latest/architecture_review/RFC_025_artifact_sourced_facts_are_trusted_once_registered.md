@@ -421,3 +421,58 @@ is younger than 180 days as of 2026-08-24). Adoption beyond the canary stays per
 and human-paced by this RFC's own design — **27** artifact-sourced facts (as of
 2026-08-24) carry no check yet, and §7's expectation stands: a slow count is not
 failure.
+
+## 12. Addendum 2026-09-03 — §11 has three stale claims, and stage 1's population widens
+
+Written by the `bugs_open/161` residual lane while re-verifying that bug. **The RFC's design
+and its ratification stand; three factual statements in §11 do not.**
+
+**12.1 Corrections to §11, in place.**
+- ~~"stage 2b (`page_name` addressing)"~~ → **stage 2b shipped 2026-08-24 as `subject_key`
+  addressing** (`eecd99b0a`; `bugs_open/288` §5.6). `page_name` was never proposed here —
+  §2.2's worked example is `component_id` only. The label was coined in `bugs_closed/161`'s
+  close-out and copied here; two documents carried it for ten days.
+- ~~"the drift/error branch is unit-proven only"~~ → **an induced live drift was proven
+  2026-08-24**, the same day this section was written, on mortgagecalculator.co.uk's
+  `sdlt-ftb-relief-cap` (`bugs_open/288` §5b): pattern pointed at the expired `625000`,
+  `outcome: drifted`, dry run, restored byte-identical.
+- ~~"stage 1's earliest possible firing is ~2027-01 (every attested fact is younger than 180
+  days)"~~ → **it fired on 2026-09-01**, for boxingonline.com. The claim reasoned from the
+  facts that existed on 08-24 and treated the 180-day threshold as the only route to the
+  queue; `checkAttestationStaleness` also treats an **undated** fact as due immediately, by
+  design and by its own comment. A register gaining an undated attested fact fires the next
+  day. **The general form is worth keeping: a projection over a population that is still being
+  written to is a statement about today's rows, not about the mechanism.**
+
+**12.2 The `artifact_check` count is unchanged, and now MEASURED rather than sampled.**
+`[MEASURED 2026-09-03]` **27** artifact-sourced facts across 5 sites still carry no check, on
+405 facts in 27 registers (was 294 in 19 on 08-24). §7's expectation holds: adoption is slow
+and that is not failure. What §7 also owed — *"a fleet sweep of how many"* — had only ever
+been answered by ad-hoc SQL; `siteRefreshResult.FactsUnverifiable` now reports it on every
+daily pass.
+
+**12.3 Stage 1's producer predicate widens from `attested_by` to every unverifiable fact.**
+The residue arm in `refreshOneSiteEvidence` nudged `attested_by` facts and dropped every other
+unverifiable fact through `continue` **uncounted** — no counter, no entry, nothing. So the 27
+facts in 12.2 were invisible to the one mechanism that could have said "nothing has ever
+checked this". They are now counted and nudged on the same cadence, with a `Detail` that names
+the shape: for a bare `artifact` fact, attach an `artifact_check`; **for the 12 whose
+`artifact` is an external URL (all relojistas), retype to `citation`**, which already
+re-fetches and re-checks a verbatim quote every sweep. Item type, key and threshold unchanged.
+This is inside stage 1's ratified remit — *"it does not check anything; it turns silence into
+a queue"* — applied to the whole silent population rather than one subset of it.
+
+**12.4 A precondition this RFC assumed and did not state: the register has to PARSE.**
+`[MEASURED 2026-09-03]` two of 27 registers did not, so no mechanism in this RFC — nor any
+claims gate — ran on them at all: `finetuning.uk` (since 08-24) and `noted.co.uk` (since
+08-25). One text-valued fact was enough, because `ParseEvidenceBase` decoded `facts` as one
+array and every caller reads a parse error as "site not opted in". Fixed at source
+(`3f221f99f`): facts decode one at a time and a bad fact costs that fact. Full case and the
+before/after control: `bugs_open/456`.
+
+**12.5 The open option this deliberately does NOT take.** Giving `EvidenceFact` a real
+text-valued shape is the honest end state — `Value` is a `*float64`, and licences, retention
+windows and opening hours are facts a register should be able to hold. It is a
+shared-vocabulary addition and belongs in its own round. It is not urgent now: with 12.4 in
+place a text fact is skipped and reported rather than catastrophic. **Named here so the next
+author finds it as a decision, not as a gap.**

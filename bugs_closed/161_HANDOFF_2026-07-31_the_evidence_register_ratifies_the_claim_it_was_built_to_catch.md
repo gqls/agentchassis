@@ -4,6 +4,53 @@
 §1 (149's C1 recognition gap). It answers §1's question and **falsifies two of its three
 fix candidates**, so read this before acting on that file.
 
+> ## RE-VERIFIED 2026-09-03 — the fix HOLDS; three statements below are now FALSE; and the residual is filed as `bugs_open/456`
+>
+> Resumed by a session asked to check whether this bug was still valid. **It is not — the
+> defect is fixed and stayed fixed** — but four things are worth the next reader's time.
+>
+> **1. Re-verified today rather than carried forward.** `gd-trials` is corrected and still
+> carries the first real `artifact_check` fleet-wide; the daily sweep has rewritten
+> gamesdesign's register **every day 08-24 → 09-02**; the canary component
+> `15f1f798-…` still holds `Math.min(val, 10000)` with **zero** `Math.random`. All six
+> repaired pages serve **200 at their recorded `pages.url`** with the false claim absent, the
+> deliberately-spared loot-table guide still carries its honest technique teaching, and an
+> invented URL 404s. ⚠ **Do not compose those URLs from `pages.name`** — three different URL
+> forms are in use on this one site, and doing so returns 404 on all seven plus the control
+> (`WRONG_CALLS.md` 2026-09-03; use `scripts/probe-page-url.sh`).
+>
+> **2. `verified_at` for `gd-trials` now reads 2026-09-02**, so the daily `artifact_check` is
+> still running and still passing. The mechanism this bug produced is alive, not merely shipped.
+>
+> **3. THREE CLAIMS IN THE CLOSE-OUT BLOCKS BELOW ARE FALSE, all corrected here:**
+> - ~~"RFC_025 stage 2b (`page_name` addressing)"~~ — **stage 2b shipped 2026-08-24 as
+>   `subject_key` addressing** (`eecd99b0a`, `bugs_open/288` §5.6). `page_name` was never the
+>   design; the label was coined in this close-out and copied into RFC_025 §11.
+> - ~~"the fail-direction of the check live (unit-proven only)"~~ — **an induced live drift was
+>   proven 2026-08-24** on mortgagecalculator.co.uk's `sdlt-ftb-relief-cap` (`bugs_open/288`
+>   §5b), the same day this was written.
+> - ~~"the attestation nudge's first possible firing is ~2027-01 (all attested facts younger
+>   than 180 days)"~~ — **wrong on its own code, and it fired on 2026-09-01.**
+>   `checkAttestationStaleness` treats a fact with no usable `verified_at` as **due
+>   immediately** (*"an undated attestation is not evidence of freshness, it is the absence of
+>   the one signal this check has"*). boxingonline.com's undated `business_name` fact raised a
+>   `stale_attestation` item on 09-01. The claim reasoned from the facts that existed on 08-24
+>   and treated the threshold as the only path to the queue.
+>
+> **4. THE RESIDUAL IS REAL AND IS THIS BUG'S MECHANISM INVERTED — `bugs_open/456`.**
+> This bug was *a register that vouches for a claim it caused*. `[MEASURED 2026-09-03, all 27
+> live registers]` **two registers do not parse at all**, so their sites' entire claims layer,
+> `banned_claims` included, is OFF: `finetuning.uk` (3 bans, since 08-24) and `noted.co.uk`
+> (7 bans, since 08-25). One text-valued fact was enough, because `ParseEvidenceBase` decoded
+> `facts` as one array and every caller reads a parse error as "no register". Fixed at source
+> (`3f221f99f`); full case, with a before/after control on the live registers, in
+> `bugs_open/456`. **The 28 artifact-sourced facts this file's close-out counted are also
+> still uncounted by the daily sweep** — its residue arm drops them without incrementing
+> anything — which is the same "trusted once registered" one level further out.
+>
+> **This file stays CLOSED.** Its own defect is fixed, live and driven; 456 is a different
+> bug found while re-checking it, not a reopening.
+
 > ## STATUS 2026-08-24 — thread resumed; step 6 VERIFIED AT THE SERVED URL; the structural fix went and came back ratified, built, live and (today) driven
 >
 > The 07-31 thread went quiet after the status block below; no commit has touched this

@@ -20195,3 +20195,59 @@ code change owed at the next roll, tracked in RFC_015 §5.
   fix
 - **source:** `bugs_open/442` §9b (correction to its own §2, commit `a3e092368`); the wrong call and
   the one-column check in `WRONG_CALLS.md`, 2026-09-03
+
+### A register that fails to parse is INDISTINGUISHABLE from a site that never opted in — and one text-valued fact was enough to cause it
+
+- **footprint:** `platform/orchestration/datahelpers/claims.go` (`ParseEvidenceBase`,
+  `EvidenceFact.Value`), `site_specs` aspect `evidence_base`, `banned_claims`,
+  `platform/orchestration/actions/validate_page_content.go`,
+  `validate_page_content_stats.go`,
+  `platform/orchestration/actions/discovery_checks/check_unverified_claims.go`,
+  `cmd/regcheck`, `cmd/claimscan`
+- **fires when:** you read a clean claims-gate result, an empty `banned_claims` finding, or a
+  quiet `unverified_claims` check on a site, and take it as evidence the site's copy is
+  clean. Also when you add a fact to a register by hand or by script.
+- **the tell:** there is almost none, which is the entry. A pod `Warn`
+  (*"Failed to parse evidence_base spec — claims checks skipped"*) in a container replaced
+  daily, and **no work item, ever**. Positive test:
+  `go run ./cmd/regcheck -evidence <the site's live register json>` — it says
+  `evidence_base does not parse` in one line.
+- **why the wrong result looks exactly like the right one:** all three claims-gate callers
+  fail **open** on a parse error and return "no register", which is byte-identical, at every
+  reader and every dashboard, to a site that was never opted in. So the site's ENTIRE claims
+  layer is off — including `banned_claims`, which never depended on facts at all — and every
+  downstream report says "nothing to flag". `check_unverified_claims.go:318` even names this
+  case *"a real defect on an opted-in site"* and its remedy is a log line.
+- **the trap inside the cause: it is a MISSING CAPABILITY, so careful authors walk into it.**
+  `EvidenceFact.Value` is a `*float64`. A fact whose value is genuinely text — a licence
+  (`"MIT"`, `"Apache 2.0"`), a retention window (`"30 days"`), opening hours — has no shape
+  in the register, and **before 2026-09-03 writing one voided the whole base**. `[MEASURED
+  2026-09-03, all 27 live registers]` two were dead this way: `finetuning.uk` (3 bans, since
+  08-24) and `noted.co.uk` (7 bans, since 08-25, a list forbidding exactly the unearnable
+  security absolutes a notes product must never claim). finetuning.uk's count of such facts
+  went **0 → 3 → 7 → 8** over three days as one author kept doing the reasonable thing.
+- **the check, and it takes one command per site:**
+  ```bash
+  kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -At \
+    -c "SELECT sp.data::text FROM site_specs sp JOIN sites s ON s.id=sp.site_id
+        WHERE sp.aspect='evidence_base' AND sp.is_current AND s.domain='<domain>';" < /dev/null > eb.json
+  go run ./cmd/regcheck -evidence eb.json          # 'does not parse' = the whole layer is OFF
+  ```
+  ⚠ **the `< /dev/null` is load-bearing if you loop this over domains** — `kubectl exec -i`
+  eats the loop's stdin and the census silently reports on one site (WRONG_CALLS 2026-09-03).
+  Cheap SQL pre-filter for the commonest cause:
+  `... WHERE jsonb_typeof(f->'value') = 'string'`.
+- **fixed at source 2026-09-03 (`3f221f99f`), and what remains true after it:** facts now
+  decode ONE AT A TIME, so a bad fact costs that fact and the bans stay armed. **The entry
+  still stands**, for two reasons: the fix is inert until the chassis roll that carries it,
+  and a malformed fact still supports no claim and vouches for nothing — it is simply no
+  longer catastrophic. `EvidenceBase.MalformedFacts` is where the parse now records them.
+- **relations:** `bugs_open/456` (the full case, with the before/after control on live data) ·
+  `bugs_closed/161` (the inverse: a register that VOUCHES for a false claim; this is the same
+  seam read from the other side) · MEMORY [[a-pass-from-a-blind-check-outlives-the-blindness]]
+  (a clean result from a check that could not see) · [[a-post-fix-zero-needs-a-demand-control]]
+  · the sibling entry on `banned_claims` patterns that fail to COMPILE (armed, listed, counted
+  and inert — same family, one rung less severe: that one loses a pattern, this one loses the
+  list)
+- **source:** 2026-09-03, `bugs_open/161` residual lane, re-verifying 161 before resuming it
+- **added:** 2026-09-03, bugs_open/456 lane
