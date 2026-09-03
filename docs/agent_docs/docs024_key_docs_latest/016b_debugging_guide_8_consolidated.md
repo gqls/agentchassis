@@ -15676,3 +15676,61 @@ Cases: `bugs_open/450` lane (instances 1–3, two of them its own, both in `WRON
 `bugs_open/458` / `ai-agent-orchestration` lane (instances 3–4, `2dd007e20`), and the companion
 entries above on measuring a mechanism and on untested inferences — same root, different surface:
 **a plausible answer to a question you did not ask.**
+
+### Two lists a test holds in LOCKSTEP may answer DIFFERENT questions — and then the fix the test names is worse than the drift it caught, because a green test certifies the damage (2026-09-03, `bugs_open/458`)
+
+**The shape.** A parity test enforces set equality between two lists in different packages, with a
+comment saying they are "the same vocabulary, kept in sync by a test, not by discipline". You add a
+name to one. The test goes red and **tells you exactly what to do**: add it to the other. Doing what
+it says is the defect.
+
+**The worked case.** `canonicalCSSTokens` (`component_validation.go`) gained four renderer-emitted
+ink companions. The parity test in `discovery_checks` parses that literal out of the `actions`
+source and demands equality with `rendererGuaranteedTokens`. Adding all four turns the test green
+and puts `--color-cta-bg-ink` into a **live, registered, severity-high** check
+(`stylesheet_gutted`) that files when a page references a token the stylesheet lacks.
+
+Measured at the artefact rather than reasoned from the test `[MEASURED 2026-09-03, 7 served
+stylesheets]`: `--color-primary-ink`, `--color-accent-ink` and `--color-accent-text` are present
+**7 of 7**; `--color-cta-bg-ink` **1 of 7**, because `buildLegibleInkDefaults` emits it only when
+`solidCTAFill` is non-empty and 10 fleet themes hold a gradient there. **The green test would have
+filed 6 of those 7 sites as gutted** — a fleet-wide false-positive generator, shipped by obeying a
+guard.
+
+**Why the two lists genuinely differ, which is the general point.** They were named as if
+synonymous and are not:
+
+| list | the question it answers |
+|---|---|
+| `canonicalCSSTokens` | *may a template NAME this?* — authoring vocabulary |
+| `rendererGuaranteedTokens` | *is this ALWAYS defined?* — a contract the renderer keeps |
+
+Those coincide only while every name is unconditionally emitted. **The moment one member is
+conditional, equality is the wrong relation** — and a conditional member is exactly what a
+fallback-shaped token (`var(--color-x-ink, var(--color-x))`) is for. The test's own reverse-direction
+message already knew this: it calls over-reaching *"the false-positive class the gate exists to
+prevent"* — it simply had no way to express the asymmetry.
+
+**What to do instead.** Split the set: the members that really are guaranteed join the policed list;
+the conditional ones get a **named exemption with the measurement written beside it**
+(`inkCompanionsNotGuaranteed`, carrying the 1-of-7 / 7-of-7 counts and the reason). Then
+**mutation-prove the exemption is narrow** — an unrelated bogus token added to the authoring list
+must still fail parity, or you have replaced a drift guard with a hole.
+
+**The check, before you satisfy any lockstep test.** Ask what each list would mean if the other did
+not exist. If the answers differ in a sentence, the equality is a convenience and the test is
+enforcing a coincidence. Then measure the disputed members **at the artefact** — the served
+stylesheet, the running config, the live row — because the source can only tell you a value is
+*computed*, never that it is *always emitted*.
+
+**How it was found, which is not by testing.** The `guardian` council seat asked whether the map had
+"any OTHER consumer that treats unknown-token as a hard failure". The author had checked the
+consuming *function* (`AuditTemplateTokens`, warn-only — and, it turned out, with **zero production
+callers**) and mistaken that for checking the *map*. One `grep -rn` found the second list, and
+running that package found the parity test had been **red at HEAD for ~2 hours** — invisible because
+`go build ./platform/...` passes on a failing test and `go test` on the edited package misses a break
+one package over. Companion entry: *"a correct predicate wrapped in untested inferences"* — same
+root, one layer along: **the inference here was "set equality is what this test is for".**
+
+Cases: `bugs_open/458` §6 (with the retraction of the author's own "warn-only, no behaviour change"
+claim), `WRONG_CALLS.md` 2026-09-03, commits `0325ddebb` (the break) and `7491c6d21` (the split).
