@@ -27,9 +27,19 @@ waiting on **one click from him**. Two new bugs were filed from the rehearsal it
 
 1. **THE OWNER HAS ONE BUTTON TO PRESS, and everything downstream waits on it.**
    Item `e370e0bb-a15e-4856-978f-5a9384f9d4e9`, site **idea.uk**, `needs_delivery_review`, at
-   `needs_human_review`. **Where:** admin.apis.uk → **Work Items** → status filter **"Needs Review"**
-   → the row with the purple **`checkpoint`** badge, summary beginning *"Pre-delivery review"*. The
-   panel opens titled **"Review & Approve"**; the button is **"Approve & Continue"**.
+   `needs_human_review`.
+
+   > ⚠ **WITH THE DASHBOARD'S DEFAULT SETTINGS THIS ITEM IS INVISIBLE, and the first directions
+   > written here were wrong because of it.** Work Items filters by pipeline **server-side**
+   > (`App.tsx:470`) and **defaults to `build`** (`:417`); this item is `pipeline = 'delivery'`; and
+   > the dropdown's whole option set is `build` · `content` · `all` (`:1091-1093`). The row is not
+   > one you could scroll past — it is never requested from the API. `bugs_open/474` §2.
+
+   **Where, in order:** admin.apis.uk → **Work Items** → **pipeline dropdown → "all pipelines"**
+   (the step that is easy to miss) → status **"Needs Review"** → optionally type
+   **`needs_delivery_review`** to isolate it → the row with the purple **`checkpoint`** badge,
+   summary beginning *"Pre-delivery review"*. The panel opens titled **"Review & Approve"**; the
+   button is **"Approve & Continue"**.
    ⚠ **APPROVE, not resolve.** Resolve writes `resolved_by`, which `delivery.Reviewed()` deliberately
    ignores — the delivery would stall for ever while every button press appeared to succeed.
    A monitor is watching the row and distinguishes the two.
@@ -93,6 +103,7 @@ count ≥1 kept as the **liveness control**.
 
 | number | what |
 |---|---|
+| **`bugs_open/474` §2** | **the same item is in a pipeline the dashboard does not offer** — Work Items filters server-side, defaults to `build`, and the dropdown lists only build/content/all. `[MEASURED]` **five of the eight** live pipelines have no option, holding **1,984** items (`design` alone 1,933). Owner unblocked by "all pipelines"; no candidate taken, all are frontend |
 | **`bugs_open/474`** | **the delivery review item was filed in a shape the approve screen refuses.** The button renders on `isCheckpoint` alone but submits only with `spec.review_data`, which `create_work_item` never writes. `[MEASURED]` 1 of 27 checkpoint rows lacks it, and it is the only delivery review ever filed. **Our own `prepare.go` predicted it and assigned it to someone else in a parenthesis.** Fixed by `751`; candidate 2 unclaimed |
 | **migration `750`** | copy-editor's approval fans out — `fan_out_from: "edits"`, `defaults: {edit_type}`, `include_fields: ["domain"]`. **Not yet applied**; inert until 466's binary rolls, harmless before |
 | **migration `751`** | **APPLIED + recorded.** `delivery-review-filer` files `review_data` from `input_data`; the already-filed item patched from its own spec |

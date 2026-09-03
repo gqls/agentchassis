@@ -940,3 +940,35 @@ description. The number felt like knowledge and was actually a way of not lookin
 the system's history, so we now know it works and files the right thing. Steps three and four are
 mine and ready to go the moment you press approve. I still need an address from you for the delivery
 email.
+
+---
+
+## 2026-09-03, later still — you could not find it because it was not being shown to you
+
+You asked where the idea.uk approval is, and the directions I gave you were wrong. Here is what was
+actually happening, because it is worth knowing rather than just fixing.
+
+The Work Items screen has a filter for which pipeline you are looking at, and it starts on **"build
+pipeline"**. Your delivery review is not in the build pipeline — it is in the *delivery* pipeline.
+And the filter runs on the server, so the row was never sent to your browser at all. It was not
+buried in a long list; it was not there.
+
+The dropdown offers exactly three choices: build, content, and "all pipelines". There is no delivery
+option. So the only way to reach it is the catch-all — which you would have no reason to pick, and
+nothing on the screen would tell you to.
+
+**Do this:** Work Items → set the pipeline dropdown to **"all pipelines"** → set status to **"Needs
+Review"**. The row has a purple `checkpoint` tag and begins "Pre-delivery review". Open it and press
+**Approve & Continue** — not Resolve.
+
+I checked whether this is a one-off and it is not. We run eight pipelines. The dropdown names two of
+them. The five unnamed ones hold nearly two thousand items between them — one of those, design, has
+1,933 on its own. So anything filed outside build or content is invisible unless someone happens to
+choose "all". I have written that up with three ways to fix it; the best one builds the dropdown from
+what is actually in the database, so a new pipeline can never go missing by omission again. All three
+need a front-end rebuild, so none is done yet, and you are unblocked in the meantime.
+
+**That is now three things today that only appeared the first time a person actually used them** —
+the approve button that could not read its own payload, the item filed in a shape the screen refuses,
+and now the screen not showing the item at all. Every one of them was found on our own site instead
+of a customer's, which is exactly what you paid for by choosing the full rehearsal.
