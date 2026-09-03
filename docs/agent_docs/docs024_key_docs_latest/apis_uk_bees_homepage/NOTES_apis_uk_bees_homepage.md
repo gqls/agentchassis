@@ -1602,3 +1602,16 @@ full from `diagnosis_artifacts`. Dispositions:
 
 State unchanged otherwise: 641 remains `_HOLD`; the one gate is the owner reading the EXACT
 block in the seed, carried by the finetuning lane.
+
+### 2026-09-03 ~11:00 UTC — the 641 owner read is IN FLIGHT
+
+The finetuning lane confirmed they are carrying the block to the owner FROM THE SEED's INSERTED
+TEXT block (lines 43-52 of `641_..._HOLD.sql`), not from their draft; they will record his exact
+words in finetuning NOTES and notify this lane. When that notice arrives: copy the read into
+THIS lane's NOTES (dated, his words quoted — the seed header requires it; an unrecorded read is
+indistinguishable from a skipped one), then hand-apply per the seed header's own checklist
+(re-verify gate 1 at the pod first), then the APPLIED line naming the read, committed by
+pathspec. Context from their side: the 443 Stage A canary (technical-details, item `896bb245`)
+is queued and independent of 641; "your-own-model" waits for Stage B after the apply. They are
+also adding a pointer from their CONTRIB to our WRONG_CALLS census row — they had repeated the
+header's "5" as fact, the same error class.
