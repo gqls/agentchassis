@@ -204,3 +204,19 @@ mortgagecalculator CONTRIB (ordering) stays parked against the no-reorder ruling
   drop + record → canary → induced-L3 proof. Both trailers for this arc are earned
   (`Council-Reviewed:` dc6d2a54 and c400d333).
 - Forward work noted, not built: a documented 4-step template before agent #2 is mapped.
+
+## UPDATE 2026-09-03 ~21:4xZ — owner ruled "first, and loudly": ALL THREE PARTS LIVE; canary + induced-L1 proof in flight
+
+- council-gate → **L1**; **752 APPLIED** 21:24Z (VERIFY green, recorded, renamed); **753 APPLIED**
+  21:31Z (alarm fixed, bug 459 — round `83186fd9` in flight, which is also 752's L0 canary);
+  **SessionStart banner** wired (`scripts/governor-session-start.py`).
+- Daily habit now: 584 · 657 · wiring check · **752 VERIFY** · read the latest `level-change` note.
+- **Watch for:** the canary (83186fd9's orchestration passing the gate); then the induced-L1 proof
+  (`scratchpad/induced_l1.sh`, log alongside) — alarm 0→1, banner loud, probe → `complete_withheld`
+  with 0 LLM calls, restore, alarm 1→0. If the canary FAILS at the gate (row stuck at
+  `gate_spend_governor` or routed to withheld at L0) → roll 752 back and investigate the
+  conditional's boolean evaluation (editquality's low, c400d333) before anything else.
+- **⚠ my half-row (WRONG_CALLS):** 752's verify restored one column of `governor_state`; healed
+  at the next tick. If a future verify deletes that row, restore EVERY column and assert it.
+- **NEXT:** (1) canary + proof → docs · (2) 83186fd9 verdict · (3) option C (gate met) · (4) the
+  4-step template before any second agent type is mapped · (5) standing queue.

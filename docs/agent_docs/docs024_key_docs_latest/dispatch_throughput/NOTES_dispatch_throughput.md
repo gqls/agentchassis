@@ -1937,3 +1937,46 @@ arm · daily VERIFY red on today's row (1/6) / green once applied. Post-control:
 **Still HELD**, on the owner's level answer (asked four times; nothing yet). This commit carries
 `Council-Reviewed: c400d333` — the revisions are the round's own advisories, applied to a file
 that has never been applied.
+
+### 2026-09-03 19:5x–21:4xZ — OWNER RULED "first, and loudly": council-gate → L1, 752 APPLIED, the alarm FIXED (753 applied), a session-start banner — and one half-row of my own
+
+**Owner, chat, verbatim: "I think they should be the first but loudly so I can stop doing
+important things for a while."** Three parts, done in order `[all MEASURED 2026-09-03]`:
+
+1. **Level → L1 and 752 APPLIED, 21:24:27Z.** `governor_agent_class_map.council-gate` set to
+   `maintenance`; 752 applied on the committed text (`752 OK`); the daily VERIFY went green
+   (`class=maintenance, admitted now=t, level=0`); suffix dropped + `--record-only` in one
+   motion; committed under `Council-Reviewed: c400d333`. council-gate's start step is now
+   `gate_spend_governor`.
+2. **⚠ MY HALF-ROW.** The first read after the apply came back with `mtd_usd`/`computed_at`
+   EMPTY. 752's verify DELETEs the `governor_state` row for the induced-missing-row proof and
+   re-inserts `(id, shed_level)` only. Five rolled-back rehearsals could not exercise that
+   restore — **the rollback IS the restore in a rehearsal** — and the real COMMIT left four
+   columns NULL. Enforcement reads `enabled` + `shed_level` only, so nothing was withheld; the
+   state task rewrote every column at its next tick (21:28:54Z; mtd $604.34 afterwards).
+   WRONG_CALLS row filed; 753 saves and restores every column and asserts the count.
+3. **459 FIXED: migration 753, applied 21:30:58Z.** The old level is read by the UPDATE's own
+   `FOR UPDATE` sub-select and RETURNED; `noted` is a dependent CTE over that RETURNING — no CTE
+   races another over the row, 673's snapshot property kept. The note now says **SHEDDING
+   INCREASED / shedding EASED** with the owner's instruction in it, and carries category
+   `level-change`. Proofs: dry-run OK; chained rollback OK (the rollback SAYS its alarm is dead);
+   **the true mutation — 673's dead text installed verbatim behind the marker — caught:**
+   `level 3 -> 0 should have written 1 note, level_changed=0`. Two verify defects found by
+   the first two dry-runs and fixed: **`deadlock detected`** (my verify took the row lock before
+   the advisory lock, the reverse of the live task, and a real tick landed — now advisory first)
+   and **a coin-flip read** (two notes written in one transaction share `created_at`; reads are
+   now by body, deletes by id). First live tick under the new text at 21:32:59Z: clean,
+   `computed_at` advanced, no spurious note. Recorded; submitted **corr `83186fd9`** — which is
+   ALSO the live L0 canary for 752's gate (its orchestration must pass
+   `gate_spend_governor → route_spend_governor → load_schema_hint`).
+4. **"Loudly", to the OWNER: `scripts/governor-session-start.py`**, wired as a SessionStart hook
+   beside the landmines one. One psql round trip; prints NOTHING at level 0 with council
+   admitted; loud when shedding, louder when council is withheld (names `complete_withheld`,
+   says do-not-retry, quotes the ruling). Fail-quiet with a 6 s cap — and the header says the
+   honest half: **silence is not level 0** when the kubeconfig has expired; the daily VERIFYs and
+   the 753 note are the channels that do not depend on it. Self-tested four ways.
+
+**Next, gated on the canary:** the induced-L1 end-to-end proof (script written: budget → 800,
+L1, alarm note, banner, a probe submission that must land at `complete_withheld` with 0 LLM
+calls, restore, EASED note). It must NOT run until 83186fd9's round is past the gate, or the
+real round is the thing withheld.

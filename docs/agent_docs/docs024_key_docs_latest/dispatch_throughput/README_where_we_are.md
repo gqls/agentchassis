@@ -624,3 +624,16 @@ once this is switched on, the council governs itself — so at the level where r
 back, a review of an emergency fix to the governor would be held back too. That's by design,
 and it's another reason "last, at 95%" is the safer default. Still switched off; still waiting
 on your word about the level.
+
+2026-09-03 night, later — done as you ruled: council reviews are now the FIRST thing the
+governor holds back (at 70% of budget, $1,400), and it will be loud in three ways. The
+governor writes a plain "SHEDDING INCREASED — stop non-essential platform work" line the moment
+the level changes (that announcement had been silently broken since 31 August — that was the
+bug I found this morning; fixed and live tonight). Every new session you or anyone opens will
+now start with a banner saying council reviews are withheld, what that looks like, and not to
+retry. And a review submitted during a hold completes immediately with a message saying it was
+withheld, not queued. One caveat on the banner: it needs the cluster login, which expires every
+three days — when that has lapsed it stays quiet, and quiet does NOT mean "level 0"; the
+written announcement is the one that never depends on it. September stands at about $605.
+I'm about to prove the whole chain live the same way I did this morning — a short, deliberate
+dip to the first level, one throwaway review submission, and back.

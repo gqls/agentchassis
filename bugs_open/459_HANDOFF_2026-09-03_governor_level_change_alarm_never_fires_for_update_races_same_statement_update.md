@@ -113,3 +113,14 @@ is open and belongs with whoever writes the fix.
 - Register: **AGOV-013**. Migrations `671` (task), `672` (alarm + its proof), `673` (the token).
 - Related: `bugs_open/398_HANDOFF_2026-08-25_scheduled_tasks_row_is_not_single_flight.md`
   (same table, different defect — resolve 398 by SLUG, the number is ambiguous).
+
+## STATUS 2026-09-03 21:31Z — FIX APPLIED (migration 753), council round `83186fd9` in flight; stays OPEN until the verdict is read and one REAL level change has written a note
+
+Candidate 1 built: the old level is read by the UPDATE's own `FOR UPDATE` sub-select and
+RETURNED, `noted` reads that RETURNING (RFC-free: no new seam, one statement). 673's snapshot
+property kept. Proven by dry-run, chained rollback, and the true mutation (673's dead text
+verbatim → `should have written 1 note, level_changed=0`). Applied 21:30:58Z on the owner's
+"loudly" ruling; first live tick clean 21:32:59Z. The induced-L1 proof (same evening) is the
+first real level change under the new text — its note is the closing evidence. Two verify traps
+found on the way, both now in the RUNBOOK: lock order (advisory first) and same-transaction
+`created_at` ties.

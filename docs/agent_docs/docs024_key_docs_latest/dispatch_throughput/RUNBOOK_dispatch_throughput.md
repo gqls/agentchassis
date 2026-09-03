@@ -581,3 +581,21 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user 
 silent no-op because unmapped = admitted).
 **Rollback:** `752_..._HOLD_ROLLBACK.sql` — refuses unless the row is in 752's shape; restores
 `load_schema_hint` / 44 steps BYTE-IDENTICAL (md5 asserted) and recreates `governor_withheld_runs`.
+
+### 752 is APPLIED (2026-09-03 21:24Z) and 753 fixed the alarm (21:31Z) — the file names in the sections above have changed
+`752_d4b_governor_council_gate_stage_b.sql` (was `_HOLD`), `…_ROLLBACK.sql` (was `_HOLD_ROLLBACK`);
+`753_d4_governor_level_change_alarm_fires_again.sql` + `_ROLLBACK`. council-gate class = **maintenance (L1)**.
+
+```sql
+-- THE ALARM, now live (753): one row per level change, loud wording, category level-change.
+SELECT created_at, left(body,200) FROM doc_notes WHERE subject_key='spend-governor' AND categories ? 'level-change' ORDER BY created_at DESC LIMIT 5;
+-- A council submission during a hold: its row ends at complete_withheld (not queued — do not retry)
+SELECT status, current_step FROM orchestration_states WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+SELECT created_at, left(body,200) FROM doc_notes WHERE categories ? 'withheld-run' ORDER BY created_at DESC LIMIT 5;
+```
+```bash
+# THE BANNER: what every new session sees (silent at level 0 with council admitted; silent on an expired token — that is NOT level 0)
+echo '{}' | python3 scripts/governor-session-start.py
+```
+⚠ A verify that DELETES a live row to prove fail-open must restore the WHOLE row and assert it — a rolled-back rehearsal cannot exercise a restore (752 committed a half-row; self-healed at the next tick).
+⚠ In any verify that EXECUTEs the state task's text: take `pg_advisory_xact_lock(hashtext('spend-governor-state'))` FIRST, or a real tick deadlocks you.
