@@ -151,8 +151,10 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    `adopt_existing_page` (TL-044; step config, default OFF) or the build mints `/tools/…`. First probe
    the route is still up (`curl … -H 'Origin: https://finetuning.uk'` → 200 text/event-stream) — the
    demo box's ufw rule and the island's compose are the two things that can silently take it down.
-0a-0. **OWNER DECISION PENDING (asked 22:00 BST, README): publish the base-vs-fine-tune comparison
-   NOW with an honest framing, or improve the demo model first.** The measured truth
+0a-0. ~~OWNER DECISION PENDING~~ **DECIDED 22:05 BST: improve the model first** ("I don't have enough of my
+   own writing so I will try and find someone else's that has a defined character"). Comparison NOT
+   published; page copy untouched until the new model. The next run's checklist (rights, pairs at
+   volume, echo fix, held-out eval, THEN publish) is in NOTES 21:05Z and PLAN. Waiting on the corpus. The measured truth
    (`COMPARISONS_2026-09-03_base_vs_finetune_demo_model.md`): the Phase 0 fine-tune barely moved the
    model, echoes on two tasks, degenerates on one. The page's missing "what to type / what you get"
    explanation is written only after his answer, because the framing sentence is his. Base model

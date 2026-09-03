@@ -1496,3 +1496,13 @@ small fine-tune does; the effect is modest and uneven"), which is educational an
 model first (more of your writing, and a training fix for the repeating) and publish when it shows
 something. I would not put the comparison on the page under the offer's promise as it stands. Tell me
 which, and the page brief follows, for you to read before it runs.
+
+**2026-09-03, 22:05 BST.** Decision taken: train it better first, with someone else's writing that has
+a defined character, because your own sample is too small. Nothing is published from tonight's
+comparison, the chat box stays live as it is, and the page text waits for the model that will actually
+show something. When you have a corpus in mind, the things that decide whether it will work are the
+right to use it (public domain is the safe class), whether it is the kind of writing the demo asks for
+(letters, replies, short pieces suit "write this in my voice" far better than long fiction), and how
+much of it there is (we want a couple of hundred short pieces, not twenty). The repeating fault in the
+last run gets fixed before the next one, and this time the run measures the model on writing it has
+never seen before anyone calls it a success.

@@ -430,3 +430,20 @@ we could move it to a new organisational site's brief instead - I am asking the 
   narrower focus in more detail. proverb first probably"*. A family of narrower sites, one angle each,
   proverb first. `[MEASURED 2026-09-03 19:57Z]` none has a `sites` row yet. Not this lane's build; when
   proverb's brief is written, this lane supplies the page-by-page list of what finetuning.uk gives up.
+
+### Direction, DECIDED (owner, 2026-09-03, 22:05 BST) — train it better before the comparison is published
+
+Owner, verbatim: *"I will need to train it better. I don't have enough of my own writing so I will try and
+find someone else's that has a defined character."* Measured basis: `COMPARISONS_2026-09-03_base_vs_finetune_demo_model.md`
+(the Phase 0 fine-tune barely moved the model; echoes on two tasks; degenerates on one).
+
+- **Phase 1 is reshaped:** the demo model's corpus is a third party's writing with a defined character
+  (the owner is finding it; rights are the first check, public domain the safe class), turned into
+  instruction pairs by the lane's existing dataset pipeline, at the design's volume (60–200 pairs per
+  task, not ~20), with the echo defect fixed before training and a HELD-OUT base-vs-fine-tune
+  evaluation as part of the run. Publication of comparisons and the page's explanation follow the
+  evaluation, not the training loss.
+- **The live playground keeps the Phase 0 model** until the new one replaces it; its copy is true as it
+  stands and is not touched until the new model's brief.
+- `[NOT DECIDED]` which corpus; `[NOT DECIDED]` whether the £99 offer's own copy needs a line saying
+  the public demo is a third party's voice, not a customer's.

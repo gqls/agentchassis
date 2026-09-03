@@ -3396,3 +3396,31 @@ or is it using GPU?"*
   the owner (README): publish honestly as-is, or improve the model first and then publish.** The
   merged playground brief (steps + what it does + Pair A) is drafted only after his answer, because
   the framing sentence is his to choose.
+
+## 2026-09-03 (21:05Z) — OWNER DECISION: improve the model first; the corpus will be someone else's writing with a defined character
+
+Owner, verbatim: *"I will need to train it better. I don't have enough of my own writing so I will try
+and find someone else's that has a defined character."*
+
+What this settles: the base-vs-fine-tune comparison is NOT published now; the playground page's
+"what to type / what you get" explanation waits for the model that will actually show something;
+the widget stays live as it is (it works; its copy says "a small model, fine-tuned by us", which is
+true). The Phase 0 artefact stays as the demo's model until the new one replaces it.
+
+What the next training run needs before it starts (the lane's checklist, from tonight's evidence):
+1. **A corpus with a defined character, and the right to use it.** Public-domain is the safe class
+   (UK: author died before 1956 → life+70 expired); letters and diaries suit the trained task shapes
+   (email/reply) better than fiction. Size: the design asked 60–200 pairs per task; Phase 0 had ~20.
+2. **Pairs built from the corpus, not the corpus raw**: `datasets/build_dataset.py` +
+   `generate_pairs.py` write the USER brief (situation/intent only, never the wording) from each
+   TARGET passage — that pipeline exists and is the reason a corpus can become instruction data.
+3. **The echo defect fixed first**: the fine-tune returns the user turn on two tasks (Q2, Pair C).
+   Suspects: the ChatML boundary / response-marker filter (5/300 rows dropped for truncation on
+   08-15) teaching "copy the input"; check the tokenised rows' assistant-mask before training.
+4. **Held-out evaluation as part of the run**, base vs fine-tune on prompts never trained on, read
+   BEFORE anything is published — RESULTS 08-15 recorded loss only, and loss said "success" while the
+   held-out behaviour says otherwise. The comparison file from tonight is the template.
+5. Then: the comparisons published on the page with the true framing, the demo model swapped on the
+   Hetzner box (`ollama create` from the new GGUF; RUNBOOK "To add another model"), and the page brief
+   (steps + what it does + one verbatim pair) for the owner to read.
+Base model `smollm2:1.7b` stays on the in-cluster ollama-adapter for the next comparison.
