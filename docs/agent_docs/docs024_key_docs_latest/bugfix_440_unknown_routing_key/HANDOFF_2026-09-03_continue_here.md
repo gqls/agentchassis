@@ -1,95 +1,100 @@
-# HANDOFF 2026-09-03 — bugfix 440 (unknown routing key): foundation approved+shipped+verified; five owner decisions pending; phases 1b–3 are the remaining work
+# HANDOFF 2026-09-03 (rev 2, evening) — bugfix 440: phases 1a+1b APPROVED and shipped; the producer census RESIZED what remains; owner decisions D1–D5 are RULED
 
 Written for a session with none of this context. Every claim carries its check; cite symbols,
-never line numbers. Supersedes `HANDOFF_2026-09-02_continue_here.md` (kept for the trail).
-Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_440_unknown_routing_key/`.
+never line numbers. Rev 2 supersedes this morning's rev 1 in place (same filename, deliberately:
+one canonical "continue here" per lane) — rev 1's five open decisions are now ruled, and the
+producer census below is new and material.
 
 ## The bug in one paragraph
 
-`spec.reason` on `page_rerender` items is TWO fields wearing one name: the gate's routing key
-AND a free-prose human annotation (evidence in `bugs_open/440_HANDOFF_2026-09-02_…`, every
-figure dated). The live gate (`check_rerender_mode`: five-value `==` disjunction, `else_step:
-render_page`) silently ASSEMBLES anything it doesn't recognise, so a routing key nobody
-understands completes green having changed nothing. Refusal is impossible until the fields
-split (`spec.routing_reason` = vocabulary-only; `spec.reason` = annotation, free forever) —
-the split is RFC_062; the refusal flip is its phase 3.
+`spec.reason` on `page_rerender` items is TWO fields wearing one name: the gate's routing key AND
+free human prose. The live gate (`check_rerender_mode`: five-value `==` disjunction on
+`spec.reason`, `else_step: render_page`) silently ASSEMBLES anything it doesn't recognise, so a
+routing key nobody understands completes green having changed nothing. Refusal is impossible
+until the fields split (`spec.routing_reason` = vocabulary-only; `spec.reason` = annotation, free
+forever). Split + refusal = RFC_062; evidence = `bugs_open/440_HANDOFF_2026-09-02_…`.
 
-## State — done, approved, shipped, verified
+## OWNER RULINGS, 2026-09-03 — settled, do not re-open (full text: RFC_062 §Rulings)
+
+| # | ruling |
+|---|---|
+| D1 | a refused item routes to **`needs_human_review`** (message names the bad key AND the vocabulary) — not a silent assemble, not a blunt orchestration failure |
+| D2 | the **404 lane CO-SIGNS** the phase-3 gate migration (the declarations are theirs) |
+| D3 | **YES to the write-door CHECK constraint** (NOT VALID first, validated after census) |
+| D4 | **NO policing of `spec.reason`** — the annotation stays free prose forever |
+| D5 | phase 1b's courtesy gate on the 404 lane **LIFTED** (acted on: 1b shipped same day) |
+
+## State — approved, shipped, verified
 
 | what | state | re-check |
 |---|---|---|
-| bug filed; parent 410 closed | done | `git ls-tree -r --name-only HEAD -- bugs_open/ bugs_closed/ \| grep three_seams` → one line, bugs_closed |
-| RFC_062 | DRAFTED, awaiting owner decisions D1–D4 below | `architecture_review/RFC_062_routing_key_annotation_split.md` |
-| phase 1a (inert foundation) | **APPROVED r1 (corr `55def842`) + SHIPPED + VERIFIED 2026-09-03** | `platform/livespec/rerender_routing_key{,_test}.go`, REB-008, commit `a3758c399`. Verified by ANCESTRY: pods of ReplicaSet `75b987cbd7` stamped `7bf1ff674021`, `git merge-base --is-ancestor a3758c399 7bf1ff674021` holds. ⚠ NEVER literal-probe this while it has zero callers — DCE strips it (LANDMINES 2026-09-02; verifier dispatched `dd777a91`, verdict unread) |
-| coordination | done | CONTRIBs in 404's and 384's NOTES (`5b5c669dd`); consumers enumerated in lane PLAN |
-| debts | **cleared 2026-09-03** | landmines sync in doc_notes; per-entry verifier dispatched after another session's sync consumed the new-status (the documented trap, remedy applied) |
+| phase 1a (livespec foundation, REB-008) | **APPROVED r1 `55def842`; SHIPPED** | `platform/livespec/rerender_routing_key{,_test}.go`, commit `a3758c399`; in build `7bf1ff674021` by ANCESTRY. ⚠ never literal-probe zero-caller code — DCE strips it (LANDMINES 2026-09-02, verifier `dd777a91`) |
+| phase 1b (creator stamps the key) | **APPROVED r1 `934327db`; committed `ec66ed12b`** (+ advisory hardening) | `create_rerender_items_action.go` + `create_rerender_items_routing_key_test.go`. Stamps **in lockstep** with `spec.reason` — never on merely-known — so RFC_062's flip is byte-neutral for REB-001's designed degrade (`image_landed` without a component stamps neither) |
+| owner rulings | recorded | RFC_062 §Rulings, lane PLAN phase table, REB-008 |
+| coordination | done | CONTRIBs in 404's and 384's NOTES (`5b5c669dd`); 404's r4 = approved |
 
-## FIVE OWNER DECISIONS — the lane is blocked on these for phase 3 (and D5 unblocks 1b)
+## ⚠ THE FINDING THAT RESIZED THE LANE (phase 1b's council round, `bug_historian` [medium])
 
-Explained in plain terms, rule, then recommendation (owner note 2026-08-12 format):
+`[MEASURED 2026-09-03]` by `created_by` over live `page_rerender` items: **the creator phase 1b
+fixed mints 1 of 3,172 reason-bearing items.** `completeness-discovery-agent` mints 1,882;
+`generic` 388; `derive_card_asset` 313; `render_news_section` 275; `component-template-fixer` 94;
+plus lane/migration producers. And **13 Go files write an in-vocabulary reason directly**, mostly
+as raw `{"reason":"x"}` literals that never touch the vocabulary constants
+(`render_news_section_html.go`, `refresh_evidence_base_action.go`, `render_directory_action.go`,
+`reconcile_section_data_action.go`, `flag_page_image_rebuild_action.go`,
+`store_generated_component_action.go`, `discovery_checks/check_misdirected_cta.go`,
+`…/check_literal_markdown.go`, `…/check_contact_form_undeliverable.go`, …).
 
-- **D1 — where does a refused item go?** Fail the rebuild loudly, or park the item in
-  `needs_human_review` with a message naming the bad key and the vocabulary. Precedent: the
-  2026-07-31 ruling (odd orders are never silently dropped — they go to review). **Recommend
-  review-routing** — a bad key is usually a typo or an undeclared value; a human routes it in
-  minutes and nothing is lost.
-- **D2 — does the 404 lane co-sign the phase-3 gate migration?** The migration rewrites gate
-  declarations that lane wrote and the daily auditor holds. **Recommend yes.**
-- **D3 — do we add the database-door lock?** A CHECK constraint (NOT VALID first) so even
-  hand-written migration SQL cannot INSERT a bad routing key — the strongest layer, because the
-  census shows raw SQL is the dominant unguarded producer. Cost: every vocabulary change must
-  update the constraint in the same migration (already true of the gate condition — same paste
-  idiom). **Recommend yes.**
-- **D4 — is the annotation field ever policed?** Once producers move, should vocabulary values
-  be forbidden from appearing in `spec.reason`? **Recommend no** — the annotation stays free
-  forever; the authoring advisory nudges instead.
-- **D5 — may phase 1b proceed before the 404 lane records their r4 verdict?** The gate was this
-  lane's courtesy, not a rule: their code is committed and their verdict is `complete_approved`
-  (they have been told, CONTRIB 2026-09-02). **Recommend: proceed now**, with the same-file
-  care below.
+**Consequences (already written into RFC_062 and the bug file):** phase 2 is a **producer
+conversion programme**, not just a migration-authoring rule; the transition clause is
+**load-bearing**, not a drain-window nicety; and phase 3 gains a gate condition — **a census
+showing zero reason-bearing items from unconverted producers** before any narrowing. Narrowing
+early would route ~3,100 items to assemble: this bug's own shape, fleet-wide, inside its own fix.
 
-## What REMAINS, in order (what "closed" requires)
+## What REMAINS (this is the close-out list)
 
-1. **Phase 1b** — creator stamps `routing_reason` alongside `reason` for in-vocabulary values
-   (`create_rerender_items_action.go`). Unblocked by D5. ⚠ THREE lanes have touched this file
-   (404; 315-reopen's `8eca969cb` on 2026-09-03; us next) — re-read it fresh at write time,
-   expect same-file passengers, pathspec commit. Council gate, not RFC.
-2. **Phase 2** — reach the unguarded doors: migration-authoring rule in sql_for_agents
-   conventions + `scripts/pattern-check.py` advisory (routing-shaped unknown `reason` in a
-   migration INSERT → "did you mean routing_reason?"). ⚠ pattern-check.py is IN council scope
-   (2026-08-24 widening). Independent of 1b.
-3. **Phase 3 — the flip (RFC_062)**: gate reads `routing_reason` (paste
-   `TransitionRerenderModeConditionClause()` for the drain window), second conditional refuses
-   present-but-unknown (paste `CheckRoutingKnownConditionClause()`), plus D3's CHECK if ruled
-   yes. Blockers beyond D1–D4: (a) **confirm the condition evaluator's behaviour on a MISSING
-   key vs ''** — inverting it refuses every legacy item (flagged in module header, RFC, and the
-   approved submission's risks); (b) drain census clean; (c) consumers told (404/384 done; rest
-   via the conventions rule).
-4. **Close bug 440** when the refusal is **fixed AND live**: an induced unknown routing key
-   REFUSES at the live gate (the bug file's verification-trap section says exactly how — prove
-   it can fail, both directions), annotation-only prose still assembles unwarned, and the
-   census shows no stranded in-flight items. Then `git mv` to bugs_closed (both paths on the
-   commit; verify at HEAD).
-5. Housekeeping riders: read the landmine-verifier verdict (`dd777a91`); REB-008 flips from
-   "BUILT AND INERT" to live wording at phase 3 — and its no-second-producer constraint lifts
-   only when RFC_062 lands.
+1. **Phase 2 — producer conversion.** Convert the 13 Go writers to stamp `routing_reason`
+   alongside `reason` (prefer the `livespec.Reason*` constants over new raw literals), plus the
+   agent/config producers; then the migration-authoring rule + `scripts/pattern-check.py`
+   advisory for the raw-SQL door. ⚠ pattern-check.py is IN council scope (2026-08-24). Expect
+   several small council rounds rather than one large one.
+2. **Phase 3 — the flip** (RFC_062, co-signed per D2): gate reads the transition clause
+   (`TransitionRerenderModeConditionClause()`), refusal branch routes to `needs_human_review`
+   (D1) via `CheckRoutingKnownConditionClause()`, plus the CHECK constraint (D3). **Blockers:**
+   (a) **confirm the conditional evaluator's behaviour on a MISSING key vs `''`** — inverting it
+   refuses every legacy item (flagged in module header, RFC, both approved submissions);
+   (b) the unconverted-producer census reads zero; (c) 404 co-sign obtained.
+3. **Close 440** when refusal is **fixed AND live**: induce an unknown routing key → it lands in
+   `needs_human_review`; annotation-only prose still assembles unwarned; census clean. Then
+   `git mv` to `bugs_closed` naming BOTH paths on the commit, verify at HEAD.
+4. Riders: read the landmine verifier's verdict (`dd777a91`); flip REB-008's status wording at
+   phase 3 and lift its no-second-producer constraint only when RFC_062 lands.
 
-## Known cross-lane facts
+## Craft notes for the next session (each cost a round or a correction here)
 
+- **Submission accuracy is where this lane keeps bleeding — not design.** Three consecutive
+  rounds (404's r3/r4, our 1a, our 1b) were gated or objected-to on what the submission SHOWED,
+  never on what the code did. Attach the query/grep OUTPUT; list EVERY file the commit touches
+  (our 1b omitted the register file and drew a medium for it); name the prior round's commit
+  when an edit builds on shipped-but-unlisted symbols (two seats asked whether livespec existed).
+- **On a shared tree, a test FAIL naming symbols you have never heard of is a neighbour's WIP —
+  NO DATA, not a result.** `platform/orchestration/actions` broke under this lane three times
+  today from other lanes' in-flight files.
+- **Gate a wait on the artefact you need**: `go test ./pkg -run ZzzNoSuchTestZzz` compiles test
+  files and runs nothing. `go build` skips `_test.go` (opens too early); `go vet` fails on any
+  lint anywhere in the package (never opens). Both mistakes made here — WRONG_CALLS 2026-09-03.
+- **Counting emissions**: exclude `fix_correlation_id IS NOT NULL` or you count council payloads
+  quoting your own string (WRONG_CALLS 2026-09-02).
 - `platform/livespec` package run FAILS at HEAD regardless of this lane
   (`TestNoNewMigrationFileReadersOutsideTheAllowList`, 405 lane's `ffa1707b3`). Theirs.
-- Submission craft: attach query OUTPUT, not claims it was run (404's r3/r4 lesson; our r1's two
-  mediums were exactly this). 097: `operation` is an enum; all-comment sketches are refused.
-- Counting warning emissions: exclude `fix_correlation_id IS NOT NULL` or you count council
-  payloads quoting the string (WRONG_CALLS 2026-09-02).
 
 ## Key artefacts
 
 | what | where |
 |---|---|
-| bug file | `bugs_open/440_HANDOFF_2026-09-02_a_routing_key_nobody_understands_completes_green.md` |
-| design + open decisions | `architecture_review/RFC_062_routing_key_annotation_split.md` (+ D1–D5 above) |
-| lane docs | this directory (PLAN = phases+consumers · NOTES = evidence+dispositions+missteps, newest at bottom · RUNBOOK = census, emission-counting, inert-verification recipes) |
-| code | `platform/livespec/rerender_routing_key{,_test}.go` (REB-008) |
-| commits | `ec2efc06e` · `a3758c399` · `0600eb6b3` · `5b5c669dd` · `544de50e0` · `35de364dd` |
-| council | `55def842` APPROVED r1 (dispositions in NOTES) |
+| bug file (producer census at the tail) | `bugs_open/440_HANDOFF_2026-09-02_a_routing_key_nobody_understands_completes_green.md` |
+| design + rulings | `docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_062_routing_key_annotation_split.md` |
+| lane docs | this directory — PLAN (phases, consumers) · NOTES (evidence, dispositions, missteps; newest at bottom) · RUNBOOK (census, emission-counting, inert-verification) · README (owner-facing prose) |
+| code | `platform/livespec/rerender_routing_key{,_test}.go` · `platform/orchestration/actions/create_rerender_items_action.go` (`rerenderMode.RoutingKey`) + `…_routing_key_test.go` |
+| commits | `ec2efc06e` `a3758c399` `0600eb6b3` `5b5c669dd` `544de50e0` `35de364dd` `624d3d2e8` `ec66ed12b` `8657c3cb4` |
+| council | `55def842` (1a) · `934327db` (1b) — both APPROVED r1 |

@@ -71,7 +71,25 @@ func TestUnknownReasonProducesNoRoutingKey(t *testing.T) {
 	// refuse — the refusal is for values that arrive from OUTSIDE the
 	// vocabulary, never for items the estate produced itself.
 	for _, unknown := range []string{"tool_retirement", "light_palette_chrome_replaced", "not_a_reason"} {
+		// PRECONDITION, asserted rather than assumed (editquality advisory, round
+		// 934327db): these poison values must still be OUTSIDE the vocabulary. If
+		// a later lane declares one of them legitimately, this fails LOUDLY with
+		// an instruction — the alternative is a test that quietly stops testing
+		// anything, which is the 410 poison-row trap in another costume.
+		if _, declared := livespec.RerenderSectionReasonByName(unknown); declared {
+			t.Fatalf("%q is now IN the vocabulary, so it no longer poisons this test — pick "+
+				"another out-of-vocabulary value here; do NOT delete the case", unknown)
+		}
 		m := rerenderModeFor(unknown, "11111111-1111-1111-1111-111111111111")
+		// The early-return path itself, asserted in the diff rather than only in
+		// the mutation narrative (editquality advisory): an unknown reason yields
+		// NOTHING — not scoped, not stamped, no key.
+		if m.Scoped || m.StampReason || m.KeyReason != "" {
+			t.Errorf("%q: expected the unknown branch to return empty-handed, got "+
+				"Scoped=%v StampReason=%v KeyReason=%q — if this branch ever falls through to "+
+				"the assignment block, REB-008's no-bad-producer guarantee is gone",
+				unknown, m.Scoped, m.StampReason, m.KeyReason)
+		}
 		if m.RoutingKey != "" {
 			t.Errorf("%q: produced RoutingKey=%q — an unknown value in the routing key would make "+
 				"phase 3 refuse an item this action minted, violating REB-008's constraint at its "+

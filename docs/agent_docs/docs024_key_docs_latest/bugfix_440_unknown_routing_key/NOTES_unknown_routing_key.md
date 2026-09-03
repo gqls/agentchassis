@@ -142,3 +142,52 @@ contains what its rationale claims — 5 PASS, before dispatch, not after a REVI
 
 ⚠ Shared file: three lanes in eight days (404 `ef4236b4d`, 384 `9a00a1ee9`, 315-reopen
 `8eca969cb` TODAY). Read fresh, diff confined to three hunks (32+/1-), pathspec commit.
+
+## 2026-09-03 (later still) — phase 1b verdict READ: APPROVED, 2 advisories; one objection RESIZED THE LANE
+
+Corr `934327db`, `decided_by: approved with 2 advisory objection(s) — none high-severity`,
+4 abstained, 12 seats. Dispositions:
+
+**`bug_historian` [medium] — other producers of `page_rerender` items. CONFIRMED, MATERIAL, and
+the most valuable thing this round produced.** My claim ("first and only producer") was true of
+the ROUTING KEY and useless as reassurance. Census `[MEASURED 2026-09-03]`: the creator I fixed
+mints **1 of 3,172** reason-bearing items; `completeness-discovery-agent` alone mints 1,882, and
+**13 Go files** write in-vocabulary reasons directly, mostly as raw `{"reason":"x"}` literals
+bypassing the vocabulary constants. Full table in the bug file; RFC_062's design gained a fourth
+door (producer conversion) and phase 3 gained a gate condition. **The transition clause is now
+load-bearing** — narrowing early would route ~3,100 items to assemble, this bug's own shape
+inside its own fix.
+
+**`reuse_agent` [medium] — does `site_work_items.pipeline` already carry this distinction?
+CHECKED, and no** `[MEASURED 2026-09-03]`: `pipeline` holds `build` (12,106) and `content` (13)
+— a coarse dispatch lane, orthogonal to render mode; the `build` lane alone contains **13
+distinct reasons**. It cannot express "which render mode", and overloading it would put routing
+in the queue-selection column. Right question, and the query is cheap enough that it should have
+been in the submission.
+
+**`guardian` [medium] — "livespec changes are not in the edit list; this will not compile."**
+Answered: `RoutingReasonSpecKey` and `ResolveRoutingReason` shipped in **phase 1a**
+(`a3758c399`, APPROVED `55def842`), live in build `7bf1ff674021` by ancestry. Same answer to
+`prior_art_librarian`'s MISSING (the resolver exists). Both would have been unnecessary had the
+submission named the prior round's commit in the edit rationale rather than only in `submitter`.
+
+**`guidelines` [medium] — register file not in the edits array.** CONCEDED, my accuracy failure:
+REB-008 *was* updated in the same commit, but an unlisted edit is invisible to a reviewer. Third
+round running that a seat has caught a submission-accuracy gap rather than a design fault — the
+pattern is now explicit in the handoff.
+
+**`editquality` [low] ×2 — ACTIONED in code, this commit:** the unknown-branch test now asserts
+the early-return path itself (`Scoped`/`StampReason`/`KeyReason` all empty), and asserts as a
+PRECONDITION that each poison value is still out-of-vocabulary, failing loudly with "pick
+another" if a later lane declares one — the 410 poison-row trap, pre-empted.
+
+**`tooling_provenance` [low] — leave a durable record for the next lane.** Taken: RFC_062 §Rulings
++ REB-008 + this NOTES entry are that record; no hand-written `doc_notes` row (estate rule: the
+file is the system of record, the sync writes the rows).
+
+⚠ **Mutation re-proof against the HARDENED tests was interrupted twice by another session's
+in-flight test files** (`undefined: censusExcludedOwnedPages`, `readRebuildPolicy` — files this
+lane never touched). First background attempt gated on `go build`, which passes while TEST files
+are broken, so its three FAILs were void, not evidence — re-run gated on `go vet`. Recorded
+because "the gate I chose could not see the failure I cared about" is this estate's most-repeated
+error, and I made it again in the checking apparatus rather than in the claim.

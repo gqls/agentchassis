@@ -60275,3 +60275,35 @@ than rewrote.
 
 Family: a-baseline-that-reads-head-expires-when-you-commit, mutate-the-code-to-prove-the-guard,
 state-the-expected-shape-before-you-run-the-check.
+
+## 2026-09-03 — 440 phase 1b: I gated a mutation re-proof on a check that CANNOT SEE the failure it was waiting for — twice, in two different directions
+
+- **The claim** (in-session, briefly): a background re-run had shown the hardened
+  tests still killing mutation B. It had shown nothing of the sort — its three
+  runs all read `build failed`, which is not a verdict either way.
+- **What was actually true**: the package's TEST build was broken by another
+  session's in-flight files (`undefined: censusExcludedOwnedPages`,
+  `readRebuildPolicy` — files this lane never touched). My until-loop gated on
+  `go build ./pkg`, which compiles the NON-test sources only, so it opened while
+  the thing I needed still could not compile. Second attempt gated on `go vet`,
+  which never opens at all: it fails on any lint finding anywhere in the package
+  (`unreachable code` in a third session's file), so a clean compile still reads
+  as "not ready". One gate was too weak to see the failure; the next was too
+  strong to see the success.
+- **What caught it**: reading the background task's own output instead of its
+  exit summary — three `build failed` lines where I expected one FAIL and two
+  oks.
+- **The cheap check**: gate on the artefact you actually need. For "are the test
+  files compilable yet", that is `go test ./pkg -run ZzzNoSuchTestZzz` — it
+  builds the test binary and runs nothing, exit 0 iff compilation succeeded.
+  `go build` under-approximates (skips `_test.go`), `go vet` over-approximates
+  (lints everything, including other lanes' code). And on a shared tree, a
+  "FAIL" naming symbols you have never heard of is a neighbour's WIP, not your
+  result — treat it as NO DATA, not as evidence.
+- **Why it matters beyond the inconvenience**: the mutation proof is what
+  converts "the tests pass" into "the tests can fail". A void proof read as a
+  successful one would have shipped a guard nobody had shown could fire — the
+  exact defect class this lane exists to close.
+
+Family: your-measurement-answers-the-question-you-encoded,
+a-quiet-test-passes-when-the-rule-is-gone, a-shared-tree-commit-can-break-head.

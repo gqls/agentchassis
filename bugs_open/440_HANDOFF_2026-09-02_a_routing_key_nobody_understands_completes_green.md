@@ -103,3 +103,46 @@ chrome-invisible-to-content-hash lore is why `light_palette_chrome_replaced` may
 assemble) · `platform/livespec/rerender_reasons.go` (the vocabulary and its declarations) ·
 RFC_062 (this bug's design document) · owner rulings 2026-08-02 §2 and 2026-07-29 §1 (the
 shipping shape and the RFC trigger).
+
+---
+
+## 2026-09-03 — THE PRODUCER CENSUS, and it resizes the fix: the creator I fixed mints ~1 of 3,172 reason-bearing items
+
+Raised as a medium objection by the council's `bug_historian` seat against phase 1b's claim of
+"the first and only producer" (correlation `934327db`, APPROVED). The claim was true as written —
+nothing else writes `spec.routing_reason` — but the seat's underlying question was the right one
+and the answer is material. `[MEASURED 2026-09-03]`, by `created_by` over live `page_rerender`
+items:
+
+| producer (`created_by`) | items | carry `spec.reason` | carry `routing_reason` |
+|---|---|---|---|
+| `rerender-pages` (**the Go creator phase 1b fixed**) | 8,918 | **1** | 0 (will stamp from next roll) |
+| `completeness-discovery-agent` | 1,882 | 1,882 | 0 |
+| `generic` | 388 | 388 | 0 |
+| `derive_card_asset` | 313 | 313 | 0 |
+| `render_news_section` | 275 | 275 | 0 |
+| `component-template-fixer` | 94 | 94 | 0 |
+| lane/migration producers (`bugs_open/425`, `loanzy_uk_example_site`, `agritec-workstream-…`, `lendzy_co_uk lane (migration 696)`, `bugfix_357_… (migration 701)`, …) | ~120 | ~120 | 0 |
+
+**Consequence, stated plainly: phase 1b is correct and nearly inert.** The action it fixed almost
+never stamps a reason (1 of 8,918 — its normal traffic is the assemble-only site-wide refresh).
+The in-vocabulary reasons that actually drive the sections branch are written by OTHER producers,
+overwhelmingly, and **`[MEASURED 2026-09-03]` 13 Go files write an in-vocabulary reason directly**,
+most as raw JSON string literals that never touch the vocabulary constants — e.g.
+`render_news_section_html.go`, `refresh_evidence_base_action.go`, `render_directory_action.go`,
+`reconcile_section_data_action.go`, `flag_page_image_rebuild_action.go`,
+`store_generated_component_action.go`, and three `discovery_checks/*` files
+(`check_misdirected_cta.go`, `check_literal_markdown.go`, `check_contact_form_undeliverable.go`).
+
+**What this changes (carried into RFC_062):**
+1. **Phase 2 is not "migration authors" — it is a producer conversion programme** across those 13
+   Go writers plus the agents and migrations. Each is a `{"reason":"x"}` literal that must gain
+   the routing key, ideally via the vocabulary constants rather than a second raw literal.
+2. **The transition clause is LOAD-BEARING, not a drain-window nicety.** Narrowing the gate to
+   `routing_reason` alone before every producer stamps would send all ~3,100 reason-bearing items
+   to assemble — this bug's own shape, fleet-wide, in the change meant to fix it.
+3. **A new phase-3 gate condition:** narrowing requires a census showing zero reason-bearing items
+   from unconverted producers, not merely a drained queue.
+
+The seat was right to press, and the honest reading of phase 1b is: the seam is proven and the
+first producer is converted; the population is still ahead of us.

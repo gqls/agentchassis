@@ -49,7 +49,16 @@ values include arbitrary sentences. Splitting is what makes refusal well-defined
      routing_reason IN (<vocabulary>)` → continue; else → refusal step. Catches pre-CHECK rows
      and any door the CHECK misses. ⚠ Implementation must confirm the condition evaluator's
      behaviour on a MISSING key vs empty string before this ships — flagged, not assumed.
-  3. *Authoring door (advisory)*: pattern-check warning on migration files INSERTing
+  3. *Producer conversion — WIDENED 2026-09-03 by the phase-1b producer census
+     (bugs_open/440)*: the routing key must be stamped by EVERY producer, not just the Go item
+     creator. `[MEASURED 2026-09-03]` 13 Go files write an in-vocabulary reason directly, mostly
+     as raw `{"reason":"x"}` literals bypassing the vocabulary constants, and agent/migration
+     producers mint the rest; the creator phase 1b converted mints just **1 of 3,172**
+     reason-bearing items. **Narrowing the gate before that conversion completes would route
+     ~3,100 items to assemble — this bug's own shape, fleet-wide, inside the change meant to fix
+     it.** So the transition clause is LOAD-BEARING, not a drain-window nicety, and phase 3 gains
+     a gate condition: a census showing zero reason-bearing items from unconverted producers.
+  4. *Authoring door (advisory)*: pattern-check warning on migration files INSERTing
      `page_rerender` items whose `reason` is routing-shaped (single snake_case token) and
      out-of-vocabulary — "did you mean routing_reason?".
 - **Transition**: gate condition becomes `routing_reason == 'x' OR reason == 'x'` per value
