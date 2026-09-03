@@ -41,3 +41,11 @@ or in your own README and tell this lane, and it will carry the answer to him.
 not regenerate the words (rerender/assemble, or `mode: edit_live`, not a full page-build). The
 `case-studies-grid` carries the site's registered case studies (facts); whatever replaces it must
 render the same `content_data`. The playground (`/playground.html`) is out of scope for this ask.
+
+**Addendum, 22:25 BST, owner verbatim:** *"including infographics wherever they will help the
+understanding of the concepts"*. So the ask is cards AND graphic treatments: where a section explains
+a concept (what fine-tuning is, the three steps, what you get for £99, the departments), an
+infographic that carries the explanation is wanted, not decoration. Your PLAN's own line about charts
+and timelines applies; the constraint from this lane stands: every figure in an infographic must
+resolve through a registered fact (the chart components already make the unsourced state
+unrepresentable — inherit that), and the copy is not regenerated.
