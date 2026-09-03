@@ -1635,3 +1635,16 @@ pool proves demand existed throughout. Quote that one.
 24 h double-handle census — **3,044 handlers, 2,911 distinct items, 71 with ≥2 handlers, 0
 overlapping pairs**. The 71 are sequential retries; no stale-reap shapes needed the
 discriminator. Independent re-run of the RUNBOOK census by a lane with no stake in its result.
+
+> **CORRECTED 2026-09-03 ~11:45Z, same entry, upward:** I wrote above that the before/shed/after
+> claim comparison was "weak on its own" and cited "0 after by 11:39". That read the after-window
+> BEFORE it had finished — it ran to 11:41:41. Completed, it is a clean A-B-A on the governed
+> class: **`build/llm` claims 2 before → 0 during the shed → 2 after**, with llm-free maintenance
+> running throughout (13 → 24 → 11) and the single in-window llm-bearing claim belonging to the
+> ungoverned diagnose loop. So the claim comparison DOES corroborate, and the recovery half is
+> exactly the shape you would want. The caution still stands in one respect and I am keeping it:
+> two events either side is a small sample, so **the per-loop LOAD census remains the measurement
+> to quote** and this is corroboration, not the argument. What caught it: re-running the analysis
+> after the window closed instead of reporting the first read — the same right-truncation trap
+> this lane logged at 10:50Z for handler counts, walked into again within the hour.
+> Final state read 11:45Z: enabled t, budget 2000, level 0, MTD $405.45, withheld 0, heartbeat 114 s.

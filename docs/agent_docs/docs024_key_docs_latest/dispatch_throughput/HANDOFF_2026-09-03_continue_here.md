@@ -74,3 +74,35 @@ Unchanged from HANDOFF_2026-09-02 §"D4 reference card" — read it there (objec
 AGOV-013, the STANDING GATE on a second `honour_spend_governor` consumer, rollbacks). The one
 correction: the selector md5 is now `fcbe8821a2a56512911955735796460e` everywhere, and
 `governor_config.enabled` is **true**, so 671's rollback will refuse until it is set false.
+
+---
+
+## UPDATE 2026-09-03 ~11:45Z — the open question is ANSWERED and DONE; option C is unlocked; one new bug
+
+The owner said **"induce it today"**. The window ran 11:14–11:33Z and is fully written up
+(NOTES 2026-09-03 induced-shed entry, RUNBOOK §"The induced shed", README midday entry).
+
+- **D4 is PROVEN end to end on live traffic.** L2 held 12m16s; 114–115 items withheld in the
+  ruled class order; 3 loops handled 24 items, **all llm-free**, with 100+ llm-bearing items
+  eligible and withheld; the Go claim backstop fired once; `build/llm` claims went 2 → 0 → 2
+  across before/shed/after; restore clean. **Option C's gate ("one real or induced shed
+  observed") is therefore MET — option C is unlocked.**
+- **Two numbers that supersede the design's stated 120 s:** onset 156 s, **release 249 s**,
+  task cadence ~250 s. Quote these, not 120, when sizing anything against the governor.
+- **NEW BUG, and it is the recommended next job: `bugs_open/459` — the level-change alarm never
+  fires.** `FOR UPDATE` on the `old` CTE (migration 673) races the same statement's `UPDATE`,
+  so the note's INSERT selects nothing. Reproduced by one-token A/B on the live text with a
+  third control arm; 672 proved the alarm, 673 silenced it and its verify could not see that.
+  **Not fixed here on purpose**: it edits the live task that recomputes spend every ~250 s, and
+  an appliable migration is council scope. Fix candidates are ordered in the bug file; whichever
+  is taken, the verify must DRIVE a level change and assert the note (672's assertion), not
+  check that a token is present (673's).
+- **Scope fact to carry into any D4 conversation:** only `build-dispatch-loop` honours the
+  governor. `diagnose-dispatch-loop`, `report-dispatch-loop`, `zip-deliverable-dispatch` do not,
+  by design. ~1% of claims by count; **by spend unmeasured** and plausibly not small
+  (`needs_diagnosis` drives whole diagnosis runs). Measuring that is a good small next task, and
+  it is the evidence any second-consumer opt-in would need for the standing architecture gate.
+
+**Revised NEXT:** (1) `bugs_open/459` fix + council round · (2) measure the ungoverned loops'
+share of SPEND, not count · (3) option C (trigger interval ≤25 s), gate now met · (4) the
+standing queue unchanged.
