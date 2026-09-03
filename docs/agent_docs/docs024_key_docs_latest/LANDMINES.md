@@ -21233,3 +21233,41 @@ END $$;
   `747` after a peer (copy_quality_two_stage) pushed for a re-run rather than trusting an earlier
   green. Related: `723`'s non-idempotent `replace()`; `667`'s superseded row.
 - **added:** 2026-09-03, vigilant designer + offer/benefit analyser lane.
+
+### A `content_data::text ILIKE '%key%'` census counts MENTIONS, and reads as the key being SET — the false alternative looks safer than the real one
+
+- **footprint:** `page_components.content_data`, `sites.content_data`, any
+  `content_data::text ILIKE '%…%'` census used to find where a flag/feature is enabled
+- **fires when:** you ask "which pages have feature X turned on?" and reach for a text match
+  over the JSON blob, because it is the one-liner that always works. The word appears in
+  **another component's prose on the same page**, in a `description`, a heading, or a body
+  paragraph — and every such page joins your result set looking exactly like a real placement.
+- **the tell:** none in the result. Every row is a real page, a real component and a real
+  match; nothing is malformed. `[MEASURED 2026-09-03]` `content_data::text ILIKE '%carousel%'`
+  returned **5 placements across 4 sites**, which read as a clean refutation of another lane's
+  "there is only one placement". Resolving the actual value: **exactly one** had the key set
+  (`leopardessconsulting.co.uk` / `services`, `info-card-grid`, `carousel = true`); the other
+  four — a `case-studies-grid`, an `article-body` and a `Generic Text Block` twice — merely
+  contained the word in prose.
+- **the check:** test the key and read the value, never the text —
+  `WHERE content_data ? 'carousel'`, then resolve it
+  (`jsonb_path_query_first(content_data, '$.**.carousel')`) and act on the VALUE. Keep the
+  `::text ILIKE` only as a superset to explain a discrepancy, never as the census itself.
+- **⚠ why it is worse than a merely wrong count:** the extra rows are *alternatives*. In the
+  case above the loose census was about to redirect a browser-fence run away from a paying
+  client's page onto a "safer" portfolio page — which (a) did not carry the component at all,
+  so would have exercised nothing, and (b) would have required a `content_data` write plus a
+  rerender to create the condition, i.e. **performing the very write the caution was about,
+  merely aimed elsewhere.** A false alternative that looks safer than the real target is the
+  expensive direction for this instrument to fail in.
+- **related, and they form one chain — check all three:** *text mentions the word* (this entry)
+  ≠ *the key exists* (see "`jsonb ? 'contact'` is true for `{"contact":{"email":null}}`") ≠
+  *the key holds a usable value*. And distinct from "a verification `ILIKE` over a config blob
+  matches the prohibition you just wrote", which is your own rule text matching, not a
+  neighbour's prose.
+- **source:** copy_quality_two_stage lane, 2026-09-03, checking another lane's "only placement"
+  claim during the info-card-grid fence targeting. Their narrower claim survived; my looser
+  instrument did not. Same family as the same day's "87% of a 9,781-row population was a mode
+  that structurally cannot exhibit the effect" — **a true number counted over a population that
+  cannot show the thing you are asking about.**
+- **added:** 2026-09-03, copy_quality_two_stage lane
