@@ -4714,4 +4714,30 @@ re-composing advertise and websitepromotion becomes an evidenced improvement rat
   serving — honest but useless, so it is re-armed with a 45-minute heartbeat**: a watcher that only
   speaks on success cannot distinguish "not yet" from "dead", which is the same silence-is-not-success
   trap that cost me 25 minutes on the brief this morning.
+- **(gg) tail — a one-line caution turned up a FALSE RECEIPT, and the lesson is the keeper.** I
+  suggested the 450 lane separate "mis-typed page" from "page whose tool was removed" before spending
+  their last `[UNMEASURED]` case on `idea.uk /report.html`. They did both checks and found something
+  better: `page_component_history` shows **no tool-level row has ever been attached**, so it was never
+  stripped — and its six components include `report-request-form`, a form at SECTION level. Probed at
+  the body with a real tool as the control in the same run: `idea.uk/report.html` 1 form / 8 inputs /
+  100,896 B against advertise's ab-test-calculator 1 form / 11 inputs. **Indistinguishable from a real
+  tool by their own test.** So their council `[UNMEASURED]` risk closes at **zero pages harmed** — and
+  refusing that page's generic rebuild is CORRECT, because a rebuild would clobber a working form.
+- **The finding: their receipt was asserting something false.** It told an operator the generic builder
+  "would publish prose about a tool that is not there" — false for this page, where the tool IS there
+  at the wrong level, so an operator would go hunting for a missing tool and find a working one. They
+  rewrote the summary to state the measured fact (no tool-LEVEL component), leave the consequence
+  conditional, and tell the reader to check the served body first; the test that pinned the old wording
+  was asserting the falsehood, so it now asserts the opposite.
+- **The transferable shape, in their words: "the predicate was right, and every sentence I wrapped
+  around it was an untested inference."** A check's PREDICATE gets measured; the summary, the `fix`
+  advice and the consequence do not — and the operator acts on the sentence, not the predicate.
+  `no tool-level component` → `mislabelled` → `prose about a tool that is not there` is three
+  unmeasured steps. **The cheap check is the one I keep being asked to run on my own claims: what ELSE
+  could produce this same reading?** Belongs in 016b §9; theirs to write up, not ours to duplicate.
+- **Their caution back, accepted with one clarification:** a build stamp is trustworthy PER SERVICE, so
+  a lane reading the CHASSIS stamp must confirm their code lives in the chassis. Checked for 445 —
+  `fork_theme_composition.go`, `install_site_composition_action.go` and
+  `resolve_composition_layout_action.go` are all `platform/orchestration/actions/`, i.e. chassis — so
+  the chassis stamp was the right instrument for their commit and the not-rolled result stands.
 
