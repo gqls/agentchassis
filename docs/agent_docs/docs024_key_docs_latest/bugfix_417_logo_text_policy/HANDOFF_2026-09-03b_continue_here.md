@@ -82,22 +82,34 @@ evidence that 462 is per-generation variance and not a systemic defect: median *
 
 ---
 
-## 3. THE FENCE — the evidence base is weaker than this morning's handoff claimed
+## 3. THE FENCE — the adjudication case is n=1 and it PASSED, which is not the same as reassuring
 
-**8 clean generations, 0 lettered** → bounds the lettering rate at only **≈31% (95%, rule of
+**9 clean generations, 0 lettered** → bounds the lettering rate at only **≈30% (95%, rule of
 three)**. A weak bound, and the failure mode is silent.
 
-**But the sample is worse than weak — it is systematically the wrong sample.** Only `designblog`'s
-plan still carries a permitting phrase, and it has never produced an artefact. The other eight show
-the model not painting text **when nothing asked it to**, which is a far weaker claim than "the
-override beats a licence". **The honest sample size on the adjudication case is n = 0.**
+**But the raw count is the wrong statistic, and this is the thing to carry forward.** Only sites
+whose plan still carries a permitting phrase test *adjudication*; the rest show the model not
+painting text **when nothing asked it to**, which is a far weaker claim than "the override beats a
+licence". **On the case that actually tests 417 the sample is n = 1** — `designblog`, landed
+14:30:30Z carrying both the `letterform` licence and the override, clean (§2 item 3).
 
-**Recommendation: fence stays UNBUILT, trigger stays OPEN** — not because the evidence reassures, but
-because *the evidence on the case that matters does not exist yet*. Item 3 above produces it.
+⚠ **This morning this section said n = 0 and the evidence did not exist. That changed at 14:30Z and
+the change is real — but n=1 bounds nothing.** Rule of three on one run gives no useful upper bound
+at all. It refutes *"the override never wins"*, which nobody claimed; it cannot distinguish
+"reliably" from "usually".
+
+**Recommendation: fence stays UNBUILT, trigger stays OPEN** — the reason has moved twice in one day
+and the current one is: the evidence now exists, points the right way, and is **one run deep**. The
+trigger's original terms are unchanged — **any lettered logo that carried the clause → build the
+fence.**
 
 **Forward-looking exposure `[MEASURED 2026-09-03]`: 13 of 33 current logo specs** carry a
 licence-shaped term — robot-hands, relojistas, vetcomparison, dartsonline, oufe, lendzy, webdesign,
 noted, loanzy, cv1, farmerinsurance, boxingonline, designblog.
+**Of those 13, only `designblog` has regenerated since the override shipped.** The remaining **12**
+are where the next evidence comes from, and it arrives only when they happen to rebuild — nothing
+schedules it. A session that wants to close this trigger deliberately would regenerate one of them
+on purpose rather than wait.
 
 ### ⚠ READ THIS BEFORE RE-RUNNING THAT CENSUS — I got it wrong three times in one hour
 
