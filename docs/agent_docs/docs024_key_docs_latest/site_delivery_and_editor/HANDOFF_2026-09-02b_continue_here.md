@@ -617,3 +617,30 @@ verbatim:
 section "The delivery recipient is REFUSED, not inherited": whichever identity becomes the delivery
 address must be NAMED in the 651 recipe, cheap to honour because `send_delivery_email_action.go`
 requires `customer_email` and errors on empty, and nothing in the delivery path reads `sites.email`.
+
+
+## OWED, AND ATTACHED TO THE NEXT DELIVERY DECISION — carry `bugs_open/420` §C to the owner (15:16Z)
+
+**This is a commitment with a trigger, not a note.** The `bugfix_417_420` lane owns the question and
+has asked THIS lane to carry it, because it is abstract standing alone and concrete the moment the
+owner has a real delivery decision in front of him and is already thinking about who we may email
+and on whose say-so. **So: whoever runs the 651 rehearsal or puts the next delivery ask to him,
+raise this in the same breath — and hand the answer back to that lane VERBATIM.** It stays on their
+record; they will file it in `420` and `RFC_058` either way.
+
+**The question, in the form it must be asked:** under Option C, **what CONSENT STATE may a
+classifier write on a contact row?**
+
+**Why the wording carries the whole thing.** It is NOT "may a classifier write a contact" — it
+plainly may, and that is how 24 of 57 sites acquired legitimate contacts. The trap is answering in
+TWO states: under Option C the honest answer for a DERIVED contact is probably a third state,
+**recorded, not published, not asked** — and a two-state answer designs the fill-only-if-empty
+inversion straight back in at row level, which is the exact defect `420` §C exists to record. Put
+those three words in front of him rather than letting "yes, with consent" stand in for them.
+
+**One consequence of his ruling worth carrying with it** (their §5.4, commit `70932b173`): under
+Option C `sites.email` becomes a DERIVED VIEW of the published contact, so any reader missed in the
+14-reader census serves the PRE-RULING identity for ever, with nothing failing and no symptom. Right
+answer and wrong answer look identical at the call site — this RFC's own §5.2 trap in other clothes.
+The reader half of that census is still dated 2026-08-31 and is now a precondition rather than
+bookkeeping. **Do not quote a refreshed reader count: there isn't one.**
