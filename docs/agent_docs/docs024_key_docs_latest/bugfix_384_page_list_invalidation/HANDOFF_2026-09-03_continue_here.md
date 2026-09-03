@@ -17,6 +17,16 @@ this lane, 09-02/09-03).
 > items are to be checked AND fixed. My Option-A recommendation is superseded; do not re-open the
 > question. **And the first check found the defect live, which falsifies the framing that decision
 > rested on.**
+>
+> **CALIBRATION — read before you panic or relax.** `[MEASURED 2026-09-03 10:2xZ]` **618 of 618**
+> generic listing entries whose card is older than 24h carry their image (100% at 24–72h and at
+> older). **There is no standing fleet-wide damage**; blanks are a transient window under ~24h, and
+> the leopardess six-day case was the STARVED exception. **But** designblog/index sat 4-of-4 blank
+> for 5.5h through two `section_data_resolved` re-renders that report `rerendered=4, carried=0`.
+> So something repairs inside 24h **and it is demonstrably not the seam's immediate re-resolve**.
+> **The defect is therefore an ATTRIBUTION defect**: §4's "proven four times" credits the seam with
+> repairs it did not perform, on both cases examined closely. That is what must be checked and
+> fixed — not a fleet outage.
 
 `[MEASURED 2026-09-03 09:1x–09:2xZ]`
 
@@ -63,10 +73,12 @@ returns without populating `articles`, so `plan.ResolvedData` lacks the key, `me
 the stored blank array, and the section still counts as `rerendered` because it did render HTML.
 That would also explain `content_data` unchanged while `rendered_html` changed.
 
-**A `090` was fired on this live case 2026-09-03 ~10:1xZ** with the seeding corrected (whole files,
-not symbols; the live workflow routing quoted in the symptom). **Find its verdict before
-re-diagnosing** — intake slug `query_blog_posts_resolves_empty_image_despite_active_cards`,
-`RUNTIME_SITE=designblog.co.uk`. If it returned UNVERIFIABLE again, read its "still needed" list:
+**A `090` was fired on this live case 2026-09-03 09:41:56Z** with the seeding corrected (whole
+files, not symbols; the live workflow routing quoted in the symptom).
+**RUN CORRELATION `198a7b12-f465-4cc0-a414-cec69e5f3392`** (claimed ~10:3xZ after ~50 min of queue
+latency — that is normal, do NOT re-fire). Intake slug
+`query_blog_posts_resolves_empty_image_despite_active_cards`, `RUNTIME_SITE=designblog.co.uk`.
+**Read its verdict before re-diagnosing anything.** If it returned UNVERIFIABLE again, read its "still needed" list:
 last time that list was what actually cracked the case.
 
 ### Three corrections this forces to my own earlier claims
