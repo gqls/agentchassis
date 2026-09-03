@@ -2489,3 +2489,13 @@ had it only seen part of the input.**
   element schema to flat field NAMES, so the writer prompt DECLARED branches a string and
   the writer obeyed. "The writer is obedient throughout" — my candidate 1 (fix the writer)
   was aimed at the wrong actor; the bug file's candidate 2 (schema side) was right.
+
+## 2026-09-03 — apis.uk is the first growth-hold site (owner: "go ahead with apis.uk")
+- Key set and read back on site 1c6f3424 (the RUNBOOK one-UPDATE verb). Lane told, per the
+  owner's explicit "please tell the lane" — full contract in the message: type-scoped hold,
+  owner-request bypass, release recipe, empty-held-list semantics (not-wanted ≠ not-working).
+- Held rows now: 0 — correct (the door holds FUTURE filings). Natural-demand window: apis'
+  last evaluate_tools was 2026-08-26, so the 30-day cooldown keeps check_missing_tools
+  quiet until ~09-25; earlier demand can only come from a non-discovery producer. A
+  persistent monitor watches for the first growth_held row — that row is the production
+  proof, arriving on the machinery's own clock rather than an induced one.

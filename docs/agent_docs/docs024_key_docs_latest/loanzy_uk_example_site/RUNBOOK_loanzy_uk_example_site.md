@@ -331,6 +331,6 @@ UPDATE sites SET settings = settings #- '{maintenance_profile,growth_posture}' W
 SELECT id, item_type, summary FROM site_work_items
  WHERE spec->>'growth_held'='true' AND status='deferred';
 ```
-Gotcha: the hold FILES items (deferred, handler-less) rather than skipping them — an empty
+Worked example: apis.uk holds since 2026-09-03 (site 1c6f3424, owner-named first). Gotcha: the hold FILES items (deferred, handler-less) rather than skipping them — an empty
 result above on a held site means the machinery has not WANTED to grow it, not that the
 switch failed. `source='owner-request'` rows bypass by design.
