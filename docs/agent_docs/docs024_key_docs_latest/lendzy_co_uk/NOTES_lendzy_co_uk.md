@@ -599,3 +599,24 @@ investigate the verifier's scope — not before.
 
 Remaining: the first `evidence-freshness` pass over the register (~09:08Z today) — read lendzy's
 outcome, per the RUNBOOK's standing instruction, rather than assuming silence is cleanliness.
+
+## 2026-09-03 (b) — the first daily handbook check RAN, and everything held
+
+`[MEASURED 2026-09-03 ~09:1xZ, at the live row]` The `evidence-freshness` pass touched lendzy on
+its first eligible tick:
+
+- **8/8 facts re-accessed 2026-09-03, ZERO drift** — every verbatim quote still found on its live
+  handbook page. The owner's "check with their online version each time" is now a running system
+  with a first passing result, not a design.
+- **The production round-trip preserved every unmodelled key**: all 8 `rule` fields, both
+  `corrects_site_citation`, all 5 banned patterns, `banned_claims_notes`. The map-based-writer
+  claim — argued from the landmine, pinned by the claims lane's test — is now proven at the live
+  row after a real refresher write.
+- **The supersede happened exactly as documented**: current row `created_by=evidence-refresher`,
+  so 695's rollback guard is now expired and correctly refuses (RUNBOOK §8d's prediction, observed
+  on schedule).
+- **No `stale_evidence` or `claims_unverified` items filed** — silence WITH a demand control this
+  time: the pass demonstrably ran (8/8 access dates moved), so the quiet is a verified clean, not
+  a blind zero.
+
+Remaining tail: the 47 at today's ~16:05Z revalidation tick (monitor armed).
