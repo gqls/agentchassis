@@ -327,7 +327,8 @@ explicitly deferred: CPU Ollama serving with stated limitations.
 cost me in llm fees?"* Decision recorded; the cost basis is below and in NOTES.
 
 **Shape (from § "A GPU playground in named hours", now split in two):**
-- **Public demo, always on, CPU, in-cluster.** The Phase 0 fine-tune
+- ~~**Public demo, always on, CPU, in-cluster.**~~ **CORRECTED 2026-09-03 12:40Z: NOT in-cluster.** tools-api runs on the island VM (`toolsapisuk.vs.mythic-beasts.com`, 1 vCPU / 1 GB, no cluster callback by design), which cannot reach the in-cluster Ollama and cannot host the model itself. **Placement is an OWNER DECISION** (NOTES 2026-09-03 12:40Z): (a) a small dedicated CPU VPS running Ollama, reached from the island with a shared key — lane's recommendation, ~£10–20/month `[UNVERIFIED price]`; (b) resize the island and run Ollama beside tools-api; (c) expose the cluster's Ollama to the island — contradicts the isolation posture, needs a ruling. Prerequisite either way: finetuning.uk added to the island's `sites` allowlist. The paragraph below describes the model and speed, which stand.
+- **Public demo, always on, CPU.** The Phase 0 fine-tune
   (`SmolLM2-1.7B-Instruct`, Apache 2.0, GGUF q4_k_m 1.06 GB in B2) loaded into the existing
   `ollama-adapter` pod (requests 2 CPU / 20 Gi, limits 8 CPU; idle today at 1m CPU / 327 Mi).
   **LLM API fees: £0** — no Anthropic/OpenAI call anywhere in the demo path; the marginal cost
