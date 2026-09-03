@@ -488,8 +488,35 @@ were ZERO `zip_download` tokens fleet-wide for it to act on.** `enabled` plus a 
 evidence of work — the scheduler firing an agent that finds nothing to do looks identical to one
 doing its job.
 
-> **THE CHECK, and it is the rehearsal's real deliverable:** between now and **2026-09-10** (presign
-> lapse), confirm the refresher has moved this token's presign forward:
+> ## ✅ TESTED AND IT WORKS — 2026-09-03 21:07Z. The owner designed the test; it took four minutes.
+>
+> Rather than wait a week for the presign to approach its lapse, he proposed shortening a link and
+> watching. **The non-destructive form: move OUR RECORD of the expiry, not the signature.** The
+> refresher's `pre_query` selects on `stored_url_expires_at < now() + interval '48 hours'`, so setting
+> that column to `now() + 1 hour` makes the row selectable while the real S3 signature keeps its full
+> seven days — the customer's link never stops working during the test.
+>
+> | | before | after |
+> |---|---|---|
+> | `stored_url` fingerprint | `2496cd49cf1f` | **`a38face0a118`** |
+> | `stored_url_expires_at` | 21:56:06Z (the 1-hour test value) | **2026-09-10 21:08:16Z** |
+>
+> Orchestration `4d543a40` ran 21:07:40 → 21:08:18Z, COMPLETED, no error. The new URL was verified at
+> the artefact, not at the fingerprint: ranged GET **206 `application/zip`**, tampered signature
+> **403**, and it is a genuinely different signature from the original rather than a re-stored copy.
+>
+> **So the email's 30-day promise is kept by something that actually runs.** The three lifetimes still
+> differ, and that is now by design rather than by neglect: the presign is short, the refresher keeps
+> it ahead of use, and the token is the real limit.
+>
+> ⚠ **MY DETECTOR REPORTED THE OPPOSITE, and it was a race.** It polled tick-advanced against
+> value-unchanged at one instant. The refresher takes 38 seconds; the poll landed inside that window
+> and declared "FIRED AND DID NOTHING", which is the exact failure it was built to catch. **Do not
+> gate this check on the trigger's timestamp.** Wait for the orchestration to reach a terminal state,
+> then compare. Full write-up in `WRONG_CALLS.md` 2026-09-03(c).
+>
+> **The re-check, if you need it again** (the shape above is reusable; snapshot first, the row is a
+> live customer token):
 > ```sql
 > SELECT purpose, stored_url_expires_at, expires_at
 >   FROM customer_access_tokens WHERE purpose='zip_download';

@@ -65228,3 +65228,45 @@ am claiming were false, would this query be able to tell me?"**
 critique rather than agree, and a peer lane that verified my correction instead of accepting it.
 The 469 lane's framing of that is the right one: *a correction should be more accurate than the
 error, rather than merely different from it.*
+
+## 2026-09-03 (c) — `site_delivery_and_editor`: my detector for "fired and did nothing" reported it during a run that was working
+
+**The claim.** I built a monitor to catch the one `zip-link-refresher` failure that looks like
+success: the scheduler fires, selects the row, and leaves the URL alone. Its rule was *if
+`last_triggered_at` has advanced and the `stored_url` fingerprint has not, the refresher fired and did
+nothing.* It fired that verdict at 21:07:5x and I was one message away from reporting it to the owner
+as the finding.
+
+**What was actually true.** The refresher ran 21:07:40 → **21:08:18**, COMPLETED, no error, and
+re-signed the URL: fingerprint `2496cd49cf1f` → `a38face0a118`, `stored_url_expires_at` pushed from my
+one-hour test value back out to seven days. Verified at the artefact rather than the column — the new
+link fetches 206 `application/zip`, a tampered signature 403s, and it is a different signature from the
+original rather than a re-stored copy. **The mechanism works.**
+
+**The defect in the detector, stated generally because it is not about this task.** `last_triggered_at`
+is written when the work STARTS. The fingerprint changes when the work FINISHES. Comparing a
+*started* signal against a *finished* signal at a single instant reports failure for the entire
+duration of every successful run. The refresher takes 38 seconds and my poll interval was 45, so the
+window was wide enough to land in on the first attempt — and a faster job would have made this a
+*flaky* false alarm, which is worse, because it would have been dismissed as noise the day it was
+right.
+
+**What caught it.** Not the monitor. I did not trust its headline, and checked whether an
+orchestration existed and what state it was in before reporting. That habit is the only reason this is
+a WRONG_CALLS entry and not a false finding delivered to the owner with a table.
+
+**The cheap check, and the rule.** **Gate on the work's terminal state, never on the trigger's
+timestamp.** Wait for the orchestration to reach COMPLETED or FAILED, then compare the before and
+after. One extra query, and it removes the race entirely rather than narrowing it.
+
+**And the second-order point, which is the one worth keeping.** I wrote this monitor specifically
+because "the scheduler fired and changed nothing" looks identical to "the scheduler never fired" —
+I was careful about exactly this class of ambiguity, said so out loud to the owner, and then built a
+detector that could not tell "working" from "broken" either. **Naming a failure mode is not the same
+as excluding it from your own instrument.** The estate has this filed from the other direction —
+`MEMORY[a-bound-added-for-a-reviewer-narrows-your-detector]`, `MEMORY[mutate-the-code-to-prove-the-guard]`
+— and the transferable form here is: **a detector with two inputs needs its inputs to be about the
+same moment.** Ask what each one is timestamped from before trusting their comparison.
+
+**Cost.** None reaching the owner: the verification happened before the report. Roughly four minutes,
+against a test that replaced a seven-day wait — the owner's idea, and a good one.
