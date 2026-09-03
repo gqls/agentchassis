@@ -124,3 +124,11 @@ verbatim → `should have written 1 note, level_changed=0`). Applied 21:30:58Z o
 first real level change under the new text — its note is the closing evidence. Two verify traps
 found on the way, both now in the RUNBOOK: lock order (advisory first) and same-transaction
 `created_at` ties.
+
+## STATUS 2026-09-03 22:1xZ — round `83186fd9` APPROVED; the lock-wait property INDUCED (two sessions, one-token control); still OPEN pending one REAL level change
+
+The guardian's "argued, not induced" is answered by measurement: with the FOR UPDATE inside the
+UPDATE's FROM, a session blocked on the advisory lock reads the OTHER session's committed level
+and writes the note; with the token removed it reads its stale snapshot and writes nothing.
+The closing evidence for this file is the first real (or induced-live) level change under 753
+writing a `level-change` note — queued behind the owner's chassis roll (induced-L1 proof).

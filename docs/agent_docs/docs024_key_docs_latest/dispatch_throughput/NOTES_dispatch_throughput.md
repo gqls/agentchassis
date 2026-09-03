@@ -2024,3 +2024,37 @@ is not evidence of a hand apply; the content is.
 in the verify; (b) any `replace()` → assert the anchor count first; (c) **a fail-open design's
 canary must read the FAILURE field (`__step_error`, `processing_history`), because success is
 what a broken fail-open looks like.**
+
+### 2026-09-03 21:49–22:1xZ — 753's round APPROVED (83186fd9, 3 advisories, none high); the concurrency property INDUCED; and a backtick ate my decision note
+
+**Verdict read in full**, 7 abstained. Every "missing" was a check I could run
+`[all MEASURED 2026-09-03]`:
+- **editquality (medium) — the rollback EXECUTEs a stale `q`?** No: the file re-fetches `q`
+  inside the second DO block (line 58, after the UPDATE at line 18; EXECUTE at 62). The sketch
+  elided the re-fetch. Fourth instance today of a sketch under-showing a guard.
+- **guardian (medium) — "argued, not induced":** INDUCED. Two `kubectl exec psql` sessions:
+  A takes the advisory lock, sets level 2, holds 8 s, commits; B, started 2 s later, runs the
+  LIVE task text and blocks with a snapshot taken at level 0. **Live text: B returned
+  `level_changed=1` and a `shed level 2 -> 0` note — it read A's COMMITTED value.** Control,
+  the same text with `FOR UPDATE` removed from the UPDATE's sub-select: `0|0`, no note — B read
+  its pre-block snapshot. One token, opposite outcomes. Synthetic note deleted by id; level 0.
+- **guardian (low) — `subject_type='pipeline'` constraint:** the INSERT succeeds in every proof
+  and in production (the row exists); 671's header recorded 'pipeline' as the fitting value.
+- **prior_art (medium) — "the only fleet-wide announcement" unchecked:** census: 0 other
+  scheduled tasks name shed_level/spend-governor; 1 agent row (council-gate — it READS the
+  level, it announces nothing); 0 `agent_error_log` codes mention governor. The claim holds.
+- **reuse_agent (low) — an existing lock/re-read/note idiom?** 3 other tasks combine
+  RETURNING with a doc_notes INSERT: the two token-pressure auditors have no UPDATE (nothing
+  to race); `page-component-history-retention` has FOR UPDATE + UPDATE, **read in full**: its
+  locked CTE is CONSUMED by the UPDATE's FROM and the note reads the dependent CTE — the
+  correct shape, not 459's. Cleared.
+- **tooling_provenance (low) — no decision record:** written, one doc_notes row
+  (categories spend-governor/decision/tooling_provenance). **⚠ My first INSERT went through a
+  bash double-quoted string and the backticks around `noted` and `old, new` were EXECUTED as
+  commands** ("noted: command not found") — the row landed with those words missing. Fixed by
+  UPDATE from a file. The memory index has this exact trap ("backticks in -m execute"); I met it
+  in a `-c`. Same rule: SQL bodies go through a FILE, never a double-quoted shell string.
+- architecture (low): prose table names in the alert body — acknowledged, stated risk (4).
+
+**Bug 459 stays OPEN until one REAL level change writes a note** — the induced-L1 proof (held
+behind the owner's roll) is that evidence. This commit carries `Council-Reviewed: 83186fd9`.

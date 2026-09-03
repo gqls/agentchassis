@@ -631,3 +631,15 @@ non-terminal status with no progress is the tell), and do NOT submit anything fo
   A broken fail-open looks exactly like success.
 Post-release: `scratchpad/post_roll_checks.sh <log> <old-RS>` — the two boolean comparisons are
 `gov=true` and `^true ` (text of a boolean via `||` is `true`, not `t`).
+
+### Inducing a lock-wait interleaving on the state task (the 673 property), two sessions (added 2026-09-03)
+```bash
+# A: hold the advisory lock with an uncommitted level change for 8 s, then commit
+{ printf "BEGIN;\nSELECT pg_advisory_xact_lock(hashtext('spend-governor-state'));\nUPDATE governor_state SET shed_level = 2 WHERE id = 1;\nSELECT pg_sleep(8);\nCOMMIT;\n" | kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tA -f -; } &
+sleep 2
+# B: the LIVE task text — blocks on A, snapshot taken at the OLD level; must still write a '2 -> N' note (it read A's COMMITTED value)
+{ echo "\\set ON_ERROR_STOP 1"; kubectl ... -tAc "SELECT pre_query FROM scheduled_tasks WHERE name='spend-governor-state';"; echo ";"; } | kubectl ... psql -tA -f -
+wait
+# control: the same text with 'FOR UPDATE' removed from the UPDATE's sub-select writes NO note. Then DELETE the synthetic '2 -> ' note by id.
+```
+⚠ SQL bodies with backticks or `$` go through a FILE (`psql -f`), never a double-quoted `-c "…"` — the shell executes the backticks (it ate two words of a decision note on 2026-09-03).

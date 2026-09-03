@@ -235,3 +235,6 @@ roll — resubmit from `scratchpad/council_753.json` if its row stops progressin
   next live canary: its row must show `gate_spend_governor` output (`collected_data ? 'governor'`)
   and NO `__step_error` on the gate. THEN the induced-L1 proof (`induced_l1.sh`).
 - 753's round `83186fd9` is running (fell open at the gate — fine for a review); read its verdict.
+- 22:1xZ: 753's round APPROVED (83186fd9); lock-wait property induced A/B (NOTES). 459 stays open
+  until the induced-L1 proof writes a real `level-change` note. Decision note written (and fixed
+  after a backtick mangled it — SQL bodies via file, never `-c "…"`).
