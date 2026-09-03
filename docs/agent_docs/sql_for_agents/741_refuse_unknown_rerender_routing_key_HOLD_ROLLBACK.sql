@@ -1,8 +1,10 @@
 -- 741_refuse_unknown_rerender_routing_key_HOLD_ROLLBACK.sql
 --
 -- Undoes 741: the refusal door comes back out of the front of the page-rerender
--- workflow, the gate returns to reading spec.reason alone, and the write-door CHECK
--- is dropped.
+-- workflow and the gate returns to reading spec.reason alone.
+--
+-- ⚠ IT DOES NOT TOUCH THE WRITE-DOOR CHECK — that moved to 742 and has its own
+-- rollback. Independent reversibility is the point of the split.
 --
 -- ⚠ WHAT ROLLING BACK COSTS. It restores bugs_open/440: an unrecognised routing key
 -- goes back to completing GREEN having changed nothing. It does NOT un-stamp anything
@@ -78,9 +80,11 @@ UPDATE agent_definitions
  WHERE type='page-rerender' AND is_active
    AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
 
--- 4. The write door.
-ALTER TABLE site_work_items
-  DROP CONSTRAINT IF EXISTS chk_page_rerender_routing_reason_vocabulary;
+-- 4. The write door is NOT touched here — it is 742's, and 742 has its own ROLLBACK.
+-- Split on a council objection (guardian [medium], round 56047b18) precisely so the
+-- fleet-wide DDL and this one-agent config edit can be scheduled — and reversed —
+-- independently. Rolling back only this file leaves the constraint up, which is safe:
+-- a bad key is then rejected at the INSERT instead of refused at the gate.
 
 DO $$
 DECLARE cfg jsonb;
@@ -108,13 +112,7 @@ BEGIN
      OR cfg #> '{steps,rerender_sections}' IS NULL THEN
     RAISE EXCEPTION '741 ROLLBACK VERIFY FAILED: a pre-existing step was removed';
   END IF;
-  IF EXISTS (SELECT 1 FROM pg_constraint
-              WHERE conname='chk_page_rerender_routing_reason_vocabulary'
-                AND conrelid='site_work_items'::regclass) THEN
-    RAISE EXCEPTION '741 ROLLBACK VERIFY FAILED: the CHECK constraint is still present';
-  END IF;
-
-  RAISE NOTICE '741 ROLLED BACK: gate reads spec.reason only; refusal door removed; CHECK dropped. bugs_open/440 is REOPENED in production — an unknown routing key assembles silently again.';
+  RAISE NOTICE '741 ROLLED BACK: gate reads spec.reason only; refusal door removed. ⚠ The 742 write-door CHECK is UNTOUCHED — roll that back separately if you mean to. With 742 still applied a bad key is REJECTED at the INSERT; with neither applied, bugs_open/440 is REOPENED in production and an unknown routing key assembles silently again.';
 END $$;
 
 COMMIT;

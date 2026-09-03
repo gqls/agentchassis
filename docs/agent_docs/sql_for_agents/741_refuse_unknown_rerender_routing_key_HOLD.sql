@@ -37,12 +37,13 @@
 --      `reason` and only 12 carry a `routing_reason`. Narrowing to the new key today
 --      would route ~1,792 items to assemble: this bug's own shape, fleet-wide, inside
 --      its own fix. Narrowing is a LATER migration, gated on a drain census.
---   4. THE WRITE DOOR (OWNER RULING D3): a CHECK constraint, NOT VALID. The census
---      showed raw-SQL migration INSERTs are the dominant unguarded producer and no Go
---      code can see them; a bad key now fails the INSERT at the author's desk,
---      synchronously. Unrepresentable beats detectable. NOT VALID first so it takes no
---      table scan and cannot fail on history; VALIDATE is a separate step after the
---      census (D3), and the census query is in the VERIFY companion.
+--   4. THE WRITE DOOR (OWNER RULING D3) IS NOT IN THIS FILE — IT IS 742, split out on a
+--      council objection (guardian [medium], round 56047b18: the ACCESS EXCLUSIVE lock is
+--      table-wide even though the CHECK's predicate is not, so a fleet-wide DDL and a
+--      one-pipeline config edit want different windows). APPLY 741 THEN 742, and do not
+--      stop after 741 — the read door alone is strictly better than today but it is the
+--      weaker half of the pair, and raw-SQL INSERTs are the producer class only the CHECK
+--      can reach.
 --
 -- ⚠ EVERY STRING BELOW IS PASTED FROM platform/livespec, NOT HAND-WRITTEN. DB config
 -- cannot import Go, so the live objects are ASSERTED against the Go list by the daily
@@ -51,7 +52,7 @@
 --   livespec.TransitionRerenderModeConditionClause()     -> check_rerender_mode.condition
 --   livespec.RefuseUnknownRoutingKeyMessageTemplate()    -> error_message_template
 --   livespec.RefuseUnknownRoutingKeyMessageFallback()    -> error_message
---   livespec.RerenderSectionReasonNames()                -> the CHECK's IN-list
+--   (livespec.RerenderSectionReasonNames() -> the CHECK's IN-list, in 742)
 -- Hand-writing a sixth disjunct is what bugs_open/404 IS (two lanes appended a value
 -- to this very gate on 2026-08-18 and neither touched Go).
 --
@@ -87,27 +88,25 @@
 --     (c) ADD a Declaration for check_routing_key_known.condition (FragmentMatch,
 --         CheckRoutingKnownConditionClause(), Min:1 Max:1).
 --     (d) ADD a Declaration for the CHECK constraint (Kind 'constraint'), asserting it
---         exists and lists the vocabulary.
+--         exists and lists the vocabulary — owed once 742 has applied, not before.
 --     (e) BUMP LiveAuditOnlyDeclarations for whichever of the above no Go test reads,
 --         and check MaxDeclarations (24) still holds.
 --
--- Companion: 741_..._HOLD_ROLLBACK.sql (restores the pre-flip gate and drops the
--- constraint) and 741_..._HOLD_VERIFY.sql (the post-apply census + validate step).
+-- Companions: 741_..._HOLD_ROLLBACK.sql (restores the pre-flip gate; it does NOT touch
+-- the constraint — that is 742's own rollback) and 741_..._HOLD_VERIFY.sql, which covers
+-- BOTH migrations: the flip's shape, 742's validate-safety census, and the drain.
 
 BEGIN;
 
--- ⚠ lock_timeout IS NOT BOILERPLATE — IT WAS PUT HERE BY A DRY RUN THAT HUNG.
--- Step 5 needs ACCESS EXCLUSIVE on `site_work_items`, which is one of the busiest
--- tables in the estate. MEASURED 2026-09-03, both outcomes, same statement: one
--- dry run acquired it in 2 ms; an earlier one was still waiting after 2 MINUTES
--- and had to be killed. Without a timeout the bad case is much worse than a slow
--- migration — a QUEUED ACCESS EXCLUSIVE request blocks every subsequent reader and
--- writer of the table behind it, so an unbounded wait here stalls the fleet's whole
--- work-item pipeline while it waits. Failing fast is the safe direction: the whole
--- migration is one transaction, so a timeout rolls back cleanly and changes nothing.
--- If it fires, RE-RUN IT IN A QUIET WINDOW; do not raise the timeout to force it
--- through, and do not split step 5 out to "get the rest in" — a gate that refuses
--- while the write door is missing is the weaker half of the pair.
+-- ⚠ lock_timeout: kept even though the fleet-wide DDL moved to 742. This file now
+-- only UPDATEs one agent_definitions row, so the hazard is far smaller — but it is
+-- not zero (another session's transaction can hold that row), and a bounded wait is
+-- the right default for anything touching a live agent. The measurement that put it
+-- here in the first place, and the reason 742 needs it far more, is recorded in 742's
+-- own header: the same ADD CONSTRAINT statement measured 2 ms on one dry run and was
+-- still waiting after 2 MINUTES on an earlier one. Failing fast is the safe direction
+-- either way — one transaction, so a timeout rolls back cleanly and changes nothing.
+-- If it fires, RE-RUN IN A QUIET WINDOW; do not raise the timeout to force it through.
 SET LOCAL lock_timeout = '5s';
 
 -- ── GUARDS. RAISE, never a SELECT: ON_ERROR_STOP ignores a non-empty result, so a
@@ -146,12 +145,6 @@ BEGIN
         WHERE type='page-rerender' AND is_active
           AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL) IS NOT NULL THEN
     RAISE EXCEPTION '741 REFUSED: check_routing_key_known already exists — this migration (or a hand edit) has already been applied; do not stack';
-  END IF;
-
-  IF EXISTS (SELECT 1 FROM pg_constraint
-              WHERE conname='chk_page_rerender_routing_reason_vocabulary'
-                AND conrelid='site_work_items'::regclass) THEN
-    RAISE EXCEPTION '741 REFUSED: constraint chk_page_rerender_routing_reason_vocabulary already exists';
   END IF;
 
   PERFORM snapshot_agent('page-rerender',
@@ -220,17 +213,22 @@ UPDATE agent_definitions
  WHERE type='page-rerender' AND is_active
    AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
 
--- ── 5. THE WRITE DOOR (D3). NOT VALID: no table scan, cannot fail on history.
--- Scoped to page_rerender — every other item_type is untouched. A NULL spec or a
--- NULL routing_reason satisfies it, which is the annotation-only case and is legal
--- forever (D4: spec.reason is never validated).
-ALTER TABLE site_work_items
-  ADD CONSTRAINT chk_page_rerender_routing_reason_vocabulary
-  CHECK (
-    item_type <> 'page_rerender'
-    OR spec->>'routing_reason' IS NULL
-    OR spec->>'routing_reason' IN ('image_landed', 'section_data_resolved', 'cta_links_stale', 'template_changed', 'literal_markdown')
-  ) NOT VALID;
+-- ── 5. THE WRITE DOOR (D3) LIVES IN 742 NOW — SPLIT OUT, ON A COUNCIL OBJECTION.
+-- `guardian` [medium], round 56047b18: "ALTER TABLE ... ADD CONSTRAINT ... NOT VALID
+-- on site_work_items acquires an ACCESS EXCLUSIVE lock on the WHOLE table regardless
+-- of the CHECK's item_type-scoped predicate. This table is the dispatch queue for
+-- every pipeline, not just page-rerender ... bundling it with a single-pipeline
+-- workflow-step insert removes the option to schedule the riskier DDL separately."
+-- Conceded, and it is a BETTER argument than the one this file previously rebutted.
+-- What I had rebutted was splitting in order to "get the rest in" — shipping a gate
+-- and never coming back for the write door. Scheduling is a different reason: a
+-- fleet-wide lock and a one-pipeline config edit want different windows, and bundled
+-- in one transaction a lock timeout on the DDL rolls back the gate too.
+-- ⚠ APPLY ORDER IS 741 THEN 742, and the intermediate state is SAFE rather than
+-- merely tolerable: with the read door up and the write door not yet up, a bad key
+-- can still be INSERTed but is REFUSED at the gate — strictly better than today,
+-- where it assembles silently. The reverse order is also safe. What is NOT
+-- acceptable is stopping after 741: see 742's header.
 
 -- ── VERIFY, in a DO block so a failure actually stops the COMMIT.
 DO $$
@@ -288,13 +286,7 @@ BEGIN
     RAISE EXCEPTION '741 VERIFY FAILED: transition clause carries % spec.reason and % spec.routing_reason tests, expected 5 and 5', n_reason, n_routing;
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint
-                  WHERE conname='chk_page_rerender_routing_reason_vocabulary'
-                    AND conrelid='site_work_items'::regclass AND NOT convalidated) THEN
-    RAISE EXCEPTION '741 VERIFY FAILED: the CHECK constraint is absent, or is already validated when it should have been added NOT VALID';
-  END IF;
-
-  RAISE NOTICE '741 OK: refusal door live ahead of the gate; transition clause 5+5; CHECK added NOT VALID. Next: the VERIFY companion''s census, then VALIDATE (D3). The gate has NOT narrowed — 1,804 pending items still route on spec.reason.';
+  RAISE NOTICE '741 OK: refusal door live ahead of the gate; transition clause 5+5. ⚠ THE WRITE DOOR IS NOT UP YET — apply 742 next, then the VERIFY companion''s census, then VALIDATE (D3). The gate has NOT narrowed: 1,804 pending items still route on spec.reason.';
 END $$;
 
 COMMIT;

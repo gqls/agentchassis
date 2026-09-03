@@ -1,7 +1,13 @@
 -- 741_refuse_unknown_rerender_routing_key_HOLD_VERIFY.sql
 --
--- Read-only. Run AFTER 741 applies. Answers three separate questions, in order,
--- because the answers have different consequences:
+-- Read-only. Run AFTER 741 AND 742 have applied — it deliberately covers BOTH halves of
+-- RFC_062 phase 3 (741 = the read door / gate flip, 742 = the write-door CHECK, split out
+-- on a council objection, guardian [medium] round 56047b18). Section A reads 741, sections
+-- B/B2 read 742, section C reads the data both are about. Run it after 741 alone if you
+-- like: sections B/B2 will then correctly report the constraint as absent.
+--
+-- Answers three separate questions, in order, because the answers have different
+-- consequences:
 --
 --   A. Did the flip land, and is the shape the one livespec declares?
 --   B. Is the CHECK constraint safe to VALIDATE yet (owner ruling D3)?

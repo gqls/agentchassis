@@ -573,3 +573,116 @@ around a phrase containing a destructive verb would execute it.
   which also makes it trivially reviewable before committing. The landmine entry documents the
   trap; this is the substitution that removes the opportunity. Prose that is *about* code will keep
   wanting backticks, and a rule that depends on remembering not to type them has now failed once.
+
+## 2026-09-03 (night) — phase 3 verdict READ: APPROVED r1, 4 advisory objections, and one of them is FACTUALLY WRONG about my own submission
+
+Corr `56047b18-9e0a-4107-a781-007df8ff59bd`, `approved with 4 advisory objection(s) — none
+high-severity`, 3 abstained, 16 seats. The run started at 14:12:59Z and the verdict landed
+14:25:20Z — **12 minutes, no queue delay at all**, against the ~30 minutes this lane's handoff
+budgets. Worth carrying: the 29-minute publish→run figure is a load-dependent measurement, not a
+constant. Five rounds now, five APPROVED at r1.
+
+### `guardian` [medium] — ACTIONED IN CODE. Split the fleet-wide DDL out of the workflow migration
+
+> "ALTER TABLE ... ADD CONSTRAINT ... NOT VALID on site_work_items acquires an ACCESS EXCLUSIVE
+> lock on the WHOLE table regardless of the CHECK's item_type-scoped predicate. This table is the
+> dispatch queue for every pipeline ... bundling it with a single-pipeline workflow-step insert
+> removes the option to schedule the riskier DDL separately."
+
+**Conceded, and it is a BETTER argument than the one 741 had already pre-rebutted** — which is the
+interesting part. My file said "do not split step 5 out to 'get the rest in' — a gate that refuses
+while the write door is missing is the weaker half of the pair." That rebuts splitting in order to
+*abandon* the second half. It says nothing about SCHEDULING, which is a different reason: a
+table-wide lock on the estate's busiest queue and a one-row config edit want different windows,
+and bundled in one transaction a lock timeout on the DDL rolls back the gate too.
+
+**A pre-emptive rebuttal in a file is not a defence against a different argument for the same
+action.** I had written the objection down myself and still not seen the version of it that lands.
+
+Now `742_page_rerender_routing_reason_write_door_HOLD.sql` (+ `_ROLLBACK`). Apply order 741 → 742;
+both intermediate states are safe and stated (read door alone REFUSES at the gate; write door
+alone REJECTS the INSERT), and each is independently reversible, which is the benefit. **Proved by
+a four-file round trip** executed against the live DB and discarded: 741 → 742 → VERIFY → 742
+rollback → 741 rollback → original restored (`check_rerender_mode | steps=10 | constraint=0`).
+Live state re-checked clean after.
+
+### `bug_historian` [medium] ×2 — one is the sharpest thing said about this lane all day
+
+> "A header comment is not a stronger mechanism than the one that already failed here."
+
+On the Declaration blind spot, whose remedy I deferred to an instruction in 741's header. **This
+lands, and it lands using my own thesis**: the lane exists because two lanes appended a routing
+value without touching Go — drift that convention failed to prevent. Answering a
+convention-failure with another convention is the same bet twice. I have NOT fixed it, because the
+alternative (committing Declarations for an unapplied migration) turns the daily auditor red and
+masks real drift — a trade I still think is right — but the objection is correct that the
+mechanism is weak, and the honest statement is "least-bad available", not "sound".
+
+Second objection: `keys_disagree` should be actively refused or logged NOW, not measured at zero
+and deferred to 3b. They suggest reusing the refusal path being built. **Mechanically impossible in
+config**: the evaluator compares a field to a LITERAL (`compareValues(resolveFieldValue(field), expected)`)
+and cannot compare two fields to each other, so `routing_reason != reason` is not expressible in a
+`conditional` step. Real options are (a) make `rerender_page_sections` prefer `routing_reason` —
+the phase-3b reader change, pulled forward, which makes the state HARMLESS rather than merely
+detected; (b) a transition-only lockstep CHECK, needing a second migration to drop at narrowing;
+(c) a counting check. **Owner decision, not mine** — it changes the phasing of a ruled RFC. Put to
+the owner; `_VERIFY` section C counts the state meanwhile.
+
+### `reuse_agent` [medium] — I OWED A SEARCH AND HAD NOT DONE ONE. Now done, and the answer is no
+
+> "No evidence in grounded_in that either of these existing mechanisms was checked for reuse."
+
+Fair: I looked at `git_deployer`'s templating as *prior art for the trap* and never searched for a
+shared helper. Searched now:
+
+- **`datahelpers` has NO generic string-template render helper.** Its `text/template` uses are
+  prompt-context contracts (`PromptTemplateFuncs`, `TemplateRootForInputField`) and content-type
+  guards, not "render this config string safely".
+- **`ai_actions.go`'s `validateTemplateData` / `injectPlatformBlocks`** assemble PROMPT template
+  DATA (validating `input_fields`, injecting platform blocks). Not a renderer.
+- **`RenderTemplateReportingMissing` — the closest name, and the one I most expected to be a
+  duplicate — was RENAMED to `RenderTemplate` (2026-08-21) and lives in `component_library.go`.**
+  It renders component HTML against a `*RenderContext` and returns `(string, []string, []string, error)`.
+  Different input type, different contract (placeholder reporting for HTML). Not reusable.
+- **The decisive finding, and it inverts the objection**: `buildCommitMessage` — the very prior art
+  the seat cited — **SWALLOWS BOTH FAILURE MODES**. Parse error returns a default string; execute
+  error returns a default string; no error return, no log. Reusing or generalising it would have
+  imported precisely the silent-fallback behaviour `renderFailWorkItemMessage` exists to prevent.
+  Their own [low] objection guessed the whitelist half correctly and said to downgrade if
+  confirmed; confirmed, and the swallow is worse than the whitelist.
+- ⚠ **Left for its owning lane, not fixed here**: `buildCommitMessage` is a live silent-fallback on
+  the deploy path. Not mine to change inside this round.
+
+### `debug_historian` [medium] — WRONG ABOUT MY SUBMISSION, and that is MY presentation failure
+
+> "No separate persistent verify/rollback SQL artifacts are shipped — the edit list contains only
+> the _HOLD file itself."
+
+**They exist and were committed in `83407cd37`**: `741_..._HOLD_ROLLBACK.sql` and
+`741_..._HOLD_VERIFY.sql`. The seat could not see them because `_ROLLBACK`/`_VERIFY` are refused by
+council scope client-side, so they are not `edits` — and I listed them in a trailing "OUT OF SCOPE
+(listed for completeness)" sentence in `submitter`, which is where information goes to die.
+**A seat that cannot see an artefact will report it missing, and that is a submission-design
+problem, not a seat error.** Sixth round in a row where a seat's finding is about what the
+submission SHOWED. Next submission: name the companions in the `summary` and in the relevant
+edit's `rationale`, not only in a scope-disclaimer list.
+Their [low] on pod-verification of the Go symbols once it ships is fair and is now in the handoff.
+
+### `prior_art_librarian` [medium] — answered with a control
+
+> "No check in this submission verifies these symbols are actually in the tree today rather than
+> only approved-in-principle."
+
+Correct that I did not SHOW it. Verified now against `git show HEAD:` with a negative control: all
+seven load-bearing symbols present (`RoutingReasonSpecKey`, `RerenderSectionReasonNames`,
+`TransitionRerenderModeConditionClause`, `CheckRerenderModeConditionClause`,
+`CheckRoutingKnownConditionClause`, `RerenderReasonFields`, `StampRerenderReason`), bogus control
+returns 0 — and `verify-head-builds.sh` said `HEAD 83407cd37 builds`, so they compile and are not
+merely present as text. **"Approved-but-unmerged is indistinguishable from merged to a later
+reader" is a good general form** and cheap to close; it belongs in every future submission.
+
+### The drain is moving, faster than this morning
+
+`[MEASURED 2026-09-03, three readings]` items carrying BOTH keys: **12 → 14 → 24**; `reason_only`
+**1,804 → 1,786**. The converted producer is stamping steadily, so narrowing gets cheaper by the
+hour — but it is still ~1,786 items away, and `keys_disagree` has stayed **0** at every reading.
