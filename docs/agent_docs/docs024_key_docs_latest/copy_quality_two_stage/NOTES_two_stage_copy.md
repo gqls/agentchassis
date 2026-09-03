@@ -4531,3 +4531,35 @@ canary history is preserved. Moved in `scripts/fire-content-gap-planner.sh` and
 client if that helps, I do pay through the nose for these tokens."* So D4's example stands by
 ruling: his own consultancy, treated with paying-client care. Nothing operational changes;
 the D4 note now carries both the fact and the ruling.
+
+**2026-09-03 ~17:55Z — 748 council APPROVED (corr `e7e0ae76`, "1 advisory objection, none
+high-severity"). Objections answered by measurement; one of them names a real gap that is not
+this migration's.**
+
+- **editquality/medium + guardian/low — "does anything ELSE key on the old run-on needle and now
+  silently break?"** Answered: `grep -rln "regardless of inputs). Aim"` across `.sh .py .go .sql
+  .md`, excluding the files already moved and the two migrations that carry it as an anchor,
+  returns **nothing**. The needle had exactly three consumers and all three moved in `a3406601f`.
+  And the move is backward-compatible — re-proved post-apply: both prior build-site-planner
+  renders match the new needle; classifier false positives = 0.
+- **prior_art_librarian/low — "confirm the classifier has 0 hits on the caps form BEFORE
+  repointing."** Was measured before (`position('BUILD STANDARD (applies' IN its config) = 0`)
+  and re-measured after against `llm_call_log`; the submission stated it as `[MEASURED]`. The seat
+  could not see the table it needed to confirm it, which is the next point.
+- **guardian/medium + prior_art_librarian/medium — "`agent_default_configs` is not in the schema
+  this council can query; I cannot verify the row is unique or how many rows share the name."**
+  This is TRUE and it is not a defect in 748 — it is a **gap in the council's visibility**. The
+  carrier row that three planner prompts read lives in a table the seats reviewing changes to it
+  cannot see. `[MEASURED]` `agent_default_configs` is referenced by **none** of the
+  `fixloop_eg_dartsonline/*.sh` trigger/report scripts. Uniqueness is real (`\d` shows
+  `agent_default_configs_config_name_key UNIQUE`, and `count(*)=1` guards the migration), but
+  the council had to take that on the author's word. **Worth raising with whoever owns the
+  council's schema allow-list**: a table that migrations in council scope write to should be
+  readable by the seats. Not this lane's to fix; flagged.
+- **editquality/low — "the sketch does not show the re-embed and full-stop guards."** They exist
+  in the file (lines `IF position(old_title IN nxt) > 0` and `IF right(cur,1) <> '.'`); the sketch
+  under-showed them. Same class as the morning's `htmlTagRe` objection: **the submission is the
+  artefact under review, and a guard described in the rationale but absent from the sketch reads
+  as absent.** Show the guard, not the sentence about it.
+
+The `Council-Submitted:` trailer on `a3406601f` resolves to APPROVED via `098` with no amend.
