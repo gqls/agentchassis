@@ -499,3 +499,89 @@ amount of rerendering will move it.
 fixed and live; the *in-page* buttons are not, cannot be fixed by rerendering, and need a full page
 rebuild (which regenerates copy) or `bugs_closed/391`'s rewrite-and-relink recipe. The opt-out's
 guarantee is that nothing will re-create them.
+
+## 2026-09-03, 17:50–18:30Z — the "deliberate button" expression (owner ruling), built and applied
+
+Owner: *"I'd like that 'deliberate button' expression added."* Raised by his own challenge to my
+advice — *"why would boxingonline swap out the calendar for anything, it is prime content?"* — which
+was right, and which exposed two defects rather than one.
+
+### Defect 1: the estate could state half the judgement
+
+714 made *"never use this page as a CTA destination"* sayable. Its opposite — *"this page SHOULD win
+the primary button, I have looked, stop asking"* — was not sayable at all. So any site whose
+**correct** button happens to sit on a low `nav_order` carries a `cta_rank_anomaly` item for ever.
+
+### Defect 2: my own advice was wrong, and this check's own comment is why
+
+I told the owner to "mark it deliberate so it stops recurring", i.e. dismiss the item. **There was no
+such thing.** `check_cta_rank_anomaly.go` claimed *"items dedup in ANY status … so the same page
+recurring at the SAME value after a human dismissed it stays dismissed"* — and the live index says
+otherwise:
+
+```
+idx_swi_dedup UNIQUE (site_id, item_key) WHERE item_key IS NOT NULL
+  AND status <> ALL (ARRAY['complete','verified','rejected','wont_fix','failed','unresolved','cancelled'])
+```
+
+The slot is held **only by OPEN items**, so closing one RELEASES the key. `[MEASURED 2026-09-03]`
+cv1.co.uk resolved to `complete` 10:00:35Z, identical item re-inserted **10:02:24Z** — 109 seconds.
+I had already observed that this morning and filed it as a curiosity ("a retraction does not poison
+the key"); it was the mechanism, and I did not join it up until the owner's question forced the
+question "what does dismissal actually do?". **Perversely, leaving an item OPEN is what suppresses
+duplicates today.** The comment is corrected at both sites and the item's `fix` text now says
+explicitly that closing it does not work.
+
+### What was built — `pages.cta_rank_deliberate_nav_order` (migration **755**)
+
+An **integer, not a boolean**, and that is the whole design: it stores *the nav_order that was
+reviewed*, so the acknowledgement **self-expires**. It silences the check only while the stored value
+equals the page's live `COALESCE(nav_order,100)`; renumber the page and the alarm speaks again. A
+boolean would mute that page for ever, including for a shape nobody reviewed — an acknowledgement
+outliving what it acknowledged. This matches the granularity the item key already uses.
+
+**Exactly one consumer, and the ranking must never become a second.** `ctaRankAcknowledged` in the
+check queries the column directly; it is deliberately NOT on `CTAPositionalCandidate` and NOT in the
+shared supply SQL, whose stated job is "which pages of this type exist and may be linked, nothing
+more". The column records that a human **agreed with a pick the ranking already made** — a statement
+about the *detector's finding*, not about candidacy. A reader in `cta_positional.go` would convert a
+review note into an unearned pin.
+
+The lookup is consulted **after** the shape is judged anomalous, for the page that actually won —
+asking first would let a stale acknowledgement suppress a *different* page's fossil on the same site.
+A lookup error is **returned, not swallowed**: "not acknowledged" is the dangerous default, because it
+re-files a finding a human already retired, every pass, with nothing in the item to say why.
+
+### Two things the tooling caught that I had not
+
+1. **`TestEveryPagesQueryingCheckDeclaresItsLifecyclePosture` failed on first HEAD verification** —
+   this is the check's first direct `pages` query, so `bugs_open/356`'s sensor fired. Declared
+   `PostureObserves` (files at `handler_agent ""`, routes nothing, mutates nothing), with the reason
+   recording why arming the second query adds nothing *reachable*: the ranking's own supply already
+   carries the lifecycle arm, so an archived page cannot be rank-1.
+2. **Migration `750` was taken TWICE under me while I wrote it** — my own lane's recorded trap, walked
+   into anyway. 751–754 had gone too. Renumbered to **755**, chasing 9 references across 5 files.
+
+### Mutation-proven, not merely green
+
+`TestCTARankAcknowledgementSelfExpiresInSQL` asserts the WHERE clause **by regexp**, because the
+self-expiry lives in SQL and a Go re-implementation of the comparison would pass while the column
+silenced the wrong shapes. Deleting `= COALESCE(nav_order, 100)` from the query fails **that test and
+only that test**; restoring it passes. A "simplification" to a bare `IS NOT NULL` is exactly the edit
+this guards, and it passes every other test in the file.
+
+### Applied, and the first acknowledgement recorded
+
+755 applied by hand and ledger-recorded (`information_schema`: integer/nullable; **0 of 1324** rows
+acknowledged at apply — no behaviour change anywhere). Then boxingonline.com's
+`tool-fight-calendar` acknowledged at nav_order **3**, written as
+`= COALESCE(p.nav_order,100)` rather than a literal so the row records what was *actually* reviewed.
+
+Fleet state: **1** acknowledged, **3** opted out, 1324 pages. ⚠ **The Go reader is INERT until the
+next chassis roll** — the column is set and correct, and the check will not consult it until the
+image carrying `ctaRankAcknowledged` is running. Until then boxingonline.com's item stays
+`needs_human_review`, which is harmless (an open item is exactly what suppresses duplicates).
+
+Council: submitted `6feebf02-275a-4982-8782-e911487481b9`, `Council-Submitted:` on both commits —
+verdict not yet read. **Owed: read it and act on a REVISE/REJECTED; the code is already on the
+shared branch.**
