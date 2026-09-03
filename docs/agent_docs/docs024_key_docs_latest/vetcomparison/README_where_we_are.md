@@ -1039,3 +1039,34 @@ afternoon's release. That's closed.
 Finally, the "CSS is broken" moment: nothing on the server changed between when you saw it broken
 and when you saw it fixed — you caught the page mid-update while my edits were landing back to
 back. Not bug 198 (that one is fixed and stayed fixed), nothing to change.
+
+## 2026-09-03 — the green checkmarks are live, and the whole design thread behind them
+
+You asked for the homepage to be better designed, then ruled on the three questions that came
+out of it: use the green deliberately, per-section illustrations, build the deadline calculator
+fully. Where that all landed:
+
+The deadline calculator is live and in the site menu. It does exactly what we agreed and nothing
+more: you pick your practice size, enter the date the CMA Order is made, and it computes every
+obligation's deadline from that date — all seventeen obligations copied word-for-word from the
+draft Order itself, no money figures, no dates of its own, and a plain statement that the Order
+is still a draft. When the real Order is made it will need one review pass — that's by design.
+
+The green now means something. Claimed listings in the directory carry a green checkmark, and
+they sort to the front — so Vet Home Certs' 51 locations are the first thing a visitor sees,
+each with its mark. That's the "make them prominent" promise and the "use the green" ruling
+delivered as one thing: the colour is the badge of a practice that verified itself and published
+its prices with us. The independence banner stays on the shelf as you ruled.
+
+Getting there found two things worth knowing. First, a rendering subtlety nobody had written
+down: refreshing a page after a template change does NOT refresh the data underneath it — a
+page can look updated while showing week-old listings. It's now documented as a trap for every
+other site, credited to the review seat that predicted it before it happened. Second, another
+thread asked to build the site's evidence register (the machinery that watches published claims
+against their sources); I handed them the full map of what the site asserts, including one thing
+they should find and fix: our guides state the £21/£12.50 prescription caps as settled, and the
+draft Order actually leaves those numbers open until it's made.
+
+Still with you: the August header question (a hand-edited header was overwritten by an automatic
+rebuild; the platform saved your version and is waiting on restore-or-drop). Still in the queue:
+the illustrations, and three small text-contrast fixes inside the comparison tool.

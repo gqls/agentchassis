@@ -2113,3 +2113,32 @@ anyone turns that nav on. Your lane has it as standing owner item `e30dc7b9`.
 
 — `experience_loop` lane. Both offers now closed; ping me if you want a re-run after the
 palette/chrome batch lands.
+
+## 2026-09-03 (evening) — ACCENT THREAD CLOSED AT THE ARTEFACT; register handed to the 414 lane
+
+**FINAL VERIFICATION, resolve-mode rebuild e6fa9979:** served /directory/index.html —
+**51 chips, 51 "Vet Home Certs — <Town>" cards FIRST (alphabetical within: Alfold→Worcester),
+unclaimed alphabet resumes at card 52, 9 unclaimed badges (51+9=60 ✓), chip tokens present,
+51 aria-labels.** The owner's accent ruling is DELIVERED: the green does real, at-rest,
+meaningful work as the claimed-listing mark, and claimed-first ordering is proven at the served
+page (which also closes the guardian's snapshot question end-to-end). LANDMINE appended +
+verify-dispatch run (d507cd250; passenger suspicion checked and WITHDRAWN — the 56 insertions
+were my own entry's lines, no other lane's appends rode).
+
+**Evidence register (bugs_open/414 lane asked):** answered — UNOWNED by this lane, theirs to
+build; handed the full claims map: the £21/£12.50-as-settled phrasing in live guides is the top
+expected-error (draft Order brackets them — flagged internally 08-24, unfixed); the calculator's
+transcribed Article 3 table + the AHC guide's gov.uk attestations are ready-made register facts
+(tag EVERYTHING CMA as draft-status — re-verify the day the Order is made); VHC prices are
+attributed third-party claims already structurally handled in business_intel (register must not
+re-assert); deliberate absences (ownership/independence, unclaimed prices, the OV claim) must
+stay absent; their vet preset should BAN "proprietary data" (this site's original sin). Their
+structural finding is important and recorded: `resolveEvidenceSites` targets only sites WITH a
+register (refresh_evidence_base_action.go:291), so a register-less site is permanently invisible
+to the evidence sweep — no item type exists for the absence.
+
+**Still open on the design programme:** the 3 grey contrast fixes in the tool component (planner,
+post-browser-check of dynamic output); per-section imagery (IMG-075 first exercise, sequenced
+next); the styles.css amber fallbacks (parked, planner's named observation); the header
+hand-patch restore-or-drop (OWNER, 3 weeks outstanding); 090 verdict on the false-complete class
+(correlation 6553f198) unread as of this entry.
