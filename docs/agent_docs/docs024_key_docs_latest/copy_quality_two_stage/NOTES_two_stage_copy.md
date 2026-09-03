@@ -4096,3 +4096,40 @@ queued re-ask: this one cost a repair on the page the owner personally complaine
 The other survivor is `so_consequence`, which is **not in the register** — correct behaviour, and
 the same v3 candidate as on technical-details. Both pages now carry exactly one shape the gate is
 not yet allowed to see, which is a tidy argument for cutting v3 once he rules on the "so" form.
+
+> **CORRECTED 2026-09-03 ~11:35Z (finetuning lane caught it) — THE GATE DID NOT PRODUCE HIS
+> SENTENCE. THE WRITER DID.** The entry above says the ruled sentence was "produced by the
+> framework with nobody hand-editing a word", which is true and reads as if the copy gate
+> performed the truncation. It did not: **no `copy_gate_N` rewrite names that sentence** (the
+> watcher was probing every `from` field for it and never fired). The writer wrote
+> *"We're not tied to one provider."* straight out, because the rebuild brief carried his ruling
+> as an instruction. The distinction is the whole difference between "the gate implements his
+> ruling and will do so on every page" and "one page's brief said so" — **only the second is
+> established.** It also answers the house-voice exception question from the other direction: the
+> negative opener is on the page because the brief mandated those exact words, not because the
+> writer or the gate chose to open on a negation.
+
+**AND THE GATE WOULD HAVE REFUSED HIS REPAIR — measured, not argued.** The finetuning lane asked
+whether the `"gutted"` rejection is the judge being right or too tight. It is answerable exactly,
+because `gutted` is not a meaning judgement at all — it is a **length ratio**
+(`negationtells.go:571`): `if len(to) < len(from)*2/5` → reject. **A rewrite shorter than 40% of
+the original is refused, whatever it says.** Against that threshold:
+
+| repair | ratio | verdict |
+|---|---|---|
+| **the owner's OWN ruling** — *"We're not tied to one provider, so you get… not the model we happen to sell."* → *"We're not tied to one provider."* | **29.5%** | **would be REJECTED `gutted`** |
+| the live rejection — *"We pick the tool suited to each task rather than pushing one platform…"* → *"We pick the tool suited to each task."* | 38.1% | REJECTED `gutted` (missed by ~2 points) |
+| accepted, for contrast — *"…naming and notice, not payment."* → *"…naming and notice."* | 75.0% | accepted |
+| accepted — *"…picked for the job rather than for its reputation."* → *"…picked for the job."* | 74.4% | accepted |
+
+So **his ruling sits 10 points below the gate's floor.** The two are not merely differently
+calibrated in principle — his own worked example is a repair this gate is built to refuse. The
+homepage only shows it because the brief instructed the writer; had the gate been asked to make
+that cut on any other page, it would have failed closed and kept the negation. **This converts
+the "gutted" question from taste into a number for him: the floor is 40%, and ruling 7 implies
+something at or below 30%.** Put it to him with the "so" question — both are "where is the line".
+
+⚠ Do not "fix" this by lowering the constant on a session's judgement. `gutted` fails closed for
+a reason, and the accepted repairs cluster at ~75%, so the evidence for where the floor belongs
+between 30% and 74% is thin — two data points either side. If he rules, the change is a Go edit
+in the council's scope, with the four policy tests re-pinned to the ruling.
