@@ -270,3 +270,55 @@ A check with a working arm and a real unfixed defect produces the same backlog r
 with no arm and a defect that completed weeks ago. **The discriminator is whether the item's
 own predicate still holds** — which nothing re-derives today, and which the closer must
 re-derive before it touches anything.
+
+### 7.6 §5.2 IS FIXED IN CODE — `fc9cad600`, inert until the next chassis roll
+
+The closer is built, and the part worth reading is what it refuses to do.
+
+**A naive closer would have been worse than none.** For this check, *"the finding
+no longer reproduces"* and *"the damage completed"* are **the same observation** — the
+stores agree again precisely BECAUSE the sync-down ran. Retracting on agreement would
+close, automatically and fleet-wide, exactly the cases that most need a human. So:
+
+- **The test is `lost`, not `direction`.** Migration `753`'s three-way label cannot
+  separate `oufe.com/contact` (the authority RESTORED a section the cache had dropped —
+  nothing destroyed) from `gripper-catalog` (the authority DELETED one). Both are
+  `authority_won`. The retraction computes the loss instead: frozen-cache-only names,
+  minus what is on the page today. `direction` is still recorded on every close,
+  byte-compatible with `753`.
+- **A lossy retraction cannot happen without its receipt.** `ResolvedFinding.Receipt`
+  (register **WII-039**) makes the record a **precondition**: `resolveWorkItems` writes
+  the `section_composition_lost` item FIRST, in the same transaction, and refuses the
+  close if it can neither insert it nor confirm an open row holds its key. The coupling
+  is on the SEAM, not in the check, because `resolveWorkItems` has two callers and a
+  control in either protects only that one.
+- **The receipt COPIES its evidence** (register **WII-040**) — both frozen lists, today's
+  list, the lost/gained multisets, and a count of `page_component_history` rows holding
+  the destroyed bytes. It points at the archive for the bytes and carries the list itself,
+  because §7.4's asymmetry means the list survives nowhere else.
+- **Detection-time grading** is the only part that acts BEFORE a loss: `would_drop` /
+  `would_add` / `would_drop_present` in the spec, severity `high` only when the sync will
+  drop a name the page currently carries, and the summary leads with it.
+
+Proven by **mutation**, run and observed failing rather than asserted: 11 mutations of the
+check and 4 of the seam, each killing a named test, source restored and diffed
+byte-identical. **One of the four survived first time** — a guard in SERIES was doing the
+work — and the test was sharpened rather than the survival read as proof.
+
+### 7.7 What is still open on this bug
+
+1. **§5.1's EXECUTION** — `760_..._HOLD.sql` is written and dry-run proven; it needs an
+   owner ruling on RFC_064 §7 q2 (may a non-planner withdraw `built_from_plan_version`?),
+   plus the two questions in §7.2/§7.3. **Not a code problem.**
+2. **§5.3** — RFC_064, the typed writer, open with the owner, owned by the `427` lane.
+3. **The receipt lands in a queue nobody drains.** Stated rather than glossed: the estate
+   has 331 open `capability_gap` items at 42 days and nine untriaged
+   `archived_page_still_serving` items. This change does not fix that and does not claim
+   to — the safety property is not that the receipt is READ, it is that **the close cannot
+   happen without it**, so a loss is never laundered into "resolved". The drain is
+   `bugs_open/033`.
+4. **The other nine flag-only checks with no closer.** The seam is reusable; each
+   predicate is its own. Not attempted here.
+
+**This bug should NOT be closed yet** — the fix is committed but inert until the next
+chassis roll, and the estate's bar is fixed AND live.
