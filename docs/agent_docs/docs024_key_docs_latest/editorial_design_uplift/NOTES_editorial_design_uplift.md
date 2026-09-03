@@ -1575,3 +1575,74 @@ population class (686). Today's says it caught a fail-open fallback I had reason
 written a comment defending. Neither is the general rule: **a council catches what is visible in the
 diff and cannot fetch the estate around it.** The RowsAffected fallback was four lines in the
 submitted sketch; the 292 neighbouring pages were nowhere in it.
+
+### 2026-09-03 (evening) — the pre-registered probe DISCHARGED on v1.0.1359, and a truncated query that reached a peer as an assertion
+
+**THE PROBE PASSED, and the pair is what makes it evidence.** `v1.0.1359` rolled at 13:28:18Z, after
+`1007be27d` (12:09:56Z), so it is the first image that could carry the wiring.
+`[MEASURED 2026-09-03 ~21:22Z]`, pod `agent-chassis-85c4984f77-nrqf7`:
+
+| symbol | v1.0.1358 | v1.0.1359 | |
+|---|---|---|---|
+| `PlanSectionsAction` | PRESENT | PRESENT | control holds |
+| `zzzInventedControl_NotInAnyBinary` | absent | absent | control holds |
+| `hierarchyChildrenOf` | PRESENT | PRESENT | unchanged, as expected |
+| `recomposeAncestors` | **absent** | **PRESENT** | ← the only symbol that moved |
+
+**One bit changed and it is the bit the expectation named**, with both generic controls and the
+feature-specific control holding across the pair — so "the probe behaves differently on this image"
+is excluded rather than assumed away. `debug_historian`'s condition on corr `cab931b1` is satisfied:
+the instrument that diagnosed the absence confirmed the presence. **035 P1 direction 2 is live in the
+fleet** — reachable, not exercised; 0 of 3,229 rows are parented, so the read path is still what
+would exercise it.
+
+Third dry-run of the session, owed after the 1359 roll: **`Pending (183)`**, 36 already-applied, 40
+inconclusive (177/36, then 180/37, now 183/36).
+
+**⚠ A NOTE ON THIS FILE'S TIMESTAMPS, before anyone reads a clock fault into them.** This session ran
+**~9 hours of wall clock** — first code commit 12:09:56Z, close ~21:2xZ — most of it idle between
+turns. Host `date -u` and the DB's `now()` were re-checked against each other and agreed **to one
+second**, so the spread is elapsed time, not skew. I nearly filed it as skew.
+
+### The misstep, and it is the sharpest of the session because it left this repo
+
+A peer lane (`finetuning`) routed the owner's homepage-imagery ask here. In answering, I sent them a
+numbered correction: *"finetuning.uk has NO evidence base"*, evidenced by a list of its **twelve**
+current `site_specs` aspects.
+
+**The site has 26.** My query was `SELECT aspect … WHERE is_current ORDER BY 1` piped through
+`| tail -12`. `tail` dropped the first fourteen rows, and `ORDER BY 1` had sorted `evidence_base` to
+the **top** — so the single row the question existed to find was the first thing my own pipe deleted.
+Twelve rows came back looking like a complete answer.
+
+The peer re-ran it and quoted the row back. Verified first-hand before accepting: current
+`evidence_base`, updated 2026-08-26, **10 facts**, four superseded rows behind it, including
+`ft-price-99` (99, `exact`) and `ft-market-anchor` (5000, `approximate`).
+
+**Three things worth keeping:**
+
+1. **A display pipe silently became a predicate.** `tail -N` is for reading output, not for bounding
+   a result set, and a truncated list is indistinguishable from a complete one. The remedy is one I
+   had already used twice the same night on other queries: **count first, then list — a count cannot
+   be truncated by a pipe.** For a one-row question, ask for the row, not the list it lives in.
+2. **The truncation is BIASED, not random.** `ORDER BY` decides which rows the pipe eats, so an
+   alphabetically-early row is the systematic casualty — i.e. the failure is aimed at exactly the row
+   you sorted in order to find. That is what makes it worse than an ordinary off-by-N.
+3. **This was the THIRD blind measurement in one investigation, and the only one that escaped.** The
+   first two (probing `rendered_html` for `data-fact`, false on all six slots) were caught **because
+   the positive control returned 0 of 127 too**, proving the predicate broken rather than the data
+   empty. So the technique was not missing that night — the discipline was, on the one query that
+   felt too simple to need it. **The query I ran without a control is the one that reached a peer as
+   an assertion.**
+
+Filed in `WRONG_CALLS.md` and as a `LANDMINES.md` entry (footprint `site_specs`, `tail`,
+`evidence_base`, the psql-through-exec recipe), because the recipe this repo prescribes everywhere
+*is* `kubectl exec … psql … | tail -N`.
+
+**One thing I added by reading the fact rather than the brief**, and it is the lane's actual
+contribution to the graphic: `ft-market-anchor` carries `tolerance: "approximate"`, attested to a
+sweep finding $5k–$180k and a cheapest productised ~$4,800. **A comparison drawn as £99 against a
+crisp $5,000 bar asserts a precision the registry itself declines** — so the drawing must carry the
+imprecision (banded, or "from ~$5,000"), while `ft-price-99` is `exact` and may be crisp. The
+asymmetry between the two sides is the honest picture and the more interesting one. That is the kind
+of constraint this lane exists to supply, and it is invisible unless someone opens the fact.

@@ -12,29 +12,33 @@ which changed today. This file replaces its §0, §5, §7 and §9.
 ## 0. Environment — state at handoff, 2026-09-03 ~12:45Z
 
 1. **Kubeconfig is ALIVE.** The 09-02 expiry is resolved; `kubectl` works.
-2. **The chassis is `v1.0.1358`** (pods up **12:06:47Z / 12:07:16Z**). Two rolls happened during
-   this session: `v1.0.1356` at 08:57Z and `v1.0.1358` at 12:06Z. **`v1.0.1356` is stale — do not
-   quote it.**
-3. **⚠ `v1.0.1358` DOES NOT CARRY THIS SESSION'S CHANGE, and it missed by THREE MINUTES.** Verified
-   at the artefact, not inferred from tags — see §4a for the probe table. The timeline, in UTC
-   converted by `date -u` rather than by hand:
+2. **The chassis is `v1.0.1359`** (pods up **13:28:18Z / 13:28:43Z**). THREE rolls happened across
+   this session: `v1.0.1356` (08:57Z), `v1.0.1358` (12:06Z), `v1.0.1359` (13:28Z). **1356 and 1358
+   are both stale — do not quote either.**
+3. ~~⚠ `v1.0.1358` DOES NOT CARRY THIS SESSION'S CHANGE~~ **SUPERSEDED — `v1.0.1359` DOES, and the
+   pre-registered probe in §4a confirmed it.** The 1358 gap is kept below because it is what made the
+   confirmation decisive rather than merely reassuring:
 
    | UTC | event |
    |---|---|
    | 12:06:45Z | `3fa8a604c` "release v1.0.1358" |
    | 12:06:47Z | chassis pods start on `v1.0.1358` |
-   | **12:09:56Z** | **`1007be27d` — this session's wiring commit** |
+   | **12:09:56Z** | **`1007be27d` — this session's wiring commit** (missed 1358 by 3m 09s) |
+   | 13:28:18Z | chassis pods start on `v1.0.1359` — **carries it** |
 
-   So the wiring is on the branch and **not in the fleet**. It ships on the next roll, whoever runs
-   it. Nothing is broken by the gap: the change is inert by measurement either way.
+   **So 035 P1 direction 2 is LIVE IN THE FLEET as of `v1.0.1359`.**
+   ⚠ **This session ran ~9 hours of wall clock** (12:09Z first code commit → 21:2xZ close), most of
+   it idle between turns. If you are reading timestamps in this file that look implausibly spread
+   apart, that is why — **there is no clock skew**: host and DB `now()` were re-checked against each
+   other and agreed to one second.
 4. **The migration dry-run owed after this roll HAS BEEN RUN** (`[MEASURED 2026-09-03 ~12:55Z]`),
    so the next session does not owe it again unless another roll lands:
 
-   | reading | `v1.0.1356` (08:57Z roll) | `v1.0.1358` (12:06Z roll) |
-   |---|---|---|
-   | `Pending (N)` | 177 | **180** |
-   | `LIKELY ALREADY APPLIED; its own guard raised` | 36 | **37** |
-   | `probe inconclusive` | — | 41 |
+   | reading | `v1.0.1356` (08:57Z) | `v1.0.1358` (12:06Z) | `v1.0.1359` (13:28Z) |
+   |---|---|---|---|
+   | `Pending (N)` | 177 | 180 | **183** |
+   | `LIKELY ALREADY APPLIED; its own guard raised` | 36 | 37 | **36** |
+   | `probe inconclusive` | — | 41 | **40** |
 
    The **already-applied** column is `bugs_open/426`'s figure — files applied by hand and never
    recorded, i.e. the replay hazard — and it is still climbing (34 on 09-02, 36 then 37 today).
@@ -203,6 +207,26 @@ paragraph to resolve.
 `recomposeAncestors` must read **PRESENT**. If it does not, the roll did not carry `1007be27d` — not
 that the wiring failed.
 
+> ### ✅ DISCHARGED — the AFTER half ran on `v1.0.1359` and came back exactly as pre-registered
+>
+> `[MEASURED 2026-09-03 ~21:22Z]`, pod `agent-chassis-85c4984f77-nrqf7`:
+>
+> | symbol | v1.0.1358 | **v1.0.1359** | |
+> |---|---|---|---|
+> | `PlanSectionsAction` | PRESENT | **PRESENT** | control holds |
+> | `zzzInventedControl_NotInAnyBinary` | absent | **absent** | control holds |
+> | `hierarchyChildrenOf` | PRESENT | **PRESENT** | unchanged, as expected |
+> | `recomposeAncestors` | absent | **PRESENT** | ← **the only symbol that moved** |
+>
+> **One bit changed, and it is the bit the expectation named.** Both controls held across the pair
+> and the feature-specific control did not move either, so the reading cannot be explained by "the
+> probe behaves differently on this image". `debug_historian`'s condition (corr `cab931b1`) is
+> **satisfied**: the instrument that diagnosed the absence has confirmed the presence.
+>
+> **035 P1 direction 2 is live in the fleet.** It remains inert on live data — 0 of 3,229 rows carry
+> a `parent_instance_id` — so "live" means reachable, not exercised. The first composed page is what
+> exercises it, and that is still the read path's job.
+
 ```bash
 POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
 for SYM in PlanSectionsAction zzzInventedControl_NotInAnyBinary recomposeAncestors hierarchyChildrenOf; do
@@ -288,3 +312,72 @@ rather than a guarantee. Forward-only: not amended, corrected here.
 - everything from the 09-02 handoff's §8 still stands: boxingonline site `d2aa5206-73bc-4707-a69c-2702c1eb9152`
   serving at `boxingonline.ugg2.com`; `article-body` `5835b2e1-50d7-4f20-8a9c-8da4d270ae3d` at md5
   `002cbcd9cada6a37bf4a5158fd1e5f22`; planner definition `f263eaa1-61e1-446e-9410-648e12b7875b`
+
+---
+
+## 7. NEW INBOUND, and this lane owns half of it: finetuning.uk homepage infographics
+
+Arrived 2026-09-03 evening from the `finetuning` lane, relaying the owner: *"tidy up the components
+and use more interesting ones for the cards, probably different carousel like structures… be
+imaginative, research good alternatives and apply them"*, plus a 22:25 addendum, *"including
+infographics wherever they will help the understanding of the concepts"*.
+
+**The split, proposed by this lane and ACCEPTED by theirs:**
+
+| half | owner |
+|---|---|
+| choosing + applying card/carousel components on `index.html` | **finetuning lane** |
+| **infographics for that page** | **this lane** |
+| the missing swap mechanism (no item type changes a slot's component) | **this lane** |
+
+Their `design_critique_run` is filed (item `204f1ff7`, `design-critique-agent`, `triaged`) and its
+report is the research input for both halves.
+
+**Why the card half is not ours, stated because the routing looked wrong at first glance:** this
+lane's PLAN scope sentence ("how the page family LOOKS") is fixed one paragraph above to the
+**editorial** family. A marketing homepage is not that family. But nobody else owns it either —
+`site-design-planner` does palette/layout/typography, the experience loop judges rather than applies,
+`Staged component build` is CLOSED — so it is unowned work on a page they own, which makes them the
+applier by elimination, not by territory.
+
+**Slots scoped for imagery, `[MEASURED 2026-09-03]` at the live rows:**
+
+| pos | `slot_name` | scoped? | why |
+|---|---|---|---|
+| 1 | `hero` | no | chrome |
+| 2 | `features` | **YES** | "what fine-tuning is" — a concept diagram, **no quantities**, so nothing to source |
+| 3 | `differentiators` | **YES** | the £99 vs ~$5,000 comparison — the strongest graphic on the page |
+| 4 | `case-studies-grid` | **no, deliberately** | their canary slot; staying off it makes collision impossible |
+| 5 | `departments-grid` | no | a taxonomy, not a quantity — an infographic there is decoration |
+| 6 | `call-to-action` | no | chrome |
+
+⚠ **`slot_name` is `differentiators`, NOT `differentiators-section`** (which is the component name).
+Their brief had the component name in it — in the brief that warns against by-name matching. Resolve
+by function.
+
+**The sourcing question, and the answer that constrains the drawing.** Both numbers ARE registered:
+the site's current `evidence_base` (10 facts, updated 2026-08-26) holds `ft-price-99` (99,
+`tolerance: exact`) and `ft-market-anchor` (5000, **`tolerance: approximate`**, attested to a web
+sweep finding $5k–$180k and a cheapest productised ~$4,800). **So the comparison is drawable — and
+the `approximate` tolerance is a design constraint, not a footnote:** a crisp bar end presents as
+precise a number the registry itself declines to call precise. Band it, or label it "from ~$5,000";
+the £99 side may be crisp, and that asymmetry is the honest picture.
+
+**⚠ I asserted the opposite of that first, and it was a truncated query, not a finding.** I told the
+peer the site had no evidence base at all, on a list of "twelve current aspects" — the site has
+**26**, my `| tail -12` ate the first fourteen, and `ORDER BY 1` had sorted `evidence_base` to the
+top, so the one row the question was about was the first casualty. Retracted within the hour, and it
+is in `WRONG_CALLS.md` and `LANDMINES.md` (footprint `site_specs`, `tail`, `evidence_base`). **Count
+first, then list — a count cannot be truncated by a pipe.**
+
+**Blocked on two things, neither of them technical:** the owner has not yet chosen between the narrow
+route (hand-author this one page's `site_plan_imagery` rows at `kind='infographic'`) and the
+fleet-wide planner-prompt change (§2 of the CONTRIB — planner owners' call, 18 remakes behind it);
+and **this session does not have its user's authorisation to make live writes on finetuning.uk**. A
+peer accepting a split is not that authorisation. Both are named to the peer, who is relaying the
+route choice to the owner.
+
+**Papers:** the ask and its constraints —
+`editorial_design_uplift/CONTRIB_2026-09-03_from_finetuning_owner_asks_for_more_imaginative_card_structures_on_the_homepage.md`;
+this lane's answer — `finetuning_uk_service/CONTRIB_2026-09-03_from_editorial_design_uplift_answer_on_the_homepage_cards_and_infographics.md`
+(commit `a85bcedea`).
