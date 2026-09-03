@@ -190,3 +190,25 @@ liveness check; if `merge-base --is-ancestor 6525b45ae <stamp>` passes, the fixe
 bar is met at the class level and the bug file's close-out block should be updated (the
 bug still holds open for the INSTANCE work and candidate (3)). Do NOT close on the work
 item's existence alone — it proves the defer half only.
+
+## 2026-09-03 morning — second predicted-population firing; 450's §7 retires the deadlock branch
+
+- **The defer repair has now fired on TWO of the predicted 8 featured_post sites**
+  (designblog index 21:04:44Z + websitepromotion index overnight, both the unregistered
+  `featured_post` base — portfolio_positioning's read, recorded in their lane + 450).
+  Instances theirs; the CLASS decision (register a resolver vs re-point the shared
+  component) stays routed to the components thread + queryresolve owners via the 444 bug
+  file. Evidence is accumulating exactly along the round-2 census line.
+- **450's §7 answered at the rows** (their lane): tool-deployer creates its OWN page rows
+  under the suggester's names — 0 of 7 (seotools) and 0 of 1 (websitepromotion) coincide
+  with planner stubs — so my CONTRIB's deadlock conditional is RETIRED: holding planner
+  tool stubs starves nothing, candidate 1 is order-safe on that axis; the
+  cannot-close-the-phantom-link-door half of the CONTRIB stands unchanged (their file
+  carries the correction). New branch they found: a planned tool page with NO sections
+  parks at `mark_no_ready_sections` instead of shelling — the shell requires planned
+  generic sections to exist.
+- **Verdict-location fact worth keeping**: a 090 `needs_diagnosis` verdict lives in the
+  work item's `result` column, NOT doc_notes (their 96e97dc4 CONFIRMED at 22:11Z was found
+  there). The doc_notes location this lane's RUNBOOK quotes is for COUNCIL-GATE verdicts —
+  a different loop; both locations are correct for their own loop, stated here so nobody
+  cross-applies them.
