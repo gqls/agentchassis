@@ -4922,4 +4922,27 @@ Owner: *"otherwise the brief is good carry on"* — the release word. Per RUNBOO
   correction; and the fix-forward is `params: ["input_data.site_id"]` **only once that path is proven
   to resolve in this agent** — the classifier has no `ensure_site_record` step, so it does not have
   offer-analyser's `site_record.site_id`.
+- **(ll) №5's tool sweep ran EARLY and well — and produced a live `bugs_open/447` instance the brief
+  explicitly forbids.** `evaluate_tools` completed 16:01:52Z, **before classification and before the
+  plan**, which is exactly the ordering runbook §2b wanted and it happened by itself: the discovery
+  sweep acts within minutes of unlock. **So §2b needs rewriting — the one-shot task it prescribes is
+  unnecessary; the natural ordering already does it.**
+- **Six tools suggested. Three fit the site; three are a sibling's ground.**
+  - FIT: `Website Brief Starter`, `Copy Brief Builder` (brief-building for clients),
+    and **`Insight Injector` — "inject real facts, customer stories and proof points into an AI
+    prompt so the resulting copy doesn't [sound generic]", which lands squarely on the owner's AI
+    angle** and is the best of the six for this site.
+  - ⚠ DUPLICATES OF `seotools.co.uk`, by name and by function: `SERP Snippet Previewer`,
+    `Title Tag Scorer`, `Keyword Intent Classifier` — **all three exist as live pages on seotools
+    today**, two of them built by our own repair wave this morning.
+- **This is 447 exactly**: the suggester reads identity+classification and cannot see positioning, so
+  it cannot honour the brief's must_not *"no duplicate of advertise/seotools/websitepromotion tools
+  by name (447)"* — and here it ran with **no classification at all** (only `mission_brief` existed),
+  so it had even less context than usual. It contradicts the brief's own differentiation, which says
+  this site owns copy QUALITY and leaves SERP fit to seotools.
+- **NOT ACTED ON, deliberately.** The owner ruled this morning that cluster duplication may be kept,
+  and separately that a running build must not be changed. All six items are `triaged` on a live
+  build. **Flagged to him with a recommendation rather than cancelled** — the cost is positioning
+  dilution, not breakage, and the decision is his. If he wants the three dropped, cancelling three
+  `triaged` `add_tool` rows before they build is cheap; after they build it is a page retirement.
 
