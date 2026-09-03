@@ -5450,3 +5450,42 @@ being actively swept while remaining stalled on the one step that matters.
   it is the kind of thing that reads as a real defect to a later cold-start.
 
 **Nothing acted on.** Consistent with (rr): the site is not to be prodded.
+
+### (uu) 2026-09-03 ~18:25Z — closing my own `[UNMEASURED]` marker: the blast radius is exactly four expressions, and `roadmap_brief` is latent rather than live
+
+Entry (rr) and the 453 contribution both flagged `roadmap_brief` as "the same shape, unmeasured".
+Measured now, with the control the absence needed.
+
+**The complete fleet-wide enumeration** — every `.text`-child reference in every active,
+non-snapshot agent:
+
+| agent | expression |
+|---|---|
+| `build-site-planner` | `{{.site_specs.specs.mission_brief.text}}` |
+| `build-site-planner` | `{{.site_specs.specs.roadmap_brief.text}}` |
+| `domain-research-classifier` | `{{.site_specs.specs.mission_brief.text}}` |
+| `domain-research-classifier` | `{{.site_specs.specs.roadmap_brief.text}}` |
+
+Four expressions, two agents, two aspects, and nothing else in the estate uses the shape. So the fix
+is bounded and complete rather than open-ended — which is a materially better thing to hand the owning
+lane than "and there may be more".
+
+**`roadmap_brief`: 4 of 4 current specs carry `text`. Zero affected today.** This is an absence claim,
+so it needed a control and has one built into the same predicate: `mission_brief` returns **7 of 23
+without**. `ss.data ? 'text'` therefore demonstrably discriminates, and the zero is a real zero rather
+than a query that cannot see the shape. Per the standing rule — *run the control whenever the claim is
+an absence, don't bother when it is a hit* — this is the case that needed it.
+
+**The distinction worth keeping.** `mission_brief` is live damage; `roadmap_brief` is an armed trap
+whose authors have so far been lucky. Both deserve the same fix, but **verification must happen at
+`mission_brief`**, because it has failing rows today and a re-run there can come out differently. A
+`roadmap_brief` test would pass before and after the fix and prove nothing — the vacuous-assertion
+shape this estate keeps paying for, and one I would have walked into if I had reached for the tidier
+"test both" instinct.
+
+**Method note, since it is the transferable part.** This enumeration is the same query that refuted me
+in (rr) — a regex over `agent_definitions` prompts — pointed at a different capture. Having been
+caught once by enumerating the readers of a field and speaking about the readers of the information, I
+ran the general form rather than the specific one, and it answered a question I had left open as well
+as the one I asked. **The cheap generalisation of a query that has already caught you is usually worth
+running twice.**
