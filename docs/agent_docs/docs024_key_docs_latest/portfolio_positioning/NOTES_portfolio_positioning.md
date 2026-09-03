@@ -4971,4 +4971,18 @@ Owner: *"otherwise the brief is good carry on"* — the release word. Per RUNBOO
     cross-links were emitted"* — the suggester ran with no classification, so it produced no
     related-page hints and the tools land uncross-linked. Cosmetic today; worth knowing that a
     pre-classification sweep costs cross-links.
+- **(ll) ⚠ THE ROLLBACK IS NOT YET PROVEN, AND NEITHER IS THE HALF I KEPT.** At 16:23Z: **0 classifier
+  errors since the rollback — and 0 classifier RUNS.** A post-fix zero with no demand behind it is
+  not evidence (memory: *a post-fix ZERO needs a DEMAND control*). I nearly reported "no errors" as
+  reassurance; it means nothing until one runs.
+  **Sharper, and I glossed it when reporting to the owner: `layout_taxonomy` in `input_fields` has
+  ALSO never executed.** Every run since 11:39:14Z failed at my register step, which sat BEFORE
+  `classify_and_extract` in the chain — so the taxonomy fix has never reached the prompt either. The
+  next successful classification is the FIRST test of both the rollback and the surviving half, and
+  if the taxonomy list breaks the render (it is a large array injected into a template that has never
+  received it) that will surface then, not before.
+  **Item `319d8d15` is now due (`retry_after` 16:22:05Z passed); `a428a8f5` becomes due 16:29:12Z.**
+  Watch for a `classification` spec, and read the rendered prompt afterwards to confirm the library
+  tag list is populated rather than `null` — that read is the actual proof, and it is owed to the
+  445 lane as their real before/after boundary.
 
