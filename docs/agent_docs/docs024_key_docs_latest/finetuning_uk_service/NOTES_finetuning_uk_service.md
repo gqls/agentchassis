@@ -2662,3 +2662,8 @@ exact bytes to the owner, then Stage B rebuilds.
    if he asks for "more specific", the honest answer is his exemplars, not a widened regex
    (6.60% base rate of `, so <pronoun>` in live copy).
 Carried to the owner 11:35Z; no re-ask unless he overrules.
+
+**11:55Z — bug number 456 is now DUPLICATED** (CLAUDE.md updated by another session: a second lane
+filed `456_…one_undecodable_fact_disarms_a_whole_evidence_register` within hours of this lane's
+`456_…writer_emitted_a_malformed_closing_tag`). Every "456" in this lane's NOTES, CONTRIBs and
+commit messages today means the **malformed-closing-tag** file; refer to it by slug from here on.

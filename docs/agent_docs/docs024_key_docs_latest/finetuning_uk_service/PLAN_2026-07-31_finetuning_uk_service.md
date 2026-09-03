@@ -374,3 +374,27 @@ What this changes in the plan, as decisions (not yet scheduled; "details later")
   pounds an hour" clears the posture with room. `[NOT DECIDED]` the number; set it in the details
   conversation, after the CPU-demo tok/s measurement says what the free tier can carry.
 - Existing tools stay. Their pages are unaffected by this direction.
+
+### Direction addendum (owner, 2026-09-03, 11:55Z) — a big GPU for the examples; third-party models
+
+Owner, verbatim: *"the gpu for the examples could be a big one so it feels snappy - this might
+change our pricing estimate. Eventually we may have third parties submitting their models and they
+might have a page of their own and we'd show examples or their results similar to how we'd show
+our own."*
+
+- **GPU class for hosted examples: a big one.** Measured rates (vendor invoice 2026-08-18, per
+  minute): a6000 **$0.35/hr**, a100xl **$1.09/hr**; `thunder_config` lists A100XL 80GB at $1.80/hr
+  (the booked ESTIMATE that ran 5.1× over the invoice). What "snappy" needs depends on the model:
+  Phase 0's 1.7B on an a6000 was already **0.36 s warm first token, 139 tok/s**; a big GPU buys
+  **larger models (7B–70B) and concurrency**, not speed on a 1.7B. **Pricing at ×5 on an A100 ≈
+  $5.45/hr ≈ £4/hr**, so "a couple of pounds an hour" no longer clears ×5 on that class; either
+  the price rises, the multiple falls, or the class is chosen per model size. `[NOT DECIDED]`;
+  details conversation. `[TO MEASURE]` A100 cold start (provision → first token) — Phase 0 only
+  measured the a6000 (3 m 23 s).
+- **Third-party models, each with a page of their own**, showing their examples/results the way
+  we show ours. Implication for the catalogue design: an "example" is not ours by definition —
+  it has an OWNER (us or a submitter), a model artefact, a page, before/after pairs, results, and
+  a bookable hour. So the page type is "model page", ours are the first entries, and submission
+  is a later flow (what a submitter provides, how the artefact is checked before hosting, licence
+  and liability, who sets the price). Nothing designed yet; recorded so the catalogue is not
+  built ours-only.

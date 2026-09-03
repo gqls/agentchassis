@@ -1307,3 +1307,13 @@ rebuilt on the back of it yet; the playground build carries on as step one, and 
 refocus, the examples catalogue and the pricing wait for the details conversation. On the
 pricing: five times our measured GPU cost comes to about £1.40 an hour, so a couple of pounds
 covers it with room.
+
+2026-09-03, 11:55. Two more things from you: "the gpu for the examples could be a big one so it
+feels snappy - this might change our pricing estimate. Eventually we may have third parties
+submitting their models and they might have a page of their own and we'd show examples or their
+results similar to how we'd show our own." Both recorded in the plan. On the money: the small GPU
+we tested costs 35 cents an hour and already answered in a third of a second with a small model;
+the big one is $1.09 an hour on the same invoice, so five times that is about £4 an hour rather
+than £1.40. The big card buys bigger models and more people at once, not speed on a small model.
+The third-party idea means the examples pages are built as "model pages" from the start, with an
+owner on each, so ours are just the first ones.
