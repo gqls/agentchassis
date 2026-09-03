@@ -752,3 +752,68 @@ identities, three or four. Then, if three or more, what an empty "operating part
 if readers quietly fall back to whoever paid then the split achieves nothing. And which of the
 identities is the address the delivery email goes to, which has to be named in the recipe rather
 than inherited from whatever happens to be nearest.
+
+---
+
+## 2026-09-03, evening — the approve button now does what it looks like it does
+
+Yesterday you pressed APPROVE on the copy change in the admin queue. The queue said the review was
+complete. The page did not change, and nothing told you.
+
+I have fixed that today, and I want to explain what was actually wrong, because it turned out to be
+worse than we first wrote down, and the way it was worse is the interesting part.
+
+**What the approve button is meant to do.** When a piece of the system wants a human to look at
+something before it happens, it parks the proposal in your queue with a note attached saying what to
+do if you approve. Pressing approve is supposed to read that note and file the follow-on job.
+
+**The rule that note was relying on.** The note can say "carry these particular fields across into
+the job". That is a real feature with a real name in the config, and it is written up in the code's
+own documentation with a worked example.
+
+**What was actually happening.** The thing that parks the proposal writes it down in a fixed shape —
+always the same handful of slots, and the proposal's contents go inside one of them. The approve
+button was looking for those named fields in the *outer* shape, where they can never be. So it found
+nothing, every time, and filed a job with all its fields blank.
+
+I checked how often that had happened rather than assuming. Every review of this kind ever created —
+twenty-one of them, going back to the 24th of August, naming forty-two fields between them. **Not one
+of the forty-two could ever have been found.** So this was not two halves of the system disagreeing.
+It was a feature that had never worked at all, for anybody, since the day it was written — and it
+looked fine the whole time because nobody had pressed the button until you did.
+
+**The second thing wrong.** The copy editor proposes a *list* of changes — your review had two, the
+article subtitle and the call-to-action line. The thing that applies changes handles exactly one. So
+even with the fields plumbed through, a two-change review has no single target and cannot be applied.
+The approve button now files one job per change, which is precisely what I did by hand yesterday to
+get your two edits onto the page — and, it turns out, exactly what another thread did by hand the day
+before, on a different site, for the same reason. Two of us independently invented the workaround. The
+button now does it itself.
+
+**One extra thing I put in while I was there, which I think matters more than it sounds.** Sixteen of
+these reviews are sitting in your queue right now, waiting, carrying thirty-one proposed changes
+between them. Some are ten days old. When a page is rebuilt, the section a proposal was pointing at
+is replaced, and the old address stops existing. Three of those thirty-one now point at something
+that is gone. If I had only fixed the button, approving one of those would have filed a job that dies
+silently — the same failure you just had, freshly manufactured by the fix for it. So the button now
+refuses those and tells you which ones and why, rather than filing them.
+
+And the review row now records what your approval actually produced — the jobs it filed, and anything
+it declined to file. "Complete" used to mean only "he pressed the button". It now means something you
+can check.
+
+**What this does not do yet.** It is committed but not running. It is program code rather than
+settings, so it only takes effect when the next build goes out. Until then the old behaviour is what
+you would see. I have also put it through the reviewer council, which is advisory — it cannot block
+anything, but if it finds a problem I will act on it, and I will tell you either way.
+
+**One thing I got wrong today, since it is my rule that these go in writing.** The site-checking
+script I wrote yesterday grades a page by reading the page. Another thread showed me that the news
+pages replace their own contents after loading, from a data file I was not reading — and that data
+file is full of the raw formatting marks we were checking for. So my script was reporting those pages
+clean while they were not, on five sites, not one. My claim that the sweep "found nothing new" was
+true of the sweep and false of the site. They found it, they are fixing it, and I have written down
+the check I should have run: read both the page and whatever the page fetches, with the same needle.
+
+**Still with you, unchanged:** the logo, and whether to rehearse the delivery chain on one of our own
+sites before it ever runs on a customer's.
