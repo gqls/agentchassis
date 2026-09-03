@@ -70,8 +70,17 @@ def quality(row):
 
     # TLD: .com is the liquid one; UK TLDs sell to a UK buyer only, and .uk
     # trails .co.uk in the UK market despite being shorter.
-    tld_mult = {'com': 1.0, 'co.uk': 0.85, 'uk': 0.70, 'org.uk': 0.45,
-                'me.uk': 0.35, 'net': 0.55, 'org': 0.55, 'biz': 0.30,
+    # ⚠ .uk was 0.70 until 2026-09-03 — a GUESS, and wrong by 3-4x.
+    # `[MEASURED]` COMPARABLES_2026-09-03_realised_sales.md §1.3(c), from
+    # realised sales (domainlore.uk / domainsaleshistory.uk): a one-word
+    # commercial generic realises £2,000-£5,000 in standalone .uk against
+    # £6,000-£35,000 for the .co.uk equivalent — roughly a THIRD TO A FIFTH,
+    # tight across 2024 and 2025, on a market ~20x thinner by volume.
+    # So .uk = 0.85 (co.uk) x 0.25 (midpoint) = 0.21.
+    # The RATIO is evidence-based; the absolute .co.uk-to-.com level is still
+    # a judgement, so treat 0.85 as the softer of the two numbers.
+    tld_mult = {'com': 1.0, 'co.uk': 0.85, 'uk': 0.21, 'org.uk': 0.20,
+                'me.uk': 0.12, 'net': 0.55, 'org': 0.55, 'biz': 0.30,
                 'info': 0.30, 'io': 1.0, 'ai': 1.0, 'shop': 0.35,
                 'club': 0.30, 'cv': 0.25, 'vin': 0.25, 'us': 0.40}.get(tld, 0.40)
     if tld_mult != 1.0:
