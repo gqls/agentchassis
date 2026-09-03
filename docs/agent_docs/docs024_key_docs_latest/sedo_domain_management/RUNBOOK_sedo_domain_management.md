@@ -174,7 +174,7 @@ part of what that call is for.
 
 ## §7 Generating the bulk-import sheet (no credentials needed)
 
-`scripts/domains/sedo-importer-xlsx.py` (self-test: `--self-test`, 9
+`scripts/domains/sedo-importer-xlsx.py` (self-test: `--self-test`, 10
 checks) reads the domain_valuation lane's inbound CSVs and writes the
 importer xlsx in Sedo's own template shape (§6), plus a CSV twin for
 review/diff and a provenance CSV (domain, source file, NS class):
@@ -189,7 +189,9 @@ python3 scripts/domains/sedo-importer-xlsx.py build \
   --domains $IN/dynadot_domains_<date>.csv \
   --domains $IN/porkbun_domains_<date>.csv \
   --domains $IN/spaceship_domains_<date>.csv \
-  --exclude-file $OUT/EXCLUDED_live_cloudflare_<date>.txt \
+  --domains $IN/nominet_domains_<date>.csv \
+  --exclude-file $OUT/EXCLUDED_live_<date>.txt \
+  [--exclude-file $OUT/EXCLUDED_owner_<reason>_<date>.txt ...] \
   [--prices docs/agent_docs/docs024_key_docs_latest/domain_valuation/OUTPUT_prices_<date>.csv]
 ```
 
@@ -216,6 +218,16 @@ Gotchas, each earned:
   despite being `status='deployed'` — a known cross-lane case, improvement-
   loop D2; the DB is what catches it, NS cannot). Regenerate the whole
   union with each sheet — the live set changes as sites launch.
+- **An owner-requested withdrawal (e.g. "take out the X family of
+  domains") is a SEPARATE fence, not an addition to the live-site one**
+  (added 2026-09-04, `--exclude-file` accepts multiple and unions them —
+  keep files named by reason: `EXCLUDED_live_<date>.txt` vs
+  `EXCLUDED_owner_<reason>_<date>.txt`). Appending unrelated names into the
+  live-site file was tried once and reverted the same session — the
+  live-site fence gets fully regenerated from its own two sources next
+  time (Nominet zones + `sites` table), which know nothing about a
+  personal withdrawal request, so anything hand-added there would silently
+  vanish on the next regeneration.
 - Without `--prices`, every row is MAKE_OFFER / yes / no price — the
   agreed interim; prices come from the valuation lane's canonical
   `OUTPUT_prices_<date>.csv` (their column freeze; do not build against it

@@ -220,3 +220,54 @@ Outstanding: prices import once the valuation lane freezes/ships
 `OUTPUT_prices`; owner still owes the §2 API-access email + §3 secret for
 the API route; dynadot's remaining 151 appraisals resume on their own
 schedule.
+
+## 2026-09-04 — owner sanity-checked draft2, asked to withdraw the Appleby family; draft3 = 2,888
+
+Owner asked two questions and gave one instruction: (1) confirm no BUY_NOW
+prices in the sheet, (2) what minimum-offer amounts were set, (3) "take
+out all the appleby domains" before uploading.
+
+**Verified directly against the artefact** (never trust the intent, check
+the file): `awk` over every one of the 2,895 rows in draft2 — Selling
+Option column has exactly one distinct value, `MAKE_OFFER`; Price,
+Minimum Price and Currency columns are empty on all 2,895 rows, zero
+exceptions. So: no BUY_NOW rows, and the honest answer to "what minimums"
+is **none set** — every domain currently reads as an open make-offer with
+no floor, which is the interim shape agreed with the valuation lane
+pending their `OUTPUT_prices` (RUNBOOK §7 priced-import section).
+
+**Appleby**: grepped every inbound CSV (not just the sheet) for the
+substring — **7** domains actually held: anthonyappleby.com, appleby.cv,
+katherineappleby.co.uk, kathyappleby.co.uk, kathyappleby.com,
+oliverappleby.co.uk, williamappleby.co.uk. Three more names
+(katherineappleby.com, oliverappleby.com, williamappleby.com) appear in
+the valuation lane's new `appraisal_queue_proxy_2026-09-04.csv` as
+comparables paired against the .co.uk domains, not domains this estate
+holds — checked directly against all four registrar/registry CSVs,
+confirmed not held, correctly left untouched.
+
+**Misstep, caught before committing**: first instinct was to append the 7
+names straight into `EXCLUDED_live_2026-09-03.txt` — wrong, because that
+file's own name states a specific reason (live-site protection) and gets
+**fully regenerated** from its two sources (Nominet zones + `sites` table)
+on every future cut; anything hand-added there would be silently dropped
+the next time it's rebuilt from source. Reverted (`git checkout --`)
+before it was ever committed. Correct fix, done instead: widened
+`sedo-importer-xlsx.py`'s `--exclude-file` to `action="append"` (unions
+multiple files; self-test now 10/10, the new check calls the actual
+reader function rather than re-implementing the union inline — a test
+that reimplements the logic under test proves nothing), then a SEPARATE
+file `EXCLUDED_owner_appleby_2026-09-04.txt` (7 names) for this specific,
+differently-reasoned request. RUNBOOK §7 now states the rule: one fence
+file per REASON, never merge.
+
+**Draft3 built and verified**: 2,895 − 7 = **2,888** domains, confirmed
+three ways — the tool's own printed exclusion list (57 = 50 + 7), an
+independent re-read of the xlsx (2,889 `<row` = header + 2,888), and a
+direct grep of the output CSV for "appleby" (zero hits). Files:
+`outbound/SEDO_IMPORT_2026-09-04_draft3.{xlsx,csv}` + `_provenance.csv` +
+`EXCLUDED_owner_appleby_2026-09-04.txt` (new); `EXCLUDED_live_2026-09-03.txt`
+unchanged and reused as-is.
+
+Owner said he'll upload what's built now — draft3 is current. Prices
+remain the outstanding item; nothing else changed this round.

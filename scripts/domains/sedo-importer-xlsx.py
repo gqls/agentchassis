@@ -19,7 +19,13 @@ Usage:
       [--provenance-out PROV.csv]
       --domains a.csv [--domains b.csv ...]
       [--prices OUTPUT_prices.csv]
-      [--exclude-file live_domains.txt]
+      [--exclude-file live_domains.txt [--exclude-file other_reasons.txt ...]]
+
+Multiple --exclude-file are UNIONED — keep separate files per REASON (e.g.
+one for live-site protection, a distinct one for an owner-requested
+withdrawal) rather than appending unrelated domains into a fence file
+whose name states a specific reason; a future regeneration of one file
+must not silently lose the other's exclusions.
 
 The prices CSV is mapped by HEADER NAME (afternic-csv.py's lesson: never
 positional): domain, selling_option, price, min_price, currency, and either
@@ -87,6 +93,15 @@ def read_domains(paths):
         for path, d in bad:
             print(f"sedo-importer: REJECTED domain {d!r} from {path}", file=sys.stderr)
         raise SystemExit(f"sedo-importer: {len(bad)} invalid domain(s); fix the input")
+    return out
+
+
+def read_exclude_files(paths):
+    """Union of one-domain-per-line files -> lowercased set."""
+    out = set()
+    for p in paths:
+        with open(p, encoding="utf-8") as fh:
+            out |= {l.strip().lower() for l in fh if l.strip()}
     return out
 
 
@@ -283,6 +298,15 @@ def self_test():
         check("default row is MAKE_OFFER/yes/blanks",
               defaults[0] == ["zzz.example.com", "MAKE_OFFER", "yes", "", "", "", ""])
 
+        ex1 = os.path.join(td, "ex1.txt")
+        ex2 = os.path.join(td, "ex2.txt")
+        with open(ex1, "w", encoding="utf-8") as fh:
+            fh.write("aaa.example.com\n")
+        with open(ex2, "w", encoding="utf-8") as fh:
+            fh.write("bbb.example.com\n")
+        check("two exclude files union (via the actual reader function)",
+              read_exclude_files([ex1, ex2]) == {"aaa.example.com", "bbb.example.com"})
+
         bad = os.path.join(td, "bad.csv")
         with open(bad, "w", encoding="utf-8") as fh:
             fh.write("domain,expiry\nnot a domain!!,2027-01-01\n")
@@ -305,7 +329,7 @@ def main():
     ap.add_argument("--provenance-out")
     ap.add_argument("--domains", action="append", default=[])
     ap.add_argument("--prices")
-    ap.add_argument("--exclude-file")
+    ap.add_argument("--exclude-file", action="append", default=[])
     args = ap.parse_args()
 
     if args.self_test:
@@ -313,10 +337,7 @@ def main():
     if args.mode != "build" or not args.out or not args.domains:
         ap.error("need: build --out X.xlsx --domains a.csv [...]")
 
-    exclude = set()
-    if args.exclude_file:
-        with open(args.exclude_file, encoding="utf-8") as fh:
-            exclude = {l.strip().lower() for l in fh if l.strip()}
+    exclude = read_exclude_files(args.exclude_file)
     prices = read_prices(args.prices) if args.prices else {}
     domains = read_domains(args.domains)
     rows, excluded, prov = sheet_rows(domains, prices, exclude)

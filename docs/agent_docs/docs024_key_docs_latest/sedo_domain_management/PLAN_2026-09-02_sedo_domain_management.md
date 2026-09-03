@@ -51,16 +51,21 @@ parking) by Claude sessions, via Sedo's API.
 - **P2b — bulk-import sheet (web route, added 2026-09-02 evening, owner
   request).** Sedo's web importer takes the same data with NO API
   credentials — the owner uploads the xlsx in the dashboard. Built:
-  `scripts/domains/sedo-importer-xlsx.py` (self-test 9/9). **Superseded by
-  draft2, 2026-09-03: full portfolio, 2,895 domains** — Dynadot 453 +
+  `scripts/domains/sedo-importer-xlsx.py` (self-test 10/10, `--exclude-file`
+  repeatable/unioned since 2026-09-04). **Current: draft3, 2026-09-04 —
+  2,888 domains** — the 2,895-domain draft2 full portfolio (Dynadot 453 +
   Porkbun 683 + Spaceship 203 + Nominet 1,606, 0 cross-source dupes, minus
-  a **50-domain live-site fence** (widened from 19 — union of Nominet's
-  Cloudflare zone list, the live `sites` table, and the original NS-based
-  check; RUNBOOK §7 has the method and why one source alone is not
-  enough). `outbound/SEDO_IMPORT_2026-09-03_draft2.{xlsx,csv}`. Interim
-  shape agreed with the domain_valuation lane: MAKE_OFFER / for-sale yes /
-  no price; prices arrive as a second import from their canonical
-  `OUTPUT_prices_<date>.csv` (their lane, their column freeze).
+  a 50-domain live-site fence — union of Nominet's Cloudflare zone list,
+  the live `sites` table, and the NS-based check; RUNBOOK §7) minus a
+  **separate 7-domain owner-requested withdrawal** (the Appleby family;
+  kept in its own fence file, never merged into the live-site one — RUNBOOK
+  §7). `outbound/SEDO_IMPORT_2026-09-04_draft3.{xlsx,csv}`. Interim shape
+  agreed with the domain_valuation lane and confirmed against the artefact
+  2026-09-04: MAKE_OFFER / for-sale yes / **no price and no minimum on any
+  row**; prices arrive as a second import from the valuation lane's
+  canonical `OUTPUT_prices_<date>.csv` (their lane, their column freeze).
+  **Owner has said he'll upload draft3** — P2b's sheet-generation work is
+  effectively done pending only the priced re-import.
 - **P3 — first credentialed calls.** `--check-secret`, then
   `DomainList 'results=100'`: inventory what (if anything) the account
   holds, and reconcile against the estate's domains. First writing call

@@ -117,3 +117,27 @@ Your remaining moves, whenever suits: upload the sheet (or wait for the
 priced version), send the API-access email (RUNBOOK §2), and — if you want
 to double-check my live-site list before uploading — it's
 `EXCLUDED_live_2026-09-03.txt` next to the sheet, one domain per line.
+
+## 2026-09-04 — checked, Appleby domains pulled out: 2,888 in the sheet now
+
+You asked me to double-check the sheet and pull out the Appleby domains
+before you upload. Both done.
+
+**On prices**: checked every single row directly, not just what I
+intended to build — there are no Buy Now listings anywhere in the sheet,
+and no minimum offer amounts set on anything. Every domain is currently a
+plain "make an offer" with no floor at all. That's the interim state we
+agreed while the valuation work is ongoing — minimums land as a second
+upload once those numbers are ready, so right now nothing stops a very
+low offer coming in on anything in the sheet.
+
+**Appleby domains**: pulled all 7 you actually hold — anthonyappleby.com,
+appleby.cv, katherineappleby.co.uk, kathyappleby.co.uk, kathyappleby.com,
+oliverappleby.co.uk, williamappleby.co.uk. (Three similar-looking names
+turned up in the valuation work as comparison domains, not ones you own —
+left those alone, they were never in the sheet.) I kept this as a separate
+list from the live-sites one, so a future refresh of the live-sites list
+won't accidentally lose your Appleby instruction.
+
+**The sheet you'd upload now**: `outbound/SEDO_IMPORT_2026-09-04_draft3.xlsx`
+— 2,888 domains, all make-offer, no prices. That's ready whenever you are.
