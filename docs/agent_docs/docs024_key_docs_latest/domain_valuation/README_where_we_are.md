@@ -123,3 +123,43 @@ being that what we believed at the time is part of the record. The original
 wording is restored above and this is the correction. The underlying lesson
 (check whether a variable actually varies before quoting a ratio over it) is
 logged in the fleet-wide WRONG_CALLS.md.
+
+## 2026-09-03 (evening) — a fence that was hiding live sites, and a £5,000 lesson
+
+Three things happened today that changed the shape of the job.
+
+**Thirty-three of your live websites were sitting in the "sell" pile.** The
+do-not-sell list is built from the framework's own records, which only know
+about sites hosted on Cloudflare. Your older sites sit on Clook — a different
+host entirely — so the list simply couldn't see them. All 28 Cloudflare ones
+were correctly protected; every single miss was a Clook site. Among them:
+wpx.uk, which is the domain your own email address is on; designconsultancy.co.uk,
+the company behind your Nominet tag; and leopardess.co.uk and leopardess.uk,
+adjacent to a client site. I found them by checking every Nominet domain's
+nameservers myself and then actually fetching each page, rather than trusting
+the list. You've since gone through all 39 by name — 17 stay out, 21 released.
+
+**You then reversed the premise: list the live sites too, priced high.** That's
+now a separate track, and it needs a different instrument, because I can show
+the appraisal tool is not up to it. Your own floor on relojistas.com is $12,000;
+the tool prices it at $1,490 — eight times under. Your figure for webdesign.uk
+is over a million; the tool would say about a thousand. The reason is
+mechanical: it prices a *name* in its market and cannot see either a
+category-defining exact match or a business attached to it. It stays the right
+tool for the ordinary tail and the wrong one for your best names. I'm now
+gathering real, realised sale prices — actual transactions, not asking prices —
+to price that tier on evidence rather than on an algorithm that demonstrably
+doesn't reach it.
+
+**And the £5,000 lesson.** You mentioned in passing that cartoon.co.uk cost you
+over £5,000. It was sitting in ordinary stock at the time, where it would have
+been priced from an appraisal and sold keenly for a fraction of that. It escaped
+only because you happened to say so. Nothing anywhere in this estate records
+what you paid for anything — the registrar exports carry expiry dates and
+nameservers and nothing else. So the same risk applies to the other 2,859, and
+it breaks an assumption underneath the whole bottom-500 idea: pricing "keenly"
+assumes the alternative is holding a cheap renewal, which isn't true for
+anything you bought at auction. **This is the one thing I need from you before
+any tail price goes anywhere** — even a partial answer would bound it: which
+ones you paid real money for, or just "anything from an auction", or a rough
+year. Nothing will be priced until that comes back.
