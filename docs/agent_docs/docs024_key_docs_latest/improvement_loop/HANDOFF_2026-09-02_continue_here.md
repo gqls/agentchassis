@@ -1,5 +1,11 @@
 # HANDOFF 2026-09-02 — improvement loop, continue here
 
+> **⚠ SUPERSEDED 2026-09-03 by `HANDOFF_2026-09-03_continue_here.md`. Read that first.**
+> Kept because §1's four traps are all still true and still catch people. What is STALE here:
+> §3a's "re-submit migration 722" (done — APPROVED r5 and APPLIED, and it became a TRIGGER,
+> not the column default this file describes) and every backlog figure (978 → 704 as the
+> skip-link drain runs).
+
 **COLD-START: read this file, then `SUMMARY_2026-09-02_improvement_loop_ownership.md`.**
 Everything else in this directory is depth: `PLAN` §5 for the ordered work, `NOTES` for the
 missteps (§(w), §(z), §(gg) and §(ii) are the four worth your time), `RUNBOOK` for the
