@@ -816,3 +816,30 @@ ask; do not silently re-point it.**
 unexercised agents, an unminted token type and an unverified link host is a large amount to
 discover for the first time on the first paid delivery, and every one of those unknowns is cheap to
 resolve on a site nobody paid for.
+
+### The delivery email quoted a SUPERSEDED price — fixed, migration 726, 16:17Z
+
+**The owner spotted it: "I think we reduced the domain pricing."** He was right, by eight days.
+His ruling of **2026-08-26 (night)** — *"the domain price is incongruent with the cheap website
+pricing… Let's make it £59.99"* — moved the buy-out **£200 → £59.99**, rental unchanged at £10/mo.
+The delivery email's live `body_template` still read *"buying it outright is a one-off 200
+pounds"*.
+
+**Why it survived the sweep, and the lesson is the transferable part.** `SQL_2026-08-26e` censused
+*"every £200 in the live SPECS"* and swept them exactly, with count guards — evidence_base ×6,
+identity ×1, briefing ×1, strategy ×1. **The delivery email is not a site spec.** It is a step
+config on an AGENT DEFINITION, so it sat outside that census's population by construction, and no
+guard could have caught it because the guards counted what the census had already scoped.
+`[MEASURED 16:17Z]` it was the ONLY live agent config carrying the stale figure (one occurrence;
+zero elsewhere fleet-wide). **A price ruling has to sweep BOTH populations — site specs AND agent
+step configs — and "I censused every X" is only ever true of the population you enumerated.**
+
+**Nothing shipped it.** The chain has never run: zero orchestrations across all four delivery
+agents, zero `customer_access_tokens`, zero zips, all time. So this corrected the price BEFORE the
+first send rather than after a customer read it.
+
+**Fix:** `docs/agent_docs/sql_for_agents/726_delivery_email_domain_buyout_59_99.sql` + `_ROLLBACK`, applied by hand 16:17Z.
+Anchored on the verbatim string, refuses if the anchor has moved, `snapshot_agent` taken, and the
+verify block asserts three things: the old figure is gone, the new one is present, **and the RENTAL
+price was not disturbed**. Style matched the template's own convention (prices in words, no £
+glyph): *"a one-off 59.99 pounds"*.
