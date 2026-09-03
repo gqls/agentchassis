@@ -200,9 +200,33 @@ func ApplyThemeKitAction(ctx context.Context, params ActionParams) (interface{},
 	defer tx.Rollback()
 
 	// ── 2. design_intent: merge the kit's resolved palette/typography values ──
+	//
+	// supersedeRisk is the council's round-2/round-3 objection made visible. It
+	// does NOT refuse the apply: layout rides aspect 'theme_kit_adoption', which
+	// the classifier never writes, so it survives — and layout is the one
+	// dimension where a kit changes anything at all. Refusing would throw away
+	// the part that works to protect the part that does not.
+	supersedeRisk := "not_evaluated"
 	if paletteID.Valid || typoID.Valid {
-		if err := mergeThemeKitDesignIntent(ctx, tx, siteID, kitName, paletteID, typoID, writeOverExisting, applied, skipped); err != nil {
+		risk, err := mergeThemeKitDesignIntent(ctx, tx, siteID, kitName, paletteID, typoID, writeOverExisting, applied, skipped)
+		if err != nil {
 			return nil, fmt.Errorf("merge design_intent: %w", err)
+		}
+		supersedeRisk = risk
+		if risk == riskNoClassifierWriteYet {
+			// WARN, not ERROR: applying a kit before classification is a
+			// legitimate operator action, and the ordering is the platform's
+			// fault rather than the caller's. The durable record is the spec
+			// field below — this line scrolls, that one does not.
+			logger.Warn("ApplyThemeKitAction: design_intent written to a site the classifier has not touched — these values will be SUPERSEDED",
+				zap.String("site_id", siteID.String()),
+				zap.String("theme_kit", kitName),
+				zap.String("mechanism", "domain-research-classifier writes design_intent later; write_site_spec deep-merges and scalar keys are overwritten by the incoming value"),
+				zap.String("survives", "layout (aspect theme_kit_adoption, not written by the classifier)"),
+				zap.String("lost", "palette (moot — never reaches the 8 core slots) and TYPOGRAPHY (which does render)"),
+				zap.String("not_a_remedy", "design_intent.<dim>.locked — apply_theme_kit honours it, the classifier does not"),
+				zap.String("see", "bugs_open/438 §6d"),
+			)
 		}
 	}
 
@@ -213,6 +237,10 @@ func ApplyThemeKitAction(ctx context.Context, params ActionParams) (interface{},
 		"mode":           mode,
 		"applied":        applied,
 		"skipped":        skipped,
+		// Durable and queryable, which the log line is not. A reader asking
+		// "why does this themed site not have the kit's fonts?" finds the
+		// answer on the adoption row rather than re-deriving the mechanism.
+		"design_intent_supersede_risk": supersedeRisk,
 	}
 	if err := supersedeAndInsertSpecWhole(ctx, tx, siteID, "theme_kit_adoption", adoptionData, "apply_theme_kit", "apply_theme_kit"); err != nil {
 		return nil, fmt.Errorf("write theme_kit_adoption spec: %w", err)
@@ -310,6 +338,8 @@ func ApplyThemeKitAction(ctx context.Context, params ActionParams) (interface{},
 		// nothing to do — saying so is the difference between a no-op and a
 		// no-op that looks like success.
 		"changed_anything": len(applied) > 0 || compInserted,
+		// So a caller that only reads the result sees the hazard too.
+		"design_intent_supersede_risk": supersedeRisk,
 	}
 	if compQueueNote != "" {
 		out["composition_note"] = compQueueNote
@@ -317,17 +347,72 @@ func ApplyThemeKitAction(ctx context.Context, params ActionParams) (interface{},
 	return out, nil
 }
 
+// Values for the design_intent supersede-risk marker. A three-state STRING
+// rather than a bool on purpose: a read failure must not be recorded as
+// "no risk", and inventing a `false` for an unknown is exactly the
+// false-structured-fact class this lane has already fixed twice (a kit layout
+// recorded as 'library_match', and a candidate list of one that was never
+// scored). "unknown" is a worse answer than "at_risk" and a far better one
+// than a confident wrong bool.
+const (
+	riskNoClassifierWriteYet   = "at_risk_no_classifier_write_yet"
+	riskClassifierAlreadyWrote = "classifier_already_wrote"
+	riskUnknown                = "unknown"
+)
+
+// classifierDesignIntentState reports whether domain-research-classifier has
+// EVER written this site's design_intent — current row or superseded.
+//
+// Why "ever" and not "currently": the question is whether a classifier write is
+// still AHEAD of us. On the FRESH path (082 with no --from) the classifier runs
+// after apply_theme_kit and supersedes whatever is there. Once it has written
+// once, the fresh-path certainty is gone. It says NOTHING about a deliberate
+// re-classification, which is why the constant is named "already_wrote" rather
+// than anything implying safety.
+//
+// [MEASURED 2026-09-03] the predicate discriminates: of 39 sites carrying a
+// design_intent, 38 have one written by domain-research-classifier — so on an
+// established site this is true and on a fresh one it is false, which is the
+// distinction the marker needs to draw. COALESCE(source_agent, source) because
+// both columns are populated across the fleet and source_agent is nullable.
+func classifierDesignIntentState(ctx context.Context, tx *sql.Tx, siteID uuid.UUID) string {
+	var n int
+	err := tx.QueryRowContext(ctx, `
+		SELECT count(*) FROM site_specs
+		WHERE site_id = $1 AND aspect = 'design_intent'
+		  AND COALESCE(source_agent, source) = 'domain-research-classifier'
+	`, siteID).Scan(&n)
+	if err != nil {
+		return riskUnknown
+	}
+	if n > 0 {
+		return riskClassifierAlreadyWrote
+	}
+	return riskNoClassifierWriteYet
+}
+
 // mergeThemeKitDesignIntent writes the kit's resolved palette/typography
 // colours into design_intent.palette.reference_values /
 // .typography.reference_values — the exact shape
 // resolve_composition_palette_action.go / resolve_composition_typography_
-// action.go already read via extractReferenceValuesFromSpec. Only writes a
-// dimension the site does not already have, unless reapply=true.
+// action.go already read via extractReferenceValuesFromSpec.
+//
+// In the DEFAULT mode ("start") it WRITES OVER what is there; only "fill_gaps"
+// restricts itself to dimensions the site does not already have. (This comment
+// used to say "only writes a dimension the site does not already have, unless
+// reapply=true", which was the pre-ruling behaviour.)
+//
+// Returns the design_intent supersede-risk marker — see the constants above and
+// bugs_open/438 §6d.
 func mergeThemeKitDesignIntent(
 	ctx context.Context, tx *sql.Tx, siteID uuid.UUID, kitName string,
 	paletteID, typoID sql.NullString, writeOverExisting bool,
 	applied, skipped map[string]interface{},
-) error {
+) (string, error) {
+	// Evaluated BEFORE any write, because the write itself does not change the
+	// answer and a reader of the adoption row needs the state at apply time.
+	state := classifierDesignIntentState(ctx, tx, siteID)
+
 	var currentID *uuid.UUID
 	var currentJSON []byte
 	err := tx.QueryRowContext(ctx, `
@@ -339,11 +424,11 @@ func mergeThemeKitDesignIntent(
 	case err == sql.ErrNoRows:
 		current = map[string]interface{}{}
 	case err != nil:
-		return fmt.Errorf("read current design_intent: %w", err)
+		return riskUnknown, fmt.Errorf("read current design_intent: %w", err)
 	default:
 		current = map[string]interface{}{}
 		if jerr := json.Unmarshal(currentJSON, &current); jerr != nil {
-			return fmt.Errorf("unmarshal design_intent: %w", jerr)
+			return riskUnknown, fmt.Errorf("unmarshal design_intent: %w", jerr)
 		}
 	}
 
@@ -393,11 +478,11 @@ func mergeThemeKitDesignIntent(
 	if writePalette {
 		var coloursJSON []byte
 		if err := tx.QueryRowContext(ctx, `SELECT colours FROM palettes WHERE id = $1`, paletteID.String).Scan(&coloursJSON); err != nil {
-			return fmt.Errorf("load kit palette colours: %w", err)
+			return riskUnknown, fmt.Errorf("load kit palette colours: %w", err)
 		}
 		var colours map[string]interface{}
 		if err := json.Unmarshal(coloursJSON, &colours); err != nil {
-			return fmt.Errorf("unmarshal kit palette colours: %w", err)
+			return riskUnknown, fmt.Errorf("unmarshal kit palette colours: %w", err)
 		}
 		setReferenceValues(current, "palette", colours)
 		markThemeKitStartingPoint(current, "palette", kitName)
@@ -410,11 +495,11 @@ func mergeThemeKitDesignIntent(
 	if writeTypo {
 		var fontsJSON []byte
 		if err := tx.QueryRowContext(ctx, `SELECT fonts FROM typography_sets WHERE id = $1`, typoID.String).Scan(&fontsJSON); err != nil {
-			return fmt.Errorf("load kit typography fonts: %w", err)
+			return riskUnknown, fmt.Errorf("load kit typography fonts: %w", err)
 		}
 		var fonts map[string]interface{}
 		if err := json.Unmarshal(fontsJSON, &fonts); err != nil {
-			return fmt.Errorf("unmarshal kit typography fonts: %w", err)
+			return riskUnknown, fmt.Errorf("unmarshal kit typography fonts: %w", err)
 		}
 		setReferenceValues(current, "typography", fonts)
 		markThemeKitStartingPoint(current, "typography", kitName)
@@ -425,18 +510,18 @@ func mergeThemeKitDesignIntent(
 	}
 
 	if !changed {
-		return nil
+		return state, nil
 	}
 
 	mergedJSON, err := json.Marshal(current)
 	if err != nil {
-		return fmt.Errorf("marshal design_intent: %w", err)
+		return riskUnknown, fmt.Errorf("marshal design_intent: %w", err)
 	}
 	if currentID != nil {
 		if _, err := tx.ExecContext(ctx, `
 			UPDATE site_specs SET is_current = false, superseded_at = now() WHERE id = $1
 		`, *currentID); err != nil {
-			return fmt.Errorf("supersede design_intent: %w", err)
+			return riskUnknown, fmt.Errorf("supersede design_intent: %w", err)
 		}
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -444,9 +529,9 @@ func mergeThemeKitDesignIntent(
 		VALUES ($1, 'design_intent', $2::jsonb, 'apply_theme_kit', 'apply_theme_kit',
 		        'theme-kit default — see theme_kit_adoption spec for lineage', true, 'apply_theme_kit')
 	`, siteID, string(mergedJSON)); err != nil {
-		return fmt.Errorf("insert design_intent: %w", err)
+		return riskUnknown, fmt.Errorf("insert design_intent: %w", err)
 	}
-	return nil
+	return state, nil
 }
 
 // missionPrefersTypography reports whether the site's mission spec carries an
