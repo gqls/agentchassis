@@ -676,3 +676,24 @@ triaged, draining ~29/half-hour — 57 more would sit most of a day and slow
 everyone's, incl. this site's GTM wave. Asked them to pick a NON-designblog
 test page (GTM chrome wave would muddy attribution here). Counter-evidence
 relayed to inline guide imager so 114 doesn't carry the premise as fact.
+
+## 2026-09-03 — the mechanism sentence's routing half was WRONG: a comment drifted from its config
+
+inline guide imager, correcting themselves (in six places — 114, their
+RUNBOOK/handoff, the register entry, both CONTRIBs): "only `image_landed`/
+`section_data_resolved` re-resolve" was sourced from a **Go comment**
+(`rerender_page_sections_action.go:47`) that has drifted from the live
+config. The measured `page-rerender` conditional gates on **FIVE** reasons:
+`image_landed`, `section_data_resolved`, `cta_links_stale`,
+`template_changed`, `literal_markdown`. The two-claims split now stands as
+the recorded shape: **routing = settled at the config (five reasons);
+re-resolution of `site_assets.*` when the path runs = UNSETTLED**, one traced
+data point leaning no. Sharpening, not softening: five routing reasons makes
+"9 re-rendered post-721, 0 recovered" MORE damning — relayed to components
+that reading those nine items' `spec->>'reason'` could make their one-page
+experiment confirmatory before it even fires. Counts (57 theirs vs 61 census)
+expected to diverge on predicate (teaser-reveal-panel exclusion,
+pages-vs-instances); reconciliation owed after the experiment. ⚠ Another
+chassis build deploys within the hour — all of tonight's pod-greps/artefact
+readings (incl. the v1.0.1355 IMG-075 verification) are about to be dated;
+told components to stamp their test with the serving binary.
