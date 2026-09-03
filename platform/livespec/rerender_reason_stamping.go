@@ -51,11 +51,32 @@ func RerenderReasonFields(reason string) map[string]string {
 }
 
 // StampRerenderReason writes those fields into a spec map being built as a Go
-// map. Nil-safe on an empty reason so callers need no branch of their own.
-func StampRerenderReason(spec map[string]interface{}, reason string) {
-	for k, v := range RerenderReasonFields(reason) {
+// map, and REPORTS whether the value was in the vocabulary. Nil-safe on an
+// empty reason so callers need no branch of their own.
+//
+// ⚠ THE BOOL IS DELIBERATE, and it is the sibling's rule applied here
+// (RerenderSectionReasonByName: "the bool is the whole point: 'not in the
+// vocabulary' is a state a caller must be able to see and report, not one it
+// should silently treat as absent"). Without it this helper answers an
+// out-of-vocabulary reason with silence — no routing key and no signal — which
+// is the shape the council's bug_historian seat objected to at round c7dab2c1
+// and which 016b §9 records as "a mistyped routing key produces silence in
+// every gate at once".
+//
+// A caller passing a COMPILE-TIME CONSTANT from this package may ignore it:
+// the constant cannot be out-of-vocabulary, and a test in this package pins
+// that. A caller passing a VARIABLE must not — report it the way
+// create_rerender_items does (warn, name the vocabulary, and let the item
+// assemble), because a reason that reached that call site from config or from
+// a database row is exactly how this vocabulary drifted in the first place
+// (bugs_open/404).
+func StampRerenderReason(spec map[string]interface{}, reason string) (known bool) {
+	fields := RerenderReasonFields(reason)
+	for k, v := range fields {
 		spec[k] = v
 	}
+	_, known = fields[RoutingReasonSpecKey]
+	return known
 }
 
 // RerenderReasonJSONPrefix renders the same fields as the OPENING of a JSON

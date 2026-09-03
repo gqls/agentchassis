@@ -175,6 +175,15 @@ func (c *ContactFormUndeliverableCheck) Run(dctx DiscoveryCheckContext) (*CheckR
 			}
 			// The reason described in the comment above, stamped with its routing
 			// half by the one helper that defines the pair (bugs_open/440 phase 2).
+			//
+			// ⚠ THIS CHECK FILES TWO ITEM TYPES — a page_rerender item here and a
+			// contact_form_undeliverable review item below — and they build
+			// SEPARATE specs (the review item's is the inline map further down).
+			// Verified live before stamping, because the routing key belongs only
+			// on the rerender item: `SELECT item_type, spec->>'check', count(*)`
+			// returned page_rerender 1 AND contact_form_undeliverable 7 for this
+			// check name (2026-09-03). If the two specs are ever merged, the
+			// stamp must move to a copy used by the rerender item alone.
 			livespec.StampRerenderReason(spec, livespec.ReasonSectionDataResolved)
 			specJSON, _ := json.Marshal(spec)
 			result.WorkItems = append(result.WorkItems, WorkItemSpec{

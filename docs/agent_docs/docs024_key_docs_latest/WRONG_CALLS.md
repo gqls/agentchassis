@@ -60475,3 +60475,34 @@ a-pathspec-commit-still-takes-a-same-file-passenger, your-fix-invalidates-a-peer
   browser here)", never as "serving/live". Same family as "trust the rendered artefact,
   not the status" — one level further out: trust the rendered PIXELS, not the rendered
   HTML, for anything a script has to build after load.
+
+## 2026-09-03 — 440 phase 2: I told the council I had enumerated item types "at each call site", and one call site files TWO
+
+- **The claim** (submission `c7dab2c1`, grounded_in): the conversion set was
+  established by reading `ItemType` at each call site — with
+  `discovery_checks/check_contact_form_undeliverable.go` listed as
+  `ItemType: "page_rerender"`.
+- **What was actually true**: that file files **two** item types —
+  `page_rerender` AND `contact_form_undeliverable` (a `needs_human_review`
+  item), from two `WorkItemSpec` blocks a few dozen lines apart. My `grep -n
+  ItemType:` had matched the FIRST one and I stopped reading. The stamp landed
+  correctly (the two blocks build separate specs, verified after), so the code
+  was right by luck of layout, not by the enumeration I described.
+- **What caught it**: the council's `guardian` seat objecting that the item
+  type was "asserted from reading source, not from live data", and citing a
+  landmine — *a discovery check's NAME is not the item_type it FILES*. The live
+  census settled it in one query: `SELECT item_type, spec->>'check', count(*)`
+  returned BOTH types for that check name.
+- **The cheap check**: when a claim is "this call site files item type X",
+  count the sites before quoting one — `grep -c 'ItemType:' <file>` — and
+  confirm against live data, which cannot be fooled by which occurrence your
+  grep stopped at. A `grep -n` that returns many lines and a reader who reads
+  one is indistinguishable, in the write-up, from a file that has one.
+- **The near-miss worth keeping**: acting on the objection, I first "fixed" a
+  shared-spec problem that did not exist and broke the build (`declared and not
+  used`). Reading the second declaration properly showed the specs were always
+  separate. **An objection being right about the gap in your evidence does not
+  make it right about the defect** — re-read before you repair.
+
+Family: your-measurement-answers-the-question-you-encoded,
+a-report-is-not-a-measurement, editing-one-file-is-not-knowing-the-package.

@@ -70,6 +70,24 @@ func TestRerenderReasonFields_EmptyReasonStampsNothing(t *testing.T) {
 	}
 }
 
+func TestStampRerenderReason_ReportsWhetherTheValueWasKnown(t *testing.T) {
+	// The bool is the signal an out-of-vocabulary value would otherwise lose.
+	// A caller passing a variable is expected to act on it; this pins that the
+	// helper actually distinguishes the two states rather than returning a
+	// constant.
+	spec := map[string]interface{}{}
+	if known := StampRerenderReason(spec, ReasonTemplateChanged); !known {
+		t.Error("a vocabulary value must report known=true")
+	}
+	if known := StampRerenderReason(spec, "tool_retirement"); known {
+		t.Error("an out-of-vocabulary value must report known=false — silence here is the defect " +
+			"bugs_open/440 exists to end")
+	}
+	if known := StampRerenderReason(spec, ""); known {
+		t.Error("an empty reason is not a known routing value")
+	}
+}
+
 func TestStampRerenderReason_WritesIntoASpecMap(t *testing.T) {
 	spec := map[string]interface{}{"page_name": "about"}
 	StampRerenderReason(spec, ReasonCTALinksStale)

@@ -239,3 +239,48 @@ control is what makes that a finding rather than an assumption.
 
 Remaining in phase 2: the raw-SQL migration door (authoring rule + `pattern-check.py` advisory),
 its own round — that file is in council scope (2026-08-24).
+
+## 2026-09-03 (night) — phase 2 verdict READ: APPROVED, 3 advisories; two of them found real things
+
+Corr `c7dab2c1`, `approved with 3 advisory objection(s) — none high-severity`, 4 abstained,
+13 seats. Dispositions:
+
+- **`guardian` [medium] — "item type asserted from source, not live data" (citing the landmine
+  *a discovery check's NAME is not the item_type it FILES*). RIGHT, and it found a real gap in
+  my evidence.** Live census `[MEASURED 2026-09-03]`: `misdirected_cta` → `page_rerender` (2,315
+  items) ✓ as claimed; **`contact_form_undeliverable` → BOTH `page_rerender` (1) and
+  `contact_form_undeliverable` (7)** — that file files TWO item types and my `grep -n ItemType:`
+  had stopped at the first. The stamp is correct (the two blocks build SEPARATE specs — verified
+  after) but by layout, not by the enumeration I described. ⚠ And acting on the objection I
+  first "fixed" a shared-spec problem that did not exist and broke the build; re-reading showed
+  the specs were always separate. **An objection being right about the gap in your evidence does
+  not make it right about the defect.** Both halves in WRONG_CALLS 2026-09-03. The site now
+  carries the live-verified two-item-type fact as a comment, with the instruction for whoever
+  ever merges those specs.
+- **`bug_historian` [medium] — an out-of-vocabulary reason produces no routing key AND NO
+  SIGNAL; silence, not a loud failure. ACTIONED in code.** `StampRerenderReason` now returns
+  `known bool`, restoring the signal its own sibling deliberately exposes
+  (`RerenderSectionReasonByName`: *"the bool is the whole point"*). Constant-passing callers may
+  ignore it; variable-passing callers must not, and the doc says so. Mutation-proved (return a
+  constant `true` → the new test goes red).
+- **`editquality` [medium] — the sketch showed `RerenderReasonFields` and
+  `RerenderReasonJSONPrefix` but not `StampRerenderReason`'s body, though edits 3–4 call it.**
+  CONCEDED. Fourth consecutive round where a seat catches submission ACCURACY rather than a code
+  fault. The pre-dispatch self-check I added at phase 1b checks that sketches contain what their
+  rationale CLAIMS; it cannot see a symbol named in `symbol` whose body is missing. Next round's
+  check: every symbol listed in `symbol` must appear in the sketch.
+- **`prior_art_librarian` [medium] — an unfetched landmine whose title names these exact reason
+  values.** FETCHED and read (`LANDMINES.md`, the `create_rerender_items` entry): it warns that
+  writing a resolved value into `spec` can flip a site-wide rerender into a component-scoped one,
+  because `rerender-pages` reads `input_data.spec.component_id`. Not this change — that trap is
+  about `component_id`; `routing_reason` is read by nothing until phase 3. ⚠ But the entry
+  quotes `create_rerender_items_action.go:219` and a hardcoded
+  `(reason == "section_data_resolved" || reason == "image_landed")` gate that **no longer
+  exists** — the logic moved into `rerenderModeFor` via the vocabulary. Flagged for a correction
+  pass; not silently edited, because it is another lane's entry.
+- **`guidelines` MISSING (nested-field ruling) + `guardian` [low]**: REB-008 names `routing_reason`
+  as a field riding inside `spec`, and `[MEASURED 2026-09-03]` **zero** live `agent_definitions`
+  mention `routing_reason` — no config reads it yet, as designed.
+- **`debug_historian` / `architecture` [low] — string-spliced JSON is fragile as a general
+  pattern.** Agreed and bounded: two known call-site shapes, the empty case proven to compose,
+  and the doc says a third shape should reconsider a structured builder rather than extend this.
