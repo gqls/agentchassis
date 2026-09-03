@@ -108,6 +108,21 @@ Structural guarantees, not conventions:
   `subject`, `page_components.position`, and `site_plan_imagery.scope_ref`, which for section
   scope is literally `'<page>:<ordinal>'` (`[MEASURED 2026-09-03]`: `index:1`, `index:2`,
   `about:2`). A renumbering correction silently re-points every section figure on the page.
+> **NARROWED 2026-09-03 (later) — the DETECTOR half of this RFC is no longer mine to propose.**
+> A session working `bugs_open/469` has taken `check_section_source_drift.go`: a
+> direction-aware `Resolved` arm plus a `section_composition_lost` receipt so an
+> `authority_won` resolution can never close silently. That overlaps what §5 originally
+> proposed for that file, so **this RFC no longer asks for changes to the check** — it
+> depends on them. Read their work as the detector half; this RFC is only about the WRITE
+> path (`apply_page_composition`, `site_plan_section_rows.go`, and whether the current
+> plan's rows may be replaced at all).
+>
+> One dependency remains and is stated rather than assumed: the postcondition below needs
+> the per-page drift predicate callable with a **querier interface** (so it can run against
+> an open `*sql.Tx`), not `*sql.DB`. That has been asked of the 469 lane; if it lands
+> differently, this RFC's postcondition needs its own extraction and that is a change to
+> their file, to be coordinated rather than raced.
+
 - **A postcondition inside the transaction** re-runs the drift predicate, so the action
   cannot commit a state the build would resolve differently.
 - `request_rebuild` defaults **OFF** (owner ruling 2026-08-02 §2: the unsafe branch — the one

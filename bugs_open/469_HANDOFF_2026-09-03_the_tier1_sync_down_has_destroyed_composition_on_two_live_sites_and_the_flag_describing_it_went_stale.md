@@ -123,6 +123,32 @@ composition and about the blindness that let it happen unremarked.
    hand-writes SQL and some write only the cache. Going to architecture review as an RFC
    out of the `427` lane; see `bugs_open/427` and the `bugfix_427_event_render` lane docs.
 
+## 5a. The bytes are recoverable; the LIST is not (contributed by the `bugs_open/469` lane, 2026-09-03)
+
+A correction to a premise §5 leans on. This file implies the destroyed sections are simply
+gone. They are not, wholly:
+
+**`page_component_history` carries `slot_name`, `position` and the bytes on every
+`artefact_archive_trigger` delete** (`bugs_open/357`'s mechanism), so from roughly
+**2026-08-09** onward a dropped section's identity and HTML survive the loss. The 469 lane
+counted **24 rows for `gripper-spec-sheet` alone**, across `product-detail` and
+`gripper-detail`.
+
+**What does NOT survive is the LIST** — the fact that the page had five sections *in that
+order*. Every rebuild deletes every row for the page, so "a section was dropped" is only
+derivable by **diffing consecutive builds**, never by reading the current state.
+
+Two consequences: restoring a lost section is much cheaper than §5 implies (the bytes exist);
+and the thing genuinely worth a durable receipt is the *composition delta*, not the content —
+which is what the 469 lane's `section_composition_lost` receipt is being pointed at, rather
+than building a second archive.
+
+**Ownership, recorded so it is not raced:** the detector half of this bug (a direction-aware
+`Resolved` arm on `check_section_source_drift`, plus that receipt) is owned by the
+`bugs_open/469` session as of 2026-09-03. The WRITE path — `RFC_064`,
+`apply_page_composition`, any migration correcting a plan's rows — stays with the
+`bugs_open/427` lane. Neither writes to the other's files.
+
 ## 6. Cross-references
 
 - `bugs_open/427` §19–§21 — the mechanism, corrected; the migration `750` precedent.
