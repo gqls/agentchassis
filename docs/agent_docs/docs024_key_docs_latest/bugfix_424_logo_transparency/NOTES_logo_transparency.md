@@ -380,3 +380,13 @@ produces. `site_delivery_and_editor` asked to be sent the per-run readings (adap
 `border_keyed`/`pixels_keyed`, PNG chunk scan / fully-transparent % at the stored bytes) once they
 land — boxingonline's own regeneration decision rests on them. Will append results here and pass
 them on.
+
+**A fourth run joined the same window independently**: the owner separately authorised
+boxingonline's regeneration via `site_delivery_and_editor`, who fired `needs_imagery` item
+`d71b7877-b42a-4019-9ede-74be363209ff` at 09:24:42Z — one minute after this lane's three resets.
+Their spec deliberately carries NO interim ground clause (dropped the `#0a0a0a` clause that would
+have fought this fix's own key-colour clause) — base prompt only, same shape as websitepromotion's
+known-good run. Not this lane's item to own or reset, but since the adapter logs for all four runs
+sit in the same time window on the same pods, capturing boxingonline's `border_keyed`/
+`pixels_keyed`/`source_format` line alongside the three while reading logs anyway, and sharing it
+back — cheap, asked for, no extra access needed.

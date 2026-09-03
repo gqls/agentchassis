@@ -1,128 +1,130 @@
 # HANDOFF — bugfix_424_logo_transparency, continue here
 
-Rewritten 2026-09-02 ~21:30 BST (supersedes the ~17:30 version — the situation changed materially
-in between; see NOTES for the full chronology if you want it). Read this file, then
-`PLAN_2026-09-02_logo_background_transparency.md` for the design if you need it — this file is
-"what to do next", not "how we got here".
+Rewritten 2026-09-03 ~10:25 BST (supersedes the ~21:30 version from the day before — the roll
+landed and the three broken sites were reset since then). Read this file first — it's "what to do
+next", not "how we got here". For history: `NOTES_logo_transparency.md` (full chronology, every
+correction), the bug file's own tail (a peer lane's CONTRIB, verbatim, with the production evidence
+tables), `PLAN_2026-09-02_logo_background_transparency.md` (the design).
 
-## One-paragraph state — READ THIS FIRST, it leads with the urgent part
+## One-paragraph state
 
-**There is an active, live incident, not just an open bug.** Three real sites —
-`designblog.co.uk`, `seotools.co.uk`, `gamedesign.uk` — currently serve a logo that the platform's
-own guard certified as fine and is not: 90%+ opaque where it should be transparent. This happened
-because the fleet's own autonomous image queue fired the (buggy) new mechanism against real sites
-before anyone had tested it — nobody "triggered" this manually, and no warning in any handoff could
-have stopped it. The bug that let this through has been found (by a peer lane's live testing, not
-this session), verified against the actual code, fixed, tested, mutation-proven, and **approved by
-council** — but **is not deployed yet**, and **the three broken assets will not fix themselves once
-it is** (see "What's left", item 2).
+The fix (keyed-ground matting for logos, since Gemini cannot produce real transparency) shipped in
+three rounds: the mechanism itself, a council-caught prompt contradiction, and a council-caught
+guard bug found by a peer lane's live production testing — that bug let three real sites
+(`designblog.co.uk`, `seotools.co.uk`, `gamedesign.uk`) get a near-opaque logo that the platform
+believed was fine. **All three fixes are now confirmed live** (v1.0.1356, verified independently at
+the artefact, not taken on any report alone). **The owner has authorised, and this session has
+executed, a reset of all three affected sites' logo work items** so the queue retries them under
+the corrected guard. Results were still landing as this was written — see "Live status" below,
+which is the one section worth re-reading fresh rather than trusting as printed.
 
-## Decisions that need the owner
+## Live status — check this again, don't just read it
 
-1. **When to roll, and how urgently.** Both fixes (`b2322a203`: a prompt contradiction the council
-   found round 1; `fcbe6071c`: the guard-measures-the-wrong-thing bug round 2) are committed,
-   tested, and council-APPROVED. Neither is deployed. Every hour the current build stays up, the
-   autonomous queue can hand out a fourth broken logo — this is not hypothetical, it already
-   happened three times in one afternoon. This reads as urgent to this session; only the owner can
-   actually run `make release`.
-2. **What happens to the three already-broken sites.** Once the fix is live, their logo assets do
-   NOT self-heal — the work items are `complete`, not `triaged`, so nothing retries them
-   automatically (unlike `websitepromotion.co.uk`, whose failed *first* attempt went back to
-   `triaged` and got a working result on retry). Someone needs to deliberately reset
-   `designblog.co.uk`, `seotools.co.uk` and `gamedesign.uk`'s `needs_imagery:site:-:logo` items
-   AFTER the roll — not before, or they'll just fail a fourth time against the still-broken build.
-   This session has not done that reset; it needs the roll to happen first, and arguably needs the
-   owner or whoever owns each site to know their logo is about to change again.
-3. **Whether to pause the autonomous logo queue until this rolls**, given it's the thing that
-   caused the incident and will keep running regardless of what any handoff says. Not this
-   session's call — pausing fleet automation is a bigger action than fixing the bug that needed it.
-4. **Is boxingonline.com (or any specific site) the right first DELIBERATE test**, given there's
-   still no revert seam for a generated asset and the observed real-world success rate so far is
-   low (1 good result of 4 stored, across the five runs the incident produced). Less urgent than
-   1–3 — the incident already answered "does this need calibration" with real data; this is about
-   whether to go looking for more data on purpose.
-5. **The fail-closed guard's interaction with the retry ladder** (guardian's LOW objection, council
-   round 1): with a real observed ~25% first-attempt success rate, sites could plausibly exhaust
-   `needs_logo`'s retry budget before landing a good result. Is that acceptable (fail loud, whatever
-   the retry ladder's terminal state already does), or does logo generation need a longer leash?
+The reset ran at **2026-09-03 09:23:49 UTC**. Re-check current state before acting on anything below:
 
-## What actually happened — the short version, evidence in NOTES/bug file
+```sql
+SELECT s.domain, w.status, w.attempt_count, w.completed_at, w.result->'response'->'image_result'
+FROM site_work_items w JOIN sites s ON s.id = w.site_id
+WHERE w.id IN ('24dff15c-1989-4332-aeaa-62b0929a8a88', -- designblog.co.uk
+               'b178ca1b-b1bc-411b-ae3b-d63b8424dad0', -- seotools.co.uk
+               '2a4408aa-800b-443d-aa2e-32e919978ecb'); -- gamedesign.uk
+```
 
-A peer lane (`bugfix_420_417`, via `site_delivery_and_editor`) ran live dynamic tests and found
-that `MatteStats.BorderKeyed` — the number the fail-closed guard checks against 0.95 before
-allowing an upload — was computed from "was this border pixel close enough to be reachable by the
-flood-fill" (a wide net, `dist <= outer = 110`), not from "did this border pixel actually end up
-transparent" (`dist <= inner = 48`). A ground that landed anywhere in the wide gap between those two
-numbers scored `BorderKeyed ≈ 1.000` — a perfect pass — while staying ~90% opaque. Verified against
-`keyground.go` before fixing anything, not taken on the report's word. Five real runs that
-afternoon: 3 stored with 0% actual transparency (guard said 1.000, wrong), 1 correctly refused
-(guard said 0, right), 1 stored genuinely good (87.4% transparent, guard said 1.000, right this
-time by coincidence of the number, not because the guard could tell). Fixed by tracking each
-pixel's real final alpha and computing the stat from that instead — `keyground.go`, commit
-`fcbe6071c`, council-approved clean with zero objections (`52bd50a1-3783-4801-868a-31a0ee599e60`).
+As of the last check in this session (shortly after the reset): all three back to `triaged`,
+`attempt_count=1` (unchanged — this is honestly each site's second attempt, not reset to zero). A
+background watch was running for completion; if this session ended before it reported a result,
+the next thing to do is exactly the query above, then read what actually happened:
 
-The encouraging part, from the peer's own later correction: the model CAN land a good result
-(`websitepromotion` proves it), so this looks like a variance problem the fixed guard can now
-correctly police, not necessarily a sign the threshold numbers themselves are wrong. Not
-independently re-verified against a real post-fix run yet — a working hypothesis, stated as one.
+- **If a site is `complete` with `border_keyed` (adapter log) or a chunk-scanned high transparency
+  %: verify at the served bytes** — `https://<domain>/assets/images/logo.png`, chunk-scan for
+  colour type 6 or `tRNS` (RUNBOOK has the snippet), sample corner alpha. Send
+  `site_delivery_and_editor` the reading — they asked for it explicitly, it feeds the owner's
+  boxingonline decision.
+- **If a site is `failed`**: read `error` and `result` on the row. The guard refusing IS the
+  correct, designed behaviour for a bad generation now — a refusal is not itself a new problem,
+  it's the mechanism working. Check `attempt_count` vs `max_attempts=3`; if it's about to exhaust,
+  that's the guardian's LOW council objection from round 1 becoming concrete — see "Decisions"
+  below.
+- **If still `triaged` or `claimed` after a while**: the dispatch lane may just be busy (this queue
+  has no stable drain rate — seen throughout this incident, runs landed anywhere from minutes to
+  under an hour after triaging). Not itself a problem.
 
-## What's actually live right now — verified at the artefact where possible
+## What's actually live — verified 2026-09-03 ~10:00 BST, not assumed
 
 | | image-generator-adapter / agent-chassis |
 |---|---|
-| original matting fix (`6440ec968`) | **LIVE** (verified ~17:26 BST, binary probe + build provenance, both services) |
-| round-1 fix, the prompt contradiction (`b2322a203`) | confirmed **LIVE** as of a peer's provenance read at 20:56:58Z (stamp `0d2feee2f`) — independently confirmed via `git merge-base --is-ancestor`, no cluster access needed |
-| round-2 fix, the guard bug (`fcbe6071c`) | **NOT YET DEPLOYED** — committed and approved after that stamp |
+| stamp | `7bf1ff674021f2d57dfd0aa41324541070646c3a` (tag v1.0.1356) |
+| original matting (`6440ec968`) | LIVE |
+| round-1 fix, prompt contradiction (`b2322a203`) | LIVE |
+| round-2 fix, guard measured the wrong thing (`fcbe6071c`) | LIVE |
 
-kubectl access dropped mid-session (expired token, matches the peer's report) and came back on its
-own later — if it's down when you pick this up, git-based checks (`merge-base --is-ancestor`
-against a provenance stamp someone else reports, or `verify-head-builds.sh` locally) still work
-without it.
+Verified both by build-provenance log line (image-generator-adapter) and full positive/target/
+negative control binary probe (agent-chassis), AND by `git merge-base --is-ancestor` for all three
+commits against the stamp with a negative control (current HEAD, correctly absent). Two independent
+methods agree.
+
+## Decisions for the owner — most are now answered; two remain live
+
+1. ~~When to roll~~ — **DONE.** v1.0.1356 carries everything.
+2. ~~What to do about the three broken sites~~ — **IN PROGRESS.** Reset executed 09:23:49 UTC with
+   explicit authorisation; results were still landing as this was written (see "Live status").
+3. **If any of the three exhausts its retry budget (max_attempts=3) without a good result**, does
+   logo generation need a longer leash, or is "fail loud, go wherever the retry ladder's terminal
+   state already goes" the right outcome? Still open — was a council LOW objection in round 1,
+   became concrete once real failure-rate data existed (roughly 1 good of 4 stored, across the
+   original incident's five runs).
+4. **Whether boxingonline.com is the next deliberate test**, now that the three portfolio resets
+   serve as the lower-stakes calibration `site_delivery_and_editor` recommended. Their own position
+   (relayed 2026-09-02/03): boxingonline keeps its interim solid-colour mark until (a) the roll —
+   now done — and (b) the three resets are read at the bytes. That second condition is what "Live
+   status" above is for.
 
 ## What's left before this lane can close
 
-1. **Roll the fleet** with `fcbe6071c` included (owner decision #1).
-2. **Re-verify at the artefact** after that roll — RUNBOOK has the exact commands (build
-   provenance, or the binary probe with positive/negative controls if the log line scrolls out of
-   range on a busy service).
-3. **Reset the three broken sites' logo work items** after the roll, not before (owner decisions
-   #2–3 first). Then watch what the queue produces — this IS the "run one real generation" step
-   the previous version of this handoff asked for as a separate, optional thing; it is no longer
-   optional or separate, it is the fix for a live problem.
-4. **Use those (and any further) real runs to date-stamp the threshold constants** (`inner=48`,
-   `outer=110`, `minBorderKeyed=0.95` in `dynamic_adapter.go`) from evidence — currently
-   `[UNMEASURED]` as constants, extrapolated from an unrelated regeneration. The incident already
-   supplied five real data points; use them rather than waiting for more.
-5. **Look at the despill fringe** on `websitepromotion`'s good result once someone can see the
-   actual image (this session couldn't) — recorded, not fixed.
-6. **Decide and, if needed, wire the retry-ladder interaction** (owner decision #5).
-7. **Confirm `bugs_open/421`'s status independently** — this fix does not verify single-composition
+1. **Read the three reset runs at the artefact** once they land — not just the DB row status, the
+   served PNG bytes (RUNBOOK has the exact commands). Send readings to `site_delivery_and_editor`.
+2. **Feed those readings into decision #4** (boxingonline timing) and #3 (retry-ladder policy) —
+   both are now answerable with real data rather than hypotheticals.
+3. **Date-stamp the threshold constants** (`inner=48`, `outer=110`, `minBorderKeyed=0.95`,
+   `dynamic_adapter.go`) from whatever this batch of real runs shows, if they show anything the
+   original five didn't already establish. Currently `[UNMEASURED]` as constants.
+4. **Look at the despill fringe** on a genuinely good result, if one of the three (or
+   websitepromotion, already known-good) shows it clearly enough to diagnose. Recorded, not fixed.
+5. **Confirm `bugs_open/421`'s status independently** — this fix does not verify single-composition
    and must not be treated as having cleared it.
-8. **Low-priority, not blocking:** whether `platform/colour.ParseHex` was the best-fit existing
-   helper (a council reviewer's aside, premise didn't hold — it was reused, not new); clearer
-   `grounded_in` citations next submission so a reviewer without full-repo access doesn't misread a
-   diff hunk as a missing file (two harmless false positives this round).
-9. **Separately filed, unowned:** `bugs_open/433` (fleet-wide `mime_type` gap) — not blocking this
-   lane, flagged for whoever wants it. Note also (from the peer's investigation): every logo source
-   object sampled is actually JPEG under a `.png` name/URL/extension, and the adapter discards the
-   provider's real MIME type at upload — a second, independent reason the `mime_type` column can't
-   be trusted, and a second, independent argument that a colour-distance matte is fighting JPEG
-   chroma subsampling on top of everything else. Detail in `bugs_open/433`'s own update.
+6. **Low-priority, not blocking**: whether `platform/colour.ParseHex` was the best-fit existing
+   helper (a council aside, premise didn't hold); clearer `grounded_in` citations next council
+   submission.
+7. **Separately filed, unowned**: `bugs_open/433` (mime_type gap + the JPEG-under-a-.png-name
+   finding) — not blocking this lane.
 
 ## Where everything lives
 
 - Design: `PLAN_2026-09-02_logo_background_transparency.md`
-- Full chronological detail, every misstep and correction, the peer's CONTRIB verbatim: `NOTES_logo_transparency.md` and the bug file's own tail
+- Full chronology, every correction, the peer's CONTRIB with the production evidence tables:
+  `NOTES_logo_transparency.md` and the bug file's own tail
 - Commands: `RUNBOOK_logo_transparency.md`
-- Plain-English log for the owner: `README_where_we_are.md`
-- Council submissions: `council_submission_424_logo_transparency.json` (round 1), `council_submission_424_round2_borderkeyed.json` (round 2)
+- Plain-English owner log: `README_where_we_are.md`
+- Council submissions: `council_submission_424_logo_transparency.json` (round 1),
+  `council_submission_424_round2_borderkeyed.json` (round 2)
 - Concept register: `docs026_concept_register/register/imagery.md`, **IMG-076**
-- The bug file, kept current, including the peer's own CONTRIB with full evidence tables: `bugs_open/424_HANDOFF_2026-09-02_transparency_is_not_a_promptable_property_so_the_model_paints_a_checkerboard.md`
-- The spinoff bug: `bugs_open/433_HANDOFF_2026-09-02_assets_mime_type_is_empty_on_910_of_1277_rows_fleet_wide.md`
+- Bug file, kept current: `bugs_open/424_HANDOFF_2026-09-02_transparency_is_not_a_promptable_property_so_the_model_paints_a_checkerboard.md`
+- Spinoff bug: `bugs_open/433_HANDOFF_2026-09-02_assets_mime_type_is_empty_on_910_of_1277_rows_fleet_wide.md`
 
 ## Commits, in order
 
 - `6440ec968` — the fix (prompt policy + matte + fail-closed guard), 17 tests
-- `2c7cda74b` — standing five docs, council submission record, bugs_open/433 filed
-- `b2322a203` — round-1 council fix (the magenta contradiction), new regression test — `Council-Reviewed: d018a48f-bd76-420a-8530-4491681d3bd4`
-- `fcbe6071c` — round-2 fix (BorderKeyed measured the wrong thing), new regression test, mutation-proven. **No `Council-Submitted:` trailer** (submitted after committing, not alongside — the bug was found and fixed fast). Verdict: **APPROVED, no objections**, `52bd50a1-3783-4801-868a-31a0ee599e60`. Since forward-only forbids amending, this correlation is recorded here rather than on the commit — join them by hand if `098`'s report doesn't already do it by file-overlap.
+- `2c7cda74b` — standing five docs, council submission, bugs_open/433 filed
+- `b2322a203` — round-1 council fix (magenta contradiction) — `Council-Reviewed: d018a48f-bd76-420a-8530-4491681d3bd4`
+- `fcbe6071c` — round-2 fix (BorderKeyed measured the wrong thing), mutation-proven. No trailer (submitted after committing) — verdict **APPROVED, no objections**, `52bd50a1-3783-4801-868a-31a0ee599e60`, recorded here since forward-only forbids amending the commit
+- (docs-only commits since: incident record, round-2 validation against real production data, this handoff)
+
+## Work item IDs, for reference
+
+- `24dff15c-1989-4332-aeaa-62b0929a8a88` — designblog.co.uk, `needs_imagery:site:-:logo`
+- `b178ca1b-b1bc-411b-ae3b-d63b8424dad0` — seotools.co.uk, `needs_imagery:site:-:logo`
+- `2a4408aa-800b-443d-aa2e-32e919978ecb` — gamedesign.uk, `needs_imagery:site:-:logo`
+
+Landmine for next time: these use `item_type='needs_imagery'` with `item_key` ending
+`:site:-:logo`, not `item_type='needs_logo'` — that type exists in the schema but wasn't what these
+rows used. Query on `item_key ILIKE '%site:-:logo%'` or the domain join, not the type name alone.
