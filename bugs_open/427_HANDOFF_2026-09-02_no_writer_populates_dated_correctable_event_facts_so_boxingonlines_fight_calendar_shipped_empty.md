@@ -1519,3 +1519,38 @@ close the hole, not to chase 31 comments. A detector keying on "any date literal
 template" would be ~31/31 false positives on today's data; one keying on *structured
 factual data* (an array of objects with date + named-entity fields) would have fired on
 exactly one component: this one.
+
+### 22.6 The fabrication is OFF the deploy target — verified with both controls
+
+`[MEASURED 2026-09-03 19:13Z]`, at the surface the deploy actually writes, using the same
+instrument §13/§20 use as proof of deployment.
+
+Assemble-only `page_rerender` `1af13106` ran `triaged → claimed → complete` in ~63 seconds.
+Because the tool placement is `build_status='removed'`, assembly yielded `hero-tool` +
+`event-list` only.
+
+| | before (`6cb1cdb1`, 17:39:47Z) | after (`f2cb3378`, 19:13:14Z) |
+|---|---|---|
+| bytes | 72,945 | **57,779** |
+| `Jermell Charlo` / `Tyson Fury` / `Deontay Wilder` / `Naoya Inoue` | present | **0 / 0 / 0 / 0** |
+| `var FIGHTS` | 1 | **0** |
+| `Mbilli` (the one VERIFIED fact) | 1 | **1** |
+| `Canelo` | — | **2** |
+
+**Both directions checked, deliberately.** The negative controls prove the fabrication is
+gone; the **positive** controls prove the page is not merely blank — the one evidenced fixture
+survives. A measurement that only checked absence would read identically if the rerender had
+emptied the page, which is the failure this bug is about.
+
+Deploy receipt: GitHub Actions run **33795145748**, `f2cb3378`, *"Deploy to B2"*,
+**completed / success**, 19:13:17Z. `f2cb3378` is the newest commit on that path.
+
+**Exposure window: 17:39:50Z → 19:13:14Z, about 1 hour 33 minutes.** The site is pre-handover
+and not DNS-live at `boxingonline.com`, so the audience was whoever reads the deploy repo or
+the B2 bucket directly — but it was published, and for most of that window I was asserting it
+had not been.
+
+**Still true and unchanged:** the tool component (`e5e8fa33`) remains `is_active=false` and its
+placement `removed`, so nothing can re-ship it; and `[MEASURED]` zero active stores hold the
+fabricated text. The *mechanism* is still the right shape and is still the shell to rewrite
+against `query.upcoming_events` — see §23.
