@@ -16,6 +16,79 @@ verdicts to read and two clocks that will quietly mislead you if nobody watches 
 
 ---
 
+## 0b. ⚠ WHAT HAPPENED AFTER §0 WAS WRITTEN — read this before anything else
+
+**Two things went differently from the rest of this file, and both need action.**
+
+### 0b(i). D2's repair worked AND cost content. Three pages lost their disclaimer.
+
+739's four items were claimed by `build-dispatch-loop` **7 to 20 minutes** after filing (14:25,
+14:29, 14:34, 14:43) and all four completed. **The corrections landed, and landed well** — all
+three wrong strings went 1 → 0, and the served jargon-buster now says *"CONC 5A.2.14R(1) makes this
+a cumulative limit, not a per-instance one: £15 is the most a lender can charge in default fees
+across the whole agreement, however many payments you miss."* Better than the brief asked.
+
+**But the items left `spec.mode` unset, so page-build-handler REGENERATED each section instead of
+editing it.** 739's council verdict — **APPROVED** — carried a medium objection naming exactly that,
+and I read it after the items had run. `load_current_section_content_action.go` (bugs_open/178) is
+explicit: without `mode='edit_live'` the writer "gets the item's guidance text and nothing to work
+from, so it fabricates a full replacement section."
+
+`[MEASURED at the served bytes vs a pre-repair crawl]`
+
+| page | bytes | sentences replaced | wrong claim | disclaimer |
+|---|---|---|---|---|
+| the-payday-loan-price-cap | 84% | **36 of 37** | gone ✓ | **LOST** |
+| jargon-buster | 88% | **49 of 50** | gone ✓ | gained ✓ |
+| loan-sharks-and-illegal-lending | 66% | 47 | gone ✓ | **LOST** |
+| check-your-lender-is-authorised | — | — | gone ✓ | **LOST** |
+
+⚠ **BYTE RETENTION HID THE REWRITE.** 84% and 88% read as mild edits and were near-total
+replacement at a similar length. **A length check cannot detect a rewrite; only a sentence-identity
+diff can.** The estate's text floors are all length-based, so this blind spot is not only mine.
+
+**The site-identity disclaimer** ("does not lend money, broker loans, or take applications…", plus
+not-advice and not-the-FCA) is now **missing from three pages**. It was on 14 of 30 before and is on
+12 today. On a finance information site that is a compliance element. On loan-sharks the FSMA-2000
+criminal-offence framing (a **registered** fact), the card/passport security prohibition and the
+Illegal Money Lending Team's anonymity/free detail also went.
+
+**→ THE REPAIRS ARE WRITTEN, TESTED, COMMITTED AND DELIBERATELY NOT APPLIED.** Migrations **743**
+(two pages) and **745** (the third), both carrying `mode='edit_live'`, the anti-fabrication
+constraint bound to the 738 register, `source='manual'`, and `page_id`/`affected_url` derived by
+SELECT. Both dry-run clean with mutations killed. **Held pending 743's verdict
+(`4718725c-7d23-41ca-a320-17ebbbfb5e02`) because applying before reading a verdict is precisely
+what caused this.** Applying is one command each:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 < docs/agent_docs/sql_for_agents/743_loancash_restore_content_dropped_by_the_739_rewrite.sql
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  -v ON_ERROR_STOP=1 < docs/agent_docs/sql_for_agents/745_loancash_restore_disclaimer_third_page.sql
+# then record both with run-migrations.sh --record-only <file> --note "..."
+```
+
+**Do NOT revert 739.** The corrections are good; only the collateral needs restoring.
+Full account: `WRONG_CALLS.md`, 2026-09-03 entry.
+
+### 0b(ii). D3's check came back REVISE, and one objection was a real defect — now fixed.
+
+**742's verdict: REVISE** (`0d730d51-a923-4b44-a58f-ab8c898d7e22`). The sharpest objection: the
+pre_query scoped on `s.status='deployed'`, but **the estate's liveness convention is
+`IN ('active','deployed')`** — the predicate **all four** `site-discovery-rotation` tasks use. A
+detector with a narrower liveness predicate than the dispatcher feeding every other check
+re-creates its own blind spot one status value over. **Fixed and applied: migration 744.**
+Population unchanged at 12 (no `active` sites exist today), asserted by its own verify block —
+which is exactly why it was worth taking then rather than later.
+
+Three other objections dispositioned with measurements, one accepted as a real process gap
+(I did not survey `discovery_checks/` before building, and implied I had — a per-site discovery
+check could have hosted this; the design still stands on cadence and on Go-waits-for-a-roll, but
+that was not the reason I gave). All recorded in **CLM-033**. **742 still owes a RESUBMIT** with
+`RESUBMIT_CORR=0d730d51-a923-4b44-a58f-ab8c898d7e22` so the trail accumulates.
+
+---
+
 ## 1. THE FOUR RULINGS AND WHERE EACH STANDS
 
 Given 2026-09-03 afternoon, recorded verbatim in substance at **RFC_060 §3g** (one of them amends a
