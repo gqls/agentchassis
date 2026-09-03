@@ -64,8 +64,14 @@ parking) by Claude sessions, via Sedo's API.
   2026-09-04: MAKE_OFFER / for-sale yes / **no price and no minimum on any
   row**; prices arrive as a second import from the valuation lane's
   canonical `OUTPUT_prices_<date>.csv` (their lane, their column freeze).
-  **Owner has said he'll upload draft3** — P2b's sheet-generation work is
-  effectively done pending only the priced re-import.
+  **Superseded same day by draft5: 2,879 domains** — two more
+  owner-requested withdrawals landed after draft3 (williama.co.uk, joined
+  to the Appleby reason-file; 8 wyke-farm/pastured-egg names, a new
+  reason-file). One open item from the valuation lane's own question,
+  unresolved: 4 other person-name domains (ianstirling.com, kapoor.uk,
+  keeler.uk, anne-marie.co.uk) — owner did not answer, left IN the sheet.
+  `outbound/SEDO_IMPORT_2026-09-04_draft5.{xlsx,csv}`. Sheet-generation
+  work is effectively done pending only the priced re-import.
 - **P3 — first credentialed calls.** `--check-secret`, then
   `DomainList 'results=100'`: inventory what (if anything) the account
   holds, and reconcile against the estate's domains. First writing call

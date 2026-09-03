@@ -271,3 +271,59 @@ unchanged and reused as-is.
 
 Owner said he'll upload what's built now — draft3 is current. Prices
 remain the outstanding item; nothing else changed this round.
+
+## 2026-09-04 (later) — williama.co.uk + wyke/pastured-egg withdrawn; draft5 = 2,879
+
+**Cross-lane input first**: valuation lane confirmed draft3's 7-name
+Appleby withdrawal applied and independently reconciled (same 7, no
+more/fewer), stored it as a DISTINCT `keep_override=owner-withdrawn`
+value rather than folding it into the live-site KEEP state (their
+reasoning: a live-site keep can be revisited if the site comes down, an
+owner withdrawal cannot — collapsing the two loses that). They also flagged
+a real bug their own message caught, unprompted: 6 domains the estate does
+NOT actually own (3 expired, 3 registered elsewhere) had been counted as
+sellable stock and priced — now excluded ahead of every other rule on
+their side. And they raised a genuine open question rather than guessing:
+**williama.co.uk** reads plausibly as the same Appleby family (the estate
+also holds williamappleby.co.uk, oliverappleby.co.uk) but was NOT in the
+withdrawal set; four more person-name domains with no obvious family link
+(ianstirling.com, kapoor.uk, keeler.uk, anne-marie.co.uk) were also still
+sitting in the sheet.
+
+**Put to the owner directly** (AskUserQuestion — genuinely his call, not
+one to infer): confirmed **williama.co.uk should be withdrawn** (same
+Appleby reasoning). The four unrelated names got no answer — **left alone,
+open**, not treated as "no" by default.
+
+**Same message, owner also said**: "also remove anything like wyke or
+wykefarm or pasteured egg." Grepped ALL FOUR sources fresh rather than
+guessing at spelling variants — found **wyke-farm.co.uk / wyke-farm.uk**
+(hyphenated, Nominet, NOT previously fenced — distinct from the unhyphenated
+`wykefarm.co.uk`/`wykefarm.uk`, which were already out via the live-site
+fence, so no duplicate action needed there) and **six** pastured-egg names
+(Porkbun: pasturedegg.co.uk, pasturedegg.uk, thepasturedegg.com,
+thepasturedeggcompany.{co.uk,com,uk}) — none previously fenced (they sat
+on Porkbun's own NS, "OTHER" provenance class, not Cloudflare, so the
+live-site check never touched them).
+
+**New reason file** (per RUNBOOK §7's one-file-per-reason rule — this is a
+brand/farm family, unrelated to Appleby, so a THIRD file, not appended to
+the second):
+`EXCLUDED_owner_wykefarm_pasturedegg_2026-09-04.txt` (8 names — the 2
+non-hyphenated wykefarm domains omitted since already covered).
+`williama.co.uk` went into the EXISTING Appleby file (same
+reason/category as that withdrawal, unlike wyke/pastured which is a
+different one).
+
+**Draft5 built and verified**: three exclude files now unioned (live=50,
+appleby=8, wykefarm/pasturedegg=8) = 66 total minus 2 overlap (wykefarm
+already-live) = distinct exclusion count 66 as printed. 2,887 (draft4,
+intermediate, not separately shipped) − 8 = **2,879**. Verified at the
+artefact: 2,880 `<row` = header + 2,879; grep for wyke/pastur/appleby
+across the output CSV returns zero; zero non-MAKE_OFFER or priced rows.
+Files: `outbound/SEDO_IMPORT_2026-09-04_draft5.{xlsx,csv}` +
+`_provenance.csv` + the new wykefarm/pasturedegg file; draft4 kept on disk
+as the intermediate step (williama-only) but draft5 supersedes it.
+
+Notified valuation lane of both new withdrawals for their `keep_override`
+model. Prices remain the only outstanding item.

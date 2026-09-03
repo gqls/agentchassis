@@ -141,3 +141,23 @@ won't accidentally lose your Appleby instruction.
 
 **The sheet you'd upload now**: `outbound/SEDO_IMPORT_2026-09-04_draft3.xlsx`
 — 2,888 domains, all make-offer, no prices. That's ready whenever you are.
+
+## 2026-09-04 (later) — williama.co.uk out, and the wyke/pastured-egg names pulled
+
+You confirmed williama.co.uk should come out with the Appleby names — done.
+You didn't get back to me on the other four person-name domains (ianstirling.com,
+kapoor.uk, keeler.uk, anne-marie.co.uk) the valuation thread flagged as
+having no obvious family connection, so I've left those exactly as they
+were — in the sheet, for sale — rather than guess either way.
+
+Then you asked me to also remove anything like Wyke Farm or pastured egg.
+I checked every registrar and registry list fresh rather than assume I
+already had them all, and found eight: two Wyke Farm domains with a
+hyphen (wyke-farm.co.uk/.uk — the non-hyphenated wykefarm.co.uk/.uk were
+already out because they're one of your live sites), plus six pastured-egg
+names at Porkbun (pasturedegg.co.uk, pasturedegg.uk, thepasturedegg.com,
+and three thepasturedeggcompany.* variants). All eight are out now.
+
+**Current sheet**: `outbound/SEDO_IMPORT_2026-09-04_draft5.xlsx` —
+**2,879 domains**, still all make-offer with no prices. This supersedes
+the draft3 file above.
