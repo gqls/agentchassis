@@ -26,9 +26,12 @@ image rolls.**
 
 **427** — Everything this lane built was correct; it was feeding a pipeline that had stopped
 delivering. The page is live and shows the honest empty state. It fills in on its own once 454
-ships. Council `ff91e666` **round 2 submitted** (dispatch `c46cf6c2`) — verdict still pending
-at the time of writing, the only `council_report` on that correlation remains the 09-02 REVISE.
-A defect in this lane's own migration 719 was found and fixed as migration `727`.
+ships. Council `ff91e666` **round 2 came back REVISE** (11:11:24Z, gated by `guardian` HIGH;
+7 seats approved, 5 objected) and **round 3 is in flight** (dispatch `b1a2cf68`). **Not one
+round-2 objection was wrong**, and two named live conditions this lane had written down and then
+failed to act on — full account in `bugs_open/427` §16. Three migrations now: `719` (the drift
+sync, which lost the array's order), `727` (restores it), `728` (removes an orphan `advertising`
+declaration that was ARMING `check_unresolved_sections` to rebuild this page).
 
 **428** — Unchanged in its own substance. Its §4 open item (audit what migration 687 actually
 produces) was answered by the `gamedesign.uk` lane and is now ticked; the residual it exposed —
@@ -91,7 +94,21 @@ delivered.
   `chk_input_schema_no_legacy_dialect` is satisfied); `component_level='section'`, deliberately
   not `'tool'`; `query.*`-sourced components **33 total / 30 active**.
 - **`pages.sections` is order-bearing by INDEX** and 719 had lost that order; `727` restored it
-  and the live array now indexes exactly onto `hero-tool@1, event-list@2`.
+  and `728` then dropped the orphan entry. Live array is `["hero-tool", "event-list"]`, indexing
+  exactly onto `hero-tool@1, event-list@2`, and the page no longer arms the rebuild detector.
+- **Fleet census `[MEASURED 2026-09-03]`, demanded by three council seats:** 2,719 indexable
+  live rows, **109 misaligned** across **68** pages / **21** sites. Disaggregated — 95 have
+  their name elsewhere in the array (offset/ordering), 14 are absent entirely (a different
+  defect), 72 sit on pages whose declared count differs from their row count. **The causal share
+  attributable to the `jsonb_agg(DISTINCT)` idiom is UNMEASURED — do not read 109 as blast
+  radius.** Containment: **0** of the 109 have an empty `slot_name`, so the positional consumer
+  cannot fire on any of them today.
+- **The anti-pattern is REUSED, not one slip:** migrations **248, 252, 255, 266, 267** all
+  rebuild `pages.sections` with `jsonb_agg(DISTINCT x)` and no `ORDER BY` — and **267's own
+  header recommends it** as "naturally idempotent". Now a LANDMINES entry; nothing lints for it.
+- **`advertising` is plan residue fleet-wide:** **ZERO** `page_components` rows anywhere join to
+  `function='advertising'`; 3 active pages declare it (all boxingonline); **18** pages across
+  **3** sites are armed by `check_unresolved_sections`' predicate today.
 - **`create_blog_posts_action.go:238` creates `blog-post` pages without the planner**, routed to
   by `discovery_checks/check_empty_blog.go` and handled by a live `blog-content-planner` row.
   **Driven 14 times, then stopped dead**: items 2026-03-14 → 2026-04-24, `llm_call_log` 10 calls
