@@ -68,10 +68,39 @@ current build, and it **is not a blog listing**:
 Nothing was carried. So **`plan.Status != "ready"` (`rerender_page_sections_action.go:509`) is NOT
 the cause** — I carried that candidate through two handoffs and it is now dead for this case.
 
-**Remaining hypothesis, UNTESTED — do not build a fix on it:** the `query.blog_posts` resolve
-returns without populating `articles`, so `plan.ResolvedData` lacks the key, `mergedContent` keeps
-the stored blank array, and the section still counts as `rerendered` because it did render HTML.
-That would also explain `content_data` unchanged while `rendered_html` changed.
+### THE DEFECT, MEASURED — it is UNRELIABLE, not absent (~37%)
+
+`[MEASURED 2026-09-03 11:0xZ]` Every archive-trigger write over a listing array in 7 days,
+partitioned by `(page_id, slot_name)`, with `LEAD` giving the value each write PRODUCED:
+
+**24 writes landed on a blank array. 9 repaired it. 15 left it blank.**
+
+| writer | writes over a blank array | repaired | left blank |
+|---|---|---|---|
+| `save_page_sections` (the seam's path) | 21 | **8** | **13** |
+| `action:rebuild_blog_listing` | 3 | 1 | 2 |
+
+Repeated attempts on one page keep failing: boxingonline/index failed 4 writes then repaired 9h
+later; advertise.co.uk/index failed 3; **designblog.co.uk/index has failed 5 and is still blank.**
+The 8 successes are homegarden ×6 and idea.uk ×1 on 08-27, plus boxingonline ×1 on 09-01.
+⚠ Successes cluster early (08-27), failures later (08-31→09-03). **A LEAD, not a finding** — it is
+equally consistent with which sites received card landings. Control for site and landing volume
+before calling it a regression.
+
+### THE QUERY IS EXONERATED — the defect is downstream of it
+
+`[MEASURED 2026-09-03 11:2xZ]` I rebuilt `resolvePagesWhereType`'s SQL verbatim (projection +
+`PageImageJoinsSQL` + `ListedPageEligibilitySQL`) and ran it live for designblog / `blog-post`:
+**all four rows pass the floor and carry a non-empty `card_key`.** So the SQL is right, the data is
+right, and the timing hypothesis is dead (cards present 05:05, failing run 05:25).
+
+**The only surviving hypothesis:** `plan.ResolvedData` does not contain `articles` on the failing
+runs, so `mergedContent` (stored ⊕ resolved) keeps the STORED blank array while the section still
+counts as `rerendered` because it rendered HTML from that merged content. **The question is
+therefore "why does `planSection` populate `articles` on some runs and not others, for the same
+component on the same page hours apart" — a conditional inside the resolve path, not a broken
+query.** `WebPath()` returning "" for a non-empty `CardKey` is the only other survivor and is a
+two-line read. **Both UNTESTED — do not build a fix on either.**
 
 **A `090` was fired on this live case 2026-09-03 09:41:56Z** with the seeding corrected (whole
 files, not symbols; the live workflow routing quoted in the symptom).
