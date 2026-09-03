@@ -65154,3 +65154,38 @@ time*. Two people did, same-day, in July. The six that accumulated afterwards di
 oldest sat 37 days. **"Manual, undriven, and invisible once it happens"** is the true claim;
 "nothing ever closes one" was the seductive one, and it was seductive because it made the
 finding bigger.
+
+## 2026-09-03 — "nothing ever closes these", written into shipped code, from a census that could not have said otherwise (`bugs_open/469` lane)
+
+- **The claim.** That `check_section_source_drift`'s items are never closed by anyone — and,
+  generalised, that nine other flag-only detectors "raise warnings that nothing ever closes".
+  Written into the **shipped code comment**, a `LANDMINES` entry, my lane NOTES, the SUMMARY,
+  and the owner-facing log. Inherited from `bugs_open/469` §3 and repeated without testing it.
+- **What was true.** `[MEASURED 2026-09-03]` over `site_work_items` **UNION**
+  `site_work_items_archive`: 8 `section_source_drift` items ever filed and **2 closed by
+  hand**, both 2026-07-19 by one thread (`handled_by = 'bugfix thread (bugs_open/002 C)'`).
+  Generally, **six of eight** flag-only item types have real closures —
+  `claims_unverified` 16/61, `voice_tells` 5/72, `image_source_unsatisfiable` 2/94,
+  `decision_blocked_change` 2/14, `content_duplication` 1/1, `capability_gap` **1/334**.
+- **Why the instrument could not disconfirm it.** **Closing a row ARCHIVES IT OUT of
+  `site_work_items`.** A census over that table returns "nothing ever closes these" *whatever
+  the truth is* — the disconfirming observation removes itself from the sample. The finding
+  was manufactured by the query, not found by it.
+- **The part that stings.** This is `MEMORY[a-closer-census-cannot-see-what-it-succeeded-at]`,
+  about **this exact table**, already in my auto-loaded index — and I applied it correctly to
+  a peer's claim the same morning while writing its negation into my own code that afternoon.
+  Having the rule is not applying it; the rule fires on *someone else's* sentence far more
+  readily than on your own.
+- **What caught it.** The `427` lane, from two archived rows it had told me to read for an
+  unrelated reason (a vocabulary question). I read them properly, quoted them back, and their
+  mere existence contradicted a claim neither of us was examining.
+- **The cheap check that would have.** **When the claim is "X has never happened", ask what
+  your query does to X WHEN IT DOES.** If the answer is "removes it from what I counted", the
+  census is blind by construction and the only honest query spans the archive too. One
+  `UNION`, ten seconds.
+- **Cost.** Nothing shipped wrong — the code's BEHAVIOUR was never affected, only its stated
+  motivation. But the false version had reached a council submission, a register entry and a
+  document written for the owner to read aloud. **And the true version is the better argument:**
+  "nothing ever closes them" invites "so nobody can", which was never the problem; 1-in-334
+  says somebody did, once, and you would have no way of finding out — which is precisely what
+  a machine record fixes.
