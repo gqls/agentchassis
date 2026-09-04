@@ -68162,3 +68162,63 @@ a-closer-census-cannot-see-what-it-succeeded-at, the-claim-that-makes-your-argum
   confirmed — and of [[a-justification-in-an-evidence-column-reads-as-evidence]].
 
 - **2026-09-04, `bugfix_450_tool_page_shells`. I quoted "six live carriers" to a peer lane as a current fact about a shared seam. It is three, and the number carried a date all along.** Warning the `bugs_open/114` lane that they were changing the same INSERT I had just changed, I described `save_page_sections` as *"the single INSERT every composition path flows through, six live carriers"* — lifted from the doc comment at `adopt_fragment_section.go:54`, which says *"with SIX live carriers as of 2026-08-23"*. They replied that their own measurement was **three**, with the predicate attached, and declined to adjudicate. They were right: `[MEASURED 2026-09-04]` three active non-snapshot `agent_definitions` rows carry a `save_page_sections` step, one each — and **six does not reconcile with any filtering of that query** (dropping `is_active`, `is_snapshot` or `deleted_at` in turn still gives 3), nor with the Go side, which has exactly one entry point and one registry entry. **What caught it:** the peer stating their number *with its predicate* rather than as a bare 3, which made the two claims comparable instead of merely different. **The cheap check:** re-run a census before quoting it into another lane's design decision — I had run that very query an hour earlier for a different purpose and got 3, and did not connect it. ⚠ **The lesson is a refinement of the owner's 2026-08-22 rule, not an instance of it.** That rule says a count carries the date it was counted. **This one did, and the date did not save anyone** — because a date makes staleness *detectable* while only a **predicate** makes the census *re-runnable*. With no predicate I cannot even tell whether the original was wrong or whether three carriers have since gone; both are now unknowable. **So: write the query next to the number, not just the day.** Corrected at source in `adopt_fragment_section.go` (struck through, not deleted, with the predicate and today's result), and in `bugs_open/479`. **Family:** MEMORY [[prior-art-search-goes-stale]]; and the same-session entry above about measuring a live outage — both are "a figure that was true once, quoted as though it still were".
+
+## 2026-09-04 (bugs_open/427, the provenance rail) — three of mine in one session, and the two that mattered were both caught by the peer building on my output
+
+- **(a) I described my own census column as a SUBSET of another, and it is not — the 482 lane
+  found it by arithmetic before porting it.** My calibration file's header called
+  `entity_attr_records` *"the narrower subset"* of `dataset_records`. They noticed one row reading
+  `ds=18, ea=20` and stopped, correctly: a subset cannot exceed its superset. **The cause,
+  diagnosed rather than re-tuned:** they are independent predicates over the same extracted object
+  set — `ds` requires a human-readable string value (>=8 chars containing a space), `ea` requires an
+  identity key AND an attribute key and says nothing about string content. So
+  `{ name: 'Secateurs', tier: 1, low: 20, high: 45 }` passes `ea` and fails `ds`, because
+  "Secateurs" is nine characters with no space.
+  **Why it was worse than a wording slip, and this is the transferable part: the false description
+  pointed them at the WEAKER predicate.** Had they ported "the narrower subset", they would have
+  inherited a filter that discards single-word entity names — which is a large share of the
+  fabrication class the gate exists to catch, since invented product and practice names are
+  frequently one word. **A wrong description of a relationship between two measures is not
+  cosmetic; it is a recommendation.**
+  **The cheap check:** assert the relationship you are claiming, in the script that emits both
+  columns. `assert ea <= ds` would have failed on the first run and cost nothing. If two columns
+  are documented as nested, make the code say so.
+
+- **(b) I quoted "133" to a peer from memory while the file I had just committed said 134.** The
+  difference is one component and the cause is mine: the version I quoted counted key names
+  case-sensitively, the committed one case-folds them. Caught by me, before they built on it, only
+  because I re-read the file's own header while writing the handover message. **The cheap check is
+  the one the 482 lane wrote into their RUNBOOK in reply: the file is the source, a remembered
+  figure is not.** I produced both numbers within twenty minutes and still mis-stated the newer one.
+
+- **(c) I put a `[MEASURED 2026-09-04]` marker on a figure I had taken from a peer's message.**
+  Writing up the rail's limits I asserted *"`[MEASURED]` `tool-fight-countdown`'s `input_schema` is
+  NULL"*. That was **their** measurement, restamped with my marker and today's date. This lane's own
+  handoff lists that exact trap ("a `[MEASURED]` marker on a number you did not measure yourself
+  reads as first-hand and is not") and I did it anyway, in the same session, having read the list.
+  **What caught it:** re-reading my own sent message, not a control.
+  **And running it properly produced the finding the borrowed figure was hiding.** Their number was
+  right, but the interesting fact is the denominator I would never have got by trusting it:
+  `[MEASURED 2026-09-04]` **287 of 335 active tools (86%) have a NULL `input_schema`**. So "declares
+  no fact-bearing field" is the DEFAULT state of a tool, not a signal — which undercut the emphasis
+  I had just sent that lane about how much weight their birth arm should put on the declaration
+  half. I had to correct my own advice within ten minutes of giving it.
+  **The cheap check: re-deriving a borrowed figure is not ceremony — it is how you meet its
+  denominator.** The trap is not that the borrowed number is wrong; it is usually right. It is that
+  you inherit the number without the population it came from, and the population is where the
+  finding lives.
+
+- **Two that did NOT reach anyone, recorded because the mechanism that caught them is worth more
+  than the errors.** My draft plan asserted (1) that provenance "is dropped" fleet-wide — it is
+  dropped by two component families of three and **carried** by the third, under an attribute name
+  nothing reads; and (2) that "fact-bearing" could be keyed on the `query.*` resolver — measured,
+  the three fact-bearing components declare three different source kinds, so that definition covered
+  **1 of 3**. Both were caught by **running the blast-radius queries the plan's own section asked
+  for, instead of quoting the plan back at myself.** A plan that lists its disconfirming queries and
+  does not run them before submitting is a plan that has been reviewed by its author only.
+
+**Family for all five:** MEMORY [[a-subagent-report-is-another-doc]] and
+[[a-justification-in-an-evidence-column-reads-as-evidence]] for (c); the day's running theme is that
+**every one of these was caught by someone consuming the output rather than by the person producing
+it** — twice by a peer lane, twice by my own disconfirming queries, once by re-reading a sent
+message. None was caught by re-checking the claim in the place I wrote it.
