@@ -6055,3 +6055,47 @@ ledger.** The rule now reads: a non-zero deletion count means STOP AND CLASSIFY 
 new version → restore) versus the author's own in-place revision (superseded by adjacent added text →
 leave it), proven by grepping the replacement phrase in the additions and the old phrase at HEAD. Both
 checks run here. Full entry in WRONG_CALLS 2026-09-04.
+
+### (lll) 2026-09-04 ~13:50Z — the owner refuted my "no general-purpose researcher"; route B built to the point of a live run
+
+**The refutation, and it was right.** [MEASURED] **11** active agents are named `*research*`, **10** run
+`web_search`, and **two are subject-generic**: `evidence-researcher` (the SAME six-step chain, prompt
+*"extracting ATOMIC, CITABLE claims for an evidence register. Research question:
+{{.input_data.research_query}}"*, 1,681 chars, no vertical anywhere) and `research-agent`
+(*"Synthesize research findings about: {{.extracted.topic}}"*). **Only the DIRECTORY-REGISTRATION leg
+is per-kind** — exactly three agents call `verify_and_register_directory_claims`, and their prompts
+must emit `entity_kind` + a field vocabulary. WRONG_CALLS row filed; the sentence I gave the owner
+sized the work as "an agent per kind for ever" and that is not what the estate looks like.
+
+**Route B, built (owner: "Add a copywriter kind to the global register first"):**
+- **765 APPLIED** — `copywriter-directory-researcher`, cloned from the live finance researcher's
+  `default_config` with only `extract_claims` replaced, so the six steps cannot drift from a sibling
+  known to work. Config-only: `directory_claims.go` closes the field vocabulary for the three finance
+  kinds ONLY ("Kinds absent from this map … are unaffected"), so registration needs no Go.
+- **766 APPLIED** — retargets `copywriter-directory-discovery` to it and re-enables, guarded on the old
+  target, on the <200-char query cap and on 765 existing.
+- **Go, council-submitted `32c75bc5-c005-4587-9f0e-4c24cbd191ea`, committed `48bff098d`:** two
+  **parameterised** arms `directory:<kind>` / `directory_full:<kind>` (+ base-keyed
+  `sourceDependencies`) so a *seventh* kind needs no Go at all — the twelve literal arms all call the
+  same kind-generic `resolveDirectoryKind` and differ only in a string; `base:arg` already exists
+  (`pages_where_type:tool`). Literals retained (live components declare them) and pinned by a test.
+  Plus the `copywriter` profile in `directoryCheckProfiles`, the one table BLD-028's
+  `ListingComponentSpecKeys` derives from. **Needs a build+roll before any page can use it.**
+- **First live run 13:38:48Z COMPLETED** and extracted a real organisation (`stratton-craig`) —
+  then registration **rejected every claim**: `citation_invalid, "missing required field(s): url,
+  publisher"`. My prompt asked for `quote`+`source_url`; `datahelpers/citations.go` requires
+  **url + quote + publisher**. **767 APPLIED** — output contract taken verbatim in shape from the
+  working sibling (flat `quote`/`url`/`publisher`/`title`/`published` + `staleness_days`). Re-fired
+  13:49:48Z, watcher `bsx4ehhgc`.
+  **The lesson, and it is the run-once lesson again:** the workflow COMPLETED, the step succeeded, the
+  model obeyed exactly, and `candidates` read 0. **A status-level check calls that a clean run.** The
+  artefact is `collected_data.registration.rejected` — read the array, never the status.
+
+**Still owed on route B:** components seed (snippet + listing pair), the site's `content_features`
+opt-in, and a replan to re-type `uk-copywriter-directory` / `get-copy-written` from
+`business_directory` to `query.directory:copywriter`. **Route A (business-intel copywriting vertical)
+is the owner's second instruction and has not been started.**
+
+**A Go trap that cost 20 minutes:** my test file was named `generic_directory_arm_test.go`; Go read
+`_arm` as a GOARCH constraint and silently excluded it — `go test` printed PASS and "no tests to run".
+LANDMINES entry added (it reached HEAD inside another session's commit, `3ac8e1b31`'s neighbourhood).
