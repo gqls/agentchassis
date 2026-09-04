@@ -1,4 +1,12 @@
-# HANDOFF 2026-09-03 — editorial_design_uplift, continue here
+# HANDOFF 2026-09-03 — editorial_design_uplift ~~continue here~~ **SUPERSEDED**
+
+> **⚠ SUPERSEDED FOR STATE by `HANDOFF_2026-09-04_continue_here.md`. Start there.**
+> This file is kept as the detailed record and is still worth one read for **§2** (the transaction
+> that did not exist), **§4a** (the binary-probe pair that made the confirmation decisive) and **§7**
+> (the finetuning chain, in the order it actually happened).
+> **Its §0 environment figures are STALE** — the chassis has rolled twice since — and **its §5
+> "HEAD is RED" warning is RETIRED**: re-checked 2026-09-04 and that test is green.
+
 
 **Supersedes `HANDOFF_2026-09-02_continue_here.md`.** That file is still worth reading ONCE, for its
 §2–§4 (the migration 686 rollback, the real imagery finding, the planner-prompt answer) — none of
