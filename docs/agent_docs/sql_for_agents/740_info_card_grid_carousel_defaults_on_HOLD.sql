@@ -272,6 +272,35 @@
 --    in-transaction pre-image rather than a `pg_dump` — it guards a wrong write inside this
 --    transaction, not a later unrelated clobber of a contended row.
 --
+-- ══ ⚠⚠ THE CENSUS IN THIS HEADER IS STALE, AND THE OWNER RULED ON THE SMALLER ═════
+--        NUMBER. RE-TAKE IT BEFORE APPLYING.
+-- The "39 instances do not carry the key" figure above was taken **2026-09-03 12:41:06Z**.
+-- Flagged stale by the `boxingonline.com` lane 2026-09-04; re-taken here, and the correction
+-- is NOT simply "it grew" — **two different effects are stacked in it, and one of them is this
+-- estate's filter trap applied to my own headline number.**
+--
+-- [MEASURED 2026-09-04 16:11:36Z] `info-card-grid` instances, decomposed by filter:
+--     served (`build_status='deployed' AND status='active'`)   44   (1 with the key, 43 without)
+--     + active but NOT deployed (mid-rebuild)                  +8   (0 with the key)
+--     = ACTIVE, any build_status                               52   (1 with the key, 51 without)
+--     + not active (archived etc.)                             +3
+--     = all rows                                               55
+--
+-- So: my 39/40 was the SERVED pairing; the peer lane's 55 is the UNFILTERED count. Both are
+-- correct and they answer different questions — the same trap as the entry two blocks below
+-- about a `needs_rebuild` page vanishing from the pairing, now applied to this file's own
+-- blast-radius claim.
+--
+-- ⚠ **THE RIGHT BLAST-RADIUS NUMBER IS NEITHER OF THEM: it is 51.** This default lands at
+-- PLAN/RENDER time, so it reaches any instance that gets re-planned. A page that is `active`
+-- but `needs_rebuild` **will** be rebuilt — that is what the status means — so those 8 count.
+-- Archived pages do not. **51 instances will flip, not 39.**
+--
+-- Of that movement: **+4 is genuine growth** on the identical filter in ~28 hours (40 served
+-- → 44), and **+8 is the filter** rather than any change in the estate. **The owner ruled
+-- "switch the switches" against 39.** He may want to know the number has moved ~31%; the
+-- boxingonline lane is telling him, and this note exists so the applier does not quote 39.
+--
 -- ══ ⚠⚠ BEFORE YOU APPLY THIS: IT WILL CAROUSEL A SECTION ON A PAID CUSTOMER'S ═════
 --        INDEX PAGE THAT NOBODY ASKED TO BE A CAROUSEL
 -- [MEASURED 2026-09-04] The owner asked (via the boxingonline lane, 2026-09-04) for the
