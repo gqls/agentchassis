@@ -698,3 +698,60 @@ known my sketch read the row after the guard — there is no Go yet — and all 
 the guard sits and why. **That is a better argument than taking the credit would have been**, and it
 is the reason the owner's 2026-07-29 §3 ruling (tell your consumers, do not merely count them) earned
 its place: the notice's value was not in the names it collected but in the constraints it provoked.
+
+## ⚠ CORRECTION 2026-09-04 (final, and it improves the design's framing) — the "20 components move from wireable to skipped" figure is WITHDRAWN
+
+The `imagery` lane retracted it and I **re-derived the whole thing here rather than accepting the
+replacement**, since I had pinned the original as load-bearing. **Their correction is exactly
+right.** `[MEASURED 2026-09-04, reproducing the production predicate including `$5` = the site's own
+`content_data->>'hero_url'`]` — hero-family components by how **both** gate arms see them:
+
+| `hero_url` page-specific | `background_image` page-specific | components | sites | what the gate does TODAY |
+|---|---|---|---|---|
+| f | f | **564** | 40 | **passes — wireable** |
+| t | t | **310** | 34 | refuses |
+| f | t | **8** | 1 | refuses (the arms are `AND`ed) |
+| t | f | **2** | 1 | refuses |
+
+**My error, inherited: the gate has TWO conjuncts and the original at-risk set was built on one.**
+Split by both arms, the 20 were 8 leopardess rows whose `background_image` **already** carries a
+page-specific value (so the second arm blocks them today — the seal changes nothing) and 12 with
+**both keys empty** (so there is nothing to carry, and they stay wireable). **Neither group moves.**
+
+### The conceptual correction, which is the valuable half and bears on this lane's own framing
+
+> **The carry-forward PREVENTS FUTURE LOSS. It does not RESTORE PAST LOSS.**
+
+The 20 were pages where the loss had **already happened** — past the event, and nothing in the seal
+reaches back for them. So **the seal's two halves act on two DISJOINT populations**, and stating that
+plainly is a real improvement on the submission's framing:
+
+- **the CARRY half protects ~312 hero-family components on 34 sites** that still hold a page-specific
+  value and would lose it at their next rebuild — **this is the population the change actually acts
+  on, and none of it is in the 123**;
+- **the FALLBACK half fills the 123 already-lost rows**, with the generic value, which is the correct
+  declared outcome for 105 of them.
+
+Nothing repairs the *right* image on the 18 that have their own asset — that stays the resolver's job,
+as already stated. **This also confirms, from a second direction, the note in NOTES that a
+carry-forward has nothing to carry on the 123: the two halves were never doing the same work.**
+
+### ⚠ AND THE MEASUREMENT WARNING, which is the sharpest thing in their message
+
+> **Re-running the population filter after arming measures a DIFFERENT population** — the filter is
+> defined by the very property the seal changes, so **a row leaving the set is indistinguishable from
+> a row that was never in it.**
+
+**So the before/after must be keyed on PINNED `component_id`s and compared per row, never by
+re-running the filter and diffing counts.** True whoever runs it. That is the same
+*your-own-action-silences-your-own-detector* family as the folded `n == 0` bucket, one level deeper —
+there the detector's *output* moves, here the detector's *population definition* moves underneath it.
+They are pinning the corrected 312 with `component_id`, `page_id`, both keys, the site fallback,
+`build_status` and `updated_at`, plus the query, in their own RUNBOOK so it is self-serve rather than
+a promise from a session that may not outlive the arming.
+
+**Their findings that still stand, unchanged:** the gate's intent is defeated by the destroyer today;
+the seal restores it; a fourth cause joins the folded `n == 0` bucket after arming; and `$5` is inert
+on 24 of 60 sites. **Only the sizing was wrong.** Their own note on what caught it is worth keeping:
+writing the rows out **with their ids** rather than as a count — *"the aggregate had no column for the
+second arm, so the mistake was invisible at the altitude I was working."*
