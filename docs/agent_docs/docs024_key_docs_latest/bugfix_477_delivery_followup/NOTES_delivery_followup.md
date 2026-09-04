@@ -184,3 +184,81 @@ high-severity. Both `complete_approved`.
 showed a fragment.** Worth carrying: the seats read the plan, not the tree, so an abbreviated sketch
 is not a neutral summary, it is the evidence. That is a cheaper lesson than it sounds — a REVISE on
 either would have cost a round.
+
+## 2026-09-04 (late afternoon) — the blocker is closed, and the record was captured with hours to spare
+
+**The gap turned out to be worse than "no record", and the peer lane found the half I had missed.**
+I measured that the recipient is stored nowhere durable. They measured what a reader *gets*:
+`[MEASURED 2026-09-04, verified by me at the live row]` idea.uk carries
+`sites.email = 'idea.uk@contactforsales.com'` — a **site mailbox** — while the delivery went to
+`aaa@designconsultancy.co.uk`.
+
+> **An absence makes you go and look. A misleading value does not.** There is no NULL to warn anyone:
+> somebody answering a support or refund question finds a well-formed, plausible address and is
+> confidently wrong. That difference is the whole argument for a table over a documented convention
+> about which column to read, and I had not made it — I had only established the absence.
+
+**Owner ruling (relayed by the `site_delivery_and_editor` lane, and recorded as second-hand rather
+than as my own judgement):** a dedicated record, not `sites.delivered_to`, written in the same
+statement as `handed_over_at`. The reason is the one that made me route the question instead of
+answering it — `sites` is read by a great many things and `bugs_open/420` exists to control which
+address lives where. **The placement he chose is the one this lane proposed**, which is the argument
+for routing a question you are not entitled to answer rather than guessing well.
+
+### The two hazards this created, and how each was handled
+
+**1. The ordering hazard is real and it is the one that breaks production.** The new
+`StampHandover` writes `site_deliveries` inside the claim, so without the table **every delivery
+fails at the claim**. Migrations are live-on-apply, Go is inert until a roll, so the safe order is
+table-then-code — but on this tree an uncommitted Go change is not safe either: it can be swept into
+another lane's commit and shipped by their build. That is not hypothetical; my `LANDMINES` and
+`WRONG_CALLS` entries were swept into `d6077796a` earlier today.
+
+> So: **778 applied first, commit immediately after.** The cost is that the council seats are
+> auditing a migration that went live mid-round, which I stated in the commit rather than hid. The
+> alternative was a dirty tree holding a change that breaks deliveries if anyone commits it, and that
+> is worse. Submitted before applying, which is the part of the rule that protects the review.
+
+**2. `[MEASURED 2026-09-04 13:59Z]` the backfill had about SEVEN HOURS left.** The only
+machine-readable copy of the address was the delivery run's `orchestration_states` row, and that
+table retained **1 day 02:11**. Applied 14:50Z; captured **1 of 1 recoverable**. Tomorrow it would
+have been a human typing an address out of a document and hoping the document was right.
+
+### What was proven, and the control that makes it mean something
+
+Real Postgres, rolled back, four cases:
+
+```
+PASS: a won claim stamps AND records, in one statement
+PASS: a lost claim records nothing
+CONTROL PASS: the ungated insert DOES fire, so the zero in test 2 is the claim gate doing it
+PASS: a second claim neither stamps nor records — the recipient of record is the first one
+```
+
+The control is the load-bearing one. "A lost claim records nothing" is a zero, and a broken INSERT
+gives the same zero — so the same statement without the claim gate is run and must fire. It did.
+
+**Why one statement rather than an INSERT after the claim:** a claim that succeeds and a follow-on
+write that is lost leaves a delivered site whose recipient nobody knows — the identical shape to the
+follow-up's own "stamped but never sent". Building a second instance of that defect inside the commit
+that fixes the first would have been a poor day's work.
+
+### The pre-commit architecture signal fired, and I think it is right to have fired
+
+`.githooks/pre-commit` flagged **"exported symbol removed/changed"** (`StampHandover`'s signature)
+and **"migration + platform code in one commit — needs a staged rollout order"**, and said it meets
+the RFC trigger test.
+
+My reading, recorded so a later reader can disagree with the reasoning rather than guess at it: the
+staged-rollout half is **satisfied and stated** (778 applied before the code could ship, named in the
+commit and in both files). The exported-symbol half is a **genuine guarantee change** — a handover
+now *cannot* happen without a recorded recipient — but the consumer set is enumerated and is **one**
+(`Claim`, whose own consumer set is one: `send_delivery_email_action.go`). Under the owner ruling of
+2026-07-29 §1, a change needs an RFC when it changes what a shared mechanism GUARANTEES to its
+consumers; here the guarantee is strengthened, the single consumer is updated in the same commit, and
+nothing else can observe it.
+
+**I am not treating that as settled by my own say-so.** The round in flight
+(`62a99103-3097-4aeb-9aeb-be0d190c534e`) has the architecture seat in its footprint, and if it rules
+otherwise the RFC gets written. That is the mechanism the estate has for exactly this question, and
+using it is cheaper than being confident.

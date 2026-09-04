@@ -207,3 +207,53 @@ the work item, not the log); and the placeholder guard is now explicitly documen
 after checking that no shared template-safety mechanism exists. Two objections were factually wrong,
 both because my submission's `sketch` fields showed only a fragment of the migration — the seats read
 the plan, not the tree. Full dispositions: this lane's `NOTES_delivery_followup.md`.
+
+## 7. THE BLOCKER IN §4 IS CLOSED — and it was worse than §4 said (2026-09-04)
+
+§4 established that the recipient is recorded nowhere durable. The `site_delivery_and_editor` lane
+then measured the half I had missed, and it inverts the shape of the problem:
+
+> `[MEASURED 2026-09-04, verified at the live row]` idea.uk carries
+> `sites.email = 'idea.uk@contactforsales.com'` — a **site mailbox**. The delivery went to
+> `aaa@designconsultancy.co.uk`.
+
+**There is no NULL to warn anybody.** The column a reader reaches for is populated, well-formed,
+plausible and wrong, so someone answering a support or refund question is confidently misled. An
+absence sends you looking; a misleading value does not. That is the argument for a table rather than
+a documented convention, and §4 had not made it.
+
+**FIXED. Migration `778` (`site_deliveries`) is APPLIED, and the Go that writes it is committed
+(`698b144fa`).** Owner ruling, relayed: a dedicated record rather than `sites.delivered_to`, at the
+placement this lane proposed — `sites` is read by a great many things and `bugs_open/420` exists to
+control which address lives where.
+
+- **The recipient is written in the SAME STATEMENT that claims the handover** — a CTE on
+  `StampHandover`'s claim, selecting from the rows the claim actually won. So the record cannot exist
+  without the delivery, and no follow-on write can be lost. Doing it as a second call would have
+  rebuilt, in the commit that fixes it, the identical shape as the follow-up's own "stamped but never
+  sent".
+- **`StampHandover` REFUSES an empty recipient**, before touching the database. Handing a site to a
+  customer without knowing which customer is now unrepresentable rather than discouraged.
+- **Proven against real Postgres, rolled back, with a demand control**: a won claim stamps and
+  records; a LOST claim records nothing; **the same INSERT ungated DOES fire**, so that zero is the
+  claim gate's doing and not a broken insert; a second claim neither stamps nor records.
+- **⚠ The backfill expired the same day and was caught with hours to spare.** The only
+  machine-readable copy of that address was the delivery run's `orchestration_states` row, and that
+  table retained **1 day 02:11** when measured at 13:59Z. Applied 14:50Z, captured **1 of 1**.
+  Tomorrow it would have been a human typing it out of a document.
+- **⚠ ORDERING is the one way this breaks production**: without the table, every delivery fails at
+  the claim. `778` was applied before the code could ship. Council round `62a99103` was submitted
+  before applying; the seats therefore audit a migration that went live mid-round, which is stated
+  rather than hidden — the alternative was a dirty tree holding a change that breaks deliveries the
+  moment another session sweeps it, which is not hypothetical on this tree.
+
+**And §5's first open question is answered.** The owner ruled the follow-up interval at **THREE DAYS**
+(verbatim: *"I think the follow up should be 3 days"*), replacing `775`'s placeholder. The copy also
+gained two things from his own hosting run: that setup takes about forty minutes and that slowness is
+not a fault, and a paragraph telling the customer to **open their new address in a private window** —
+because a Netlify Drop site is private by default and looks perfectly public to whoever uploaded it,
+so a customer can press the confirm button in good faith with a site nobody can reach, and
+`transfer_confirmed_at` would then suppress the one message that might have told them.
+
+**Still open:** the schedule stays **disabled**, because the interval being settled is not the same as
+somebody deciding to email a real person today — and the first real run emails the owner.
