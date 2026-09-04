@@ -175,3 +175,97 @@ Recorded as 035 hazard 10; it is P1/P2's to fix.
 - Anything about the routing gap: nothing reads `render_mode`
   (`HANDOFF_2026-09-03` §3), which is a separate defect and not an architecture
   question.
+
+---
+
+# ADDENDUM — the owner ruled for a library and for grain A. How do we migrate what we have?
+
+**Owner, 2026-09-03: *"I think a library, so build Grain A, but how do we migrate what
+we have to use the library?"*** Everything below is `[MEASURED 2026-09-03]` against the
+live estate.
+
+## 1. The migration surface is ONE family, not the whole estate
+
+| function | rows | decomposable? |
+|---|---|---|
+| `hero` | 671 | no — single-purpose section |
+| `call-to-action` | 587 | no — single-purpose |
+| **`article-body`** | **360** | **YES — this is the surface** |
+| `generic-text-block` | 262 | possibly, second wave |
+| everything else | tail | no |
+
+`article-body` is exactly the shape 035 §8 names: **one key, `content`, on all 360
+rows**, averaging **6,320 bytes**. Prose, headings and (rarely) figures in a single
+llm-owned field — the blob whose next rewrite kills anything spliced into it.
+
+## 2. The content ALREADY has the structure to split on
+
+- **299 of 360 (83%)** contain `<h2`
+- **285 of 360 (79%)** contain `<h3`
+- average **4.8 h2** and **2.5 h3** per row; max **16 h3**
+- **196 rows** sit in the useful 2–12 heading band
+- 105 (29%) contain a `<blockquote`
+
+**⚠ And the number that independently confirms the owner's imagery complaint at fleet
+scale: only 5 of 360 article bodies contain an `<img` or `<figure` AT ALL — 1.4%.**
+The dartsonline observation ("1 image, and it is the logo") is not a site problem. It
+is the estate.
+
+## 3. THE SPLIT IS LOSSLESS — measured on the whole corpus, not sampled
+
+The migration's entire safety case rests on one property: partitioning `content` at
+heading boundaries must add and drop nothing. Tested on all 360 rows:
+
+```sql
+array_to_string(regexp_split_to_array(c, '<h2'), '<h2') = c
+--  rows_tested 360 | LOSSLESS 360 | lossy 0
+```
+
+**360 of 360.** So decomposition can be MECHANICAL — no LLM needed to split, and
+therefore no LLM able to silently reword while splitting.
+
+## 4. The reassembly primitive already exists, and is now tested
+
+A variable section count cannot map onto named slots (`lead`, `quote`). It maps onto
+**one repeated slot key** — every child carrying `article-body.section` — which the
+walk concatenates in POSITION order. That behaviour was written 2026-08-26 and had
+**no test until 2026-09-03** (`9ab1d4f87`); it is now covered and mutation-proven,
+because without it a decomposed article silently loses every section but its last
+**and still renders**.
+
+## 5. THE RECIPE — per page, with a falsifier that runs BEFORE any write
+
+1. **Partition** `content` at `<h2` (or `<h3` where the article is flat). Pure byte
+   split, no rewriting.
+2. **ASSERT `concat(segments) == original`.** Cheap, per-row, decisive, and it runs
+   before anything is written. A row that fails is skipped, not forced.
+3. **Create N children**, one per segment, all with slot_name `<parent>.section`,
+   `position` in document order.
+4. **Parent** keeps its row and its lock; its template becomes `{{.slots.section}}`
+   and its component becomes a composite declaring one repeated slot.
+5. **Re-render and assert the SERVED page is byte-identical.** This is P1's own
+   acceptance test, applied per migrated page.
+6. Only then is the page composed. **Any failure at 2 or 5 leaves the page untouched.**
+
+## 6. DO NOT BULK-MIGRATE. The driver is the imagery ask, not composition
+
+Decomposing all 360 buys nothing on its own — a split article renders identically, by
+construction. **The value arrives when a section can carry its own figure**, which is
+the owner's actual steer, and which is per-page work anyway.
+
+So: **migrate a page when someone wants per-section imagery on it.** That makes the
+imagery ask the driver, and it is the only thing that stops this becoming the third
+defaults-and-fork mechanism built without one (`layouts`: 18 library, 0 forked).
+
+`grip-styles` is the natural first canary — the `inline_guide_imagery` lane offered
+it, its six h3s are the ring/razor/shark split the owner named, and it currently has
+one image which is the logo.
+
+## 7. What this does NOT solve
+
+- **Pages whose article-body has no headings** — 61 of 360 (17%) lack `<h2`. They need
+  a different split or stay flat. Staying flat is fine; composition is opt-in.
+- **The `generic-text-block` family (262 rows)** is unexamined and is a second wave.
+- **Nothing here generates images.** It makes a place for them to live per-section.
+  Generation is the imagery lane's, and their measured finding stands: the model is no
+  longer the constraint, only placement and durability are.
