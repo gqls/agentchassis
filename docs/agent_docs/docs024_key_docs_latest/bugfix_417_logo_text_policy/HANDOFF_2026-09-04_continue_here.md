@@ -55,13 +55,35 @@ sentence; "invisible" is not. Whether it earns a regeneration is the owner's cal
 
 ## 3. WHAT IS LEFT, ORDERED
 
-1. **⭐ ROUTING — the only thing blocking 462, and it needs a decision, not a build.** The sweep
+> **⚠ REWRITTEN 2026-09-04 ~15:0xZ — ITEMS 1–3 ARE NO LONGER THIS LANE'S, AND ITEMS 1 AND 2 ARE
+> DECIDED.** `bugs_open/462` transferred to a dedicated session the same afternoon (lane docs
+> `docs024_key_docs_latest/bugfix_462_logo_legibility/`, transfer recorded in 462 §5). **The owner
+> then ruled 462 §9e: apply the standing check, DEFER the filer.** So item 1 below — "routing is the
+> only thing blocking 462" — was true when I wrote it and was answered within the hour, and item 2's
+> render-audit version is deferred with it. **Do not pick either up as 417 work.** They are kept
+> below because a 417 reader still needs the reasoning (a lettered mark has the same routing
+> problem), not because they are open here.
+> **What actually shipped:** the sweep is a daily CronJob — `logo-legibility-check`, `15 8 * * *`
+> UTC, applied and unsuspended, verified at the cluster; three independent runs agree with the
+> 11:42Z baseline. ⚠ **`c0e2900ff`'s commit message says "deliberately NOT applied" and is stale**
+> (true for ~20 minutes); the correction lives in `8df99c110`, 462 §10 and register IMG-080.
+> ⚠ **A check script's exit code changes meaning in a CronJob** — a finding you DECIDED to keep makes
+> the job red for ever and double-reports on retry; and a buffered `python3` in a container prints
+> nothing until it exits, so the two arrive together and the second hides the first. Both are one
+> LANDMINES entry now (462 lane, footprinted on `deployments/kustomize/services/*/base/cronjob.yaml`
+> and on any `audit-*`/`check-*` script promoted from a hand tool to a job). **Read it before adding
+> anything to that fleet.**
+
+1. ~~**⭐ ROUTING — the only thing blocking 462, and it needs a decision, not a build.**~~ **ANSWERED
+   2026-09-04: the owner DEFERRED the filer (462 §9e). Not open, and not this lane's.** The reasoning
+   still matters to 417 and is why it stays here: the sweep — the only thing blocking 462, and it needs a decision, not a build.** The sweep
    *reports*; nothing files. `write_render_audit_findings_action.go:12-13` files `contrast_failure`
    at `css-patch-agent`, which repaints a CSS class and **cannot fix a pale PNG**. A logo finding
    needs a handler that can regenerate or replace an image. Per the owner ruling of 2026-08-02, the
    new work-item type owes its **producer set and `item_key` shape in the concept register in the
    commit that ships it**. `--json` is already shaped for that filer.
-2. **462 §7a option (a), the render-audit version — still the destination, and the reason is
+2. ~~**462 §7a option (a), the render-audit version — still the destination**~~ **— deferred with the
+   filer, 2026-09-04, and not this lane's.** The reason it remains the eventual destination is
    staleness not coverage.** What shipped trusts the DECLARED theme token. Colour churn is live here
    (`generic_theme` landmine; `bugs_open/396` rewrites the theme row byte-for-byte), so a pass
    recorded today decays into a **false pass** — the one direction this bug is already about. The
