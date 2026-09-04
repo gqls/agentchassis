@@ -272,6 +272,32 @@
 --    in-transaction pre-image rather than a `pg_dump` — it guards a wrong write inside this
 --    transaction, not a later unrelated clobber of a contended row.
 --
+-- ══ ⚠⚠ BEFORE YOU APPLY THIS: IT WILL CAROUSEL A SECTION ON A PAID CUSTOMER'S ═════
+--        INDEX PAGE THAT NOBODY ASKED TO BE A CAROUSEL
+-- [MEASURED 2026-09-04] The owner asked (via the boxingonline lane, 2026-09-04) for the
+-- LATEST-ARTICLES section on `boxingonline.com/index` to become a carousel. That section is
+-- **`content-listing`** ("Latest from the site"), whose schema has **NO** `carousel` field.
+-- The SAME PAGE also carries an **`info-card-grid`** ("A few places to start"), which does.
+--
+-- **So applying this migration and letting that page rebuild puts a carousel on his index
+-- page in the WRONG SECTION** — and he could reasonably read the request as actioned. It is
+-- not hypothetical: `boxingonline.com/index` is `build_status='needs_rebuild'` as of
+-- 2026-09-04, so a rebuild is already pending and this default would be picked up by it.
+--
+-- **This does NOT block the migration** — the owner's default-on ruling stands on its own and
+-- the other 20 sites are unaffected by boxingonline's request. **But whoever applies it owes
+-- the boxingonline lane (`site_delivery_and_editor`) a word first**, because on that one site
+-- the visible effect will be mistaken for an answer to a different request. The real request
+-- needs `content-listing` to gain its own opt-in carousel — a separate, unbuilt change
+-- (its template has ZERO carousel affordance today; 19 instances across 11 sites).
+--
+-- ⚠ AND A CENSUS NOTE THAT COST ME THE FIRST ANSWER: querying that page with
+-- `build_status='deployed' AND status='active'` — the pairing this file's own header
+-- recommends — returns **ZERO ROWS for the whole page**, because the page is `needs_rebuild`.
+-- That pairing answers *"what is being SERVED"*. For *"what is this page MADE OF"* the filter
+-- is `status='active'` ALONE. Same table, same landmine, opposite direction: the safe-looking
+-- filter produced a confident zero.
+--
 -- ══ WHAT CHANGES, AND WHEN ═══════════════════════════════════════════════════
 -- Config: live on apply, no image build. But nothing on a served page moves
 -- until that page re-renders. The re-render path DOES apply this —
