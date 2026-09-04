@@ -34,6 +34,49 @@
 > right layout with the **generic** header. Filed as `bugs_open/445` §9. **If you read only
 > one new thing here, read §2a.**
 
+> ## 0a. FLEET ROLL v1.0.1361 IN FLIGHT, and a credit OUTAGE this morning — NEITHER touches this lane, verified
+>
+> Relayed by the `inter thread comms` session 2026-09-04 and checked here rather than taken
+> on trust.
+>
+> **The roll: NOTHING OF THIS LANE'S IS NEW IN IT.** All three of this lane's Go commits
+> are ancestors of **both** the running binary (`239ab3626`, v1.0.1360) **and** the
+> v1.0.1361 cut (`06c0b18f2`):
+>
+> | commit | in running | in cut |
+> |---|---|---|
+> | `28aeb4ca0` the `candidates` fix | yes | yes |
+> | `c03280b20` the header correction | yes | yes |
+> | `b18091066` **the round-4 guard** | yes | yes |
+>
+> So the guard stays live across the roll and §0's status does not change. **This is the
+> distinction that session had to correct for another lane: "in the cut" ≠ "new in this
+> roll".** Check any lane against BOTH refs —
+> `git merge-base --is-ancestor <commit> <ref>`.
+>
+> **And the roll cannot touch the kits themselves: CODE RIDES THE CUT, DB CONFIG DOES
+> NOT.** `theme_kits`, `page_archetypes` and the seeded rows are database state, so a roll
+> neither ships nor endangers them. (The converse caveat, if a kit is ever applied: a
+> config row whose effect is to cause a DISPATCH *is* roll-sensitive, and nothing should be
+> dispatched for ~300 s after pods come up.)
+>
+> **The outage: this lane's approval is GENUINE, not an artefact.** A credit outage
+> 11:21:11–11:56:47 UTC today killed 92 council-gate runs. `[VERIFIED 2026-09-04]`
+> **0** of this lane's runs fall in that window — all four rounds ran 09-02/09-03 — and the
+> correlation's orchestration rows carry **no** `__step_errors` and **no** `__step_error`,
+> ending `complete_approved`. **The APPROVED verdict in §4 stands.**
+>
+> ⚠ **But learn the silent-failure signature before the NEXT round from this lane**, because
+> it is indistinguishable from your own mistake: a council run whose seats were all down
+> ends `status='COMPLETED'`, `error` NULL, `current_step='complete_invalid'` — which reads
+> as *"your submission was malformed"* when it was fine. The only tell:
+> ```sql
+> SELECT left((collected_data->'__step_errors')::text,2000) FROM orchestration_states
+>  WHERE collected_data->'input_data'->>'fix_correlation_id' = '<CORR>';
+> ```
+> **The correlation is then SPENT — resubmit and record the NEW one.** That is a second way
+> a verdict query can mislead, alongside §4's `LIMIT 1`-across-a-resubmission trap.
+
 ## IF YOU ARE PICKING THIS UP COLD — do these, in this order
 
 1. **Re-run §1's four checks.** They are four INDEPENDENT facts and none implies
