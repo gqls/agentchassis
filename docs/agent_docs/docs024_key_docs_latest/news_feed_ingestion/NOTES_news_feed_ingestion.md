@@ -1242,3 +1242,43 @@ empty summaries across all 19.
 clean text regardless. Had I judged ingestion health at the served surface — which this
 lane's own handoff told the next reader to do — I would have recorded "summaries are clean"
 and been wrong about 3 of 4.
+
+### 2026-09-04 ~16:00Z — the roll, the approved verdict, and an outage tally that would have been 10× too big
+
+**Council `c93e71a6` came back APPROVED** (round 1, 1 advisory, none high-severity) and,
+importantly, **not** the `complete_invalid` shape the credit outage manufactures. Read the
+report body before claiming the trailer, not just the status. The advisory was right and is
+fixed in `6f7cf5761`: for `max<4` `truncateSnippet` returned the input unmodified even when
+it exceeded the budget. Mutation-proved — restoring the old `return s` makes the new test
+report a 1-byte budget returning 150 bytes.
+
+**Both halves of 332 are now LIVE, and my own fix rolled during this session.**
+`[VERIFIED 2026-09-04, both controls]` the `web-search-adapter` pod is **55 seconds old**
+running `06c0b18f2`, and `6f0a246de` is an ancestor of it — stamp PRESENT in `/proc/1/exe`,
+HEAD ABSENT as control. ⚠ **The near-miss worth recording:** `6f0a246de` is *also* an
+ancestor of the running **chassis** commit, and reading that as "my fix is live" would have
+been wrong for the right-looking reason — my change builds into the **adapter**, a different
+deployable. Ancestry of the chassis stamp says nothing about the adapter's binary. That is
+CLAUDE.md's "per SERVICE, not per fleet" in its most seductive form, because the ancestry
+test *passes*.
+
+**The outage tally, and why I did not report the first number I got.** The comms session
+flagged "feed items left `status='ingested'` unscored" as a casualty shape of the
+11:21:11–11:56:47Z credit outage. First query: **95** stranded items today — which reads as
+outage damage and is not. Split by the window:
+
+| bucket | items | span |
+|---|---|---|
+| before the outage | **99** | 03:09 → 09:17 |
+| **inside the window** | **19** | 11:34:24 → 11:34:35 |
+| after recovery | **76** | 15:14 → 15:19 |
+
+So of 194 unscored items today, **19** are plausible casualties — one fetch batch, 11
+seconds wide, that landed mid-outage. The 76 are **five minutes old** and are simply
+awaiting the next triage cycle: not damage at all. The 99 **predate the outage entirely**
+and point at something else; cause not established and I am not asserting one. **Reporting
+95, or 194, would have inflated the outage by 5–10×** — exactly the conflation the comms
+session warned about in the other direction, and the reason their "don't write off runs
+that actually succeeded" caution cuts both ways. **The check: bucket by the incident window
+before attributing anything to an incident, and include an "after recovery" bucket, because
+recent-and-pending is indistinguishable from stranded on a `status` column alone.**
