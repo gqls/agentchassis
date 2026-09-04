@@ -181,3 +181,42 @@ completed item, an 11-element array beginning `hero`), so prose cannot travel th
 `section_subjects` and `section_facts` are PARALLEL arrays aligned to it by index — the alignment is
 enforced (`load_page_sections_from_spec_action.go:624`, `len(specSectionFacts) == len(specSections)`
 or the key is omitted entirely: *"aligned or absent, never guessed"*).
+
+## The instructions page: placement DECIDED, and the row must exist before the item
+
+**`page_type = 'content'`, URL `/putting-your-site-online.html`** (decided by this lane 2026-09-04;
+the copy lane holds the words and fires the filing).
+
+`[MEASURED 2026-09-04]` `webdesign.uk` derives page URLs from `page_type` alone, no site-area:
+
+| `page_type` | URL shape | occupants |
+|---|---|---|
+| `content` | `/<name>.html` | contact, faq, how-it-works, what-you-get (4) |
+| `blog-post` | `/guides/<name>.html` | the six tool guides (6) |
+| `tool` | `/tools/<name>/index.html` | the six tools (6) |
+| `landing` | `/index.html` | index (2 rows, one superseded) |
+
+**Why `content` and not `blog-post`, recorded because the reason outlives the decision:** this URL
+goes into a `README.txt` inside a ZIP **that can never be corrected once a customer has it**. Every
+other customer link is correctable (the page) or expiring (the tokens). So **stability dominates
+tidiness.** `/guides/` is 100% tool guides — a coherent marketing/SEO section, and coherent sections
+get reorganised (a `nav_restructure` capability gap is already queued). Top-level `content` sits
+beside `how-it-works` and `what-you-get`, which have been stable and describe what the customer is
+buying. Leave `noindex` FALSE: a customer who lost the email should be able to find it.
+
+### ⚠ `page-build-handler` CANNOT CREATE A PAGE — the row must pre-exist
+
+`load_page_record` is a **SELECT only** (`SELECT id, name, title, page_type, sections, url,
+build_status … FROM pages`) — no INSERT anywhere in the action. The next step is a conditional on
+`page_record.found == true` whose **`else_step` is `complete_error`**, described as *"audit findings
+for new pages will skip here"*.
+
+**So: create the `pages` row first** (`name`, `url`, `page_type`, `build_status='planned'`), **then**
+file the `needs_content_page` item pointing at it with `spec.page_id`. Filing the item alone
+completes with an error and builds nothing.
+
+⚠ **There is no `page_role` column** — `information_schema` returns **0** for it on `pages`. A spec
+key of that name reaches nothing (`page-build-handler` interpolates only `spec.mode`,
+`spec.page_id`, `spec.page_name`, `spec.suggestion`, `spec_sections`). **`page_type` is not settable
+from the spec at all: you set it when you create the row**, so a wrong one is not a re-file away —
+it is baked in, and it determines the URL.
