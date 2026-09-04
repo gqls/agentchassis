@@ -76,7 +76,17 @@ func layer2PreloadWithIdentity(slot, html, storedStamp, storedComponentID string
 }
 
 func layer2PreloadWithFunction(slot, html, storedStamp, storedComponentID, fn string) *sqlmock.Rows {
-	return layer2PreloadRows().AddRow(slot, html, nil, storedStamp, storedComponentID, fn)
+	// is_active true: the stored component exists and is live, which is the state
+	// every one of these fixtures is about. layer2PreloadWithInactiveComponent
+	// stages the other case.
+	return layer2PreloadRows().AddRow(slot, html, nil, storedStamp, storedComponentID, fn, true)
+}
+
+// layer2PreloadWithInactiveComponent stages a stored row whose component_id no
+// longer resolves to an active component — the case reappendedComponentID must
+// refuse, because a dangling id is worse than none on the re-render path.
+func layer2PreloadWithInactiveComponent(slot, html, storedComponentID, fn string) *sqlmock.Rows {
+	return layer2PreloadRows().AddRow(slot, html, nil, "", storedComponentID, fn, false)
 }
 
 // TestAdoptCarriedProvenance_ClearsTheDiscardedDigest is the DIRECT pin, and it

@@ -332,7 +332,11 @@ func expectSaveSlotReads(mock sqlmock.Sqlmock, siteID, pageID uuid.UUID, pageNam
 // layer2PreloadRows is the Layer 2 preload's column set, in one place so a change
 // to that query's SELECT list does not have to be chased through two files.
 func layer2PreloadRows() *sqlmock.Rows {
-	return sqlmock.NewRows([]string{"slot_name", "rendered_html", "content_data", "component_version_id", "component_id", "function"})
+	// ⚠ This list must match the Layer 2 preload query's SELECT exactly. A short
+	// row makes rows.Scan fail, the loop logs and skips, and Layer 2 NEVER RUNS —
+	// every assertion downstream then passes while testing nothing. Documented in
+	// save_sections_layer2_provenance_test.go, and it has happened once already.
+	return sqlmock.NewRows([]string{"slot_name", "rendered_html", "content_data", "component_version_id", "component_id", "function", "is_active"})
 }
 
 func expectSaveSlotReadsPreloading(mock sqlmock.Sqlmock, siteID, pageID uuid.UUID, pageName string,

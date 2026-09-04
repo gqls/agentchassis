@@ -538,7 +538,8 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			SELECT pc.slot_name, pc.rendered_html, pc.content_data,
 			       COALESCE(pc.component_version_id::text, ''),
 			       COALESCE(pc.component_id::text, ''),
-			       COALESCE(cc.function, '')
+			       COALESCE(cc.function, ''),
+			       COALESCE(cc.is_active, false)
 			FROM page_components pc
 			LEFT JOIN content_components cc ON cc.id = pc.component_id
 			WHERE pc.page_id = $1 AND pc.build_status = 'deployed'
@@ -553,7 +554,8 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 				var slot, html string
 				var cdJSON []byte
 				var storedVersionID, storedComponentID, storedFunction string
-				if scanErr := rows.Scan(&slot, &html, &cdJSON, &storedVersionID, &storedComponentID, &storedFunction); scanErr != nil {
+				var storedComponentActive bool
+				if scanErr := rows.Scan(&slot, &html, &cdJSON, &storedVersionID, &storedComponentID, &storedFunction, &storedComponentActive); scanErr != nil {
 					params.Logger.Warn("SavePageSectionsAction: interactive-section scan failed (Layer 2)",
 						zap.Error(scanErr))
 					continue
@@ -567,6 +569,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 					componentVersionID: storedVersionID,
 					componentID:        storedComponentID,
 					componentFunction:  storedFunction,
+					componentActive:    storedComponentActive,
 				})
 			}
 			rows.Close()
@@ -621,8 +624,10 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 						// carry arms must state the same thing, or the next edit reopens
 						// the gap on whichever one nobody was looking at.
 						ComponentVersionID: p.componentVersionID,
-						ComponentID:        carriedIdentity(carryStoredIdentity, p.componentID, p.componentFunction),
-						Position:           len(sections) + 1,
+						// NOT carriedIdentity — see reappendedComponentID for why the
+						// two arms differ, and bugs_open/479 for what dropping it cost.
+						ComponentID: reappendedComponentID(p.componentID, p.componentActive),
+						Position:    len(sections) + 1,
 					})
 				}
 			}
@@ -1371,11 +1376,56 @@ type preservedSection struct {
 	// PLAN's identity on bytes the plan did not produce, which is what
 	// re-mints bugs_open/357's population on every rebuild.
 	componentID string
+	// Whether that component is still active. Read because a DANGLING id is
+	// worse than none on the re-render path — see reappendedComponentID.
+	componentActive bool
 	// The stored component's FUNCTION, so the carry can be narrowed to
 	// exactly what adoption created rather than re-typing every carried
 	// section on the page — and so the matcher below can pair a stored
 	// positional slot with the plan entry that names the same component.
 	componentFunction string
+}
+
+// reappendedComponentID is the identity a RE-APPENDED interactive section carries.
+//
+// It is deliberately NOT carriedIdentity, and the difference between the two arms
+// is the whole of the argument.
+//
+// carriedIdentity governs the SPLICE arm, where an incoming section from the plan
+// already occupies the slot. Overwriting its component with the stored one would
+// hold a legitimately-typed component at its OLD identity when the plan intended
+// to swap it — three council seats made that objection independently in RFC_046's
+// first round, and they were right, which is why that carry is opt-in and narrowed
+// to adopted fragments.
+//
+// The RE-APPEND arm is the opposite case: the plan named this slot NOTHING. The
+// section is built wholly out of the stored row — its bytes, its content_data, its
+// slot name, its provenance stamp — and the component id was the single field of
+// that row the copy dropped. Carrying it overrides no plan, because the plan
+// expressed no intent about a slot it never mentioned; it preserves a fact the
+// database already holds about the very bytes being re-inserted. Dropping it is
+// pure information loss.
+//
+// WHAT THAT LOSS COSTS, measured rather than argued (bugs_open/479): 17 rows
+// fleet-wide carry rendered_html with no component reference `[MEASURED
+// 2026-09-04]`, 5 of them tool slots serving working tools, and 3 of those were
+// created AFTER bugs_open/385's matcher fix went live on 2026-08-26 — so this is a
+// live producer, not a backlog. Every one sits at its page's last position and was
+// the last row of its write burst, which is this arm's signature.
+//
+// THE ACTIVE CONDITION IS THE ONE GUARD THAT MATTERS, and it is not tidiness: a
+// DANGLING id is worse than NULL on the re-render path. loadComponentSchemasByID
+// drops a row it cannot load, and resolveComponent then deliberately returns
+// invalidTemplate rather than falling through to the slot-name map
+// (rerender_page_sections_action.go), which makes the whole page fatal. NULL at
+// least falls through. So carry the id only while it still resolves to an active
+// component, and otherwise leave the row honestly unknown — the same standard
+// adoptFragmentSection holds itself to.
+func reappendedComponentID(storedComponentID string, storedComponentActive bool) string {
+	if storedComponentID == "" || !storedComponentActive {
+		return ""
+	}
+	return storedComponentID
 }
 
 // matchPreservedSectionIdx pairs one preloaded interactive row against the
