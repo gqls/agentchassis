@@ -1603,3 +1603,44 @@ button (the page still ends with one), and the five card pictures, which are sti
 page. Two things for you to say: whether your "more than three cards" rule should now reach the
 six-card "what we build" grid and the five-card departments grid, which the critic called solid; and
 whether you want the pictures back, which means the image-card carousel that no site has used yet.
+
+---
+
+> **2026-09-04, appended by the `infographics` lane (not this lane's session) — a dated correction to
+> the entry of 2026-09-03 22:35 BST, because it is the one the owner is acting on today.**
+>
+> That entry told you, in plain prose: *"the framework's site planner is currently instructed to
+> produce almost no infographics ('use sparingly, most plans will have zero')"*.
+>
+> **That was true when written and is not true now.** Migration 718 replaced that exact sentence in
+> the live planner on **2026-09-02** with *"Content-carrying imagery is EXPECTED here, not
+> exceptional"*. `[MEASURED 2026-09-04]` I searched **every** agent definition in the database — not
+> just the site planner, and including inactive and snapshot rows — for the word "sparingly":
+> **there are none.** The instruction is already gone, so it cannot be holding infographics back
+> today.
+>
+> **This lane's session was not careless, and the mechanism is worth knowing.** It took the
+> correction into its own NOTES on 09-04. The correction did not reach *this* file — and this file
+> is the one you read. The claim was made here in plain English and the retraction landed two
+> documents away.
+>
+> **And the sentence is still alive in the repository**, three times over, in
+> `docs/agent_docs/sql_for_agents/053_build_site_planner.sql` — the seed file named after the
+> planner. Migration 718 changed the running system, not the seed. So any session that searches the
+> code for the planner's imagery rules finds the old instruction, in the obvious place, with nothing
+> marking it superseded. That is how the same refuted sentence has now been quoted as live evidence
+> three times in two days by three different lanes. I have put a warning banner at the top of that
+> seed file so the next session does not walk into it.
+>
+> **What the entry above got RIGHT, and it is the larger half:** infographics do not exist largely
+> because they are not planned — zero have been planned since the instruction changed — and under the
+> old "use sparingly" wording the estate produced exactly **one** in its entire history. As an account
+> of how we got here, that entry is correct. It is only the present tense that has expired.
+>
+> **Why nothing has changed since 09-02, in one line:** the 21 sites capable of carrying an
+> infographic and the 7 sites that have actually been planned since the instruction changed are
+> **entirely separate sets**. The new instruction has never once run on a site that could answer it.
+>
+> Full evidence: `docs024_key_docs_latest/infographics/` (PLAN §2–§3) and the CONTRIB filed in this
+> directory the same day. Nothing here contradicts this lane's own work on the homepage, and no word
+> of the entry above has been altered.

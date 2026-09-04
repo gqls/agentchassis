@@ -1,3 +1,43 @@
+-- ============================================================================
+-- ⚠ STALE PROMPT TEXT — THIS SEED IS HISTORY, THE LIVE ROW IS FACT (added 2026-09-04)
+--
+-- This file still contains the pre-2026-09-02 imagery instruction, THREE TIMES
+-- (lines ~1347, ~1652, ~2058):
+--
+--     "Use sparingly in v1 - most plans will have zero section-scope entries."
+--
+-- Migration 718 (2026-09-02, 718_planner_imagery_content_expected_prompt_and_
+-- exemplar.sql) REPLACED that sentence in the live agent_definitions row with:
+--
+--     "Content-carrying imagery is EXPECTED here, not exceptional..."
+--
+-- 718 edited the LIVE ROW, not this seed. The text below was never updated and
+-- is left as written, because a seed is a record of what the agent WAS.
+--
+-- ⚠ WHY THIS BANNER EXISTS RATHER THAN A QUIET EDIT: the superseded sentence has
+-- now been quoted as live evidence THREE TIMES in two days, by three different
+-- lanes, and it reached the owner twice - once in a decision brief that routed a
+-- fleet-wide ruling onto a cause that had already been fixed, and once via a lane's
+-- owner-facing README that carried it 24h after the correction landed in that same
+-- lane's NOTES. Grepping the repo for the planner's imagery rules is the OBVIOUS
+-- move and it returns this file, named after the agent, in triplicate, with nothing
+-- marking it superseded.
+--
+-- [MEASURED 2026-09-04] `agent_definitions` rows fleet-wide containing "sparingly",
+-- across active/inactive/snapshot/undeleted: ZERO. The line is dead in the system
+-- and alive only here.
+--
+-- BEFORE QUOTING ANY PROMPT TEXT FROM THIS FILE, read the live row:
+--   SELECT default_config::text FROM agent_definitions
+--    WHERE id='f263eaa1-61e1-446e-9410-648e12b7875b';
+-- (build-site-planner; 39,431 B as of 2026-09-04. Confirm by CONTENT, not id:
+--  `grep -c sparingly` must be 0 and "Content-carrying imagery is EXPECTED" present.)
+--
+-- Owned by: docs/agent_docs/docs024_key_docs_latest/infographics/ (the selection
+-- rule) and framework_prompts_positive_voice (the prompt bytes). See MEMORY
+-- [[seed-sql-is-history-live-row-is-fact]] and LANDMINES.md.
+-- ============================================================================
+
 currently:
 
          read_specs → ensure_site → load_components → load_styles → plan_site (LLM)
