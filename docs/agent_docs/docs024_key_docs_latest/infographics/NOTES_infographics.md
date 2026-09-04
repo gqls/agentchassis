@@ -296,3 +296,32 @@ survives into the served bytes.
 on the chart fields and dispatched to the verifier. Owed: tell `brochure_component_library` — a
 per-point unit, or a refusal to share an axis across mixed units, is their component's call and this
 is the first evidence for it.
+
+## §10 — 2026-09-04: a boundary honoured, and one observation kept from it
+
+The finetuning lane reported that the owner had said, unprompted and without any diagnosis:
+*"Case studies page is missing a hero."* Measured by them: the hero slot renders no image at all
+while the site holds a deployed `content-hero-case-studies.jpg` that nothing displays — IMG-077 item
+`6db67bde`'s **unwired** state.
+
+**Routed to `bugs_open/114`, not taken.** `who-owns.py` shows that lane active with seven commits on
+the bug file on 09-03 alone, and PLAN §4 puts 114 strictly downstream of this lane with "contribute,
+do not compete". They have first-hand evidence; a second-hand relay from me would be worse. Offered
+to carry it if they prefer.
+
+**Why it is not this lane's even though it is imagery:** a hero is **chrome**. This lane owns the
+choice of artefact for something a section must **explain**. A slot whose content was never in
+question failing to resolve is a different defect with a different owner. Recording the reasoning
+because the boundary is only worth anything if it holds on a case that is adjacent and tempting.
+
+**The observation worth keeping, which IS this lane's kind of thing:** *a human reported from the
+outside what a detector had already filed.* IMG-077 had that page in its census. The finding existed.
+The route it travelled to attention was the owner looking at the page. That is a fact about detector
+**reach**, not detector correctness — and it is the same shape as this session's opening finding,
+where a correction sat in a NOTES file while the claim the owner acted on sat in a README.
+
+**Two instances in one day, in unrelated subsystems, of a true finding failing to reach the person
+who would act on it.** `[UNMEASURED]` whether that is a pattern or a coincidence — naming it, not
+claiming it. It bears on PLAN Phase 3: a detector for "this section should be a diagram" is worth
+building only if its findings reach somebody, and neither instance today did so by its own route.
+Flagged for `experience_loop` when Phase 3 is specified, since detector reach is their domain.
