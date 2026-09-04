@@ -318,3 +318,94 @@ for that entry — it dispatches an orchestration, and the roll's own guidance i
 within ~300s of a chassis restart, which had not even begun. Run it once the fleet settles.
 Do **not** run `landmines-sync.py --apply` first: it consumes the "new entry" status and the
 verifier then never checks the entry.
+
+---
+
+## 2026-09-04 — /pay/success and /pay/cancel: fixed through the framework, and two things I got wrong on the way
+
+**Owner instruction** (relayed via the delivery lane): *"tell the stripe lane to fix the
+webdesign.uk/pay/success page if that is their responsibility."* It is.
+
+### The finding that made it small: these URLs already work, there was just no page
+
+I assumed `/pay/success` — no `.html` — would need an nginx location, a
+`billing_public_base_url` change, or a `stripe.go` edit. **All three were unnecessary.**
+The site already serves twelve pages from subdirectories and the box vhost is
+`try_files $uri $uri/ =404` with `index index.html`, so extensionless directory URLs
+already resolve. Proven against a live analogue with a control rather than reasoned:
+
+| path | status |
+|---|---|
+| `/tools/css-variables` (extensionless) | **200** |
+| `/tools/css-variables/` | 200 |
+| `/tools/css-variables/index.html` | 200 |
+| `/pay/success` | 404 |
+| `/invented-dir-probe` (control) | 404 |
+
+So the fix is one framework page at `/pay/success/index.html`. **This is load-bearing, not
+tidy:** Go is inert until the next roll and the owner's second trial is before it, so a
+`stripe.go` change could not have fixed it in time. The URL our code mints was always
+servable; the page had simply never been built.
+
+### What shipped
+
+Migration **`779_pay_success_and_cancel_pages.sql`** — two `needs_content_page` work items,
+handler `page-build-handler`, the path 365 completed items already exercise. No html, no
+`rendered_html`, no `pages` rows: the framework builds them (owner ruling 2026-08-04).
+Guards are DO/RAISE and **both mutation-killed** (`detected` instead of `triaged` → refused;
+one item instead of two → refused). Full file run with COMMIT→ROLLBACK first, 0 rows left.
+Applied via a **scoped `MIGRATIONS_DIR`** so the runner could not take another lane's
+pending files. Ledgered 16:28:19Z. Council `e9648ad5-bef8-4286-bb40-4c29c3f56c32`.
+
+Every copy constraint in the `suggestion` fields is a measured fact — no timescale (delivery
+waits on a human approval), no "your build has started" (two paid cases route to
+`needs_human_review` and see the same page), no order reference (`?o=` is the UUID; the one
+real payment's URL ended `?o=36744bf0…` while its reference was `BR-9AUZ59`).
+
+### MISSTEP 1 — I fired the wrong lever, and said so to the owner before checking
+
+I saw webdesign.uk sitting at **rank 34 of 39** in `improvement-sweep`'s pre_query
+(`ORDER BY s.updated_at ASC LIMIT 1`, one site per 900s), concluded the pages were ~8 hours
+away, and fired `091_TRIGGER_improvement_loop_single_site.sh` to jump the queue
+(corr `7f0d404a`, orchestration `428a9a6c`, COMPLETED).
+
+**That was the wrong loop.** `improvement-sweep` runs *discovery* — it finds new issues. The
+loop that *dispatches* an existing `triaged` item is **`build-pipeline-trigger`**, which runs
+every **30 seconds**, is enabled, and whose pre_query selects any site holding an item with
+`status IN ('triaged','approved')`, attempts remaining, `retry_after` clear and the site
+unlocked. **It has no per-site rank at all**, so the rank-34 figure never applied to dispatch
+and the eight-hour estimate was about a mechanism that was not in the path.
+
+My items pass **every arm** of that predicate, verified individually
+(`lock_ok/status_ok/attempts_ok/retry_ok` all `t`), and the loop is demonstrably alive —
+`[MEASURED 2026-09-04]` **252** items left `triaged` in the 16:00 hour alone, 91 eligible
+items across 10 sites fleet-wide. The improvement-loop run was harmless but did nothing for
+this; the items were already eligible the moment 779 applied.
+
+**The check I skipped:** I read one scheduler's pre_query, found it slow, and never asked
+*which* scheduler actually consumes this item type. MEMORY carries this exact family —
+*"a silent mechanism is usually UNDRIVEN, not missing: read the gate"* — and the correct
+first move was to enumerate every enabled task and match on the predicate, which is one
+query and is what eventually found `build-pipeline-trigger`.
+
+### MISSTEP 2 — a prefix query told me a migration was recorded when it was not
+
+Chasing why a full dry run listed `726_delivery_email_domain_buyout_59_99.sql` as pending, I
+ran `WHERE filename LIKE '726%'`, got `RECORDED 2026-09-03`, and briefly concluded **the
+runner was wrong**. It was right. **Two unrelated migrations share the number 726** — the
+other is `726_designblog_tools_hub_page_and_build_dispatch.sql`, and that is what my prefix
+matched. Full-filename queries settle it: the delivery-email one was **NOT RECORDED**.
+
+Caught only because the returned date was the previous day and did not fit the story. **Had
+both been applied in the same week nothing would have looked odd.** Now recorded, after
+verifying at the artefact with a control (live `body_template` contains `59.99`, count 1;
+superseded `200 pounds` absent, count 0). Filed as a LANDMINE — CLAUDE.md documents this
+collision for *bug* numbers and nowhere for *migrations*, where the ledger decides
+re-application.
+
+### Open at time of writing
+
+Both items still `triaged` at 16:40Z, 12 minutes after applying; no `/pay/` pages in `pages`
+yet. **The pages are SEEDED, NOT BUILT** — and the served bytes must be read before this is
+called done, especially the cancel page, whose central fact is a negation and whose
+suggestion therefore demands positive constructions.
