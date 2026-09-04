@@ -621,23 +621,46 @@ Rules that make them worth the effort:
   ships the node's stale cached binary.
 - **Ask the service what it is running. Do not hunt for markers, and do not use
   `strings`** (rewritten 2026-08-11; the old `strings … | grep -c "<your symbol>"`
-  recipe that stood here produced three confidently wrong readings in one day):
-  ```bash
-  kubectl -n ai-persona-system logs -l app=<service> --tail=300 | grep -m1 'build provenance'
+  recipe that stood here produced three confidently wrong readings in one day.
+  **REORDERED 2026-09-04, `bugs_open/463` lane:** the scrolling log line stood
+  first here and the table below was named nowhere in this file, though
+  `LANDMINES.md` documents it in nine places — following this section as written
+  cost that lane an hour. The corpus had the answer; the file every session loads
+  unasked did not):
+  ```sql
+  SELECT pod_name, git_commit, started_at FROM service_binary_capabilities
+   WHERE kind='build' AND pod_name LIKE '<deployment>-%' ORDER BY started_at DESC;
   ```
-  That is the service's own statement of its commit — no exec, no binary path,
-  nothing to install. **But it is a STARTUP line, so it scrolls**: on a busy
-  service it is already out of reach hours later (`agent-chassis`, measured
-  2026-08-11: absent from `--tail=3000`). **An empty result there means "not in
-  range", not "unstamped"** — fall back to the binary probe below, which has no
-  shelf life. **"Did my fix ship?" is now a query, not an inference:**
+  A running pod publishes the commit it was built from (register **BLD-023**), so
+  **ask this first** — no exec, no binary path, no log window, nothing to install.
+  **Filter by `pod_name`, not by the `service` column**: that column also carries
+  rows for other pods sharing the image (`agent-landmine-verifier-*` and friends),
+  which may have rolled at a different time and be running something else. Then
+  **"did my fix ship?" is a query, not an inference:**
   `git merge-base --is-ancestor <your-commit> <the stamp>`. So you no longer need
   to plant a string literal in your change in order to date it later.
+  - **⚠ It is a TWO-HOUR WINDOW, not a history** (`RetentionWindow`,
+    `platform/buildcapability/buildcapability.go`). It answers *what is running
+    NOW*, with no shelf life — and it answers a question about the **PAST** with
+    today's survivors, **silently**: a pod whose `started_at` precedes your event
+    reads as proof that binary served it, and proves only that this pod outlived
+    the prune. If the thing you are dating is more than two hours old, **stop** —
+    corroborate against something that is not pruned, e.g.
+    `kubectl -n ai-persona-system get rs -l app=<svc> --sort-by=.metadata.creationTimestamp`
+    (how 463 established its 22:07:19Z roll time). Full trap: `LANDMINES.md`,
+    "…IS A TWO-HOUR WINDOW…".
   - **Per SERVICE, not per fleet** (`bugs_open/249`). Until the pinning fix in
     `release` has rolled, a release could straddle other sessions' commits and
     ship several revisions under one tag — `v1.0.1284` shipped three. Read the
     stamp of the service you actually mean.
-  - **If you doubt the logs, probe the binary — but verify a KNOWN value:**
+  - **The service's own startup line still works — it is second because it
+    SCROLLS**, not because it is wrong:
+    `kubectl -n ai-persona-system logs -l app=<service> --tail=300 | grep -m1 'build provenance'`.
+    On a busy service it is already out of reach hours later (`agent-chassis`,
+    measured 2026-08-11: absent from `--tail=3000`), and reading the whole log
+    OOM-kills the tool. **An empty result there means "not in range", not
+    "unstamped".**
+  - **If you doubt the stamp, probe the binary — but verify a KNOWN value:**
     `kubectl -n ai-persona-system exec <pod> -- grep -aq "<expected-sha>" /proc/1/exe`.
     Never `strings` (absent from the debian-slim images, and behind the customary
     `2>/dev/null` its failure is indistinguishable from "not stamped"), and never
@@ -645,6 +668,15 @@ Rules that make them worth the effort:
     table and returns the same wrong answer on every service). **Always run a
     control in the same breath** — a sha that must be absent, and one that must
     be present. Both traps are in `LANDMINES.md`.
+  - **⚠ A capability probe cannot see code that nothing CALLS — so for INERT
+    code, verify by ANCESTRY, never by literal.** Grepping the binary for a
+    literal your change added is evidence only for code with a live caller; the
+    linker drops an unreachable one, so a built-and-inert phase-1 module probes
+    ABSENT with both controls clean (measured 2026-09-02, `bugs_open/440`: two
+    fresh pods read PHASE1A-ABSENT while their stamps carried the commit by
+    ancestry). Worse, it will spontaneously start hitting the day the first
+    caller lands, which mis-dates the ship to *that* roll. Use the stamp plus
+    `merge-base`, above.
 - Image first, then seeds (a seed naming an unregistered action fails at runtime).
   No orchestration dispatch within ~300s of a chassis pod (re)start — the spawn
   is silently dropped.
