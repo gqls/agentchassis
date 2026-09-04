@@ -229,3 +229,31 @@ yet — the rebuilt pages are queued behind a stale deploy marker that reads
 moment it actually serves its tool. Two lasting lessons went into the errors
 file: the repair lands beside the promising prose rather than replacing it,
 and a "deployed" status only records that a deploy once happened.
+
+## 2026-09-04 — the Tools link is live, and the article-hub fix went in overnight
+
+Two pieces of good news you can see with your own eyes, and one interaction
+flagged before it bites.
+
+First: designblog now has its Tools page and its nav link. Visit
+designblog.co.uk — the header carries Tools, and /tools/index.html serves a
+real hub listing the site's four tools ("Tools for the parts of design that
+are arithmetic"). That closes the nav item from your original critique at
+the served page, not just in the database. It took three attempts through
+the framework — the first build dispatch hit a handler that can only rebuild
+existing pages, not create them — and the wrong turn is written up with the
+check that would have avoided it.
+
+Second: the validator bug that silently deleted the five launch articles
+went live with its fix overnight, council-approved. Both halves — the
+deletion, and a second fault that filed surviving articles under the wrong
+folder. So planning articles into the feed and article sections is now
+actually possible, for this site and the fleet.
+
+The flag: the planner will now happily propose launch articles (your ruling,
+working as intended), but a separate limit caps each site at twenty built
+pages, and twenty-six of the forty-two sites are already over it — on those,
+the newly-planned articles get discarded at the door. designblog sits at
+eighteen, so it has room for about two more pages before it hits the same
+wall. The cap's owner has been pointed at the collision; sizing that cap
+against your launch-posts ruling is their question to bring you.
