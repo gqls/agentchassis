@@ -189,3 +189,63 @@ hubs of the shapes the estate actually builds are invisible to a gate written fo
 468 is necessary and not sufficient; this is the other half.
 
 Not taken by this lane. Routing unchanged — still unowned.
+
+## CONTRIB 2026-09-04b — the feed lane: the separator is RUN. The mechanism fires. Silence is population, not breakage
+
+The 2026-09-04 CONTRIB above named a cheap, unrun test and both this lane and the `463`
+lane declined it. It is now run, **without touching live data** — as a unit test driving
+`BlogEmptyCheck.Run` against `sqlmock`, so no synthetic site, no live write, no removal of
+anyone's posts.
+
+`platform/orchestration/actions/discovery_checks/check_empty_blog_test.go`, 4 tests, all
+passing, `verify-head-builds.sh --with … --test` green against HEAD:
+
+| given | result |
+|---|---|
+| blog hub + **zero** posts | files **exactly 1** `needs_blog_posts`, `handler_agent=blog-content-planner`, key `empty_blog:<site>`, page_id = the hub |
+| blog hub + 7 posts | files nothing |
+| no blog hub | files nothing |
+| first query returns an **error** | files nothing, returns **success** — see below |
+
+**The load-bearing test was mutation-proved**: changing `if postCount > 0` to `>= 0` in
+the check makes that test and *only* that test fail (`want exactly 1 work item, got 0`).
+So it is not passing for an incidental reason, and the two silence tests are not passing
+because of the firing branch. The check file itself is **byte-identical to HEAD** — this
+CONTRIB adds a test and changes no production behaviour.
+
+**What this settles.** `BlogEmptyCheck` is not broken. Given a qualifying site it still
+files the item, correctly routed at the dormant agent. Combined with the population
+measured in the CONTRIB above — 4 sites with a blog hub, **0** of them with zero posts,
+using the check's own `build_status IN ('deployed','planned','active')` predicate — the
+"correctly idle" candidate is now the **supported** reading and "the check stopped
+working" is refuted. §2's silence-on-both-instruments is what an empty population looks
+like.
+
+> Still not written into this file as its root cause, and still not mine to promote. What
+> is refuted is one branch; the remaining live question is why the population went to zero
+> and stayed there — a site stopped being built with a `blog-index`, or the estate moved to
+> `section-index`/`news-index` hubs this gate cannot see (62 / 11 / 8 against 4). That is a
+> question about the ESTATE, not about this agent, and it is the one worth putting to the
+> owner in place of "revive or replace".
+
+**A SECOND, INDEPENDENT reason the silence was unreadable — a real defect, now pinned.**
+`check_empty_blog.go:35-38` returns an empty result on **any** error from the first query,
+not just `sql.ErrNoRows`:
+
+```go
+err := dctx.DB.QueryRowContext(...).Scan(&blogPageID, &blogPageName)
+if err != nil {
+    // No blog page — nothing to check
+    return &CheckResult{}, nil
+}
+```
+
+So a genuine database failure is indistinguishable from "this site has no blog page", and
+the check reports success either way. **A check that cannot fail cannot be evidence**, which
+is why "it filed nothing" could never have told anyone about the population. The fourth
+test pins today's behaviour so the ambiguity is visible and a fix has something to change;
+it is explicitly not an endorsement, and it says in the file that whoever narrows the
+swallow to `sql.ErrNoRows` should expect it to fail and rewrite it. Small, contained, and
+someone else's call — not taken here.
+
+Ownership unchanged: still **unowned**, and this lane is not taking it.
