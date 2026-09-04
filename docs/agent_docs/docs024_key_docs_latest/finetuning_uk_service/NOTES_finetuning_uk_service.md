@@ -3843,3 +3843,43 @@ probe of these sites.
 **Dropped by construction, as told the owner:** the section intro sentence, the section's own CTA and
 the five card images. Next per his rule (>3 cards → swipeable): `departments-grid` (5) and `features`
 (6, "solid") — ASK FIRST; or swap to `hero-card-carousel` if he wants the pictures back (0 live uses).
+
+## 2026-09-04 (12:10–12:40Z) — the owner's next batch: answers, dispatches, and a blast-radius catch
+
+**Why finetuning.uk has no site plan `[MEASURED 12:12Z]`:** the site row is 2026-02-22; the estate's
+FIRST `site_plans` row is 2026-05-12 (build-site-planner). Of the 6 sites older than that, only 2 ever
+gained one — robot-hands.com (5 plans, first 05-12, `source_agent=build-site-planner`) and
+leopardessconsulting.co.uk (1, 07-16, `source_agent=operator-rebuild`). Nothing backfills. So: built
+page-by-page from gap-plan briefs, never through the planner. Two routes to give it one (planner run,
+or operator rebuild); both recompose the site and touch owner-approved copy → a decision, presented in
+README, not a fix.
+**Pricing at his £1.50 + 6× cost `[FX ASSUMED 0.787 £/$]`:** a6000 £0.28 cost → £3.15/hr (margin £2.88);
+a100xl £0.86 → £6.65/hr (margin £5.79). Two-hour session £6.31 / £13.29. Per-BOOKING fee instead of
+per-hour makes the a6000 two-hour £5.04. Earlier ×5-no-fee shape was £1.38 / £4.29.
+**Guide link (his decision 4) DISPATCHED:** `playground_widget_guide_link_dispatch.sql`, item
+`18026ed9` — one small muted line at the foot of the chat component linking
+`/guides/playground-guide.html`; same add_tool-replace path, description extended, everything else
+byte-identical; post-condition asserts the new text is in the spec.
+**Handwriting plan WRITTEN at his request:** `PLAN_2026-09-04_handwriting_models_preliminary.md` —
+four artefacts (recogniser → image writer → stroke writer → font), how strokes are collected (Pointer
+Events in a browser, pressure/tilt on a stylus, resampled `(dx,dy,pen_up)` offsets), the IAM
+non-commercial licence trap on BOTH the offline and on-line corpora, and §6: a handwriting synthesiser
+is a signature forger unless deliberately not one — the stance to decide first.
+**⚠ BLAST-RADIUS CATCH (uplift lane, verified here 12:38Z) on "apply the cards rule to the other
+grids":** `features` = **41 placements / 12 sites**; `departments-grid` = 5 / 3. **And on
+finetuning.uk alone, `features` is on FIVE pages and `departments-grid` on TWO.** So the rule is
+(a) never a component change — that would restyle eleven other people's sites — and (b) not even one
+slot on this site. The owner was looking at his homepage. **Filing homepage SLOT swaps only; the other
+four `features` pages on his own site go back to him as a question.** Also measured: `hero-card-carousel`
+and `image-hover-card-grid` have **0 live renders fleet-wide**, so "image-card carousel as the default"
+is a canary, not a default, until one page proves it.
+**Route B verified here (new `infographics` lane's finding):** mechanism-flow 14 live placements,
+evidence-chart 10, checklist 9, comparison-table 8, evidence-timeseries 3, period-calendar 2 — 46
+placements, five of six `render_mode=template` (so no LLM, no copy-regeneration risk). **This is the
+route for his three-steps diagram and the £99 vs ~$5,000 comparison**, both asked of that lane.
+The uplift lane takes the constraint spec for new carousel components (funcmap has no arithmetic → CSS
+custom properties; per-instance id collisions ship quietly; **decoration carries no words or numbers —
+anything that does is an assertion needing HTML text over a registered fact**; colour through palette
+tokens, `--color-border` usually fails WCAG non-text contrast) and DECLINES the taste half; this lane
+briefs component-creator with the critic's report as input. ⚠ Read `plan_sections_action.go:1625-1722`
+for the hand-filed `needs_new_component` field shape before writing that item — nobody has confirmed it.
