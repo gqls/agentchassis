@@ -48,3 +48,7 @@ copyonline.co.uk
 2v.uk
 wpx.uk
 leopardessconsulting.co.uk
+
+# 2026-09-03 — owner withdrawal, no reason stated; this lane had already flagged
+# it as trademark-adjacent (Rolex Submariner) on 2026-09-02.
+rolex-submariners.com
