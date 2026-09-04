@@ -116,6 +116,10 @@ shape before writing.
 
 ## 4. What to do next, in order
 
+0. **The owner ruled 2026-09-04: build grain A, as a library.** §7 and §7a. Grain A
+   needs NO new mechanism — it inherits defaults and forking by being a
+   `content_components` row. What it needs is the wiring below, then a first composed
+   page, driven by someone wanting a per-section graphic on it.
 1. **Wire direction 2.** `recomposeAncestors` has no caller — call it from
    `apply_section_edit` after the child write, in the same transaction, and file the
    `needs_rerender` item for each stale ancestor it reports. This is the piece whose
@@ -186,7 +190,7 @@ score rather than an error. G6's promotion gate requires a non-NULL `quality_sco
 per child family, so it would gate on a number computed wrongly. **This is P1/P2's to
 fix, not G6's.**
 
-## 7. ARCHITECTURE — asked and ANSWERED 2026-09-03; the answer awaits a ruling
+## 7. ARCHITECTURE — answered 2026-09-03; grain A RULED 2026-09-04, grain B still open
 
 > *"Do we need another loop like the experience loop that sorts out this component
 > composition? we have theme kits and page composition and experience loop and visual
@@ -221,7 +225,13 @@ re-deriving it.** The four load-bearing findings:
    right grain (a promotion IS a design decision); the parts already have a scorer; and
    a new loop would have nothing to score.
 
-**Recommended remits, NOT YET RULED:** grain A → the component library, no new owner.
+**✅ RULED 2026-09-04 (owner): "I think a library, so build Grain A."** Grain A is the
+build. The remit follows the recommendation — **the component library, no new owner**,
+because a composite is already a `content_components` row and inherits defaults,
+forking, `component_versions` and the quality sweep by construction. **Grain B's
+library is NOT ruled** and remains the open half.
+
+**Recommended remits, the grain B half NOT YET RULED:** grain A → the component library, no new owner.
 Grain B → **`site-design-planner` extended**, because it already does the analogous job
 one layer down (match a library default, fork when the site differs, HITL item carrying
 the reasoning). The one genuine schema question is grain B's: an arrangement library
@@ -235,7 +245,43 @@ split. The grain question bears on §7.2 (a plan-level library is a different sc
 question from a component-level one) and on WHICH OBJECT gets stored. It is orthogonal
 to the loops clause, not a refutation of it.
 
-## 8. Coordination — four lanes, all answered, nothing owed
+## 7a. MIGRATION — how existing content joins the library (ruled 2026-09-04)
+
+Full working: **`ARCHITECTURE_2026-09-03_who_owns_composition.md`, the ADDENDUM.**
+Summary only here.
+
+**The surface is ONE family.** `article-body` — **381 rows** as of 2026-09-04 (360 on
+09-03; the corpus grows, re-count before quoting), **one key `content`**, avg ~6.3KB.
+`hero` (671) and `call-to-action` (587) are larger but single-purpose and do not
+decompose. `generic-text-block` (262) is an unexamined second wave.
+
+**The structure is already there and the split is LOSSLESS.** 83% carry `<h2>`, 79%
+`<h3>`, avg 4.8 h2 per row. Partitioning at `<h2>` and rejoining reproduces the
+original **byte-for-byte on 360 of 360 rows tested**. So decomposition is MECHANICAL —
+and therefore no LLM is able to reword while splitting.
+
+**The reassembly primitive is the walk's repeated-key concatenation** — a variable
+section count cannot map to named slots, so every child carries the SAME slot key and
+the walk concatenates in position order. **That was written 2026-08-26 with NO TEST
+until `9ab1d4f87`** (2026-09-03); without it a decomposed article silently loses every
+section but its last **and still renders**.
+
+**THE RECIPE, per page, falsifier BEFORE the write:** partition at `<h2>` → **assert
+`concat(segments) == original`** → create N children on one repeated key in document
+order → parent keeps its row and lock, template becomes `{{.slots.section}}` → re-render
+and **assert the SERVED page byte-identical**. Any failure at either assertion leaves
+the page untouched.
+
+**⚠ DO NOT BULK-MIGRATE.** A split article renders identically by construction, so
+decomposing 381 rows buys nothing on its own. **Migrate a page when someone wants
+per-section imagery or a graphic on it** — that makes the imagery ask the driver, and
+it is the only thing stopping this becoming the third defaults-and-fork mechanism built
+without one (`layouts`: 18 library, 0 forked). `grip-styles` is the offered canary.
+
+**Not solved:** 61 of 360 (17%) have no `<h2>` and stay flat — fine, composition is
+opt-in. And nothing here GENERATES imagery; it makes a durable place for it.
+
+## 8. Coordination — five lanes, all answered, nothing owed
 
 - **`bugfix_410` (scan-loss)** — their guard shipped into `loadStoredSections`
   (`7c443aac6`, DBI-027). **Standing constraint on this lane: any column added to
@@ -250,6 +296,15 @@ to the loops clause, not a refutation of it.
   facts, 0 `allowed_entities` against sites carrying 111–116 facts per row).
 - **`bugfix_357`/RFC_046** — the primitive fix for the provenance stamp is theirs and
   must NOT be bolted into P1.
+- **`infographics`** — told 2026-09-04, carrying the owner's ask that infographics be
+  considered for the GUIDES. Given the measured latent surface for their *machine 2*
+  (a graphic built from the page's own text rather than a drawn JPEG): across 381
+  article bodies, **319 carry a bullet list, 136 mention step/stage, 50 an ordered
+  list, 16 a table — and 5 carry any image at all**. Both list counts are **upper
+  bounds on the surface, not estimates of yield** — a `<ul>` may be navigation, and
+  "step" is a keyword not a structure; that caveat travelled with the numbers. Also
+  told that a text-built infographic IS a component, so composition gives it a home
+  inside prose that survives a body rewrite. Nothing owed either way.
 
 ## 9. Traps from this stretch
 
