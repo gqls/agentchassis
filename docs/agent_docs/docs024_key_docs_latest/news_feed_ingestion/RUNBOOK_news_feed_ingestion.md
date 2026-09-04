@@ -217,9 +217,11 @@ SELECT current_step, status FROM orchestration_states
 > — which reads as "submission rejected as invalid" and actually means every seat was down:
 > `__step_errors` shows 16 of 16 returning `"Your credit balance is too low"`, and
 > `council_decide` refusing because "a council with no opinions cannot decide".
-> **The correlation is spent** (no `council_report` will ever be written, so `098` can never
-> resolve it). **Re-run the two commands below once LLM calls succeed and record the NEW
-> correlation.** Diagnose any future `complete_invalid` the same way — cast, `left()` has no
+> ~~**The correlation is spent** … record the NEW correlation.~~ **CORRECTED 2026-09-04:
+> that RUN is dead; the CORRELATION is reusable and must be reused.** Re-fire with
+> `RESUBMIT_CORR=70f500ff-…` so the trail accumulates on one id — `097…sh:95` implements it
+> and CLAUDE.md prescribes it. Minting a new correlation splits the trail and strands any
+> `Council-Submitted:` trailer on an id that never produces a verdict.** Diagnose any future `complete_invalid` the same way — cast, `left()` has no
 > jsonb overload:
 > ```sql
 > SELECT left((collected_data->'__step_errors')::text, 2000) FROM orchestration_states

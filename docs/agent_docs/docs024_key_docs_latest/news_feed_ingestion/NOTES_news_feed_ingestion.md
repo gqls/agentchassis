@@ -1057,7 +1057,7 @@ balance is too low"` failure. So the gate reported the **billing outage** as an 
 submission**. The JSON was never in doubt — `DRY_RUN=1` had passed validation *and* scope
 admission ten minutes earlier, and every `gate_*` step ran.
 
-**The correlation is spent**: it will never write a `council_report`, so `098` can never
+~~**The correlation is spent**~~ **[CORRECTED 2026-09-04 — see the entry below: the RUN is dead, the CORRELATION is reusable and re-firing with a new one is the error]**: it will never write a `council_report`, so `098` can never
 resolve it and no commit should carry it. Re-fire when the estate is healthy; the submission
 file needs no rework. `LANDMINES.md` entry added ("A council-gate run that ends `COMPLETED`
 at `complete_invalid`…"), because the failure is silent in all three of the places a
@@ -1282,3 +1282,39 @@ session warned about in the other direction, and the reason their "don't write o
 that actually succeeded" caution cuts both ways. **The check: bucket by the incident window
 before attributing anything to an incident, and include an "after recovery" bucket, because
 recent-and-pending is indistinguishable from stranded on a `status` column alone.**
+
+### 2026-09-04 ~16:15Z — "the correlation is spent" was right about the run and wrong about the action, in five places in this lane's own docs
+
+The `inter thread comms` session retracted guidance it had given earlier: a council
+correlation killed mid-run is **NOT** spent in the sense that matters. **Verified locally
+before propagating the retraction**, because a correction taken on report is another
+report: `097_TRIGGER_council_review_v1.sh:95` reads `FIX_CORR="${2:-${RESUBMIT_CORR:-}}"`,
+and CLAUDE.md's council section prescribes `RESUBMIT_CORR=<corr>` **"so the trail
+accumulates"**. They measured one correlation carrying four runs — revise,
+`complete_invalid`, revise, approved.
+
+**This lane had the wrong version in FIVE places** — the 09-04 handoff's status table, its
+§3a re-fire recipe, its numbered next-step, the RUNBOOK's council table, and NOTES — all
+written by another session working this lane during the outage, none by me. All now carry
+the correction rather than a silent rewrite.
+
+**Why the distinction is not pedantry.** "Spent" was *true of the run*: that orchestration
+will never write a `council_report`. The error was the **action** it implied — mint a new
+correlation. Doing that splits the trail and leaves any `Council-Submitted:` trailer
+pointing at an id that never produces a verdict, so the commit reads un-reviewed **for
+ever**, and forward-only forbids the amend that would fix it. A statement can be accurate
+about a mechanism and still prescribe the wrong move, and the prescription is the part
+readers act on. **The check: when a doc says a thing is unusable, ask what the TOOL
+supports before believing the remedy** — one `grep RESUBMIT_CORR` on the trigger settles it
+in a second, and both the script and CLAUDE.md were already saying the opposite.
+
+**Also from that exchange, and it is the sharper half of my own contribution:** ancestry
+against the wrong service's stamp still PASSES. `6f0a246de` is an ancestor of the running
+chassis while the change builds into the adapter, and today all 14 images share one cut
+(`06c0b18f2`), so **every** stamp in the fleet satisfies an ancestry test. Not a missing
+check — a check returning the right answer to the wrong question. The check must name the
+deployable your code builds into, not whichever stamp is reachable. The comms session is
+propagating it fleet-wide.
+
+**Roll fully landed 16:01Z**, all 20 backend deployments on `v1.0.1361` / `06c0b18f2`,
+chassis pods ready 16:01:26Z and 16:01:53Z. So the ~300s no-dispatch window closed ~16:06Z.

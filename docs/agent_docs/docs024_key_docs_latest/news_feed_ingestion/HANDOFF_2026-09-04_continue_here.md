@@ -84,7 +84,7 @@ re-fire, §5.1's advertise re-triage, and the four landmine verifications in NOT
 |---|---|
 | `691_uk_news_search_region_default.sql` | **APPLIED + VERIFIED + RECORDED.** 26/26 `.uk` `news_search` rows carry `region=uk`, 0 non-UK touched |
 | `746_advertise_news_feed_enablement.sql` | **APPLIED + VERIFIED + RECORDED.** `recommended=true`; 6 sources (1 rss WebProNews + 5 `news_search` `region=uk`); trigger predicate selects the site |
-| 746 council review | **DISPATCHED, then KILLED BY THE OUTAGE — the correlation is spent and must be re-fired.** See §3a |
+| 746 council review | **DISPATCHED, then KILLED BY THE OUTAGE — re-fire with `RESUBMIT_CORR=<the same correlation>`, NOT a new one.** See §3a |
 
 All four preconditions were re-verified first-hand before asking, and none had drifted
 (both files absent from `schema_migrations`; 26/0 on the region census; advertise on 0
@@ -106,15 +106,26 @@ balance is too low"` error from §1. Every seat was down; the gate reported a **
 outage** as an **invalid submission**. The JSON is fine — it had passed `DRY_RUN=1`
 validation *and* scope admission minutes before.
 
-**So: the correlation is SPENT.** It will never write a `council_report`, so it can never
-be resolved by `098` and nothing should carry it as a trailer. **Re-fire once §1 clears**
-(the submission file needs no rework) and record the NEW correlation:
+~~**So: the correlation is SPENT.** … record the NEW correlation~~
+
+> **⚠ CORRECTED 2026-09-04 16:1xZ — "spent" was right about the RUN and led to the WRONG
+> ACTION.** That run will indeed never write a `council_report`. But the **correlation is
+> REUSABLE**, and re-firing with a fresh one is the mistake: it splits the trail and leaves
+> any `Council-Submitted:` trailer pointing at a correlation that never produces a verdict,
+> un-reviewed for ever, with forward-only forbidding the amend. Verified locally, not taken
+> on report: `097_TRIGGER_council_review_v1.sh:95` reads
+> `FIX_CORR="${2:-${RESUBMIT_CORR:-}}"`, and CLAUDE.md's own council section says to
+> resubmit with `RESUBMIT_CORR=<corr>` **"so the trail accumulates"**. The `inter thread
+> comms` session measured a correlation carrying four runs — revise, `complete_invalid`,
+> revise, approved — on one id. **Re-fire with the SAME correlation:**
 
 ```bash
-DRY_RUN=1 ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+DRY_RUN=1 RESUBMIT_CORR=70f500ff-... \
+  ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
   docs/agent_docs/docs024_key_docs_latest/news_feed_ingestion/COUNCIL_SUBMISSION_746.json
-# then without DRY_RUN, and SAVE the printed SUBMISSION_CORR
+# then without DRY_RUN. The correlation stays 70f500ff-… — do NOT record a new one.
 ```
+> Take the full `70f500ff-…` uuid from the RUNBOOK's council table before running this.
 
 Do **not** read the missing verdict as queue latency. CLAUDE.md's "a missing row is almost
 always latency" is about a missing *orchestration row*; here the row exists and is finished.
@@ -165,7 +176,7 @@ not, and each is a potential false negative. Full entry in `LANDMINES.md`
 2. **Tomorrow ~09:15Z**, idea.uk's backfilled sources fetch. Confirm `region='uk'` at the
    adapter **with `--tail=-1`** to close §3's narrowing. Only then may anyone write
    "691 proven at the provider".
-3. **Re-fire the 746 council review** — §3a. The old correlation is spent; do not query it
+3. **Re-fire the 746 council review** — §3a, **reusing the same correlation via `RESUBMIT_CORR`**. That run is dead; do not query it
    for a verdict and do not put it on a commit. A later commit may carry
    `Council-Reviewed: <NEW corr>` **only after reading an approved verdict**.
 4. **designblog.co.uk `/the-design-feed/`** — unchanged: a decision, not a build. HANDOFF
