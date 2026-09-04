@@ -3752,3 +3752,16 @@ registered figures was not checked. Sent to both lanes; the experiment (split th
 site, prompt-only, reversible; finetuning.uk's £99 vs `ft-market-anchor` as the subject) is theirs and
 the owner's. Query note for the record: `regexp_replace(prompt, E'\\s+', …)` through kubectl loses the
 backslash and strips every "s" — read the prompts raw next time.
+
+**12:25Z — RETRACTION of my 12:10Z test result (WRONG_CALLS 2026-09-04):** the uplift lane re-measured
+their own figure with a control — apis.uk and gamedesign.uk hold an `evidence_base` aspect with an
+EMPTY `facts` array; all seven sites since 718 had ZERO facts; finetuning.uk (10) was outside the sample.
+So my grouping variable was empty on both sides: **B is untested, A is untested, and the 12–0 score is
+a measurement that could not have come out otherwise.** Retracted to both lanes and the owner. The one
+site where the question is askable is finetuning.uk. Their proposal: do NOT split the disjunction; run
+a build on finetuning.uk and watch what `kind` the planner picks for `differentiators` (a comparison
+with registered figures) — infographic ⇒ B was the whole story; illustration ⇒ A is real. **Caveat this
+lane owns:** finetuning.uk has NO `site_plans` rows (built plan-less; 09-02 handoff), so "a build" that
+plans imagery is a planner run this site has never had, and the copy on the homepage is owner-approved
+— the experiment needs the narrowest dispatch that plans imagery for one page without regenerating
+words, identified BEFORE it runs, and the owner's word. Not before the card canary lands.
