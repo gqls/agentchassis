@@ -161,3 +161,57 @@ builds are the real prior proposal and the plumbing is live-and-idle; and for da
 things worse, because §2d's four unjoined stores would become five. **You cannot shard a relationship
 you have not recorded** — which is why the suggestion raises the value of Phase 0 rather than
 reordering anything.
+
+## 2026-09-04 (evening) — the `stripe` lane claimed payments, and checking its premise inverted the seam
+
+The `stripe` session messaged to claim all Stripe/payment-transaction work. **Boundary accepted:**
+money theirs (vouchers, `billing_orders`, `billing_settings`, webhook, checkout, Payment Links, any
+customer-facing payment page); identity ours (the ownership chain, what an account IS, how one is
+created). Reply and full write-up:
+`../stripe/CONTRIB_2026-09-04_from_the_client_accounts_lane_the_external_id_join_has_fired_once_and_minted_nothing.md`.
+
+**Their message carried a premise, and it is false — measured before agreeing.** They wrote that *"a
+paid order is currently the only thing that mints a durable link between a real person and a client
+row"* (PAY-009's `clients.external_id`, first-writer-wins from the paid event).
+
+`[MEASURED 2026-09-04]`:
+- `clients.external_id` on the only real customer row (`Boxing Online`, `a7395f69…`) — **empty**.
+- `billing_orders.provider_customer_id` on the one paid order (`36744bf0…`) — **NULL**.
+- `billing_events` — **1 row**: `checkout.session.completed`, `evt_1U94TZ02…`, `livemode: true`,
+  `processed_at` 2026-08-27 14:40:22.379986Z, **exactly equal to the order's `paid_at`**.
+
+**So it is not a missing webhook and not the keyless deployment.** The live path ran end to end:
+voucher redeemed 14:39:01Z → order → `cs_live_…` session → signature-verified event processed
+14:40:22Z. The stored payload explains it: `"customer": null` with
+`"customer_creation": "if_required"` on a one-off `mode=payment` charge. **Stripe creates no Customer
+object in that shape**, so there was no customer id to write. The plumbing worked; there was nothing
+to write.
+
+**The consequence, and it is the useful part: the seam is inverted from how PAY-009 reads.** The
+durable link today is `metadata.order_id` → `billing_orders.id` → `billing_orders.client_id`, and
+that `client_id` was resolved **before** the payment. **Payment CONFIRMS a client row; it does not
+mint one.** `clients.external_id` is not load-bearing today. It would begin firing under
+`mode=subscription` or `customer_creation:"always"` — which is the moment to decide it deliberately.
+
+**The lesson, which is the transferable half:** a register entry describing an intent
+("Stripe customer id from the paid event links to `clients.external_id`, first writer wins") reads
+identically whether the intent has been exercised or not. PAY-009's entry is *correct*; it is a
+statement about design. **A peer quoted it as a statement about data, and so did I when I wrote §2d
+of the plan citing `clients.external_id` as "the Stripe key".** One query separated them. Same shape
+as the landmine about register statuses outliving their truth — a design intent and a live join are
+not distinguishable from the entry alone.
+
+**The seam to hold: ONE rule for resolving "the client for this order."** Our Phase 0 will create
+client rows at intake (keyed on the customer); their paid path may find-or-create keyed on a Stripe
+customer id. Two find-or-creates = one person, two client rows, both writes correct in isolation.
+Offered for the rule to live on their side; what matters is that it exists once and both call it.
+
+**Handed to them, inside their boundary, untouched:** (a) the live session's
+`branding_settings.display_name` reads **"Fine Tune"** — a webdesign.uk customer paying £30 saw a
+payment page branded as the finetuning product; (b) **"blocked on Stripe keys" is stale across
+several lane docs** (e.g. `webdesign_uk_build_service/PLAN_2026-08-21_todo_from_here.md` row 1) — a
+real card payment cleared on a live key on 2026-08-27.
+
+⚠ **PII note for anyone re-running this:** the `billing_events.payload` for that event contains the
+payer's real name, email, country and postcode. Read it in place; do not copy `customer_details` into
+docs, commit messages or chat. This file names only the mechanism.
