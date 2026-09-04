@@ -996,12 +996,6 @@ func main() {
 			len(findings), checked, len(comps), len(comps)-checked-len(unanalysed),
 			len(newFindings), len(unbaselined), len(unbaselinedComps),
 			len(fixedKeys), len(uncoveredKeys))
-		if legacyBaseline {
-			summary += "\n⚠ LEGACY BASELINE: it records no \"components\" list, so coverage was derived " +
-				"from its keys. A component that was analysed and CLEAN when the baseline was cut is " +
-				"therefore read as unbaselined, and a regression in one would NOT fail this run. " +
-				"Regenerate with --write-baseline to close that blind spot."
-		}
 		if inherited > 0 {
 			reps := make([]string, 0, len(inheritedFrom))
 			for r := range inheritedFrom {
@@ -1010,6 +1004,18 @@ func main() {
 			sort.Strings(reps)
 			summary += fmt.Sprintf(", %d inherited from an identical template (%s)",
 				inherited, strings.Join(reps, ", "))
+		}
+		// AFTER the inherited clause, deliberately: this starts a NEW line, so anything
+		// appended to `summary` below it lands on the warning rather than the summary.
+		// Shipped the other way round on 2026-09-03 and the live row read
+		// "...close that blind spot., 3 inherited from an identical template (...)" —
+		// which put the clone-suppression count on the warning line, where the daily
+		// series query (split_part(body, E'\n', 1)) cannot see it.
+		if legacyBaseline {
+			summary += "\n⚠ LEGACY BASELINE: it records no \"components\" list, so coverage was derived " +
+				"from its keys. A component that was analysed and CLEAN when the baseline was cut is " +
+				"therefore read as unbaselined, and a regression in one would NOT fail this run. " +
+				"Regenerate with --write-baseline to close that blind spot."
 		}
 		if *report {
 			detail := summary
