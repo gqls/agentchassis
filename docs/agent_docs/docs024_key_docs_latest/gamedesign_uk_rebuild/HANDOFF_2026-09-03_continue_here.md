@@ -449,3 +449,42 @@ boundary, not by firing) and a stray "plan mode active" system-reminder appeared
 NOT acted on — no writes were blocked by it in practice, and this new session carries no such
 state. Recorded so a future reader does not mistake either event for something that happened on
 the live site.
+
+---
+
+## UPDATE BLOCK 7 — 2026-09-04 ~12:10Z. OWNER RULING: 463 stays open until this run proves it; do NOT expedite. Also: I nearly reported the WRONG SITE's numbers.
+
+**Owner has ruled, via the 463 lane, on two things:** (1) `463` stays in `bugs_open/` even though
+CLAUDE.md's "fixed AND live" bar is met, because a half-fix would have changed nothing at the
+served page — this lane's re-plan IS the closing evidence, not a formality. (2) `needs_briefing
+6430726e` stays in the **natural queue** — "it's fine in the natural queue" — no build cycle is to
+be spent pushing it forward. **So: no expediting, ever, on this run.**
+
+**`needs_briefing` completed 12:03:54Z** and spawned `needs_site_plan` (created 12:03:52Z),
+**still queued** as of this block. Watcher armed, scoped this time (see below).
+
+⚠ **MISTAKE CAUGHT BEFORE IT WAS REPORTED, not after.** My first query for "step 1: proposed vs
+survived" filtered `owner_agent_type='build-site-planner' AND created_at > '2026-09-04 10:54'`
+with **no site filter** — the fleet dispatch loop runs many sites' planners in that window, and it
+returned **39 proposed / 36 survived**, a plausible-looking pair for a much larger site. I was
+about to relay that to the `463` lane, who is waiting on exactly this number to decide whether to
+close or reopen the bug. **The sanity check that caught it: 39 pages does not fit a 9-page site.**
+Re-queried scoped to `site_id`/`input_data.site_id` and found the real state — no plan orchestration
+had run yet at all; only the briefing had completed. **Lesson, same family as the rest of today:
+a step-boundary query without a site filter answers "some site's planner run", not "this one's" —
+scope every cross-cutting query to the site before reading the numbers, not after.**
+
+**Still needed before reporting to 463, exactly their order:**
+1. `proposed = survived`, scoped to THIS site's orchestration.
+2. Article rows: `url LIKE '/articles/%' AND parent_section='articles'` — NOT `/blog/%`. **This is
+   the discriminator**, per 463's own message: a Pass-C-only fix (half A) passes check 1 and fails
+   this one, and the served page cannot tell the two apart.
+3. Served hub — only read once 1 and 2 both pass. If they pass and the hub is still empty, that is
+   `bugs_open/457` (`rebuild_blog_listing`, a different lane's, in flight), not 463.
+
+**Wider context from 463, worth carrying:** the owner has opened a look at directory-path choice
+across the estate — 58 distinct directories live, 47 on one site, 39 holding a single page. This
+site's `/articles/` is now **the reference case**, not just this bug's test: `/guides/`, `/tools/`,
+`/games/` are NOT neutral fixtures because `ValidateRoles` rule 5 retypes pages there before the
+new derivation is reached, so a healthy `/guides/` hub proves nothing about this fix. Whatever this
+run produces is evidence for two open threads, not one.
