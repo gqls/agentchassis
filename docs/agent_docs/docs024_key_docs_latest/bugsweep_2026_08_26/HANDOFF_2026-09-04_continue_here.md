@@ -301,3 +301,43 @@ both read straight off `diagnosis_artifacts`.
 ⚠ And note its own staleness disclosure: it answered against **indexed commit `de1b9a58`, committed
 2026-09-03 09:51Z — "the last pushed tip, not the present tree"**. A day behind, and it says so; a
 reader who skips that line will take its silence about a symbol as absence.
+
+### 7b. ⚖ POST-ROLL: 442 survived `v1.0.1361`, verified at the binary — and the roll changed nothing this lane depends on
+
+`[VERIFIED 2026-09-04 16:02Z]` The fleet rolled to **`v1.0.1361`** (cut `06c0b18f2`), announced
+mid-session by the "inter thread comms" lane. §4.2 is why this was re-checked rather than assumed.
+
+**Waited for the rollout to FINISH before probing.** At 16:00 there was one new pod not ready and
+two old ones still serving — probing then would have read `v1.0.1360` and reported a pass about the
+wrong binary. `kubectl rollout status deployment/agent-chassis` returned
+`successfully rolled out` at 16:02:15Z; only then the probe.
+
+```
+agent-chassis-6f699988d5-kzklg  v1.0.1361  ready     agent-chassis-6f699988d5-s4gg9  v1.0.1361  ready
+  PRESENT meta_description_refused · PRESENT meta-description-repair
+  PRESENT candidate_looks_internal (positive control) · absent ZZZ_cannot_exist_9f3a (negative control)
+```
+
+Both pods stamp **`06c0b18f2`** in `service_binary_capabilities`, and
+`git merge-base --is-ancestor 776511e70 06c0b18f2` passes while the same test on `HEAD` fails — so
+the control discriminates and the "did my fix ship" answer is a query, not an inference.
+
+⚠ **`service_binary_capabilities` shows FOUR chassis rows for TWO live pods** — the deployment
+cycled two replicasets (`5bbd648694` then `6f699988d5`) within a minute, all on the same commit.
+Order by `started_at DESC` and match `pod_name` against `kubectl get pods`; a row is not evidence
+that its pod is alive.
+
+**The roll changed nothing this lane's claims rest on.** Per the peer's own caveat that a stamp
+answers *"did my fix ship"* and not *"does this function still behave as my claim assumes"*:
+`git log 239ab3626..06c0b18f2` over `cmd/scheduler/main.go`, `loop_expansion_handler.go`,
+`loop_actions.go`, `save_page_meta_description_action.go` and
+`save_page_meta_description_refusal_item.go` returns **0 commits each**, against a control of **16
+Go commits in the same range** — so the zeros are real and not an empty query. §11b, §11d, the
+LANDMINE and migration 773's premise all stand.
+
+**773 is untouched** (config; a Go roll cannot reach it, checked anyway): `names_series t`,
+`warns_bare t`, negative control `f`, and §4.1's `overwrite_existing` still **undeclared** at the
+nested path.
+
+**Acceptance evidence: still none, and still correctly so.** `meta_description_refused` rows: 0.
+Eligible pages right now: 0. That is §11b's drained queue, not dormancy — read the two together.
