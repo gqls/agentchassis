@@ -1275,3 +1275,31 @@ the discriminating pair: proposed=survived AND children land at /articles/
 cannot tell them apart). My "two guards in series" sentence is 463's header,
 credited. My complete-no-page confirmed CLOSED to them (config-level
 diagnosis; no chase).
+
+## 2026-09-04 — DECISION 7 CLOSES AT THE ARTEFACT; 463 live; the rule-20 × 467 interaction flagged
+
+- **The tools hub SERVES and the nav link is LIVE**: /tools/index.html 200
+  (73,454 B), H1 "Tools for the parts of design that are arithmetic",
+  `tool-list` resolving **15 tool links**; the served homepage nav is now
+  SEVEN links with **/tools/index.html** sixth. The owner's "no tools nav
+  link" critique item is fixed at the served bytes. 732's chain worked
+  end-to-end (18 of 18 pages built).
+- **463's Pass C + write-path fix is LIVE (22:07:19Z, council APPROVED r2)**
+  — my hold lifted after re-running their capability probe MYSELF on
+  agent-chassis-ffc9ddff9-jvw92: control needle PRESENT, fix needle PRESENT,
+  nonsense needle ABSENT (visible exit 1). ⚠ every sha route fails on this
+  roll (same-tag v1.0.1360 rebuild, provenance scrolled, sha probes ABSENT
+  incl. the true one) — capability probes with BOTH controls are the only
+  instrument. Their framing kept: my earlier not-rolled reading "was correct
+  when made and has EXPIRED, not been refuted."
+- **Feed children are now POSSIBLE** (both halves fixed: Pass C deletion +
+  the write path filing survivors under /blog/) — **but designblog is at 18
+  built of 467's 20-page cap: headroom TWO.** Verify any landed children at
+  the URL prefix (463's discriminating second check).
+- **FLAGGED to 463 (for 467's owner): RULE 20 × 467** — 730/731 makes every
+  articles-hub plan propose 3-6 launch posts; 26 of 42 sites are already
+  over 467's line, where those proposals are DISCARDED at the door 463 just
+  opened. The class fix fills hubs only where 467 leaves room; rule 20
+  raised the demand side of a cap nobody sized for it.
+- 463's cold-start recorded:
+  `docs/agent_docs/docs024_key_docs_latest/bugfix_463_section_children/HANDOFF_2026-09-04_continue_here.md`.
