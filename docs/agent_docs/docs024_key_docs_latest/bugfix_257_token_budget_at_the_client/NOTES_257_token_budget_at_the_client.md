@@ -728,3 +728,140 @@ jsonb write, one token of difference (15999 against 16000), reversible. **Not ru
 production agent's live config, which is the owner's call.** It is written up in the bug file and in
 today's handoff as a decision, with the caveat that it would also be the first live exercise of the
 step-level precedence arm, which nothing on the fleet uses today.
+
+---
+
+## 2026-09-04 (afternoon) — ROUND 3: the owner ruled all four, and decision 4 turned out to be two failures
+
+### The census that changed the diagnosis, and why every earlier one missed half of it
+
+Every previous census of this bug — four of them, over three weeks — asked a **fixed-path** question:
+`default_config->'workflow'->'steps'->...->'ai_service'->>'max_tokens'`. A fixed path can only find
+declarations in the place it already believes they live, which is the exact assumption under test.
+
+The one that worked walks the whole document:
+
+```sql
+WITH RECURSIVE a AS (
+  SELECT type, default_config AS j FROM agent_definitions
+  WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false)=false AND is_active
+), walk(type, path, j) AS (
+  SELECT type, ''::text, j FROM a
+  UNION ALL
+  SELECT w.type, w.path||'.'||e.key, e.value FROM walk w, LATERAL jsonb_each(w.j) e
+   WHERE jsonb_typeof(w.j)='object'
+) SELECT path, count(*) FROM walk WHERE path LIKE '%.max_tokens' GROUP BY 1;
+```
+
+**[MEASURED 2026-09-04] 171 declarations in five shapes**, and two of the five were being read wrongly:
+10 at the agent root in the bare spelling (read FIRST, so they capped their own steps) and 7 at the step
+level in the bare spelling (read by nobody). The nested pair — inside a loop sub-workflow — would also
+have been invisible to a fixed-path query.
+
+⚠ **This is the fifth correction to §4's census in this bug, and the first one that was a correction of
+METHOD rather than of a number.** The number kept being wrong because the question kept being the wrong
+shape.
+
+### Two things that were true and that I nearly reported wrongly
+
+1. **The ten shadowed agents have zero traffic.** `llm_call_log` all-history returns nothing for any of
+   `content-creator-*`, `content_researcher`, `simple-content-writer-with-approval`. So "ten agents were
+   capped at 500–2000" is a **latent** defect, not live damage. The dramatic version of that sentence was
+   available and would have been false.
+2. **72 step-level `temperature` declarations are dead config** — `ai_actions.go` reads only
+   `agentConfig["temperature"]`, and none of the 12 agents declaring them has a root temperature. Every
+   council seat asks for 0.0 and none of it reaches the reader. **I did not fix it, and that is the right
+   call**: `anthropic.go:300` says temperature is deliberately never sent to Anthropic
+   ("Claude Opus 4.7+ returns a 400 for any non-default temperature"), so honouring them would be a no-op
+   on every one of these agents and a live behaviour change on any future non-Anthropic one. Reported by
+   the detector instead. `budget_tokens`: **zero** declarations fleet-wide.
+
+### The mistake worth reading: my own detector caught a defect in my own already-committed change
+
+The first cut of `--budget-placement` classified any two levels declaring different numbers as
+`shadowed`. Its **first run against the live fleet returned 18 findings, every one healthy** — because a
+root `ai_service` default overridden by a step declaration is the *documented overlay design*, and
+`feed-triage` (root 4000, steps 8000/8192) does it on purpose.
+
+The same over-report was already committed, an hour earlier, as a runtime `Warn` in `ai_actions.go`. It
+would have fired on **every call** of those 18 steps.
+
+Two lessons, and the second is the one I would not have got any other way:
+- A guard whose first run cries on the healthy majority is one nobody opens twice.
+- **I only found it because the detector ran against the real fleet.** The Go tests all passed. The
+  warning was "correct" by its own description. Nothing but live data disagreed with it.
+
+The replacement kind is `ambiguous`: one **level** declaring both spellings with different numbers, which
+is the one state where the estate's two readers genuinely send different numbers. Zero live instances —
+and it is the same condition as migration 769's guard 3, arrived at independently from the other end.
+
+### A second defect the dry run caught, in the migration
+
+Executing the migration with `COMMIT` replaced by `ROLLBACK` failed with
+`operator is not unique: unknown - unknown`. Cause: **PostgreSQL binds subtraction TIGHTER than `->`**, so
+`s.value->'config' - 'max_tokens'` parses as `s.value -> ('config' - 'max_tokens')`. The first UPDATE in
+the same file was fine because `default_config - 'max_tokens'` has no `->` in it, so the file was
+half-correct in a way that reads as consistent.
+⚠ **The runner's own probe could NOT have caught this**: it skipped the file with *"contains its own
+ROLLBACK/ABORT"*, a false positive on the word `Rollback:` in a header comment. The COMMIT→ROLLBACK
+substitution is the check that works, and it is now in the RUNBOOK.
+
+### The council round, and reading `decided_by` before reading the verdict
+
+Round 1 came back **REVISE** — and the reason was `"unreadable reviewer(s)"`: **8 of 12 seats returned an
+unparseable result, 4 abstained**, so only four verdicts existed at all. Two of those four approved.
+Reading "REVISE" without reading `decided_by` would have been reading a rejection that nobody made.
+
+[MEASURED 2026-09-04] `SELECT ... FROM diagnosis_artifacts WHERE kind='council_report'` over 7 days:
+**3 of 225** councils were decided this way. Rare, real, and `bugs_open/138`'s territory.
+
+The four readable seats' objections were worth the round, which is the point of a REVISE:
+- **editquality ×3** — all about the SKETCHES, not the code: migration 769's sketch showed only the
+  agent-root move and not the step-level one (the actively-firing half), and used two helpers without
+  showing them defined. Correct, and the fault was the submission's.
+- **reuse_agent + prior_art_librarian, independently** — does the existing token-pressure machinery
+  already cover this? Answered by measurement, not argument (below).
+- **prior_art_librarian** — "a parity test asserts the two agree" was a claim in my sketch that had
+  become false. Withdrawn rather than defended: there is no parity test because the detector calls
+  `actions.ResolveStepBudget` directly, so there is nothing to keep in parity.
+
+### Answering the overlap objection by reading the two live tasks, not the wrapper script
+
+```sql
+SELECT name, enabled, interval_seconds, last_completed_at, left(pre_query, 900)
+FROM scheduled_tasks WHERE name LIKE '%token-pressure%';
+```
+
+- `fleet-step-token-pressure` — ENABLED, every 21600s. Its `pre_query` reads **`llm_call_log` and
+  nothing else**; the "cap" it reports is `DISTINCT ON (step_name) max_tokens` taken from the calls
+  themselves. **No join to `agent_definitions` at any point.**
+- `council-seat-token-pressure` — ENABLED, every 21600s. Reads `agent_definitions` on **one fixed path**,
+  `s.value->'config'->'ai_service'->>'max_tokens'`, and only `WHERE s.key LIKE 'review_%'`.
+
+So: no overlap, structurally. Both measure what was SENT against what came back; neither can say where
+the number came from, because the sent number is the only budget either sees. A step that has never run
+is invisible to the fleet one — which is the whole of failure (1). And the seat one is itself a
+**consumer of this defect**: a seat declaring its budget anywhere but that one path returns no cap row
+and is silently DROPPED from the report. [MEASURED] all 51 live `review_%` seats across six councils
+declare canonically today, so that is a **latent fragility, not live damage** — again the smaller claim.
+
+Its latest note also flags `suggest_related_pages@300 — n=217, p95 100.0%, peak 100.0%, truncated 40`.
+That is a real live defect — a 300-token budget declared correctly, in the right place, and simply too
+small — and it is exactly what a runtime-pressure report is for and what a placement report cannot see.
+Evidence that the two are complementary, from the mechanism's own output.
+
+### The induced check (decision 1)
+
+Armed on **two** direct callers rather than one, because both are bursty and the fleet went quiet:
+`page-content-writer.rewrite_negations` (11:57:51Z, 15999 against a configured 16000) and
+`offer-analyser.repair_ordering_register` (11:38:21Z, 1999 against a configured 2000).
+
+The second is the more interesting probe: **2000 is BOTH offer-analyser's configured value AND the old Go
+literal**, which is exactly why that call site could never be checked before (§2c of the bug — no query
+over `llm_call_log` could separate a honoured config from a dropped one). 1999 breaks the tie.
+
+⚠ Both write to live production config and **both must be reverted once read**. Revert SQL in the RUNBOOK.
+Note for anyone re-running this later: the probe works because `llmOptionsFromConfig` reads the step's
+BARE key before the merged `ai_service` block. That ordering is the direct-caller ladder and round 3
+deliberately did NOT change it (owner decision 2, "leave it"). If a future round unifies the two ladders,
+this probe stops discriminating and needs a new shape.

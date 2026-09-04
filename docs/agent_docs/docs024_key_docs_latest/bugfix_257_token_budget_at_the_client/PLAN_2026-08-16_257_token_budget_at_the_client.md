@@ -223,3 +223,70 @@ and a guard cannot land while its own rule is broken in the same package.
 reading the code**. A census keyed on an interface can only find callers who use it. The generalisation
 is in `LANDMINES.md` (*"A budget census keyed on the CLIENT INTERFACE is blind to a provider called over
 raw HTTP"*) and the incident in `WRONG_CALLS.md`, both 2026-09-03.
+
+---
+
+## ROUND 3 (2026-09-04) — the design, and the two decisions inside it
+
+### The brief, corrected
+
+The 09-04 handoff put decision 4 as *"four `site-adoption-agent` steps declare a budget in a place
+nothing reads"*. **That was true and it was half the defect.** The recursive census found a second,
+larger failure at the other end of the ladder — ten agents whose root-level bare key was read FIRST and
+capped their own steps. Recorded as a correction rather than edited away: the brief was not wrong, it was
+scoped by the same fixed-path assumption that had hidden the rest for three weeks.
+
+### The design decision: read every place, in one order, most specific first
+
+Three options were on the table.
+
+| option | what it does | why not / why |
+|---|---|---|
+| (a) refuse the bare spelling | fail loud on a misplaced key | **Rejected.** It converts 17 misplaced declarations into 17 unconfigured steps at the 2048 floor — exactly `bugs_open/205`'s failure. A reader that goes quiet is worse than one that reads generously. |
+| (b) read only the canonical place, migrate everything | one spelling, enforced | **Rejected as the whole answer.** It is the same as (a) for anything written after the migration, and the migration cannot be applied to `html-developer-chunked` before the code rolls. |
+| (c) **read every place in a stated order, migrate what is safe, report the rest** | chosen | The reader can never be the reason a declaration is ignored; the migration removes today's misplacements; the report is what notices tomorrow's. |
+
+**The ordering within a level was free, and that is why it is safe.** [MEASURED 2026-09-04] no live agent
+declares both spellings at any one level — asserted as guard 3 of migration 769 — so choosing
+canonical-before-bare re-decides nothing an operator has written. If that ever stops being true, the
+detector's `ambiguous` kind fires and the run fails.
+
+### Why the two halves are independent, deliberately
+
+Code is inert until a chassis roll; configuration is live on apply. Making the migration depend on the
+roll would have left both failures live for an unknown number of hours. Making the code depend on the
+migration would have left the next misplacement silent. So each fixes both failures on its own, and after
+both, every reader agrees. **The single exception is `html-developer-chunked`, and it is the only real
+ordering constraint claimed** — `getMaxTokens` read the bare key and nothing else, so moving those three
+before the code rolls silently substitutes a hardcoded 16000. That is migration 770, held.
+
+### DECISION 2, ruled: option (c) of the three the handoff offered
+
+The owner said "leave it" to merging the last two copies of the precedence rule. The handoff's three
+options were (a) leave two copies, (b) extract into `datahelpers`, (c) decide the rules should differ
+permanently and write that down as a contract.
+
+**This is (c), and it is more than (a).** The two ladders now share the *walker* — how a number is read
+out of a map, and which values count as configured (`int`/`int64`/`float64`/`json.Number`, positive only,
+because `max_tokens: 0` is a hard 400 from Anthropic). They keep separate *level lists*, because a direct
+caller genuinely has no agent-level config to consult and is handed an already-merged `ai_service` map it
+cannot order against. `TestDirectCallerLadderStaysTwoLevels` pins the difference so a later reader cannot
+merge them by accident, and `llm_options.go` states the contract in prose next to the code.
+
+⚠ **Note the consequence for the induced check**: it works precisely because the direct-caller ladder
+reads the step's bare key before the merged block. Unifying the ladders later would silently retire that
+probe.
+
+### What the detector is for, stated as a design constraint rather than a feature
+
+`llm_budget_call_sites_test.go` binds "no hardcoded budget" at the package and says in its own header
+that it cannot see config that is declared and read by nobody. That is not a gap in that test — it is
+structural: a Go test is package-scoped and offline. The class needs a join between the compiled rule and
+208 live definitions, which is what `cmd/config-key-audit` exists for.
+
+Two design rules it follows, both learned the hard way in this round:
+1. **It calls production's ladder** (`actions.ResolveStepBudget`), so there is no second copy of the rule
+   to keep in parity. A detector that re-implements what it checks can only confirm itself.
+2. **A finding must be a decision an operator can act on.** The first cut reported the documented
+   overlay pattern as a fault and produced 18 findings, all healthy. A guard whose first run cries on
+   the healthy majority is one nobody opens twice.

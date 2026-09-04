@@ -343,3 +343,132 @@ the ~30 CLAUDE.md budgets for.
 line of a `sketch` starting `//`, `--` or `#` is refused** — *"a fix plan proposes changes, not
 observations"*. That bites a documentation-only edit, whose sketch is genuinely all comment: write it as
 a **diff**, with `+` prefixes, which is both honest and admissible.
+
+---
+
+## Round 3 (2026-09-04) — commands that were hard to get right
+
+### Census the CONCEPT: walk the whole document, never a fixed path
+
+Four censuses of this bug asked a fixed-path question and each could only find declarations where it
+already believed they lived — which is the assumption under test. This is the one that works:
+
+```sql
+WITH RECURSIVE a AS (
+  SELECT type, default_config AS j FROM agent_definitions
+  WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false)=false AND is_active
+), walk(type, path, j) AS (
+  SELECT type, ''::text, j FROM a
+  UNION ALL
+  SELECT w.type, w.path||'.'||e.key, e.value FROM walk w, LATERAL jsonb_each(w.j) e
+   WHERE jsonb_typeof(w.j)='object'
+)
+SELECT regexp_replace(regexp_replace(path,'^\.workflow\.steps\.[^.]+','.workflow.steps.<step>'),
+         '\.(substeps|sub_workflow)\.steps\.[^.]+','.<nested>','g') AS shape, count(*) AS n
+FROM walk WHERE path LIKE '%.max_tokens' GROUP BY 1 ORDER BY 2 DESC;
+```
+
+⚠ A fixed-path version cannot see a NESTED loop step either — those live under
+`...config.sub_workflow.steps.<name>.config.ai_service`, not under `workflow.steps.<name>`.
+
+### Where is each step's budget actually coming from?
+
+```bash
+scripts/audit-budget-placement.sh            # human-readable, grouped by kind
+scripts/audit-budget-placement.sh --json     # the findings JSON
+```
+Calls `actions.ResolveStepBudget` — production's own ladder — so it cannot answer a different question
+from the pods. Exit 0 clean / 1 findings (`ambiguous`/`unconfigured`) / 2 could-not-determine.
+`non_canonical` is advisory and never changes the exit code.
+
+### Pre-flight a migration: substitute ROLLBACK for COMMIT and RUN it
+
+**This is the check that works, and the runner's own probe is not a substitute.**
+
+```bash
+sed 's/^COMMIT;$/ROLLBACK;/' docs/agent_docs/sql_for_agents/NNN_x.sql > /tmp/NNN_dryrun.sql
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - < /tmp/NNN_dryrun.sql
+```
+Every guard, every UPDATE and the verify block execute for real; nothing is kept. On 2026-09-04 this
+caught `operator is not unique: unknown - unknown` — **PostgreSQL binds subtraction TIGHTER than `->`**,
+so `s.value->'config' - 'max_tokens'` parses as `s.value -> ('config' - 'max_tokens')`. Write
+`((s.value->'config') - 'max_tokens')`.
+⚠ The runner's built-in probe reported the file *"not probed: contains its own ROLLBACK/ABORT"* — a
+false positive on the word `Rollback:` in a header comment — so it would have caught nothing.
+
+### Apply one migration without applying ninety others
+
+```bash
+SCOPED=<scratch>/migNNN; mkdir -p "$SCOPED"; cp docs/agent_docs/sql_for_agents/NNN_x.sql "$SCOPED"/
+MIGRATIONS_DIR="$SCOPED" ./scripts/migration/run-migrations.sh          # dry run
+MIGRATIONS_DIR="$SCOPED" ./scripts/migration/run-migrations.sh --apply
+```
+⚠ The assignment MUST be on the same line as the command. On its own line it scopes nothing and the
+unscoped run applies every other thread's pending file.
+
+### The induced "is it live" check — arm, read, REVERT
+
+Puts a number where ONLY round-2 code looks (`llmOptionsFromConfig` reads the step's BARE key before the
+merged `ai_service` block). Two probes, because both callers are bursty.
+
+```sql
+-- ARM 1: page-content-writer.rewrite_negations   (configured 16000 -> probe 15999)
+UPDATE agent_definitions SET default_config = jsonb_set(default_config,
+  '{workflow,steps,process_sections_loop,config,sub_workflow,steps,rewrite_negations,config,max_tokens}',
+  '15999'::jsonb, true)
+WHERE id = '5946a27b-38ab-41e8-8b49-7bc1a4b626b8';
+
+-- ARM 2: offer-analyser.repair_ordering_register  (configured 2000 -> probe 1999)
+UPDATE agent_definitions SET default_config = jsonb_set(default_config,
+  '{workflow,steps,repair_ordering_register,config,max_tokens}', '1999'::jsonb, true)
+WHERE id = '4ad588bc-c491-4400-bb2f-f0f7a1cac0cd';
+
+-- READ (a call must land AFTER the arm time)
+SELECT created_at, agent_type, step_name, max_tokens FROM llm_call_log
+WHERE step_name LIKE '%rewrite_negations%' OR step_name = 'repair_ordering_register'
+ORDER BY created_at DESC LIMIT 5;
+--   15999 / 1999 -> round-2 code IS live      16000 / 2000 -> it is NOT
+
+-- REVERT, both, as soon as read
+UPDATE agent_definitions SET default_config = default_config
+  #- '{workflow,steps,process_sections_loop,config,sub_workflow,steps,rewrite_negations,config,max_tokens}'
+WHERE id = '5946a27b-38ab-41e8-8b49-7bc1a4b626b8';
+UPDATE agent_definitions SET default_config = default_config
+  #- '{workflow,steps,repair_ordering_register,config,max_tokens}'
+WHERE id = '4ad588bc-c491-4400-bb2f-f0f7a1cac0cd';
+```
+⚠ `offer-analyser`'s probe is the one that matters: 2000 was BOTH its configured value and the old Go
+literal, so no query over `llm_call_log` could ever separate a honoured config from a dropped one there.
+⚠ Both callers are bursty. `rewrite_negations` ran 4–38 times an hour overnight and then nothing for
+over an hour. Arm and come back; do not conclude anything from silence.
+⚠ This probe depends on the direct-caller ladder reading the bare key FIRST. Round 3 deliberately left
+that ordering alone (owner decision 2). If a later round unifies the two ladders, the probe stops
+discriminating and needs a new shape.
+
+### Read a council verdict — `decided_by` BEFORE `decision`
+
+```sql
+SELECT created_at, kind, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='<SUBMISSION_CORR>' ORDER BY created_at;
+
+SELECT body::jsonb->>'decided_by', body::jsonb->>'unreadable'
+FROM diagnosis_artifacts WHERE correlation_id='<SUBMISSION_CORR>' AND kind='council_report';
+```
+⚠ A round can be carried by `"unreadable reviewer(s): ..."` — seats whose output could not be parsed —
+with **no seat having objected**. Round 1 of this change was REVISE with 8 of 12 seats unreadable and
+2 of the 4 readable ones approving. [MEASURED 2026-09-04] 3 of 225 councils over 7 days. Reading the
+verdict alone would be reading a rejection nobody made.
+⚠ Do **not** poll `orchestration_states` — that jsonb scan times out at 100s and presents as a `kubectl`
+hang.
+
+### Are the two token-pressure checks live, and what do they actually read?
+
+```sql
+SELECT name, enabled, interval_seconds, last_completed_at, left(pre_query, 900)
+FROM scheduled_tasks WHERE name LIKE '%token-pressure%';
+```
+Read `pre_query`, not the wrapper script: `fleet-step-token-pressure` joins **nothing but
+`llm_call_log`**, and `council-seat-token-pressure` reads `agent_definitions` on **one** fixed path and
+only for `review_%` seats. Neither can see where a budget came from, and the fleet one cannot see a step
+that has never run.

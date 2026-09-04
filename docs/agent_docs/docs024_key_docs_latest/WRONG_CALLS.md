@@ -65996,3 +65996,38 @@ is an `[UNVERIFIED]` claim wearing settled clothes — the same shape as the `cm
 LANDMINES.
 **Tally:** "grepped the symbol I was about to name" — this is what makes a doc comment load-bearing and
 then wrong.
+
+## 2026-09-04 — I quoted a prompt to the OWNER from a day-old reading, and a migration had replaced that exact sentence on the day I read it (session editorial_design_uplift)
+
+- **The claim.** Supplied on 2026-09-03 as the evidence for an owner decision to make infographics
+  fleet-wide: *"The planner is TOLD to produce almost none, verbatim: 'Use sparingly in v1 — most
+  plans will have zero section-scope entries.' `infographic` appears exactly 3 times in the whole
+  config, all three in rule/schema text, and NEVER in the worked example."* It travelled into two
+  lanes' CONTRIBs and into what the owner was told.
+- **Why it was false.** `[MEASURED 2026-09-04]` against `agent_definitions`
+  `f263eaa1-61e1-446e-9410-648e12b7875b`: `Use sparingly in v1` is **absent**;
+  `Content-carrying imagery is EXPECTED here, not exceptional` is **present**; `infographic` occurs
+  **8** times, not 3; the config is **39,308 B**, not the 34,781 I quoted. Migration **718** replaced
+  that sentence on **2026-09-02 — the same day I read the prompt.**
+- **What caught it.** A peer lane relaying the prompts lane's own report of 718. Not me — and I had
+  re-measured half a dozen other figures that same evening while leaving this one alone.
+- **The mistake, precisely.** I read the live prompt on 09-02, wrote the finding into a handoff, and
+  on 09-03 quoted **the handoff** rather than the row. The estate's rule names this exactly — *ground
+  every figure against the live system before repeating it from another doc* — and I applied it all
+  evening to counts (3,229 rows, 554 components, 26 aspects) while treating a **verbatim quotation**
+  as if it were a different kind of claim. **It is not: a quote is a measurement of a mutable string,
+  and it decays the same way a count does.** Worse in one respect — a stale count is usually wrong by
+  a little, a stale quote can invert the meaning.
+- **What it cost.** The owner's fleet-wide decision was routed on a cause that had already been fixed
+  the day before. The *conclusion* may still be right (the estate has 1 infographic all-history), but
+  the stated reason was dead, and a lane was briefed to make an edit whose substance already existed.
+  Two rounds of peer traffic to unwind, and the real cause is still open.
+- **The cheap check that would have.** Re-read the row, not the doc, whenever a quotation is about to
+  be load-bearing — one query, and I ran that same query on 09-02. Better: **treat a quoted config
+  string as `[MEASURED <date>]` and re-run it on any day you cite it**, exactly like a count. Best:
+  when the claim is "the system is instructed to do X", check the BEHAVIOUR too — since 718 there
+  were 111 planned imagery entries and 0 infographics, so the behaviour would have shown the
+  instruction was not the binding constraint even if I had never re-read the prompt.
+- Tally: **a verbatim quotation treated as durable when a count would have been re-measured** ×1 ·
+  **a doc quoted in place of the live row it described** ×1 · **an instruction blamed without
+  checking whether the behaviour changed when the instruction did** ×1.

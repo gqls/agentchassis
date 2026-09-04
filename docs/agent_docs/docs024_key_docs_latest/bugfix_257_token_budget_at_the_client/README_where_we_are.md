@@ -398,3 +398,85 @@ default" path at all, so it tests a capability we currently only believe in.
 limit wins" rule, and whether making direct model calls visible to our truncation monitoring is part of
 this bug or its own piece of work. And one new one from yesterday: four settings on the site-adoption
 agent that ask for a limit nothing reads, one of them asking for double what it gets.
+
+---
+
+**2026-09-04 (afternoon) — all four of your answers acted on. Here is what each turned into.**
+
+**You said "go ahead with the is-it-live test".** It is set up and running, on two different agents
+rather than one, because both of them work in bursts and the fleet went quiet an hour after I armed the
+first. Each one puts a slightly different number in a place only the new code looks at, so whichever
+runs first tells us which code is actually in the pods. The second one is worth explaining because it
+closes an old hole: that step's configured limit and the number that used to be hardcoded in the
+program were **both 2000**, so the log said 2000 whether the configuration was working or being thrown
+away. Setting it to 1999 breaks that tie. Both are one-line changes and both get put back the moment we
+have a reading.
+
+**You said "leave it" about merging the last two copies of the rule.** Left. What I have done instead is
+write the difference down as a deliberate decision rather than leaving it as an accident, with a test
+that fails if someone quietly merges them. They now share the small mechanical part — how you read a
+number out of a settings block — and keep their own answer to "which place wins", which is the part that
+genuinely differs.
+
+**You said direct-call monitoring is its own piece of work.** It is **bug 480**, with its own folder and
+its own notes. Short version of it: when we ask a model something, one function writes a line in a table
+saying how much room we allowed and whether the answer got cut off. Everything we know about
+cutting-off comes from that table. Six places in the code talk to a model without going through that
+function, so they write no line at all — and a missing line looks exactly like a step that never ran.
+Nothing is on fire; what it costs is that "is anything being truncated?" can only ever be answered "not
+in the part we can see".
+
+**You said the limits are sometimes set in the wrong place and sometimes read from the wrong place, and
+to fix it properly.** That turned out to be bigger and more interesting than the four settings we
+started from, and it is now fixed at both ends.
+
+I stopped looking for the limit in the places I expected it and instead walked the whole of every
+agent's settings looking for it anywhere. There are 171 of these limits across the fleet, written in
+five different places. The program was reading **two** of them — and it read them in the wrong order,
+taking the most general one first.
+
+So there were two faults, not one:
+
+*Ten agents* had a leftover limit written at the top of their settings, and the program took that
+**before** the limit written on the actual step. Each of those ten has one step that does the writing,
+each of those steps asks for 8000, and each was being held to somewhere between 500 and 2000. The
+important caveat: **none of those ten agents has ever actually run**, so nothing was damaged — it was a
+trap set for whoever used them next, and the settings looked perfectly correct if you read them.
+
+*Four settings on the site-adoption agent* — the ones you saw yesterday — were written one line outside
+the block they belonged in, sitting right next to other settings that DO get read. Nothing looked at
+them at all. One asked for double what it got.
+
+The fix has two halves that do not depend on each other. The program now looks in **all** the places, in
+order from most specific to most general, so wherever an operator writes the limit it counts. And a
+database change moved the fourteen misplaced ones into the one proper place — that half took effect
+immediately, without waiting for new code to be deployed, so both faults are already gone in production.
+
+Three settings are deliberately left alone for now, on the HTML builder. They are the one case where the
+"wrong" place is the only one that currently works, so moving them today would quietly break them.
+There is a prepared change for those that gets applied by hand once the new code is live, with the check
+for "is it live yet" written into the file as a command rather than a judgement call.
+
+I also added a report that answers "where is each step's limit actually coming from?" against the live
+system, because this is the kind of fault no test can see — the code is fine, the settings are fine, and
+they simply do not meet. **Its first run found a mistake in my own change**, which is the most useful
+thing that happened today: it flagged 18 steps as broken that were all perfectly healthy, because I had
+mistaken a normal pattern (a fleet-wide default that individual steps override) for a fault. The same
+mistake was already in a warning I had put into the running code an hour earlier, where it would have
+fired on every single call of those 18 steps. Both are fixed, and the report is now quiet — it lists one
+step that genuinely has no limit set at all, and seven that are written in the untidy place but do work.
+
+Two smaller things found and deliberately **not** changed, so they are on the record rather than in the
+change. Seventy-two temperature settings across twelve agents are read by nobody — but temperature is
+deliberately never sent to Anthropic at all (their newer models reject it), so honouring them would do
+nothing today and would be a real behaviour change later; it belongs in a decision, not in this fix. And
+two separate active definitions both claim to be the "content-creator-contact" agent, with different
+limits, which is somebody else's lane.
+
+The review council came back "revise" on the first pass — but reading *why* matters: eight of its twelve
+reviewers produced output the system could not read at all, so the round was decided by that rather than
+by anyone objecting. Of the four that were readable, two approved outright. The objections from the
+other two were fair — my write-up had not shown enough of the database change for them to check it, and
+they asked, twice and independently, whether an existing monitoring job already did what my new report
+does. I went and read that job rather than arguing: it does not, and cannot, because it only ever sees
+the number that was actually sent and never where it came from. Resubmitted with all of it evidenced.
