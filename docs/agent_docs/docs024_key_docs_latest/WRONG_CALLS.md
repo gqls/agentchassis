@@ -65474,3 +65474,34 @@ existed for nobody but me, and a fresh clone could not have reproduced the schem
   five live sites. No wrong repair was dispatched — the strip worked throughout, so the served
   pages were being fixed even while the check could not confirm it. Fixed 2026-09-04, with
   Gate A re-run (zero co-firing, control 128).
+
+## 2026-09-04 — I probed the binary for my own commit sha and read the (expected) absence as "not shipped" (`bugs_open/469` lane)
+
+- **The claim I was one step from filing.** After the fleet rolled, I checked whether my
+  closer had shipped by grepping the running chassis binary for my commit sha:
+  `kubectl exec <pod> -- grep -aq fc9cad600 /proc/1/exe` → **absent**. With a fake-sha control
+  also absent and a known build sha PRESENT, the result looked clean and decisive: *the fix
+  did not ship.* I was about to say so.
+- **What was true.** The fix HAD shipped. `git merge-base --is-ancestor fc9cad600 239ab3626`
+  → **YES**, with a control (a commit made after the build correctly reads NOT an ancestor).
+- **Why the probe could not have said otherwise.** **The binary carries ONE stamp — the
+  commit it was BUILT from — not a list of its ancestors.** A build at `239ab3626` contains
+  every ancestor's *code* and mentions only `239ab3626`. So any commit that is not itself the
+  build commit reads absent, **however completely its code is in there**. My "controls" were
+  well-formed and measured the wrong property: they proved the probe could distinguish
+  present from absent, not that presence was the right question.
+- **The galling part.** CLAUDE.md gives both tools on the same page and says which answers
+  which: the stamp probe is *"if you doubt the logs, probe the binary — verify a KNOWN
+  value"*, and **"did my fix ship?" is now a query, not an inference: `git merge-base
+  --is-ancestor <your-commit> <the stamp>`**. I used the first to answer the second's
+  question. Two correct instruments, wrong order.
+- **What caught it.** The ancestry check I ran next for a different reason — working out
+  whether the deployed build predated my commit — returned an answer that contradicted the
+  probe, and only one of them could be right.
+- **The cheap check that would have.** **Read the stamp, then ask git.** Two commands, and the
+  first one's output is an input to the second rather than an answer in itself:
+  `<stamp> = the build provenance sha`, then
+  `git merge-base --is-ancestor <mine> <stamp>` with a post-build commit as the control.
+- **Cost.** None — caught before it reached a doc or a peer. Logged because the failure mode
+  is *a well-controlled measurement of the wrong property*, which is the hardest kind to
+  distrust: every control I ran passed.
