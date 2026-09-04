@@ -224,3 +224,79 @@ either number, and the false-positive count is driven by the `ea = 0` majority),
 `ea` column cannot be quoted as a strict subset count until its author says which. Recorded
 because a number I am about to build a predicate on had a visible defect and saying nothing would
 have made it load-bearing by silence.
+
+---
+
+## 2026-09-04 — the `ds`/`ea` discrepancy is resolved, and the resolution changes which predicate I port
+
+`427` diagnosed the `ds=18 / ea=20` row I flagged (`8f13f2043` corrects their file header).
+**Neither column is a subset of the other; the header claiming so was wrong.** They are
+independent predicates over the same extracted object set:
+
+- `ds` requires a **human-readable string value** (≥8 chars containing a space);
+- `ea` requires an **identity key AND an attribute key**, and says nothing about string content.
+
+**Verified at first hand rather than accepted** `[MEASURED 2026-09-04]`, against the real template:
+
+```js
+{ name: 'Secateurs',   tier: 1, always: true,                              low: 20, high: 45,  guide: '/buying-guides/secateurs' }
+{ name: 'Loppers',     tier: 2, activities: ['pruning','landscaping'],     low: 30, high: 65,  guide: '/buying-guides/loppers' }
+{ name: 'Wheelbarrow', tier: 3, sizes: ['medium','large','allotment'],     low: 65, high: 140, guide: '/buying-guides/wheelbarrows' }
+```
+**Three** records with a single-word `name`, exactly as described — they carry an identity key and
+an attribute key (so `ea` counts them) and no string value of ≥8 chars containing a space (so `ds`
+does not). The mechanism is confirmed.
+
+⚠ *Minor, recorded so the columns are not over-trusted:* the arithmetic does not close —
+18 + 3 = 21, not 20 — so the two predicates must also differ on at least one further record.
+**Does not affect any conclusion** (the row is a true positive on either count and the
+false-positive figure is driven by the `ea = 0` majority), but the columns are not related by a
+clean offset and should not be quoted as though they were.
+
+> **⚠ CORRECTION to this lane's own reasoning of an hour earlier.** I wrote that I would "port the
+> `ea` extractor" on the assumption it was the *narrower* of the two, i.e. the conservative choice.
+> **That reasoning was wrong even though the choice was right.** `ea` is not narrower — it is
+> differently permissive, and the difference matters in my favour: `ds`'s human-readable-string
+> filter **discards single-word entity names**, and an invented product, an invented practice, an
+> invented fighter is very often a single word. Had I ported the "narrower subset" I described, I
+> would have inherited a filter that drops a large share of the fabrication class the gate exists
+> to catch. **I picked the right predicate for a reason that was false**, which is worth more to
+> record than picking a wrong one for a good reason: the next person reasoning "narrower =
+> safer" over these two columns will be wrong the same way.
+
+Also confirmed by `427`: both columns share one object regex matching **innermost** brace pairs
+(`[^{}]`), so nested structures are counted at their leaves — a shared property, not a defect in
+either, and not a bug I inherit.
+
+---
+
+## 2026-09-04 — the rail's shape, and the honest limit that keeps the content test alive
+
+`427` submitted the provenance rail to council (`68a8e2a3-aa4b-477f-83f1-69a317cd82c4`); plan at
+`docs024_key_docs_latest/bugfix_427_event_render/PLAN_2026-09-04_provenance_rail.md` (`c0d245bd0`).
+Shape, as it bears on this lane's birth arm:
+
+- `platform/orchestration/datahelpers/fact_provenance.go` — the single home of the vocabulary, in
+  a package both lanes can import (`discovery_checks` already imports `datahelpers`; it cannot
+  import `queryresolve`, which imports `discovery_checks`).
+- `FactBearingFields(schema)` is a **SCHEMA predicate, not a source predicate** — a field is
+  fact-bearing if its declared item shape carries `fact_id` / `*_fact_id`. Source-agnostic on
+  purpose: the three fact-bearing components today declare three different sources.
+- `ExtractRenderedFactIDs(html)` is attribute-scoped, never a substring scan.
+- The declaration is **structured and resolvable, never prose** — stated as the design's first
+  property, explicitly because of this lane's vetcomparison `:290` finding (a tool-doc header
+  prohibiting fabrication, in the file doing it).
+
+**What it gives this lane:** the birth arm can ask `len(FactBearingFields(schema)) > 0` — a
+structural question about the *declaration* — instead of re-deriving factuality from key names.
+**Neither lane then maintains an identity/attribute vocabulary**, which was the drift risk in my
+draft.
+
+⚠ **The limit, stated by `427` unprompted and worth keeping in front of the design.**
+`FactBearingFields` reads the *declared schema*, and `[MEASURED 2026-09-04]`
+`tool-fight-countdown`'s `input_schema` is **NULL** — as most fabricating tools' will be. So the
+predicate separates *declared-and-backed* from *declared-nothing* cleanly, **but cannot
+distinguish "declared nothing because it has no data" from "declared nothing because it invented
+some"**. That second step still needs the `ea` content test. **The rail removes the need for a
+vocabulary; it does not remove the need for a content test.** Any plan that treats the rail as
+sufficient is wrong, and this lane will not write one.
