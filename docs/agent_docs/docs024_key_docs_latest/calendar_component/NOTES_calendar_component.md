@@ -148,3 +148,39 @@ date"). A fight calendar is the opposite of that shape — dated, one-off real-w
 not a recurring named cycle. So the fix is not "place my component here"; it is a
 different, currently-missing mechanism. See the message to `boxingonline.com` for the
 architecture opinion this produced.
+
+## 2026-09-04 — a fifth and sixth "calendar", both live-broken on a paid site: `bugs_open/482`
+
+`boxingonline.com` relayed an owner report: the fight-countdown counts to a stale date, the
+fighter-comparator ships empty. Verified before filing rather than trusting the report —
+comparator confirmed exactly (0 `<option>`, 0 `<select>`, direct DB read), but the
+countdown's specific claim ("2026-09-02, two days stale") didn't match the stored
+artefact: the real shape is worse — six hardcoded fights, **all** dated `year: 2025`, none
+matching the real Canelo/Mbilli fixture that genuinely exists in `evidence_base`.
+`boxingonline.com` independently re-verified against the live served page (no cache/publish
+divergence) and traced their own error precisely (a regex hit never confirmed as the actual
+field). Filed as `bugs_open/482`.
+
+**The process lesson, worth keeping.** Filed 482 without re-reading `bugs_open/427`'s full
+current length first — it had grown to 1,600+ lines since this lane last read it in full
+(the "check in on progress" request two turns ago), and §22-23, added the same day, cover
+the identical mechanism on a different tool: `tool-generator` fabricated 12 fixtures for
+the fight-calendar tool itself, caught before deploy, with a three-layer checker plan
+designed and awaiting the owner's go-ahead. Caught the gap myself before it became a real
+duplicate — but the honest record is that it should have been caught by reading first, not
+by luck. **Re-read a fast-moving joint bug's CURRENT tail before filing anything adjacent
+to it, every time, not just when picking it back up.**
+
+**What the near-miss produced, though.** Cross-checking 482 against §23's plan found a real
+gap in it: neither of the two content-side checkers as scoped would have caught 482's
+violation — layer 2 looks for an ISO-date-STRING key, this tool's dates are `year`/`month`/
+`day` numeric fields; layer 3 validates `data-fact-id` attributes, this tool has none at
+all. Added as §24 in 427, cross-referenced both ways. A genuine contribution the near-miss
+paid for, not just a process wobble.
+
+This lane's calendar taxonomy (PLAN §0) is now five things, not four — `period-calendar`,
+the editorial timeline (not ours), "calendar" as subject matter, the hollow fight-calendar
+tool (`bugs_open/427`, now essentially fixed), and this: tools that actively fabricate
+dated content rather than merely omitting it. Not updating PLAN §0's list itself — it's
+already served its purpose (disambiguation for a fresh reader) and this is 482's story to
+carry, not a new permanent category to maintain here.
