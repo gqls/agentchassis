@@ -5992,3 +5992,9 @@ refused at 12:04:44Z with 5 tail errors still inside the window; it retries ever
 
 **Standing facts unchanged:** plan 34 pages; 764 proven both halves; the two deferred pages wait on
 directory entries; the classification flag and the owned-aware tool builds are the owner's.
+
+> **Passenger note, 2026-09-04 ~12:15Z:** my commit `62b5a800b` (WRONG_CALLS) also carried the
+> `copy_quality_two_stage` lane's pending row *"the production writer does not reason…"* — it was
+> uncommitted in the shared tree when I committed the file by pathspec. Additions only; nothing lost;
+> their entry is at HEAD under my message. The `git diff --numstat` I now run before ledger commits
+> showed **46** additions for a ~24-line paste — the surplus is the tell, and I read it after, not before.
