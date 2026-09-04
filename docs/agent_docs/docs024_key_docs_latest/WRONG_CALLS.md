@@ -68064,3 +68064,66 @@ a-stale-status-line-prevents-the-thing-it-describes, measurement-discipline-inde
 
 Family: a-report-is-not-a-measurement, mutate-the-code-to-prove-the-guard,
 a-citation-you-did-not-open-is-a-claim, your-measurement-answers-the-question-you-encoded.
+
+---
+
+## 2026-09-04 — `bugs_open/482` lane: I censused the shape I already knew about, called it "1 of 335", and told two lanes it was a first occurrence
+
+**The claim.** Resuming `bugs_open/482` (a tool baking six invented boxing fights into its own JS),
+I ran the fleet census its §6 had flagged as missing, over all **335** active
+`component_level='tool'` components. I keyed it on *date shapes* — `year:\s*20NN`, `month:`,
+`new Date(20NN,`, `Date.UTC(`, an ISO-string-valued `date:` key, and `data-fact-id`. Result:
+`year:` → **1**, `Date.UTC(` → 2, ISO `date:` → 0, `data-fact-id` → 0. I reported that to the
+`calendar` lane and the `boxingonline.com` lane as *"this really is a first occurrence rather than a
+class in its current shape"*.
+
+**It was not.** The `427` lane censused the same 335 rows the same day on a different axis — object
+literals whose records **identify a real-world entity and attribute a checkable property to it**,
+deliberately not a date pattern — and found five candidates, of which I then verified at least three
+at first hand:
+
+| component | records | what is invented |
+|---|---|---|
+| `tool-vet-comparison-vetcomparison-uk` | **30** | UK veterinary practices, with postcodes, on a live homepage |
+| `tool-sfi26-revenue-stacker-agritec-uk` | 24 | UK government scheme payment rates, real scheme codes |
+| `tool-budget-kit-builder-garden-tools-uk` | 20 | product price bands |
+
+The vetcomparison one carries **no date at all**, so no widening of my census — to numeric triplets,
+to `Date.UTC`, to any date shape whatever — could ever have found it. It is also the worst of them:
+30 invented businesses with invented postcodes, `deployed`, on `/index.html` of a DNS-live
+comparison site, under a visible disclaimer telling readers to *"confirm anything important directly
+with the practice"*.
+
+**Why I got it wrong, precisely.** The bug in front of me was about dates, so I measured dates. The
+defect is *fabricated real-world facts*; dates were one facet of one instance. My census could not
+have come out any other way — every additional date pattern I added still asked the same question,
+and a census that can only return "the shape I already have" is not a census, it is a confirmation.
+This is `your-measurement-answers-the-question-you-encoded` in its purest form, and I walked into it
+on the very day I was arguing to another lane that **enumerating fabrication shapes is a losing
+game**. I made the right argument about someone else's detector and then built my own census on the
+losing side of it.
+
+**The compounding error:** I did not merely believe it, I *propagated* it. "1 of 335" reads as
+*first occurrence*, and I sent that to two lanes as a correction to their weaker claim. Both
+accepted it. The `calendar` lane replied that my framing *"should replace my weaker claim rather
+than sit beside it"* — so a false narrowing was on its way into a bug file as an improvement.
+
+*The cheap check, and it costs one sentence:* **before running a census, write down what the class
+IS, in words, without reference to the instance in hand — then check that your predicate is a
+predicate for the CLASS and not for the instance.** "Tools with dates that have gone stale" and
+"tools asserting real-world facts nothing verified" are different populations, and only the second
+one is the bug. Had I written that sentence, `postcode`/`website`/`price`/`rate` would have been in
+the predicate on the first pass.
+
+*The second check, free and I skipped it:* **when a filing says a census is missing, ask the lane
+that has been reading the corpus what axis they would use before you pick one.** `427` had the
+better predicate and was three feet away. I ran mine first and asked afterwards.
+
+**One thing I got right, recorded so the entry is not only self-flagellation:** I did not carry
+their five hits forward on trust either. I re-derived all four named rows, re-counted vetcomparison
+independently (30 records, 30 `example-vet-*` hostnames, four sample records byte-identical), and
+that re-derivation is what turned up the three lines they had not mentioned — including the
+public-facing RCVS disclaimer, which is the sharpest fact in the whole bug.
+
+Family: your-measurement-answers-the-question-you-encoded, a-report-is-not-a-measurement,
+a-closer-census-cannot-see-what-it-succeeded-at, the-claim-that-makes-your-argument-neater.

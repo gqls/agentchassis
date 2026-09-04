@@ -222,3 +222,191 @@ on `bugs_open/427`.
 - `docs/agent_docs/docs026_concept_register/register/visualisation-and-charts.md` VIZ-017 —
   `period-calendar`'s design precedent for refusing date-shaped fields by design.
 - `docs/agent_docs/docs024_key_docs_latest/calendar_component/` — this lane's own docs.
+
+---
+
+## 9. Status update, 2026-09-04 — RESUMED as the fixing lane, and the bug is not the one that was filed
+
+Picked up by the `bugfix_482_tool_fabrication_fence` lane. It was filed unowned (§0 header), §7
+disclaims it for `calendar_component`, and the two citing lanes disclaim it too; `ListAgents`
+showed no session working it. The `calendar` lane confirmed by message: *"No objection, it's
+yours."* Working docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_482_tool_fabrication_fence/`.
+
+### 9.1 Still valid, re-derived not trusted
+
+`[MEASURED 2026-09-04]` both components `component_level='tool'`, `is_active=t`, `input_schema`
+NULL, 13,279 B / 21,426 B, born 2026-08-31. All six invented fights still present verbatim.
+**Live and unchanged.**
+
+### 9.2 §3's `[UNMEASURED]` is closed: the generator never had `evidence_base`
+
+Birth path is `tool-generator` → `create_tool_component_action.go`. Workflow steps
+`[MEASURED 2026-09-04]`: `ensure_site_record, load_brand_context, load_site_page_names,
+compose_plan, write_plan, index_plan, generate_tool_html, suggest_related_pages, save_tool,
+enqueue_rerender, complete`. **No step loads or consults `evidence_base`.** The
+`generate_tool_html.config.prompt_template` is 5,118 chars, 22 numbered rules about ids, colours,
+IIFEs and readouts, with **zero** occurrences of fabricate / invent / evidence_base / provenance /
+verify.
+
+So §3's fork resolves to **"never had access"**, not "had it and ignored it" — which selects
+§7's fix candidate 2 (make the generator unable to fabricate) over "make the generator consult
+`evidence_base`", and independently confirms `427` §23.1's finding about the brief inviting the
+fabrication.
+
+### 9.3 THE FINDING: a fabrication gate already exists, is live, and DISCARDS ITS OWN VERDICT
+
+This reframes the bug, and it is why 482 deserved to be filed separately from 427 rather than
+folded into it.
+
+`platform/orchestration/actions/check_tool_fabrication_action.go` — 459 lines, built for
+`bugs_open/020`, council-reviewed, negation-aware via the shared `datahelpers.NegationGuard`,
+tiered A (declaration) / B (corpus signature + corroboration). It is **live**, and
+`[MEASURED 2026-09-04]` wired in the `default_config` of exactly **one** active agent definition:
+`tool-recreation-handler`. **The birth path does not consult it at all.**
+
+Probed via its exported pure core `DetectToolFabrication`, against real `html_template` bytes,
+**with a positive control in the same run** (recipe and its gotchas in the lane's RUNBOOK):
+
+| component | `Fabricated` | `Signals` |
+|---|---|---|
+| `tool-fight-countdown` | false | *(none)* |
+| `tool-fighter-comparator` | false | *(none)* |
+| `tool-budget-kit-builder-garden-tools-uk` | **false** | large literal record array (~20 entity objects) |
+| `tool-sfi26-revenue-stacker-agritec-uk` | **false** | large literal record array (~24 entity objects) |
+| `tool-vet-comparison-vetcomparison-uk` | **false** | large literal record array (~30 entity objects) |
+| CONTROL — the `bugs_open/020` vetcomparison shape | **true** (`tier="declaration"`) | declared synthetic data; `makePostcode` introduced |
+
+The control convicts, so the zeros are real zeros and not a broken harness.
+
+**Read the middle three rows carefully. The gate is NOT blind to them.** It computes the corpus
+signature — 20, 24 and 30 entity-record objects, all over `fabLiteralRecordThreshold = 15` — and
+returns `Fabricated=false` anyway, because Tier B gates on `dataBacked && !preserved`, and
+`dataBacked` derives from an `original` that a **born** tool has never had. The signals are
+returned "for observability" and gated on nothing.
+
+> **⚠ CORRECTION to this lane's own earlier claim, made the same day.** I told two lanes that
+> *"Tier B is UNREACHABLE at birth"*. **Wrong word.** The *signature* is reachable and reached;
+> the **conviction** is unreachable. The distinction is load-bearing: it means the birth arm is
+> **not new detection work**. The evidence is already computed, already correct, and discarded.
+> Caught by feeding the detector more inputs than the two tools in this bug — i.e. by `427`'s
+> census, not by my own reasoning.
+
+**The same shape appears independently in `427`'s half**: `projectUpcomingEvents`
+(`queryresolve/upcoming_events.go` ~246) emits `fact_id` into every item map, and the `event-list`
+template renders `.date/.title/.venue/.broadcaster/.source_url` and **never `.fact_id`** — so a
+fact-backed fixture and a fabricated one are byte-indistinguishable at the served artefact. Two
+independent instances of *"the estate already knows and throws it away"* on one root cause. This
+also means **`427` §23.2 Layer 3 is not merely blind on this bug's shape — it is structurally
+unreachable today**, because its subject is the served artefact and `data-fact-id` appears **zero**
+times there even for the component that is doing everything right (measured independently by the
+`boxingonline.com` lane).
+
+**Bitter footnote:** `bugs_open/020`, the bug the fabrication gate was built for, was filed about
+**vetcomparison.uk**. The gate was written for that site. That site is still fabricating, in a
+shape the gate was never taught to convict.
+
+### 9.4 §6's census IS a class — and this lane's first attempt at it was wrong
+
+⚠ **Correcting §6's implied scope and this lane's own first measurement.** Keyed on **date
+shapes** over all 335 active tool components, the census returns **1** — and I reported that to
+two lanes as *"a first occurrence rather than a class"*. The `427` lane censused the same rows on
+an **entity+attribute** axis (a record that identifies a real-world thing and attributes a
+checkable property to it) and found five candidates. Verified at first hand here, all
+`component_level='tool'`, all `is_active=t`:
+
+| component | records | what is invented |
+|---|---|---|
+| `tool-vet-comparison-vetcomparison-uk` | **30** | UK veterinary practices + postcodes + websites |
+| `tool-sfi26-revenue-stacker-agritec-uk` | 24 | UK government scheme payment rates, real scheme codes |
+| `tool-budget-kit-builder-garden-tools-uk` | 20 | product price bands |
+| `tool-fight-countdown` (this bug) | 6 | boxing fixtures |
+| `tool-loot-table-balancer-gamesdesign-co-uk` | 3 | *(probably legitimate game vocabulary, not a real-world claim)* |
+
+**`tool-vet-comparison-vetcomparison-uk` contains no date at all**, so no widening of a date
+predicate could ever have reached it. Full misstep entry in `WRONG_CALLS.md` (2026-09-04): *I
+censused the shape I already knew about.*
+
+### 9.5 The most exposed instance is not on boxingonline
+
+`tool-vet-comparison-vetcomparison-uk`, 16,944 B, born 2026-09-02. Placement
+`[MEASURED 2026-09-04]`: `vetcomparison.uk` **`/index.html`** — the homepage —
+`page_components.build_status='deployed'`, `pages.deployed_at = 2026-09-03 21:19:33+00`. **30**
+postcode-bearing records, **30** `https://example-vet-*.co.uk` hostnames, e.g.
+`{ name: 'Willow Tree Veterinary Surgery', location: 'Chester', postcode: 'CH1 3AB', website: 'https://example-vet-chester.co.uk' }`.
+
+Three things found by re-deriving the report rather than accepting it, none of which is in the
+countdown's shape:
+- `:298` — `// Bundled, verified sample of practices. Self-contained — no fetch().` The component
+  **asserts its own verification**.
+- `:290-291`, tool-doc header — *"Never seeds or fabricates practice records beyond the bundled
+  list; if this list needs to grow, it must be replaced with a verified set."* The prohibition and
+  the violation are in the same file.
+- `:40`, **served to the public** — *"Practice details shown here are a fixed sample bundled with
+  this tool… please confirm anything important directly with the practice. The RCVS maintains the
+  official register of accredited practices."* It invites a member of the public to confirm the
+  details of a practice that does not exist, citing the regulator's register while doing so.
+
+⚠ **For the fence's calibration:** `:290`'s *"Never … fabricates …"* is precisely the shape
+`fabNegationGuard` was built (`bugs_open/222`) to suppress, because a conscientious model echoing
+the prompt's prohibition was the common false-positive case. **This is the first observed artefact
+where the denial and the act are in the same file.** The guard is still right and should not be
+weakened on this evidence alone — but any birth arm must be calibrated knowing this case exists.
+
+**Dispatched nothing at that site.** The `vetcomparison` lane has the evidence; remediation of a
+live commercial site is that lane's and the owner's call.
+
+### 9.6 Scope, settled with the `427` lane by message
+
+- **427** = the mechanism (dated correctable `evidence_base` facts), Layer 1
+  (`check_event_fixture_completeness`), and the **provenance rail** — making a fact-backed fixture
+  say so in the served markup, so that *absence of a declaration* becomes a signal instead of the
+  default state of the estate.
+- **482 (this lane)** = the **fence** (route every tool-writing path through the existing gate,
+  make it convictable at birth, ratchet the coverage), the **census**, and **remediation**.
+- Both lanes agree **not** to widen `ExtractAssertionText` to script bodies, and not to file that
+  RFC: if the rail lands and the fence consumes it, widening the claims perimeter becomes
+  *duplicative* rather than deferred. `427` is recording that in its §23.2.
+- Neither lane will ship a fabrication-shape enumeration. Four detectors have now been shown blind
+  or self-discarding on this class (427's three proposed layers plus the one already deployed);
+  the shape space is unbounded and each widening is specified against the examples in hand.
+
+### 9.7 The tool-template write paths, censused at HEAD
+
+`[MEASURED 2026-09-04]`:
+
+| path | file | fabrication gate? |
+|---|---|---|
+| birth **and** regeneration | `create_tool_component_action.go` (`regenerateToolComponentInPlace` called from `:307`, i.e. after the `:127` / `:160` gates) | **no** |
+| tool-improver | `update_component_html_action.go` (calls `sharedComponentWriteCheck`) | **no** |
+| tool-recreation | `tool-recreation-handler` workflow | **yes** — the only one |
+| propagation to another site | `deploy_tool_action.go` | n/a — but it forks a row to a second site without re-inspecting it |
+
+The remedy idiom already exists on this estate for exactly this failure class
+(`bugs_closed/021`, *"durable write guard covers one path only"*):
+`component_template_writer_coverage_test.go`, a source-scanning coverage ratchet that fails the
+build when a writer of `content_components.html_template` neither calls the shared fence nor is
+listed with a written reason. Its header states the argument better than I can: *"A header census
+is true on the day it is written; this test is true on every build."* The fabrication gate has no
+such ratchet, which is how it came to cover one path of several without anyone noticing.
+
+### 9.8 Not yet decided, and deliberately not decided by this lane
+
+- **Remediation of the live tools.** boxingonline: with the owner via the `boxingonline.com` lane.
+  vetcomparison: with the `vetcomparison` lane. ⚠ **The two boxingonline tools want different
+  answers** — `evidence_base` for that site holds 8 facts, 7 dated, **2** with
+  `event_date >= today` (measured by the `boxingonline.com` lane), so the countdown can genuinely
+  be *repaired*; the comparator needs fighter attribute data for which **no source exists on the
+  estate**, so its only honest options are *withdraw* or *ship visibly empty*. A single
+  repair-or-withdraw decision gets one of them wrong.
+- **Whether a birth-time refusal needs a third outcome** besides build-it and refuse-it. The
+  boxingonline lane's argument, which this lane accepts: a provenance requirement the fact supply
+  cannot satisfy converts "fabricated tool" into "unbuildable tool" for a whole category, and a
+  gate that refuses good work gets switched off, after which it protects nothing.
+
+**Verification contract for any remediation**, agreed with the `boxingonline.com` lane, both
+controls in the same run — because a page that has merely been blanked scores identically to a
+page that has been repaired:
+- *negative*: `Usyk|Fury|Joshua|Wilder|Benavidez|Nery|Serrano|Garcia` → 0, `year: 2025` → 0;
+- *positive (anti-blanking)*: `<body>` present, non-trivial bytes against the current
+  13,279 / 21,426, the tool's own heading present, and for the comparator `<select>`/`<option>`
+  counts **NON-ZERO** — since "0 options" is the defect and an emptied page also scores 0.
