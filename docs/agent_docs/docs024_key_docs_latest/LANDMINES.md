@@ -22693,3 +22693,144 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 - **scope of what is actually MEASURED, `[MEASURED 2026-09-04]`:** bare == the genuine last iteration on **20 of 20** `page-content-writer` runs (`copy_gate` vs `copy_gate_<max N>`, never the first) and **4 of 4** `meta-description-backfiller` runs. `[MEASURED]` no live step outside the loop reads a bare form on `page-content-writer` (zero step configs matching `\m(copy_gate|generated_content)\M`), so the exposure found so far is to a **human or an ad-hoc query**, not to workflow resolution. **`[UNTRACED]` which code writes the bare key** — `makeIterationOutputField` rewrites each injected step's `OutputField` to `{field}_{N}`, so the injected steps are demonstrably not the writer. Do not assert a mechanism for this without tracing it; the measurement stands on its own and the mechanism does not.
 - **relations:** `bugs_open/442` §11d (found there — the lane's own operator message says "read each `save_result`" and points at exactly this key) · `bugs_closed/287` + LANDMINES "…`complete_work_item` reads a sibling `output_field` un-suffixed…" (the config-reference sibling of this trap) · LANDMINES "A loop's `<loop>_iter_<N>_done` key is NOT iteration N's result" (same table, same loops, different key) · `WRONG_CALLS.md` 2026-09-04 (the hard-coded-comparand error that nearly buried this)
 - **added:** 2026-09-04, bug sweep lane (442)
+
+---
+
+## A jsonb census keyed on a FIXED PATH can only find what you already believe — and it reports the number confidently
+
+- **footprint:** `agent_definitions.default_config` · any `default_config->'workflow'->'steps'->...`
+  query · `docs/agent_docs/sql_for_agents/` census blocks · `cmd/config-key-audit/`
+- **fires when:** you census a live config key — "how many steps declare X?", "is anyone still using
+  Y?", "what does each agent set Z to?" — with the natural query, which spells out the path you expect
+  the key to live at.
+- **the tell:** there isn't one. The query runs, returns a plausible number, and that number is
+  *correct for the path you asked about*. It cannot tell you the key also exists two levels up, or one
+  brace outside the block, or inside a loop sub-workflow. **A fixed-path census tests the very
+  assumption it is built on.**
+- **[MEASURED 2026-09-04]** `bugs_open/257` censused `max_tokens` **four times over three weeks**, each
+  time with a fixed path, each time reporting a number that was right about that path. A recursive walk
+  found **171 declarations in FIVE shapes**, of which the fixed-path queries could see one: ten at the
+  agent root in the bare spelling (which the reader took FIRST, capping every step below them), seven at
+  the step level in the bare spelling (read by nobody), and two inside a loop sub-workflow. Two live
+  defects had been sitting in the gap the whole time.
+- **the check:** walk the document, then group by shape:
+  ```sql
+  WITH RECURSIVE a AS (
+    SELECT type, default_config AS j FROM agent_definitions
+    WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false)=false AND is_active
+  ), walk(type, path, j) AS (
+    SELECT type, ''::text, j FROM a
+    UNION ALL
+    SELECT w.type, w.path||'.'||e.key, e.value FROM walk w, LATERAL jsonb_each(w.j) e
+     WHERE jsonb_typeof(w.j)='object'
+  )
+  SELECT regexp_replace(regexp_replace(path,'^\.workflow\.steps\.[^.]+','.workflow.steps.<step>'),
+           '\.(substeps|sub_workflow)\.steps\.[^.]+','.<nested>','g') AS shape, count(*)
+  FROM walk WHERE path LIKE '%.<your_key>' GROUP BY 1 ORDER BY 2 DESC;
+  ```
+  More than one shape in the output is the finding. If your reader does not handle every shape listed,
+  the ones it misses are silent.
+- **relations:** LANDMINES "A census keyed on the client interface cannot see a provider called over
+  raw HTTP" — **the same error in Go rather than SQL**, and from the same bug: both censuses were
+  keyed on the shape of the thing they expected to find · CLAUDE.md "A COUNT OF THINGS MUST CARRY THE
+  DATE IT WAS COUNTED" — that rule catches a census going stale; this one catches a census that was
+  never complete · `bugs_open/257` §2026-09-04
+- **added:** 2026-09-04, bugfix_257_token_budget_at_the_client lane
+
+---
+
+## A precedence WARNING added to a shared hot path fires on the healthy majority — the estate's overlay design looks exactly like the bug
+
+- **footprint:** `platform/orchestration/actions/ai_actions.go` · `resolveAIServiceConfig` ·
+  `llmOptionsFromConfig` · any new `Warn` about config being "overridden" or "shadowed" ·
+  `cmd/config-key-audit/`
+- **fires when:** you fix a precedence bug and then, reasonably, add a warning so the next operator can
+  see when their number is being beaten by another one.
+- **the tell:** the warning is *correct by its own description* and every unit test passes. Only live
+  configuration disagrees with it.
+- **why:** this estate's `ai_service` resolution is an **overlay by design** —
+  `resolveAIServiceConfig`'s own comment: *"the root block is the fleet default, the current step's
+  block overrides it key-by-key"*. So "a less specific level declares a different number" is the
+  intended pattern, not a defect. `feed-triage` does it deliberately (root 4000, steps 8000 and 8192).
+  **[MEASURED 2026-09-04]** a first cut of exactly this warning matched **18 live steps, every one
+  healthy**, and the same rule in a `Warn` inside `ExecuteLLMPromptAction` would have fired on **every
+  call** those steps made.
+- **and the second trap inside it:** a top-level step's config reaches the resolver at **two** rungs —
+  once as the runtime `StepConfig`, once as the step's own block in the definition. So one healthy
+  canonical declaration occupies two levels. **149 live steps** are in that state. A level-based
+  "declared twice" test flags all of them.
+- **the check:** before shipping any such warning, run it against the live fleet and *count what it
+  matches* — `scripts/audit-budget-placement.sh` is the worked example, and its first run is what caught
+  this. Then narrow it to the state that is genuinely undecidable: **one LEVEL declaring the same key in
+  two SPELLINGS with different values**. Equal values are one declaration written twice and mean
+  nothing. A more-general level losing to a more-specific one is the design working.
+- **relations:** MEMORY [[a-bound-added-for-a-reviewer-narrows-your-detector]] and
+  [[declaring-a-key-silences-your-own-detector]] — same family, your own change altering what your own
+  instrument can say · `bugs_open/257` §2026-09-04
+- **added:** 2026-09-04, bugfix_257_token_budget_at_the_client lane
+
+---
+
+## `psql -f` on a migration: PostgreSQL binds `-` TIGHTER than `->`, and the runner's own probe may skip your file entirely
+
+- **footprint:** `docs/agent_docs/sql_for_agents/` · `scripts/migration/run-migrations.sh` · any jsonb
+  surgery of the form `x->'k' - 'key'`
+- **fires when:** you write a migration that removes a key from a nested jsonb object —
+  `s.value->'config' - 'max_tokens'` — which reads left-to-right and is wrong.
+- **the tell:** `ERROR: operator is not unique: unknown - unknown`, pointing at a line that looks
+  correct. Subtraction has HIGHER precedence than "any other operator", so it parses as
+  `s.value -> ('config' - 'max_tokens')`. **A statement in the same file with no `->` in it
+  (`default_config - 'max_tokens'`) is fine**, so a file can be half-correct in a way that reads as
+  consistent.
+- **the fix:** `((s.value->'config') - 'max_tokens')`. Parenthesise every jsonb subtraction whose left
+  operand contains an arrow.
+- **⚠ and the runner will NOT catch it for you.** `run-migrations.sh`'s doomed-transaction probe reports
+  *"not probed: contains its own ROLLBACK/ABORT — would escape the doomed transaction"* for any file
+  whose text contains `ROLLBACK` — **including the word `Rollback:` in a header comment naming the
+  sidecar file**, which is the house convention. So the probe silently skips exactly the files that
+  follow the documented style.
+- **the check that works** — run the file for real, with the COMMIT turned into a ROLLBACK, so every
+  guard, UPDATE and verify block executes and nothing is kept:
+  ```bash
+  sed 's/^COMMIT;$/ROLLBACK;/' docs/agent_docs/sql_for_agents/NNN_x.sql > /tmp/NNN_dryrun.sql
+  kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+    psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - < /tmp/NNN_dryrun.sql
+  ```
+  Do this for every migration, not only jsonb ones: it is the only pre-flight that exercises the guards.
+- **relations:** LANDMINES `MIGRATIONS_DIR=…` scoping (same file, same session, different trap) ·
+  CLAUDE.md "a migration verify block of `SELECT`s cannot stop the `COMMIT`" — that entry is about the
+  verify block being toothless, this one about never reaching it · `bugs_open/257` migration 769
+- **added:** 2026-09-04, bugfix_257_token_budget_at_the_client lane
+
+---
+
+## A council REVISE can be carried by seats that produced UNREADABLE output — read `decided_by` before you read the verdict
+
+- **footprint:** `diagnosis_artifacts` (`kind='council_report'`) ·
+  `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh` ·
+  `098_REPORT_unreviewed_commits_v1.sh`
+- **fires when:** you read a council verdict and act on it — revising a plan, or reporting to an owner
+  that the council objected.
+- **the tell:** `metadata->>'decision'` says `revise` and nothing in that field says why. The reason
+  lives in the report BODY: `body::jsonb->>'decided_by'` can read
+  `"unreadable reviewer(s): review_guardian.result, review_architecture.result, ..."`, with a matching
+  `body::jsonb->'unreadable'` list. **No seat objected.** The round was decided by seats whose output
+  could not be parsed at all.
+- **[MEASURED 2026-09-04]** one round of `bugs_open/257` came back REVISE with **8 of 12 seats
+  unreadable and 4 abstaining** — four readable verdicts, two of them APPROVE. Over the preceding 7 days
+  this decided **3 of 225** councils, so it is rare, real, and easy to mistake for a substantive block.
+- **the check:**
+  ```sql
+  SELECT metadata->>'decision' AS decision,
+         body::jsonb->>'decided_by' AS decided_by,
+         body::jsonb->>'unreadable' AS unreadable
+  FROM diagnosis_artifacts
+  WHERE correlation_id='<SUBMISSION_CORR>' AND kind='council_report' ORDER BY created_at DESC LIMIT 1;
+  ```
+  If `decided_by` mentions "unreadable", count the seats that actually returned a verdict before
+  concluding anything about your change. Resubmit on the same `RESUBMIT_CORR` — the readable objections
+  are still worth answering — but do not report "the council objected" when it did not.
+- **relations:** MEMORY [[architecture-seat-has-never-fired]] (its first 3 reviews were 2/3 TRUNCATED —
+  same family: a seat that cannot be read is not a seat that disagreed) · `bugs_open/138` ·
+  MEMORY [[a-submission-is-not-a-review]]
+- **added:** 2026-09-04, bugfix_257_token_budget_at_the_client lane

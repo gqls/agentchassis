@@ -584,3 +584,42 @@ live config and the Go, per the table in §(s1)).
   regeneration. `bugs_open/178`. Named in 743's header as the top follow-up; still true.
 - **OPEN:** the three vetcomparison copy errors are RECORDED, not REPAIRED. Owner's call.
 - **The 10 remaining registers** in D3's queue.
+
+
+---
+
+## §(t) 2026-09-04 — I RETRACT §(s4)'s central claim, and the owner's two instructions
+
+> **CORRECTION TO §(s4), made where the claim was made.** §(s4) says a citation on a PDF *"would read
+> as `citation_lost` drift every day, for ever"*. **FALSE.** `refreshCitationFact` →
+> `verifyCitationLiveForRule` → `fetchCitationDocument` refuses a non-html/xml/text content type
+> (`evidence_citations.go:143-148`) and classifies it `fetch_error` → outcome **`error`**; that file's
+> header has always said *"unsupported content type … UNKNOWN, not drift … Reported as an error, never
+> as loss"*. I characterised a pipeline I had not read, from a probe that is not that pipeline. It went
+> into five documents and a landmine and survived two council rounds. Full account: WRONG_CALLS
+> 2026-09-04. What caught it: the owner asking me to fix the checker, which made me open it.
+
+**The real defect, now fixed** (`9d2af8e7f`, council `9ac46a72`): `cmd/fcaquotecheck` never called the
+production fetch — its own bare `http.Get`, then the production extraction. §8g's rule says *"never
+validate a citation host with an instrument other than the one that will re-check it daily"* and §8
+claimed the tool did exactly that. It didn't. Fixed by exporting `FetchCitationDocumentForProbe` and
+calling it — one export, not a mirror. The PDF now prints `NOT VERIFIABLE UNATTENDED: unsupported
+content type "application/pdf"`; a gov.uk page still returns true-then-false.
+
+**The still-true half, and the only part worth carrying forward: TWO FALSES MEANS A BLIND INSTRUMENT.**
+If your quote and your absent control both return false, the probe discriminated nothing.
+
+**Register corrected (migration 772).** The five PDF-sourced CMA facts now KEEP `source.citation`
+(URL + verbatim bracketed quote) and carry `reverifiable: false` + `staleness_days: 64` anchored on
+`published: 2026-07-21`. `refreshCitationFact` checks `reverifiable` before fetching, so the PDF is
+never requested — and the facts age out on **2026-09-23**, the statutory deadline, so the
+re-verification stops depending on a handoff being read. 759 discarded the URL and quote for nothing.
+
+**Copy repair dispatched (migration 771)** under the owner's instruction: 9 `content_rewrite` items,
+`edit_live` + `manual`, canary released, with a guard excluding the hand-attested AHC page. The
+vetcomparison lane was told before filing and confirmed nothing mid-flight.
+
+**And the dispatch queue is a fleet-wide FIFO** (`ORDER BY MIN(created_at) ASC LIMIT 1`, one site per
+30s tick), so a freshly filed item is last by construction. My first hand-reproduction of that
+selector omitted `depends_on` and `governor_admits` and nearly had me report a 23-hour fleet stall
+that does not exist. Read the query out of `agent_definitions` and run it verbatim.

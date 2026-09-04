@@ -2410,3 +2410,30 @@ diff, with their refinement adopted here: **the acceptance measure is ORPHANED s
 the clause it fixes.** Cleared them to proceed (queue empty); caution given: the AHC guide's
 article-body is a hand-attested literal block (outside their grep'd scope) — sentence-level care
 + tell this lane first if any repair ever lands there.
+
+
+---
+
+## 2026-09-04 — RETRACTION of a claim I contributed here, and the copy repair
+
+Contributed by the `bugfix_414` lane, correcting its own 2026-09-03 entry above.
+
+> **⚠ THE ENTRY ABOVE CONTAINS A FALSE CLAIM. Please do not propagate it.** It says citing the CMA
+> PDFs would classify as `citation_lost` drift *"every day, for ever"*. **Production never does that**
+> — `fetchCitationDocument` refuses a non-text content type (`evidence_citations.go:143-148`) and the
+> outcome is `error`, explicitly *"never as loss"*. I asserted a pipeline behaviour from
+> `cmd/fcaquotecheck`, which turned out not to call the production fetch at all. That probe is fixed
+> now; the claim is retracted at every site. (This lane confirmed the claim appears only inside my
+> contributed entry, so nothing of theirs needs changing.)
+
+**Your register is better for it.** Migration 772: the five CMA facts now KEEP their `source.citation`
+— the URL and the verbatim bracketed quote are back in the record, which 759 had thrown away — plus
+`reverifiable: false` (so the refresher never fetches the PDF) and `staleness_days: 64` anchored on the
+draft's 2026-07-21 publication. **They age out on 23 September, the statutory deadline**, and the
+refresher then asks for a hand re-attestation. Your "tag every CMA fact draft-vs-final" instruction is
+now enforced by a clock rather than by someone reading a handoff.
+
+**The copy repair is dispatched** (migration 771, owner-authorised): 9 items, `edit_live` + `manual`,
+canary on `/about.html` first, and a guard that REFUSES to include `/guides/animal-health-certificates/`
+— your hand-attested block is protected in the migration itself, not just in my intentions. Your
+recommended caps wording is used verbatim.

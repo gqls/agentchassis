@@ -21,7 +21,7 @@ flight and three things that will quietly mislead you if nobody watches them (§
 
 | ruling | state |
 |---|---|
-| **D1** *"a register for vetcomparison"* | **DONE.** Migrations 759 / 761 / 763 / 767. 21 facts, 6 banned_claims, posture recorded. Council **APPROVED** (`b6cbdcd3`). |
+| **D1** *"a register for vetcomparison"* | **DONE.** Migrations 759 / 761 / 763 / 767 / **772**. 21 facts, 6 banned_claims, posture recorded. Council **APPROVED** (`b6cbdcd3`). 772 corrected the 5 PDF facts to keep their citation + `reverifiable:false` + a 23-Sept staleness clock. |
 | **D2** *"fix the loancash wrong sentences"* | **DONE.** 739's corrections stand; 743 restored what 739's rewrite dropped. 3 pages, **0 orphaned sentences**. |
 | **D3** *"build the missing check and fill the missing data"* | **CHECK LIVE** (CLM-033, mig 742/744). **POPULATION: 1 of 12 done, 11 left.** |
 | **D4** *"a register for each site, lower bar for normal ones"* | **DESIGNED, still UNEXERCISED.** vetcomparison took the CITED bar, so the ATTESTED bar has still never been built. |
@@ -47,10 +47,21 @@ kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d 
 
 ---
 
-## 2. ⚠ THE THREE VETCOMPARISON ERRORS ARE RECORDED, NOT REPAIRED — and that is an OWNER DECISION
+## 2. THE THREE VETCOMPARISON ERRORS — **REPAIR AUTHORISED AND DISPATCHED 2026-09-04**
 
-The register pass found three live errors. **No copy was touched** (the 695/699/738 precedent and the
-content freeze). They sit in `corrects_site_citation` on four facts, doing nothing until someone acts.
+> **OWNER INSTRUCTION 2026-09-04: "please fix the vetcomparison copy".** The content freeze is lifted
+> for these three named findings — the same shape as D2's hold being lifted for three named findings on
+> loancash. **Migration 771 files 9 `content_rewrite` items**, one per affected page, all
+> `mode='edit_live'` + `approval_mode='manual'`, with a guard REFUSING to include
+> `/guides/animal-health-certificates/` (its body is a hand-attested literal block whose regeneration
+> would reintroduce three model-memory falsehoods the vetcomparison lane replaced on 08-27; measured
+> 2026-09-04, it carries 0 instances of all three errors anyway). That lane was consulted first and
+> confirmed nothing mid-flight.
+>
+> **STATE AT HANDOFF: `/about.html` released as the canary and NOT YET CLAIMED; the other 8 still
+> `triaged`.** This is queue latency, diagnosed not assumed — see §4.4.
+
+The register pass found three live errors, recorded as four `corrects_site_citation` entries.
 
 1. **THE CMA FINAL REPORT IS DATED NOVEMBER 2024 ON TWO GUIDES. It is 24 March 2026.** NEW this pass.
    `/guides/cma-compliance/` and `/guides/cma-market-investigation/`. The CMA's own case-page timetable
@@ -96,7 +107,7 @@ page-build-handler's **live** `default_config` carries both the step and the lit
 
 ---
 
-## 4. ⚠ THREE THINGS THAT WILL MISLEAD YOU IF NOBODY WATCHES THEM
+## 4. ⚠ FOUR THINGS THAT WILL MISLEAD YOU IF NOBODY WATCHES THEM
 
 1. **A COUNCIL VERDICT IS ABOUT THE SUBMISSION, NOT THE TREE.** 743's round-2 REVISE was gated on
    `approval_mode='auto'` — true of its **sketch**, false of its **file**, which carried `'manual'` and
@@ -121,6 +132,30 @@ page-build-handler's **live** `default_config` carries both the step and the lit
    ```
 
 ---
+
+4. **A FRESHLY FILED ITEM IS LAST IN A FLEET-WIDE FIFO — "filed and approved" is not "about to run".**
+   `build-pipeline-trigger > find_dispatchable_site` picks **ONE site per 30s tick**, ordered
+   `ORDER BY MIN(created_at) ASC LIMIT 1` over eligible items. So a new item waits behind every older
+   eligible item on every other site. `[MEASURED 2026-09-04 11:45]` the queue was
+   mortgagecalculator (10:40) → gamedesign (10:54) → copyonline (**51 items**, 11:09) →
+   **vetcomparison (11:32, mine)** → advertise (11:34). Yesterday loancash was claimed in ~4 minutes
+   because its item happened to be the oldest; that was luck, not a service level.
+   A site is also excluded while it has any `claimed` item, so sites interleave rather than one
+   draining fully — which is why this is latency, not a stall.
+   ```sql
+   -- where am I in the queue? (reproduce the selector's OWN clauses — see the warning below)
+   SELECT step->'config'->>'query' FROM agent_definitions ad,
+     LATERAL jsonb_each(ad.default_config->'workflow'->'steps') AS s(k, step)
+    WHERE ad.type='build-pipeline-trigger' AND ad.is_active
+      AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL AND s.k='find_dispatchable_site';
+   ```
+   ⚠ **AND DO NOT HAND-REPRODUCE THAT QUERY FROM MEMORY — I DID, AND GOT A CONFIDENTLY WRONG ANSWER.**
+   My first reproduction omitted `depends_on` and `governor_admits`, which put
+   `websitepromotion.co.uk` at position 1 with items 23 HOURS OLD and had me about to report a
+   fleet-wide dispatch stall. There is no stall: all three of those items have **unsatisfied
+   `depends_on`**, so the real selector correctly excludes them. **Read the query out of
+   `agent_definitions` and run it verbatim** — the same "a mirror is not production" family as §6a's
+   probe defect, hit twice in one session.
 
 ## 5. THE REMAINING PROGRAMME — 11 registers, and pick the rung by READING the site
 
@@ -148,23 +183,45 @@ recorded with who declared it and when. §6 is how vetcomparison satisfied the s
 
 Base method: `lendzy_co_uk/RUNBOOK_lendzy_co_uk.md` **§8**, and read **§8b, §8c, §8e, §8f, §8g** first.
 
-### 6a. ⚠ A PDF SOURCE CANNOT BE CITED — and the tell is that the CONTROL also fails
+### 6a. ⚠ ~~A PDF SOURCE CANNOT BE CITED~~ — **RETRACTED 2026-09-04. I had this wrong.**
 
-`[MEASURED 2026-09-03]` the CMA draft Order through the production matcher:
-`HTTP 200 raw=392144 visible=296699`, **every quote false** — including `"Compliance Date"`, which is
-unquestionably in the document — **and the absent control false too.** At a PDF the probe discriminates
-**nothing**, and `false, false` looks exactly like "you mistyped the quote". A citation there reads as
-`citation_lost` drift every day, for ever.
+> **THE CLAIM THIS SECTION USED TO MAKE IS FALSE, and it was in five documents plus a landmine.**
+> I wrote that citing a PDF would classify as `citation_lost` drift *"every day, for ever"*.
+> **Production never does that.** `refreshCitationFact` → `verifyCitationLiveForRule` →
+> `fetchCitationDocument`, which refuses a non-html/xml/text content type
+> (`evidence_citations.go:143-148`) and classifies it `fetch_error` → outcome **`error`**. That
+> file's header has always said so: *"fetch failed (network, 403, 5xx, unsupported content type) →
+> UNKNOWN, not drift … Reported as an error, never as loss"*, and *"PDFs and other non-text content
+> are refused rather than half-read"*.
+>
+> **I asserted a production behaviour from an instrument that is not production.** Full account:
+> WRONG_CALLS 2026-09-04.
 
-**This is a FOURTH signature for §8g's census**, and it differs in kind from the three known ones: the
-host is fine, the URL is right, the document is right — **it is the EXTRACTOR that cannot read the
-FORMAT**, so a host-acceptance check admits it by construction. Now a LANDMINE.
+**What was really broken, and is now fixed:** `cmd/fcaquotecheck` — the probe RUNBOOK §8 step 4 sends
+every register author to — did **not** call the production fetch. It did its own bare `http.Get` and
+ran `VisibleTextFromHTML` over whatever came back. On a PDF that returns `false` for a real quote AND
+`false` for the absent control, which reads exactly like a mistyped quote. §8g's rule is *"never
+validate a citation host with an instrument other than the one that will re-check it daily"* and §8
+described the tool as *"calls the production fetch + extraction"* — it called the **extraction** only.
+**I obeyed the rule, using the tool the rule names, and the tool did not satisfy the rule.**
 
-**What to do instead:** `source.attested_by` (who read it, when, the verbatim extract) plus
-`source_document` and `no_citation_because`. Verified at the code: the refresher's re-fetch arm is gated
-on `if _, has := src["citation"]; has` (:576), so an attested fact is never fetched and gets a ~180-day
-nudge. **It costs nothing in coverage** — `numberSupported` reads `Value`/`ContextTerms`/`Tolerance`/
-`IsSeries()` and **never `Source`**.
+**Fixed 2026-09-04** (`9d2af8e7f`, council `9ac46a72`): `FetchCitationDocumentForProbe` exports the
+production fetch and the probe calls it — one export, not a second implementation, because a mirror
+that drifts from production is the failure this package warns about twice in its own comments. Proven
+both ways: the CMA PDF now prints `NOT VERIFIABLE UNATTENDED: unsupported content type
+"application/pdf"`, and a gov.uk page still returns true-then-false for quote-and-control.
+
+**THE STILL-TRUE, STILL-USEFUL PART — the reading skill, which no gate gives you:**
+⚠ **TWO FALSES MEANS A BLIND INSTRUMENT, NOT A WRONG QUOTE.** If your quote AND your deliberately-absent
+control both return `false`, the probe discriminated nothing. Always pass the control; always read it.
+
+**And what to do with a PDF source — the platform's own answer, which 759 missed:** keep the
+`citation` (URL + verbatim quote, so provenance survives) and set **`"reverifiable": false`** plus
+`staleness_days`. `refreshCitationFact` checks `reverifiable` BEFORE fetching and returns early, so
+the PDF is never requested. Migration **772** did this for vetcomparison's five CMA facts, with
+`staleness_days: 64` anchored on the draft's `published: 2026-07-21` — so they age out on
+**2026-09-23**, the statutory deadline, and the refresher then asks for a hand re-attestation.
+**The 23 September re-verification no longer depends on anyone reading this handoff.**
 
 ### 6b. ⚠ THE UNKNOWN-KEY CENSUS — the answer §8d only half-gave
 
@@ -226,7 +283,18 @@ masked only incidentally by the next check.
 5. **I stamped two migration notes "UTC" off the BST clock**, the trap `-03c` opens by naming.
 6. **I read `\d doc_notes` and stopped at the line where the CHECK constraints begin**, so my first cut
    used `subject_type='site'`, which is refused. The dry run caught it; review would not have.
-7. **Migration numbers collided twice in one session** (762 and 765 taken between my max check and my
+7. **I ASSERTED A PRODUCTION BEHAVIOUR FROM A PROBE THAT IS NOT PRODUCTION** (§6a) and wrote it into
+   five documents and a landmine. It survived two council rounds because every seat read my rationale
+   rather than `evidence_citations.go`. The cheap check was `grep -n "Content-Type"` on the file whose
+   behaviour I was characterising. **Before asserting what a pipeline does with your input, read the
+   pipeline — a probe's output is evidence about the probe until you have.**
+8. **I hand-reproduced a production SQL selector minus two clauses and nearly filed a fleet-stall
+   report on the result** (§4.4). Same family as the above, same session.
+9. **I committed a platform change and an unrelated migration together** (`9d2af8e7f`) and drew the
+   architecture-signal advisory. They are genuinely independent — the Go change is inert until a roll,
+   the migration is live and does not depend on it — so no staged order is needed, but they should have
+   been two commits.
+10. **Migration numbers collided twice in one session** (762 and 765 taken between my max check and my
    write). Filenames are unique so nothing was lost, but **check the max immediately before naming, and
    resolve by FILENAME, never by number.**
    ⚠ **AND THE ORDER MATTERS: RENAME FIRST, RECORD SECOND.** Recording before you renumber leaves a
@@ -259,19 +327,38 @@ masked only incidentally by the next check.
 
 ## 8. OPEN, IN THE ORDER I WOULD TAKE THEM
 
-1. **READ THE ROUND NOW IN FLIGHT** — `5d54f835`, resubmitted 2026-09-04 11:09, answering the REVISE on
-   761. Bound the query by time (§4.2). It carries the §6b census, so a reviewer may test that claim.
-2. **`742` STILL OWES A RESUBMIT** — `RESUBMIT_CORR=0d730d51-a923-4b44-a58f-ab8c898d7e22`. Unchanged
+1. **⚠ RELEASE THE REMAINING 8 COPY REPAIRS — the canary must be verified at the bytes FIRST.**
+   `/about.html` is `approved` and queued (§4.4); the other 8 are `triaged`. When the canary completes:
+   ```bash
+   curl -s https://vetcomparison.uk/about.html | grep -c '36 service categories'   # must become 0
+   # then the sentence-identity diff, pre-image from page_component_history's op='delete' row;
+   # ORPHANED sentences must be 0 (NOT "nothing reworded" — §3)
+   kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+     "UPDATE site_work_items SET status='approved'
+       WHERE created_by='bugfix_414 register-programme lane (migration 771)' AND status='triaged';"
+   ```
+   ⚠ **AND THE 48-HOUR REAPER IS RUNNING ON ALL NINE** — filed 2026-09-04 11:32, so unreleased items
+   flip to `unresolved` (which reads as *processed*) around **2026-09-06 11:32**. Do not let them
+   silently expire.
+2. **READ TWO COUNCIL ROUNDS IN FLIGHT.** `5d54f835` (resubmitted 11:09, answering 761's REVISE with
+   the §6b census) and `9ac46a72` (the fcaquotecheck fix). Bound the first by time — `RESUBMIT_CORR`
+   reuses the correlation, so `ORDER BY created_at DESC LIMIT 1` returns round 1 (§4.2).
+3. **`742` STILL OWES A RESUBMIT** — `RESUBMIT_CORR=0d730d51-a923-4b44-a58f-ab8c898d7e22`. Unchanged
    from `-03c` §0b(ii); its REVISE landed 2026-09-03 14:47 and one objection (the liveness predicate)
    was already fixed by migration 744.
-3. **WATCH THE ABSENCE CHECK'S SECOND TICK** (§4.3) — first live evidence its dedup arm works.
-4. **THE PRODUCER-SIDE GAP, larger than this lane: nothing enforces `spec.mode` on `content_rewrite`.**
+4. **THE fcaquotecheck FIX IS INERT UNTIL A ROLL.** It is Go (`9d2af8e7f`). Until the next fleet build
+   the OLD blind probe is what a register author runs — so if anyone builds a register before then,
+   tell them to check `curl -sI <url> | grep -i content-type` by hand.
+5. **WATCH THE ABSENCE CHECK'S SECOND TICK** (§4.3) — first live evidence its dedup arm works. Expect
+   `missing_total=11, already_open=11, filed_new=0`.
+6. **THE PRODUCER-SIDE GAP, larger than this lane: nothing enforces `spec.mode` on `content_rewrite`.**
    The next item minted anywhere on the fleet without it hits the identical destructive regeneration.
    `bugs_open/178`. Named as the top follow-up in 743's header; still true, still unowned.
-5. **THE 11 REGISTERS** (§5) — and the first `standard`-rung site would finally exercise D4's cheap bar.
-6. **THE THREE VETCOMPARISON COPY ERRORS** (§2) — owner's call, and §3 is the recipe if he says yes.
-
----
+7. **THE 11 REGISTERS** (§5) — and the first `standard`-rung site would finally exercise D4's cheap bar,
+   which is still the only part of D4 never walked.
+8. **RUNBOOK §8/§8g NEED THE §6a CORRECTION.** They still describe `fcaquotecheck` as calling "the
+   production fetch + extraction" (true only since 2026-09-04) and §8g's census should gain the
+   two-falses tell. That file belongs to the lendzy lane — contribute, do not fork.
 
 ## 9. WHERE THE RECORD LIVES
 

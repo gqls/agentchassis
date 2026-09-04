@@ -65940,3 +65940,59 @@ and a cost of "four lanes recorded the breakage and none dispatched it" that nob
 - **Cost.** None reached the owner or a build: the correction went out about twenty minutes after the
   claim, and the peer had relayed but not acted. The marker did its job — writing
   `[HYPOTHESIS, NOT CONFIRMED]` is what made testing it the obvious next move rather than an optional one.
+
+---
+
+### 2026-09-04 — I shipped a warning that would have fired on the healthy majority, and only live data disagreed with it
+**Lane:** bugfix_257_token_budget_at_the_client (round 3)
+**The claim:** that "two levels of config declare different budgets" identifies a defect worth warning
+about. Committed as a runtime `Warn` in `ai_actions.go` (`d88afbf84`) and as the `shadowed` finding kind
+in a new fleet report.
+**What caught it:** running the report against live `agent_definitions` an hour later. It returned **18
+findings, every one healthy.** A root `ai_service` default overridden by a step declaration is this
+estate's documented overlay design — `resolveAIServiceConfig`'s own comment says so — and `feed-triage`
+does it on purpose (root 4000, steps 8000/8192). The `Warn` would have fired on every call those 18
+steps made.
+**The cheap check that would have:** count what the rule matches against the live fleet *before*
+committing it. One query. I had the census open in the same session and did not point it at my own new
+rule. **Every Go test passed and the warning was correct by its own description** — only the fleet
+disagreed.
+**Second-order, and the reason this is worth a row rather than a shrug:** the same over-report also
+treats one healthy declaration as two, because a top-level step's config reaches the resolver at two
+rungs (runtime `StepConfig` and the definition's own block). **149 live steps** are in that state.
+**Tally:** "ran the new rule against production before shipping it" — another one for the list.
+
+---
+
+### 2026-09-04 — four censuses of one key over three weeks, each keyed on the path I expected it to be at
+**Lane:** bugfix_257_token_budget_at_the_client (round 3)
+**The claim:** the running count in `bugs_open/257` §4 of where `max_tokens` is declared. Corrected four
+times before this round, each time as a stale number.
+**What caught it:** the fifth correction was not a number, it was the METHOD. A recursive jsonb walk
+found **171 declarations in five shapes** where every fixed-path query had seen one shape. Two live
+defects were sitting in the gap: ten agents whose root-level bare key was read FIRST, and seven
+step-level bare keys read by nobody.
+**The cheap check that would have:** `WITH RECURSIVE ... jsonb_each` and `GROUP BY` the path shape. It is
+eight lines and it cannot be fooled by the assumption under test, which the fixed path is.
+**Why it kept happening:** a fixed-path census returns a number that is *correct about that path*, so it
+never looks wrong. This is the SQL twin of the entry already in LANDMINES about a Go census keyed on
+`\.GenerateText(` missing a provider called over raw HTTP — same error, same bug, different language.
+**Tally:** "censused the concept, not the shape I expected it in" — second occurrence in this bug alone.
+
+---
+
+### 2026-09-04 — 15 comments and two test failure messages name a function that does not exist
+**Lane:** bugfix_257_token_budget_at_the_client (round 3)
+**The claim:** `ExecuteAIStepAction`, referenced across `platform/orchestration/actions`,
+`platform/aiservice` and `bugs_open/257` itself as the canonical LLM step executor. **There is no such
+symbol.** `grep -rn "func ExecuteAIStepAction"` returns nothing; the function is `ExecuteLLMPromptAction`.
+**What caught it:** trying to correct a stale line reference in a comment and finding the function name
+itself was wrong.
+**The cost:** `llm_budget_call_sites_test.go:311` fails with *"find where ExecuteAIStepAction went and
+repoint it"* — a message that sends a future reader hunting for a function that never existed. The
+`aiservice/max_tokens.go` header uses the name to state the entire pre-fix contract.
+**The cheap check that would have:** grep the symbol before writing it into a comment. A name in prose
+is an `[UNVERIFIED]` claim wearing settled clothes — the same shape as the `cmd/contrastscan` entry in
+LANDMINES.
+**Tally:** "grepped the symbol I was about to name" — this is what makes a doc comment load-bearing and
+then wrong.

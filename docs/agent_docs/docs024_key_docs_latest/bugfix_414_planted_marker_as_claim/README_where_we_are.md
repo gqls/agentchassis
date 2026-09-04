@@ -369,3 +369,48 @@ judgement about how strictly it should be held. The review board approved it fir
 objection that I have already fixed. Ten more sites are waiting for the same treatment, and the three
 vetcomparison wording errors are sitting there recorded, waiting on your decision about whether to
 correct the pages.
+
+
+--
+
+## 2026-09-04 — I was wrong about the PDF problem, and the vetcomparison copy is being fixed
+
+**First, a correction to what I told you yesterday.** I said that if we linked those CMA facts to the
+regulator's PDF, the site would report a false alarm every single day for ever. **That was wrong.** The
+nightly checker already handles it properly: when it meets a document it cannot read, it records "I
+could not check this" — not "this is wrong". The code says so in plain English in its own notes, and
+has all along. I never opened it.
+
+What actually misled me was the little *testing tool* we use when writing a citation. It was supposed
+to behave exactly like the nightly checker — that is the whole point of it, and our own written rule
+says never test a source with anything else — but it quietly didn't. It skipped the check that spots
+an unreadable document, so it just reported "quote not found", which looks identical to getting the
+quote wrong. I trusted the tool, drew a conclusion about the real system, and wrote it into five
+documents. Two rounds of review didn't catch it either, because everyone was reading my explanation
+rather than the code.
+
+**Both are fixed.** The testing tool now uses the real checker's own fetching, so it says "NOT
+VERIFIABLE UNATTENDED: unsupported content type" instead of a misleading "not found". And the register
+is better than before: those five CMA facts now keep the source link and the exact quoted wording,
+which I had needlessly thrown away, and they are set to expire on **23 September** — the day the
+regulator's Order is due — so the system will ask someone to re-check them rather than relying on a
+note in a handover.
+
+**Second, the copy.** You asked me to fix the three vetcomparison errors, so I have dispatched all
+nine page corrections. I told the vetcomparison thread first, since it is their site; they confirmed
+nothing was half-finished and warned me off one page whose text was painstakingly hand-checked against
+government sources — regenerating it would have reintroduced three falsehoods they had removed. That
+page needed no fixing anyway, and the migration now *refuses* to touch it rather than relying on me
+remembering.
+
+I released one page first as a test rather than all nine, which is the lesson from last week's
+accident. **It has not run yet, and I found out why rather than guessing:** the build queue takes one
+site every thirty seconds, oldest job first, and ours was filed most recently — so it is behind three
+other sites, one with fifty-one jobs. It is waiting, not broken. Worth knowing generally: "the job is
+filed" is not "the job is about to run".
+
+**One more thing I got wrong today, caught before it mattered.** While diagnosing that queue I
+rebuilt the system's own selection query by hand, left out two conditions, and was about to tell you
+the whole fleet's dispatch had been stalled for twenty-three hours. It hasn't — those jobs are
+correctly waiting on something else to finish. Same mistake as the testing tool, twice in one day: a
+close copy of the real thing is not the real thing.
