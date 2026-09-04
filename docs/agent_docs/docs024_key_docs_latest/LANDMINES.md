@@ -22334,6 +22334,27 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   **A detector that fires on correct work trains its readers to dismiss it**, and is then ignored on
   the day it is right — the same shape as a monitor that miscounts on every run (`WRONG_CALLS`
   2026-09-04). An ungated version of this check would have cried wolf twice on its first outing.
+- **ADDED 2026-09-04 by the `bugfix_414` lane (via `vetcomparison`), who re-verified the retraction
+  INDEPENDENTLY rather than accept credit for predicting it** — their own full sweep, 556 recorded
+  rows against 1,364 files at HEAD, exactly one miss, on the reasoning that a claim credited to them
+  should not rest on their say-so either. Three things their sweep adds:
+  1. **THE PREVENTION HALF, which the check above does not have.** "Take the next free number" stops
+     a collision; it says nothing about handling one when it happens anyway. The rule is
+     **RENAME FIRST, RECORD SECOND.** Recording and *then* renumbering is precisely what mints a
+     ledger row naming a file that does not exist. One sentence, and it belongs in any runbook that
+     mentions renumbering.
+  2. **`521`'s residual is PROVENANCE, not correctness.** Harmless — re-recorded as `530`,
+     self-guarded, and `521` is anyway spent by a different recorded-and-tracked migration
+     (`521_rerender_pages_exposes_commit_sha_canonically.sql`). But the row still asserts a file that
+     is not there. **If you tidy it, the honest fix is a NOTE on the row and never a DELETE:**
+     forward-only, and deleting it would destroy the only evidence the renumber happened.
+  3. ⚠ **AND THE EVIDENCE WAS IN THE LEDGER ALL ALONG — my check just never read it.** `530`'s own
+     note, written 2026-08-21, says *"renumbered from a COLLIDING 521 (race with rerender-sha lane;
+     content identical…)"*. The author documented the renumber in the row next to it, three weeks
+     before I called it an orphan. **`schema_migrations.notes` is where sessions explain themselves,
+     and a check that reads only `filename` throws that away.** Read the note of anything the sweep
+     flags, before believing the flag.
+
 - **the REVERSE arm is the one with no window, and is always worth flagging:** *tracked but never
   recorded*, and especially the **renumber orphan** — a `schema_migrations` row naming a filename
   that no longer exists, which is minted whenever a session records BEFORE renaming. `521` above is
@@ -22346,6 +22367,74 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   quoting the live-vs-committed rule at the estate. Found by a plain `git status` on re-orientation
   the next morning, not by any check.
 - **added:** 2026-09-04, `site_delivery_and_editor` lane
+
+## A field-name exclusion list is usually answering TWO questions at once — and the one that reads as a scan filter is the only thing keeping identifiers away from a model that will overwrite them
+
+- **footprint:** `platform/orchestration/datahelpers/negation_content.go` ·
+  `neverProseFieldRe` · `nonProseFieldRe` · `isProseContentField` · `identityContentField` ·
+  `headlineFieldRe` · `IsHeadlineField` · `sectionAssetKeyLike` ·
+  `platform/orchestration/datahelpers/section_text.go` ·
+  `platform/orchestration/actions/remove_duplicate_page_sections_action.go` ·
+  `page_components.content_data`
+- **the trap:** a list of field names gets written for one reason ("don't waste an LLM call on a
+  URL") and then a second consumer arrives that MUTATES. From then on the same list is silently
+  answering *"is this worth scanning?"* and *"may I overwrite this?"* — questions whose false
+  answers cost opposite things. A miss on the first ships a defect; a miss on the second corrupts
+  an identifier other rows key on, persisted, **on a page that still renders**. Nothing in the
+  code says which job the list is doing, so a reader fixing the scan gap deletes the overwrite
+  guard without knowing one existed.
+- **why it bites with no symptom:** the list LOOKS like a performance filter. `nonProseFieldRe`'s
+  own header even named both costs in one sentence — "a false NEGATIVE here costs a missed tell; a
+  false POSITIVE sends a URL to a model" — and it still read as one rule for months.
+  `bugs_open/420` filed the obvious one-line fix ("drop `name` from the list") and it would have
+  removed the *sole* protection on the repair path, because `AcceptNegationRewrite` had
+  `invented_name` but **no `dropped_name`**: nothing stopped a rewrite DELETING an identifier.
+- **the check, before you touch any such list:** enumerate the consumers and split them by whether
+  they WRITE.
+  ```bash
+  grep -rn "<TheListOrItsPredicate>" --include=*.go . | grep -v _test.go
+  # then, for each consumer, the only question that matters:
+  #   does this path write back / delete / send the value to a model?
+  ```
+  If the two columns have different costs, **the answer is to split the predicate, not to argue a
+  member in or out.** The estate has ruled this twice, both times the same way:
+  `markup_spans.go:63-74` ("This governs WRITERS … deliberately NOT applied to the detectors …
+  a false finding costs attention rather than content") and
+  `resolve_internal_links_action.go:81-86` from `bugs_open/248`'s clobber ("'never newly SEND a
+  generated CTA to contact' is a sound default; 'never TRUST an existing link to contact' is a
+  different and much stronger claim that happens to reuse the same set").
+  `runtime_fill.go:29-38` is the mechanical form: one vocabulary, two named predicates of
+  different strictness, **each header stating which way it fails**.
+- **and put the guard in the JUDGE, not the walker.** A filter at the enumeration point is
+  bypassable by any future caller that enumerates fields itself; a rejection reason in the shared
+  acceptance function is not, and every call site inherits it for free. Same lesson as *"a comment
+  is not a control on a tree this many sessions share"*.
+- **⚠ THE OTHER LIVE MEMBER, and it is the dangerous one:** `sectionAssetKeyLike`
+  (`section_text.go:45`) is shared between a read-only duplication detector
+  (`discovery_checks/check_content_duplication.go`) and
+  `remove_duplicate_page_sections_action.go`, which executes
+  `DELETE FROM page_components …`. Widening that list makes more sections look identical — a false
+  finding for the detector, **a deleted live section for the repair**. Not yet split. Its own file
+  records a near-miss (vonc.com's `lobby-grid`), fixed by adding a second independent predicate
+  rather than by tuning the list — which is the mitigation to copy.
+- **the estate-specific instance, so you do not re-derive it:** in `content_data`, `name` is an
+  **identity** where the item has a `url` sibling and **display copy** where it does not.
+  `[MEASURED 2026-09-03]` over all 1,729 `name`-bearing objects at any depth: 908 with a non-empty
+  `url` sibling (0 of them prose-shaped — they are `pages.name` slugs their own url is built
+  from), 825 with no `url` key (752 prose-shaped display names), 0 with an empty/null `url`. Zero
+  crossover, reproduced independently by two lanes. ⚠ **The slugs are skipped by the value
+  heuristic today BY LUCK, NOT BY PROTECTION** — one tokeniser change from silent and estate-wide,
+  so never let "the heuristic happens not to fire" stand in for an exclusion.
+- **⚠ and the count moves by ADDITION while you watch:** that url-bearing population read 898, then
+  904, then 908 within 40 minutes on 2026-09-03. Any figure you take here is stale within the hour
+  unless you date it.
+- **relations:** `bugs_open/420` (the worked case, with the fix) · `bugs_open/425` (the components
+  lane's two-producers-one-shape finding, one level along) · `bugs_open/248` (the CTA clobber that
+  ruled this once already) · `WRONG_CALLS.md` 2026-09-04
+- **source:** 2026-09-04, `420 425` lane, fixing `bugs_open/420` (commit `60091e140`). The bug's own
+  filed fix candidate would have opened the hole; what caught it was two peer sessions answering a
+  question about *their* consumers rather than mine.
+- **added:** 2026-09-04, `420 425` lane
 
 ## Route a migration to its author by its COUNCIL CORRELATION, never by the lane name in its filename — this estate names files after their SUBJECT, and `git log` authorship is `cqls` for every commit on the tree
 
@@ -22378,6 +22467,13 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   same read: seeds, SQL, docs, work-item keys. `MEMORY[a-subagent-report-is-another-doc]` states the
   rule — **a naming convention is not a measurement; a key SHAPE is a hypothesis about provenance.**
   I have that written down and still treated a path segment as an author field.
+- **ADDED 2026-09-04, and it is the strongest form of this entry's argument (`bugfix_414` lane):
+  every failure mode instrumented here is RENUMBER-ADJACENT, and the council correlation is the one
+  identifier a renumber cannot break.** A filename is mutable by design on this tree — sessions race
+  for numbers and rename on collision, routinely. So routing by filename is not merely reading a
+  subject as an author; it is **keying on the one field the estate actively changes**. The
+  correlation is in the migration's own header, globally unique, and survives every rename the
+  filename does not.
 - **relations:** the entry above on hand-applied migrations (same investigation, different trap) ·
   `WRONG_CALLS.md` 2026-09-04(b) · `scripts/who-owns.py`
 - **source:** 2026-09-04, `site_delivery_and_editor`. Restored here as an append after I lost it in a
