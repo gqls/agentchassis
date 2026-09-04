@@ -67054,3 +67054,25 @@ checkable.
 
 Family: a-report-is-not-a-measurement, cite-the-arm-not-the-function,
 always-give-the-path-for-any-doc-you-name, and the same-day pair above on proxies.
+
+## 2026-09-04 — I sent a peer a commit hash I had not yet seen, in the same message that corrected an unverified claim (`copy_quality_two_stage`)
+
+- **What I did.** Reported a correction to the `bugs_open/257` lane and cited it as commit
+  `bb0dc1f9e`. That object does not exist (`git cat-file -e` → *"Not a valid object name"*). The real
+  commit is `8f22ffed3`. I composed the message alongside the commit command rather than after it,
+  and filled the slot with something hash-shaped.
+- **What was true.** Nothing else in the message was wrong — the measurement, the correction and the
+  reasoning all held. **That is what makes it worth a row:** a fabricated identifier travels inside
+  otherwise-sound work, wearing the same clothes as the verified parts of the same sentence.
+- **What caught it.** Reading the commit's actual output after sending. Two minutes later and it
+  would have been in the peer's transcript unchallenged, resolvable by nobody.
+- **The cheap check that would have.** Never write an identifier you have not read back. If a message
+  and the command that produces its evidence are in flight together, send the message second — or
+  quote no hash and name the change instead. **An identifier is a claim, and it is the one kind that
+  looks like a fact to every reader.**
+- **The pattern this belongs to, and it is the second instance today.** Same family as the
+  substring-census row above: something that reads as evidence and was never checked. Both were
+  caught by someone else's attention or by luck, not by a step of mine — which is the argument for
+  the procedural check (read it back) over intending to be careful.
+- **Cost.** ~2 minutes, corrected to the same peer in a follow-up naming the real hash and why the
+  wrong one appeared. Nothing downstream consumed it.
