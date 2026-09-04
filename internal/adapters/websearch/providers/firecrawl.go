@@ -191,14 +191,19 @@ const snippetMaxBytes = 200
 // corpus silently bimodal. Display-time stripping belongs in the shared
 // queryresolve projection every reader of source_summary calls.
 func truncateSnippet(s string, max int) string {
-	if max < 4 || len(s) <= max {
+	if len(s) <= max {
 		return s
 	}
-	cut := max - len("...")
-	for cut > 0 && !utf8.RuneStart(s[cut]) {
-		cut--
+	// A budget too small to hold the ellipsis STILL BINDS. The first version
+	// short-circuited on `max < 4` and returned s unmodified, so a tiny max
+	// produced an unbounded result — safe only for as long as snippetMaxBytes
+	// stayed the single caller. Council advisory (editquality, round 1,
+	// c93e71a6): "worth a one-line comment or guard". Guarded, not commented:
+	// a budget the function may ignore is not a budget.
+	if max < len("...")+1 {
+		return s[:runeBoundaryAtOrBefore(s, max)]
 	}
-	out := s[:cut]
+	out := s[:runeBoundaryAtOrBefore(s, max-len("..."))]
 
 	// Only a genuine link opening is trimmed — `[` followed by `](` with no
 	// closing paren. A bare bracket in prose (a footnote marker like "[1]")
@@ -211,4 +216,18 @@ func truncateSnippet(s string, max int) string {
 	}
 
 	return out + "..."
+}
+
+// runeBoundaryAtOrBefore returns the largest index <= n that starts a rune, so
+// a cut there can never split a multi-byte character. Same back-off as
+// datahelpers.SafeCut, kept local because internal/adapters does not import
+// platform/orchestration (which pulls database/sql into a small adapter binary).
+func runeBoundaryAtOrBefore(s string, n int) int {
+	if n >= len(s) {
+		return len(s)
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return n
 }

@@ -124,3 +124,31 @@ func TestTruncateSnippetOutputIsAlwaysWithinBudget(t *testing.T) {
 		}
 	}
 }
+
+// Closes the council's one advisory objection (editquality, round 1, c93e71a6):
+// the first version short-circuited on `max < 4` and returned the input
+// UNMODIFIED even when it exceeded the budget, so a tiny max produced an
+// unbounded result. Harmless while snippetMaxBytes was the only caller, and
+// exactly the kind of latent dependency on a constant that outlives the reason
+// for it. A budget the function may ignore is not a budget.
+func TestTruncateSnippetHonoursEvenATinyBudget(t *testing.T) {
+	long := strings.Repeat("word ", 100)
+	for max := 1; max <= 6; max++ {
+		got := truncateSnippet(long, max)
+		if len(got) > max {
+			t.Errorf("max=%d returned %d bytes — the budget was ignored", max, len(got))
+		}
+		if !utf8.ValidString(got) {
+			t.Errorf("max=%d produced invalid UTF-8: %q", max, got)
+		}
+	}
+	// And the multi-byte case at the same tiny budgets: cutting inside a
+	// 3-byte rune is the failure this must not reintroduce.
+	multi := strings.Repeat("→", 50) // 3 bytes per rune
+	for max := 1; max <= 6; max++ {
+		got := truncateSnippet(multi, max)
+		if len(got) > max || !utf8.ValidString(got) || strings.ContainsRune(got, '�') {
+			t.Errorf("max=%d on 3-byte runes returned %q (%d bytes)", max, got, len(got))
+		}
+	}
+}
