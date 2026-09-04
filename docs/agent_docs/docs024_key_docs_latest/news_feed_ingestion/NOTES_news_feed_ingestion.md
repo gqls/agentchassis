@@ -1178,10 +1178,19 @@ and it belongs in the 463 lane's RFC rather than in 460.
 
 ### Later 2026-09-04 — the outage cleared, and reading advertise's stored rows found the yield problem the adapter log could not show
 
-**Outage RESOLVED.** `[MEASURED 2026-09-04 ~15:55Z]` window was **11:17:05Z → 13:31:30Z**
-(last failure), with the first success after it at **11:58:12Z** — so recovery was
-**staggered, not a step**, and anyone sampling the 11:58–13:31 band would have called it
-either way. Clean since 13:31:30Z at ~20 successful calls per 10-minute bucket.
+**Outage RESOLVED.**
+> **⚠ CORRECTED 2026-09-04 ~16:15Z — the window I published here was FOUR TIMES too wide,
+> and both boundaries were wrong in the same direction.** ~~11:17:05Z → 13:31:30Z, recovery
+> staggered~~. `[MEASURED, filtering on the credit error itself]` **11:21:11Z → 11:56:47Z,
+> 117 rows**, wholly inside the 11:00Z hour; the 12:00Z hour logged **204 successes and 0
+> credit errors**, so recovery was **clean**. (a) The end came from `llm_call_log WHERE NOT
+> success` **unfiltered by cause** — that row is `response truncated: stop_reason=max_tokens`,
+> a different failure entirely. (b) The start came from `min(created_at)` on
+> `orchestration_states`, which is **when the RUN STARTED, not when it failed**; the same
+> rows' `min(updated_at)` is 11:21:12. The "staggered recovery" line was a compound of the
+> two. **Neither query could have returned a narrower window, because neither was asking
+> about credit errors** — dated and `[MEASURED]` and still undisconfirmable. Caught by the
+> inter-thread-comms relay (the 420 lane), verified here first. `WRONG_CALLS.md` has it.
 
 **A second, independent confirmation that the UK fix works — at the CONTENT, not the
 parameter.** The adapter log proved `region=uk` was *sent*. Reading what came *back* proves
@@ -1318,3 +1327,40 @@ propagating it fleet-wide.
 
 **Roll fully landed 16:01Z**, all 20 backend deployments on `v1.0.1361` / `06c0b18f2`,
 chassis pods ready 16:01:26Z and 16:01:53Z. So the ~300s no-dispatch window closed ~16:06Z.
+
+### 2026-09-04 ~16:20Z — advertise's enablement WORKED, and the 19 outage casualties are its own first ingestion
+
+Verified at the data rather than from the handoff, because I had been reporting both
+migrations as pending: `691` is applied (**0** `.uk` `news_search` rows still unstamped) and
+`746` is applied (**6** sources on advertise, `news_feed.recommended = true`). Another
+session applied both on the owner's explicit authorisation while this session was working.
+
+**The feed then ran, cleanly** `[MEASURED 2026-09-04 16:20Z]`:
+
+| source | fetched | errors | items |
+|---|---|---|---|
+| rss WebProNews | 11:34:25 | 0 | **15** |
+| UK advertising industry news | 11:34:35 | 0 | 3 |
+| IAB UK digital advertising spend | 11:34:31 | 0 | 1 |
+| ASA rulings / CAP Code / AA-WARC | 11:34:18–27 | 0 | **0** |
+
+All six fetched, `error_count` 0 across the board, 19 items ingested.
+
+**And that closes a loop from earlier today: the 19 "outage casualties" I bucketed are
+advertise's own first ingestion.** The window I measured was 11:34:24 → 11:34:35, which is
+exactly this batch. Its `feed-triage` scoring pass fell inside the 11:21–11:57 credit
+outage, so the items sit `status='ingested'` with `relevance_score` NULL. Not lost — the
+next triage cycle should score them. **Worth keeping as the shape:** a brand-new site's
+first ingestion is the most likely thing to be stranded by any outage, because it is the
+only batch with no prior scored items to fall back on, and it is also the batch whose
+absence is easiest to misread as "the enablement did not work".
+
+**Tuning note for whoever picks this up, and it is the expected shape rather than a fault:**
+3 of the 5 `news_search` queries returned **0** items — ASA rulings, CAP Code, AA/WARC
+expenditure. The rss feed carried 15 of the 19. That is idea.uk's lesson arriving on
+schedule: institution-anchored queries are right in principle and need retuning against
+what the provider actually returns. ⚠ Retuning is a DELETE of the source row plus a
+re-insert, **not** an UPDATE of the spec — `(site_id, name)` is the dedup key, so editing
+`vertical_keywords` alone changes nothing for existing rows (the seeder's early-return).
+Do NOT judge the 0s before the triage backlog clears; an unscored batch tells you nothing
+about query quality.
