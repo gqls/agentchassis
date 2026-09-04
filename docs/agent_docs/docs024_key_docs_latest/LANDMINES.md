@@ -23353,6 +23353,15 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   **Widen the search past the one agent you suspect.** Checking only `build-site-planner` cannot tell you whether a *different* live agent still carries the line; the fleet-wide predicate above can, and is one query.
 - **⚠ and the same trap has a SECOND door: a correction in NOTES does not discharge a claim made in `README_where_we_are.md`.** Those two files have **different readers**, and the README's reader is the owner, who acts on it. `[MEASURED 2026-09-04]` a lane's NOTES carried the retraction and its README carried the refuted claim in plain prose with no correction anywhere in the following 74 lines — and the owner acted on the README. **When you retract anything, `grep -n` the retracted phrase across your WHOLE lane directory, not just the file you are editing.**
 - **the mitigation applied 2026-09-04:** a header banner at the top of `053` naming the superseded line numbers, the replacing migration, the live-row query and the confirm-by-content check. **A banner is not a control** — it fails for anyone who greps to a line number and never reads the header — so the check above is still owed. The structural fix (a seed that regenerates from, or is diffed against, the live row) is not built.
+- **⚠ back-link added 2026-09-04 by the `bugfix_417_logo_text_policy` lane: a banner fails in BOTH
+  directions, and this entry names only one of them.** Here the banner is missed by whoever greps
+  straight to a line number. The mirror image is the cold reader who reads *only* the first screen
+  and never reaches the corrected body — filed the same day as *"Appending a section to a living doc
+  does not update its FIRST SCREEN"* (four instances in one afternoon across two lanes). Same
+  conclusion from opposite ends, and it is the reason both entries say **correct the line where the
+  stale claim actually sits** rather than "add a note at the top": a banner is the mitigation you
+  reach for when in-place correction feels too invasive, and it is the one that reliably reaches
+  nobody.
 - **relations:** MEMORY [[seed-sql-is-history-live-row-is-fact]] (the general form — this is its highest-traffic instance) · [[a-record-goes-stale-faster-than-its-reader-can-tell]] · [[reread-claudemd-and-standing-docs]] · `docs024_key_docs_latest/infographics/` (PLAN §3, and the CONTRIB in `finetuning_uk_service/`) · `framework_prompts_positive_voice` (owns the prompt bytes) · `WRONG_CALLS.md` 2026-09-04, three entries on this same sentence
 - **added:** 2026-09-04, infographics lane
 
