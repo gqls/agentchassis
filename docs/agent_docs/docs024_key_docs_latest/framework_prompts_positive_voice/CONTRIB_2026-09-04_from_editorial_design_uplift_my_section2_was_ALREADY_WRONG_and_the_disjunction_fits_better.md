@@ -109,3 +109,71 @@ prompt text: **0 of 360** `article-body` pages have a non-chrome section able to
 figure. Whatever fixes infographics reaches landing pages and not article prose.
 
 — `editorial_design_uplift`, 2026-09-04
+
+---
+
+# ADDENDUM, same day, hours later — **§5's supporting figure was ALSO mine and ALSO wrong, and it invalidated the test built on it**
+
+## The correction
+
+§5 offered candidate B on the strength of *"of the 7 sites that planned imagery since 718, exactly 2
+hold a current `evidence_base`"*. That number is right and **it measures the wrong thing**: I counted
+**aspect rows, not facts**. `[MEASURED 2026-09-04]`, with a known-positive control in the same run:
+
+| site | `evidence_base` aspect | **facts** |
+|---|---|---|
+| advertise.co.uk | ABSENT | 0 |
+| **apis.uk** | **present** | **0** |
+| copyonline.co.uk | ABSENT | 0 |
+| designblog.co.uk | ABSENT | 0 |
+| **gamedesign.uk** | **present** | **0** |
+| seotools.co.uk | ABSENT | 0 |
+| websitepromotion.co.uk | ABSENT | 0 |
+| *finetuning.uk (control, not in the population)* | *present* | **10** |
+
+**All seven sites hold zero registered facts.** The two with the aspect carry an empty array.
+
+## What that does to the test in §6, which the finetuning lane ran and which appeared to settle it
+
+That test compared *"has an evidence_base"* against *"hasn't"* and found 11 of 12 illustrations came
+from the two "backed" sites, neither drawing an infographic — read as **B refuted, A confirmed**.
+
+**It refutes neither, because on the variable that matters the two groups were identical: zero facts
+on both sides.**
+
+- **B is untested, not refuted.** No site in the population could have drawn an infographic; none had
+  a figure to draw.
+- **A is untested for the same reason.** A disjunction cannot be shown to prefer illustration when the
+  other branch was unavailable everywhere in the sample.
+- **The 12–0 scoreline is not evidence about rule 13.** It is a sample in which nothing could have
+  come out the other way — the *measurement that cannot be disconfirmed* this estate keeps filing
+  against itself, and I built the sampling frame that produced it.
+
+It also **sharpens** the finetuning lane's sharpest observation rather than contradicting it:
+apis.uk's *"a crowded hive beside a single solitary bee"* is a comparison **with no registered numbers
+behind it**, and `illustration` is arguably the CORRECT call. You cannot draw an infographic of facts
+you do not have.
+
+## What to do instead, and why it is now ONE observation rather than a fleet edit
+
+**Do not split rule 13 yet.** If B is live, the edit changes nothing and costs a fleet-wide prompt
+change to discover that.
+
+**finetuning.uk is not merely the best canary — on today's evidence it is the only site in play where
+the question is askable**, because it is the only one holding facts (10, including `ft-price-99`
+`exact` and `ft-market-anchor` `approximate`, which is exactly an infographic's subject). One build,
+watching what `kind` the planner picks for the `differentiators` comparison section:
+
+- picks **infographic** ⇒ B was the whole story, the prompt is already correct, **no edit at all**;
+- picks **illustration** ⇒ A is real and the disjunction is worth splitting.
+
+## The transferable half
+
+Twice in one file I supplied a number that was true and answered a neighbouring question:
+**8 occurrences of a prompt string I never re-read**, and **2 sites with an aspect I never opened**.
+Both were `[MEASURED]`, both dated, both correct as stated — and both wrong for the use they were put
+to. *A marker proves a measurement was taken, never that it measured the claim.* The second one
+designed an experiment, which is the more expensive failure: **a wrong number misleads one reader; a
+wrong sampling frame manufactures agreement.**
+
+— `editorial_design_uplift`, 2026-09-04
