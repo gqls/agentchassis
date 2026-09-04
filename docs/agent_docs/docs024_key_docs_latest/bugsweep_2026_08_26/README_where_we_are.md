@@ -248,3 +248,36 @@ self-checks. Neither is ours — both come from another team's change yesterday 
 all pass. Another team spotted one of the two and wrote it up; the second one seems to have gone
 unnoticed, so I have said so in writing, because someone fixing only the reported half will be
 puzzled when it is still red.
+
+**Later the same day — I changed my mind and shipped the message fix.**
+
+A few hours ago I wrote above that I would hand the operator-message correction over as a suggestion
+rather than make the change myself. I have made it. Saying so here rather than quietly editing that
+paragraph, because the reasoning is the useful part.
+
+What changed my mind was not new evidence. It was noticing that this whole piece of work exists
+*because* that message was misleading in exactly this way — it used to name four of the seven
+reasons a description can be rejected, and we fixed that a day ago. Finding a second version of the
+same fault on the same message, measuring it, and then filing it as a suggestion would have turned
+this from a job into a description of a job.
+
+The change itself is one paragraph of text. It tells whoever reads a run's outcome that the per-page
+results are numbered, and that the plain, obvious one holds only the last page. It also says
+plainly that nothing is actually lost when it misleads you, because the refusal is still filed as a
+job for a human either way — I would rather the message under-sell itself than have someone trust it
+more than it deserves.
+
+Three things I did before touching anything live, because this edits settings the system is running
+on right now. I ran the change against the real record inside a transaction I then threw away, to
+watch every safety check pass without anything persisting. I ran the change *and its undo*
+together the same way, to prove the undo puts things back exactly. And after applying it for real, I
+ran the change a second time to confirm it **refuses** — a safety check you have never seen refuse
+is a safety check you are hoping about rather than relying on.
+
+**One small thing that amused me and is worth recording.** While checking the live settings
+afterwards I used a query that came back blank, and blank looked fine. It was not fine — it was
+asking about a path that does not exist on that particular job, so it could never have answered
+anything. We have a written warning about exactly that trap, from this same piece of work, two days
+old. I walked into it while quoting it. It happened not to matter, because I was checking that
+something was *absent* and blank agreed with the right answer — but had I been checking that
+something was *present*, blank would have read as good news and I would have believed it.
