@@ -1102,3 +1102,34 @@ moment of enshrining and not at the moment of asserting, and those should be the
 look doubly protective, the other made a finding self-illustrating. Both satisfying, neither
 measured. Sixth wrong claim today; the first one I caught myself, and only because I was asked to
 commit it to a document.
+
+## 2026-09-04 ~15:2xZ — the verifier's NEEDS_HUMAN_REVIEW turned out to be the strongest finding of the day
+
+The `landmine-verifier` on my new closure entry returned `NEEDS_HUMAN_REVIEW` — and unlike this
+morning's non-answer, it **reasoned**: *"the symbol index returned 0 rows for `resolveComponent` in
+`rerender_page_sections_action.go` — which may reflect the index's inability to capture closures
+(the very blind spot this landmine describes) rather than the closure's removal."*
+
+**It was right, and I verified it with a control** `[MEASURED 2026-09-04 15:2xZ]`:
+
+- `SELECT symbol, path, line_start FROM code_symbols WHERE symbol='resolveComponent'` → **1 row**,
+  the package-level func at `rerender_single_page_action.go:1240`. **The closure is absent.**
+- **Not staleness.** The index's commit is `de1b9a58` (2026-09-03 10:51, ancestor of HEAD), and
+  `git show de1b9a58:…rerender_page_sections_action.go` has the closure at **line 361** — in that
+  very commit.
+- **Positive control:** `escalateRerenderToWriter` (:1178) and `isSelfContainedSection` (:1149),
+  both top-level funcs in the **same file**, plus `loadComponentSchemas` — all indexed. **The files
+  are indexed; the closures are not.**
+
+**So the blind spot is in `code_symbols`, not just in my grep** — and three live consumers inherit
+it: the diagnosis loop's code tier, the council gate's `code_checks`, and the landmine-verifier.
+**A "0 rows / symbol not found" answer from any of them is not evidence of absence for a closure**,
+and on a council submission that reads as a refuted premise. Added to the entry with the control.
+
+⚠ **Worth noticing what changed my behaviour.** This morning I treated a `NEEDS_HUMAN_REVIEW` as a
+stated inability and went to measure — that caught the 8-of-15 error. This afternoon the same
+verdict, on a Go-side claim the index *could* answer, carried a hypothesis about its own
+instrument, and following it up produced a better finding than the entry it was checking. **Two
+useful outcomes from the same verdict string, neither of them "the entry is wrong."** The corpus
+already says a `NEEDS_HUMAN_REVIEW` on a non-Go footprint carries no information; this is the
+counter-case — on a Go footprint, with the index's own reasoning attached, it carries a great deal.

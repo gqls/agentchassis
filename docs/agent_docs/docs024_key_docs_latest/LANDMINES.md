@@ -23437,6 +23437,30 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   case from the other side) · `PROPOSAL_D9_landmines_as_a_footprinted_corpus.md` §6c design note 2,
   which lists this as a **command shape** a `PreToolUse` hook could catch, like §6b's
   `grep '^-[^-]'` · MEMORY [[grep-landmines-for-your-symbols]]
+- **⚠ THE SAME BLIND SPOT IS IN `code_symbols`, THE FLEET'S CODE INDEX — so it is not just YOUR
+  grep. VERIFIED 2026-09-04 with a positive control, and this is the half that matters.**
+  `SELECT symbol, path, line_start FROM code_symbols WHERE symbol='resolveComponent'` returns
+  **exactly ONE row** — the package-level func at `rerender_single_page_action.go:1240`. The closure
+  is **absent**. It is **not staleness**: the index's own commit is `de1b9a58` (2026-09-03 10:51,
+  an ancestor of HEAD), and `git show de1b9a58:…rerender_page_sections_action.go | grep -n
+  'resolveComponent := func'` puts the closure at **line 361 in that very commit**. **Positive
+  control, same query, same files:** `escalateRerenderToWriter` (:1178) and `isSelfContainedSection`
+  (:1149) — both top-level funcs in the *same file* — and `loadComponentSchemas`
+  (`plan_sections_action.go:1981`) are all indexed. **So the files are indexed and the closures are
+  not.**
+- **why that is much worse than a bad grep:** three live consumers read this index and inherit the
+  blind spot — the **diagnosis loop's code tier**, the **council gate's `code_checks`**, and the
+  **landmine-verifier** itself. **A "0 rows / symbol not found" answer from any of them is not
+  evidence of absence when the symbol could be a closure**, and on a council submission that reads
+  as a refuted premise. It also means a landmine or bug file citing a closure by name will keep
+  drawing `NEEDS_HUMAN_REVIEW` for ever, with no way for the machine to resolve it
+- **⚠ VERDICT DISPOSITIONED — do not re-open.** The `landmine-verifier` returned
+  `NEEDS_HUMAN_REVIEW` on this entry and **reasoned it correctly**: *"the symbol index returned 0
+  rows for `resolveComponent` in `rerender_page_sections_action.go` — which may reflect the index's
+  inability to capture closures (the very blind spot this landmine describes) rather than the
+  closure's removal. A human must open the file."* A human has: the closure is at HEAD line 361 and
+  was at the indexed commit's line 361. **The entry is confirmed and the verdict is an instance of
+  the entry**, which is as close to self-proving as this file gets
 - **source:** 2026-09-04, `bugfix_384_page_list_invalidation`, caught by the `ai-agent-orchestration`
   lane when I disputed their correct citation. Their words: *"it is not 'I grepped carelessly', it
   is 'the obvious grep for a Go definition misses an entire declaration form'"*
