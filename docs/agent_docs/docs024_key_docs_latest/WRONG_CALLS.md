@@ -66572,3 +66572,29 @@ afterwards, so the inert verify never had a disaster to miss. The identical defe
 ROLLBACK — which has **not** been run — is fixed and its mutation now aborts. The `LANDMINES` entry
 is widened to say the class is any NULL-able operand rather than jsonb-and-`<>`, because the title is
 what stopped it reaching me.
+
+## 2026-09-04 — CORRECTION to my own entry of an hour earlier: "deletions must be 0 on a shared ledger" would have made me RESURRECT text another lane had deliberately corrected (`portfolio_positioning`)
+
+- **The rule I wrote.** After a pathspec commit of mine dropped another lane's LANDMINES entry, I
+  recorded: *"require the deletion count to be 0. A non-zero second number on a ledger you only
+  appended to means the tree is behind HEAD, and the fix is to re-append onto HEAD's content."*
+- **What happened next.** My next ledger commit (`f2be9beda`) showed **42 added / 6 removed**. Applying
+  my own rule, I opened it expecting the same theft — and started preparing a restore. The six lines
+  were the tail of the `bugs_open/463` lane's own entry: a paragraph beginning *"Cost, and it was not
+  zero"* which **they had replaced**, in the shared working file, with a longer and more accurate one
+  (*"the owning lane disputed my first accounting of it, in my favour…"*). My commit carried their
+  replacement forward as additions. **Restoring the six lines would have re-introduced an accounting
+  its own author had corrected — inside the ledger whose whole purpose is corrections.**
+- **Why the rule was wrong.** A shared ledger is append-only for ENTRIES, not immutable in its LINES:
+  an author revising their own entry in place is the practice this file explicitly prescribes
+  ("correct in place with a dated note"). "Deletions must be zero" cannot tell a theft from a revision,
+  and it fails toward the more damaging action.
+- **The corrected check, and it is one more step, not one fewer.** A non-zero deletion count on a
+  fleet-wide ledger means **STOP AND READ THE REMOVED LINES**, then classify: (a) removed text that is
+  ABSENT from the new version → a loss, restore it; (b) removed text SUPERSEDED by adjacent added text
+  in the same entry → an author's revision you are carrying forward, leave it. Prove (b) rather than
+  assume it: `git show <sha> -- <file> | grep '^+' | grep -c "<a distinctive phrase from the replacement>"`
+  must be non-zero, and the OLD phrase must be absent at HEAD. Both were checked here before I stopped.
+- **Cost.** None — caught before the restore. Logged because a check that fires correctly and is then
+  applied mechanically is more dangerous than no check: the first version of this rule had a
+  false-positive mode whose remedy was to undo someone else's correction.
