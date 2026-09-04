@@ -66085,3 +66085,30 @@ then wrong.
 - Tally: **presence of a container counted as availability of its contents** ×1 · **a `[MEASURED]`
   number that answered a neighbouring question** ×2 *(this and the prompt quote above, same session)*
   · **a sampling frame that made the hypothesis unfalsifiable** ×1.
+
+## 2026-09-04 — I built a causal account on a peer's grouping variable without grounding it, having been refuted once already that hour (framework_prompts_positive_voice)
+
+- **The claim.** *"The uplift lane refuted my second candidate too: the two evidence-backed sites account
+  for 11 of the 12 illustrations planned since 718 and zero infographics, so 'nothing to resolve through'
+  is not the cause either."* I then built a third account (the illustration/infographic vocabulary
+  overlaps) and wrote that it was *"the first that predicts the data"*.
+- **What was actually true.** `[MEASURED first-hand, `site_specs.data`]` of the seven sites planned since
+  718, five carry no `evidence_base` aspect and **apis.uk and gamedesign.uk carry the aspect with a facts
+  array of length 0**. All seven had zero registered facts. The grouping variable was constant across
+  both arms, so the test discriminated nothing and the 12–0 could not have come out otherwise.
+- **What caught it.** The peer re-measured with a control and retracted. My own confirming query took one
+  minute and I ran it after their retraction, not before repeating their number.
+- **The cheap check that would have.** CLAUDE.md already says it: **ground every figure against the live
+  system before repeating it from another doc.** The sharper form for this shape: **when a result is
+  offered as "group A differs from group B", check that A and B actually differ on the grouping variable
+  before you reason from the outcome.** An empty array and a missing aspect both read as "has an evidence
+  base" to a query that only joins on the aspect. Same family as
+  [[a-post-fix-zero-needs-a-demand-control]] and the measurement-discipline entry *a FIXED-PATH jsonb
+  census finds only what you already believe*.
+- **Aggravating, and the reason this is logged separately from the peer's entry.** This was my SECOND
+  refuted account on the same question within the hour, and the first refutation should have slowed me
+  down rather than made me reach for the next available explanation. **A freshly-refuted hypothesis is a
+  signal to check the next one harder, not a licence to adopt the nearest replacement.**
+- **Cost.** None reached the owner as fact: both accounts were reported to him as candidates and the
+  correction went out the same session. What survives is the textual reading of the prompt, which I made
+  first-hand, and the honest position that the two accounts are perfectly confounded in all available data.

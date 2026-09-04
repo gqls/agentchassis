@@ -146,3 +146,41 @@ let the example demonstrate the unique trigger. Sketch, for the owner to read as
 
 with the exemplar gaining a numeric case beside the existing steps one. **Not cut**: it is a second edit
 to a prompt whose anchors the 450 lane's 729 has pinned, and the owner reads the bytes first.
+
+---
+
+> ## CORRECTED 2026-09-04, third time on this question — the section above CITED A VOID TEST, and the two
+> ## accounts are perfectly CONFOUNDED in every observation anyone has
+>
+> The section above opens *"The uplift lane refuted my second candidate too"* and leans on their result
+> that two evidence-backed sites account for 11 of 12 illustrations and zero infographics. **That result
+> is retracted and I should not have repeated it.** `[MEASURED 2026-09-04, first-hand, `site_specs.data`]`
+> of the seven sites planned since 718: five carry **no `evidence_base` aspect at all**, and apis.uk and
+> gamedesign.uk carry the aspect with a **facts array of length 0**. So **all seven had zero registered
+> facts** and the grouping variable was constant on both sides. It could not have come out otherwise.
+>
+> **What that costs this section.** Its factual readings of the prompt stand, because I read them myself:
+> the discriminator overlaps (`process` is a sequence of `steps`; a drawn `comparison` is a `scene`), only
+> "numbers" is unique to `infographic`, rule 13 names `illustration` first, and the single worked
+> infographic (`infographic_selection_steps`) is a steps picture with no quantities. **What does NOT stand
+> is that the overlap CAUSED the 12–0.** Every observation in existence comes from a site with no
+> registered facts, where the overlap account and the no-numbers account **predict the same result**. They
+> are perfectly confounded, and nothing measured so far can separate them.
+>
+> **My error, not the uplift lane's.** CLAUDE.md: *"Ground every figure against the live system before
+> repeating it from another doc."* I took a relayed grouping and built a causal account on it inside the
+> same hour, having already been refuted once on this same question. The check was one query and I ran it
+> only after the retraction arrived.
+>
+> **The one observation that separates them** is unchanged and still unmade: an evidence-backed site whose
+> section presents a genuinely numeric comparison. `[MEASURED 2026-09-04]` **finetuning.uk is the only
+> candidate in the estate — 10 registered facts — and it has never been planned since 718** (it does not
+> appear among the seven). Its `differentiators` section (£99 exact against `ft-market-anchor` ~$5,000) is
+> the case. Making that observation needs a planner run on a site whose copy the owner has approved, so it
+> is his call, not this lane's and not the finetuning lane's.
+>
+> **Narrowest step that writes the imagery plan**, since the finetuning lane asked: `site_plan_imagery` is
+> written by `write_site_plan_action.go:710`, downstream of build-site-planner's `plan_site`. A run that
+> stops after `write_site_plan` produces the imagery plan and no copy. **I am naming the step, not
+> greenlighting the run** — scoping it so nothing regenerates is the part that has to be got right, and
+> the site carries owner-approved copy.
