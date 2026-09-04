@@ -335,3 +335,49 @@ func TestHierarchySlotsFromSchema(t *testing.T) {
 		t.Errorf("a schema with no slots block must yield nil, got %+v", s)
 	}
 }
+
+// REPEATED SLOT KEYS CONCATENATE IN POSITION ORDER.
+//
+// This is the migration primitive, and it was written without a test until
+// 2026-09-03. Decomposing an existing `article-body` — one llm-owned `content`
+// blob, 360 of them on the estate — means partitioning it at heading boundaries
+// into N children that all carry the SAME slot key, because the section count
+// varies per page (measured: avg 4.8 h2 per row, max 16 h3) and named slots
+// cannot express a variable count.
+//
+// So byte-equivalence after decomposition depends entirely on this: the walk must
+// reassemble the children in POSITION ORDER, adding nothing and dropping nothing.
+// If the later child ever replaced the earlier one instead, a decomposed article
+// would silently lose every section but its last — and the page would still
+// render, which is what makes it worth a test rather than a comment.
+func TestHierarchyWalkConcatenatesRepeatedSlotKeysInPositionOrder(t *testing.T) {
+	nodes := []hierarchyNode{
+		{ID: "p", Position: 1, SlotName: "article-body", Function: "article-body"},
+		// Deliberately out of input order, to prove POSITION decides and not
+		// arrival order — the partition is only lossless if order is preserved.
+		{ID: "c3", ParentID: "p", Position: 3, SlotName: "article-body.section", Function: "prose-block"},
+		{ID: "c1", ParentID: "p", Position: 1, SlotName: "article-body.section", Function: "prose-block"},
+		{ID: "c2", ParentID: "p", Position: 2, SlotName: "article-body.section", Function: "prose-block"},
+	}
+	templates := map[string]string{
+		"p":  `<article>{{.slots.section}}</article>`,
+		"c1": `<h2>One</h2><p>first</p>`,
+		"c2": `<h2>Two</h2><p>second</p>`,
+		"c3": `<h2>Three</h2><p>third</p>`,
+	}
+
+	res, err := walkComponentHierarchy(nodes, nil, NewInstanceCounter(), renderViaPlatformSeam(t, templates, nil))
+	if err != nil {
+		t.Fatalf("walk failed: %v", err)
+	}
+
+	// The reassembly property the migration rests on: the parent's HTML is the
+	// children's bytes in position order, wrapped by the parent's own template.
+	want := `<article><h2>One</h2><p>first</p><h2>Two</h2><p>second</p><h2>Three</h2><p>third</p></article>`
+	if got := res.Nodes["p"].HTML; got != want {
+		t.Errorf("repeated-key reassembly is not a lossless in-order concatenation.\n got=%q\nwant=%q", got, want)
+	}
+	if len(res.Nodes) != 4 {
+		t.Errorf("every child must still render its own row: got %d of 4", len(res.Nodes))
+	}
+}
