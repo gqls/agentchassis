@@ -126,3 +126,99 @@ promised instructions in the ZIP, `sent: true` was reported, and the ZIP had non
   30 / tokens 42) — also a mismatch between what the email says and what the system does.
 - `send_delivery_email_action.go:131,173` — the existing guard that refuses to send an email naming a
   link it did not produce. Candidate 1 inherits it; a hardcoded URL would not.
+
+---
+
+## UPDATE 2026-09-04 — the mechanism half, from the `bugfix_475_delivery_email_instructions` lane
+
+Split agreed with `site_delivery_and_editor` (who filed this and hold the COPY half): they own the
+words and the owner's performed account; this lane owns the placeholder, the page's delivery route,
+the zipper and the guard. Working docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_475_delivery_email_instructions/`.
+
+### Still valid, and the check needs a timestamp to be worth anything
+
+`[MEASURED 2026-09-04 14:40Z]` the live `delivery-email-sender` row still carries the false clause.
+
+⚠ **Migration `776` was applied to the SAME `body_template` jsonb path at 12:05:25Z the same day**,
+for `bugs_open/477`'s unrelated *"so we stop reminding you"* clause. So **"that template was migrated
+today" is not evidence either way**, and a glance at the commit log reads as though this were fixed.
+Two lanes confirmed the clause independently, one by reading the template, one by
+`body_template LIKE '%ZIP comes with instructions%'`.
+
+### THE BUG IS BIGGER THAN ITS SENTENCE — and this is the part worth carrying forward
+
+§4 above says *"Nothing in the system compares what the email SAYS to what the artefact CONTAINS."*
+True, and there is a **second, mechanical** defect underneath it that the fix candidates did not see:
+
+**There are now TWO customer letters sharing ONE closed placeholder vocabulary and TWO hand-kept
+mirror guard lists.** `send_followup_email_action.go` (the 477 lane's, seeded disabled by `775`)
+calls the *same* `fillTemplate` as the delivery sender and keeps its *own* copy of the guard. Its
+comment says so: *"If a shared mechanism is ever built, these two are its first two callers"* and
+*"If fillTemplate's vocabulary grows, this list must grow with it."*
+
+That is a contract held by a comment — OWNER RULING 2026-08-02 §2: *"A comment is not a control on a
+tree this many sessions share."*
+
+**And it was demonstrated live on 2026-09-04, not argued:** two lanes independently chose **two names
+for one concept** — `{{instructions_link}}` and `{{instructions_url}}` — caught only because one lane
+had written that comment and the other sent a message. Half a day's difference in timing and the
+estate would carry two placeholders for one page, in two letters, to one customer.
+
+**So candidate 1 above ("a placeholder, inheriting the existing guard") is right about the artefact
+and wrong about the fix**: adding a fifth line to each of two hand-kept lists grows the defect. The
+work in flight single-sources the vocabulary and DERIVES the guard from it, landing
+`{{instructions_link}}` as its first single-sourced entry. Council trail
+`c8ed56d2-74ea-4bcc-a0a4-73050c436693` (round 1 REVISE, round 2 in flight).
+
+### A SECOND TRAP THIS BUG'S OWN FIX WOULD HAVE SPRUNG — now filed in `LANDMINES.md`
+
+§"What is already in our favour" above says the copy is config and *"fixing the words needs no image,
+no roll, no release"*. **True of a word. FALSE the moment the edit adds a `{{placeholder}}`**, because
+the token's other half is compiled into the binary.
+
+`fillTemplate` is a closed-vocabulary replacer, so an unknown token is **not substituted** — it
+survives, trips the post-fill `strings.Index(body,"{{")` scan, **and that scan runs AFTER the claim**
+(`:154` claims, `:162` fills, `:168` scans; the error text itself says *"the handover is now
+stamped"*). Result: a stamped, undeliverable handover needing the operator re-mint recipe.
+
+⚠ **Worse in the follow-up sender**, which is the one being enabled next: its scan runs after
+`ClaimFollowup` has stamped `followup_sent_at` — **the customer's single follow-up is consumed with
+no email sent.** Established by the 477 lane checking their own code against this ordering.
+
+**So: no migration naming `{{instructions_link}}` until a chassis image carrying it has rolled**,
+proved by `service_binary_capabilities` + `git merge-base --is-ancestor`. ⚠ And name **the commit that
+taught the binary the TOKEN**, not the one that added the action — a binary between the two passes a
+naive ancestry check and does not know the token.
+
+The round-2 design closes this by construction: the pre-claim check now also refuses any `{{…}}`
+absent from the vocabulary, moving that failure **before** the stamp.
+
+### Owner rulings recorded 2026-09-04 (via the copy lane)
+
+1. **The page is GENERIC, on `webdesign.uk`, BUILT BY THE FRAMEWORK.** Not a Go-rendered page on the
+   links host — so no exception is spent against the 2026-08-04 "every site goes through the
+   framework" ruling. The per-site content still exists; it lives in the email and the README rather
+   than on the page. Verified at the served bytes with a control (a real guide page 200s, an invented
+   `/guides/` path 404s).
+   ⚠ The link must be **durable — no token, no lifetime.** Hard constraint, not preference: the
+   scheduled follow-up sender refuses any placeholder it cannot fill and has **no step that can mint a
+   token**.
+2. **No interim wording — "leave it"** until the page exists. The bug file's candidate 4 was
+   re-proposed by this lane on the grounds that a voucher was out; **the owner ruled against it with
+   the risk in front of him**, and the next build is his own trial run rather than a stranger's.
+3. **`{{live_until_date}}` must NOT be wired** — three candidate dates disagree (presign 7 / email 30
+   / tokens 42). Stating whichever is nearest to hand would commit this bug's own root cause a third
+   time.
+
+### Notes for whoever builds the ZIP's `README.txt`
+
+⚠ `zip_deliverable_action.go`'s `composeZip` iterates **exactly** the S3 listing of
+`portfolio-sites/<domain>/`, and `verifyArchive` (`:259-261`) asserts `len(zr.File) == len(files)`.
+**Adding a README without teaching that assertion makes the action fail** — and teach it the
+synthesised entries **by name**, never by loosening the count, or a missing README and an extra site
+file cancel out.
+
+**Synthesise at zip time; do NOT publish the README into the bucket.** Objects under
+`portfolio-sites/<domain>/` are the SERVED SITE — a README there would be publicly fetchable at
+`https://<customer-domain>/README.txt`, crawlable, and visible to the customer's own visitors.
