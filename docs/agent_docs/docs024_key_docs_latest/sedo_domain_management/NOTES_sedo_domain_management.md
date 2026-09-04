@@ -962,3 +962,19 @@ draft9 already has both blank; this closes an open question rather than
 changing anything. Recorded as his deliberate choice, not an oversight —
 worth knowing precisely because a future reader might otherwise "fix"
 the inconsistency assuming it was never asked about.
+
+## 2026-09-04 — rolex-submariners.com withdrawn (owner instruction, likely trademark risk)
+
+New day — confirmed via `date +%F` before dating anything (the earlier
+09-04/09-03 mixup made this a standing habit now, not just a one-off
+fix). Owner: "we need to take rolex-submariners.com out of any sedo
+listing." No stated reason, but the domain name incorporates a famous,
+heavily-litigated trademark (Rolex) — plausibly why. Not asked, since
+the instruction was unambiguous and needed no clarification either way.
+
+Held at Spaceship (`spaceship_domains_2026-09-02.csv`); confirmed
+present in draft9 (1 row) before acting. New dedicated file,
+`EXCLUDED_owner_rolex-submariners_2026-09-04.txt`, per the one-file-per-
+reason convention. Draft10 = 2,943 − 1 = **2,942**. Verified: 2,943
+`<row` = header + 2,942; zero rolex-submariners hits; whole-file diff
+against draft9 shows exactly the one row removed, nothing else changed.

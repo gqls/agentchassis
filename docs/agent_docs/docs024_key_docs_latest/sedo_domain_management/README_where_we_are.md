@@ -352,3 +352,10 @@ agree.
 **Current sheet**: `outbound/SEDO_IMPORT_2026-09-03_draft9.xlsx` —
 **2,943 domains**. This is essentially the whole estate now, minus only
 what you've specifically asked to keep off.
+
+## 2026-09-04 — rolex-submariners.com pulled out
+
+Done — it's out of the sheet entirely.
+
+**Current sheet**: `outbound/SEDO_IMPORT_2026-09-04_draft10.xlsx` —
+**2,942 domains**.
