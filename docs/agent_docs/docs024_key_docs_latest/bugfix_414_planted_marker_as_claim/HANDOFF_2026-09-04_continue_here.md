@@ -236,13 +236,22 @@ masked only incidentally by the next check.
    recorded 2026-08-21 13:45:09 with no file anywhere, re-recorded as `530_…` 56 seconds later with the
    note *"renumbered from a COLLIDING 521 (race with…)"*. Benign only because it WAS re-recorded and the
    SQL self-guards. I recorded after renaming both times, so today's two renumbers left nothing.
-   The sweep is two commands and worth running after any renumber:
+   The sweep is worth running after any renumber — **and it must carry `notes`, not just `filename`**:
    ```bash
    kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -At \
-     -c "SELECT filename FROM schema_migrations ORDER BY applied_at;" | grep -v '^$' > /tmp/rec.txt
+     -c "SELECT filename||E'\t'||coalesce(notes,'(no note)') FROM schema_migrations ORDER BY applied_at;" \
+     | grep -v '^$' > /tmp/rec.txt
    git ls-tree -r --name-only HEAD -- docs/agent_docs/sql_for_agents/ | sed 's|.*/||' | sort > /tmp/head.txt
-   while read -r f; do grep -qxF "$f" /tmp/head.txt || echo "STALE ROW: $f"; done < /tmp/rec.txt
+   while IFS=$'\t' read -r f note; do
+     grep -qxF "$f" /tmp/head.txt || printf 'STALE ROW: %s\n  ITS OWN NOTE SAYS: %s\n' "$f" "$note"
+   done < /tmp/rec.txt
    ```
+   ⚠ **READ THE NOTE OF ANYTHING THE SWEEP FLAGS BEFORE BELIEVING THE FLAG** — the
+   `site_delivery_and_editor` lane's finding, 2026-09-04, and it is the sharpest thing to come out of
+   this exchange. Their filename-only sweep flagged 521 as an orphan when **530's own note had said
+   *"renumbered from a COLLIDING 521"* since 2026-08-21, three weeks earlier**. `schema_migrations.notes`
+   is where sessions explain themselves; a sweep that projects it away destroys the explanation and then
+   reports its absence as a finding. My first version of this snippet had the identical defect.
    (The `site_delivery_and_editor` lane owns the instrumented version of this check and its landmine;
    don't fork a second account of it.)
 
