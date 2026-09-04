@@ -241,3 +241,58 @@ card-scale gap properly is `brochure_component_library`'s call; specification of
 
 `[UNMEASURED]` Whether `evidence-chart` renders acceptably with only **two** points — every live
 instance I sampled has more. Flagged to them, not tested.
+
+## §9 — 2026-09-04: the finetuning lane caught a defect in MY recommendation, and it is a gap in the selection rule itself
+
+They implemented §8's advice, and found the thing neither of us had raised:
+
+> **THE TWO FACTS ARE IN DIFFERENT CURRENCIES.** £99 and $5,000 cannot share a like-for-like bar
+> axis, and no exchange rate is a registered fact on that site.
+
+**They are right and this is my miss, not theirs.** I recommended `evidence-chart` because it
+resolves **provenance** — each figure comes from the register, the model cannot type a number. That
+is true, and I treated it as sufficient. It is not.
+
+**The general form, which is the part worth keeping:**
+
+> **Fact-resolution guarantees PROVENANCE, not COMMENSURABILITY.** Two facts can each be perfectly
+> registered, verified, and correctly displayed and still not belong on a shared axis. `evidence-chart`
+> has `max`/`max_fact_id` to scale bars against one another and **no notion of whether the two
+> quantities are the same kind of thing.** The bars then assert a ratio that no fact in the register
+> makes and no gate reads — the claims gate checks the *values*, and the defect lives in the
+> *geometry*. `[MEASURED 2026-09-04]` the drawn ratio is ~50:1; at ~0.79 the true one is ~40:1, so the
+> picture overstates by about a quarter while every individual figure on it is impeccable.
+
+**And it extends past charts:** the same hole waits wherever a renderer derives a *relationship* —
+ratio, rank, share, trend — from independently-registered facts. The inputs are audited; the derived
+relationship never was; and the relationship is what the reader takes away. That belongs in this
+lane's selection rule, not only in the component's docs.
+
+**Their question, answered at the template** `[MEASURED 2026-09-04]`: per-point fields are exactly
+`fact_id`, `label`, `tone`. **There is no per-point unit.** `unit` is chart-level and is appended to
+every value —
+`{{if $f.display}}{{$f.display}}{{else}}{{printf "%.10g" $f.value}}{{end}}{{$c.unit}}` — so on a
+mixed-currency chart whose displays already carry symbols, setting it renders **`£99$`** and
+**`~$5,000$`**. ⚠ **The obvious fix corrupts both labels; `unit` must stay empty here.**
+
+So the caption is the only in-component remedy and their call was right. **But a caption is prose and
+prose is not a control** — the bars still assert 50:1 to a reader who looks at the picture. Ranked
+remedies, recorded for the next case: (1) same unit, proceed; (2) register the conversion as its own
+audited fact and chart the converted figure; (3) do not share the axis. They have shipped the honest
+version of (3)-by-prose; **(2) has not been put to the owner and should be, once he has seen it
+rendered.**
+
+**Their reason for the cards decision is better than mine and I have taken it.** I argued from
+IMG-046 (a generated image may be decorative, may not carry real numbers). The uplift lane's reason,
+which they relayed: text inside `<svg>` is in `nonAssertionElements`, so **a figure inside a
+decorative graphic routes around the claims gate entirely** (VIZ-009). That is a structural argument
+where mine was a permissions one.
+
+`[UNMEASURED]`, pre-registered with them before the build lands: (a) whether `evidence-chart` renders
+acceptably with only **two** points — every live instance sampled has more; (b) whether the caption
+survives into the served bytes.
+
+**Filed:** LANDMINES.md, *"`evidence-chart` guarantees PROVENANCE, not COMMENSURABILITY"*, footprinted
+on the chart fields and dispatched to the verifier. Owed: tell `brochure_component_library` — a
+per-point unit, or a refusal to share an axis across mixed units, is their component's call and this
+is the first evidence for it.
