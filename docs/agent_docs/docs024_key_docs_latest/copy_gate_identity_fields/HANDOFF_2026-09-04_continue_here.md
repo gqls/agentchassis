@@ -4,9 +4,12 @@
 `docs/agent_docs/docs024_key_docs_latest/copy_gate_identity_fields/`).
 **Bug:** `bugs_open/420_HANDOFF_2026-08-31_the_negation_gates_prose_walker_skips_name_fields_so_heading_tics_ship_unscanned.md`
 — **resolve 420 BY SLUG**, the number collides with the delivery lane's billing-email 420.
-**Commit:** `60091e140` · **Council:** `3e9e8ce8-fb9b-4f5b-a610-016b57427a27` — **round 1 REVISE
-(11:22Z); round 2 submitted 11:29Z and WITHHELD, NOT REVIEWED — see action 1** ·
-**Register:** CQ-037 · **Started from:** the session named `420 425`.
+**Commit:** `60091e140` · **Council: APPROVED** on `3e9e8ce8-fb9b-4f5b-a610-016b57427a27` at
+12:29Z — revise → revise → approved, 2 advisories, none high, **both about the submission and both
+checked (see the bug file's STATUS block)** · **Register:** CQ-037 · **Started from:** the session
+named `420 425`.
+
+**⚠ The council step is DONE. The only thing still owed is the post-roll verification (action 2).**
 
 ---
 

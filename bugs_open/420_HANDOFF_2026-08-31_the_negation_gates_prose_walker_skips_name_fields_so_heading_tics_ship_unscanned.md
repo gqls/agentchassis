@@ -1,6 +1,26 @@
 # 420 — the negation gate's prose walker skips `name` fields, so heading-surface tics ship unscanned
 
-> ## STATUS 2026-09-04 — FIXED IN CODE, INERT UNTIL THE NEXT ROLL. STAYS OPEN.
+> ## STATUS 2026-09-04 — FIXED IN CODE, COUNCIL **APPROVED** (round 3), INERT UNTIL THE NEXT ROLL. STAYS OPEN.
+>
+> **Council APPROVED at 12:29Z on correlation `3e9e8ce8-fb9b-4f5b-a610-016b57427a27`** —
+> revise (11:22) → revise (12:19) → **approved (12:29)**, 2 advisories, none high. No trailer to
+> add: commit `60091e140` already carries `Council-Submitted:` and `098` credits it automatically
+> once the correlation turns approved; forward-only forbids an amend and none is needed.
+>
+> **Both advisories were about the SUBMISSION, not the code, and both were checked:**
+> (a) *edit 7's declared file is `negation_content_test.go` but its sketch also describes tests
+> landing in `negationtells_test.go`* — true, and sloppy of me; the `file` field was single so it
+> passed validation, but the sketch misled. The tests themselves are in the right files.
+> (b) *edit 2 asserts rather than shows the `walkContentMap` call, so a reader cannot tell whether
+> the main 908-item case is wired or only the rare bare-string-in-a-list edge* — fair question,
+> **verified: `negation_content.go:152` is `Identity: identityContentField(key, m)` in
+> `walkContentMap`**, and `TestIdentityNameIsWalkedAndFlagged` covers exactly that shape (an object
+> inside an array). The main case is wired.
+>
+> `bug_historian` (approve) placed this against `016b` §9's *"a shared predicate written for one
+> INPUT SHAPE, reused on another, fails silently in the direction of false positives"* — which the
+> predicate split answers rather than reproduces. **So no new §9 entry:** this is a trap you meet
+> when you TOUCH the list with no symptom, which is `LANDMINES` territory and is filed there.
 >
 > Commit **`60091e140`** (7 files, `platform/orchestration/{datahelpers,actions}`), council
 > correlation **`3e9e8ce8-fb9b-4f5b-a610-016b57427a27`** — **round 1 REVISE (2026-09-04 11:22Z),
