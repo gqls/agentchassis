@@ -229,6 +229,22 @@ masked only incidentally by the next check.
 7. **Migration numbers collided twice in one session** (762 and 765 taken between my max check and my
    write). Filenames are unique so nothing was lost, but **check the max immediately before naming, and
    resolve by FILENAME, never by number.**
+   ⚠ **AND THE ORDER MATTERS: RENAME FIRST, RECORD SECOND.** Recording before you renumber leaves a
+   `schema_migrations` row naming a file that no longer exists — provenance-by-filename then dead-ends,
+   and the row reads as an applied migration nobody can find. `[MEASURED 2026-09-04, all 556 recorded
+   rows]` this has happened **exactly once** on this estate: `521_tool_deployer_fork_guard_armed.sql`,
+   recorded 2026-08-21 13:45:09 with no file anywhere, re-recorded as `530_…` 56 seconds later with the
+   note *"renumbered from a COLLIDING 521 (race with…)"*. Benign only because it WAS re-recorded and the
+   SQL self-guards. I recorded after renaming both times, so today's two renumbers left nothing.
+   The sweep is two commands and worth running after any renumber:
+   ```bash
+   kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d clients_db -At \
+     -c "SELECT filename FROM schema_migrations ORDER BY applied_at;" | grep -v '^$' > /tmp/rec.txt
+   git ls-tree -r --name-only HEAD -- docs/agent_docs/sql_for_agents/ | sed 's|.*/||' | sort > /tmp/head.txt
+   while read -r f; do grep -qxF "$f" /tmp/head.txt || echo "STALE ROW: $f"; done < /tmp/rec.txt
+   ```
+   (The `site_delivery_and_editor` lane owns the instrumented version of this check and its landmine;
+   don't fork a second account of it.)
 
 ---
 
