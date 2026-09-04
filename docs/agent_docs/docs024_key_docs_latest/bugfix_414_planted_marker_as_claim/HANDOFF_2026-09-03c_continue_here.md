@@ -1,3 +1,22 @@
+> # ⚠ SUPERSEDED 2026-09-04 — READ `HANDOFF_2026-09-04_continue_here.md` INSTEAD
+>
+> **Kept for the trajectory. Two of its load-bearing statements are now FALSE, and both would send a
+> fresh reader the wrong way:**
+>
+> - §0b(i) says the restoration is *"WRITTEN, TESTED, COMMITTED AND DELIBERATELY NOT APPLIED"*, held
+>   pending 743's verdict. **That verdict came back (REVISE — and its gating objection was true of the
+>   SKETCH, not the file), 743 was applied 2026-09-03 18:49, and all three pages are repaired and
+>   verified at the served bytes with 0 orphaned sentences.** Do not re-apply it.
+> - §2 says D1 (vetcomparison) is *"REPLIED. UNOWNED AND ACCEPTED. Ready to build."* **It is BUILT** —
+>   migrations 759 / 761 / 763 / 767, council APPROVED, and the `missing_evidence_register` item is
+>   closed.
+>
+> Also superseded: §3's acceptance test (*"ADDITIONS ONLY, no existing sentence removed or reworded"*)
+> is **the wrong test** — a restoration that splices a clause into a sentence cannot satisfy it. The
+> right measure is ORPHANED sentences. See the 09-04 handoff §3.
+>
+> Still true and still worth reading here: §1a (D4's bar), §3's two-clocks warning, §5's queue, §7.
+
 # HANDOFF 2026-09-03c — the evidence-register programme, after four owner rulings
 
 **Supersedes `HANDOFF_2026-09-03b_continue_here.md`** (13:00 UTC), which the owner's afternoon
