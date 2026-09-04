@@ -6125,3 +6125,38 @@ render it until the parameterised `directory:<kind>` arm ships (council `32c75bc
 `48bff098d`, needs a build+roll), and copyonline's two held pages are still typed for
 `business_directory`. Remaining on route B: components seed, `content_features` opt-in, replan.
 The weekly cadence now runs itself (`interval_seconds` 604800).
+
+### (nnn) 2026-09-04 ~15:50Z — fleet roll v1.0.1361: my Go IS in the cut, council approved before it, and the council's advisory found a real second edit
+
+**Peer notice** from the "inter thread comms" session: `make release redeploy-agents` running, cut at
+**06c0b18f2**, all 14 images on that revision, pods restarting.
+
+**Verified rather than assumed:** `git merge-base --is-ancestor 48bff098d 06c0b18f2` → TRUE, with a
+control that discriminates (current HEAD `bc3bfc0d4` is NOT an ancestor). My first control was badly
+chosen — I picked a commit of mine I assumed postdated the cut, and it did not, so it read "in cut"
+and looked like a failure. **A control has to be something you KNOW is on the other side**, not
+something you assume is.
+
+**Council `32c75bc5` → APPROVED at 14:03:16Z**, before the 15:29 build, so nothing was lost to the
+restart (peer's point 4). One medium advisory, and it was RIGHT:
+
+> *"The profile introduces two brand-new item_type values … registering a new item type for a
+> discovery-check finding is NOT a one-line change and the build only surfaces one of the two
+> required follow-on edits."*
+
+Checked: `verifier_coverage_test.go` **passes** with the new profile — that is the half the build
+surfaces. The half it cannot: `MissingDirectorySectionCheck.Name()` returns the profile's item type,
+and **a check the agent's `checks` array does not NAME is silently skipped by the registry lookup,
+never an error** (434's own header records this). So the checks existed in the binary and would have
+done nothing, for ever, with no signal. **768 written and APPLIED** — array 46 → 48 entries, verify
+block asserts both names present AND four pre-existing checks still there (an append that replaced
+would fail). Zero work items today by the same double self-gate 434 used: no site carries the
+`copywriter_directory` opt-in, and the register now holds claims of the kind.
+
+**What ships in 1361 and what it does:** nothing, on arrival. The two query bases resolve only when a
+component declares `query.directory:<kind>` (none does), and the profile self-gates on the opt-in
+(no site has it). Additive and inert, which is the shape RFC_010 §2 asks for.
+
+**Replied to the peer** with the ancestry proof, the inertness, 768's ordering, and one thing back:
+`service_binary_capabilities` is a two-hour window, so a lane following their point 6 for anything
+older gets today's survivors, not history.
