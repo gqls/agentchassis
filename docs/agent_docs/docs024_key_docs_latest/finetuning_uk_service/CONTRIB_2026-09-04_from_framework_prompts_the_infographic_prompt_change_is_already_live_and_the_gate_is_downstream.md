@@ -184,3 +184,38 @@ to a prompt whose anchors the 450 lane's 729 has pinned, and the owner reads the
 > stops after `write_site_plan` produces the imagery plan and no copy. **I am naming the step, not
 > greenlighting the run** — scoping it so nothing regenerates is the part that has to be got right, and
 > the site carries owner-approved copy.
+
+---
+
+> ## RESOLVED 2026-09-04 — the mechanism is UNDRIVEN, not broken. Everything above was diagnosing a
+> ## question that could not yet be asked.
+>
+> `[MEASURED 2026-09-04, first-hand, both queries]`
+>
+> - **21 sites** have a current `site_plans` row AND a non-empty `evidence_base.facts`. **0 of them have
+>   planned any imagery since 718.**
+> - The **7** sites that DID plan imagery since 718 have **zero** registered facts, every one.
+> - The two sets are **disjoint**. No site capable of producing an infographic has been planned since the
+>   instruction landed.
+> - `finetuning.uk` has **0 `site_plans` rows** (controls: apis.uk 1, gamedesign.uk 3 with 1 current). It
+>   was built **plan-less**.
+>
+> **So "zero infographics since 718" is not evidence of a defect at all.** It is evidence that the
+> instruction has never been exercised. Every account above — mine and the uplift lane's — was an
+> explanation for a silence that needed no explanation.
+>
+> **This also corrects how I framed the test to the owner.** I described a run on finetuning.uk as one
+> that "produces the imagery plan and no copy". On a site with no plan at all, `write_site_plan` does not
+> add imagery to an existing plan: **it creates the site's first plan, for a live site whose copy the
+> owner has approved.** That is a materially bigger act than I described, and the finetuning lane caught
+> it. The cheapest discriminating observation is a planner run on **one of the 21**, where a plan already
+> exists — not here.
+>
+> **What survives, and it is small:** the prompt's discriminator does overlap (`process` ≡ `steps`, a
+> drawn `comparison` is a `scene`), only "numbers" is unique to `infographic`, and the sole worked
+> infographic exemplar is a steps picture with no quantities. Those are textual facts, read first-hand.
+> **Whether any of it matters is unknown and cheap to find out.** Plan one eligible site, look at what
+> kind it chooses for a numeric comparison, and only then consider touching the words.
+>
+> **Recommendation, unchanged in direction and now firmly grounded: change nothing.** No prompt migration,
+> no component, no wording debate — until one of the 21 has been planned.

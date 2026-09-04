@@ -66112,3 +66112,31 @@ then wrong.
 - **Cost.** None reached the owner as fact: both accounts were reported to him as candidates and the
   correction went out the same session. What survives is the textual reading of the prompt, which I made
   first-hand, and the honest position that the two accounts are perfectly confounded in all available data.
+
+## 2026-09-04 — four accounts for a silence, and the answer was that the mechanism had never run (framework_prompts_positive_voice)
+
+- **The claim.** Asked why the fleet plans zero infographics since migration 718 told the planner to
+  produce them, I produced three explanations in sequence: no component can display one (refuted by me);
+  no site has numbers to chart (refuted by a peer, on a void test); the prompt's two categories overlap
+  so illustration always wins (never tested, and confounded).
+- **What was actually true.** `[MEASURED first-hand]` **21 sites have a current plan AND registered facts,
+  and 0 of them have planned imagery since 718. The 7 sites that did plan imagery have zero facts, all of
+  them. The sets are disjoint.** No site capable of producing an infographic has been planned since the
+  instruction landed. There was no defect to explain.
+- **What caught it.** The finetuning lane re-measured after its own retraction and found the disjoint
+  sets. I confirmed both halves myself in two queries taking about a minute.
+- **The cheap check that would have — and it is already in my own memory index.**
+  [[zero-adoption-means-read-the-mechanism]]: *a silent mechanism is usually UNDRIVEN, not missing; ~0%
+  adoption measures the MECHANISM.* The first question for any "zero X since the change" is **how many
+  eligible opportunities has the change actually had?** — a demand control on the *eligible* population,
+  not on activity in general. I ran a demand control (111 imagery entries were planned, so planning did
+  happen) and it passed, which felt like enough. **It was the wrong population**: 111 entries from 7
+  ineligible sites cannot exercise a rule that needs registered facts. A demand control has to count
+  opportunities that could have produced the outcome, not opportunities in general.
+- **Aggravating.** I also mis-scoped the proposed test, describing a planner run on finetuning.uk as
+  producing "the imagery plan and no copy". That site has **zero `site_plans` rows** — it was built
+  plan-less — so the run would create its first plan on a live site with owner-approved copy. Named
+  without checking; caught by the peer.
+- **Cost.** None shipped: no migration was cut, no component proposed for build, and every account
+  reached the owner marked as a candidate. The cost was the owner's attention across four explanations
+  of a non-problem, and that is the part worth not repeating.
