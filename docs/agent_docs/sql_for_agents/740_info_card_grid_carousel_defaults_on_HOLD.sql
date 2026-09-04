@@ -54,6 +54,18 @@
 --     of them (fundamentallyai.com) has a 10,928-byte bundle, so it is not
 --     "small bundle = zero". The instrument discriminates.
 --
+-- ⚠ **AND THE PRE-FLIGHT ABOVE WAS RUN OVER AN INCOMPLETE SET — RE-RUN, CONCLUSION HOLDS.**
+-- The 21-site probe used the SERVED pairing, so it could not see a carrier site whose
+-- info-card-grid instances all sit on non-deployed pages. [MEASURED 2026-09-04 16:1xZ] carrier
+-- sites: **23** under the pairing, **29** under `status='active'`. Six were never probed —
+-- `advertise.co.uk`, `boxingonline.com`, `dartsonline.com`, `designblog.co.uk`,
+-- `gamesdesign.co.uk`, `websitepromotion.co.uk`. **Probed now: all six serve
+-- /assets/js/snippets.js at HTTP 200 with 15 `data-hcc` occurrences**, so the gate's
+-- conclusion is unchanged and is now established over **29 of 29** rather than 21 of 29.
+-- Recorded because a safety claim verified over the wrong set is the shape this file has now
+-- hit twice — the blast-radius census above, and this. **Same root: the pairing answers "what
+-- is SERVED", and every question here is about "what will be RE-PLANNED".**
+--
 -- ══ ⚠ THE ACCEPTANCE TEST IN THE HANDOFF IS WRONG. DO NOT USE IT ═════════════
 -- HANDOFF_2026-09-03 §3.2 names `overflow-x` as the NEGATIVE control — "it reads
 -- 2 on both ... a flip that moves `overflow-x` is doing something other than what
