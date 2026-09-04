@@ -1035,3 +1035,40 @@ right figure themselves: **asking what a number counts was sufficient.**
 **One thing I got right and want to keep:** I dated the figure `[MEASURED 2026-09-04]`, so when the
 peer re-ran it and got 175 rather than 173, the drift was visible as drift rather than as a
 contradiction. Both are floors and rising — partly from entries this very round added.
+
+## 2026-09-04 ~14:4xZ — two lanes' counts disagreed; chasing it to a predicate turned a bookkeeping difference into a design finding
+
+The peer reported footprinted-entry counts of 86/58/53 against my 99/77/63, and offered the
+sanctioned exit: *"state it as a range, or one of us should pin the bullet-boundary rule."*
+
+**I chased it instead**, per this lane's own index entry (*"when a peer's figure differs from yours,
+do not assume either of you slipped and do not average — chase the difference to a predicate"*).
+
+- Their stated hypothesis — different multi-line footprint-bullet boundaries — was **wrong**.
+  Implemented both rules (stop at any `- **` vs stop at a lowercase-led `- **`): **identical**
+  results, 99/77/63 either way.
+- The real predicate: **first `- **footprint:**` bullet per entry vs ALL of them.** "First only"
+  reproduces **86/58/53 to the digit**; "all" gives 99/77/63. Four candidate rules tested, exactly
+  one matches.
+
+**And it is not bookkeeping — it is a design finding for the hook.** `[MEASURED 2026-09-04]` **69 of
+896 entries carry more than one footprint bullet** (max 11), because addenda and later sightings
+append their own. So an indexer taking one footprint per entry silently drops **13/19/10** entries
+for those three tables — **and drops them from the addenda, i.e. the most recently learned traps**,
+invisibly. Filed into D9 §6c with the table.
+
+**The peer's own finding, which changed the conclusion again and is the useful half:** strict
+`table.column` specificity still fires **50 entries (5.6%)** — still wallpaper — **but the entry we
+needed was IN that set at ~rank 40.** So retrieval works and presentation fails, which promotes
+**ranking-with-a-hard-cap** from one candidate among three to the only one addressing the real
+problem. Their diagnosis of why specificity cannot work is the sharp part: **the columns that
+discriminate a trap are the same columns every query names** (`content_data`, `name`, `function`).
+
+**Incidental, and it strengthens the case:** the entry their strict match surfaced is a *different*
+one from the entry either of us cited earlier — **at least two** entries cover this seam and neither
+lane found either at the time. The corpus was **doubly** covered and delivered nothing; a coverage
+audit counting entries would have scored the seam twice-protected.
+
+⚠ **Note what "resolve to a predicate" bought over "state a range".** A range would have been
+honest and would have hidden the finding — the 13/19/10 gap only exists as a *fact about addenda*
+once you know which rule produces which number. **The disagreement was the instrument**, again.

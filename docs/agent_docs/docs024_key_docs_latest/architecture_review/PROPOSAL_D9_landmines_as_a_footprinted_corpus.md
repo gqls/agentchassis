@@ -533,3 +533,66 @@ reason to date rather than to freeze them.
 `grep -c`, which is one command and answers a different question; the footprint figure needs the
 entry structure parsed. **The cheap measurement was not the measurement the claim needed**, and the
 only reason it was caught is that a peer asked what the number was a count *of*.
+
+#### 6c (cont.) — RANKING is the candidate that survives, specificity is not, and the two lanes' disagreeing counts RESOLVE to a predicate
+
+Contributed jointly with `ai-agent-orchestration`, 2026-09-04, after they measured the first
+candidate above against the case we both knew exactly.
+
+**1. Specificity fails, and the diagnosis is structural — not a tuning problem.** Requiring the
+footprint to name `table.column` for a column present in the statement, on our own query:
+
+| match rule | entries fired | % of corpus |
+|---|---|---|
+| table only | 129 | 14.4% |
+| loose specificity | 69 | 7.7% |
+| **strict `table.column`** | **50** | **5.6%** |
+
+Halving twice does not reach a readable output. **The reason it cannot: the columns that
+discriminate a trap are the same columns every query names.** `page_components.content_data` alone
+is roughly half the strict matches, and `content_data`/`name`/`function` are simultaneously the
+most-footprinted columns in the corpus and the ones any query against these tables touches. **The
+discriminating token and the ubiquitous token are the same token.**
+
+**2. But the strict set CONTAINED the entry we needed, at ~rank 40 of 50.** So the retrieval works
+and the **presentation** fails. **That promotes ranking-with-a-hard-cap from one candidate among
+three to the only one that answers the actual problem** — the other two are tuning a recall
+mechanism that already has the entry. Whoever builds §6a should start there: a hard cap of a few
+entries with an explicit ordering, not a filter.
+
+**3. Our two footprint counts disagreed, and the disagreement resolves EXACTLY to a predicate — it
+is not noise and neither of us was sloppy.** Reported: theirs `page_components` **86** /
+`content_components` **58** / `orchestration_states` **53**; mine **99 / 77 / 63**. Lines and
+entries-mentioning agreed to the digit (333/155, 175/99, 256/133), so entry splitting was
+identical. Their stated hypothesis — different multi-line bullet boundaries — was **not** the cause:
+implementing both boundary rules gives **identical** results.
+
+**The cause is whether you count the FIRST `- **footprint:**` bullet per entry or ALL of them.**
+Implementing "first only" reproduces 86/58/53 to the digit; "all" gives 99/77/63.
+
+**4. Which is a DESIGN FINDING, not bookkeeping.** `[MEASURED 2026-09-04]` **69 of 896 entries carry
+more than one footprint bullet** (max **11** in one entry) — they accumulate as addenda, corrections
+and later sightings are appended, which is exactly how this corpus grows. So:
+
+| token | entries reachable via ANY footprint | via the FIRST only | **reachable ONLY via a later footprint** |
+|---|---|---|---|
+| `page_components` | 99 | 86 | **13** |
+| `content_components` | 77 | 58 | **19** |
+| `orchestration_states` | 63 | 53 | **10** |
+
+**An indexer that takes one footprint per entry silently drops 10–19 entries per hot table — and it
+drops them from the ADDENDA, i.e. the most recently learned traps.** That is a worse failure than
+the count difference suggests, and it is invisible: nothing distinguishes "this entry has no
+footprint for your table" from "its footprint is on bullet three". **Parse every footprint bullet in
+the entry.** The correct figures for the hook question are therefore **99 / 77 / 63**.
+
+**5. One incidental find, which strengthens §6c rather than weakening it.** The entry their strict
+match surfaced is *not* the one either of us cited earlier — there are **at least two** entries
+covering the same `name`/`function` resolution seam, and **neither lane found either at the time**.
+The corpus was **doubly** covered and delivered nothing. A coverage audit counting entries would
+have scored this seam as twice-protected.
+
+⚠ **Caveat carried from their measurement, in their words:** their "what a hook could extract from a
+statement" is a hand-made token set, not a parser, so a real implementation may extract more or
+fewer tokens and move the specificity figures. The **direction** (every rule lands in wallpaper
+territory) is robust across all three rules; the individual percentages are not load-bearing.
