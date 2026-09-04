@@ -807,3 +807,44 @@ empty-writer-context finding (`Company:` empty on 41% of 6,931 writer calls).
 date-shaped string as a fight date; an interval containing growth as growth continuing; a filename as
 a phase; an unfiltered row count as a blast radius. Every correction came from a lane that read the
 STRUCTURE where I had matched a PATTERN.
+
+---
+
+# UPDATE 9 — 2026-09-04 ~16:25Z. The countdown is `bugs_open/482`, and the checker designed to catch this class would MISS it.
+
+`bugs_open/482_HANDOFF_2026-09-04_a_tool_page_bakes_fictional_dated_content_at_generation_time_with_no_path_to_the_real_facts_that_exist.md`
+is filed by the `calendar` lane, cross-referenced with `bugs_open/427` §24 both ways.
+
+## It is not a one-off — the same mechanism fired twice on 2026-09-03, on different tools
+
+427 §22 records the tool pipeline building the mechanism correctly and **fabricating its data** for
+the fight-calendar page: **12 invented fixtures, caught before deploy.** 482 is the same root cause
+on `tool-fight-countdown`, **already deployed** and serving. §22.5 explains why nothing stopped
+either: *the claims perimeter is structurally blind to `<script>`, and a tool's data is ALWAYS in a
+script.* The owner's requirement is quoted in §23: **"we can't have invented fights, ever."**
+
+## ⚠ VERIFIED BY ME: all three §23.2 checker layers would score this tool CLEAN
+
+The `calendar` lane's §24 correction says neither content-side layer would catch 482. I measured both
+needles directly against the served `/tools/fight-countdown/index.html`:
+
+| layer | its needle | occurrences in the offending tool |
+|---|---|---|
+| Layer 2 | an ISO-date-string key (`"2026-09-02"` shape) | **0** — the dates are `year: 2025, month: 5, day: 14` numeric triplets |
+| Layer 3 | `data-fact-id` attributes | **0** — the tool has none, so it is *silently out of scope*, not failing |
+
+So the plan's **"0 matches, zero false positives"** is true for its own definition and **has a live
+blind spot on the exact defect that motivated it.** A checker that cannot represent the offending
+shape reports clean and reads as coverage. **Widen the layers before anyone ships them as scoped.**
+
+**And birth-time refusal alone is insufficient**: both violations predate any checker, so **a census
+over already-built tools is needed regardless of which layers land.** Whoever picks up §23 should read
+482 first.
+
+## Consequence for this thread's own reporting
+
+482 was named by **none** of the five deferred verdicts I cited, and the four calendar ones are
+superseded (they describe a pre-build "buried in a paragraph" state). Combined with §22's near miss,
+that is twice in two days that the recorded backlog did not contain the live defect. **Do not treat
+the record-mode backlog as an inventory of what is wrong with a site** — it is an inventory of what
+the seats happened to look at.
