@@ -70,9 +70,13 @@ column joins them:
 3. **`sites.email` / `sites.company_name`** — the **PUBLISHED** contact only, since `bugs_open/420`.
    Written by `seedCustomerIdentity` (`platform/orchestration/actions/seed_build_queue_action.go:317`)
    and only from `direction.published_contact`, never from the payer's address.
-4. **`site_deliveries.delivered_to`** — who a delivered site was actually sent to. **NEW and in
-   flight in another session's tree** (`docs/agent_docs/sql_for_agents/778_…sql`, written by
-   `platform/delivery.Claim`). Exists precisely because `sites.email` is populated and wrong for
+4. **`site_deliveries.delivered_to`** — who a delivered site was actually sent to. ~~**NEW and in
+   flight in another session's tree**~~ **CORRECTED 2026-09-04, same day: COMMITTED (`698b144fa`) and
+   APPLIED.** `[MEASURED 2026-09-04]` the table exists live and carries one backfilled row
+   (`recorded_by = 'backfill-orchestration-states-778'`, written 14:16:57Z). Its Go half rides the
+   v1.0.1361 cut and had not rolled at the time of writing. Caught by the fleet roll notice, hours
+   after writing — **a peer lane's in-flight work is the fastest-staling fact you can put in a
+   document** (`docs/agent_docs/sql_for_agents/778_…sql`, written by `platform/delivery.Claim`). Exists precisely because `sites.email` is populated and wrong for
    this purpose: idea.uk carries `idea.uk@contactforsales.com` while the delivery went to
    `aaa@designconsultancy.co.uk`.
 
@@ -172,6 +176,7 @@ exists and `src/App.tsx` is **0 bytes** — a stub from the persona era, not a s
   email, the links host, and the OPTIONS doc. Any Phase 5/6 build is theirs unless the owner
   moves it. Contribute by `CONTRIB_` note, do not fork.
 - `bugfix_477_delivery_followup` — **ACTIVE.** Owns `platform/delivery/{delivery,handover}.go`
-  and migration `778` (`site_deliveries`) right now, uncommitted in the shared tree. Stay out
+  and migration `778` (`site_deliveries`) — ~~uncommitted in the shared tree~~ **committed and
+  applied 2026-09-04 (`698b144fa`)**; they still own those files. Stay out
   of those files.
 - `web_admin_console` — owns the operator-side Customers screen that ADM-011 feeds.

@@ -118,10 +118,16 @@ Beyond the pre-plan's table, the stores that actually hold a paying customer tod
 3. `sites.email` / `company_name` — the **published** contact only, written by
    `seedCustomerIdentity` (`seed_build_queue_action.go:317`) and only from
    `direction.published_contact`. Never the payer.
-4. `site_deliveries.delivered_to` — who a delivery actually went to. **New, in flight in another
-   session's tree** (`docs/agent_docs/sql_for_agents/778_…sql`, written by `platform/delivery.Claim`).
-   It exists because the obvious column was populated and wrong: idea.uk carries
-   `idea.uk@contactforsales.com` while the delivery went to `aaa@designconsultancy.co.uk`.
+4. `site_deliveries.delivered_to` — who a delivery actually went to.
+   ~~**New, in flight in another session's tree**~~ **CORRECTED 2026-09-04, same day: COMMITTED
+   (`698b144fa`) AND APPLIED** — `[MEASURED 2026-09-04]` the table is live with one backfilled row
+   (`recorded_by = 'backfill-orchestration-states-778'`, 14:16:57Z); the Go half rides the v1.0.1361
+   cut, unrolled at the time of writing. (`docs/agent_docs/sql_for_agents/778_…sql`, written by
+   `platform/delivery.Claim`.) It exists because the obvious column was populated and wrong: idea.uk
+   carries `idea.uk@contactforsales.com` while the delivery went to the customer's real address.
+   **The staleness is the point of the footnote:** this store was described here as unbuilt and was
+   live within hours, which is exactly why §2d argues that the count of stores is the thing to
+   watch.
 
 `clients` — the store the owner ruled canonical on 2026-08-10 — is written by **none** of these. Its
 only writer is `POST /admin/customers` (`internal/core-manager/admin/customer_handlers.go:190`).
@@ -226,7 +232,9 @@ competing with it.
   the delivery email, `/c/` and `/d/` — and has offered to be called on for the token machinery
   Phase 1 needs (their §7). Take them up on it rather than re-implementing.
 - **`bugfix_477_delivery_followup` is ACTIVE** and owns `platform/delivery/{delivery,handover}.go`
-  and migration `778` right now, uncommitted in the shared tree. Stay out of those files.
+  and migration `778`. ~~uncommitted in the shared tree~~ **CORRECTED 2026-09-04: committed
+  (`698b144fa`) and applied; the Go half rides the v1.0.1361 cut.** Still theirs — stay out of those
+  files.
 - **`bugfix_417_420` owns RFC_058.** Any identity/role schema is a contribution to that RFC, not a
   parallel design.
 - **`finetuning_uk_service` is about to need the same thing** —
