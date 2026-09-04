@@ -1,3 +1,10 @@
+> **⚠ CLOSED 2026-09-04 — SUPERSEDED by `HANDOFF_2026-09-04b_continue_here.md`.**
+> Every decision this file put to the owner was answered the same day and every one is acted on:
+> (1) the induced check is ARMED on two callers, (2) candidate 2 is ruled "leave it", (3) direct-caller
+> observability is `bugs_open/480`, (4) "fix it properly" shipped as the budget ladder plus migration 769,
+> which is APPLIED. **Read this file for its analysis of rounds 1–2 only; its §4 asks for work that is
+> done, and its §5 action list is spent.**
+
 # HANDOFF 2026-09-04 — continue here (bugs_open/257, round 2: SHIPPED, APPROVED, LIVE — and three decisions waiting)
 
 **Supersedes** `docs/agent_docs/docs024_key_docs_latest/bugfix_257_token_budget_at_the_client/HANDOFF_2026-09-03_continue_here.md`,
