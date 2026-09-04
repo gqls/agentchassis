@@ -4,15 +4,27 @@
 `docs/agent_docs/docs024_key_docs_latest/copy_gate_identity_fields/`).
 **Bug:** `bugs_open/420_HANDOFF_2026-08-31_the_negation_gates_prose_walker_skips_name_fields_so_heading_tics_ship_unscanned.md`
 — **resolve 420 BY SLUG**, the number collides with the delivery lane's billing-email 420.
-**Commit:** `60091e140` · **Council:** `3e9e8ce8-fb9b-4f5b-a610-016b57427a27` (submitted, verdict
-pending) · **Register:** CQ-037 · **Started from:** the session named `420 425`.
+**Commit:** `60091e140` · **Council:** `3e9e8ce8-fb9b-4f5b-a610-016b57427a27` — **round 1 REVISE
+(11:22Z), round 2 submitted on the same correlation (11:29Z), verdict pending** ·
+**Register:** CQ-037 · **Started from:** the session named `420 425`.
 
 ---
 
 ## THE TOP THREE ACTIONS, in order
 
-1. **READ THE COUNCIL VERDICT — it is the only thing actually owed.** The code is already on the
-   shared branch; a REVISE or REJECTED has to be acted on, not filed.
+1. **READ THE ROUND-2 COUNCIL VERDICT — it is the only thing actually owed.** The code is already
+   on the shared branch; a REVISE or REJECTED has to be acted on, not filed.
+
+   **⚠ Round 1 was REVISE and the objection was CORRECT — read it before assuming round 2 is a
+   formality.** `editquality` found that the plan claimed "add `name` to `headlineFieldRe`" while
+   containing no edit showing that regex change. The change was in the committed code
+   (`negation_content.go:253`); the PLAN omitted it. Implemented from that plan, `t.Headline` never
+   becomes true for a `name` field — so the heading floor is never selected and the ordering fix
+   guards a severity that never applies. **A fix that silently does two thirds of nothing**, which
+   is this bug's own failure shape one level along. Round 2 makes it a standalone edit.
+   **The lesson, if you submit anything from this lane: the plan is the artefact under review, not
+   your working copy.** And **merging two edits to fit the 8-edit cap is refused server-side when
+   they name different files** — one edit = one file, so merge same-file edits instead.
    ```sql
    SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
    WHERE correlation_id='3e9e8ce8-fb9b-4f5b-a610-016b57427a27' AND kind='council_report'
