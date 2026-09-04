@@ -575,3 +575,80 @@ here on `leopardessconsulting.co.uk/index`.
 **`AUTHORITY WON` means a human's edit was destroyed.** Close it so it stops blocking the
 dedup key, but record the direction in `result` — closing it as a plain success ratifies
 the loss. See `bugs_open/469`.
+
+---
+
+## 2026-09-04 — provenance census recipes
+
+### Is a lane actually dormant? Ask, don't only measure
+
+`scripts/who-owns.py 427` reads COMMITS, so it cannot see a session mid-work, and a
+"session has ENDED" claim decays by REVERSAL (`54df41b22`) so re-measuring never catches it.
+The check that works is `git log --since` on the **bug file path** to separate *contributions
+from other lanes* from *the lane resuming* — today's two commits to `bugs_open/427` were the
+`boxingonline.com` and `calendar` lanes, not this one — and then `ListAgents` + a direct
+message. All three peers answered within minutes.
+
+### The provenance measurement, both ends
+
+```sql
+-- which components were rendered FROM facts, and which carry it to markup
+SELECT cc.function,
+       count(*)                                                            AS placements,
+       count(*) FILTER (WHERE pc.rendered_html LIKE '%data-fact-id%')      AS emits_data_fact_id,
+       count(*) FILTER (WHERE pc.rendered_html LIKE '%data-series=%')      AS emits_data_series
+FROM page_components pc LEFT JOIN content_components cc ON cc.id = pc.component_id
+WHERE pc.content_data::text LIKE '%fact_id%'
+GROUP BY 1 ORDER BY 2 DESC;
+```
+
+⚠ **Run BOTH attribute columns, not just `data-fact-id`.** Querying only the one you expect
+returns 0 and reads as "nothing carries provenance". Three placements do — under
+`data-series`, a spelling with **one emitter and zero readers** in `platform/`, `internal/`
+or `pkg/`. Checking one vocabulary is how a shared-vocabulary defect reads as a missing
+feature.
+
+### The tool dataset census — and why NOT to key it on dates
+
+```
+kubectl … psql -t -A -c "SELECT jsonb_build_object('name',name,'schema',COALESCE(input_schema,'{}'),'tmpl',html_template)::text
+  FROM content_components WHERE component_level='tool' AND is_active;" > tools.jsonl
+```
+then extract `<script>` bodies, take innermost object literals (`\{[^{}]{10,800}\}`), and score
+each on **two independent predicates** — they are NOT nested, which is a correction this
+lane had to make after the `482` lane found `ds=18, ea=20` on one row:
+
+- `ds` — has a human-readable string value (>=8 chars containing a space);
+- `ea` — has an **identity** key (`name`/`title`/`brand`/`venue`/…) AND an **attribute** key
+  (`postcode`/`website`/`price`/`rate`/`year`/…), regardless of string content.
+
+**Use `ea` for a fabrication gate.** `ds` drops single-word entity names ("Secateurs"), and
+invented product and practice names are frequently one word. `[MEASURED 2026-09-04]` 335
+active tools → 134 with a dataset, **5** with `ea >= 2`.
+
+⚠ **Do NOT key it on date shapes.** The `482` lane's date-shaped census returned **1 of 335**,
+which reads as a first occurrence; the entity+attribute framing found five candidates and at
+least three real ones. And record count is a bad axis outright: their simulation over this
+census gives **89% false positives** at `>=15` records, with the largest legitimate dataset at
+**73** and the motivating fabrication at **6**.
+
+### The number that reframes any tool-provenance claim
+
+```sql
+SELECT count(*) AS active_tools,
+       count(*) FILTER (WHERE input_schema IS NULL)      AS schema_null,
+       count(*) FILTER (WHERE input_schema::text = '{}') AS schema_empty
+FROM content_components WHERE component_level='tool' AND is_active;
+--  335 | 287 | 0
+```
+
+**86% of tools declare nothing.** So "declares no fact-bearing field" is the DEFAULT state,
+not a signal: sound as an *exculpatory* test, near-inert as an *inculpatory* one. Any claim
+about a schema-keyed mechanism's reach must be dated and stated as a fraction of 335.
+
+### Council submission shape — `plan` is an OBJECT, not a list
+
+`097_TRIGGER` refuses with `ERROR: .plan missing` if `plan` is a list. The schema is
+`{"rationale":…, "submitter":…, "plan": {"summary":…, "edits":[…<=8], "grounded_in":[…], "risks":…}}`.
+`DRY_RUN=1` validates admission for free — use it every time; it also prints scope warnings
+(today: unclassified `_ISLAND`/`_RELOCK` migration suffixes, treated as IN scope by default).
