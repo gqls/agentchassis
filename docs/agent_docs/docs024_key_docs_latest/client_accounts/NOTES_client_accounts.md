@@ -239,3 +239,49 @@ and under 5a's no-merge rule, reconciliation is a human decision per pair.
 **Confirmed to them re Phase 0:** `EnsureSiteRecordAction` gains an OPTIONAL network parameter,
 opt-in, unsafe side default OFF (owner ruling 2026-08-02 §2), council-scope, register entry in the
 same commit, and they get told before it ships.
+
+## 2026-09-04 (late) — fleet roll notice: nothing of ours ships, and the check I used to prove it was wrong
+
+The `inter thread comms` session relayed the `v1.0.1361` roll (14 images built from cut `06c0b18f2`,
+pods not yet restarted) and a verified credit outage 11:21:11–11:56:47 UTC that killed 92
+council-gate runs.
+
+**Nothing of ours is affected.** 13 commits this session, **all under `docs/`**, zero `.go`, zero SQL,
+no council submission — so nothing rides the cut and no correlation of ours was spent.
+
+### ⚠ The misstep, and it nearly reversed the answer
+
+To prove "this lane shipped no Go" I ran `git log --author=cqls --since="6 hours ago" --name-only`.
+**It returned ten `.go` files** — `cmd/config-key-audit/*`, `platform/aiservice/*`,
+`internal/core-manager/handlers/delivery.go` and others. **None of them ours.** Every session on this
+machine commits under the same git identity, so an author filter returns the whole estate's
+concurrent work, well-formed and indistinguishable from your own.
+
+Caught only because `delivery.go` was recognisably the `bugfix_477_delivery_followup` lane's and
+could not have been mine. Had I not recognised a filename, I would have told a peer the opposite of
+the truth and probably asked them to hold a roll over another lane's files.
+
+**Filed as a fleet-wide landmine** (`LANDMINES.md`, *"`git log --author` CANNOT isolate your session
+on this tree…"*), synced to `doc_notes` and verifier dispatched —
+**`CORRELATION_ID=12419328-2b1b-4cd7-bd71-ccad69b6bdc7`**; the verdict is async, check
+`doc_notes WHERE categories ? 'landmine-verification'`. ⚠ `landmines-verify-dispatch.sh` failed the
+first time with a `kubectl exec` connection reset (transient, plausibly the roll); the immediate
+retry succeeded. **A psql stream reset there is not a drift error — retry before diagnosing.**
+
+The right check is in `RUNBOOK_client_accounts.md`: enumerate your own commit hashes, or list by the
+pathspec you committed with.
+
+### Adopted from the outage notice, before we ever submit
+
+A council run whose seats were all down ends `status='COMPLETED'`, `error` NULL,
+`current_step='complete_invalid'` — reading as *"your submission was malformed"* when it was fine —
+and **the correlation is then SPENT**, so a `Council-Submitted:` trailer naming it reads un-reviewed
+for ever. The `__step_errors` query is now the first thing in the RUNBOOK's council section. This
+lane has two council rounds coming (the `EnsureSiteRecordAction` producer change; the
+`customer_access_tokens` widening), so it would have hit us cold.
+
+### One fact returned to them, delivery-adjacent and in this cut
+
+`[MEASURED 2026-09-04]` nothing enforces `sites.live_link_expires_at` — every Go reference is a write
+at handover, a follow-up eligibility predicate, or a test. The roll does not change that either way,
+but the delivery package landing should not be read as "hosting now expires".
