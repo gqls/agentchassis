@@ -1986,3 +1986,39 @@ on element COUNT, not on empty-element shapes.**
 **Corrected everywhere it reached:** this file, `LANDMINES.md` (in place, visibly),
 `RUNBOOK`/`NOTES`/`README_where_we_are`, the 09-04 handoff, the memory sub-index, and both peer
 lanes I had quoted it to.
+
+## UPDATE 2026-09-04 13:3xZ — prediction still OPEN, and my "ordinary rotation" claim re-tested (it holds, with one caveat I had missed)
+
+**The prediction from §7 of the 12:0xZ update has not resolved.** `[MEASURED 13:28:11Z]`
+leopardess's last `rerender-pages` is still **2026-09-03 17:48:31** — **19.7 hours** — and the
+`/blog` `blog-listing` array is unchanged at `updated_at 17:48:40`, **1 blank entry**. So the blank
+is still there and the repair path still has not run.
+
+**I re-tested my own 11:5xZ claim that this is ordinary rotation rather than starvation**, because
+it was 1.5 h old and the fleet had run a `rerender-pages` at 13:10:36 without leopardess getting
+one. `[MEASURED 13:2xZ]` across the 22 sites with a run in the window:
+
+| | |
+|---|---|
+| leopardess gap | **19.7 h** |
+| sites with a MORE RECENT run | **14 of 22** |
+| mean gap | 12.9 h |
+| observed max gap | 24.3 h |
+
+**The claim holds — leopardess is in the slower half, not off the end.** But it is nearer the tail
+than when I first said it, so anyone re-reading should re-measure rather than quote this.
+
+⚠ **The caveat I had missed, and it is a censoring artefact:** `orchestration_states` retains
+**~25 h**, so a site whose last `rerender-pages` was longer ago than that has **no row at all** and
+is absent from this table entirely. **The "observed max 24.3 h" is therefore bounded by the
+retention window, not by the fleet's behaviour** — it is exactly the window length, which is the
+tell. So this measurement can say leopardess is unremarkable *among sites that ran recently
+enough to still be visible*, and it structurally cannot see the starved tail. **A "worst case" that
+equals your retention window is not a worst case.** Same family as the standing
+`orchestration_states` retention landmine; noting it here because I used this table to support a
+"not starvation" claim, which is precisely a claim about the tail it cannot see.
+
+**What would settle it properly:** `page_component_history` on the listing (durable, not windowed) —
+`action:rebuild_blog_listing` wrote leopardess `/blog` 7 times between 08-24 and 09-03, so the
+inter-run gaps are recoverable there for as long as the history is kept. Not done here; the
+prediction check in §7 stands as written and the residual query is its durable half.
