@@ -256,7 +256,24 @@ children. Fixing the vocabulary and fixing 463 are the same subject.
 - **`gamedesign.uk`** — told the two rulings; their re-plan is now also the reference case for
   what correct placement looks like.
 
-**Open question this lane could not answer from source alone:** whether `pages.site_area_id` /
+~~**Open question this lane could not answer from source alone:** whether `pages.site_area_id` /
 `site_areas` already constitutes a per-site section registry. If it does, this is much smaller
 than an RFC. `[UNVERIFIED]` — do not assert either way until the planner lane answers or someone
-reads the writers.
+reads the writers.~~
+
+> **ANSWERED AND REFUTED 2026-09-04, by the `site-design-planner` lane — there is NO registry.**
+> `[MEASURED]` `site_areas` holds **2 rows fleet-wide**, both `name='main'`,
+> `url_prefix='/'`; `pages.site_area_id` is **NULL on all 1,362 pages**, zero exceptions; and
+> the only Go reference to the symbol is a passthrough `SELECT` in
+> `rerender_single_page_action.go:623` — nothing populates it and nothing acts on it.
+> **So a declared-section registry is NEW CONSTRUCTION, not the extension of a working
+> mechanism.** That raises the cost and makes the RFC route more clearly correct, not less.
+> Do not let a future reader frame this as "site_areas already does half of it".
+
+> **ROUTING CORRECTION, same exchange.** `site-design-planner` is **composition resolution
+> only** — layout, palette, typography — and has never touched a page's URL, directory or
+> role. The owning agent for `plan_site` / `page_canonical.go` is **`build-site-planner`**.
+> This lane misrouted on the name; recorded so the next thread does not repeat it. Q2 (should
+> the model be told the site's directories, or never choose) and Q3 (is `content`/`landing`
+> refusing `ParentSection` load-bearing) were re-put to the `boxingonline.com` session as the
+> live lane for `bugs_open/427`.
