@@ -912,3 +912,35 @@ RUNBOOK's SellerHub subsection now).
   Remaining registrar-side blocker for the rollout itself: none named here;
   check the PLAN for what's actually gating the first real Cloudflare
   zone-per-domain run at scale.
+
+## 2026-09-04 — cold-start pickup ("dynadot" session): inventory + auto-renew re-verified, no appraisal calls run
+
+Fresh session picking up `HANDOFF_2026-09-04_continue_here.md` cold. Followed
+its own "if you're picking this up cold" steps before touching anything
+shared:
+
+- Checked `domain_valuation/` git log first, per the handoff's own step 1 —
+  found the handoff document was **already stale at the moment it was
+  written relative to HEAD**: HEAD already carried `810b2957e` (Spaceship
+  RUNBOOK/handoff update) on top of `59d396da3`, both landed *after* the
+  `a8451c251` commit the handoff cites as "latest". The Spaceship
+  account-identity flag is **RESOLVED** (mechanism: it's a Spaceship listing
+  under an account this estate has no key for, not a Dynadot issue at all —
+  full write-up `domain_valuation/LISTING_ACCOUNT_2026-09-03_finding.md`).
+  **Still open, and only the owner can close it**: which Spaceship account.
+  The "don't price/relist the 50" instruction stands until that lands.
+- Mid-read, the domain_valuation session announced (cross-session message)
+  it was claiming today's Dynappraisal window (PREMIUM queues first, then
+  bulk direct). Replied confirming zero calls run from this session today —
+  no collision — and flagged the 12 untested-TLD probe calls from the
+  handoff as still outstanding, offering to run them first; awaiting their
+  call before touching the appraisal endpoint.
+- Did the non-quota half instead: fresh `list_domain` pull `[MEASURED
+  2026-09-04]` — **472 domains, byte-for-byte identical set** to the
+  `inbound/dynadot_domains_2026-09-02.csv` checked in by the previous
+  session (472 rows, zero added, zero dropped since 09-03 night). Auto-renew
+  sweep (`dynadot-ensure-autorenew.sh`, dry-run) confirms **472/472
+  auto-renew, nothing to do** — the account-level default is still holding
+  clean for organic `.com` registrations; the transferred-in/marketplace
+  case remains unproven either way, no such arrival to test against today.
+  No CSV update needed — the checked-in file already matches live exactly.
