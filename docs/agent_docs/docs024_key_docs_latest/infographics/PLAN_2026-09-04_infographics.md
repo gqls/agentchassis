@@ -50,6 +50,24 @@ the answer in route A and found silence, because the word "infographic" names ro
 ⚠ **This is a landmine, filed as one** (LANDMINES.md, footprint `site_plan_imagery`): querying
 `kind='infographic'` measures one of two routes and returns a confident, correct, useless number.
 
+> ### ⚠ UPDATED 2026-09-04 (evening) — THERE IS A **ROUTE C**, and §2's two-route model is incomplete
+>
+> **Route C: structured markup inside the prose blob, driven by a `content_direction` spec rule.**
+> `[MEASURED 2026-09-04]` gamesdesign.co.uk: `<table>` in **13 of 13** article bodies (100%) vs **3
+> across the other 368** (0.8%); cause is that site's own spec — *"never describe a sequence of steps
+> purely in prose when a table would make it scannable"* + a `list_usage` field. **It needs no
+> component, no plan row, no pipeline and no composition — it is a spec field**, which makes it the
+> cheapest lever in the estate for the owner's ask.
+>
+> **It also inverts the durability premise this lane and two others reason from:** route C's artefact
+> does not survive a wholesale rewrite — it is **RE-DERIVED**, because the rule is still in the spec.
+> Durability by regeneration, not preservation.
+>
+> **And §2's own arm-B query is blind to it** (no `page_components` row), exactly as route-A queries
+> are blind to route B. Held at **n=2**: a second instructing site gets 1 of 8, unexplained, and the
+> disconfirming read (are its 7 tableless articles *correctly* tableless?) is **unmade**.
+> Full account: NOTES §11. Landmine corrected the same day.
+
 ## 3. The contradiction, stated as a specification defect and NOT as a cause
 
 Three of the estate's own rules disagree about who may carry a number:
