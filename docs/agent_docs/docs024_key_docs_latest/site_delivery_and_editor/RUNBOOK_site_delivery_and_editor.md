@@ -422,9 +422,45 @@ CORR=$(cat /proc/sys/kernel/random/uuid)
 PAYLOAD=$(jq -c -n --arg s "$SITE" --arg d "$DOMAIN" --arg e "<an address we control>" \
   --arg z "<presigned url from step 3>" --arg m "<expiry minutes from step 3>" '{action:"orchestrate",
   config:{agent_type:"delivery-email-sender"},
-  input_data:{site_id:$s,customer_email:$e,live_site_url:("https://"+$d),
+  input_data:{site_id:$s,customer_email:$e,live_site_url:$live,
               zip_presigned_url:$z,zip_presign_minutes:$m}}')
 ```
+
+> ### ⚠ CORRECTED 2026-09-04 (owner instruction) — `live_site_url` is NOT `https://<domain>`
+>
+> **The owner's words:** *"the delivery email should say it is on the ugg2 subdomain not
+> paper-cups.com. I will transfer it to our system later."*
+>
+> This recipe used to compose `("https://"+$d)` from the site's own domain. **That is wrong for every
+> site whose domain we have not yet pointed at us** — the customer is mailed an address that does not
+> resolve, on the line their whole "your site is live" story rests on. It was right for `idea.uk` only
+> by accident: we own that domain and it was already pointed.
+>
+> **The serving host lives in `sites.publish_project`** (`boxingonline.ugg2.com`,
+> `noted.ugg2.com`); `sites.publish_target` holds the WORKER NAME (`b2worker`), not a URL.
+>
+> ```bash
+> LIVE=$(psql -At -c "SELECT publish_project FROM sites WHERE id='$SITE'")
+> [ -n "$LIVE" ] || { echo "REFUSING: publish_project is empty — this site is not opted in, so there is no served URL to mail"; exit 1; }
+> live="https://$LIVE"
+> ```
+>
+> ⚠ **AND THE REFUSAL IS THE LIKELY BRANCH, NOT THE EDGE CASE.** `[MEASURED 2026-09-04]` **only 2 of
+> 60 sites** have `publish_project` set — `boxingonline.com` and `noted.co.uk`. **`idea.uk` and
+> `webdesign.uk` are both EMPTY.** And **no code writes the column**: the only reference outside a
+> test is `b2worker.go:63`, which *refuses* when it is empty (*"set it to the serving hostname …
+> before opting the site in"*). **So it is opted in BY HAND, per site, and a new build does not get
+> one.** Set both columns before delivery, or there is no ugg2 address to send.
+>
+> **Do not substitute `publish_target`.** `boxingonline.com`'s value is the literal string
+> `b2worker`, so a COALESCE across the two would mail a customer the word "b2worker" as their website
+> address. The `477` lane nearly shipped exactly that and left the warning in `775`'s header.
+>
+> **Useful thing to know when the domain IS pointed later:** `*.ugg2.com` is not a different host from
+> "our normal place" — it is **the same Backblaze `portfolio-sites` bucket served by our Cloudflare
+> worker**, keyed `hostname + path`, and *"the worker already resolves any hostname prefix it is
+> routed for"* (`b2worker.go:1-7`). So moving a customer from `x.ugg2.com` to their own domain is a
+> routing change, not a migration of files.
 
 **This step is irreversible.** It stamps the handover once and only once, mints the customer tokens,
 and sends. A second dispatch for the same site is REFUSED by the stamp — that refusal is the
