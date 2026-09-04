@@ -606,3 +606,23 @@ carry a conditional the 4-letter-`.com` rule never had.
   mid-window made bash resume at a shifted byte offset and die with a syntax
   error the file does not have (`bash -n` passes). The queues had finished; only
   the run's own duplicate check was lost, and I ran it by hand.
+
+### Closing loose end: the landmine verifier cannot check this lane's entries
+
+Both landmines filed today came back **UNVERIFIABLE** — *"all footprint items
+(value_domains.py, sale_status, PREMIUM-REVIEW branches,
+appraisal_queue_PREMIUM_*.csv) live in Python scripts, CSV data files, or agent
+docs — non-Go, outside the symbol index."* Same for the walker entry.
+
+That is the verifier working correctly and failing SAFE: it says it cannot
+check, rather than returning STILL_VALID on something it never looked at. But
+the consequence is worth knowing before you rely on it — **this lane's entire
+toolchain is Python and CSV, so no landmine we ever file here will be machine
+re-checked.** Fleet-wide the verdicts run NEEDS_HUMAN_REVIEW 489 · STILL_VALID
+386 · UNVERIFIABLE 136 · STALE 10 (all-history, read 2026-09-04). Ours will
+always be in the third bucket, so **re-read them by hand when you touch
+`value_domains.py`** — the automatic half of that safety net does not cover us.
+
+Already earned its keep once today: the resume-race entry was overtaken within
+hours (the dynadot lane fixed it at source, `88e63b477`) and I had to notice and
+mark it history myself. Nothing would have told me.
