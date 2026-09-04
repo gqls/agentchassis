@@ -1007,3 +1007,249 @@ reader does not mistake that timestamp for our enablement time (which was ≤09:
 proves a check executed. The findings array only carries checks that found something, so a
 silent sweep and a skipped sweep look identical there. That distinction is the whole reason the
 true-negative column above is trustworthy.
+
+---
+
+## 2026-09-04 (session `bugs_open/114`) — the class fix is an `on_missing` CONTRACT VIOLATION, not hero wiring; 121 rows across 32 sites
+
+**Handover established first, because two other lanes were live on imagery today.**
+`who-owns.py 114` named this lane and `mortgagecalculator_couk_adoption` as the active pair,
+but the only 09-04 commits on the bug were CONTRIBs from the **finetuning** lane. Asked both
+the `imagery` session and the `finetuning` session directly. `imagery` (the
+"imagery best-in-class" lane, `docs024_key_docs_latest/imagery/`) disclaimed 114 and
+enumerated its own footprint as six doc files, zero Go, zero migrations — clear of us.
+`finetuning` **confirmed the handover in terms**: *"Take it. My CONTRIB was a handover, not a
+claim."*
+
+### The owner's ruling is on the OUTCOME, not on arming 710 — and that changes what to build
+
+`finetuning`, verbatim, on the scope of the 09-04 ruling: the owner said *"let's use the hero
+images somehow, we don't need a stop gap though"* in answer to a **binary** (hand-wire four
+pages, or arm the built mechanism). He *rejected the stop-gap*; he **has never seen migration
+710, the council REVISE, or the phrase `wire_hero_on_landing`**, and the design was not
+described to him. So **no ruling attaches to arming 710 as it stands** — which matters,
+because the council REVISE (corr `bd78490d`) says the shipped design is clobbered by the
+resolver's fresh-merge on exactly the cohort that needs it. Arming it could deliver nothing
+and read as success. `[SOURCED from the finetuning lane, 2026-09-04, not from the owner
+directly — I have not spoken to him]`
+
+### What the `unwired` cohort actually is `[MEASURED 2026-09-04]`
+
+**18 pages, 8 sites** — and the state conflates two shapes the remedy must separate:
+
+| shape | pages | what it is |
+|---|---|---|
+| **A — no stored image value at all** | 15 (6 sites) | the true 114 symptom |
+| **B — the legacy literal** `/assets/images/hero.jpg` | 1 | also 114 |
+| **D — a different, page-specific image already stored** | 2 (leopardessconsulting.co.uk) | **not a visitor-visible defect** — the page shows its planner hero (`hero-<page>.jpg`, 200 at the artefact); the `content_hero_*` asset is a redundant SECOND generation |
+
+⚠ **IMG-077's `unwired` predicate cannot see shape D**, because `referenced` asks only whether
+the page renders *the content-hero path* — never whether it renders *some* hero. So 2 of 18
+rollup members are a duplicate-generation finding wearing a delivery finding's clothes. The
+shipped wiring's value-gate is **right** to refuse them (it fills only empty / legacy /
+site-fallback), so this is a detector-precision note, not a delivery bug.
+
+**Composition of shape A is not what the bug file implies:** **12 of 18 are tool pages** and
+**14 of 18 have no page-scope hero plan row**. So the council's preferred round-2 design —
+a `site_plan_imagery` page-scope upsert (route 1) — is structurally unable to reach most of
+this cohort. Route 2 (`ContentHeroKey` straight from `assets`, plan-independent) already
+exists in the resolver and is the arm that *should* fire.
+
+### The finding that generalises, and it is not about heroes
+
+`hero-tool`'s `input_schema` declares:
+
+```
+"background_image": { "type":"image", "source":"site_assets.hero",
+                      "fallback":"/assets/images/hero.jpg", "on_missing":"use_fallback" }
+```
+
+The deployed `page_components.content_data` for that row **has no `background_image` key at
+all** — not the resolved value, and not the declared fallback. **No `on_missing` branch can
+produce that outcome.** `use_fallback` means *resolve it, or write the fallback*; absent is
+not a permitted third state. `handleMissingField` (plan_sections_action.go ~2588) implements
+exactly that, so a row in this state did not pass through it.
+
+Swept fleet-wide over every component declaring an image-typed `site_assets.*` field
+`[MEASURED 2026-09-04]`:
+
+- **874** deployed component rows declare such a field. **Every single one** declares
+  `on_missing: use_fallback` with a non-null fallback — so the invariant is unambiguous and
+  applies to the whole population, with no policy-mix to disentangle.
+- **121 rows violate it** (key absent), across **32 sites**, **67 pages**, **7 components**:
+  `hero-tool` 52 · `about-hero` 37 · `contact-hero` 19 · `services-hero` 5 ·
+  `case-studies-hero` 3 · `use-cases-hero` 2 · `hero` 1.
+- At the artefact, of those 121: **86 paint the SITE-WIDE brand hero or the legacy literal**
+  (`hero-home.jpg` / `hero.jpg`) — i.e. every about/contact page on 30-odd sites shows one
+  shared image, **which is bug 114's originally filed symptom in its own words**: *"the page
+  points at the generic site fallback for ever"*. The remaining **35 paint nothing**.
+- **`rendered_html` and `content_data` DISAGREE** on those 86: the HTML carries a value the
+  stored row does not. So the value reached the render and did not reach storage, or storage
+  was later rewritten by a producer that dropped the key — the `bugs_open/238` class, whose
+  `carryStored` remedy cannot help once the stored copy has already lost the key (there is
+  nothing left to carry from).
+
+**Why this is the framework-wide fix and hero wiring is not.** Arming 710 addresses one field
+(`hero_url`), one trigger (an asset landing), and one purpose (`content_hero`). The contract
+violation above is the same defect for **every** `site_assets.*`-sourced field on every
+component and every page type, and it is what makes the 114 population keep regenerating —
+including, by arithmetic, migration 664's hand-wire decaying **9 → 3 in eight days** (the
+editorial_design_uplift lane's measurement, 09-03). A floor written by one more producer is a
+sixth writer of `content_data`; enforcing the declared contract at the write boundary is one
+rule for all of them.
+
+### Filed to the diagnosis loop rather than asserted
+
+Per CLAUDE.md (a cross-cutting cause, outside the symptom, changing behaviour beyond one
+site), the root-cause question went to `090` **before** I committed to a mechanism:
+intake `621e9a02-e958-4dc4-a5f9-9ea9dffc1bf4`, item `2f0a5e0e-…`, run correlation
+**`f540f292-7e48-4f56-b812-00ec19f57973`** — asking which producer is responsible for a
+`site_assets.*` field on a tool page, and whether a tool page can obtain such a value on any
+code path. The queue was checked first: 5 open `needs_diagnosis` rows, all `failed`, none on
+this mechanism.
+
+### My own missteps this session — three broken instruments on one question
+
+Logged in full in `WRONG_CALLS.md` (2026-09-04). In short:
+
+1. **I curled a COMPOSED page URL** (`/can-you-trust-ai-with-your-data`), got 404, and briefly
+   read it as "the page is not served". The recorded `pages.url` is
+   `/blog/can-you-trust-ai-with-your-data.html`, which is **200**. Caught by the LANDMINES
+   entry that says to curl the recorded URL — i.e. by the corpus, before I wrote it down.
+2. **`rendered_html LIKE '%background-image%'`** to test whether the slot paints. Every one of
+   these components carries `background-image` **inside its `<style>` block**, so the test
+   matched at position ~88 on every row and could not have come out otherwise. It reported
+   "102 of 119 paint an image", which is meaningless.
+3. **`position('background-image') > position('</style>')`** as the repair. Same artefact one
+   step along: `position()` returns the FIRST occurrence, which is always the style block. Its
+   **control inverted** — 708 of 753 rows that DO hold a value read as "slot empty" — and that
+   is the only reason I caught it. The working test validates on the control first: *does the
+   html contain the stored value verbatim* (752/753), and only then measures the treatment arm.
+
+The generalisable half: **two of those three were absence-tests I had not shown could detect a
+present case**, which is the same shape as this file's own 09-04 sibling entry about `src|href`
+missing CSS `url()` heroes. An absence is evidence only after the instrument has been fed
+something known to be there.
+
+**Misstep 4, same family, five minutes later.** I grepped `LANDMINES.md` for
+`"reach a page"` to read the brand-new entry on exactly this question and got
+**zero hits** — then checked the commit and found the entry present. The phrase is broken
+across a hard wrap (`…does this asset actually reach` / newline). `MEMORY.md` documents this
+trap in its own header — *"these files are hard-wrapped, so a line-oriented `grep -F` reports
+FALSE ABSENCES on any long phrase"* — and prescribes the unwrap:
+`tr '\n' ' ' <f.md | tr -s ' ' | grep -c "…"`. Four instruments, four false readings, one
+session; three of the four were absence-tests. **Grep the shortest distinctive TOKEN
+(`asset_key`, `DeployedWebPath`), never a sentence.**
+
+**What that entry gives us, and it corroborates rather than threatens this lane's method.**
+The recipe names `storage.DeployedWebPath(asset_key, purpose)` as the only correct
+derivation of a served path, and records their own four failures — including a join on
+`storage_path`'s filename that matched the source uuid, and improvising `asset_key` with
+`_`→`-` (right on every case checked, wrong in general, because the extension comes from
+`purpose`). This lane's measurement above is **not exposed to that trap**: it compares
+`content_data` against `rendered_html` and asks whether the html contains the *stored value
+verbatim*, deriving no path at all. The 114 production code already uses `DeployedWebPath` for
+both the detector and the wiring, which is the same conclusion reached independently.
+
+> **CORRECTED 2026-09-04, same session — I misattributed the landmine above, twice, and the
+> lane I credited told me so.** I wrote "the 475 lane's brand-new entry" and "the 475 lane's
+> recipe" for commit `06c0b18f2`. **It is the `site_delivery_and_editor` lane's entry.** The
+> 475 lane contributed two of its four wrong instruments (a row count that measured staging;
+> a `src|href` regex blind to CSS backgrounds) and `site_delivery_and_editor` contributed the
+> other two and wrote it up. Corrected in place above; recorded here rather than edited away.
+> **What caught it:** the 475 lane read my message and said so — not any check of mine. I took
+> the lane name from `git log`'s subject matter and my own guess about who was working that
+> question, and never ran `who-owns.py` or read the entry's own attribution. The composition
+> matters beyond the credit: an entry built from **two** lanes' failures is stronger evidence
+> than one lane's self-report, and I had flattened it to the weaker thing.
+> **The cheap check:** for a commit you are about to attribute in a doc, `git show --format='%an %ae' -s <sha>`
+> gives the author and `scripts/who-owns.py` the owning workstream — a guess from the subject
+> line is not attribution.
+
+**Reciprocal finding, worth more than the correction.** The wrapped-grep warning I passed to
+the 475 lane found a real defect in *their* entry, which they have corrected in `2693dcbd0`:
+they had filed a config-vs-binary ordering landmine as *"genuinely distinct and not in the
+corpus"*, having checked one neighbour and never swept for the class — the sibling is the
+`doc_plans`/`doc_notes` `subject_type` entry, same shape (a vocabulary declared in Go, a value
+applied in the DB, DB-half-first is the trap), and **that sibling carries a mechanism theirs
+lacked: a test that parses the newest numbered migration and fails on drift, so neither half
+can land alone.** `[MEASURED 2026-09-04]` on that file, `grep -c fillTemplate` returns **10**
+wrapped and **12** unwrapped; `body_template` **4** against **5**. So the hazard is live on the
+very tokens they searched. **Their diagnosis of the reflex is the transferable half, and it is
+about me: I grepped, got zero, and doubted the grep rather than the corpus.** That is the
+habit worth keeping — not the `tr` command.
+
+**And the structural parallel they drew, which I am adopting for the fix's framing.** Their
+defect is a placeholder vocabulary whose guard is held together by a comment saying *"if this
+grows, that must grow with it"* — two customer letters, two hand-copied lists. Mine is 874
+rows declaring `on_missing: use_fallback` with nothing making it binding at the write boundary.
+**Both are "the contract is real and nothing enforces it where the value enters", and both
+fixes are the same move: make the bad state unrepresentable at the point of entry, not
+validated everywhere it is read.** Their council trail is `c8ed56d2`, and their round-1 REVISE
+was gated because they edited another lane's file inside a round that changed what that file
+depends on — a warning that applies directly to any write-boundary fix of mine that lands in a
+producer another lane is mid-flight in. **Split it rather than answer it.**
+
+> **CORRECTED 2026-09-04, same session — the headline count is 123, not the 121 I put in
+> writing to three peer lanes.** `jsonb ? key` returns **NULL**, not false, when
+> `content_data` is NULL, so `NOT (content_data ? field)` silently dropped those rows from
+> every count I ran. **4 rows have a NULL `content_data` entirely.** I also had two different
+> predicates in play and reported them as one number: "declared key absent" (119 under the
+> broken predicate) and "no image value on either key" (121). The impossible arithmetic is
+> what caught it — `|B| = 121 > |A| = 119` while `B \ A = 0`, which cannot happen if B ⊆ A.
+> **Nothing but the inconsistency caught it**; both figures looked plausible on their own.
+
+### The canonical figures `[MEASURED 2026-09-04, null-safe]`
+
+Predicate: `NULLIF(pc.content_data->>field,'') IS NULL` — total, no NULL hole — over deployed,
+non-removed rows on wanted-live pages, joined to every component declaring an image-typed
+`site_assets.*` field.
+
+| figure | n |
+|---|---|
+| rows declaring an image-typed `site_assets.*` field | **874** |
+| ... of which declare `on_missing: use_fallback` with a non-null fallback | **874 (all)** |
+| **CONTRACT VIOLATION — the declared field holds no value** | **123** |
+| ... distinct sites | **32** |
+| ... **agent-writable, i.e. inside `save_page_sections`' DELETE set** | **122** |
+| ... locked (outside it) | **1** |
+| ... no image value on EITHER key | 121 |
+| ... the OTHER image key holds a value | 2 |
+
+By page type: **content 68** (24 sites) · **tool 51** (13) · blog-index 2 · section-index 2.
+By component: `hero-tool` 52 · `about-hero` 37 · `contact-hero` 19 · `services-hero` 5 ·
+`hero` 4 · `case-studies-hero` 4 · `use-cases-hero` 2 — **all seven on `background_image`**.
+
+The artefact split (86 paint the site-wide `hero-home.jpg`/`hero.jpg`, 35 paint nothing) was
+measured on the 121 cohort and is unaffected in substance; restated against 123 it is 86 / 37.
+
+### The producer, named by a peer and its open half now closed
+
+The `editorial_design_uplift` lane named **`save_page_sections_action.go:938`** — the page-wide
+`DELETE FROM page_components WHERE page_id = $1 AND <agent-writable>` followed by the single
+`INSERT` at ~1130 — and flagged one thing UNVERIFIED: *"I have not traced whether hero slots
+are inside the agent-writable set that DELETE takes. If heroes are locked or otherwise
+excluded, this candidate dies."* **Settled: they are inside it.** `AgentWritableSQLFor`
+(`platform/orchestration/datahelpers/`) gates purely on the LOCK —
+`(locked_at IS NULL OR (lock_type='timed' AND lock_expires_at IS NOT NULL AND lock_expires_at < NOW()))`
+— with no component-type or slot exclusion, and **122 of the 123 violating rows satisfy it**.
+
+That path REBUILDS the row rather than merging it: whatever `content_data` the incoming payload
+carries becomes the row's `content_data`, so a key the payload does not mention is gone, while
+the `rendered_html` written in the same INSERT was built upstream from data that *did* have the
+image. **That is exactly the 86-row signature** — the HTML carries a value the stored row does
+not — and it is why a hand-repair has a half-life: migration 664 wrote `hero_url` with
+`jsonb_set`, and the next whole-page save reinserted the row from a payload that never had the
+key. 9 → 3 in eight days.
+
+Two writers the same lane checked and ruled OUT, recorded so nobody re-walks them:
+`generate_image_actions.go:1284` and `wire_page_hero_on_landing.go:136` both use `jsonb_set`,
+so they ADD the key and cannot drop it. And one near-miss worth keeping: `v3_site_actions.go:245/252`
+looks perfect (`SET content_data = $2::jsonb`, wholesale replace with a merge flag) and is the
+**wrong table** — `UpdateSiteContentAction` writes `sites.content_data`, not `page_components`.
+Their grep matched the column name without checking the table; they caught it before sending.
+
+**A correction I owe that lane in return:** I described `about-hero`, `contact-hero`,
+`services-hero`, `case-studies-hero` and `use-cases-hero` as "theirs by name". They are **shared
+library rows**; that lane's remit is the editorial page family. So there is no approval owed
+from them on those components, and I should not have implied a sign-off existed.

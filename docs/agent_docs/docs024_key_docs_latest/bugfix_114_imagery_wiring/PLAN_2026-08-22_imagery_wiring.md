@@ -317,3 +317,179 @@ step of the conversion, and only that step:**
   will go through the council as a migration like everything else here.
 - **finetuning.uk stays excluded from IMG-078 ACCEPTANCE** even once converted — the
   664/649 attribution overlap (412 §11) is unchanged by the ruling.
+
+---
+
+# ADDENDUM 2026-09-04 — the fix is an `on_missing` CONTRACT, enforced where `content_data` enters the row; hero wiring is a special case of it
+
+**Written by session `bugs_open/114` after the finetuning lane's handover.** This addendum
+**supersedes the "arm 710" direction** implied by the 09-03 handoff, and explains why. Evidence
+and the four instrument failures behind it are in `NOTES_imagery_wiring.md` (2026-09-04).
+Producer census contributed by `editorial_design_uplift`, cross-checked here.
+
+> ⚠ **The owner's 2026-09-04 ruling is on the OUTCOME, not on the mechanism.** *"Let's use the
+> hero images somehow, we don't need a stop gap though."* He was answering a binary (hand-wire
+> four pages vs arm the built mechanism) and **has never seen migration 710, the council REVISE,
+> or the key name**. So arming 710 is **not** authorised by it. `[SOURCED from the finetuning
+> lane, not from the owner directly.]`
+
+## 1. What the defect actually is
+
+A component declares each field in `content_components.input_schema->'fields'`:
+
+```
+"background_image": { "type":"image", "source":"site_assets.hero",
+                      "fallback":"/assets/images/hero.jpg", "on_missing":"use_fallback" }
+```
+
+`on_missing: use_fallback` with a non-null `fallback` is a **total contract**: resolve the
+declared source, or write the fallback. **Absent is not a permitted third outcome.**
+`plan_sections_action.go`'s shared `handleMissingField` closure (~2588) implements it correctly,
+including `carryStored` (bugs_open/238). **So a row in the absent state did not pass through
+it.**
+
+`[MEASURED 2026-09-04, null-safe]` **874** deployed rows declare an image-typed `site_assets.*`
+field; **all 874** declare `use_fallback` with a non-null fallback — no policy mix to
+disentangle. **123 violate the contract**, across **32 sites** / 68 content + 51 tool +
+2 blog-index + 2 section-index. At the artefact: **86 paint the site-wide brand hero or the
+legacy literal** (`hero-home.jpg` / `hero.jpg`) — one shared image across every about/contact
+page on 30-odd sites, **which is this bug's originally filed symptom verbatim** — and **37 paint
+nothing**. On the 86, `rendered_html` and `content_data` **disagree**: the HTML carries a value
+the stored row does not.
+
+## 2. The producer, and why the repair keeps decaying
+
+`save_page_sections_action.go:938` DELETEs every agent-writable row for the page and re-INSERTs
+from the payload (~1130). It **rebuilds** rather than merges, so a key the payload does not
+mention is destroyed, while the `rendered_html` written in the same INSERT was built upstream
+from data that *did* have the image. **That is the 86-row signature exactly.**
+`AgentWritableSQLFor` gates purely on the lock — no component-type exclusion — and **122 of the
+123 violating rows are inside that DELETE's predicate** (the 1 exception is admin-locked).
+
+**This is why hand-repair has a half-life.** Migration 664 wrote `hero_url` with `jsonb_set`; the
+next whole-page save reinserted the row from a payload that never had the key. **9 → 3 in eight
+days** (editorial_design_uplift, 09-03) is that arithmetic, not bad luck. **A migration cannot
+fix this class, and neither can a sixth `content_data` writer.**
+
+## 3. The writer census — and why enforcement cannot sit only in the actions package
+
+`[Contributed by editorial_design_uplift 2026-09-04; classified by SQL FORM, not by traced call
+path — judge accordingly.]` Their first regex returned **3** hits; enumerating all 23 files that
+write the table by hand found **~10**. The pattern had encoded the expected answer.
+
+**Wholesale (a key absent from the payload is lost):** `save_page_sections_action.go:1130` ·
+`rebuild_blog_listing_action.go:459` **and `:386`** · `adopt_verbatim.go:513/533` ·
+`create_report_page_action.go:227/270` · `create_tool_component_action.go:533` ·
+`deploy_tool_action.go:519` · `section_editor_actions.go:1648/1685` — **plus three OUTSIDE
+`platform/orchestration/actions/`**: `internal/core-manager/admin/page_admin_handlers.go:343`
+(the **admin API**, dynamic `setClauses`), `cmd/webdesignport/import.go:225/240`,
+`cmd/content-data-recover/sql.go:44`.
+
+**Merge/add only, cannot drop a key, excluded:** `wire_page_hero_on_landing.go:136` and
+`generate_image_actions.go:1284` (both `jsonb_set`).
+
+**Fully closed near-miss:** `v3_site_actions.go` does not write `page_components.content_data` on
+any line — its `content_data` writes are all on `sites`; its two `UPDATE page_components` set
+`build_status` only.
+
+⚠ **The admin API locks the row by default** (`locked_at = NOW(), locked_by = 'admin'`), which is
+almost certainly why exactly **1 of 123** is locked — i.e. the human path is already outside the
+destructive set, and enforcement must not fight it.
+
+⚠ **Create-only vs rebuild is NOT yet separated.** Several of those INSERTs plausibly write a
+row's FIRST content (`create_tool_component`, `deploy_tool`, probably the `adopt_verbatim` /
+`create_report_page` inserts), where wholesale is harmless because there is no prior key to drop.
+**This split decides the guard's shape and must be made before the guard is written** — a guard
+that fires on a create-only writer is a false positive that will be silenced, and silencing is
+how live debt becomes a false all-clear.
+
+## 4. The fix, in three phases, ordered by what closes the door
+
+### Phase 1 — honour the contract at the dominant boundary (SHIPS FIRST)
+
+In `save_page_sections_action.go`, between the existing history snapshot and the INSERT:
+
+1. **Carry forward** declared **non-llm** field values from the row being replaced when the
+   payload does not supply them. This is `carryStored`'s rule (bugs_open/238) applied at the
+   **save** boundary instead of only the **plan** boundary — the row is already readable there
+   (the history snapshot and `classifyPageComponentArtefacts` both read it before the DELETE).
+2. **Then apply `use_fallback`**: if neither the payload nor the carried row supplies a value and
+   the field declares `use_fallback` with a non-null fallback, write the fallback.
+
+**Why this is the right shape and answers the REVISE's three objections** (corr `bd78490d`):
+- **No clobber.** It fills ABSENCE only; it never fights a resolved value. The REVISE's objection
+  was that a floor loses to the resolver's fresh-merge — this is not a floor competing with the
+  resolver, it is the resolver's own declared policy applied where the value is destroyed.
+- **No lock bypass.** It is inside an existing writer that already honours
+  `pageComponentAgentWritableSQL`; it adds no new UPDATE and touches no locked row.
+- **No fifth bespoke writer.** It needs **no resolution logic at all** — `use_fallback`'s value
+  is a **declared constant in the schema**. That is the load-bearing simplification: honouring
+  the contract requires reading the schema, not re-implementing the resolver.
+
+**Blast radius:** 122 of 123 known violations. **Opt-in, default OFF** per the owner's
+2026-08-02 §2 ruling (new authority on a shared seam ships as a field whose unsafe default is
+OFF); withdrawal is setting the key false, no roll.
+
+### Phase 2 — make the violation visible for the writers Phase 1 does not cover
+
+A discovery check for the contract violation. **Reuse, do not rebuild:**
+`check_required_fields_missing.go` is already the right family and its two exclusions are exactly
+this blind spot — it skips **non-`required`** fields (ours are `required: false`) and skips
+**image-typed** fields entirely (~line 210, a deliberate 2026-08-11 decision on unmeasured
+volume). **The volume is now measured: 123.** Widening it is a smaller change than a new check,
+and its own comments invite exactly this.
+
+Plus a **source-scanning coverage test** over the writer census, modelled on the existing
+`page_component_writer_coverage_test.go` — which already does precisely this job for the
+`rendered_html` floors, with an `exemptWriters` map requiring **a reason per entry** and a second
+test that fails when an exemption goes stale. That is the create-only/rebuild split's natural
+home, and the precedent is in-repo (`adopt_verbatim.go`: *"adoption writes the first content; no
+prior to compare"*).
+
+### Phase 3 — the true boundary, as an RFC, not as a bug patch
+
+The only enforcement no producer can bypass — including the admin API and the two `cmd/` tools —
+is **at the table**: a `BEFORE INSERT OR UPDATE` trigger on `page_components` that applies the
+declared `use_fallback` default. That is **architecture-scope by CLAUDE.md's own test** (a shared
+mechanism whose blast radius is every pipeline that writes the table, and it *changes what the
+mechanism guarantees*), so it goes to `architecture_review/` as an RFC with the writer census as
+its evidence. **It must not arrive inside a bug patch** — that is precisely the shape the
+guardian seat vetoed on `bugs_closed/124`.
+
+## 5. What happens to `wirePageHeroOnLanding` and migration 710
+
+**Keep the code; leave 710 HELD; do not resubmit the REVISE as-is.** Phase 1 changes its
+standing rather than replacing it: the REVISE's gating objection was *"the floor gets clobbered
+because the payload-rebuild destroys it"*, and Phase 1 removes the destruction. So the honest
+sequence is Phase 1 first, then re-examine whether a landing-time hero write is still needed at
+all — because once absence is filled from the schema and carried across saves, the remaining gap
+is only *"the page shows the GENERIC hero rather than its OWN"*, which is the **resolver's**
+job (routes 1/2/3 in `ensureAssets`) and not a `content_data` writer's.
+
+**Note the scope honestly:** Phase 1 guarantees *an* image and stops the decay. It does **not**
+by itself put each page's OWN `content_hero_*` in the slot. Only **18** of the 123 have a
+`content_hero_<page>` asset to deliver; for the other 105 the generic fallback IS the correct
+declared outcome. Those 18 are where route 2 (`ContentHeroKey` from `assets`, plan-independent)
+should fire, and that remains 114's narrower second half.
+
+## 6. Acceptance — and the disconfirming result, named in advance
+
+**Instrument (validated before use):** does `rendered_html` contain the stored `content_data`
+value **verbatim**? Control arm ran **752 of 753** fleet-wide, so it detects a present case.
+**Three broken instruments preceded it — see NOTES.**
+
+**The test that could fail:** after Phase 1 ships and a page in the population is re-saved,
+the declared field must hold a value and the served HTML must contain it. **Disconfirming
+result:** the field is still absent after a save (Phase 1 did not reach the payload path that
+matters), or the field holds the fallback while the HTML shows something else (the save and the
+render disagree, i.e. a second producer downstream).
+
+⚠ **finetuning.uk is EXCLUDED as acceptance evidence in either direction** (412 §11: 664 changed
+the JOIN, 649 changed the SCHEMA, two defects overlap). It is a **diagnostic witness only** — and
+a good one: a human reported *"case studies page is missing a hero"* unprompted, having seen none
+of this work, which is the one datum showing a visitor can see the defect.
+
+**Second canary required on a plan-less site** (412 §11b): 6 real sites / 203 deployed pages have
+no current `site_plans` row. Phase 1 is plan-INDEPENDENT by construction (it reads the component
+schema, not the plan), which is a real advantage over the REVISE's preferred route-1 upsert —
+**and that must be stated in the submission rather than discovered.**
