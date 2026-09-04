@@ -733,3 +733,77 @@ that census before applying.**
 `[verdict, not dispatched]` · **46** of those content-type. Three lanes quoted 46, 58 and 63 at each
 other as if they disagreed; all three are right and measure different sets. Fleet: 3,181 → 3,184
 within the hour — drift, not disagreement.
+
+---
+
+# UPDATE 8 — 2026-09-04 ~16:15Z. Two more corrections, both from lanes, both sharper than mine.
+
+## ⚠ CORRECTION 3 — 740's blast radius is 51, not 39 and NOT my 55. And "it grew 38%" is the wrong story.
+
+I told the visual-designer lane their migration's census (39) was stale against my live 55. They
+re-took it rather than accepting my figure, and **neither of us had the right number.**
+`[MEASURED 2026-09-04 16:11:36Z]`:
+
+| set | instances | with key |
+|---|---|---|
+| served (`build_status='deployed' AND status='active'`) | 44 | 1 |
+| + active but NOT deployed (mid-rebuild) | +8 | 0 |
+| **= ACTIVE, any build_status** | **52** | **1 → 51 would flip** |
+| + not active (archived) | +3 | |
+| = all rows (my number) | 55 | |
+
+**51 is the answer**, because the default lands at **plan/render time**: an active page that is
+`needs_rebuild` *will* be rebuilt — that is what the status means — so those 8 count; archived pages
+do not. Their 39 was the SERVED pairing; my 55 was unfiltered.
+
+**And the decomposition changes the story I was about to tell the owner.** Of the movement from 39,
+only **+4 is genuine growth** on the identical filter in ~28 hours; **+8 is the filter, not the
+estate changing.** So "the number he ruled on has grown by 38%" would be **wrong**: he ruled on 39,
+the honest figure is 51, and the gap is mostly that the original census measured the wrong set.
+
+That is the `build_status='deployed' AND status='active'` trap the same lane filed as a landmine an
+hour earlier — and then walked into on their own migration's headline figure. **"What is this page
+made of" is `status='active'` alone; the pairing answers "what is being served."**
+
+## ⚠ CORRECTION 4 — "a rewrite today would repeat the failure" is a PREDICTION, not a measurement.
+
+UPDATE 6 and my report to the owner said promoting the parked rewrite would mostly reproduce the same
+essay because nothing consumes `evidence_base`. The `copy_quality_two_stage` lane checked the
+writer's inputs — their mechanism, not mine — and found a **simpler and better-evidenced** reason:
+
+**When that article was written, the site had ONE fact, and it was "The business is called Boxing
+Online."** `evidence_base` history: 2 facts 08-31 12:21Z → 1 at 15:54Z → **7 at 09-02 12:41Z** → 8
+today. The verdict was filed 09-01. **The writer produced a general essay because there was nothing
+else to produce**, which holds whether or not a consumption gap also exists.
+
+**So the inputs genuinely changed on 09-02, and a rewrite dispatched today is NOT a repeat of the run
+that failed.** My "it would produce another general essay" is a prediction. The reason to hold is
+that **nobody has checked whether the facts reach the writer** — not that we know they do not.
+
+⚠ **And the obvious check does not work.** That lane sampled five writer prompts, found "Hrgovic" in
+one, and was a sentence from reporting that consumption works. It does not: the match sits inside the
+page's **own existing rendered HTML** — a BBC feed headline in the Existing Content block that every
+rewrite prompt carries. Testing for "Verified Facts" returned true on all five, matching **strict rule
+14's own prose listing the input block names**. **Neither instrument can distinguish a prompt CARRYING
+facts from a prompt TALKING ABOUT facts.**
+
+**The decisive test is one dispatch and a read of the resulting prompt for a facts block** — not a
+grep for a fact string. One run settles it. Bounded claim available now: in five sampled 09-03
+prompts, **no `evidence_base` fact appears as supplied evidence**; whether a facts block is assembled
+for this site at all is **not established** and needs the assembly path read. Same seam as that lane's
+empty-writer-context finding (`Company:` empty on 41% of 6,931 writer calls).
+
+## Standing corrections to quote, since four of my claims have now been improved by other lanes
+
+| my claim | corrected to | by |
+|---|---|---|
+| countdown counts to 2026-09-02 | six FABRICATED fights, all `year: 2025`, every option dead on arrival; served == DB | `calendar` |
+| the duplication is still growing | flat since 09-02 16:28; deletion is a ONE-WAY repair | `457` |
+| RFC_056 phase 3 = "switch the loop back on" | phase 3 CREATED record mode (`624_…_record_only_…_HOLD`); no phase releases | `site_delivery_and_editor` |
+| 740 would flip 54, census stale by 38% | 51; +8 of the movement is my filter, only +4 is growth | `offer analyser / visual designer` |
+| a rewrite today repeats the failure | a prediction; inputs changed 09-02; one dispatch settles it | `copy_quality_two_stage` |
+
+**The pattern in four of the five is the same: I measured a proxy and reported it as the thing.** A
+date-shaped string as a fight date; an interval containing growth as growth continuing; a filename as
+a phase; an unfiltered row count as a blast radius. Every correction came from a lane that read the
+STRUCTURE where I had matched a PATTERN.
