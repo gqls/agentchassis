@@ -922,3 +922,32 @@ Recorded in memory against the previous outage of this shape (2026-08-23), becau
 *different words* — that one was `"You have reached your specified API usage limits"` (a cap),
 this one is `"Your credit balance is too low"` (a balance) — and the wrong-org trap that cost ~16
 hours in August applies to buying credits exactly as it applied to raising a limit.
+
+## (ad) 2026-09-04 15:5xZ — CORRECTION to (ac)'s outage figures, and the fix is aboard the cut
+
+> **CORRECTED 2026-09-04:** (ac) records `[MEASURED 2026-09-04 11:45Z]` **96** credit failures
+> across 7 agent types with *"zero successes since"*. That was true when written and it was **a
+> partial reading of an event still in progress** — I measured the middle of an outage and wrote
+> it in the same voice I would use for a closed one. The `inter thread comms` session measured
+> the whole window: **146 failures, 11:21:11–11:56:49Z, zero since 11:57** (council-gate 92,
+> generic 23, landmine-verifier 20, build-dispatch-loop 3, tool-improver 2, diagnose-orchestrator
+> 2, plus singles). **Use their figures.** Independently re-checked here at 15:56Z: last success
+> 15:56:18Z, 12 successes in the preceding 20 minutes, last credit failure 11:56:47Z — the outage
+> is over.
+>
+> The cheap discipline this cost nothing to follow and I skipped: **an ongoing event has no
+> total.** "Zero successes since" is a claim about the future when the thing is still happening.
+> Either date the reading *and say it is still running*, or wait for it to close. Same family as
+> the count-goes-stale rule, except this one goes stale in minutes rather than days.
+
+**The fix is aboard v1.0.1361.** `git merge-base --is-ancestor 2fae8baa4 06c0b18f2` → true (and
+likewise for the three doc commits). Verified by ANCESTRY, not by probing for a literal — the
+change adds no reachable string and unreachable code is dropped by the linker, so a binary probe
+would read ABSENT with clean controls.
+
+**The council resubmission is HELD, deliberately.** At 15:56Z the chassis deploy still specified
+`v1.0.1360` with pods from 2026-09-03T22:06Z, so the roll had not landed, and **a roll kills an
+in-flight council** (MEMORY: `imperative-kubectl-scale-is-undone-by-the-next-deploy`). Resubmitting
+into a mid-roll window would have burned a second run for the same reason the first one died —
+something outside the submission. A watch is armed that fires when the deploy image reads
+`v1.0.1361` with 2 pods Running, then waits the 300s no-dispatch settle window.
