@@ -5636,6 +5636,33 @@ that is also the thing you would want in the logs is not.
   A verify block you have not watched fail is a claim, not a check. Related: the RFC_006
   lesson already in CLAUDE.md (a verify block of `SELECT`s cannot stop the `COMMIT`) — this is
   the next failure along, where the block *is* a `DO` and still cannot fire.
+- **WIDENED 2026-09-04, `site_delivery_and_editor` — it is not only `<>`, not only jsonb paths, and
+  the entry's TITLE is why I did not recognise myself in it.** My verify used
+  `IF position('so we stop reminding you' in tpl) <> 0 THEN RAISE` and its sibling `… = 0`. `tpl` is
+  a `text` variable, not a jsonb path, and `position()` is a string search rather than a `<>` test —
+  so a reader hunting for "does MY verify have this bug" scans the title, sees jsonb and `<>`, and
+  moves on. **`position(x in NULL)` is NULL, and both `NULL <> 0` and `NULL = 0` are NULL**, so every
+  check in the block was inert against the one disaster it existed to catch: a write leaving the
+  template NULL. Proven by mutation against the live row, rolled back:
+  ```
+  NOTICE: tpl IS NULL: t
+  NOTICE: position(...) = <NULL> ; <> 0 evaluates to <NULL>
+  NOTICE: >>> VERIFY PASSED against a DESTROYED template — the guard is INERT
+  ```
+  **The general rule the title should carry: ANY comparison is inert if its operand can be NULL** —
+  `position()`, `length()`, `->>`, a scalar subquery, `count()` over a NULL-able source — and `=` is
+  exactly as affected as `<>`. This entry's own prescription does cover it
+  (`position(x in NULL) IS DISTINCT FROM 0` is TRUE and fires); I did not apply it because I did not
+  think the entry was about me.
+  **Cheapest universal form, and cheaper than the rule it replaces:** `IS DISTINCT FROM` needs you to
+  know which operands can go NULL. **Asserting the value EXISTS first does not** — one line,
+  `IF tpl IS NULL THEN RAISE …`, ahead of every other check, nothing to reason past.
+- **⚠ SECOND LANE IN TWO DAYS, and the first one's write-up was in a commit message rather than
+  here.** The `761` lane's verify read `NULL <> 21` and passed a register wipe (`c68932577`,
+  2026-09-03: *"my first verify block was INERT against the exact disaster it existed to catch"*).
+  **I read and quoted that commit message the same morning I wrote my own copy of the bug**, while
+  establishing an unrelated attribution. A lesson recorded only in a commit message is discoverable
+  by `git log -S`, which nobody runs prospectively — which is the argument for it being here.
 - **added:** 2026-08-04, `bugs_closed/087` lane
 
 ### `agent_definitions.updated_at` has NO trigger — a config row you just rewrote still reads as another session's write, and "nobody has touched it" is the conclusion it invites
