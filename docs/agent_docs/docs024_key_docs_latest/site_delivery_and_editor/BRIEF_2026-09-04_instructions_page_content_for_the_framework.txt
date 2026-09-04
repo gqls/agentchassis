@@ -1,0 +1,37 @@
+Write a guide page that tells a customer how to put the website we built them online, on a free host, themselves. Everything below was observed by our own owner performing these exact steps on 2026-09-04 with a real delivery. It is not general knowledge and must not be replaced with general advice or softened. Where a quoted string appears in quotes below, reproduce it exactly — customers match what is on their screen against what is on this page.
+
+AUDIENCE AND TONE. A small-business owner who has just received a ZIP file by email and has never deployed a website. Plain British English, short sentences, second person. No jargon, no "simply", no "just". Do not be cheerful about the awkward parts; say what will happen and why it is not their fault.
+
+THE HONEST HEADLINE, WHICH MUST NOT BE SOFTENED. Putting the site online is free and needs no card. But set aside about HALF AN HOUR the first time. Our own run took roughly forty minutes, and most of that was making an account and waiting on a confirmation email. Do not write "a few minutes" or "in no time".
+
+THE STEPS, IN THIS ORDER.
+
+1. Unzip the file: double-click it, and a folder appears next to it. Open the folder and check that index.html sits at the top level alongside a folder called assets.
+
+2. Go to app.netlify.com/drop and drag the FOLDER onto the dashed box. Not the zip. Not the loose files from inside it.
+
+3. It will ask you to make an account. There is no way to skip this, and no anonymous preview. Google sign-in or an email address and password both work.
+
+4. Expect the signup to argue with you, and know that this is Netlify's behaviour and not a mistake you made. Two things happened to us: it said "Please complete the security check and try again" while showing no security check anywhere on the page — trying again worked; and it rejected a perfectly good eleven-character password as "Password is too easy to guess" — a longer one with more words was accepted.
+
+5. Wait for the confirmation email and click the verify link. Ours was slow. Check the spam folder.
+
+6. THIS IS THE STEP PEOPLE MISS, AND IT IS THE MOST IMPORTANT ONE ON THE PAGE. New sites on Netlify are PRIVATE BY DEFAULT — only you, signed in, can see them. You will be shown a screen about this. Choosing "public" on that screen may not be enough: we chose public and were still returned to a page marked Private. Find the "Make public" button and press it. You are looking for a confirmation that reads "Your project is public — anyone can visit your production site".
+
+7. NOW CHECK IT THE ONLY WAY THAT TELLS THE TRUTH: open your web address in a private or incognito browser window, or on your phone with wifi turned off. This matters more than any other step on the page, and the reason is worth stating plainly: while you are signed in, a private site looks completely normal to you. Your own eyes cannot tell the difference. If the site is still private you will see "This site is private. Sign in with an invited Netlify account to view it." If you see your site, it is genuinely live for everyone.
+
+8. Your address will look like tangerine-valkyrie-b5c0a7.netlify.app. You can rename it, and you can point a domain you own at it, from the Domain management panel — it accepts a custom domain behind one Verify button.
+
+TWO THINGS TO MENTION WARMLY AT THE END, BECAUSE THEY ARE GENUINELY GOOD NEWS AND NOT AN APOLOGY.
+- Netlify's project screen offers an AI agent that can edit the site for you ("Work with an AI agent"), so changing a headline later does not require coming back to us or knowing HTML.
+- The same screen manages custom domains, so a domain the customer owns and this hosting fit together permanently, with nothing to pay monthly.
+
+WHAT NOT TO WRITE, EACH BECAUSE IT WAS TRIED AND WAS WRONG.
+- Do NOT say no account is needed. An account is demanded the moment the folder is dropped.
+- Do NOT say a dropped site can be claimed later. That flow no longer exists.
+- Do NOT give per-step timings in seconds or minutes. Ours were fiction; only the half-hour total is honest.
+- Do NOT name any customer, domain or file. This page is generic and public, and is read by every customer.
+- Do NOT promise anything about what is inside their ZIP beyond index.html and assets.
+- Do NOT tell them to check the site by visiting it in their normal browser. That is the exact check that silently passes while the site is invisible to everyone else.
+
+STRUCTURE. A short honest introduction that sets the half-hour expectation; the eight steps as a numbered walkthrough with the private-by-default step visually prominent; a short closing section on editing and domains. Screenshots will be added separately — leave the steps readable without them.

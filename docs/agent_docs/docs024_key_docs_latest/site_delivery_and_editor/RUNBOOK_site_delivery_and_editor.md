@@ -562,3 +562,74 @@ run aborts *after* redemption, the code is spent — mint another rather than tr
 ⚠ **PAYMENTS ARE NO LONGER THIS LANE'S** (2026-09-04). The `stripe` session owns vouchers, orders,
 the webhook, Payment Links and checkout. Route payment questions there; this section stays because
 the voucher above is live and someone has to be able to find it.
+
+## The instructions page on webdesign.uk — PREPARED 2026-09-04, NOT FIRED (waiting on the roll)
+
+The owner ruled the hosting instructions become a **generic, public, framework-built page on
+`webdesign.uk`**. This is the filing that creates it. **The content brief is
+`BRIEF_2026-09-04_instructions_page_content_for_the_framework.txt` in this directory** — durable and
+committed, because the facts in it were observed once by a person and cannot be re-derived.
+
+**Why a brief and not the copy.** The framework writes the content (owner ruling 2026-08-06), and
+there is **no supplied-copy mechanism** — `[MEASURED 2026-09-04]` the 40 distinct spec keys used by
+completed `needs_page`/`needs_content_page` items include no verbatim-content field, and
+`page-build-handler`'s live config interpolates exactly **`spec.mode`, `spec.page_id`,
+`spec.page_name`, `spec.suggestion`** and `spec_sections`. **So `spec.suggestion` is the ONLY
+free-text channel into the copy**, and the brief has to carry every fact the writer cannot know —
+the verbatim Netlify strings, the private-by-default trap, the forty minutes.
+
+⚠ **`sections` is a list of section NAMES, not content** (verified against a completed item: an
+11-element array whose first element is the string `hero`). Do not try to pass prose through it.
+
+### Pre-flight, all done 2026-09-04 ~17:2xZ
+
+| check | result |
+|---|---|
+| `webdesign.uk` site_id | `1fcfa4f3-ec80-4010-878b-b971cd46711f` |
+| open dispatchable items on this page | **none** — the 9 open rows are all parked verdicts (`filing_mode=record`), which nothing promotes |
+| page already exists? | **no** — zero `pages.url` matching host/online/instruction |
+| claim gate | `status` must be `triaged`, `handler_agent` must be the **column** — see the `needs_page` recipe above |
+
+### ⛔ DO NOT FIRE UNTIL BOTH HOLD
+
+1. **The chassis roll has landed and settled.** `v1.0.1361` was mid-push when this was prepared, and
+   there is a **~300s no-dispatch window** after pods restart. Filing into that window is how a
+   spawn gets silently dropped.
+2. **This is independent of the `475` lane's binary constraint, and must not be confused with it.**
+   Their `{{instructions_link}}` placeholder needs `a026ed53b`, which **missed the cut**
+   (verified: `merge-base --is-ancestor a026ed53b 06c0b18f2` → NO). **That constraint is about the
+   EMAIL, not this page.** The page may be built as soon as the chassis is up; only the migration
+   that puts `{{instructions_link}}` into the delivery template has to wait for a binary carrying
+   `a026ed53b`. Naming the token ahead of the binary produces a stamped, undeliverable delivery.
+
+### The filing
+
+```bash
+SITE=1fcfa4f3-ec80-4010-878b-b971cd46711f
+BRIEF="$(cat docs/agent_docs/docs024_key_docs_latest/site_delivery_and_editor/BRIEF_2026-09-04_instructions_page_content_for_the_framework.txt)"
+# psql -v is used so the brief is passed as a parameter, never concatenated into SQL:
+# it contains apostrophes and quoted UI strings, and a hand-escaped heredoc is how those get mangled.
+```
+
+```sql
+INSERT INTO site_work_items
+  (site_id, item_type, priority, summary, source, created_by, spec, status, handler_agent)
+VALUES (
+  '1fcfa4f3-ec80-4010-878b-b971cd46711f', 'needs_content_page', 10,
+  'Add the generic hosting-instructions guide (owner ruling 2026-09-04)',
+  'operator', 'site-delivery-and-editor-session',
+  jsonb_build_object(
+    'handler',   'page-build-handler',
+    'page_name', 'putting-your-site-online',
+    'page_role', 'guide',
+    'reason',    'owner ruling 2026-09-04: the hosting instructions are a generic public framework-built page',
+    'suggestion', :'brief'),
+  'triaged', 'page-build-handler')
+RETURNING id;
+```
+
+**After it completes, verify at the SERVED page, not at the status** (a `complete` work item is not a
+rendered artefact): fetch `https://webdesign.uk/guides/putting-your-site-online.html`, assert the
+private-by-default step is present and the signed-out check is present, with an invented-path 404 as
+the control. **The strongest single assertion is that the page tells the reader to check in a private
+window** — that is the one instruction whose absence makes the whole page dangerous.
