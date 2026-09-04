@@ -1,15 +1,17 @@
 # RFC_060 — a COMPLIANCE TIER: the claims layer is weakest exactly where the sector is strictest
 
-**Status: FULLY OWNER-DECIDED — NOTHING ON THIS RFC IS OPEN, AND Q5/Q6/Q7 ARE ALL BUILT.**
-Q1–Q4 ruled 2026-09-02; Q5/Q6/Q7 ruled 2026-09-03 (§3f) and built the same day: **Q6 APPROVED**
-(`ac670badf`, council `57a9939f`, 2 advisory objections both answered — one by a follow-up fix,
-`3c1e1b61c`), **Q7 facts half APPROVED** (`6ec879212`, council `17fb9105`, all nine reviewers
-approve), **Q5 council-submitted, verdict pending** (`939593e4c`, council `9b11752c`). Q7's
-`banned_claims` half was already live from the day before (`e5b1a0f01`, confirmed running, first
-pass filed nothing but that zero is uninformative by construction — see §3e's caveat). **None of
-Q5/Q6/Q7 is deployed yet** — committed, awaiting a roll (Q5's council verdict still pending doesn't
-block that — `Council-Submitted` was used, not `Council-Reviewed`). What remains after a roll is the
-tier MECHANISM itself (the posture-ladder field + the register-required gate) — none of §2's design
+**Status: FULLY OWNER-DECIDED, Q5/Q6/Q7 ALL BUILT AND APPROVED, AND THE `banned_claims` DETECTOR IS
+NOW PROVEN END TO END IN PRODUCTION.** Q1–Q4 ruled 2026-09-02; Q5/Q6/Q7 ruled 2026-09-03 (§3f) and
+built the same day: **Q6 APPROVED** (`ac670badf`, council `57a9939f`, follow-up fix `3c1e1b61c`),
+**Q7 facts half APPROVED** (`6ec879212`, council `17fb9105`, unanimous), **Q5 APPROVED**
+(`939593e4c`, council `9b11752c` — see §3f's own note on the one objection worth reading in full).
+**2026-09-04: the demand control resolved.** The planted probe on a test site fired correctly at
+09:13Z (one `invalid_banned_claim_pattern` item, proving the write path outside mocks) and has been
+reverted. **2026-09-04 15:29Z: a fleet roll (v1.0.1360→1361, cut `06c0b18f2`) carries ALL SIX
+commits above** (`e5b1a0f01`, `996b40542`, `ac670badf`, `3c1e1b61c`, `6ec879212`, `939593e4c` —
+each confirmed by `git merge-base --is-ancestor`) — Q5, Q6 and Q7 go live together for the first
+time once this roll completes. What remains after that is the tier MECHANISM itself (the
+posture-ladder field + the register-required gate) — none of §2's design
 is code yet; everything built today is upstream of it, per §3c's own track order. Historical
 statement of the questions follows.
 ~~Open: **Q5** (§3b)~~ — citation-code recognition is finance-only, doesn't
@@ -547,6 +549,28 @@ both directions; compile-and-probe at distribution time) are content-population-
 for whoever arms a preset on a real site — this commit builds the mechanism, it does not discharge
 them.** No site has `citation_codes`/`citation_code_presets` set today; behaviour is unchanged
 fleet-wide until a human opts one in.
+
+**Council-Reviewed: `9b11752c` — APPROVED 2026-09-03 10:15Z, 2 objections, none high-severity.**
+`guardian`'s two code-level concerns were RE-CHECKED against the tree on 2026-09-04 (after 393
+commits landed on top) rather than left as of-the-time claims: exactly two callers of
+`isExcludedNumber` still exist, both updated; and no write-back path anywhere constructs a typed
+`EvidenceBase` and marshals it out — both `writeCitationRegister` and `writeRefreshedEvidenceBase`
+operate on `map[string]interface{}` throughout, so the typed-struct round-trip landmine this seat
+named does not apply here at all (same property yesterday's field-loss test already proved for a
+different reason). Non-issues, confirmed rather than assumed.
+
+⚠ **`compliance`'s objection is the one worth reading in full, not summarising away — it names a
+real prior incident and a real named site.** The mechanism structurally enforces constraint 1 only
+(the matching rule); constraints 2–3 (measure per sector before arming, probe-fire both directions)
+are **operator obligations with no code-level gate** — and the compliance seat exists *because of* a
+live fabricated-veterinary-price incident, with `vetcomparison.uk` as this very RFC's own named
+worked example for the `veterinary` preset. An armed-but-unmeasured preset is exactly the shape that
+incident had. Suggested (not built — this is a recommendation for a future decision, not something
+this commit does): gate preset activation on the target site actually having a non-empty
+`evidence_base`, or require the probe-fire measurement to run against the site's REAL content before
+arming, rather than trusting future diligence. **No site has armed a preset yet, so nothing is
+exposed today — but the FIRST site to get `citation_code_presets` set (very plausibly
+`vetcomparison.uk`) should not happen without reading this paragraph first.**
 
 **Sequencing note, 2026-09-03:** none of Q5/Q6/Q7 is written yet, so none rides the chassis build
 rolling now. What that build DOES carry is `e5b1a0f01` — after which the pattern detector fires on
