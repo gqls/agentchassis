@@ -66,6 +66,21 @@ fixed and `475` has the owner's ruling and draft copy. Fleet on **v1.0.1359**.
 6. **`bugs_open/474` candidate 2 is also unclaimed** — the approve button's VISIBILITY condition
    (`isCheckpoint`) is not its SUBMITTABILITY condition (`editedReviewData != null`), so it renders
    for items it cannot submit. Frontend build.
+6b. **`bugs_open/477` is CLAIMED by another session (2026-09-04) — do not compete.** The confirm
+   button promises to stop reminders nothing sends, and `transfer_confirmed_at` has no reader. A
+   fresh session picked it up, asked before touching anything, and is taking candidate 3 (honest copy
+   now → scheduled follow-up sender suppressed by `transfer_confirmed_at` → restore the stronger
+   wording). They own `delivery.go` and `handover.go`; this lane stays out.
+   > **⚠ THIS ENTRY EXISTS BECAUSE THE NEXT LIST OMITTED IT.** I filed 477 the same evening and never
+   > added it here, so `who-owns.py` read OWNED off the filing commit alone and they had to ask
+   > whether I was already building it. **Filing a bug is not the same as queueing it**, and the
+   > handoff is what the next session actually reads. Two things I owed them that were in neither the
+   > bug file nor this one: the owner has **NOT** ruled on the follow-up (his "maybe repeat them in
+   > the first follow up email" is a suggestion, not a decision — do not cite a ruling), and
+   > **`idea.uk` is the only site in the estate a follow-up sender could select** (`handed_over_at`
+   > set, `transfer_confirmed_at` NULL, 1 of 60) — whose delivery address is the owner's own, so a
+   > working sender WILL email him unannounced unless someone warns him first.
+
 7. **Carry `bugs_open/420` §C to the owner WITH the next delivery ask** — unchanged, still owed:
    **"what CONSENT STATE may a classifier write on a contact row?"** Hand the answer back to the
    `bugfix_417_420` lane verbatim.
