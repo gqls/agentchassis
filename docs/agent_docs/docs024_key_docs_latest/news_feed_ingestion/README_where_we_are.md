@@ -272,3 +272,45 @@ requests into a dead system and all four failed, including the check on my own n
 Recoverable in a single command each, and written down so they get re-run. The lesson is
 the obvious one I should have applied immediately: when the AI layer is down, everything
 that ends in an AI call is down too, including the machinery that checks my work.
+
+Later the same afternoon. The credit problem cleared — the fleet started working again
+around one o'clock our time, and has been clean since half past two. Thank you.
+
+Two things to report, one good and one I need to correct.
+
+The good one: the UK fix works, and I can now say so from two independent directions.
+This morning I could only show that our searches were being *sent* marked as British.
+Now I can see what came *back*: IAB UK appointments, WPP cutting a thousand jobs, a piece
+on UK advertising and carbon. British publishers writing about British advertising. That
+is the thing you actually asked for, rather than a setting that merely looks right.
+
+The correction: I told you this morning that I expected most of the WebProNews feed to be
+rejected as off-topic and the UK searches to carry the page. That is not what the first
+run shows. WebProNews brought in fifteen articles; all five UK searches brought in four
+between them, and three of the five — the Advertising Standards Authority, the CAP Code,
+and the Advertising Association spend report — brought in nothing at all. They ran fine;
+there was simply nothing there to find. So once the scoring rejects the American tech
+stories, the page could be left rather thin.
+
+I want to be careful about what that means, because it is one day's evidence. Three
+narrow, institutional searches finding nothing on a given Thursday is exactly what a
+working system looks like — the ASA does not publish rulings every day. It only becomes a
+problem if those three are still empty after several days while the two broader searches
+keep producing. So I have written down the check and the date to run it (Monday), rather
+than rewriting the source list today on one sample. If it turns out they are genuinely too
+narrow, the fix is to broaden them, and that is a small change.
+
+One thing I got right by accident and want to flag, because it nearly went the other way.
+Another team's change went live last night that cleans up article text at the moment it is
+displayed. That means the published news file on the site now looks tidy whether or not the
+stored articles are tidy. Our own runbook still described that change as "not live yet" —
+written before it shipped, and never updated — so it read as a future problem. Had I
+checked the quality of the incoming articles the way that runbook told the next person to,
+I would have looked at the published file, seen clean text, and reported that everything was
+fine. Reading the stored articles directly instead showed that three of the four search
+results do contain raw formatting marks. That is not a fault — it is exactly what the other
+team's change is designed to tidy up — but "everything is clean" and "everything is being
+cleaned for display" are different statements, and only one of them was true.
+
+I have corrected the runbook so the next person is not sent to the wrong place, and passed
+both points to the session coordinating today's fleet update.

@@ -1175,3 +1175,70 @@ Not taken.
 to a page type the estate has largely stopped building — 4 `blog-index` against 81 other
 listing hubs. So the live question is about the estate's page vocabulary, not this agent,
 and it belongs in the 463 lane's RFC rather than in 460.
+
+### Later 2026-09-04 — the outage cleared, and reading advertise's stored rows found the yield problem the adapter log could not show
+
+**Outage RESOLVED.** `[MEASURED 2026-09-04 ~15:55Z]` window was **11:17:05Z → 13:31:30Z**
+(last failure), with the first success after it at **11:58:12Z** — so recovery was
+**staggered, not a step**, and anyone sampling the 11:58–13:31 band would have called it
+either way. Clean since 13:31:30Z at ~20 successful calls per 10-minute bucket.
+
+**A second, independent confirmation that the UK fix works — at the CONTENT, not the
+parameter.** The adapter log proved `region=uk` was *sent*. Reading what came *back* proves
+it was *honoured*: the four `news_search` items are IAB UK appointments, WPP cutting 1,000
+jobs (twice, two publishers), and a UK advertising climate-impact piece. British publishers,
+British subjects, no American tech. Two different instruments, two different failure modes,
+same answer.
+
+**⚠ But the yield is badly skewed, and 3 of the 5 UK searches returned NOTHING:**
+
+| source | items |
+|---|---|
+| WebProNews (rss) | **15** |
+| News Search: UK advertising industry news | 3 |
+| News Search: IAB UK digital advertising spend | 1 |
+| News Search: Advertising Association WARC expenditure report | **0** |
+| News Search: Advertising Standards Authority rulings | **0** |
+| News Search: CAP Code advertising rules | **0** |
+
+All six fetched successfully — `error_count` 0, `last_fetched_at` set. So the three zeros
+are *empty result sets*, not failures.
+
+**This inverts what I told the owner in README this morning.** I wrote that I expected most
+of WebProNews to be rejected as off-topic and "the UK searches to carry the page". On this
+evidence the UK searches cannot carry it: after scoring rejects the American tech, the page
+may be left with ~4 items. Recorded as a correction there.
+
+> **`[n=1]` — DO NOT act on this yet, and do not re-author the source set on it.** One fetch
+> of a news search returning zero is entirely consistent with "no CAP Code news was published
+> this week", which is the *expected* behaviour of a narrow institutional query, not a defect.
+> Three narrow queries yielding zero on one day is exactly what a working system looks like.
+> **The disconfirming observation is the second fetch:** if these three are still at 0 after
+> 3–4 daily cycles while the two broad ones keep producing, the query shape is wrong and the
+> set needs broadening. If they produce intermittently, they are correct and simply
+> low-frequency — which is what an institutional source *should* be. Check on/after
+> **2026-09-08**:
+> ```sql
+> SELECT cs.name, count(cfi.id) AS items, cs.last_fetched_at
+>   FROM content_sources cs LEFT JOIN content_feed_items cfi ON cfi.source_id = cs.id
+>  WHERE cs.site_id = 'd991a5b8-428f-44c1-b3eb-e50f44326fd9'
+>  GROUP BY 1,3 ORDER BY 2 DESC;
+> ```
+> Deciding now, off one sample, would be the "2 clean runs cannot establish stability" error
+> in its mirror form — declaring failure from a sample too small to show success.
+
+**Markdown in stored summaries is EXPECTED, not a new bug — and I checked it the right way.**
+`[MEASURED]` **3 of 4** `news_search` summaries carry raw markdown (`#`, `##`, `[![`, `_…_`);
+**0 of 15** rss ones do. I did not trust my own regex (`[*_#]{2}|\[.+\]\(` false-positives on
+ordinary prose) and read the rows: the markdown is plainly there, headings and image links
+included. This **confirms the 332 lane's design** rather than contradicting it — their
+projection strips at *display* time, so stored rows carrying markdown while the served JSON
+looks clean is the stated intent, not drift. It also means the strip is doing real work on
+the search path specifically. Zero unclosed link tails, zero replacement characters, zero
+empty summaries across all 19.
+
+**Why this had to be read at the column.** The 332 projection has been live since
+2026-09-03 22:07Z (see the RUNBOOK correction), so `/data/news-archive.json` would have shown
+clean text regardless. Had I judged ingestion health at the served surface — which this
+lane's own handoff told the next reader to do — I would have recorded "summaries are clean"
+and been wrong about 3 of 4.
