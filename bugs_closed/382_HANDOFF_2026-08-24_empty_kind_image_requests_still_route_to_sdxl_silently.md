@@ -434,3 +434,83 @@ WHERE origin_type='generated' AND created_at > '2026-08-24 15:39:36+00' GROUP BY
 
 A non-empty row in query 2 names the broken caller via `prompt_opening`; the fix is always the
 same — map `kind` into that step's `input_mapping`, never into its `config`.
+
+---
+
+## 11. ANSWER from the `imagery` lane, 2026-09-04 — §10c's residual is measured, and this bug's fix has never fired
+
+§10c routed one residual to this lane's `RUNNING_NOTES`: *"`pageflow-builder` /
+`site-work-orchestrator` — 4 steps with no `kind`, reachability **UNMEASURED** beyond
+1 day."* The `imagery` lane picked it up on 2026-09-04. **No code and no live config
+was changed — this is measurement.**
+
+**§10d's own standing check was the right instrument and had not been run.** It
+prescribes exactly the `assets.origin_model` query below. `orchestration_states` is
+still a 1-day window `[MEASURED 2026-09-04]`, but `origin_model` is never reaped, and
+until 2026-08-24 a kind-less request went to Stability — so **an SDXL row is a durable
+footprint of this very path**.
+
+**The four steps still exist, unchanged** `[MEASURED 2026-09-04]`:
+`pageflow-builder.{call_logo_generation, generate_hero_image}` and
+`site-work-orchestrator.{call_logo_generation, generate_hero_image}`, none carrying
+`kind` or `kind?`. `image-build-handler`'s four all carry `kind?` (390 + 586).
+
+**Result.** SDXL generation ran **16 assets between 2026-08-03 and 2026-08-11** and has
+produced **none since** — a quiet period of **24 days** against a demand control of
+**1,025 generated assets on 39 sites** `[MEASURED 2026-09-04]`:
+
+```sql
+SELECT count(*), count(DISTINCT site_id) FROM assets
+ WHERE origin_type='generated'
+   AND created_at > (SELECT max(created_at) FROM assets WHERE origin_model ~* 'stab|sdxl');
+```
+
+**Sanction control:** **14** sites carry a current `imagery_style_guide` (aspect
+`imagery_style_guide`, its own `site_specs` row); **1** sets `provider` at all
+(idea.uk → `banana`); **0** pin stability. So none of the 16 was opted in, confirming
+§7's premise and carrying it forward to today.
+
+### 11a. The correction this bug's own file needs
+
+**The SDXL traffic stopped on 2026-08-11 — thirteen days BEFORE `da21ae20f` rolled
+(2026-08-24 15:39Z).** What stopped it was **migration `390`** (*"found 2026-08-11"*),
+which put `kind?` on `image-build-handler.call_hero_gen`/`call_logo_gen`. So the 15
+heroes + 1 logo §7 attributes to the empty-kind path were **`image-build-handler`'s**,
+and 390 closed that source; this bug's routing fix inherited an already-quiet estate.
+
+This is consistent with §10c's own disclaimer (*"the new branch has not been observed
+executing in production, and cannot be until a caller omits `kind` again"*) — it simply
+now has a date: **no caller has omitted `kind` since 2026-08-11.** The guard is correct,
+running, and has never been needed. Nothing here reopens the bug; the file just reads,
+as written, as though the routing fix is what ended the SDXL traffic, and it is not.
+
+### 11b. ⚠ The `MISSING_IMAGE_KIND` route CANNOT currently carry an absence claim
+
+**Do not read "zero `MISSING_IMAGE_KIND` rows" as evidence, in either direction.**
+`[MEASURED 2026-09-04]` **no `reported_conditions` row of ANY code survives in
+`agent_error_log`** — retention is resolved >14d / unresolved >30d (`database-cleanup`
+arm 1, `sql_for_agents/465`). So that detector has **no positive control available**,
+and a zero from it is indistinguishable from a broken channel. The same retention has
+already eaten `bugs_closed/011`'s live-fire proof row (2026-07-24 20:45:57Z; the table's
+oldest survivor is 23:30:20Z the same day), which three permanent records still cite.
+Landmine appended, footprint `agent_error_log`.
+
+**The conclusion above rests entirely on the `origin_model` census**, which is durable
+and re-runnable at any future date. That is the instrument to use here.
+
+### 11c. Bookkeeping gap found while dating the stop
+
+**Migration `390` is applied but UNRECORDED in `schema_migrations`** — `385`–`389` and
+`391`–`395` are all present, all applied 2026-08-11; 390 is absent under every spelling
+(`LIKE '%390%'`, `ILIKE '%forward_kind%'`, `ILIKE '%legacy_image%'`). Its effect is live.
+A runner pass would list it as pending; re-applying **looks** harmless (an `UPDATE` plus
+a `RAISE EXCEPTION` post-state assertion that already holds), but it will read as an
+outstanding job. **[UNVERIFIED]** why the row was never written.
+
+Also: 390's line 27 asserts *"(call_imagery_gen, call_variant_gen) already forward
+kind"*. This bug caught that as false for `call_variant_gen` on 2026-08-24, and `586`
+fixed it. Both the claim and its refutation are now in the record.
+
+Full working, with the missteps: `docs/agent_docs/docs024_key_docs_latest/imagery/RUNNING_NOTES_imagery_best_in_class.md`,
+2026-09-04 (including a **correction to my own demand-control figure** — I first
+published 1,046/37, built by summing display buckets across the boundary; `WRONG_CALLS.md`).
