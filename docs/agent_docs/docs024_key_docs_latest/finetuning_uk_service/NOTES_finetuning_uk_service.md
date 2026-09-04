@@ -3919,3 +3919,36 @@ graphics."*
    infographics and uplift lanes are working on. Routed as his standing direction, not as a new task:
    route B for anything carrying a number, decorative-only inside cards, and the hero wiring for the
    ten pages already holding unused images.
+
+## 2026-09-04 (14:10Z) — the corpus research came back, and its two SELF-CORRECTIONS are the finding
+
+Commissioned per the owner's *"please pick say 5 that are safe from copyright and do them"*. Verdict:
+**build Pepys first** — 3,149 diary entries survive the widest defensible filter, median 276 words,
+which is an order of magnitude better SHAPE than any other candidate (short, first-person, dated,
+enormous volume). But two corrections landed on the way and both change what we would have shipped:
+
+1. **"The Victorian editor censored it for you" is FALSE, measured.** Wheatley's edition (PG 4200)
+   still contains the coercive material: `Bagwell` **58 hits**, `hazer` **21 hits**, the Franco-Spanish
+   macaronic code intact (*"I did hazer whatever I would"*). The first report claimed the censorship
+   handled the content risk; it does not. Pepys survives as the choice only because his problem is
+   **mechanically filterable with high precision** — the material is written in a distinctive code, not
+   ordinary English: code words alone remove 38 entries (1.1%); code words plus the six named women
+   remove 203 (6.1%), leaving 3,149. Chesterton and Leacock were rejected precisely because their
+   problems sit in plain English and cannot be regexed out.
+2. **Saki is OUT, Katherine Mansfield IN.** A peer-reviewed article (Gibson, *Jewish Culture and
+   History* 9:1, 2007) defends one story while conceding *"the unironic, overt anti-semitism of earlier
+   stories"* — a corpus-level characterisation, which means a three-story exclusion list built from our
+   own lexical sweep cannot be defended. Mansfield (1888–1923, PG 1429/44385/66871/1472): ~65 stories,
+   ~200k words, zero hard slurs measured. Half the volume, nothing to explain.
+
+**Two traps for whoever ingests:**
+- **A. A. Milne died 31 January 1956** → UK public domain 1 January **2027**, not now. An obvious
+  candidate for exactly this demo and currently unusable here.
+- **PG #28919 is a STUB** (~6 KB duplicate listing of *Frenzied Fiction*, returns ~484 words), not the
+  text — an ingest pipeline resolving by title silently produces an empty corpus. Use #8457.
+
+**The line to carry into any launch, and it is the researcher's:** *"We only used Project Gutenberg"
+is not a defence.* Every damaging passage discussed — the Leacock minstrel material, the Chesterton
+essays, the Saki premise, the Pepys coercion entries — is ON Project Gutenberg, free, and greppable in
+seconds by anyone reading our press release. **The corpus FILTER is the deliverable, not the source.**
+That sentence should shape the copyright page the owner has asked for.
