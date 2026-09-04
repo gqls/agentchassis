@@ -25,6 +25,24 @@
 // follows it. If the ladder changes, this report changes with it, with nothing to
 // keep in step.
 //
+// ⚠ WHAT THE PREDICATE CANNOT CATCH, stated because the council asked twice.
+// `editquality` (MEDIUM) noted the reject list names models the diagnosis never
+// measured on this fleet; `architecture` (LOW) noted the maps drift when a model
+// CHANGES behaviour rather than when a new id appears. Both are real and neither is
+// closed here:
+//
+//   - The reject list is keyed on exact API model names. A MISSPELLED entry simply
+//     never matches, so it fails OPEN — the permissive direction, which is the one
+//     the map exists to close. The parity test covers only ids reachable through
+//     `ModelAliases`; ids that no alias resolves to (the Claude 5 family beyond
+//     `claude-sonnet-5`, and the Fable/Mythos ids) are forward-looking entries taken
+//     from the model reference, unreachable on this fleet today, and therefore
+//     UNTESTABLE here. They are listed because arriving unclassified is worse.
+//   - A model that is reclassified after being written down — say 4.6 losing its
+//     deprecated-but-functional status — is invisible to the parity test, which only
+//     asks whether an alias has a verdict, not whether the verdict is still true.
+//     Re-verify on any capability announcement, not only on a new model id.
+//
 // THE THREE FINDING KINDS, and what each one costs if nobody looks:
 //
 //  1. UNCONFIGURED — a step that declares an `ai_service` block (the operator's own
@@ -265,7 +283,7 @@ func budgetPlacementFindings(agents []liveAgent) budgetPlacementReport {
 			// budget_tokens BEFORE max_tokens, because this one is not a sizing
 			// question at all — it is a request the provider refuses outright.
 			if btValue, btFrom, _ := actions.ResolveStepBudget("budget_tokens", root, workflowStepCfg, runtimeStepCfg); btFrom != "" {
-				model := resolveStepModel(stepService, rootService)
+				model := resolveStepModel(rootService, stepService, nested)
 				if !aiservice.AcceptsThinkingBudget(model) {
 					report.Findings = append(report.Findings, budgetFinding{
 						Agent: agent.Type, Path: path, Kind: "thinking_unsupported",
@@ -319,20 +337,34 @@ func budgetPlacementFindings(agents []liveAgent) budgetPlacementReport {
 	return report
 }
 
-// resolveStepModel is the effective model for a step, by the same overlay order
-// resolveAIServiceConfig uses: the step's ai_service block wins over the agent's
-// root one. Returns "" when neither declares a model, which AcceptsThinkingBudget
+// resolveStepModel is the effective model for a step, resolved by PRODUCTION'S OWN
+// ai_service overlay (`actions.ResolveAIServiceConfigFrom`) rather than by a lookup
+// of this file's own.
+//
+// The first cut walked step-then-root itself. The council's `reuse_agent` seat
+// objected HIGH (corr 47ea9498) that "a brand-new, simplified two-level resolver in
+// a different package risks diverging from the real precedence order", and the
+// `guardian` seat raised the same point independently: budget_tokens can be
+// declared at six levels, so a naive two-level MODEL lookup could disagree with
+// what the step actually sends — "producing exactly the 'looks fine, isn't' failure
+// this plan exists to prevent". Both were right. The copy is gone; this calls the
+// exported overlay, so divergence is no longer possible rather than merely unlikely.
+//
+// A step whose blocks declare no model returns "", which AcceptsThinkingBudget
 // treats as unknown-and-permissive.
-func resolveStepModel(stepService, rootService map[string]interface{}) string {
-	for _, m := range []map[string]interface{}{stepService, rootService} {
-		if m == nil {
-			continue
-		}
-		if model, ok := m["model"].(string); ok && model != "" {
-			return model
-		}
+func resolveStepModel(rootService, stepService map[string]interface{}, nested bool) string {
+	// A nested step's config arrives as the runtime StepConfig; a top-level step's
+	// is the workflow_step rung. Passing each at the rung it actually occupies is
+	// what makes this agree with the pod.
+	var workflowStepBlock, runtimeStepBlock map[string]interface{}
+	if nested {
+		runtimeStepBlock = stepService
+	} else {
+		workflowStepBlock = stepService
 	}
-	return ""
+	merged, _ := actions.ResolveAIServiceConfigFrom(rootService, workflowStepBlock, runtimeStepBlock, nil)
+	model, _ := merged["model"].(string)
+	return model
 }
 
 // ambiguousLevel names the level, if any, that declares the budget in both

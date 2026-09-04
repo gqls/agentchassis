@@ -133,6 +133,24 @@ func IsValidModel(model string) bool {
 // `TestEveryAliasHasAThinkingBudgetVerdict` fails the build on any alias this
 // function has not been taught about.
 
+// WHY THIS IS A PREDICATE AND NOT AN INLINE CONSTRAINT LIKE THE TEMPERATURE ONE —
+// asked on the record by the council's `reuse_agent` seat (MEDIUM, corr 47ea9498):
+// `anthropic.go` already encodes a model-version-gated request constraint inline
+// (temperature dropped for Opus 4.7+), so why a second, structurally different
+// mechanism for the same class of problem, and won't the two drift?
+//
+// A fair question, and the answer is that they are NOT the same mechanism. The
+// temperature rule is UNCONDITIONAL: `anthropic.go` never sends temperature to any
+// Anthropic model, on any version, so it needs no model check and has no table to
+// drift from. `budget_tokens` cannot be handled that way, because the three verdicts
+// disagree — dropping it unconditionally would remove extended thinking from
+// `claude-haiku-4-5` (32 model declarations across 24 live agents), where the key is
+// REQUIRED. A per-model answer needs a per-model table; a blanket rule does not.
+//
+// If temperature ever becomes model-conditional, it should reuse THIS table rather
+// than grow a second one — that is the drift the seat is right to be watching for,
+// and this comment is where the next author meets it.
+
 // modelsRejectingThinkingBudget are the API model names that return a 400 for
 // `thinking: {"type":"enabled","budget_tokens":N}`. Matched against the RESOLVED
 // model name, so an alias and its expansion give the same answer.

@@ -59,6 +59,37 @@ func ExecuteLLMPromptActionFAKE(ctx context.Context, params ActionParams) (inter
 // config whenever a root block existed — per-step max_tokens overrides
 // silently ran at the root (or hardcoded 2048) value (bugs_open/009).
 func resolveAIServiceConfig(agentConfig, runtimeStepConfig map[string]interface{}, currentStep string, logger *zap.Logger) (map[string]interface{}, []string) {
+	return ResolveAIServiceConfigFrom(
+		subConfigMap(agentConfig, "ai_service"),
+		subConfigMap(workflowStepConfig(agentConfig, currentStep), "ai_service"),
+		subConfigMap(runtimeStepConfig, "ai_service"),
+		logger)
+}
+
+// ResolveAIServiceConfigFrom is the ai_service overlay itself, taking the three
+// blocks directly instead of finding them: root is the fleet default, the workflow
+// step's block overrides it key-by-key, and a runtime StepConfig block overrides
+// both (bugs_open/009 — first-found-wins made the step block dead config whenever
+// a root block existed).
+//
+// EXPORTED 2026-09-04 for the council's `reuse_agent` seat, which objected (HIGH,
+// corr 47ea9498) that `cmd/config-key-audit --budget-placement` had grown its own
+// two-level model lookup: "a brand-new, simplified resolver in a different package
+// risks diverging from the real precedence order". The objection is right and the
+// simplified copy is deleted. An offline caller has already located the step's
+// blocks (it walked the definition to get there) and cannot use the `currentStep`
+// form, so the seam is the BLOCKS, not the step name — and both callers now run
+// the identical overlay through the identical MergeInputData.
+//
+// This is the same move as `ResolveStepBudget`: a detector that re-implements the
+// precedence it is checking can only ever confirm itself.
+//
+// A nil logger is legal — MergeInputData dereferences it, so a nop is substituted
+// rather than leaving a panic in the path an offline caller takes.
+func ResolveAIServiceConfigFrom(rootBlock, workflowStepBlock, runtimeStepBlock map[string]interface{}, logger *zap.Logger) (map[string]interface{}, []string) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
 	merged := make(map[string]interface{})
 	var sources []string
 
@@ -70,19 +101,9 @@ func resolveAIServiceConfig(agentConfig, runtimeStepConfig map[string]interface{
 		sources = append(sources, source)
 	}
 
-	if agentConfig != nil {
-		if root, ok := agentConfig["ai_service"].(map[string]interface{}); ok {
-			overlay(root, "root")
-		}
-		if block := subConfigMap(workflowStepConfig(agentConfig, currentStep), "ai_service"); block != nil {
-			overlay(block, "workflow_step")
-		}
-	}
-	if runtimeStepConfig != nil {
-		if block, ok := runtimeStepConfig["ai_service"].(map[string]interface{}); ok {
-			overlay(block, "step_config")
-		}
-	}
+	overlay(rootBlock, "root")
+	overlay(workflowStepBlock, "workflow_step")
+	overlay(runtimeStepBlock, "step_config")
 
 	return merged, sources
 }
