@@ -338,3 +338,27 @@ run.
   flag. Unchanged by this.
 - **`bugs_open/182`** — owns the slot-name-resolution silent substitution that §4(1) is an
   instance of.
+- **`bugs_open/114`** — **live dependency on the SAME INSERT, notified 2026-09-04.** They are
+  changing `save_page_sections`' persistence contract so declared non-llm field values carry
+  forward from the row being replaced instead of being destroyed, then a declared fallback
+  applies. Their council is approved (`74ffbb5b`), no Go written yet, opt-in key
+  `seal_declared_field_contract` in **0** live agent rows.
+  **What I told them, because this fix widened their blast radius:** before `2fae8baa4` a
+  re-appended interactive section reached the INSERT with `component_id` NULL — no component, no
+  `input_schema`, so a schema-driven fallback could not fire on it at all. It now carries one.
+  `[MEASURED 2026-09-04]` **48 of 335** active `component_level='tool'` components have a
+  non-empty `input_schema`, and a self-contained tool's NULL `content_data` is its CORRECT shape,
+  so a fallback fill on one is a wrong write onto a working tool — **a class of write that only
+  became reachable today.** ⚠ `isSelfContainedSection` is not a reusable guard for it: it is
+  `len(InputSchema) > 0 → false` THEN `component_level == "tool"`, so excluding self-contained
+  sections protects the ~287 schema-less tools and leaves exactly the 48 exposed.
+  `Pay Off Loan or Save?-loanzy-uk` — the component §6's repair would bind `loanzy.uk` to — is one
+  of the 48.
+  **Also flagged: placement.** Order today is enrich `:426` → Layer 2 carry `:517` →
+  `sanitizeSectionsContentData` `:644` → DELETE `:938` → INSERT `:1130`. That guard
+  (`bugs_open/190`) names Layer 2 as *"one of the two paths that recycles a stored envelope back
+  into the section set"* and must run before the DELETE so a refused save writes nothing. A third
+  carry-forward path reading the replaced row at or after the INSERT bypasses it.
+  Consumer set independently re-derived here with the step query (NOT `default_config::text LIKE`,
+  which returns ten types by catching prompt mentions): exactly `page-build-handler`,
+  `page-rerender`, `tool-recreation-handler`, one `save_sections` step each.
