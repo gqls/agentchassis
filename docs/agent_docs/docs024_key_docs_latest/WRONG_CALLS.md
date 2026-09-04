@@ -67389,3 +67389,17 @@ BACKSPACE** (LANDMINES). For a JSON key, `?` answers top-level only: pair it wit
 not missing. **A probe whose over- and under-matching are both invisible needs a
 control on the opposite side.**
 Tally: substring-probe-over-matched; key-shape-probe-under-matched.
+
+- **2026-09-04 — farmerinsurance_uk lane — "58% of this site's open work items are stale" (it was 43.5%).**
+  Wrote the headline figure as 158 of ~274 in the lane's NOTES, its README, a commit message and
+  the workstream memory line, within an hour of opening the lane. **The numerator and the
+  denominator came from two different queries with two different status filters**: the
+  denominator excluded terminal statuses (`complete/cancelled/rejected/failed`), and then I added
+  42 `unbuilt_internal_link` rows sitting at `failed` into the numerator. True figure, one query
+  and one filter: **117 of 269**. *What caught it:* not an arithmetic re-check — reading
+  `workItemRevalidatableStatuses` for an unrelated question and seeing that `failed` is terminal,
+  therefore outside the population I had just quoted. *The cheap check:* **compute a percentage's
+  two halves in ONE query with ONE status filter**, and if you cannot, name the population in the
+  sentence ("117 of the 269 rows that are not already closed"). A ratio built from two
+  differently-filtered counts reads exactly as plausible as a correct one, in either direction,
+  and nothing downstream can tell.

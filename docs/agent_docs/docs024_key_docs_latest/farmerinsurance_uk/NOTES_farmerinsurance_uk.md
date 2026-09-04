@@ -175,3 +175,50 @@ org that is actually serving these calls.
   claiming it — the number is only yours once the file is committed, and two lanes looked inside
   the same four minutes. Cheap discipline: after committing a new bug file, re-run the max query
   and grep for your own number; if a second file appeared, move the one with no inbound pointers.
+
+### 16:0xZ — ⚠ CORRECTION to my own headline number, and a sharper finding underneath it
+
+> **CORRECTED 2026-09-04 (same session, ~3½ hours later): "158 of ~274 open rows (58%)" is WRONG.
+> The true figure is 117 of 269 — 43.5%.** What I did: the denominator EXCLUDED terminal
+> statuses (my open-rows query filters out `complete/cancelled/rejected/failed`), and then the
+> numerator INCLUDED the 42 `unbuilt_internal_link` rows sitting at `failed`. A terminal row is
+> not part of an open backlog, so those 42 could never have been in the 274 to begin with. The
+> claim is repeated in `README_where_we_are.md`, in commit `d0a70596f`'s message and in the
+> workstream memory line; corrected in the first two, and the commit stands as written because
+> forward-only forbids an amend.
+>
+> **What caught it:** reading `workItemRevalidatableStatuses` to answer a different question —
+> whether these rows can ever close — and noticing `failed` is terminal, therefore outside the
+> population I had just quoted. Not a re-check of the arithmetic; a re-check of the DEFINITION.
+> The cheap check I skipped: **run the numerator and the denominator in ONE query with the same
+> status filter.** Two queries with two filters is how a percentage acquires a mixed population,
+> and it reads exactly as plausible either way.
+
+`[MEASURED 2026-09-04 15:5xZ, one query, one status filter]` Open non-terminal rows: **269**.
+Stale or moot within them: **117 (43.5%)** —
+
+| bucket | rows | why it is not a live defect |
+|---|---|---|
+| `unbuilt_internal_link` unresolved | 62 | all name `/claims.html`, deployed 01:18Z today, serves 200 |
+| `dead_internal_link_live` detected | 1 | same target, same reason (from `/about.html`, 404 on 09-02) |
+| `head_essentials_missing` detected | 34 | 20 judge archived pages (moot); 14 judge active pages that serve title+desc+canonical+footer (false) |
+| `canonical_mismatch` detected | 20 | all 20 judge archived pages (moot) |
+
+**And the sharper half — 63 of those 117 can drain themselves; 54 cannot.**
+`workItemRevalidatableStatuses` (`platform/orchestration/actions/work_items_common.go:143`) is
+exactly `{needs_human_review, unresolved}`. So:
+
+- the **62 `unresolved`** rows are in scope for the review-queue sweep, and
+  `unbuilt_internal_link` has a registered drain (`revalidate_unbuilt_link.go`) that delegates to
+  the same `VerifyUnbuiltInternalLinkResolved` the completion gate uses — whose second disjunct
+  is "the target has shipped". `/claims.html` now carries a `deployed_at` stamp, so these should
+  close as `resolution_path='auto:revalidated'`, status **`complete`**. ⚠ **They land at
+  `complete`, NOT `retracted`** — a query looking for `retracted` reads zero and concludes the
+  drain is dead (the improvement_loop lane's landmine; it applies here verbatim).
+- the **54 `detected`** rows (34 head + 20 canonical) are **NOT revalidatable** — `detected` is
+  absent from that list. Nothing drains them, and 40 of the 54 judge pages that no longer exist.
+  They are permanent furniture in this site's queue unless their producing check re-runs and
+  retracts, which for an archived page it will not.
+
+Check to run in a few days rather than assume: the 62 should have become `complete` /
+`auto:revalidated`; if they have not, the drain is not reaching this site and that is a finding.

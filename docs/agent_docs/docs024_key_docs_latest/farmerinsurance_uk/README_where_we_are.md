@@ -67,3 +67,22 @@ with the directory the site's own plan actually asked for — FCA-regulated agri
 insurance brokers, NFU Mutual and the like — which is the right answer and means building a new
 directory type the platform does not have yet. Or leave it, which I would not recommend on a
 site whose whole claim is that it knows farm insurance.
+
+---
+
+## 2026-09-04, later — a correction to my own figure, and what it turned into
+
+I told you this morning that 58% of farmer's outstanding items were dead. **That number was
+wrong and the right one is 43%** — 117 of 269. I had counted a group of 42 items into the total
+that were already closed off as failed, while the total I was comparing them against deliberately
+left closed items out. Same day, same session, so nothing has been built on it; but it is the
+kind of mistake that reads perfectly plausible either way, so it is written down where I made it.
+
+The recount turned up something more useful than the headline. Of the 117 dead items, **63 will
+clear themselves and 54 never will.** The platform has an automatic sweep that re-checks stale
+items and closes the ones whose cause has gone away — but it only looks at items in two states,
+and 54 of farmer's are in a third state it does not read. Forty of those 54 are complaints about
+pages you deleted a week ago. Nothing will ever retire them; they are permanent furniture in this
+site's list, and they are part of why the list looks alarming when the site is fine.
+
+That is worth knowing beyond farmer, because every site's queue is read the same way.
