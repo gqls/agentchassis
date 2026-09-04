@@ -497,3 +497,56 @@ site's email address, and it is three days old. I refreshed the *writing* half t
 unchanged. The reading half, fourteen places, still needs redoing, and it matters more now than it
 did this morning: under your ruling every one of those has to learn *which* identity it is reading,
 so one missed is one that quietly carries on using the old column.
+
+---
+
+## Friday 4 September — the logo-visibility check now exists, and it found a second one
+
+You ruled on Wednesday that when a logo turns out to be invisible we should *find out afterwards*
+rather than refuse to save it. That was the decision. What was left was where the measuring
+actually happens, and the answer turned out to be two pieces of work rather than a choice between
+two options: a cheap check we can run today over every logo we already have, and a proper one later
+that looks at the real rendered page. I've built the cheap one. It runs, and it works.
+
+**The way it decides.** It fetches the logo the page actually loads, reads that site's own header
+colour, and works out how much of the mark stands out against it. Two separate tests, and it needs
+both. The first asks whether *any part* of the mark is dark enough to see. The second asks *how
+much* of it is. The reason both are needed is websitepromotion: its current logo would sail through
+the first test, because the thin magenta outline around it is very high contrast — while
+eighty-six per cent of the mark is white on a white header. One test looks at the best pixel; the
+other looks at how many pixels are any good. You need the second to catch the case that started
+all this.
+
+**The headline number isn't the number of bad logos.** We have thirty-four logos. Two fail. But
+only *seven* could be judged at all — because twenty-two of them have a background baked into the
+picture. Those are the older ones, from before the transparency fix landed. For a logo with its own
+background painted in, "does it stand out against the header" isn't the right question: what you
+see is a coloured box, and the mark inside it reads against that box. I looked at several and they
+are fine. So this isn't twenty-two hidden problems. It is the reason I can't yet tell you how
+widespread this is across the estate — the check can only speak for seven sites.
+
+**The new one is mortgagecalculator.co.uk.** No part of that logo reaches the accessibility floor
+against its header. I want to be careful here, because the numbers overstate it: I opened the
+image, and it is a gold house-and-key mark on cream, and you *can* see it. The honest sentence is
+"the whole mark sits below the contrast standard", not "it is invisible". Whether that is worth
+regenerating is your call, not the check's — I've recorded it and left it.
+
+**Three sites have a logo we made that their page never shows.** ai-agent-orchestration.com,
+cookly.uk and webdesign.co.uk still print their name as text in the header. That is a different
+problem from this one and it belongs to a different bit of work, but the check now names it rather
+than quietly measuring a picture nobody sees.
+
+**I got three things wrong today and all three had the same shape.** Each time I measured something
+real, carefully, with the right method — and it was the wrong picture. Once I trusted our database's
+record of where a logo lives, and the link in it had expired months ago while the site was serving
+a perfectly good logo from somewhere else. Once I picked the first "header" in the page, which
+turned out to be a heading in the middle of the content rather than the bar at the top. Once I read
+a momentary network failure as "this logo cannot be measured". None of them looked wrong. Every one
+produced a tidy row of numbers. What caught all three was opening the actual image and asking
+whether it was the one a visitor loads — which is the same lesson as Wednesday's, arriving from a
+new direction.
+
+**What is still not done.** The check *reports*; it does not yet hand anything to something that
+can fix it. That's the piece I've deliberately not guessed at, because the existing route sends
+contrast problems to a thing that repaints stylesheets, and no amount of restyling fixes a pale
+picture. Naming the right destination is the next decision, and it is a real one.
