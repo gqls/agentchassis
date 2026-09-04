@@ -873,3 +873,52 @@ lane already has the precedent: applying migration 729 was refused by the sessio
 classifier, and the handoff left it for the owner rather than working around it. A lane document
 asking for a repair is not the owner asking for it. **So it is an owner decision, and it is
 one line to run.** The pages serve correctly meanwhile, so nothing is degrading while it waits.
+
+## (ac) 2026-09-04 11:2x–11:4xZ — the council returned NO VERDICT, and the reason is not this submission
+
+The gate run for `567954f2` reached `council_decide` and died there:
+
+```
+step council_decide failed: no reviewer produced a readable opinion
+(6 abstained, 11 unreadable: review_editquality.result, review_bug_historian.result, …)
+— a council with no opinions cannot decide
+```
+
+**That message reads exactly like a submission defect** — too long, malformed, truncated — and
+the estate has a standing landmine about council seats returning truncated output, so the obvious
+next move is to rewrite and resubmit smaller. **It would have been wasted work.** All 11 seats
+failed identically at the API:
+
+```
+API request failed with status 400: {"type":"error","error":{"type":"invalid_request_error",
+"message":"Your credit balance is too low to access the Anthropic API. …"}}
+```
+
+**The fleet's Anthropic credit balance is exhausted.** `[MEASURED 2026-09-04 11:45Z]` last
+successful call fleet-wide **11:20:49Z**, first credit failure **11:21:11Z** — 22 seconds later,
+no ramp — then **96 failures across 7 agent types** (`council-gate` 75, `landmine-verifier` 15,
+plus tool-improver, feed-triage, directory-researcher, diagnose-agent, build-briefing-agent) and
+**zero successes** since. My submission landed 47 seconds into the outage. It passed admission and
+all 17 seats dispatched; nothing about it is wrong.
+
+**The check that separated the two explanations, and it is one query:**
+
+```sql
+SELECT step_name, input_tokens, output_tokens, max_tokens, success, left(error_message,80)
+  FROM llm_call_log WHERE orchestration_id='<the run>' ORDER BY created_at;
+```
+
+`output_tokens` NULL and `success = f` is an API refusal. `output_tokens = max_tokens` would have
+been the truncation story. **Eleven seats failing identically is a fleet fact, not a submission
+fact** — a per-seat defect does not arrive at every seat at once.
+
+**Consequence for the bookkeeping, stated so it is not forgotten:** commit `2fae8baa4` carries
+`Council-Submitted: 567954f2-…`, and that correlation can now never resolve to a verdict. The
+trailer remains honest (it asserts a submission, not a review) but `098` will never credit it, so
+**the change must be RESUBMITTED once credits are restored**, and the new correlation recorded in
+`bugs_open/479` §5.
+
+Recorded in memory against the previous outage of this shape (2026-08-23), because the two say
+*different words* — that one was `"You have reached your specified API usage limits"` (a cap),
+this one is `"Your credit balance is too low"` (a balance) — and the wrong-org trap that cost ~16
+hours in August applies to buying credits exactly as it applied to raising a limit.

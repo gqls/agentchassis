@@ -164,7 +164,14 @@ at least falls through.
 Both mutations were run and both go red: restoring `carriedIdentity` in the re-append arm, and
 making the helper ignore the active flag.
 
-- Council: `Council-Submitted: 567954f2-1b40-407a-b7b1-d3b299a0af9a`.
+- Council: `Council-Submitted: 567954f2-1b40-407a-b7b1-d3b299a0af9a` — **⚠ NO VERDICT, and it is
+  not coming.** The run reached `council_decide` and died with *"no reviewer produced a readable
+  opinion (6 abstained, 11 unreadable)"*, which reads like a submission defect and is not one: all
+  11 seats failed at the API with `400 … "Your credit balance is too low to access the Anthropic
+  API"`. `[MEASURED 2026-09-04 11:45Z]` the fleet's last successful LLM call was **11:20:49Z** and
+  this submission landed 47 seconds later. **RESUBMIT once credits are restored** and record the
+  new correlation here; `098` can never credit the current one. Do NOT rewrite the submission to
+  make it smaller — it passed admission and all 17 seats dispatched.
 - `verify-head-builds.sh --with` (4 files) → `OK — HEAD b9cdfd5d1 builds`.
 - ⚠ Two package tests fail at HEAD **before this change** and are the 440 lane's, not this one's:
   `TestFindingCodeScanEveryWriteIsRegistered` and `TestTemplateExecutorsAreDeclared`, both about
