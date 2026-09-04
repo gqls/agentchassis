@@ -5805,3 +5805,52 @@ new pods' `build provenance` startup line (fresh pods, so it is in range), tests
 `git merge-base --is-ancestor 681b0ee65 <stamp>` with the current HEAD as a must-be-false control
 (a stamp that current HEAD is an ancestor of would mean the build predates nothing — i.e. the
 control catches an empty/garbage sha), and re-reads copyonline's claimed/open items.
+
+### (eee) 2026-09-04 ~07:50Z — overnight: composition self-healed as predicted; the plan's REAL blocker found (the strategist's deployed-gate reads page-level `deployed_at`); briefing filed by hand; PRC-003 confirmed shipped
+
+**Roll:** chassis `v1.0.1360` at ~22:40Z 09-03 (pods `ffc9ddff9-*`). The startup provenance line had
+scrolled by morning; the binary probe found neither the tag-bump commit (expected — it is not the build
+commit) nor a fake sha (control good); the **image's own label** settled it:
+`org.opencontainers.image.revision = 239ab3626fc7…`, `git merge-base --is-ancestor 681b0ee65 239ab362…`
+**TRUE** (control: the revision is an ancestor of HEAD). **PRC-003 is live** → from 22:40Z 09-03 a
+`<no value>` census at `llm_call_log.prompt_rendered` reads clean for the wrong reason.
+
+**Overnight on copyonline `[MEASURED 07:41Z]`:** `vertical_landscape` re-ran 22:08Z and `strategy` 22:31Z
+(both sighted); **`resolved_composition` 02:07Z** — the composition re-filed itself exactly as (ss)/(xx)
+predicted (`MissingStyleCollectionCheck`; `style_collection_id` now `88e3cfb9…`); `offer_ordering` 02:10Z.
+**No plan, no new pages.** The queue filled with **record-mode audit verdicts** (RFC_056 —
+`content-quality-audit`, `site-review`, `brief-fidelity-audit`, `offer-analysis`, `visual-design-audit`:
+17× `needs_content_planning:deferred` naming `/`, `/directory/`, `/get-copy-written/`, `/tools/` index —
+the audits can see the brief's pages are missing; their repairs are not dispatched) plus 15×
+`image_source_unsatisfiable` (`tool-guide-intro` sources `guide_image_url` from `site_assets.image`
+which nothing generates — and it audits the ARCHIVED tool pages too: `bugs_open/266`'s class, noted not
+chased), `brief_supplies_negation:needs_human_review` (below), `missing_conversion_path` → `wont_fix`.
+
+**THE PLAN'S REAL BLOCKER `[MEASURED at agent_definitions + orchestration_states]`.** The chain is
+`domain-strategist` → `needs_briefing` → `build-briefing-agent` → `needs_site_plan` →
+`build-site-planner`. Copyonline has **never** had a `needs_briefing` or `needs_site_plan` (live +
+archive). The strategist's `gate_next_item` is `site_state.is_deployed == true → complete, else →
+create_next_item(needs_briefing)`, and `check_site_deployed` is
+`SELECT (COUNT(*) > 0) AS is_deployed FROM pages WHERE site_id=$1 AND NOT (deployed_at IS NULL AND
+COALESCE(build_status,'') <> 'deployed')` — **ANY page with a `deployed_at` stamp makes the SITE
+"deployed"**. The five blind tool pages (deployed 16:15–17:20Z 09-03, before any plan existed) satisfied
+it; both strategist runs read `is_deployed: true` and `next_item_created` is absent from both. **The
+tool-deployer's early pages told the strategist the site was already built.** Page-level `deployed_at`
+read as site-level deployment — the exact trap I wrote a LANDMINES entry about yesterday from the other
+side. Fleet-wide implication: any site whose tools deploy before its plan never gets a plan.
+**090 filed** 07:45:05Z (item `467f0283`, intake recorded; the 200s wrapper killed the script after
+intake — harmless). Bug file to follow the verdict, per the 2026-07-31 ruling.
+
+**Action taken: `needs_briefing` filed by hand** 07:47:25Z (item `479614c9`, mirroring designblog's
+shape: prio 10, high, pipeline build, handler `build-briefing-agent`). **Reasoning, stated so the owner
+can stop it:** he released this site ("the brief is good, carry on"); the pipeline failed to plan it for
+a mechanical reason now diagnosed; filing the one item the gate wrongly skipped completes his release
+rather than disturbing a running build (nothing was running — the site had stalled). Reversible (cancel
+the item); the plan gate still holds any listing page whose source is empty. Watcher `bwdqsjvzs` follows
+briefing → plan and prints the planner's rendered `## Mission` block — **the planner's own 764 run-once**.
+
+**Owner decision surfaced:** `brief_supplies_negation` — `content_direction.formatted` hands the writer
+the phrase *"practical craft notes, not legal or compliance advice"* (an x-not-y shape; from the brief's
+ASA/CAP guide line); the check's own fix text: *"Human decision, and it is the SITE OWNER's: edit the
+brief so it does not hand the writer a phrase built on define-by-negation."* `instructional_only=31`,
+`word_instructional=2`. Not acted on.

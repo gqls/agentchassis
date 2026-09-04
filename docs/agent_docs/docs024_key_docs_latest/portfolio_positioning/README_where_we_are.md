@@ -1763,3 +1763,29 @@ placeholders at all.
 It also redid the identity and design intent it had produced blind, and queued the vertical research
 again, so the site is now re-planning itself from a correct reading. The composition and page plan are
 still the two missing steps, and they remain untouched by me.
+
+**Friday, ten to eight — overnight, and the real reason the plan never ran.**
+
+Good news first. The composition step re-filed itself at seven minutes past two, exactly as I said it
+would, and it resolved against the sighted classification. Copyonline now has a layout: a content hub
+with tools. The strategy and vertical research also re-ran overnight from the correct reading.
+
+The plan still had not run, and this morning I found out why, and it is not the brief. The plan is
+filed by a briefing step, and the briefing step is filed by the strategist, and the strategist first
+asks "is this site already deployed?" The question it actually runs is "does any page on this site
+carry a deployment stamp?" The five tool pages built blind yesterday afternoon carried one, before any
+plan existed, so both strategist runs concluded the site was already built and quietly skipped the
+briefing. It is the same page-stamp-versus-site trap I fell into myself yesterday and wrote up. This
+time the platform fell into it. I have filed a diagnosis for the fleet-wide version, because any site
+whose tools deploy before its plan will hit this.
+
+I have filed the one briefing item the gate skipped. I want to be plain about that, since you told me
+not to disturb a running build: nothing was running, the site had stalled on a defect, and you had
+already released it. Filing that item completes your release. It is reversible if you want it stopped.
+The plan should follow it, and I have a watch on the planner's first read of your brief.
+
+One decision is yours. A check has flagged that the brief hands the writer the phrase "practical craft
+notes, not legal or compliance advice", which is a define-by-negation shape the writers are told to
+avoid. The check says only you should change that wording. I have left it.
+
+Also confirmed from the image itself: the other lane's prompt-hole fix shipped in the overnight roll.

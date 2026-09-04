@@ -84,6 +84,20 @@ cannot read the brief directly.** It also renders the WRONG classification, so c
   `pages.deployed_at` (315/359 shape) — expected members of any archived-and-deployed census.
 - Everything in §1z below about the re-fire is DONE; keep it for the record.
 
+## 1w. ⚠ ADDED 2026-09-04 ~07:50Z — the plan's real blocker, and what is in flight now
+- **copyonline never had `needs_briefing` or `needs_site_plan`**: `domain-strategist.gate_next_item`
+  skips the briefing when `check_site_deployed` says `is_deployed`, and that query counts ANY page
+  with `deployed_at` — the five blind tool pages satisfied it. 090 filed (item `467f0283`); bug file
+  owed after its verdict. `needs_briefing` filed by hand 07:47:25Z (item `479614c9`) → expect
+  `needs_site_plan` → the plan. Watcher `bwdqsjvzs`. If the plan lands, read the planner's rendered
+  `## Mission` block (764's second half) — but note PRC-003 is LIVE (v1.0.1360, image label
+  `239ab362…`), so count holes with `ScanMissingValues` on the raw execution, never `<no value>`.
+- Composition resolved 02:07Z (`content-hub-tools`, `library_match`); 445 lane has the fields.
+- OWNER decision open: `brief_supplies_negation` — "practical craft notes, not legal or compliance
+  advice" in `content_direction`; the check says only the owner edits it.
+- 15× `image_source_unsatisfiable` (`tool-guide-intro` → `site_assets.image`, nothing generates it)
+  include ARCHIVED pages — `bugs_open/266`'s class; noted, not chased.
+
 ## 1x. ⚠ ADDED ~21:40Z — a chassis roll was announced for ~22:00Z (baseline v1.0.1359)
 Nothing of this lane rides it. After it: (a) read the new pods' `build provenance` line and test
 `git merge-base --is-ancestor 681b0ee65 <stamp>` — PRC-003 live means `<no value>` censuses at
