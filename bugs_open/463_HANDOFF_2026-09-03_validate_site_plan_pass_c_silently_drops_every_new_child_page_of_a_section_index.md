@@ -2,16 +2,25 @@
 
 **Filed 2026-09-03 ~15:40Z by the `gamedesign.uk` lane.**
 
-> ## ✅ FIXED IN CODE 2026-09-03 by session `463` — commit `9b540c2e6`. STILL OPEN: inert until the chassis image rebuilds and rolls, and unverified at the artefact until then.
+> ## ✅ FIXED and LIVE since 2026-09-03 22:07:19Z. Council APPROVED. STILL OPEN: never exercised — no plan has run since the roll, so the fix is proven in the binary and in tests, NOT yet at the artefact.
 >
-> Both halves are in that commit: Pass C narrowed to a true collider, and the
-> `parent_section` derivation §5 below said was not needed (see the correction there —
-> **without it the Pass C fix changes nothing at the artefact**). Council submitted,
-> corr `9f6c6374-1b76-4094-9b4c-e04808d8428c`, verdict pending.
-> Tests: `platform/orchestration/actions/v3_site_reconcile_section_children_test.go`,
-> `platform/orchestration/datahelpers/page_parent_section_test.go`.
-> **Do not re-plan gamedesign.uk until the roll** — a fourth plan before then is deleted
-> by the same pass.
+> - **Code:** commit `9b540c2e6` (both halves) + `244651c03` (phantom-hub tests).
+> - **Live:** chassis ReplicaSet `agent-chassis-ffc9ddff9` rolled `2026-09-03T22:07:19Z`.
+>   Proven by CAPABILITY probe on the running binary, with a working present-control —
+>   `grep -aq "dropped flat page colliding with realised section index" /proc/1/exe` PRESENT
+>   (the pre-existing literal, so the probe can see) and
+>   `grep -aq "path collides with realised section index" /proc/1/exe` PRESENT (the literal this
+>   fix adds). ⚠ **Do NOT try to confirm this by commit sha**: the image tag did not change
+>   (`v1.0.1360` before and after) and every sha probe — including the previously reported stamp
+>   `3043885191b…` — comes back ABSENT. The startup `build provenance` line has long scrolled.
+> - **Council:** APPROVED round 2, `2026-09-03 17:26:38Z`, correlation
+>   `9f6c6374-1b76-4094-9b4c-e04808d8428c`. Round 1 was REVISE on a fair objection about the
+>   submission (a helper's semantics asserted rather than shown), not about the code.
+> - **NOT YET VERIFIED at the artefact.** `[MEASURED 2026-09-04 11:05Z]` **zero** orchestrations
+>   with a `validate_plan` step have run since the roll, so nothing has exercised the fixed path.
+>   §9 "How to close" is the outstanding work.
+> - ⚠ **An earlier reading that "9b540c2e6 is not live" has EXPIRED, not been refuted.** It was
+>   correct when taken (before the 22:07 roll) and two lanes are still holding re-plans on it.
 
 **Severity: this is why a site with an articles/guides/news hub and no children stays empty for ever, through any number of re-plans.**
 
@@ -251,10 +260,20 @@ stands — not a claim that Pass C emptied all 53.)
 
 ### How to close this bug
 
-Not before the chassis image rebuilds and rolls — Go changes are inert until then. Then §7's
-step-boundary check, and one addition to it: confirm the children reach `site_plan_pages` at
-**`/articles/<slug>.html`, not `/blog/<slug>.html`**. That second assertion is the one a
-Pass-C-only fix would fail, and a served-page check cannot distinguish the two.
+**The roll is done (2026-09-03 22:07:19Z) and the fix is in the running binary.** What remains is
+purely behavioural, and it needs ONE re-plan of a site that is under `bugs_open/467`'s 20-page cap
+and has a realised section index with no children. **gamedesign.uk is that site** (9 pages, hub
+`articles-index` at `/articles/index.html`, 0 children). Its lane owns the site and has offered to
+run it.
+
+Assert in this order — the middle step is the one that matters, because a Pass-C-only fix passes
+the first and fails the second, and the served page cannot tell them apart:
+
+1. **Step boundary** (463 §7): `proposed = survived` for the run's correlation.
+2. **Placement**: the children present in `site_plan_pages` at `/articles/<slug>.html`, **not**
+   `/blog/<slug>.html`.
+3. **Then** the served hub — which additionally depends on `bugs_open/457` (another lane's, in
+   flight), so a hub that still renders empty at step 3 while steps 1 and 2 pass is 457, not this.
 
 ---
 
