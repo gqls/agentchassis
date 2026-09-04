@@ -546,10 +546,27 @@ number, or "yes" about a file that never ran.
 > become OPENING LINES."** The planner is now told to emit subjects that read as a section's opening
 > sentence. **The nine subjects this lane hand-wrote in `SEED_2026-09-03` are BRIEFS, not opening
 > lines** — e.g. *"Ring grip: evenly spaced circular grooves cut around the barrel, the most common
-> and most forgiving texture, who it suits and how it feels on release."* Under 641's template they
-> arrive under a `## This section` heading, which reads as a brief and should be fine. **But if the
-> retry produces prose that opens by reciting the subject verbatim, that is the cause** — rewrite
-> them as opening lines rather than as instructions, and do not conclude the mechanism failed.
+> and most forgiving texture, who it suits and how it feels on release."*
+>
+> > **⚠ CORRECTED before acting on it — DO NOT rewrite the subjects.** `[MEASURED 2026-09-04,
+> > `position()`, exact substring, controls `t`/`f`]` **the phrase "opening line" appears in NEITHER
+> > live config** — not `build-site-planner`, not `page-content-writer`. It is in **762's filename
+> > and header only**, i.e. the author's *intent*. The live writer block presents the subject as a
+> > brief under a heading and **contains no instruction to reproduce it verbatim**:
+> > `{{if .current_section.subject}}## This section\n\n{{.current_section.subject}}`.
+> > **So run the nine subjects as written.** Verbatim recitation is a model behaviour to watch for,
+> > not a prescribed one — and if it happens, the live template is evidence the prompt never asked
+> > for it, which is a better finding than pre-emptively rewriting nine subjects and never learning
+> > whether it would have occurred. Caught by `inline_guide_imagery`; this is the third time that
+> > lane has been bitten by the same gap — **a migration's header states intent, the
+> > `agent_definitions` row states behaviour.**
+>
+> **⚠ AND THE ACCEPTANCE TEST WE AGREED IS RETIRED — "N sections → N distinct prompt hashes" CANNOT
+> FAIL post-641.** The sibling block is
+> `{{if and $s.subject (ne $s.subject $.current_section.subject)}}`, so every prompt lists every
+> subject except its own and the prompts therefore differ **structurally even if the
+> `## This section` block were empty**. **The only discriminating read is the per-prompt
+> `## This section` block**, plus the served prose. Grade on those.
 
 > ## ✅ 2026-09-04 — THE BLOCKER IS CLEARED. The retry is actionable. And the gate below was BROKEN.
 >
