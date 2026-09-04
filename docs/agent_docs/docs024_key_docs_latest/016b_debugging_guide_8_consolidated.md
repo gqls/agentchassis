@@ -6948,6 +6948,37 @@ evidence.
 - **The pattern:** before calling a seam "guarded", enumerate what EACH guard refuses, in a table, and look for the row your defect would need. A guard's NAME is a claim about its remit; its predicate is the fact. The same shape as "a doc comment is not an enforcement mechanism" and "a status column read as a deployment fact".
 - **The check:** `grep -n 'html.Parse\|bluemonday\|well-formed' <save action>` — the tolerant parser is already a module dependency (`section_visible_text.go`, `check_structure_floor.go`), so absence on the save path is a choice nobody made, not a constraint. Fix candidates and scope of the verified claim (save seam only; later steps `[UNVERIFIED]`): `bugs_open/456`.
 
+### 9.100 — A gate that asks a SITE-level question against a PAGE-level column is decided by a race between parallel producers (2026-09-04, `bugs_open/478`)
+
+**Shape.** A guard meant to protect a live site ("never re-plan a serving site") is implemented as
+"does ANY page carry a deployment stamp". That is only equivalent to "this site was planned" if pages
+can exist solely downstream of a plan — and on this estate at least two producers (the tool-deployer,
+`bugs_open/450` §7; a seeding path) create and ship pages in parallel with the build path from the
+moment a site goes active. Whichever path finishes first answers the gate. On designblog strategy beat
+the first page by 12 minutes and the site was briefed; on copyonline the tool path beat strategy by ~90
+minutes and the site never received a briefing or a plan. Three greenfield sites are in that state and
+one was silently redriven by hand three weeks earlier.
+
+**The tell.** A site with a complete spec set (classification, strategy, composition) and **zero**
+`needs_briefing`/`needs_site_plan` items ever, while record-mode audits pile up verdicts naming the
+brief's missing pages. The strategist's orchestration rows carry `site_state.is_deployed: true` and no
+`next_item_created`.
+
+**The check.** Read the gate's query and ask WHO WRITES the column it reads. `pages.deployed_at` is
+written per page by every deploy path, including ones that precede the plan; `sites.published_at` and
+`site_plans` are written by the site-level events the guard is actually about. And **do not census this
+with `pages.deployed_at`** — rerenders move it, so "a stamp existed at strategy time" is unrecoverable
+from the current column; `pages.created_at < first strategy` is the stable proxy.
+
+**Why the loop could not see it.** The mechanism lives in `agent_definitions.default_config` step JSON,
+which the diagnosis loop's static tier does not index (register `diagnosis-loop.md` line 268); its
+UNVERIFIABLE verdict was an instrument limit, not a refutation. Config-carried gates need the
+first-hand substitute the 2026-07-31 ruling allows — quote the step JSON and the orchestration rows.
+
+**Sibling.** The human version of the same read — ten `pages.deployed_at` stamps on a site that had
+never been published — is the 2026-09-03 LANDMINES entry from the same lane. Same column, same wrong
+inference, one made by a person and one by a gate.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
