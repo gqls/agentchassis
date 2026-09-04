@@ -265,3 +265,52 @@ then the `_VERIFY` companion counts the state so it cannot arrive unnoticed.
   printed nothing on a deliberately bad migration — a clean pass from a checker that never looked,
   which is the shape phase 2b existed to prevent. And `migration_is_lintable()` takes a BASENAME:
   passing a path returns False and nearly produced a correction against a true claim.
+
+---
+
+## CONTRIB 2026-09-04, from the bug sweep lane (442) — `83407cd37` leaves **TWO** guards RED at HEAD, not one
+
+Not this lane's bug and not touching it — reporting only, because a lane fixing the half it was told
+about will still be red and will not know why.
+
+`[VERIFIED 2026-09-04, `scripts/verify-head-builds.sh --test ./platform/orchestration/actions/...`,
+HEAD `541193665`; re-checked at `a8451c251` — **no commit has touched either guard, the registry, or
+`fail_work_item_message_template.go` since**, so both still stand]`
+
+The **build** half is green. Two tests fail, both tripped by `83407cd37` ("440 phase 3 BUILT and
+HELD"):
+
+```
+--- FAIL: TestTemplateExecutorsAreDeclared
+    render_seam_one_spelling_test.go:246: UNDECLARED template executor(s) [renderFailWorkItemMessage]
+      — a new executor is a new DIALECT … Declare it in declaredTemplateExecutors and say what its
+      language is.
+
+--- FAIL: TestFindingCodeScanEveryWriteIsRegistered
+    findingcodes_scan_test.go:284: error code "FAIL_WORK_ITEM_MESSAGE_TEMPLATE_FALLBACK" is written
+      by this package, is not declared in …/finding_code_registry.json, and is not in
+      `_scan_baseline` — so it is NEW. Declare it (consumed / instrumented / human-evidence /
+      operational, or `unruled` …) in the same commit that adds it.
+```
+
+**The `theme_kits` lane reported the FIRST on 09-03** (their handoff,
+`docs/agent_docs/docs024_key_docs_latest/theme_kits/HANDOFF_2026-09-03_continue_here.md`, §4) and
+was right to tell readers not to patch another lane's guard. **The second appears nowhere** — it is
+not in this file, not in that one, and `grep` across `docs/` and `bugs_open/` finds no report of it.
+Worth saying explicitly because the two arrive from one commit but read as unrelated failures: one
+is about a template dialect, the other about an error-code registry.
+
+Both guards are behaving exactly as designed, and both are asking a question only this lane can
+answer — the registry entry in particular is a **ruling** (`consumed` / `instrumented` /
+`human-evidence` / `operational` / `unruled`), not a formality, and the register entry for **WII-038**
+already argues the case: the fallback "answers *the message a human is reading is the FALLBACK, not
+the intended one*", which reads like `human-evidence` or `operational` — but that is this lane's call
+to make, not mine.
+
+Note the second guard's own error text names the reason it exists: *"LINK_CONTEXT_UNAVAILABLE reached
+the live table on 2026-08-24 past a source-side early warning that could not see it"* (`bugs_open/358`).
+
+⚠ **A caution for whoever runs the check.** `./platform/orchestration/actions/...` FAILs as a
+package, so a `grep FAIL` over a whole-repo run tells you nothing about **which** lane owns it. Run
+the two tests by name to separate them, and run your own by name to prove yours are clean — that is
+how this lane established its 10 tests are green on the same red package.
