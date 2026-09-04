@@ -52,9 +52,30 @@ import (
 // OPT-IN, DEFAULT OFF (owner ruling 2026-08-02 §2: new authority on a shared seam
 // ships as a field whose unsafe default is OFF, not as a documented contract).
 // `save_page_sections` is the single INSERT every composition path flows through,
-// with SIX live carriers as of 2026-08-23, so a behaviour change here reaches all
-// of them at once. The flag makes arming a separate, reversible decision that a
-// reviewer of the CALLER can see.
+// so a behaviour change here reaches every carrier at once. The flag makes arming
+// a separate, reversible decision that a reviewer of the CALLER can see.
+//
+// ~~with SIX live carriers as of 2026-08-23~~ — CORRECTED 2026-09-04, and the
+// correction is worth more than the number. `[MEASURED 2026-09-04]` there are
+// THREE, under this predicate:
+//
+//	SELECT ad.type, s.key FROM agent_definitions ad,
+//	  LATERAL jsonb_each(ad.default_config->'workflow'->'steps') s(key,value)
+//	 WHERE s.value->>'action' = 'save_page_sections'
+//	   AND ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL;
+//	-- page-build-handler, page-rerender, tool-recreation-handler; one `save_sections` step each
+//
+// Six does not reconcile with ANY filtering of that query (dropping each of
+// is_active, is_snapshot and deleted_at in turn still gives 3), nor with the Go
+// side, which has exactly one entry point and one registry entry. So it either
+// counted something this comment does not name, or three carriers have gone since
+// — and NEITHER can be checked now, which is the whole point.
+//
+// ⚠ THE DATE WAS PRESENT AND DID NOT SAVE ANYONE. The owner's rule of 2026-08-22
+// is that a count carries the date it was counted; this one did, and a lane still
+// quoted it to a peer as current on 2026-09-04 (bugs_open/479). A date makes
+// staleness *detectable*; only a PREDICATE makes the census *re-runnable*. Write
+// the query next to the number, not just the day.
 //
 // ⚠ THE FLAG GOVERNS TWO COUPLED HALVES AND MUST GOVERN BOTH. Adoption alone does
 // not survive a rebuild: Layer 2 splices the stored tool into the incoming
