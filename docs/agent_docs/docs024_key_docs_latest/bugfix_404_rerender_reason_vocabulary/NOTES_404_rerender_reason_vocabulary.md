@@ -580,3 +580,53 @@ home that is not this file:
   discriminating marker exists** (this file's 08-26 entry records the cohort that failed to
   discriminate, and reaching for another until one agrees is how bad measurements get made);
 - `spec.reason` as two fields wearing one name — `RFC_062`, ruled, in flight.
+
+---
+
+## 2026-09-04 (later) — CORRECTION to §4 above: the gap is real, my framing of the RISK was not
+
+Found after this file was written and committed, by grepping `LANDMINES.md` for the mechanism I
+had just described — which is the check I should have run before broadcasting it, not after.
+
+`platform/livespec/livespec_test.go:364`, **`TestEveryFragmentMatchDeclarationIsGainVisibleOrWaived`**,
+already requires every `FragmentMatch` Declaration to carry either a paired `<key>.value_count`
+`CountEqual` **or** an entry in `gainBlindnessWaivers` with at least 60 characters of real reason.
+It exists for exactly this: *"the fix for `bugs_open/363`'s own blind spot lasts exactly as long as
+the next person who adds a FragmentMatch entry without knowing about it."*
+
+**Verified by execution** `[MEASURED 2026-09-04]` — appended step (c) to `Declarations` exactly as
+741's header prescribes it (FragmentMatch, whole clause, Min:1/Max:1, no pair) and ran the guard:
+
+```
+--- FAIL: TestEveryFragmentMatchDeclarationIsGainVisibleOrWaived
+    workflow.page-rerender.check_routing_key_known is FragmentMatch with no paired
+    "workflow.page-rerender.check_routing_key_known.value_count" CountEqual declaration
+    and no waiver. … A Max on a fragment does NOT close this.
+```
+
+**What changes, and what does not.**
+
+- **Unchanged:** the declaration as enumerated IS blind to addition (mutation-proved above), and
+  the paired count IS the right remedy, with `ExpectCount` derived from
+  `CheckRoutingKnownConditionClause()` — **7, not 5**.
+- **Wrong in what I wrote:** the implication that this could reach production quietly. It cannot
+  ship past that test unnoticed. **So the condition is not "we found a hole you would fall
+  through" — it is "when that test stops you, take the COUNT door, not the WAIVER door."** The
+  waiver door is open, the test accepts 60 characters of prose, and for this object it would be
+  the wrong answer: `check_routing_key_known` is an enumerable vocabulary whose size can grow,
+  which is precisely what the existing waivers (`…create_rerender`, `…prompt_item_shape`) are
+  careful to say their objects are *not*. The genuinely useful half of this contribution is the
+  **7 vs 5**, which no test will catch for you.
+- ⚠ **The one risk that survives, and it is not hypothetical:** `platform/livespec` has been **RED
+  at HEAD for nine days** on another lane's file (§5 of the 404 NOTES, and the CONTRIB filed with
+  that lane today). A brand-new, correct, well-worded failure in that package arrives **camouflaged
+  among known breakage** — and this lane's own advice to other lanes has been "run `-run <mine>`
+  and ignore the rest". So: clear the 405 red before the flip, or run the livespec package tests
+  with the specific test named.
+
+**The lesson, and it is mine.** I ran the mutation, got a true result, and wrote it into five
+documents and two migration headers before asking whether the estate already handled it. The check
+that would have caught it costs one `grep` of `LANDMINES.md` — the file whose whole purpose is
+"what will mislead you when you TOUCH this thing" — and the entry was there, at line 18614, naming
+the test by name. **A true finding is not the same as a finding worth broadcasting; the missing
+step was prior art, not evidence.** Logged in `WRONG_CALLS.md`.

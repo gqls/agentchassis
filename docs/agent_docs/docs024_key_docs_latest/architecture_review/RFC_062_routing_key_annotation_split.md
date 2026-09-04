@@ -107,7 +107,9 @@ mechanism that reaches a door Go cannot see).
 > asymmetry step (b) exists to close, one clause along. Mutation-proved with both controls
 > (removal → 1 finding; addition → 0). Remedy: a paired `CountEqual`, `ExpectCount` derived from
 > `CheckRoutingKnownConditionClause()` — **7**, because the clause also carries `== null` and
-> `== ''`. `bugs_open/404` is now CLOSED; this RFC's residual is entirely 440's.
+> `== ''`. `bugs_closed/404` is now CLOSED; this RFC's residual is entirely 440's.
+>
+> ⚠ **CORRECTED 2026-09-04 (same day):** the blindness is real and mutation-proved, but the shape **cannot ship unnoticed** — `TestEveryFragmentMatchDeclarationIsGainVisibleOrWaived` (`platform/livespec/livespec_test.go:364`) already refuses any `FragmentMatch` Declaration with no paired `.value_count` and no waiver (verified by execution). So the condition is **"when that test stops you, take the COUNT door, not the WAIVER door"** — the clause IS an enumerable vocabulary, so a waiver would be wrong — and the part no test gives you is **`ExpectCount` = 7, not 5**. ⚠ Residual risk: `platform/livespec` has been RED at HEAD for nine days on another lane's file, so that new correct failure arrives camouflaged.
 
 
 The flip is written, executed against the live database inside a transaction and rolled back

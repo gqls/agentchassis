@@ -468,7 +468,13 @@ applied, and an applied migration is append-only history whose checksum is in
   exists. Mutation-proved with both controls (a value removed live → 1 finding, so the guard is
   armed; a sixth value appended live → **0 findings, silent**). Remedy: a paired `CountEqual`,
   `ExpectCount` derived from `CheckRoutingKnownConditionClause()` — **7**, because that clause
-  carries `== null` and `== ''` besides the five vocabulary values.
+  carries `== null` and `== ''` besides the five vocabulary values. ⚠ **CORRECTED the same day:**
+  that shape **cannot ship unnoticed** — `TestEveryFragmentMatchDeclarationIsGainVisibleOrWaived`
+  (`platform/livespec/livespec_test.go:364`) already refuses a `FragmentMatch` Declaration with no
+  paired `.value_count` and no waiver, verified by execution. The real condition is *take the COUNT
+  door, not the WAIVER door* (the clause IS an enumerable vocabulary), plus the `7`-not-`5` detail no
+  test gives you. The finding was true; the risk framing was published before prior art was checked,
+  and is logged in `WRONG_CALLS.md`.
 - **The WARN has no durable consumer**, and per the 440 lane has fired **zero** times in
   production because every live producer bypasses the Go creator (`bug_historian` [medium]). Not a
   defect in the warning — it is the write-door placement question, and `RFC_062` owns it.

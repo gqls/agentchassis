@@ -65704,3 +65704,98 @@ carries the gated check and states the true rate as zero. **The mechanism it des
 — I did leave a live migration uncommitted for 13 hours — but it is a trap that catches an
 individual, not a habit the estate has**, and saying otherwise on two false positives is the kind of
 claim that makes a trap file less believed rather than more.
+
+---
+
+## 2026-09-04, `bugfix_404_rerender_reason_vocabulary` — I mutation-proved a true finding, then broadcast it to five documents and two migration headers before asking whether the estate already handled it. It did, by name, in the file whose whole job is to tell me.
+
+**The claim.** Reviewing `RFC_062` phase 3 for the owner-ruled D2 co-sign, I found that migration
+`741`'s applier checklist step (c) prescribes a `FragmentMatch` livespec Declaration for
+`check_routing_key_known`, which is **blind to a value being ADDED** to that clause. I proved it by
+mutation with both controls: a value removed live → 1 finding (so the guard is armed, not dead); a
+sixth value appended live → **0 findings, silent**. That part is correct and stands.
+
+**What was wrong: the risk framing, which is what made it worth broadcasting.** I wrote it up as a
+gap the flip would fall through, gave the co-sign "conditional" on closing it, and put it in the
+440 CONTRIB, the 440 handoff, the 440 bug file, `RFC_062`'s status line, both `_HOLD` migration
+headers, this lane's NOTES, the `016b` §10 row and the concept register — nine places — **before
+checking prior art.**
+
+**What caught it.** Grepping `LANDMINES.md` for the mechanism I had just described, ten minutes
+later, for an unrelated reason. Entry at line 18614 names the remedy AND the test that enforces it:
+**`TestEveryFragmentMatchDeclarationIsGainVisibleOrWaived`** (`platform/livespec/livespec_test.go:364`)
+already refuses any `FragmentMatch` Declaration with no paired `.value_count` and no waiver.
+Verified by execution — appending step (c) exactly as prescribed turns that test red with precisely
+the message I had spent an hour deriving.
+
+**The cheap check that would have caught it: one `grep` of `LANDMINES.md`.** The estate's own
+routing rule says LANDMINES is *"what will mislead you when you TOUCH something"* and I was touching
+`platform/livespec` Declarations — the exact footprint. I read the file at session start (the hook
+showed six path-matched entries) and did not grep it by symbol, which is the half the hook cannot do
+and which CLAUDE.md says to do yourself.
+
+**The general form, and it is not "check prior art" — everyone knows that.** It is that **a
+mutation proof feels like the end of the work.** The result was true, disconfirmable, and expensive
+to get; having earned it, I published it. The evidence I had was about the CODE; the claim I made
+was about the ESTATE ("this would ship silently"), and nothing I ran was about the estate at all.
+**A finding is not a risk. Promoting one to the other needs its own evidence, and the cheapest form
+of that evidence is prior art.**
+
+**Cost.** Nine documents to correct, an hour after writing them; a co-sign stated more strongly
+than the facts warranted, to a lane that had done nothing wrong. Nothing shipped and nobody acted
+on it — the correction landed the same day, in the same places.
+
+**What survived, and it is better than what I filed.** Two things the existing test does NOT give
+the applier: `ExpectCount` is **7, not 5** (the clause carries `== null` and `== ''` besides the five
+vocabulary values, and both are load-bearing), and the test offers **two doors** — a paired count and
+a waiver with 60 characters of prose. For this object the waiver is the wrong door, and a
+time-pressed author facing a red test can take it in good faith. ⚠ Sharper still: **`platform/livespec`
+has been RED at HEAD for nine days** on another lane's file, so this new and correct failure would
+arrive camouflaged among known breakage — which is a real reason to clear that red before the flip,
+and a cost of "four lanes recorded the breakage and none dispatched it" that nobody had priced.
+
+## 2026-09-04 — I asserted a PRODUCTION danger from a probe that is not production, and wrote it into five documents plus a landmine
+
+- **The claim.** That registering a `source.citation` against a PDF would classify as `citation_lost`
+  drift **"every day, for ever"**. Written into `LANDMINES.md`, migration 759's header, this lane's
+  NOTES §(s4), the vetcomparison lane's NOTES (a contributed entry on someone else's page), the owner's
+  prose log, the handoff, and three commit messages. It was also the stated design reason for making
+  8 of that register's 21 facts `attested_by` instead of cited.
+- **What was true.** Production refuses a PDF and reports it as **unknown, not loss**.
+  `refreshCitationFact` → `verifyCitationLiveForRule` → `fetchCitationDocument`, and that fetch has a
+  content-type gate (`evidence_citations.go:143-148`) returning an error that classifies as
+  `fetch_error` → outcome `error`. **The file's own header says it in words, and has all along:**
+  *"fetch failed (network, 403, 5xx, unsupported content type) → UNKNOWN, not drift. A paywall going up
+  is not evidence the fact is wrong; it is evidence we can no longer check. Reported as an error, never
+  as loss."* And: *"PDFs and other non-text content are refused rather than half-read."*
+- **Where the error came from, and it is the instructive bit.** `cmd/fcaquotecheck` — the probe RUNBOOK
+  §8 step 4 tells every register author to use — did NOT call the production fetch. It did its own bare
+  `http.Get` and ran `VisibleTextFromHTML` over whatever bytes came back. On the CMA PDF that returned
+  `false` for a quote certainly in the document AND `false` for the deliberately-absent control. **I
+  read that as a fact about the PIPELINE.** It was a fact about the PROBE. The measurement was real,
+  correctly run, correctly recorded — and I attached it to the wrong subject.
+- **The irony is exact, and it is why this belongs here rather than in a footnote.** §8g's own rule is
+  *"never validate a citation host with an instrument other than the one that will re-check it daily"*,
+  and §8 describes `fcaquotecheck` as *"calls the production fetch + extraction"*. It called the
+  production **extraction** only. **I obeyed the rule, using the tool the rule names, and the tool did
+  not satisfy the rule.** So this is not carelessness about a documented control — it is a control that
+  documented itself as stronger than it was, and I took its word.
+- **What caught it.** The owner asking me to "fix the daily citation checker so it doesn't make these
+  mistakes" — which made me open the daily checker for the first time. **Nobody caught it in review**:
+  the claim went through a council round on 759 (APPROVED) and one on 761 (REVISE) with five seats
+  raising other things, and it survived both, because every seat was reading my rationale rather than
+  `evidence_citations.go`.
+- **The cheap check that would have.** Two minutes: `grep -n "Content-Type" evidence_citations.go`, or
+  reading the doc comment above the function whose behaviour I was characterising. The general form:
+  **before asserting what a pipeline does with your input, read the pipeline — a probe's output is
+  evidence about the probe until you have.** A tool named after a production behaviour is not that
+  behaviour ([[a-print-statement-is-not-a-config-row]], [[a-doc-comment-is-not-an-enforcement-mechanism]]
+  — this is the mirror image of the second: here the doc comment was RIGHT and the code honoured it, and
+  I trusted neither because I read neither).
+- **Cost.** Five documents and a landmine carrying a false claim for ~19 hours, one contributed entry on
+  another lane's page that they had to be told to disregard, a register designed around a non-existent
+  risk (recoverable — `attested_by` is legitimate, just weaker than the `reverifiable:false` + kept
+  citation the platform already supports), and the two council rounds that reviewed the false premise
+  without anyone reading the code. **Fixed forward:** the probe now calls the production fetch, so the
+  next author cannot be misled the same way, and every site of the claim is corrected in place rather
+  than edited away.

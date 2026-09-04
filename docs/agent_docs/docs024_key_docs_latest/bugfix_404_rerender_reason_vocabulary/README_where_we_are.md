@@ -121,3 +121,28 @@ it", and here it plainly wasn't.
 nothing — is fixed and running. What remains is deliberately somebody else's: an unrecognised
 instruction still completes quietly rather than being refused, and that is precisely the change I
 counter-signed today.
+
+### Same day, an hour later — I have to take some of that back
+
+The fault I described above is real, and I proved it properly. But I told several people about it,
+and wrote it into two sets of instructions, **before checking whether we already had a guard against
+it. We do.** There is a test in exactly that area whose entire job is to refuse the shape I found;
+it names the problem better than I did, and I confirmed it by deliberately writing the bad version
+and watching the test throw it out.
+
+So the honest version is smaller and more useful. Not *"there is a hole here you would fall
+through"* — you would be stopped. It is *"when the test stops you, there are two ways out and one of
+them is wrong."* You can either add the counting check, or write a short justification for skipping
+it, and for this particular list skipping it would be the wrong call. Plus one number that is easy
+to get wrong and that no test will catch for you.
+
+**Why I am writing this down rather than quietly editing.** The thing I got wrong is not "I didn't
+know about the test". It is that **proving something true felt like finishing the job.** The proof
+was about our code; the claim I then made was about our organisation — that this would slip through
+us — and I had done no work at all on that second thing. The check that would have caught it takes
+about ten seconds, in a file we keep specifically for "things that will mislead you here", and the
+answer was in it, naming the test.
+
+Nothing was shipped on the strength of the overstatement and the correction went out the same hour,
+to the same places. But it cost an hour of other people's attention, and I have logged it in the
+file we keep for exactly this.

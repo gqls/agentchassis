@@ -67,7 +67,11 @@ forever). Split + refusal = RFC_062; evidence = `bugs_open/440_HANDOFF_2026-09-0
    armed). **The condition is one extra paired `CountEqual` Declaration on
    `check_routing_key_known`, `ExpectCount` derived from the renderer (it is 7, not 5 — the clause
    carries `== null` and `== ''` too).** Add it and the co-sign stands; no further round with the
-   404 lane. Their r4 verdict is also now read and recorded (`approved`, 3 advisory objections,
+   404 lane.
+
+   ⚠ **CORRECTED 2026-09-04 (same day):** the blindness is real and mutation-proved, but the shape **cannot ship unnoticed** — `TestEveryFragmentMatchDeclarationIsGainVisibleOrWaived` (`platform/livespec/livespec_test.go:364`) already refuses any `FragmentMatch` Declaration with no paired `.value_count` and no waiver (verified by execution). So the condition is **"when that test stops you, take the COUNT door, not the WAIVER door"** — the clause IS an enumerable vocabulary, so a waiver would be wrong — and the part no test gives you is **`ExpectCount` = 7, not 5**. ⚠ Residual risk: `platform/livespec` has been RED at HEAD for nine days on another lane's file, so that new correct failure arrives camouflaged.
+
+   Their r4 verdict is also now read and recorded (`approved`, 3 advisory objections,
    none high), and `bugs_open/404` moved to `bugs_closed/` the same day. Original text below.
 
    ~~The only release condition on 741 and 742.~~

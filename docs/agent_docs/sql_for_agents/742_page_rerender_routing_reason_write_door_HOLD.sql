@@ -34,6 +34,20 @@
 -- (e) has room: 16 Declarations in the tree today against MaxDeclarations 24; (b), (c),
 -- this added count and (d) take it to 20.
 --
+-- ⚠ CORRECTED 2026-09-04 (same day, same lane): the blindness above is real and mutation-
+-- proved, but it CANNOT SHIP UNNOTICED. TestEveryFragmentMatchDeclarationIsGainVisibleOrWaived
+-- (platform/livespec/livespec_test.go:364) already refuses any FragmentMatch Declaration with
+-- no paired .value_count and no waiver — verified by EXECUTING it against step (c) as
+-- prescribed, which turns it red with exactly the right message. So the condition is really:
+-- WHEN THAT TEST STOPS YOU, TAKE THE COUNT DOOR, NOT THE WAIVER DOOR. The waiver door is open
+-- and accepts 60 characters of prose; check_routing_key_known IS an enumerable vocabulary whose
+-- size can grow, so a waiver there would be the wrong answer. The part no test gives you is
+-- ExpectCount = 7, not 5.
+-- ⚠ Residual risk that survives: platform/livespec has been RED at HEAD for NINE DAYS on
+-- another lane's file (TestNoNewMigrationFileReadersOutsideTheAllowList, 405 lane), so that new
+-- and correct failure arrives camouflaged among known breakage. Clear it, or run the livespec
+-- package tests naming the specific test.
+--
 -- Full reasoning, evidence and the state of the 404 half at the artefact:
 --   docs/agent_docs/docs024_key_docs_latest/bugfix_440_unknown_routing_key/
 --     CONTRIB_2026-09-04_from_the_404_lane_cosign_GIVEN_with_one_condition.md
