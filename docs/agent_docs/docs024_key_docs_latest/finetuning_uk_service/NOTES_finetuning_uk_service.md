@@ -4010,3 +4010,33 @@ is a case-insensitive substring that would also catch an `image_alt` with no url
 their exact predicate.
 Acceptance boundary restated and accepted: finetuning.uk is a **diagnostic witness only**, excluded as
 acceptance evidence in either direction (412 §11: 664 changed the JOIN, 649 changed the SCHEMA).
+
+## 2026-09-04 (15:10Z) — the missing hero turns out to be a CONTRACT VIOLATION across 32 sites, and this site's four pages were the discriminator
+
+The 114 lane's result, from the measurement this lane ran at 14:57Z `[MEASURED 2026-09-04, theirs]`:
+`hero-tool` and our four hero components all declare their image field as `source: site_assets.hero`,
+`on_missing: use_fallback`, `fallback: /assets/images/hero.jpg`. **Fleet-wide, every component declaring
+an image-typed `site_assets.*` field declares `use_fallback` with a non-null fallback — 874 deployed
+rows, no exceptions.** So the state this lane measured on its four pages, *the key is absent from
+`content_data`*, **is a state no `on_missing` branch can produce**: the policy says resolve it or write
+the fallback, and absent is not a permitted outcome. **121 rows are in it, across 32 sites, 67 pages, 7
+components** (hero-tool 52, about-hero 37, contact-hero 19, services-hero 5, case-studies-hero 3,
+use-cases-hero 2, hero 1). **finetuning.uk holds 6 of the 121.**
+So neither migration 710 nor the plan-row upsert is the right first move; a diagnosis run is in flight
+(corr `f540f292`) on which producer drops the field, and the plan goes to council after it lands.
+**Their own hypothesis, refuted and recorded:** they suspected the TOOL build path, because 12 of 18
+unwired pages were tool pages. Our four are CONTENT pages, and the fleet split is content 65 / tool 51 /
+section-index 2 / blog-index 2 — a tool-path-only fix would have left two thirds of the damage and
+looked like it worked.
+**Adjudication of the two caveats this lane offered with its numbers, worth keeping:** the loose
+`content_data has an image key` substring agreed with their exact predicate (declared field names,
+non-empty value) on our four, so the near-predicate held. The one that mattered was the other: "a text
+match is not a trace of the resolver being called" — which is why they went to the SCHEMA DECLARATION
+rather than to the template or a trace. **The `source`/`on_missing`/`fallback` triple is a CONTRACT,
+and a contract is stronger evidence than a trace, because it states what the outcome was REQUIRED to be
+whichever path ran.** That is the transferable lesson from today's exchange.
+**Standing commitments:** this lane does not change its hero components or their `content_data` while
+they work (our rows are in their population — the shared-tree hazard); finetuning.uk stays a
+DIAGNOSTIC WITNESS ONLY and will not appear as before/after in their council submission (412 §11);
+and when their fix ships, this lane probes the four at the served page, asserting the HTML contains the
+stored value verbatim (their control arm ran 752 of 753 fleet-wide, so it discriminates).
