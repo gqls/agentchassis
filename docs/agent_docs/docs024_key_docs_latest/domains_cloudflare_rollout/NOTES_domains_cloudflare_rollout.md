@@ -981,3 +981,71 @@ walker and the RUNBOOK:
   silently. Verified: syntax check clean, usage-error path unaffected, and a
   held lock causes a concurrent run to exit 3 with the refusal message
   (manual test, not against the live API — no quota spent).
+
+## 2026-09-04 (cont.) — first Dynadot NS writes, proven then real: boxingonline.com repointed
+
+Two cross-session threads converged on this lane's one remaining unexercised
+write today. `inter thread comms` broadcast a fleet roll (v1.0.1361, cut
+`06c0b18f2`) mid-session — checked, irrelevant to this lane (no Go, no
+migrations, nothing dispatched here). `site_delivery_and_editor` flagged
+`paper-cups.com` as a future NS job, nothing needed today. The live one:
+`boxingonline.com`.
+
+- **boxingonline.com session's finding, read-only, all correct on re-check**:
+  the domain is ours (Dynadot, `Locked: yes`, registrant `322922` — the
+  owner), NS already `alexis.ns.cloudflare.com`/`leah.ns.cloudflare.com`, no
+  Cloudflare zone existed yet so it SERVFAILed, content already staged in B2.
+  They created the zone; Cloudflare assigned a **third** NS pair neither of
+  the account's existing two — `elsa.ns.cloudflare.com` /
+  `kianchau.ns.cloudflare.com` — confirming the RUNBOOK's long-standing
+  "convention, not contract" warning yet again.
+- **Checked with the owner before running an untested write on a paid
+  customer's live domain**: asked whether to prove `add_ns`/`set_ns` on a
+  throwaway domain first, as the boxingonline session itself suggested.
+  Owner said yes.
+- **Test domain selection, not arbitrary**: filtered the 472-domain
+  inventory to `isForSale:no` AND not in `LIVE_DELEGATION_gaps_2026-09-03.txt`
+  (the 50 flagged names) AND not in any PREMIUM appraisal queue AND not one
+  of the 6 confirmed live Dynadot listings (cross-checked against
+  `dynadot_listings_2026-09-03.csv` directly, not just the `isForSale` field
+  — that field is known-unreliable per the 2026-09-02 landmine, 5/451 read
+  "no" while listed) AND currently on plain Afternic parking NS (so it could
+  not possibly have a live Cloudflare zone already). 455 candidates; picked
+  `wlmu.com`, the first.
+- **Test result**: `set_ns domain=wlmu.com ns0=elsa.ns.cloudflare.com
+  ns1=kianchau.ns.cloudflare.com` — `ResponseCode 0`, and `domain_info`
+  re-read confirmed the change with **freshly minted** `ServerId`s
+  (`5987893`/`5987894` — this exact pair had never appeared anywhere in the
+  account before). **No `add_ns` call was made or needed** — the RUNBOOK's
+  years-old "must add_ns first" line turns out to have been an assumption
+  from reading Dynadot's docs, never actually tested until today, and it was
+  wrong for a standard third-party host. Reverted `wlmu.com` to its original
+  `ns1.afternic.com`/`ns2.afternic.com` immediately after, verified by a
+  third `domain_info` read — same `ServerId`s as before (`4377217`/`4377218`),
+  so genuinely back to its starting state, not just cosmetically similar.
+- **Real write**: same command against `boxingonline.com`. `ResponseCode 0`,
+  `domain_info` re-read confirmed (`ServerId`s `5987893`/`5987894`, reused
+  from the test — Dynadot keys NS host entries account-wide, not
+  per-domain). `Locked: yes` did **not** block either write — resolves the
+  other open caution from the boxingonline session's report.
+- **End-to-end verification, not just the registrar receipt**:
+  `dig @elsa.ns.cloudflare.com boxingonline.com` → NOERROR, `aa` flag set,
+  answers `192.0.2.1` (the deliberately-proxied placeholder — expected,
+  matches the "2 proxied A records" the boxingonline session set up, not a
+  real routable IP). `dig boxingonline.com NS @8.8.8.8` → already answering
+  `elsa`/`kianchau` — registry-level delegation had propagated within
+  seconds of the API call, not the hours sometimes assumed. `curl` over
+  plain HTTP via the resolved Cloudflare edge IP → **200**, confirming the
+  zone is genuinely serving, not just delegated. HTTPS timed out in the
+  first probe or two — a fresh zone's Universal SSL certificate can take a
+  few minutes to provision; that is Cloudflare-side and not a fault in the
+  NS change. Did not chase it further; not this lane's job once delegation
+  and HTTP are proven.
+- **RUNBOOK updated** (Dynadot section, both the top summary and the
+  `add_ns`-first line, struck through and corrected in place rather than
+  silently edited) — a future session touching `set_ns` no longer needs to
+  rediscover any of this.
+- Reported back to the boxingonline session: test passed, real write done,
+  verification chain above, reversal command if ever wanted
+  (`DELETE /zones/26aae5db4c834f4a7c92218fb6dd2a03`) is theirs to run, not
+  this lane's — a Cloudflare zone delete is outside Dynadot credentials.

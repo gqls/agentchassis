@@ -105,8 +105,15 @@ becomes an invalid bearer header.
   **happy path PROVEN later the same day: `list_domain` returned the full
   inventory, ResponseCode 0.** ~~Writes not yet exercised~~ **FIRST WRITES
   PROVEN 2026-09-03**: `set_renew_option domain=<d> renew_option=auto|donot`,
-  verified by `domain_info` re-read (the receipt is not the proof). NS writes
-  (`set_ns`/`add_ns`) still unexercised.
+  verified by `domain_info` re-read (the receipt is not the proof). ~~NS
+  writes (`set_ns`/`add_ns`) still unexercised.~~ **NS WRITE PROVEN
+  2026-09-04**: `set_ns` on a throwaway domain (`wlmu.com`, no listing, no
+  premium flag, not one of the 50 flagged names, parked on Afternic NS —
+  picked precisely so a mistake would cost nothing), then on the first real
+  target, `boxingonline.com` (the estate's first paid customer, owner-
+  authorised via a peer session). Both verified by `domain_info` re-read, not
+  by the receipt; `wlmu.com` reverted to its original Afternic NS immediately
+  after.
 - **OWNER RULING 2026-09-03: ALL domains auto-renew, ALWAYS.** Enforcement:
   `scripts/domains/dynadot-ensure-autorenew.sh [--apply]` (dry-run default;
   flips + verifies each; **proven by induced probe 2026-09-03** — one domain
@@ -125,8 +132,21 @@ becomes an invalid bearer header.
   `Status` / `MainDomains` only; **451** domains as of 2026-09-02 arrived in one
   302 KB body). Sanity-check the count against the control panel total before
   treating it as complete. `set_ns` sets nameservers,
-  comma-separates multiple domains per call — **but the target nameservers must
-  already exist in the account** (`add_ns` them once, first).
+  comma-separates multiple domains per call.
+  > **⚠ CORRECTED 2026-09-04 — the `add_ns`-first claim above was WRONG, and
+  > was never tested before today.** `set_ns domain=<d> ns0=<host> ns1=<host>`
+  > with a hostname pair that had **never before appeared anywhere in this
+  > account** succeeded directly, `ResponseCode 0`, and a `domain_info`
+  > re-read confirmed the change — Dynadot minted new `ServerId`s for the pair
+  > on the fly (`elsa.ns.cloudflare.com`/`kianchau.ns.cloudflare.com`,
+  > IDs `5987893`/`5987894`, tested first on `wlmu.com` then used for real on
+  > `boxingonline.com`). No `add_ns` call was made. `add_ns` may still exist
+  > as a separate command for *custom/vanity* nameservers needing a glue
+  > record (`ns1.yourdomain.com`) — untested either way — but it is **not**
+  > required for a standard third-party host like Cloudflare's. Also
+  > resolved: **`Locked: yes` does NOT block `set_ns`** — both writes
+  > succeeded against a locked domain; the lock is transfer-scoped, as
+  > suspected but previously unverified.
 - Rate tier by spend level: Regular = 1 thread, 60 req/min. Fine for thousands
   (NS updates batch multiple domains per request anyway).
 - ⚠ **`isForSale` in `list_domain` is NOT marketplace-listing state** (LANDMINES
