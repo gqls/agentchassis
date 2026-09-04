@@ -81,11 +81,28 @@ past that the run may have aged out; the residual query is the durable half. ⚠
 *Refused by the render gate **and** escalation suppressed* — cannot render, cannot ask for help.
 Query (all three `declaredPageSections` sources reproduced) is in the RUNBOOK.
 
-| domain | url | slot | 384 consumer? |
-|---|---|---|---|
-| ai-agent-orchestration.com | `/blog.html` | `hero`, `call-to-action` | no |
-| gaswholesalers.com | `/tools/tool-gas-unit-converter.html` | `tool-gas-unit-converter` | no |
-| **leopardessconsulting.co.uk** | **`/blog.html`** | **`blog-listing`** | **YES** |
+| domain | url | slot | branch | 384 consumer? |
+|---|---|---|---|---|
+| ai-agent-orchestration.com | `/blog.html` | `hero` | (a) | no |
+| ai-agent-orchestration.com | `/blog.html` | `call-to-action` | (a) | no |
+| ai-agent-orchestration.com | `/blog.html` | `blog-listing` | (b) | no |
+| gaswholesalers.com | `/tools/tool-gas-unit-converter.html` | `tool-gas-unit-converter` | (a) | no |
+| **leopardessconsulting.co.uk** | **`/blog.html`** | **`blog-listing`** | **(b)** | **YES** |
+
+> **⚠ FINAL FIGURES 13:4xZ — this table is the corrected one; the 4-slot version above it is not.**
+> **5 slots / 3 pages / 3 sites · refused-but-escalatable 76 · LATENT ZERO.** My first two cuts
+> joined `content_components` on `pc.component_id`; the action resolves **id first, then
+> name-OR-function** (`rerender_page_sections_action.go:361` — a **closure**, so
+> `grep 'func resolveComponent'` cannot see it — plus `loadComponentSchemas`,
+> `plan_sections_action.go:1981`). **16** active rows carry a NULL `component_id` and **14 resolve
+> anyway**, which hid **7** branch-(b) refusals and wrongly exempted **3**.
+> ⚠ **`content_data` PRESENT is not SUFFICIENT** — branch (b) tests each required field, so it
+> fires on a populated map; and **near-miss names read as satisfied**
+> (`section_title`/`section_subtitle` stored against required `section_heading`/`section_intro`).
+> ⚠ **All of this was already in `LANDMINES.md`** under the `content_components.name`/`.function`
+> entry — **written by this lane on 2026-09-03**, with the same 14/2 figures. Third "the entry
+> existed and I did not read it" note on it. **`grep -n 'page_components\|component_id'
+> LANDMINES.md` before writing any census over that table.**
 
 So 08:1xZ's "1 page, 1 site" bound **survives on a better predicate** — good news, and the reason
 to keep the wider query rather than the narrow one. **Do not raise it as a class.**
