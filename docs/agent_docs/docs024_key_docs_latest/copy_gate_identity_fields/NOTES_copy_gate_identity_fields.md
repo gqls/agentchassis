@@ -197,6 +197,49 @@ dated, reproducible, and it tested nothing.
 send — reviews were dead and nobody had been told. **Being right that something is broken does not
 license confidence about why.** Full entry in `WRONG_CALLS.md`.
 
+### 8. Round 2's gating objection was about a landmine I had written that morning
+
+`prior_art_librarian`, HIGH: *"The LANDMINES list already carries entries footprinted on the exact
+new symbol names this edit introduces — `identityContentField`, `isProseContentField`,
+`neverProseFieldRe` … either these symbols already exist and this is an undisclosed rebuild, or the
+landmine is a standing warning about exactly this design that the author has not engaged with."*
+
+**Neither. The entry is mine, commit `f9b219a1f`, written hours earlier as this change's own
+writeup.** Its footprints name the new symbols precisely because they are the symbols this change
+introduces.
+
+The seat did nothing wrong — it followed the house rule that a landmine touching your change must
+be read before judging, found one, and could not tell it from prior art I had walked past. **A
+landmine written before the review is, to the reviewer, indistinguishable from a warning the author
+ignored.** That is a property of the estate's own process, not a misunderstanding, and the fix is
+one line of disclosure in the submission: say the entry is yours and give its commit. Round 3 does.
+
+It also caught my `sectionAssetKeyLike` claim from the *other* direction than I did — that my
+"never filed anywhere" grep was worthless because the grep's own hit was that landmine. Right; and
+by then I had refuted the underlying claim outright, so the paragraph is withdrawn from the
+submission rather than repaired.
+
+Two smaller round-2 objections, both accepted: the heading floor's provenance reads as me declaring
+authority inside the submission that introduces it (restated in round 3 with how the owner actually
+ruled, plus the alternative he declined); and my rationale mis-numbered the very edit it was proving
+I had fixed — I renumbered when merging two same-file edits to fit the 8-edit cap and did not update
+the prose.
+
+**Reviewers re-ran the census and got 947 / 824 / 0 against my 908 / 825 / 0.** Both correct: the
+population grows by addition, which is why it was dated. The cell the guard keys on — **zero
+empty/null url siblings** — held in both runs.
+
+### 9. My own edit was swept into another lane's commit, in the file this lane keeps missteps in
+
+I edited `WRONG_CALLS.md`, and before I could commit it another session committed that file by
+pathspec and took my change with it (`f2be9beda`, 13:19). Nothing was lost — the text is in HEAD —
+but it is now attributed to a commit about a different lane's finding.
+
+This is the documented same-file passenger trap, and worth one line here because of where it
+landed: **the file the estate uses to record its own mistakes is high-traffic and shared**, so an
+edit to it is more likely than most to be swept. Commit it in its own narrow commit the moment it
+is written, not at the end of a batch.
+
 ## DECISIONS AND THEIR REASONS
 
 - **The guard went in the JUDGE, not the walker.** A filter at the enumeration point is bypassable
