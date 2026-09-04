@@ -288,6 +288,37 @@ keyed by field name, not an array**. A `jsonb_path_query_array($.fields[*] ? (@.
 returns a clean **empty result** — indistinguishable from "no required fields". Use
 `jsonb_each(input_schema->'fields')`. This cost me a wrong reading before I checked the shape.
 
+## 6c. ⚠ ADDED 2026-09-04 — `code_symbols` DOES NOT INDEX CLOSURES, and the council gate reads it
+
+Relevant to this lane because we submit to the gate: three live consumers read `code_symbols` — the
+diagnosis loop's code tier, the **council gate's `code_checks`**, and the landmine-verifier.
+
+**A Go closure (`name := func(…)`) is absent from the index while top-level funcs in the SAME FILE
+are present.** Verified here with controls `[MEASURED 2026-09-04]`:
+
+| symbol | in `code_symbols`? |
+|---|---|
+| `resolveComponent` (closure, `rerender_page_sections_action.go:361`) | **absent** |
+| `resolveComponent` (package func, `rerender_single_page_action.go:1240`) | present |
+| `escalateRerenderToWriter` (:1178, same file as the closure) | present |
+| `isSelfContainedSection` (:1149, same file) | present |
+| `buildLegibleInkDefaults` (`palette_specialised_slots.go:703`) | present |
+
+Not staleness — the indexed commit is an ancestor of HEAD and the closure exists at line 361 in that
+commit.
+
+⚠ **Consequence for a submission: a closure reads as a REFUTED PREMISE.** A seat asking "does this
+symbol exist?" gets **0 rows** and can object on it. If a future submission from this lane rests on
+a helper that happens to be a closure, expect a false objection and cite this rather than arguing it
+out. **`732`/`777` are unaffected — `buildLegibleInkDefaults`, the symbol round 3 rested on, is
+indexed** (checked above, which is why round 3 drew no such objection).
+
+⚠ Also: any bug file or landmine citing a closure by name draws `NEEDS_HUMAN_REVIEW` from the
+verifier **for ever, with no machine route out**.
+
+Full entry (grep half + index half), filed by the `bugfix_384` lane and credited to this one:
+`LANDMINES.md`, *"`grep 'func <name>'` CANNOT MATCH A CLOSURE"*. **Do not duplicate it here.**
+
 ## 7. Standing facts
 
 - Site `2a8ebf9c-20a2-4c39-b191-840b012371da`. **45 active pages** as of 2026-09-03.
