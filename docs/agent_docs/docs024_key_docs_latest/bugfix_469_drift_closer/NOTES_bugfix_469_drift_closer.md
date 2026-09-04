@@ -563,3 +563,32 @@ a Q1 ruling, straight into a refusal 308 rows deep in the database. **"Does the 
 it" is not "does the work complete".** What caught it was following the page to the *end* of
 its path rather than the start: the sibling archived pages on the same site had not rebuilt
 either, which is the anomaly that made me look downstream for a blocker.
+
+### Addendum, same session — the inbound-link cost of each branch, and the zero that needed a control
+
+Decision-relevant to Q3, because it prices the two branches. `[MEASURED 2026-09-04]`, over
+`page_components.rendered_html` of `status='active'` pages on `robot-hands.com`:
+
+| link target | live pages linking |
+|---|---|
+| `gripper-catalog.html` (**the archived page**) | **0** |
+| `gripper-catalog/` (the ACTIVE index) | **19** |
+| `gripper-selection-guide` (control: a live page) | 1 |
+| `href=` at all (control: the query can see links) | 31 |
+
+**The first zero is real, and I nearly reported it without the controls.** On its own "0 pages
+link to it" is exactly what a blind query returns — wrong column, wrong link spelling, wrong
+status filter all produce it. The `gripper-catalog/` row is what makes it informative: the
+same query, same column, same predicate, finds **19**. So the query can see links to this
+page's own name-space; the archived `.html` genuinely has none.
+
+**What it means for Q3.** Retracting the archived page breaks **no internal link** — the
+site's navigation already points at `gripper-catalog/`, i.e. `gripper-catalog-index`, which is
+`active` and rebuilt 2026-09-03. So branch (b) is cheap in link terms.
+
+⚠ **But it is not therefore the obvious answer**, and §7.3 already has the counterweight:
+`gripper-catalog-index` carries a **single `news-listing`** and is *not* a replacement for the
+archived page's content (hero + text + info-card-grid + CTA). So the measured state is **19
+live links pointing at a thin index, while the substantive page sits archived and
+unreferenced**. That is an argument the archive was a mistake as much as it is an argument to
+finish retiring it — which is precisely why Q3 is the owner's and not mine.

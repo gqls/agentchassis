@@ -132,8 +132,18 @@ carries a single `news-listing`.
 
 This is `bugs_closed/359`'s territory and **already has an untriaged flag**: nine
 `archived_page_still_serving` items estate-wide, all still `detected` — eight from
-2026-08-26/27 and one from 2026-09-02. **Answering Q1 alone implicitly un-retires this page**,
-which is why the three go up together. *"Retire it properly"* moots Q1 and Q2 for this page.
+2026-08-26/27 and one from 2026-09-02. One of the nine is **this page by id**
+(`archived_page_still_serving:64fab29e-…`). **Answering Q1 alone implicitly un-retires this
+page**, which is why the three go up together. *"Retire it properly"* moots Q1 and Q2.
+
+**ADDED 2026-09-04 — the inbound-link price of each branch.** `[MEASURED]` over active pages'
+`rendered_html` on this site: **0** link to `gripper-catalog.html` (the archived page), **19**
+link to `gripper-catalog/` (the ACTIVE index). Controls: `gripper-selection-guide` 1, `href=`
+31 — so the query can see links and the zero is real, not blindness. **Retraction therefore
+breaks no internal link.** The counterweight is unchanged: the index carries a single
+`news-listing` and is not a replacement, so the measured state is 19 live links pointing at a
+thin index while the substantive page sits archived and unreferenced — an argument the archive
+was a mistake as readily as an argument to finish it. Hence: owner's call.
 
 ### There is also a fourth, smaller decision, and it is not the owner's
 

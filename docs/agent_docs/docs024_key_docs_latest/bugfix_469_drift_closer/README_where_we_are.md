@@ -286,3 +286,18 @@ looking further down the line instead of stopping at the first encouraging resul
 
 **Nothing has been changed on the live system.** The repair is still held, the page is still
 as it was. This is the decision I need from you.
+
+**One more thing that bears on your choice.** I checked what actually links to this page. On
+the live site, **nothing links to the retired page** — but **19 pages link to a different,
+active page with almost the same address** (the "index" version). So taking the retired page
+down properly wouldn't break a single link on the site.
+
+That sounds like it settles it, and it doesn't, because of what the other page contains: it
+carries only a news list, not the real content. So the honest description of today's state is
+**19 links pointing at a thin page, while the substantial one sits retired and linked from
+nowhere**. That reads as easily like "the page was retired by mistake" as it does like
+"finish retiring it" — which is why I'm bringing it to you rather than picking.
+
+I also nearly reported the "nothing links to it" figure on its own. A zero like that is what
+you also get when the question is asked wrongly, so I re-ran it against a page I knew was
+linked; that one came back with links, which is what makes the zero worth quoting.
