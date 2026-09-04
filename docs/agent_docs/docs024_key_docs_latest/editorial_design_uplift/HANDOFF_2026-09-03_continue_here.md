@@ -507,7 +507,19 @@ by default so a collision ships quietly; **the decorative/assertive boundary**, 
 the owner's own wording — *"decorative graphics"* is fine until one carries a word or a number, and
 SVG text is invisible to the claims gate, so a decorative card graphic with a figure in it is a
 claims-gate bypass; and palette-token colouring under WCAG non-text contrast, or the colour-fixer
-lanes will be repairing these within the week. **Owed as a document, not a dispatch.**
+lanes will be repairing these within the week. ~~Owed as a document~~ **DELIVERED 2026-09-04:
+`editorial_design_uplift/SPEC_2026-09-04_carousel_component_constraints.md` (`c2cc6fb55`) — §1–§4 are
+the brief's non-negotiable half, §6 is an acceptance test. Every clause verified at the code with
+file:line, none quoted from this lane's PLAN.**
+
+⚠ **The clause that was NOT in the summary and is the sharpest: `WindowOnloadAssignments`.** More than
+one `window.onload =` on a page means **all but the last component never initialises** — two carousels
+on one page and one of them is simply dead: rendered, deployed, looking correct, not working. Plus
+duplicate ids (carousel 2's buttons drive carousel 1), one empty `id` already being a defect, and
+un-IIFE'd inline scripts replaceable by name. **And the platform does not stop any of it on this
+path:** `enforceInstanceScope` defaults false and is armed on `tool-deployer` / `tool-generator` only
+— **nothing on the section render path** `[MEASURED 2026-09-04]` — so a collision there is recorded
+and shipped.
 
 **WHAT THIS LANE DECLINED, deliberately:** choosing what the new carousels should BE — their
 character, how many, which suits which grid. That is taste for a marketing homepage, the
