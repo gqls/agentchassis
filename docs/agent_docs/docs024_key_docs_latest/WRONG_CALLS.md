@@ -65886,3 +65886,33 @@ and a cost of "four lanes recorded the breakage and none dispatched it" that nob
   one commit carrying a false-in-kind trailer, corrected in the lane NOTES, in the following
   commit message, and here. No amend (forbidden), and `098` will bucket it as a commit whose
   named correlation does not cover it if anyone joins the two.
+
+## 2026-09-04 — bug sweep lane (442). I hard-coded the last index in a per-iteration comparison, and it fabricated counter-evidence to my own hypothesis
+
+- **The claim.** Testing whether a loop's bare `output_field` in `collected_data` holds the
+  **last** iteration, I compared `collected_data->'copy_gate'` against
+  `collected_data->'copy_gate_4'` across five `page-content-writer` runs. Result: **3 true,
+  2 false** — which I was one step away from writing up as "holds most of the time", hedged.
+- **What caught it.** The shape of the failure, not a tool. "Mostly true" is not a result a
+  structural rule about a key-naming convention should ever produce — it is either how the
+  machinery names keys or it is not. Recomputing the last index **per run**
+  (`max((regexp_match(k,'^copy_gate_([0-9]+)$'))[1]::int)`) over 20 runs gave **20/20**.
+- **Why I did it.** The first run I opened had five sections, so `_4` was the last one *there*,
+  and I generalised a property of my example row into the query itself. The two "mismatches"
+  were runs of 3 and 4 sections: `copy_gate_4` does not exist, `->` returns NULL, and
+  `jsonb = NULL` is NULL — **not an error, and not visibly a non-comparison.** Postgres has no
+  reason to complain and psql prints the NULL as `f`-adjacent blank in a boolean column, so the
+  row reads as a genuine disagreement.
+- **The cheap check that would have.** Derive the comparand from the row, never from the example
+  you happened to open first. General form: **a fixed comparand in a variable-length comparison
+  does not fail loudly on the short rows — it silently compares against nothing and reports a
+  MISMATCH.** So the error does not look like a broken query, it looks like evidence *against*
+  your hypothesis, which is the direction you are least likely to challenge. Cheap guard: assert
+  the comparand exists (`collected_data ? ('copy_gate_'||n)`) and make a row where it does not
+  a **loud** third state, not a silent false. Same family as
+  [[a-post-fix-zero-needs-a-demand-control]] inverted — there a blind instrument manufactures a
+  clean result, here it manufactures a dirty one.
+- **Cost.** None escaped the session: the corrected 20/20 figure is what went into
+  `bugs_open/442` §11d and the NOTES. Had the hedged version shipped, the landmine it supports
+  would have read "usually the last iteration", and *usually* is exactly the word that stops the
+  next reader from checking.

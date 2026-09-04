@@ -456,3 +456,81 @@ The council's `reuse_agent` seat asserted in round 3 that the four other callers
 saves silently"*. **They do not** — that was an inference from 464's own pre-investigation wording,
 restated with confidence by a reader who had not read them either. A file's provisional sentence
 becomes somebody else's fact within a day. Worth remembering when writing the provisional sentence.
+
+---
+
+## 2026-09-04 — resuming 442 after the v1.0.1360 roll
+
+### What I set out to do, and what the evidence actually said
+Picked the lane up from `HANDOFF_2026-09-03c_continue_here.md`. Council is done (APPROVED, round 3),
+so the open items were §5's three: no verifier, `voice_gate_unreadable` silent, §9d's second silent
+path. I started by re-verifying live state rather than trusting a 19-hour-old handoff on a tree this
+many sessions share. That re-verification is where everything useful came from; none of the three
+listed items is what this session ended up being about.
+
+**Roll check first.** Pods are on `v1.0.1360` (22:06Z 09-03), one tag *past* the `v1.0.1359` §10i
+verified. §10h exists precisely because a later tag is not evidence, so I re-probed the binary on
+both pods with both controls. All three symbols present, `ZZZ_cannot_exist_9f3a` absent. Still live.
+
+### The finding: §3's zero, and why I nearly repeated §9b's own misstep
+The handoff's §3 says **"no page can be refused and no item can exist"**, backed by a demand control
+returning 0. I reproduced the 0 — and then noticed the backfiller had *run twice this morning* and
+written a page each time. Both facts are true, which is the tell that the conclusion joining them is
+doing work the measurement does not support.
+
+The resolution is in `cmd/scheduler/main.go`. The task's `pre_query` **is** the demand-control query,
+verbatim; and on the `dynamicData == nil` arm the scheduler stamps `last_triggered_at` /
+`last_completed_at` and `continue`s — no message, no orchestration row. So an empty tick is invisible
+in `orchestration_states` and shows up only as a stamp. `last_triggered_at = 10:56Z` today with no
+10:56 orchestration and demand 0 is exactly that: an empty tick, confirmed at the arm rather than
+inferred from the shape.
+
+So the zero is a **drained queue read at rest**, not absent demand. Over the whole 25 h retention
+window: 4 dispatches, 5 distinct pages offered, 5 written, 0 refused. The gated action runs about
+five times a day and passes. **The refusal branch is untaken, not unreachable.**
+
+Worth naming plainly: this is §9b's misstep — a zero with two sufficient causes attributed to one —
+happening again in the same file, one section along, in a document that already carries the warning
+about it. Having written the warning is not the same as reading it when the next zero turns up.
+
+### Misstep: I assumed the loop overwrote, and the query said otherwise
+Seeing the 2-page run carry a single `save_result`, my first read was "the loop overwrites, so
+earlier iterations are lost" — which would have been a serious defect in the surface this lane
+shipped. I went to check the merge logic before writing it anywhere, and `loop_actions.go` pointed
+at `makeIterationOutputField`: per-iteration outputs are preserved as `save_result_0`,
+`save_result_1`. **The data was never lost and the overwrite claim would have been false.**
+
+What survived the check is smaller but real, and it took the opposite shape from what I expected:
+the bare `save_result` **also** exists, holding the **last** iteration. Our completion message says
+"Read each save_result" and the obvious key answers for one page. Generalised it to
+`page-content-writer`: bare `copy_gate` == `copy_gate_<max N>` on **20 of 20** runs, never the
+first — and in that same loop `section_output` has **no** bare form at all, so the pattern is not
+learnable from one example.
+
+The lesson is not "check before asserting" (I did). It is that **the first hypothesis was wrong in
+its direction and still landed near something real** — had I written it up on first sight I would
+have shipped a false mechanism attached to a true symptom, which is the hardest kind to unpick later
+because the symptom keeps confirming it.
+
+### Misstep: a fixed comparand manufactured false counter-evidence
+Testing "does the bare key hold the last iteration", I compared bare `copy_gate` against
+`copy_gate_4` across 5 runs and got **3 true, 2 false** — which reads as "the rule mostly holds",
+the most dangerous possible result, because a mostly-true rule invites a hedge rather than a
+re-check. The 2 were runs of 3 and 4 sections: `_4` did not exist, so the comparison was against
+NULL. Recomputing `max(N)` per run gave **20/20**.
+
+**The check:** in any per-iteration comparison, derive the last index from the row; never hard-code
+it. A hard-coded comparand does not error on a shorter run — it silently compares against nothing
+and reports a mismatch, i.e. it fabricates counter-evidence to your own hypothesis. Logged to
+`WRONG_CALLS.md`.
+
+### Adjacent: HEAD is RED and it is not this lane
+`verify-head-builds.sh --test` on `./platform/orchestration/actions/...` at `541193665`: build
+green, two tests red, both from `83407cd37` (the 440 lane's phase 3) — an undeclared template
+executor and an undeclared finding code. `theme_kits` flagged the first on 09-03; the finding-code
+one appears unreported, so a lane fixing only what it was told about stays red. Both guards are
+working as designed. This lane's own 10 tests pass at HEAD when run by name.
+
+Also: 8 abandoned `~/.claude-scratch/head-verify/` trees, ~3.9 GB, left by other sessions
+(disk is at 48%, so not urgent — but this is the accumulation CLAUDE.md warns about, and
+`scripts/scratch-report.py` is the tool rather than a hand-rolled `rm`). I removed only my own.

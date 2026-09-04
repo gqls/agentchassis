@@ -190,3 +190,61 @@ myself yesterday morning and then not applied it twice. It's logged.
 description and lack one, so nothing has been refused and no job has been filed. The first one that
 appears is the real proof. Until then it's live and untested, and I'd rather say that than let it
 read as finished.
+
+---
+
+**2026-09-04 — picking it back up, and the thing I got wrong yesterday.**
+
+First job was just to check nothing had moved under me. It had: the servers were replaced again
+overnight and are now running a build one version newer than the one I checked yesterday. That
+matters more than it sounds, because we learned the hard way this week that a newer build does not
+necessarily contain your work — it depends what the build was cut from. So I asked the running
+program directly whether our code is in it, on both servers, including a deliberate nonsense check
+that must come back "no" to prove the question is being answered honestly. It is all still there.
+
+**Then I found that something I wrote yesterday was wrong, and it was the sentence telling the next
+person not to bother looking.**
+
+Yesterday I reported that no page currently both needs a description and lacks one, and concluded
+from that that nothing could be refused and so our new safety net could not yet be tested. The first
+half is true. The second half is not, and I only noticed because I saw that the job had run twice
+this morning and written a description each time — which cannot happen if there is nothing for it
+to do.
+
+The explanation is simple once you see it. The job is on an hourly timer, but it only wakes up
+properly if there is a page waiting. When there is nothing waiting it quietly goes back to sleep and
+leaves no trace at all. So when I counted "pages waiting" I was counting at the moment *after* the
+job had already cleared them — like checking an inbox straight after someone has answered every
+email and concluding no email ever arrives.
+
+Counting properly, over the full day of history we retain: the job ran four times, handled five
+different pages across four customer sites, and wrote a good description for every one. Nothing was
+refused. So the honest position is not "this cannot be tested" — it is **"this runs about five times
+a day, passes every time, and the case we built the safety net for simply has not come up yet."**
+It will come up on its own. Nobody needs to force it.
+
+**A second thing, smaller, but it is a flaw in the very thing I shipped.**
+
+The message we now show an operator tells them to read the result for each page. It turns out the
+system files those results twice: once per page, and once more under a plain name that holds only
+the *last* page. So on a run covering two pages, where the first was refused and the second was
+fine, the obvious place to look says "fine". The refusal is not lost — the job we file for a human
+still gets filed, which is the whole point of the fix — but the message points at the misleading
+copy. One run in four this week covered more than one page, so this is not a theoretical worry.
+
+I checked whether that is peculiar to our job. It is not: on the busiest page-writing job in the
+system the same thing happens, on twenty runs out of twenty. And confusingly it does not happen for
+every field — one field in that same job has no plain-name copy at all — so there is no rule you
+could learn by looking at one example. I have written down exactly what I measured and been explicit
+that I have **not** worked out which piece of code creates the plain-name copy, because guessing at
+that and being wrong would be worse than saying I do not know.
+
+I have not changed the operator message. It would be a small edit to live settings and it needs a
+review round, and I would rather hand it over as a costed suggestion than quietly amend an
+already-approved message at the end of a session.
+
+**One housekeeping note for whoever is nearby:** the shared codebase currently fails two of its own
+self-checks. Neither is ours — both come from another team's change yesterday — and our own tests
+all pass. Another team spotted one of the two and wrote it up; the second one seems to have gone
+unnoticed, so I have said so in writing, because someone fixing only the reported half will be
+puzzled when it is still red.
