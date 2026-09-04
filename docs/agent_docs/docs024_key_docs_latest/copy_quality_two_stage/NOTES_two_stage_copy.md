@@ -4563,3 +4563,30 @@ this migration's.**
   as absent.** Show the guard, not the sentence about it.
 
 The `Council-Submitted:` trailer on `a3406601f` resolves to APPROVED via `098` with no amend.
+
+**2026-09-04 03:46Z — TWO closures from one render. 748 is verified AT THE PROMPT, and the 678
+canary is answered.** The one-shot watcher armed after 748 reported the first planner spawn:
+
+```
+content-gap-planner | 2026-09-04 03:46:25Z | para=true | heading_break=true
+                    | blank_line_before_para=true | real_evidence=true
+```
+
+**748 at the artefact:** every structural element the migration restored reaches a live prompt
+intact — the title's line break (`regardless of inputs)\nAim for`), the blank line before the
+scope paragraph (`visitors.\n\nThis standard is responsible`), the paragraph itself, and the
+owner's "real evidence" edit. The injector does not mangle multi-line carrier text. The row-level
+verify at apply time proved the row; this proves the render. Both were needed, and yesterday's
+lesson — a check that shares state with the thing it checks confirms intention, not outcome —
+is why the watcher existed.
+
+**678 canary CLOSED.** `content-gap-planner` had not run since the opt-ins (18:38Z 09-02) and was
+the one live consumer still unobserved. It has now rendered the block, so **propagation step 1 is
+verified for BOTH live consumers** — `build-site-planner` (09-03 10:40Z, 14:15Z) and
+`content-gap-planner` (09-04 03:46Z) — with `679` dead by ruling and not counted. Nothing further
+is owed on the planner canary; the needle (`BUILD STANDARD (applies to every site`,
+case-sensitive) stays as the standing check.
+
+Note the timing for the "zero rows can turn non-zero later" trap: this spawn was organic, ~10
+hours after the opt-ins' last unobserved check, which is roughly what "answers itself on any
+organic run" costs on this fleet for an agent that fires per site build.

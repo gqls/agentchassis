@@ -37,7 +37,10 @@ is the most dangerous carrier for an invented cause.
      6 words/29.5%), mutation-proven.
 - **The planner canary is ANSWERED for `build-site-planner`** — rendered the build standard at
   10:40:15Z and 14:15:16Z, `has_standard=t`, `unrendered=f`, read at the artefact. `678`
-  (content-gap-planner) unobserved; `679` (visual-designer) **never will be — the row is dead**:
+  (content-gap-planner) ✅ **ANSWERED 2026-09-04 03:46Z** — rendered the v2 carrier with every
+  748 structure intact (title line break, blank line before the paragraph, "real evidence"), so
+  **propagation step 1 is verified for BOTH live consumers and 748 is verified at the prompt, not
+  just the row**; `679` (visual-designer) **never will be — the row is dead**:
   zero `llm_call_log` rows all-history, zero live configs name it, the one Go hit is a storage
   env-var list. ⚠ Needle is the CAPS title `BUILD STANDARD (applies to every site`, matched
   **case-sensitively** (`position()`/`LIKE`, never `ILIKE`) — NOT `stands comparison with the
