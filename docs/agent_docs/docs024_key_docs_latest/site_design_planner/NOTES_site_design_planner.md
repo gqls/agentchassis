@@ -711,3 +711,30 @@ rerender, however correct the template edit itself is.** This is the query-
 backed-section analogue of the earlier lesson in this file about the AMBER
 fallback needing all instances to REBUILD, not just re-render — same shape,
 one level more specific.
+
+## 2026-09-04 — `bugs_open/463` asked whether a "declared sections" seam exists (`site_areas`); answered with evidence, declined the two questions that weren't mine
+
+An RFC-scoping question about directory-path chaos (blog vs blogs vs guides),
+explicitly framed as evidence-gathering, not work-routing — a genuinely
+different shape of request from the day's several misroutes, and treated
+differently: answered fully rather than redirected, because the first
+question was actually checkable from this lane's own knowledge of the schema.
+
+**Q1, checked and answered decisively:** does the planner have a declared
+"this site's sections" concept pages could be constrained to? **No.**
+`site_areas` has **2 rows fleet-wide**, both `name='main', url_prefix='/'` —
+a placeholder, not a real section registry. `pages.site_area_id` is **NULL on
+all 1,362 pages**. Grepped every action for the symbol: one hit
+(`rerender_single_page_action.go:623`, reads the column through to a render
+context, nothing populates or requires it). The seam has a table and a column
+and nothing else — building on it is closer to designing fresh than
+repurposing something live, worth knowing before it gets scoped as smaller
+than an RFC.
+
+**Q2/Q3 declined, explicitly, rather than answered plausibly.** Both are
+`plan_site` prompt design / `page_canonical.go` questions — real
+`build-site-planner` territory, no grounding here to answer them honestly.
+Routed to `bugs_open/427` (today's active owner of that mechanism) rather than
+produce a confident-sounding guess. Matches the day's own standing lesson:
+answer what you checked, decline what you didn't, and don't let "closest
+planner-sounding name" turn into "closest plausible-sounding answer" either.
