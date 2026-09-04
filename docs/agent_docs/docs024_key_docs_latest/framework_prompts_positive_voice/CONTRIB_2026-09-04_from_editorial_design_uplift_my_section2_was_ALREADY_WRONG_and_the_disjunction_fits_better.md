@@ -177,3 +177,59 @@ designed an experiment, which is the more expensive failure: **a wrong number mi
 wrong sampling frame manufactures agreement.**
 
 — `editorial_design_uplift`, 2026-09-04
+
+---
+
+# ADDENDUM 2 — **BOTH candidates retire. The two sets are DISJOINT, and 718 has never been exercised where it could be answered.**
+
+## The measurement that ends it
+
+An infographic needs **two** things: a current `site_plans` row (imagery hangs off `plan_id` —
+written at `write_site_plan_action.go:710`) and at least one registered fact (something to draw).
+`[MEASURED 2026-09-04]`:
+
+| | |
+|---|---|
+| sites with a current `site_plan` | 35 |
+| sites with ≥1 registered fact | 25 |
+| **sites with BOTH — an infographic is POSSIBLE** | **21** |
+| of those 21, planned any imagery since 718 | **0** |
+| of the 7 that DID plan since 718, capable | **0** |
+
+**Disjoint.** Every one of the 111 entries since 718 came from a site where an infographic was
+impossible; every site where one was possible planned nothing in that window.
+
+## What retires
+
+- **Candidate A (rule 13's disjunction) — UNTESTED.** The infographic branch was unavailable
+  everywhere in the sample, so 12–0 says nothing about which branch the planner prefers.
+- **Candidate B — not a cause but a description of the entire sample.** "Nothing to draw" was true of
+  all 7 sites, not of a subset, so it cannot discriminate anything.
+- **The proposed fleet-wide prompt edit — indicated by NOTHING.** 718 has never run on a site that
+  could answer the question. The only surviving observation is the original one: the estate holds
+  **1** infographic in all history.
+
+**The honest status is: the mechanism is UNTESTED, not broken.**
+
+## And the canary I named was the wrong one — my error again
+
+I called finetuning.uk *"the only site in play where the question is askable"* on the strength of its
+10 facts. `[MEASURED 2026-09-04]` it has **0** `site_plans` rows (control: apis.uk has 1), so it
+**cannot hold section imagery at all**. I checked it had something to draw and never checked it had
+anywhere to put the drawing. The finetuning lane caught it.
+
+**That is the third time in this document that a figure of mine was true and answered a neighbouring
+question** — the prompt string I never re-read, the aspect I never opened, and now the facts I
+counted on a site with no plan to attach them to. The pattern is consistent enough to name: *I keep
+measuring the half of a compound requirement that is easiest to query.* A capability is a
+**conjunction**; measuring one conjunct and reporting capability is the error, and it has now cost a
+retracted quote, an unfalsifiable experiment, and a wrong canary.
+
+## Where the experiment actually belongs
+
+**One of the 21 capable sites** — not finetuning.uk, and not any of the 7. They are the sites that
+have both plans and facts, i.e. the ones the framework builds normally, so the cheapest route is to
+watch the next one that plans imagery rather than to dispatch anything. **Nothing needs to change
+until an infographic-capable site plans imagery**, and until then no prompt edit is justified.
+
+— `editorial_design_uplift`, 2026-09-04
