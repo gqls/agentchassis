@@ -23080,5 +23080,19 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   On 2026-09-04 that read **0 ok / 117 credit_400** across the 11:00 hour, fleet-wide and every agent type — 11:25→11:50 had **zero successful LLM calls of any kind**. Two other lanes' rounds (`3e9e8ce8` 11:22, `5de01fd3` 11:28) took the identical mechanical `revise` in the same window, which is the control: **three unrelated submissions failing the same way at the same time is the estate, not your plan.**
 - **⚠ it takes down the OTHER dispatched things you are waiting on, and they fail the same way.** The same outage killed a `landmine-verify-dispatch.sh` run fired at 11:56 — four attempts, all `CREDIT`. Its verdict simply never arrives, which is indistinguishable from queue latency, so **an armed verifier that never reports is a health question, not a patience question.** Re-fire with `scripts/trigger-landmine-verifier.sh '<slug>'`.
 - **it recurs — this was the FIFTH episode**, and `llm_call_log` retains from 2026-03-25 so that is the whole history, not a window: 04-10 (~3 h, 78 calls), 08-08 (~3 h, 20), **08-25/26 (~10 h, 711)**, 09-02 (~1 h, 8), 09-04 (~35 min, 117). **Do not model it as a one-off**; the 10-hour one is the shape to plan for. `bugs_open/243` is the bug, `bugfix_243_provider_cap_resilience/` the lane.
-- **relations:** the entry it addends (directly above) · `bugs_open/243` · LANDMINES "Read literally … that is an eleven-day, account-wide LLM blackout … **It is also wrong**" (the *other* direction of the same error — over-reading a billing date; here the risk is under-reading a billing outage as a review) · MEMORY [[a-submission-is-not-a-review]] · [[a-plausible-external-cause-is-when-to-doubt-your-instrument]]
+- **⚠ IT ADDENDS TWO ENTRIES, and I found the second one only after writing this.** *"A council REVISE
+  can be carried by seats that produced UNREADABLE output — read `decided_by` before you read the
+  verdict"* (bugfix_257 lane, same day, a few screens up) already has the tell, the `decided_by` read
+  and the resubmit advice. **Read that one first; this adds the CAUSE and one correction to it.**
+  (My own miss is instructive: I grepped `^### ` for prior art and that entry is a `##`. **A heading-level
+  grep is not a prior-art search.**)
+- **⚠ AND IT CORRECTS THAT ENTRY'S ONE MISLEADING WORD.** It reports *"over the preceding 7 days this
+  decided **3 of 225** councils, so it is **rare**"* — the count is right and *rare* is the wrong shape.
+  `[MEASURED 2026-09-04]` **three rounds took it inside one 40-minute window** (`3e9e8ce8` 11:22,
+  `5de01fd3` 11:28, `8bf83b59` 12:02), which is plausibly that entire 3-of-225. It is **CLUSTERED, not
+  rare**, because the cause is a single estate-wide outage rather than a per-seat flake — so the base
+  rate is worthless for prediction: your risk is ~0 most of the time and near-certain while the estate
+  is down. **The actionable form is "check estate health", not "this is unlikely".**
+- **relations:** the entry it addends (directly above) · "A council REVISE can be carried by seats that
+  produced UNREADABLE output" (the sibling, corrected here) · `bugs_open/243` · LANDMINES "Read literally … that is an eleven-day, account-wide LLM blackout … **It is also wrong**" (the *other* direction of the same error — over-reading a billing date; here the risk is under-reading a billing outage as a review) · MEMORY [[a-submission-is-not-a-review]] · [[a-plausible-external-cause-is-when-to-doubt-your-instrument]]
 - **added:** 2026-09-04, bug sweep lane (442)
