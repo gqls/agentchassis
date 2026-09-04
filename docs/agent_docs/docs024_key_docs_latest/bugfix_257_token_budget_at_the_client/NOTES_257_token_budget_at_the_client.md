@@ -676,3 +676,55 @@ indistinguishable from an empty result from a query that ran.** I read the RUNBO
 schema and not for the polling section. The indexed `diagnosis_artifacts` query answered in under a
 second. Cost: ~4 minutes and one background task. Recorded because the failure mode is *reading the
 document for the thing you came for* — the trap was already written down by this same lane.
+
+---
+
+## 2026-09-04 — round 2 is LIVE on `v1.0.1360`, and the proof had to come from another lane's binary
+
+The owner rolled the chassis at **22:06:29Z on 2026-09-03**; pods `agent-chassis-ffc9ddff9-*` started
+22:06:35/58Z on `v1.0.1360`. My fix was committed 17:21:53+01:00, ~5¾ hours earlier.
+
+### ⚠ Three verification routes, and only the third one works here
+
+1. **Pod log `build provenance`** — **absent from `--tail=3000`** ten hours after start. That means
+   *not in range*, not *unstamped*; the documented landmine, hit exactly as written.
+2. **My own binary probe — FAILED, and the failure mode was a false negative in waiting.** I enumerated
+   the 474 commits in the window between my commit and pod start and ran one
+   `grep -aoFf <474 shas> /proc/1/exe`. It returned **empty after ~110s** — killed, not answered. Had I
+   read that as a result it would have said *"none of these commits is in this image"*, i.e. the exact
+   opposite of the truth. The negative control (`deadbeef…`, must be absent) had passed beforehand, and
+   **it did not save me**, because it was cheap and the real scan was not: a control proves the probe
+   discriminates, not that the probe completed. The `dispatch_throughput` lane had already written down
+   that a full-binary scan overruns a two-minute call. **A binary probe is a handful of KNOWN values.
+   An enumeration is a different instrument and it is not one of the ones that works here.**
+3. **Ancestry off another lane's proof — decisive, and cheap.** The 453 lane proved `PRC-003` present in
+   the v1.0.1360 binary with FOUR controls, including the strongest kind: **the OLD literal
+   (`TEMPLATE RENDERED WITH MISSING DATA`) ABSENT**. Their change is carried by `681b0ee65`, committed
+   17:33:01+01:00 — twelve minutes after mine. `git merge-base --is-ancestor 51357cf51 681b0ee65`
+   passes, so any build containing theirs contains mine. **v1.0.1360 carries round 2.**
+
+   Worth keeping as a technique: on a shared tree with many lanes rolling into one image, **somebody
+   else's artefact proof is transferable to your commit by ancestry**, and it costs one `git` command.
+   The estate's advice is *prove it at the artefact*; this is *prove it at somebody's artefact and then
+   prove your code is inside theirs*. State whose probe it was — it is not first-hand evidence.
+
+### The honest limit: this change cannot be proven behaviourally, by construction
+
+[MEASURED 2026-09-04] 208 post-roll calls across the affected steps — `repair_ordering_register` 14
+@2000, `repair_hierarchy_register` 4 @2000, `rewrite_negations` 184 @16000 across loop iters 0–4,
+`look` 8 @4000 — **every one at its configured value, zero truncations.** That is the *nothing
+regressed* half and nothing more.
+
+**It is not evidence the fix shipped, and §6's prescribed check cannot be either.** §6 says to watch a
+step whose declared budget exceeds the old literal send the larger number. `page-content-writer` sends
+16000 — and it sent 16000 **before** the roll too, because its hand-rolled block read `ai_service`
+correctly; the literal only applied when nothing was configured. So the prescribed check returns the
+same reading under both hypotheses. **This is §2(c)'s blindness reappearing inside my own verification
+plan**, which is precisely what the handoff warned about, one level further out than it was aimed.
+
+The check that *would* discriminate is an induced one: a **top-level** `config.max_tokens` (outside
+`ai_service`) on a step reached by the new code — old code ignores it, new code reads it first. One
+jsonb write, one token of difference (15999 against 16000), reversible. **Not run: it writes to a
+production agent's live config, which is the owner's call.** It is written up in the bug file and in
+today's handoff as a decision, with the caveat that it would also be the first live exercise of the
+step-level precedence arm, which nothing on the fleet uses today.

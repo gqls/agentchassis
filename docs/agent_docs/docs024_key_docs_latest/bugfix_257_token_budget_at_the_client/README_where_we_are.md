@@ -358,3 +358,43 @@ steps, so that is your call rather than mine, and I have written it up rather th
 **The two decisions from August are still open and unchanged** — whether to merge the two near-duplicate
 copies of the "which limit wins" rule, and whether making direct model calls visible to our
 truncation monitoring belongs in this bug or a lane of its own.
+
+---
+
+**2026-09-04 — it is live, and there is one decision I would like from you**
+
+Your chassis build went out last night at 22:06. The change is aboard and running: 208 calls have gone
+through the five affected places since the roll, every one of them sending exactly the limit its
+configuration states, and nothing has been cut off.
+
+**How I know it is aboard is worth one paragraph, because it is not the obvious way.** The service
+normally announces which version of the code it was built from, in a line it prints when it starts —
+but that line had scrolled out of reach ten hours later. My own attempt to read it out of the running
+program failed: I asked it to check 474 possible answers at once, and the check was killed part-way
+rather than answering, which would have looked exactly like "the change is not there" if I had taken it
+at face value. What settled it was another team member's work: a different fix, committed twelve minutes
+after mine, was proven to be in last night's build by a careful test with four controls. Since my change
+is in the history *underneath* theirs, any build containing theirs contains mine. One command, and it is
+solid.
+
+**The uncomfortable part, said plainly.** This change was designed to alter nothing, and it succeeded —
+which means no measurement taken after the fact can tell the new code from the old. Every step involved
+already stated its limit properly, so both versions send the same numbers. Even the check the bug file
+prescribes for exactly this moment — "watch a step whose limit is larger than the typed-in number send
+the larger number" — cannot help, because that step was sending the larger number *before* the roll too.
+This is the very same trap the round was about, turning up inside my own verification, one level out.
+
+**So here is the decision.** There is one test that would settle it by behaviour rather than by
+inference: put a limit in a place the *old* code never looked and the *new* code looks first, on one
+step, and read what the next call sends. Old code would send 16,000; new code would send 15,999. One
+setting, one token of difference, reversible in seconds.
+
+I have not done it, because it writes to a live production agent's configuration and takes effect
+immediately, and that is your call rather than mine. It is worth something beyond satisfying curiosity:
+it would be the first time anything on the fleet has exercised that "a step can override the service
+default" path at all, so it tests a capability we currently only believe in.
+
+**The other two decisions are unchanged and still yours** — merging the last two copies of the "which
+limit wins" rule, and whether making direct model calls visible to our truncation monitoring is part of
+this bug or its own piece of work. And one new one from yesterday: four settings on the site-adoption
+agent that ask for a limit nothing reads, one of them asking for double what it gets.

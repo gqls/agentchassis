@@ -736,3 +736,75 @@ Dispatched 16:21, decided 16:37 — **16 minutes**. Two objections were acted on
   the helper always supplies an explicit `max_tokens`; Path A governs only an unconfigured caller.
 - **`guardian` LOW** — `fetchViaPerplexity` callers enumerated: exactly one, `feed_actions.go:419`,
   updated in the same commit. It should have been in the submission.
+
+---
+
+## ✅ ROUND 2 IS LIVE on `v1.0.1360` (rolled 2026-09-03 22:06:29Z) — proven, and with the one thing the proof CANNOT do stated
+
+**The bug stays OPEN.** Two named residuals are untouched (candidate 2; the `llm_call_log` blindness of
+direct callers), plus the four dead `site-adoption-agent` declarations found in round 2. The *round 2
+defect* — hand-rolled budget literals — is fixed and live.
+
+### How it was proven, and why not the way §6 prescribes
+
+⚠ **This change is BEHAVIOUR-NEUTRAL BY CONSTRUCTION, so no post-roll reading can distinguish the new
+code from the old.** That is not a gap in the verification; it is the same §2(c) blindness one level up,
+now applying to my own check. Every live step reached by the five call sites declares its budget under
+`ai_service`, so the helper supplies the same explicit number the hand-rolled block did. §6's prescribed
+behavioural proof — *"a step whose declared budget exceeds the old literal actually sends the larger
+number"* — cannot discriminate here either: `page-content-writer` sent 16000 **before** the roll too,
+because its hand-rolled block read the config correctly. **Do not record the 16000 as evidence the fix
+shipped.** It is evidence that nothing regressed, which is a different claim.
+
+**What actually proves it, at the binary, by ancestry:**
+
+- `PRC-003` (`bugs_open/453` shape 3), carried by **`681b0ee65`**, was proven present in the
+  **v1.0.1360** binary by the 453 lane on 2026-09-04, through one `tr '\0' '\n' | grep -Fc` pipeline
+  over `/proc/1/exe` with **four controls** — two new literals present, **the OLD literal
+  `TEMPLATE RENDERED WITH MISSING DATA` ABSENT**, a must-be-present control present, a must-be-absent
+  control absent. (Register `PRC-003`, `docs026_concept_register/register/prompt-composition.md`.)
+- `git merge-base --is-ancestor 51357cf51 681b0ee65` → **passes**. My fix (17:21:53+01:00) is an
+  ancestor of that commit (17:33:01+01:00), so any build containing `681b0ee65` contains `51357cf51`.
+- Therefore **v1.0.1360 carries round 2**. The evidence is another lane's binary probe plus an ancestry
+  check, not my own probe — stated plainly so nobody re-reads it as a first-hand measurement.
+- ⚠ `54ee2d261` (the council-objection answers) is **not** an ancestor of `681b0ee65`. It is test-file
+  comments only, so it cannot affect the binary; whether the build commit also includes it is unknown
+  and immaterial.
+
+**My own attempt at a direct probe FAILED and the failure is worth carrying:** a single
+`grep -aoFf <474 candidate shas> /proc/1/exe` over the whole binary returned **empty after ~110s**, i.e.
+it was killed, not answered. An empty result there reads exactly like *"none of these commits is in this
+image"* — which would have been a false negative pointing the opposite way. The `dispatch_throughput`
+lane had already recorded that a full-binary scan overruns a two-minute call (their NOTES, 2026-09-04).
+**A binary probe must be a small number of KNOWN values, never an enumeration.**
+
+### Behaviour after the roll — the "nothing regressed" half [MEASURED 2026-09-04]
+
+Every step reached by the five changed call sites, since 22:06:58Z:
+
+| agent | step | sent | calls | max out | truncated |
+|---|---|---|---|---|---|
+| offer-analyser | repair_hierarchy_register | 2000 | 4 | 125 | 0 |
+| offer-analyser | repair_ordering_register | 2000 | 14 | 706 | 0 |
+| page-content-writer | rewrite_negations (loop iters 0–4) | 16000 | 184 | 5,937 | 0 |
+| tool-acceptance-agent | look | 4000 | 8 | — | 0 |
+
+208 post-roll calls, every one at its configured value, zero truncations (counted from
+`error_message ILIKE '%stop_reason=max_tokens%'`, never from `output_tokens >= max_tokens`).
+`ch-llm-reviewer` and `design-critique-agent.critique` had no post-roll traffic.
+
+### The one live check that WOULD discriminate — not run, because it writes to production config
+
+Set a **top-level** `config.max_tokens` (outside `ai_service`) on a step reached by the new code and
+read the next `llm_call_log.max_tokens`:
+
+- **old code** ignores step-level entirely → sends the `ai_service` value;
+- **new code** goes through `llmOptionsFromConfig`, whose documented precedence is *step config beats
+  `ai_service`* → sends the step-level value.
+
+`page-content-writer.rewrite_negations` with `config.max_tokens = 15999` against its `ai_service` 16000
+is the cheapest form: one jsonb write, one token of difference, immediately reversible, and the two
+hypotheses give different numbers. **It is a live config change to a production agent, so it is an
+owner decision, not a session's.** Recorded here so the next session does not have to re-derive it —
+and note it would also be the first live exercise of the step-level precedence arm, which
+[MEASURED 2026-09-03] nothing on the fleet uses today.
