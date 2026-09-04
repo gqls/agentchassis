@@ -1591,3 +1591,15 @@ still have their image. Hand-wiring decays within a week when images are regener
 question for you is not "wire four pages" but "arm the built mechanism", which is that lane's to carry
 and now has the nine-to-three evidence attached. A stop-gap on the four is a legitimate choice too, as
 long as it is called one.
+
+**2026-09-04, 13:00 BST: the case studies are a swipeable carousel on the live homepage.** The five
+cards' titles, text, categories and client lines are on the page word for word (checked by machine
+against what was stored), the other five sections are byte-for-byte what they were, and a real browser
+confirmed the row scrolls. The framework's re-render queue had gone quiet for three quarters of an hour,
+so I used the documented one-page bypass; on my first go I pointed it at the playground page by
+mistake, which re-rendered that page unchanged, and the second go did the homepage. What the carousel
+cannot carry, and no longer shows in that section: the one-sentence intro, its own "Start your project"
+button (the page still ends with one), and the five card pictures, which are still on the case-studies
+page. Two things for you to say: whether your "more than three cards" rule should now reach the
+six-card "what we build" grid and the five-card departments grid, which the critic called solid; and
+whether you want the pictures back, which means the image-card carousel that no site has used yet.

@@ -1,4 +1,4 @@
-# HANDOFF 2026-09-03 — the site is now the playground; the demo model is live on a Hetzner box; the chat route is LIVE on the island (19:08Z); **the chat widget is LIVE on /playground.html and answers (20:33Z, browser-proven)**. Start here.
+# HANDOFF 2026-09-03 — the site is now the playground; the demo model is live on a Hetzner box; the chat route is LIVE on the island (19:08Z); **the chat widget is LIVE on /playground.html and answers (20:33Z, browser-proven), with the explanation and a verbatim before/after pair under it (21:32Z)**; **the homepage's case studies are a swipeable carousel (09-04 11:58Z, canary PASS)**. Start here.
 
 **COLD-START for the finetuning.uk service lane.** Supersedes
 `HANDOFF_2026-09-02_continue_here.md` (still the reference for the playground booking page's birth,
@@ -197,8 +197,13 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    dispatch: pods older than 300 s (`kubectl get pods -l app=agent-chassis`), and read the site's
    `page_rerender` queue (the 20:17Z fan-out) for an item the roll interrupted. Nothing of this lane's
    rides the roll.
-0d. **HOMEPAGE CARD CANARY — OWNER SAID GO (23:45 BST: "case studies can be swipeable. For any number
-   greater than 3") — fire AFTER the announced chassis roll settles (pods ≥300 s).** The served slot
+0d. **HOMEPAGE CARD CANARY — DONE, LIVE, PASS (2026-09-04 11:58Z; `canary_case_studies_carousel/assert_canary.py`
+   PASS on A1–A4; NOTES 11:58Z). The rerender queue idled 45 min, so the deploy went through
+   `cta_link_integrity/scripts/049b_deploy_single_page.sh <page_id> <site_id> <domain> section_data_resolved`
+   (get the page id by url in the SAME command — my first shot hit the playground's id). Next, on the
+   owner's word: the >3 rule on `departments-grid` (5) / `features` (6, critic: "solid"), or
+   `hero-card-carousel` for the pictures (0 live uses). Owner said GO (23:45 BST: "case studies can be swipeable. For any number
+   greater than 3").** The served slot
    renders FIVE cards (5 images, 5 links to /case-studies.html; content_data card1–card5), not the
    critic's four. His RULE (>3 cards → swipeable) also names `features` (6, "solid") and
    `departments-grid` (5): canary first, then ask him before touching those two. Infographics are

@@ -3821,3 +3821,25 @@ night; harmless, but an unintended deploy of a live page. The cheap check I skip
 url in the same command as the dispatch (the canary SQL had the right id in `v_page`; I did not copy it).
 Second call, correct page, corr below. The queued item `25e2f3d1` stays until the bypass lands, then gets
 cancelled as a duplicate.
+
+## 2026-09-04 (11:58–12:02Z) — **THE CARD CANARY IS LIVE AND PASSES**: case studies are a swipeable carousel, the words byte-identical, the other five sections untouched
+
+Homepage bypass (corr `2bb52c83`, reason `section_data_resolved`) deployed `/index.html` at 11:57:56Z,
+one minute after dispatch. `assert_canary.py` `[MEASURED 12:01Z]` at the served page + the DB:
+- A1 `swipeable-insight-carousel` section present; NO `case-studies-grid` markup.
+- A2 five cards; every card's label / headline / body / attribution present VERBATIM (normalised
+  whitespace) and the section title + eyebrow verbatim — the strings the framework printed are the
+  strings the mapping stored; no LLM in the path, and the served bytes agree.
+- A3 the five other sections' `rendered_html` md5 IDENTICAL to the pre-swap snapshot (hero, features,
+  differentiators, departments-grid, call-to-action); only the carousel slot's md5 changed
+  (47033dd1 → fe1999ff).
+- A4 CDP on the live URL: the track has `scrollWidth 1828 > clientWidth 1105`, 5 cards, and a
+  `scrollBy(400)` moved it from 40 to 402 — it swipes.
+The queued duplicate `25e2f3d1` CANCELLED with the reason. The accidental playground re-render
+(11:57:29Z) left the page intact (widget, heading and framing markers all present).
+Fix on the way: the acceptance script's first run got HTTP 403 — the edge refuses Python's default
+`User-Agent` while curl passes; one header (`curl/8.5.0 …`) fixed it. Worth knowing for any Python
+probe of these sites.
+**Dropped by construction, as told the owner:** the section intro sentence, the section's own CTA and
+the five card images. Next per his rule (>3 cards → swipeable): `departments-grid` (5) and `features`
+(6, "solid") — ASK FIRST; or swap to `hero-card-carousel` if he wants the pictures back (0 live uses).

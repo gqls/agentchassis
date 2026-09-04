@@ -9,7 +9,7 @@ A4 (CDP) the carousel track scrolls: scrollWidth > clientWidth after load, on th
 import json, os, re, subprocess, sys, html as H, urllib.request
 HERE=os.path.dirname(os.path.abspath(__file__)); fail=0
 mapped=json.load(open(os.path.join(HERE,'content_data_mapped_2026-09-04.json')))
-page=urllib.request.urlopen('https://finetuning.uk/index.html', timeout=30).read().decode('utf-8')
+page=urllib.request.urlopen(urllib.request.Request('https://finetuning.uk/index.html', headers={'User-Agent':'curl/8.5.0 (finetuning-lane canary check)'}), timeout=30).read().decode('utf-8')  # the edge 403s Python's default UA
 print(f'served {len(page)} bytes')
 has_car = 'swipeable-insight-carousel' in page; has_grid = re.search(r'class="[^"]*case-studies-grid', page) is not None
 print(f'A1 carousel present={has_car} grid present={has_grid}'); fail |= (not has_car) or has_grid
