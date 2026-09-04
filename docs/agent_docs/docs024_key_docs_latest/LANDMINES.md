@@ -23400,3 +23400,39 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 - **worked case:** `bugs_closed/011` was closed partly on a deliberate live-fire — an `UNROUTED_IMAGE_KIND` row for `image-generator` at **2026-07-24 20:45:57Z**, context `scratch_unrouted_011`, described as such in the bug file, this lane's `RUNNING_NOTES` and the auto-memory. `[MEASURED 2026-09-04]` the oldest surviving row in the whole table is **2026-07-24 23:30:20Z** — two and a half hours later. The closure is sound; the evidence for it is simply no longer re-runnable, and three permanent records still point a reader at it.
 - **source:** 2026-09-04, `imagery` lane — found while measuring the residual `bugs_closed/382` §10c left on this lane (whether four kind-less image steps are still reachable); the condition-code instrument turned out to have no positive control, which is what sent me to `assets.origin_model` instead
 - **added:** 2026-09-04, `imagery` lane
+
+### `grep 'func <name>'` CANNOT MATCH A CLOSURE — so the obvious grep for a Go definition misses an entire declaration form, and returns ONE confident hit when there are two
+- **footprint:** `grep -rn "func <symbol>"` over a Go package; any symbol census, package audit or
+  "where is this defined" lookup; `platform/orchestration/actions/rerender_page_sections_action.go`
+  (`resolveComponent`), `platform/orchestration/actions/rerender_single_page_action.go:1240`
+  (`resolveComponent`), `LANDMINES.md` citations that name a bare Go symbol
+- **fires when:** you locate a Go function to read it, cite it, or check somebody else's citation of
+  it. The natural pattern is `grep -rn 'func <name>'` — it is precise, it excludes call sites, and
+  it is what you reach for when a bare-symbol grep returns too much noise
+- **the tell: NONE, and it is worse than silence — you get exactly one hit, which reads as
+  definitive.** A local closure is declared `name := func(…)`, so the `func <name>` form cannot
+  match it. Worked case 2026-09-04: `resolveComponent` names **two different things** in one
+  package — a package-level `func resolveComponent(area, site map[string]string, slot string) string`
+  in `rerender_single_page_action.go:1240` (**chrome slots**), and a closure
+  `resolveComponent := func(s storedSection) (componentInfo, bool, bool)` at
+  `rerender_page_sections_action.go:361` (**the section-render component lookup, with the
+  name-or-function fallback**). They do unrelated jobs. `grep 'func resolveComponent'` returns only
+  the first. **I used that result to tell a peer lane their citation named the wrong function. It
+  did not; my grep could not see the one they meant.**
+- **why it compounds:** this file carries entries about **both** symbols (`:3587` and `:3764` for
+  the chrome one, the `content_components.name`/`.function` entry for the closure). So a reader who
+  resolves a bare symbol name can land on either and **find corroboration for the wrong
+  mechanism** — the citation looks confirmed rather than mismatched
+- **the check:** grep the **bare symbol** (`grep -rn 'resolveComponent' --include=*.go .`) and
+  **expect more than one definition**; a `:=` line and a `func` line are both definitions. Then
+  **cite FILE and LINE, never a bare symbol name**, in landmines, bug files and messages alike. If
+  you are checking someone else's citation, open their line number before contradicting them —
+  a disagreement about a symbol is usually a disagreement about which symbol
+- **relations:** the `content_components.name`/`.function` entry (its 2026-09-04 addendum is this
+  case from the other side) · `PROPOSAL_D9_landmines_as_a_footprinted_corpus.md` §6c design note 2,
+  which lists this as a **command shape** a `PreToolUse` hook could catch, like §6b's
+  `grep '^-[^-]'` · MEMORY [[grep-landmines-for-your-symbols]]
+- **source:** 2026-09-04, `bugfix_384_page_list_invalidation`, caught by the `ai-agent-orchestration`
+  lane when I disputed their correct citation. Their words: *"it is not 'I grepped carelessly', it
+  is 'the obvious grep for a Go definition misses an entire declaration form'"*
+- **added:** 2026-09-04, bugfix_384_page_list_invalidation lane

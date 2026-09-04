@@ -665,3 +665,20 @@ SELECT f.key AS required_llm_field, COALESCE(pc.content_data->>f.key,'(ABSENT)')
 resolveComponent'` finds only the first, because a closure is `name := func(…)`. **Grep the bare
 symbol and cite file:line.** I used the `func` form to tell a peer their citation was wrong; it was
 not. Full trap in `LANDMINES.md` under the `content_components.name`/`.function` entry.
+
+### The reflex neither lane had: grep LANDMINES for the TABLE before the first query against it
+
+```sh
+grep -n '<table>' docs/agent_docs/docs024_key_docs_latest/LANDMINES.md
+```
+
+Same reflex as for a file path — and it is the **only** thing that finds a table-footprinted entry,
+because the `SessionStart` hook matches entries against **dirty paths** and a table has none. Both
+this lane and `ai-agent-orchestration` skipped it on 2026-09-04 and each re-derived, the hard way,
+figures already written down. ⚠ **Do it for every table in the statement, including JOINED ones** —
+the query that went wrong read `page_components` and joined `content_components`, and the entry was
+footprinted on the joined one.
+
+⚠ **Expect volume, and scan the headings not the lines:** `[MEASURED 2026-09-04]`
+`content_components` appears on **173** lines of that file and `page_components` on **333**. That is
+why the answer is to read the entry HEADINGS your table appears under, not to grep-and-read.

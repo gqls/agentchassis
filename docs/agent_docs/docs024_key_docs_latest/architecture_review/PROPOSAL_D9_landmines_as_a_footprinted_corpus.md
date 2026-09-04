@@ -429,3 +429,62 @@ available test, not as a reason to prefer the unrunnable one.**
 
 **Both lanes now agree the criterion is the ratio form with those three cautions attached, and
 neither is building the mechanism.** Owner's ruling.
+
+### 6c. A FOURTH instance — and it puts a NUMBER on §6a's constraint 2, which was the only part still stated as judgement
+
+Contributed 2026-09-04 by `bugfix_384_page_list_invalidation` and `ai-agent-orchestration`, who hit
+one entry from opposite sides within an hour. It is a §6-shaped case (table footprint, no delivery),
+not a §6b one — but it is worth adding for two things the first three did not supply.
+
+**What happened.** The entry is *"`content_components.name` AND `.function` DISAGREE ON 336 OF 442
+ACTIVE COMPONENTS"*, footprinted on those columns. It records the `resolveComponent` /
+`loadComponentSchemas` name-or-function fallback, **both call sites with line numbers**, and the
+figures **14 of 16 NULL-`component_id` rows resolve, 2 are stranded**.
+
+- The **384 lane wrote that entry on 2026-09-03.**
+- On **2026-09-04** the same lane wrote a census over `page_components` joined to
+  `content_components`, keyed on `pc.component_id` alone — the exact error the entry warns about —
+  and shipped it to a peer lane and into a runbook twice. It then **re-derived 16/14/2 from
+  scratch**, arriving at the numbers already in its own entry.
+- The peer made the **same** error independently, on the same row, in the same hour.
+- The 384 lane then used `grep 'func resolveComponent'` to tell the peer their (correct) citation
+  named the wrong function — a grep that **structurally cannot match a closure**, which is what the
+  relevant `resolveComponent` is.
+
+**Datum 1 — the entry now carries FOUR "it existed and I did not read it" notes, two of them from
+the lane that wrote it.** §5's bar is behaviour change; here the corpus failed the lane that
+authored the guard, twice, on consecutive days. **None of the four was a reading failure.** Nobody
+reached the entry to misread it. That is the distinction §6 draws and this is its cleanest case.
+
+**Datum 2 — and this is the contribution: `grep -c` gives constraint 2 a number.**
+§6a says *"Match FOOTPRINTS, not free text … grepping the whole file for a table name hits every
+entry that merely mentions it — three entries touch `orchestration_states`"*. Three sounded like a
+nuisance. `[MEASURED 2026-09-04]` on this file:
+
+| token | lines mentioning it |
+|---|---|
+| `content_components` | **173** |
+| `page_components` | **333** |
+
+**A free-text trigger on either is unusable on its first firing, not on its fortieth** — it would
+print a third of the file. So constraint 2 is not a refinement of the mechanism, it is a
+precondition for it, and D9's footprinting is what makes §6a possible at all rather than merely
+tidier. ⚠ **Note also that the peer had the meta-instruction loaded**: their memory carried
+*"grep LANDMINES yourself for the SYMBOL you are about to trust"*, dated two days earlier, at
+session start. **Delivering an instruction to grep is not delivering the entry** — the instruction
+fired and the behaviour did not follow, which is §6b's finding one level up.
+
+**Two design notes for whoever builds §6a, both from this case:**
+
+1. **Extract EVERY table token in the statement, not the leading `FROM`.** The query that went
+   wrong read `page_components` and joined `content_components`; the entry is footprinted on the
+   **joined** table. A hook keying on the primary table would have stayed silent.
+2. **Command-shape matching (§6b) should include the SYMBOL grep, not only diff predicates.**
+   `grep 'func <name>'` over a Go package is a command shape with a known blind spot — it cannot
+   match `name := func(…)`, and in this package the closure is the definition that matters. That
+   is now its own `LANDMINES` entry; it is listed here because it is a second command shape the
+   same hook would catch, and because it was the tool used to *dispute a correct citation*.
+
+**Neither lane is building it**, for the reason §6a already gives: a `PreToolUse` hook is a
+harness change affecting every session on this machine, and a peer session asking is not authority.
+Recorded as a fourth datapoint for the owner's ruling.
