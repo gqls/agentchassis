@@ -998,3 +998,64 @@ models permissive) + a build-time parity test + a `thinking_unsupported` arm in
 `--budget-placement`. **Zero behaviour change; the reader is untouched.** Whether the client should
 refuse, drop-with-warning, or keep returning the 400 is left open — dropping silently would be this
 bug's own defect class. Council `47ea9498-f150-4556-94e7-c24ce943e7e0`.
+
+---
+
+## §2026-09-04c — THE CLOSING BAR IS MET: the ladder is LIVE on `v1.0.1361`, and migration 770 is applied
+
+**Proven at the binary, with a control.** `agent-chassis-5bbd648694-t8wwz` (started 16:01Z) states its
+own provenance: `git_commit: 06c0b18f233bc600918ef481d32b40f29535f78f`.
+
+```
+git merge-base --is-ancestor d88afbf84 06c0b18f2   ->  SHIPPED   (the ladder)
+git merge-base --is-ancestor f18704b9c 06c0b18f2   ->  SHIPPED   (the detector + the shadowing fix)
+git merge-base --is-ancestor 22ba668dd 06c0b18f2   ->  SHIPPED   (the thinking-budget guard)
+git merge-base --is-ancestor 34fae21e4 06c0b18f2   ->  ABSENT    (committed after the cut — CONTROL PASSES)
+```
+
+The must-be-absent control matters here more than usual: **`AcceptsThinkingBudget` has no caller inside
+the chassis binary** (only `cmd/config-key-audit` calls it), so it is linker-dropped and would probe
+ABSENT even when present. Ancestry is the only honest instrument for it — a literal probe would have
+reported a false negative with clean controls. Roll flagged by the `inter thread comms` lane.
+
+**Migration `770_HOLD` applied by hand 2026-09-04**, its stated condition now satisfied and verified
+rather than assumed. ⚠ `run-migrations.sh --record-only` **refuses a sidecar** ("recording one is
+meaningless"), so there is no `schema_migrations` row for it — this section is the record.
+
+### The end state, measured
+
+| shape | before (09-04 morning) | now |
+|---|---:|---:|
+| `workflow.steps.<step>.config.ai_service.max_tokens` | 149 | **157** |
+| `ai_service.max_tokens` (agent root) | 3 | **13** |
+| `<nested loop step>.config.ai_service.max_tokens` | 2 | **2** |
+| `max_tokens` (agent root, bare) — READ FIRST, capped its own steps | **10** | **0** |
+| `workflow.steps.<step>.config.max_tokens` — read by nobody | **7** | **0** |
+
+**Five shapes are three, and every one of them is a canonical `ai_service` block.** Not one bare-spelling
+declaration remains in the fleet.
+
+`scripts/audit-budget-placement.sh`, same run: `non_canonical` **none**, `ambiguous` **none**,
+`thinking_unsupported` **none**. The single remaining finding is
+`provocation-generator-manual.gate` — a step that declares a model and no budget at any level, running
+at the 2048 floor. That is `bugs_open/205`'s shape, it predates this work, and it is now VISIBLE for
+the first time, which is what the report was built for.
+
+### So: the bar is met, and here is the honest residual
+
+`bugs_open/257`'s bar is *fixed AND live*. The defect is fixed in code (live on `v1.0.1361`) and in
+configuration (migrations 769 and 770, both applied). **It meets the bar and can be moved to
+`/bugs_closed/`.**
+
+Not moved by this session, for one stated reason: **two council rounds are in flight on this exact
+code** — `5de01fd3` (the ladder; its first run was killed by the fleet credit outage of
+11:21:11–11:56:49Z, which took 92 council-gate runs with it, so it was resubmitted rather than left as
+"latency") and `47ea9498` (the thinking guard; REVISE answered in `34fae21e4` and resubmitted). The
+gate is advisory and cannot block a close; but a REVISE arriving on a file already in `/bugs_closed/`
+is the messier direction, and moving it is a one-line job for whoever reads those verdicts.
+
+**What stays open on the merits, and neither is a defect:** candidate 2 is *ruled* (owner: "leave it",
+taken as option (c) — the two ladders differ permanently, with a test pinning the difference), and the
+client-side `budget_tokens` question (refuse / drop-with-warning / keep the 400) is deliberately
+undecided, because dropping silently would be this bug's own defect class. `bugs_open/480` carries the
+observability half.
