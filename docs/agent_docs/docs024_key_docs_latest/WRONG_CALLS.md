@@ -66656,3 +66656,28 @@ what stopped it reaching me.
   can fail.** Third instance in one session of *your measurement answers the question you encoded*.
 - **Cost.** ~25 minutes; corrected in place in `LANDMINES.md` (title + the bullet, 6 lines, all
   mine), appended in the four lane docs, and re-sent to both peers.
+
+## 2026-09-04 — infographics lane: I walked into the documented backtick trap in a commit message, and it silently deleted the three field names that were the point of the commit
+
+**The claim/record that came out wrong:** commit `6497b43b5`'s message was written with the field
+names in backticks — ``no `charts` key``, ``no `display` key``, ``and `tolerance` is stored`` — inside
+a double-quoted `git commit -m "…"`. Bash ran them as command substitution. The commit succeeded and
+the message now reads *"no  key at all … no  key on either fact, and  is stored but the template
+never reads it"*. **The three names the commit exists to record are gone**, and a reader cannot tell
+which evidence_base keys are missing. `git commit` printed nothing about it; the only signal was
+three `command not found` lines above the success line, easy to read as noise.
+
+**What caught it:** the `/bin/bash: charts: command not found` lines in my own tool output, read
+rather than skimmed. Nothing in git would ever have told me.
+
+**The cheap check that would have prevented it:** this is **already documented in two places I had
+loaded** — MEMORY `[[shell-tool-traps-committing]]` ("backticks in `-m` execute") and LANDMINES. I had
+used backticks freely in earlier commit messages **in this same session** and got away with it only
+because those words happened to be harmless as commands. **Use single quotes for the whole `-m`, or
+write the message to a file and use `-F`, whenever the message contains backticks** — and treat any
+`command not found` in a commit's output as a message defect, not as noise.
+
+**Cost and disposition:** forward-only forbids an amend, so the names are restored in the follow-up
+commit rather than in the original. Low damage, but it is a **repeat** of a trap the estate has
+already written down — which is the entry worth having, because the tally is the argument for
+automating the check rather than documenting it a third time.
