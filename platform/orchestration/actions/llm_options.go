@@ -219,10 +219,22 @@ func budgetLevelsForStep(agentCfg, workflowStepCfg, runtimeStepCfg map[string]in
 }
 
 // resolveBudgetKey walks the levels in order and returns the first usable
-// positive number, the level it came from, and every OTHER level that declares
-// the key — the shadowed ones. The third return exists so a caller can say out
-// loud that a declaration was overridden: an operator who writes a number and
-// gets a different one has no other way to find out.
+// positive number, the level it came from, and every losing level that declares
+// a DIFFERENT number — the shadowed ones. The third return exists so a caller can
+// say out loud that a declaration was overridden: an operator who writes a number
+// and gets a different one has no other way to find out.
+//
+// ⚠ ONLY A DIFFERENT NUMBER COUNTS AS SHADOWING, and that is load-bearing rather
+// than a nicety. For a TOP-LEVEL step the runtime StepConfig and the workflow
+// step's own config are the same content arriving by two routes, so a healthy
+// canonical declaration occupies TWO levels of the ladder. Reporting the second
+// as shadowed would have fired the "declared at more than one level" warning on
+// the 149 correctly-configured steps this change exists to leave alone — an alarm
+// that cries on the healthy majority is one nobody reads by the second day. The
+// same rule is also the honest one: nothing is being overridden when both levels
+// say 16000. (Caught before this shipped, by writing the offline detector that
+// consumes the same ladder; recorded because it is the shape where a guard makes
+// its own signal useless.)
 func resolveBudgetKey(key string, levels []budgetLevel) (value int, from string, shadowed []string) {
 	for _, level := range levels {
 		v, ok := numericConfigValue(level.cfg, key)
@@ -233,9 +245,27 @@ func resolveBudgetKey(key string, levels []budgetLevel) (value int, from string,
 			value, from = v, level.where
 			continue
 		}
-		shadowed = append(shadowed, level.where)
+		if v != value {
+			shadowed = append(shadowed, level.where)
+		}
 	}
 	return value, from, shadowed
+}
+
+// ResolveStepBudget is the ladder, exported so that anything auditing the fleet's
+// configuration asks PRODUCTION'S OWN RULE rather than carrying a second copy of
+// it (cmd/config-key-audit --budget-placement). A detector that re-implements the
+// precedence it is checking can only ever confirm itself, and this estate has the
+// pattern written down: componentsourcevocabulary.go calls the birth gate's own
+// findings function for exactly this reason.
+//
+// workflowStepCfg is the step's block in the agent definition; runtimeStepCfg is
+// what the coordinator handed this execution. An offline caller has only ONE of
+// those — pass the definition's block as workflowStepCfg for a top-level step and
+// as runtimeStepCfg for a nested one, which is the level each actually occupies
+// at runtime, and leave the other nil.
+func ResolveStepBudget(key string, agentCfg, workflowStepCfg, runtimeStepCfg map[string]interface{}) (value int, from string, shadowed []string) {
+	return resolveBudgetKey(key, budgetLevelsForStep(agentCfg, workflowStepCfg, runtimeStepCfg))
 }
 
 // numericConfigValue reads one positive number out of a config map.

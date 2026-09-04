@@ -375,9 +375,9 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	// the root 16000 while asking for 32000/6000/4000/4000. The full census and
 	// the precedence contract are in llm_options.go; this call site holds no copy
 	// of the rule.
-	budgetLevels := budgetLevelsForStep(agentConfig, workflowStepConfig(agentConfig, currentStep), params.StepConfig.Config)
+	wfStepConfig := workflowStepConfig(agentConfig, currentStep)
 
-	if maxTokens, from, shadowed := resolveBudgetKey("max_tokens", budgetLevels); from != "" {
+	if maxTokens, from, shadowed := ResolveStepBudget("max_tokens", agentConfig, wfStepConfig, params.StepConfig.Config); from != "" {
 		options["max_tokens"] = maxTokens
 		// Which level supplied the number is a FACT in the log, not an inference
 		// from the source. The whole of round 3 was diagnosed by re-deriving this
@@ -387,16 +387,19 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			zap.String("from", from), zap.Strings("shadowed_levels", shadowed),
 			zap.String("agent_type", params.AgentType),
 			zap.String("step", params.ExecutionContext.StepName))
-		if len(shadowed) > 0 {
-			// An operator wrote a number and is getting a different one. Say so
-			// where they will see it, and name the winner: this is the shape that
-			// made ten agents look correctly configured while capped.
-			params.Logger.Warn("max_tokens declared at more than one level; the most specific wins",
-				zap.Int("effective", maxTokens), zap.String("from", from),
-				zap.Strings("overridden", shadowed),
-				zap.String("agent_type", params.AgentType),
-				zap.String("step", params.ExecutionContext.StepName))
-		}
+		// NO WARNING FOR AN OVERRIDDEN LEVEL, deliberately, and this was corrected
+		// before it shipped. A root declaration beaten by a step declaration is the
+		// documented overlay design, not a defect — resolveAIServiceConfig says so
+		// in its own comment ("the root block is the fleet default, the current
+		// step's block overrides it key-by-key"), and feed-triage is a live agent
+		// doing exactly that on purpose. Warning on it would have fired on 18 live
+		// steps, all healthy. The Info line above already carries shadowed_levels,
+		// so nothing is lost for anyone diagnosing; what is avoided is an alarm that
+		// cries on the majority, which is one nobody reads by the second day.
+		// The states that ARE worth a human look — nothing declared anywhere, and
+		// one level declaring both spellings with different numbers — belong in the
+		// fleet report (config-key-audit --budget-placement), because neither is
+		// visible from inside one step's execution.
 	} else {
 		// No cap at any level: the provider client's hardcoded fallback will
 		// apply (aiservice.DefaultMaxOutputTokens, 2048 — the smallest number in
@@ -414,7 +417,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	// budget_tokens anywhere, so this arm changes nothing today; it is here so the
 	// first operator to declare one is not caught by a second precedence rule.
 	// Config: "ai_service": {"budget_tokens": 10000}
-	if budgetTokens, from, shadowed := resolveBudgetKey("budget_tokens", budgetLevels); from != "" {
+	if budgetTokens, from, shadowed := ResolveStepBudget("budget_tokens", agentConfig, wfStepConfig, params.StepConfig.Config); from != "" {
 		options["budget_tokens"] = budgetTokens
 		params.Logger.Info("thinking budget resolved",
 			zap.String("key", "budget_tokens"), zap.Int("value", budgetTokens),

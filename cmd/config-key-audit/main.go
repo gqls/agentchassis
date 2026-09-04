@@ -36,6 +36,21 @@
 //	  no cluster — nor a pre-commit hook, because at commit time the migration is
 //	  unapplied, which is the RFC_006 ruling.)
 //
+//	go run ./cmd/config-key-audit --budget-placement [--report] < live-workflows-with-agent-config.json
+//	  {"agents_scanned": N, "steps_scanned": N, "declarations": N,
+//	   "findings": [{"agent": "...", "path": "...", "kind": "shadowed|non_canonical|unconfigured",
+//	     "effective": 16000, "from": "root.ai_service", "declarations": [...], "detail": "..."}]}
+//	  Where does each live step's output-token budget actually come from? Calls
+//	  production's own ladder (actions.ResolveStepBudget) rather than carrying a
+//	  copy of the precedence rule, so it cannot drift from what the pods do.
+//	  UNCONFIGURED = declares an ai_service block and no budget at any level, so it
+//	  runs at the 2048 provider floor (bugs_open/205). SHADOWED = two levels declare
+//	  DIFFERENT numbers, so an operator's number is inert (bugs_open/257 round 3).
+//	  NON_CANONICAL = declared outside an ai_service block: honoured, advisory, and
+//	  never fails the run — it is where both round-3 failures started. Needs the
+//	  `agent_config` projection and REFUSES an export without it. Exit 1 on
+//	  shadowed/unconfigured only; exit 2 if it could not LOOK.
+//
 //	go run ./cmd/config-key-audit --single-owner-actions   < live-workflows.json
 //	  [{"action": "...", "owners": ["<agent>", ...], "paths": [...]}, ...]
 //	  Which action declared SingleOwner is carried by more than one live agent?
@@ -207,6 +222,18 @@ type liveAgent struct {
 	// export where no row carries the key, which is a check it could not make
 	// against a pointer. See requireAgentPromptProjection.
 	AgentPromptTemplate json.RawMessage `json:"agent_prompt_template"`
+	// AgentConfig is default_config MINUS the workflow: the agent-level half of
+	// the token-budget ladder (`max_tokens` and `ai_service.max_tokens` at the
+	// root). Read only by --budget-placement; every other mode ignores it and
+	// every other mode's export omits it entirely.
+	//
+	// json.RawMessage for the same reason AgentPromptTemplate is: it is the only
+	// shape that distinguishes "the export did not project this key" (nil) from
+	// "the agent has no root config" (the four bytes `null`). --budget-placement
+	// REFUSES an export where no row carries it, because without the agent level
+	// the ladder is missing its two lowest rungs and every verdict would be wrong
+	// in the same direction — a confidently wrong report, worse than none.
+	AgentConfig json.RawMessage `json:"agent_config"`
 }
 
 // agentPromptTemplate decodes the tier-2 template, returning "" for an absent
@@ -282,6 +309,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--unregistered-actions" {
 		emitUnregisteredActions()
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--budget-placement" {
+		emitBudgetPlacement(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--optional-key-budget" {

@@ -142,6 +142,42 @@ func TestLiveMisplacedStepKeyIsNowRead(t *testing.T) {
 	}
 }
 
+// TestOneDeclarationArrivingAtTwoLevelsIsNotShadowing is the alarm-fatigue guard,
+// and it is the case that made the shadowing rule value-based rather than
+// level-based.
+//
+// A TOP-LEVEL step's config reaches the ladder twice: once as the runtime
+// StepConfig the coordinator handed this execution, once as the step's own block
+// in the agent definition. [MEASURED 2026-09-04] 149 live steps declare their
+// budget canonically and would therefore occupy two ladder levels with the SAME
+// number. Reporting the second as shadowed would fire the override warning on
+// every healthy step in the fleet, and a warning that cries on the majority is one
+// nobody reads by the second day.
+func TestOneDeclarationArrivingAtTwoLevelsIsNotShadowing(t *testing.T) {
+	stepBlock := map[string]interface{}{
+		"ai_service": map[string]interface{}{"max_tokens": 16000.0},
+	}
+	// The same content by two routes, as a top-level step really arrives.
+	sameByAnotherRoute := map[string]interface{}{
+		"ai_service": map[string]interface{}{"max_tokens": 16000.0},
+	}
+
+	got, from, shadowed := ResolveStepBudget("max_tokens", nil, stepBlock, sameByAnotherRoute)
+	if got != 16000 {
+		t.Fatalf("resolved %d from %q, want 16000", got, from)
+	}
+	if len(shadowed) != 0 {
+		t.Errorf("shadowed = %v; two levels holding the SAME number is one declaration arriving twice, "+
+			"not an override — this warning would fire on 149 healthy live steps", shadowed)
+	}
+
+	// A genuine disagreement between those same two levels still reports.
+	disagrees := map[string]interface{}{"ai_service": map[string]interface{}{"max_tokens": 4000.0}}
+	if _, _, shadowed = ResolveStepBudget("max_tokens", nil, stepBlock, disagrees); len(shadowed) != 1 {
+		t.Errorf("shadowed = %v, want one entry — a level declaring a DIFFERENT number is a real override", shadowed)
+	}
+}
+
 // TestBudgetLadderAcceptsEveryShapeTheKeyArrivesIn. jsonb decodes to float64 and
 // viper to int; the reader this replaced was float64-ONLY, so a YAML-configured
 // budget was silently dropped at this call site while platform/aiservice honoured
