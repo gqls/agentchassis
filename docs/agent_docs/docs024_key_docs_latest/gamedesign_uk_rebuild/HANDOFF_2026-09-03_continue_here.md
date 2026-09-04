@@ -412,3 +412,40 @@ IN.
 timeout and blinded the watch for the 56 minutes the chain ran in; and a watcher that greps only
 the success marker is silent through a failure. The current one polls a single-row count by key,
 exits on any failed/needs_human_review/unresolved child, and caps at 150 min.
+
+---
+
+## UPDATE BLOCK 6 — 2026-09-04 ~10:55Z (new session). 463 IS LIVE. Re-plan enqueued; this is the first real test.
+
+**Confirmed independently, not relayed:** live `agent-chassis` stamp is now `239ab362…`;
+`git merge-base --is-ancestor 9b540c2e6 239ab362…` says yes. **No site anywhere has been
+re-planned since the fix landed** (`site_plans` with `created_at > 2026-09-03 17:52Z` = 0 rows,
+checked 10:53Z) — so this lane's re-plan, enqueued at **10:54:36Z** (`needs_briefing 6430726e`,
+`SEED_2026-09-04_replan_after_463_rolled.sql`), is **the first live test fleet-wide**, not a
+confirmation of one already run.
+
+**The `463` session itself is `idle`**, not actively verifying — its own landmine entry
+(`LANDMINES.md` "Comparing pages by their FIRST PATH SEGMENT…") carries a **`NEEDS_HUMAN_REVIEW`**
+verdict from 17:00Z, i.e. before the roll. Do not read that as a problem with the fix; it is a
+verifier run against the pre-roll state. Re-run `landmines-verify-dispatch.sh` on it once this
+re-plan lands, or read the outcome below directly.
+
+**The two checks this run owes, named by 463's own landmine entry — read them from THIS run, not
+inferred from the old plan:**
+1. **`proposed = survived`** at the orchestration step boundary:
+   `SELECT jsonb_array_length(collected_data->'plan_site'->'result'->'pages'),
+          jsonb_array_length(collected_data->'validate_plan'->'pages')
+     FROM orchestration_states WHERE owner_agent_type='build-site-planner' AND created_at > '2026-09-04 10:54';`
+2. **Articles land at `/articles/<slug>.html`, NOT `/blog/<slug>.html`** — a Pass-C-only fix
+   passes check 1 and fails this one, and the served page cannot tell the two apart.
+
+**A background watcher is armed for both** (this session). If you inherit before it reports:
+poll `site_work_items.id='6430726e-4eae-461a-a895-63b549898fd0'` for a terminal status, then
+`site_plans.is_current` for a plan newer than `005fb393` (2026-09-03 14:15:25Z, the pre-fix plan
+with zero articles), then the two queries above.
+
+**Session note:** the prior session ended mid-watch (two background monitors were killed by the
+boundary, not by firing) and a stray "plan mode active" system-reminder appeared and was correctly
+NOT acted on — no writes were blocked by it in practice, and this new session carries no such
+state. Recorded so a future reader does not mistake either event for something that happened on
+the live site.
