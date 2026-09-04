@@ -23,12 +23,20 @@
 // FOR A FUTURE ADOPTER (architecture seat's advisory, same round): the Check
 // ordering and the NeverReason/FromClaim semantics were settled in council
 // round c8ed56d2 — read that verdict rather than reverse-engineering intent
-// from the types. The follow-up sender (bugs_open/477) is the second caller and
-// converts on its own lane's commit; ADOPTION IS PER-CALLER BY DESIGN, copying
-// ActionInputSpec's model (opt-in, "driven by the coverage report, not by a
-// flag day"), because a fleet-wide flag day for a validator is how you turn an
-// inert defect into an outage — see datahelpers/action_inputs.go and
-// bugs_open/101 D2.
+// from the types. ADOPTION IS PER-CALLER BY DESIGN, copying ActionInputSpec's
+// model (opt-in, "driven by the coverage report, not by a flag day"), because a
+// fleet-wide flag day for a validator is how you turn an inert defect into an
+// outage — see datahelpers/action_inputs.go and bugs_open/101 D2.
+//
+// STATE AS OF 2026-09-04, dated because a status line outlives its truth:
+// BOTH letter senders now derive from this file. send_delivery_email adopted it
+// here; send_followup_email adopted it the same day on its own lane's commit
+// (bugs_open/477, 76e3a892b, council ac9eb6b4), which also DELETED the old
+// fillTemplate and the LANDMINES entry describing the drift between the two
+// hand-kept mirrors — that trap no longer exists. So there is currently no
+// unconverted caller. A THIRD sender is the case to watch: it must declare an
+// Availability for every Token, and Fill.Check refusing pre-claim is what will
+// tell it so.
 //
 // WHAT THIS IS NOT. It checks PLACEHOLDERS, never PROSE. The sentence that
 // started bugs_open/475 — "The ZIP comes with instructions" — carries no

@@ -67789,3 +67789,62 @@ the reason this entry is here rather than only in a lane note.
   earned** — first a retraction (which reads as "someone checked"), now a verification
   banner (which reads the same way over a whole section). **Both times the error was not
   the fact but the confidence marker attached to it.**
+
+## 2026-09-04 — THIRD instrument-blind reading of the day, and the tally is the finding (bug 475 mechanism lane)
+
+- **The near-claim.** The `bugs_open/477` lane reported they had deleted their LANDMINES entry and
+  repaired the dangling cross-reference it left inside mine. Checking rather than trusting, I ran
+  `git show HEAD:LANDMINES.md | grep -c "silently disarms a SECOND email"` → **1**, and read it as
+  *"their deletion did not land"*. Then `sed -n '23750,23762p' | cut -c1-400` over my own entry showed
+  the relations line with **no repair note**, and I read that as *"the repair is missing too"*.
+- **Both readings were wrong, and neither instrument could have shown me otherwise.** The `grep -c`
+  hit was **my own cross-reference to their entry**, not their entry — their heading was gone. And
+  the repair note **was** on the relations line, at character ~430 of a line running past 900; my
+  `cut -c1-400` truncated it away. I was one message from telling a peer their work had silently
+  reverted.
+- **What caught it.** Narrowing each check until it could distinguish the cases — grepping for the
+  `^## ` HEADING rather than a phrase that appears in two entries, and `git show <sha> -- <file> |
+  fold` instead of a fixed-width cut. Not a control I designed; just refusing to report the first
+  number.
+- **THE TALLY IS THE POINT, and that is why this is a row rather than a shrug.** Same class, same
+  session, four times: a row count that measured **staging** not serving; a `src|href` regex blind to
+  **CSS-background** images; a line-oriented `grep` on a **hard-wrapped** file reporting a false
+  absence; and now a **fixed-width `cut`** on a file with 900-character lines. Every one returned a
+  plausible number rather than an error. Two of the four I sent to a peer before catching.
+- **The cheap check, which is now this lane's default.** **Before believing any ABSENCE, feed the
+  instrument a case you KNOW is present.** One positive control per query, costing one command.
+  And for text corpora specifically: **`grep -c` counts LINES containing a match, `cut`/`sed` truncate
+  by column, and both fail silently on long or wrapped lines** — use `fold`, `tr '\n' ' '`, or
+  `grep -o`, and grep a structural anchor (`^## `) rather than a phrase that may legitimately appear
+  in more than one place.
+- **⚠ AND THE SHARPENING, from the `bugs_open/114` lane, because my own counter-check was weaker than
+  I thought.** I had said I would adopt their cross-consistency trick — two predicates disagreeing
+  arithmetically. Their correction: **it only works if the two predicates answer questions with a
+  KNOWN relation** — subset, partition, complement — *because the check fires only when that relation
+  is violable*. Theirs worked because A was supposed to contain B, so `B\A=0` alongside `|B|>|A|` was
+  impossible. **Two independent counts with no required relation can both be wrong and agree**, which
+  is a cheap thing to get subtly useless.
+- **Cost.** None realised — nothing was reported. But the pattern is now frequent enough that the
+  `site_delivery_and_editor` lane named it independently the same afternoon as *"a property of how we
+  work rather than a run of bad luck"*, and on that reading these four rows are one finding, not four.
+
+> **ADDENDUM 2026-09-04, same day — the check above is HALF the rule, and the `inter thread comms`
+> session supplied the other half from a mirror-image failure fifteen seconds after mine.**
+>
+> My rule was *"require deletions == 0 before committing"*. That catches **my** direction — a silent
+> deletion reported as success. **The `bugs_open/477` lane hit the exact inverse:** they committed a
+> message asserting a deletion that had been **silently reverted** under them, because a concurrent
+> append restored the file and their pathspec then matched a clean path. **Same divergence between
+> what you believe and what HEAD holds; opposite symptoms; one commit apart.**
+>
+> **The rule that covers both is to assert at HEAD, never in the working tree:**
+> ```bash
+> git show HEAD:<file> | tr '\n' ' ' | grep -c "<the heading or phrase>"   # 1 = present, 0 = gone
+> ```
+> **A clean `git status` is equally consistent with your change having landed and with it having been
+> reverted under you** — on this tree, within seconds, by someone else's commit. The `tr` matters:
+> LANDMINES.md is hard-wrapped, so a line-oriented `grep` reports false absences on any phrase long
+> enough to wrap.
+>
+> `deletions == 0` stays useful — it is cheaper and it fires *before* the commit. But it is a
+> pre-flight check, and the HEAD assertion is the one that establishes what actually happened.
