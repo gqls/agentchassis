@@ -75,7 +75,8 @@ UPDATE scheduled_tasks SET enabled = true WHERE name = 'delivery-followup-send';
 **Run this first, every time. It names people.**
 
 ```sql
-SELECT s.domain, s.handed_over_at, bq.direction->>'customer_email' AS would_email
+SELECT s.domain, s.handed_over_at, bq.direction->>'customer_email' AS would_email,
+       'https://' || s.publish_project AS the_address_they_would_be_sent
   FROM sites s
   JOIN LATERAL (SELECT direction FROM build_queue
                  WHERE lower(domain)=lower(s.domain) ORDER BY created_at DESC LIMIT 1) bq ON true
@@ -84,8 +85,20 @@ SELECT s.domain, s.handed_over_at, bq.direction->>'customer_email' AS would_emai
    AND s.live_link_expires_at > now()
    AND s.transfer_confirmed_at IS NULL
    AND s.followup_sent_at IS NULL
-   AND COALESCE(bq.direction->>'customer_email','') <> '';
+   AND COALESCE(bq.direction->>'customer_email','') <> ''
+   AND COALESCE(s.publish_project,'') <> '';
 ```
+
+> ⚠ **THE ADDRESS COMES FROM `publish_project`, NEVER FROM `s.domain`** — corrected 2026-09-04
+> before `775` was ever applied. `'https://' || s.domain` is right only for a domain already pointed
+> at us; for a customer who has not yet transferred theirs — the normal case — it composes a URL that
+> does not resolve. Owner ruling the same day: *"the delivery email should say it is on the ugg2
+> subdomain not paper-cups.com."* `publish_project` is the serving hostname
+> (`boxingonline.ugg2.com`); `publish_target` is the worker name. **And no COALESCE fallback to the
+> domain** — that is the same defect wearing a guard. `[MEASURED 2026-09-04]` only **2 of 60** sites
+> have `publish_project` set, nothing in the codebase writes it (the sole non-test reference is
+> `b2worker.go:63`, which REFUSES when it is empty), so it is opted in by hand per site and a fresh
+> build has none. `775`'s verify reports the gap on every apply as `GAP 2`.
 
 > ⚠ **A ZERO HERE IS NOT INFORMATION ON ITS OWN.** Re-run it with `interval '0 days'` as a **demand
 > control**. If the relaxed version also returns nothing, the zero is not about the calendar — it is

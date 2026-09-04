@@ -199,18 +199,35 @@ SELECT
   $q$
     SELECT s.id::text                          AS site_id,
            bq.direction->>'customer_email'     AS customer_email,
-           -- 'https://' || domain, which is EXACTLY what the delivery email
-           -- used (RUNBOOK…:425, the operator recipe: live_site_url =
-           -- "https://" + $d), so the follow-up names the same address the
-           -- customer was already given.
+           -- ⚠ CORRECTED 2026-09-04 BEFORE THIS FILE WAS EVER APPLIED, and the
+           -- version it replaces was in the same class as the bug this whole
+           -- lane exists to fix: it would have mailed a customer an address
+           -- that does not resolve.
            --
-           -- ⚠ NOT publish_target, and this was nearly shipped wrong: that
-           -- column holds a WORKER NAME, not a URL (boxingonline.com's value is
-           -- 'b2worker'), and publish_project holds the host. Both are EMPTY on
-           -- idea.uk, the only site this task can currently select — so a
-           -- COALESCE over them would have mailed a customer the word
-           -- "b2worker" as their website address, or nothing at all.
-           'https://' || s.domain AS live_site_url,
+           -- It said `'https://' || s.domain`, copied from the operator recipe
+           -- the idea.uk rehearsal used. That is right ONLY for a domain
+           -- already pointed at us. For a customer who has bought a build and
+           -- not yet transferred their domain — the NORMAL case — it composes a
+           -- URL that 404s or does not resolve at all. It looked correct
+           -- because idea.uk is ours and was already pointed, so the defect
+           -- could not show itself on the only delivery this estate has made.
+           --
+           -- OWNER RULING (2026-09-04, relayed by the site_delivery_and_editor
+           -- lane): "the delivery email should say it is on the ugg2 subdomain
+           -- not paper-cups.com. I will transfer it to our system later."
+           --
+           -- publish_project is the SERVING hostname (boxingonline.ugg2.com);
+           -- publish_target is the worker name. b2worker.go:63-70 refuses an
+           -- empty publish_project AND refuses one equal to the site domain,
+           -- which is the code's own statement that these are different things.
+           --
+           -- ⚠ NO FALLBACK TO s.domain. A COALESCE onto the domain is exactly
+           -- the defect above wearing a guard: it would be correct for the two
+           -- pointed sites and quietly wrong for every customer who has not
+           -- transferred. A site with no serving host is EXCLUDED here and
+           -- COUNTED in the verify block, so the silence is loud at apply time
+           -- rather than looking like "nothing due".
+           'https://' || s.publish_project AS live_site_url,
            s.domain
       FROM sites s
       JOIN LATERAL (
@@ -224,6 +241,9 @@ SELECT
        AND s.transfer_confirmed_at IS NULL
        AND s.followup_sent_at IS NULL
        AND COALESCE(bq.direction->>'customer_email','') <> ''
+       -- No serving host, no email: a follow-up naming an address that does not
+       -- resolve is worse than no follow-up. Counted in the verify block.
+       AND COALESCE(s.publish_project,'') <> ''
   $q$,
   false, -- ⚠ DISABLED. See "BEFORE YOU ENABLE" in this file's header.
   600
@@ -242,6 +262,7 @@ DECLARE
   selectable int;
   unaddressable int;
   handed int;
+  no_host int;
 BEGIN
   SELECT count(*) INTO agents FROM agent_definitions
    WHERE type = 'delivery-followup-sender'
@@ -294,6 +315,14 @@ BEGIN
 
   RAISE NOTICE '775 OK: agent seeded, schedule seeded DISABLED. Sites this would select TODAY if enabled: % (check WHO before enabling — the estate''s only handed-over site is idea.uk, addressed to the owner).', selectable;
   RAISE NOTICE '775 GAP: % of % handed-over site(s) have NO recorded recipient (no build_queue row with a customer_email) and can never be selected. If those two numbers are equal, this sender has no reachable population at all — see the header.', unaddressable, handed;
+
+  -- THE SECOND GAP, and today it is the binding one. publish_project is set BY
+  -- HAND, per site (nothing in the codebase writes it — the only non-test
+  -- reference is b2worker.go's refusal), so a freshly built site does not have
+  -- one and this sender will skip it rather than mail a dead address.
+  SELECT count(*) INTO no_host FROM sites
+   WHERE handed_over_at IS NOT NULL AND COALESCE(publish_project,'') <> '' IS NOT TRUE;
+  RAISE NOTICE '775 GAP 2: % of % handed-over site(s) have NO publish_project (serving hostname) and are skipped, because a follow-up naming an address that does not resolve is worse than none. publish_project is set BY HAND per site; nothing writes it.', no_host, handed;
 END $$;
 
 COMMIT;
