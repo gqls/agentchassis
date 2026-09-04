@@ -59,7 +59,10 @@ a logo worse.
    Check-fleet CronJob; needs `PG_CLIENTS_HOST` direct Postgres (no `pods/exec` RBAC in-cluster),
    an image rather than a ConfigMap script (Pillow + outbound HTTPS), and one `doc_notes` row per
    run *including on clean results*, so "looked and found nothing" stays distinguishable from
-   "stopped running". **In progress.**
+   "stopped running". ✅ **BUILT 2026-09-04 (`c0e2900ff`) and deliberately NOT APPLIED** —
+   `deployments/kustomize/services/logo-legibility-check/`, daily 08:15 UTC. Applying it is one
+   command and is **pending the owner's answer**, because applying it *is* choosing option (A).
+   ⚠ Do not let it sit built-and-inert unnoticed: that is its own documented failure mode.
 4. **Routing** — only on the owner's answer. If (B): the concept-register entry must carry the
    producer set, the `item_key` shape **and the provenance branch**, in the shipping commit
    (owner ruling 2026-08-02).

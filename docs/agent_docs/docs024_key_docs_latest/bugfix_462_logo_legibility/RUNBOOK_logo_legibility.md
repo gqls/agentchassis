@@ -98,3 +98,29 @@ FROM site_work_items WHERE status='needs_human_review' GROUP BY 1;
 
 So option (b)'s documented weakness ("cannot see a logo on an image/gradient header") is currently
 hypothetical. That does **not** weaken the staleness argument for option (a), which is the real one.
+
+## Deploy the standing check (NOT yet applied — see `bugs_open/462` §9e)
+
+```bash
+kubectl apply -k deployments/kustomize/services/logo-legibility-check/overlays/production/uk_001
+kubectl -n ai-persona-system get cronjob logo-legibility-check
+kubectl -n ai-persona-system create job --from=cronjob/logo-legibility-check logolegib-manual-$(date +%H%M)
+```
+
+Then read what it wrote — and note a MISSING row is the finding, not a clean one:
+
+```sql
+SELECT created_at, left(body, 400) FROM doc_notes
+WHERE subject_type='pipeline' AND subject_key='logo-legibility'
+ORDER BY created_at DESC LIMIT 3;
+```
+
+⚠ **`scripts/audit-logo-legibility.py` is a SYMLINK** to
+`deployments/kustomize/services/logo-legibility-check/base/check.py`. Editing "the script" edits the
+file a ConfigMap is generated from, so **an edit is not live until the overlay is re-applied.** The
+generator is content-hashed, so `apply -k` cannot silently keep the old copy — but it still has to
+be run. It is that way round because kustomize's load restrictor refuses a generator file resolving
+outside its root; a symlink pointing the other way does not build.
+
+⚠ **`--self-test` must be run from the repo root** — it loads the PRESERVED PNGs by a repo-relative
+path, so it fails from anywhere else and in-cluster (where only the script is mounted).

@@ -78,3 +78,42 @@ calls**, so the second `cd <relative path>` failed from inside the directory it 
 `&&` short-circuited, and `NOTES` was silently not written while the file after it (no `&&`) was.
 `ls` caught it. **Use absolute paths in write commands**; a partial failure in a chain of writes
 looks exactly like a success if you only read the last line.
+
+### Building the standing check — three things that had to be tested rather than reasoned about
+
+**1. The image.** Every ConfigMap check in this fleet runs on `postgres:16-alpine` and `apk add`s
+python3. Ours also needs **Pillow**, which is a C extension, and outbound HTTPS, which no other check
+here uses. I did not want to assume `py3-pillow` resolves, so I ran the exact recipe in the exact
+image with the repo mounted read-only: alpine **3.24.1**, python **3.14.7**, pillow **12.2.0**, and
+`--self-test` **6/6 inside the container** — including both PRESERVED websitepromotion PNGs. No image
+to build, push, tag or roll.
+
+> A first attempt at that check failed with a Python `SyntaxError` in my own one-liner, not in the
+> image. Worth noting only because the failure output looked like the container's — read *which*
+> command failed before concluding anything about the environment.
+
+**2. The symlink direction is forced by kustomize, and I had it backwards.** The goal was one file:
+the hand-run tool and the scheduled check must not be two copies that drift. My first attempt put
+the real script at `scripts/` and symlinked it into the service's `base/`. `kubectl kustomize`
+refuses that:
+
+```
+error: loading KV pairs: file sources: [check.py]: security; file '…/base/check.py'
+is not in or below '…/base'
+```
+
+The load restrictor resolves the symlink and rejects the target for being outside the kustomization
+root. So the **real file has to live in `base/`** and `scripts/audit-logo-legibility.py` is the
+symlink. Same single source of truth, opposite direction. **Tested, not reasoned about** — I would
+have guessed it worked.
+
+**3. The ConfigMap is content-hashed, which removes half of a known trap.** CLAUDE.md warns that
+after editing a check's `check.py` you must re-apply the overlay "or the cluster keeps the old
+literal". `configMapGenerator` appends a content hash (`…-script-tgccmt4m85`) and rewrites the
+CronJob's reference, so an `apply -k` after an edit genuinely ships the new script. What is *not*
+removed: you still have to run the apply at all.
+
+**Committed `c0e2900ff` and NOT APPLIED.** Applying it is choosing option (A) of §9e, which is the
+owner's call. Recorded in the cronjob header, the register entry, the index row, `bugs_open/462` §9f
+and this file — five places, because a detector that is built and inert while reading as live is a
+documented failure mode on this estate, and the correction always arrives late.

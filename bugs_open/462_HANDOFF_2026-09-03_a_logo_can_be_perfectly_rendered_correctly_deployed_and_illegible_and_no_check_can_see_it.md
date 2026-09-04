@@ -641,3 +641,24 @@ no further decision. What it requires, stated so the next reader can pick it up:
 - **One `doc_notes` row per run, on clean results too** — the fleet's rule, and the reason is
   written into the same cronjob: it keeps *"looked and found nothing"* distinguishable from
   *"stopped running"*.
+
+> **BUILT 2026-09-04, commit `c0e2900ff` — and deliberately NOT APPLIED.**
+> `deployments/kustomize/services/logo-legibility-check/`, a daily CronJob at 08:15 UTC. All three
+> requirements above are met and each was **proven rather than assumed**: the image recipe
+> (`postgres:16-alpine` + `apk add --no-cache python3 py3-pillow`) was run in that exact image with
+> the repo mounted — alpine 3.24.1, python 3.14.7, pillow 12.2.0 — and `--self-test` passed **6/6
+> inside it**, including on both PRESERVED websitepromotion artefacts. `kubectl kustomize` builds
+> base and overlay clean, and the CronJob references the **content-hashed** ConfigMap, so an edited
+> script cannot silently keep serving the old literal.
+>
+> **The script MOVED and `scripts/audit-logo-legibility.py` is now a SYMLINK to
+> `deployments/kustomize/services/logo-legibility-check/base/check.py`.** One file, so the hand-run
+> tool and the scheduled check cannot drift. The direction is forced, not chosen: kustomize's load
+> restrictor refuses a generator file that resolves outside the kustomization root — *"security;
+> file … is not in or below …"* — tested, not assumed.
+>
+> ⚠ **It runs nowhere until someone applies it**, and a built-and-inert detector that reads as
+> running is its own trap (`MEMORY`: *an "INERT until the roll" line makes the correct action look
+> premature* — a detector sat off for 9 days after its blocker cleared). One command, pending the
+> §9e answer:
+> `kubectl apply -k deployments/kustomize/services/logo-legibility-check/overlays/production/uk_001`
