@@ -440,3 +440,74 @@ evidence base first, then regenerate.
 My recommendation is one, with two as the interim if the site has to go out before that
 lands. What I would not do is re-run the generator and hope — it produced this from a brief
 that explicitly asked for real events, because there was nothing for it to be right about.
+
+---
+
+**2026-09-04, late afternoon — the calendar is working, and the remaining problem turned out
+to be a different one from the one we thought.**
+
+I picked this lane back up after it had been quiet since yesterday evening. First thing worth
+saying plainly: **the fight calendar on boxingonline.com now works.** It was rebuilt this
+morning and it shows two real fights — Navarrete against Foster on 24 October, Canelo against
+Mbilli on 31 October — each with a date, a source link and a note saying schedules can change.
+Nothing invented. The whole machine this bug was filed about, which turns a real news story
+into a dated fact and then puts that fact on a page, exists now and is running.
+
+The site's own lane also settled something I would otherwise have chased: the reason there are
+only two fights is not a fault in the calendar. The site's fact register holds eight facts,
+seven of them dated, and exactly two are in the future. The calendar is showing everything it
+has. Finding more upcoming fights is a research job for the news lane, not a repair job here.
+
+**So what is actually left?** This: when the calendar shows a fight, nothing on the page says
+where that fight came from. The system knows — it carries the fact's identifier all the way to
+the last step and then drops it, because the template that draws the fight was never written to
+print it. That sounds like a small tidy-up. It isn't, and here is why it matters.
+
+Yesterday we found a second tool on the same site — a fight countdown — that had six completely
+invented fights in it, about real, named boxers. Today another thread found more of the same
+class elsewhere on the estate, including something worse: a veterinary comparison tool on a
+customer's homepage listing **thirty invented veterinary practices with invented postcodes**.
+That file describes its own data as a "verified sample", its own instructions say it must never
+invent practices, and a line shown to the public invites the reader to go and confirm the
+details with the practice, citing the official register while doing it.
+
+The uncomfortable point is this: **the page doing everything right and the page inventing
+everything look identical to every automatic check we have.** Neither says where its data came
+from. So we cannot tell them apart, and no amount of cleverness in the checker fixes that,
+because there is nothing on the page to check.
+
+**That is why the fix I have proposed is to make the good pages say so, rather than to get
+better at spotting the bad ones.** We have now tried five times in two days to write a rule that
+recognises invented data by its shape, and it has escaped every time — the shape just changes.
+Another thread ran a simulation today over the whole estate and found that the most obvious such
+rule would be wrong 89% of the time, and that the biggest data set on the estate is entirely
+legitimate while the fabrication that started all this has only six entries. There is no clever
+threshold hiding in there. So instead: when a page shows a fact that came from our register, it
+prints the fact's identifier alongside it, and a checker confirms that identifier really does
+lead to a real, cited, still-current fact. Absence of that becomes the signal, and absence is
+something you cannot disguise.
+
+**Two things I want to be honest about, because they cut against my own proposal.**
+
+First, this only helps where a component has declared what its data is. I measured it: **287 of
+our 335 tools declare nothing at all** — that is the normal state, not a red flag. So my change
+reaches about 48 of them. On the other 287 it does nothing, and a different thread's work is
+carrying the whole load. I have told them so, and we have agreed that neither of us will
+describe the two pieces together as having solved the problem.
+
+Second, I got things wrong today and two of them were caught by the other thread rather than by
+me — including one where my mistake would have pointed them at the weaker of two tests, which is
+worse than simply being wrong. Both are written up. The one I am actually pleased about is
+smaller: I re-ran a number I had borrowed from someone else, expecting to confirm it, and the
+re-run is what turned up the 287-of-335 figure above — which then showed that advice I had given
+that same thread ten minutes earlier was overweighted. The number was right; going and getting it
+myself is what showed me what it meant.
+
+**Where it stands:** the plan is with the review council now. Nothing has been built yet. When
+the verdict comes back I will either build it or revise it, and I will not commit code against a
+verdict I have not read.
+
+**One thing did not go to plan and you should know:** you asked for Fable to prepare the plan.
+Fable stopped immediately with a credit limit — "You've reached your Fable limit" — and produced
+nothing, so I wrote the plan myself rather than leave the work stalled. If you top up the credits
+and would like Fable's independent take on it before I build, say so and I will get one.
