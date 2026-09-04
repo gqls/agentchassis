@@ -568,3 +568,34 @@ rather than after, or it reads as a new fault.
   would be silently missing sections on live pages. **Writer honesty is the prerequisite, not a
   follow-up**, and the whole thing is architecture-scope. Recorded here with the measurement dated
   so the next lane does not have to re-derive it — and so it is not attempted in the wrong order.
+
+### ⚠ CORRECTIONS to the section above, same day, both from peer lanes pushing back
+
+**1. The gate is the roll AFTER v1.0.1361, not the one landing now.** I wrote "roll first, delete
+second" while a roll was in flight and left "the roll" ambiguous. `[MEASURED 2026-09-04 ~17:20Z]`
+`git merge-base --is-ancestor 828b22c7c 06c0b18f2` → **false**: the v1.0.1361 cut is `06c0b18f2`
+(09-04 16:22) and this fix was committed ~16:45, so it **misses that roll**. Corrected to both lanes,
+one of which had already relayed my version to the owner. `merge-base` against the live stamp will
+keep saying false through v1.0.1361 — **that is "not yet cut", not "the fix failed to ship"**, and
+those look identical at the query.
+
+**2. The deletion is NOT `site_delivery_and_editor`'s.** This file records the owner's 09-03 call as
+handing it to "the lane that holds the served baseline and owns every dispatch at that site" and
+names them. That lane replied that they hold the *delivery* of boxingonline, not its page repairs,
+and have never touched these rows. The served baseline now sits with the **`boxingonline.com`
+owner-review thread**, who have it. Corrected here so the next reader is not routed to the wrong lane
+by this file, as I was.
+
+**3. The missing-listing-section gap is UNFILED, not merely undispatched — and that is a checked
+claim, not an assumption.** `site_delivery_and_editor` flagged that `[their measurement, 2026-09-04]`
+**3,184** findings sit `status='deferred'` with `spec.filing_mode='record'` and an empty handler
+(RFC_056, deliberate), **58 of them on boxingonline** — so "nobody has filed it" is exactly the kind
+of claim that is usually false. Checked: `[MEASURED 2026-09-04 ~17:10Z]` every boxingonline work item
+whose summary or spec mentions a listing, an article, or any of the five `slotPriority` slot names —
+**10 rows, all `page_rerender` or `section_edit`, all `complete`, none filing the structural gap.**
+So the gap is genuinely unowned.
+
+> **This reframes the "discovery check" open item and should be read before building it.** A check
+> that files this class into `filing_mode='record'` with no handler adds a 3,185th parked finding.
+> The item is not "emit a work item" — it is "emit a work item **that has a route**". Ship it
+> without one and the refusal becomes invisible in a second place rather than the first.
