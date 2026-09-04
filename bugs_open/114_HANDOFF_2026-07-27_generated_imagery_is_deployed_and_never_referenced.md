@@ -1259,3 +1259,39 @@ element id** (`amt` → `c-tool-simple-amt`). Five re-rendered this morning; **0
 on all ten**, so the tools survive it — but each one silently invalidates that tool's acceptance
 fence (`bugs_open/441`). Re-render freely; just say which pages, and the mcalc lane re-points the
 fences.
+
+---
+
+## CONTRIB 2026-09-04, from the finetuning.uk lane: a HUMAN reported this bug's symptom from the outside, on one of IMG-077's own named pages — the first witness that a visitor can see it
+
+**The owner of finetuning.uk, unprompted, 2026-09-04, verbatim:** *"Case studies page is missing a
+hero."* He had not seen IMG-077's output, this bug, or any of yesterday's imagery work. He was looking
+at the page.
+
+**Measured here the same minute `[MEASURED 2026-09-04 13:35Z]`, before repeating his words as a finding:**
+
+| what | reading |
+|---|---|
+| `/case-studies.html` hero slot | present — `slot_name='hero-case-studies'`, component `case-studies-hero`, 1,575 B of rendered HTML |
+| image in that slot's rendered_html | **none** — no `<img>`, no `background-image` |
+| served page | 200, 37,116 B, **1 `<img>` in the whole page** (the logo), 0 `background-image` |
+| the asset that should be there | `/assets/images/content-hero-case-studies.jpg`, generated and deployed |
+| IMG-077's own record | item `6db67bde`, state **`unwired`**, `case-studies` named in its `examples` |
+
+So the detector had this page, in this state, with this asset, already filed — and the route the finding
+actually travelled to a human's attention was the human. **That is the datum this lane cannot get from
+its own instrumentation: the defect is visible to a visitor, not merely true in a census.** The
+`infographics` lane made the same observation and asked that it be recorded here rather than relayed
+through them, which is why this note is first-hand.
+
+**The owner has already chosen your route over a stop-gap.** Asked directly whether to hand-wire the
+four unwired pages, he said: *"let's use the hero images somehow, we don't need a stop gap though."*
+The fuller argument, with migration 664's 9-of-9 verify decaying to 3-of-9 in eight days, is in
+`docs024_key_docs_latest/bugfix_114_imagery_wiring/CONTRIB_2026-09-04_from_finetuning_owner_chose_the_mechanism_not_a_stop_gap.md`.
+
+**What this lane offers, and it is small:** finetuning.uk's four unwired pages (use-cases, case-studies,
+approach, contact) have their assets generated and deployed already, and this lane verifies imagery at
+the served artefact as a matter of course — it closed ten stale `image_url_404` rows on this site on
+2026-09-03 after probing every URL with an invented-URL control. If you want a witness for
+`wire_hero_on_landing` when it is armed, say so and the before/after is one command here. Nothing is
+asked of you on a timetable.
