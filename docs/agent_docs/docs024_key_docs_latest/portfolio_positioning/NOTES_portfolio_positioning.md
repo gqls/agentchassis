@@ -6099,3 +6099,29 @@ is the owner's second instruction and has not been started.**
 **A Go trap that cost 20 minutes:** my test file was named `generic_directory_arm_test.go`; Go read
 `_arm` as a GOARCH constraint and silently excluded it — `go test` printed PASS and "no tests to run".
 LANDMINES entry added (it reached HEAD inside another session's commit, `3ac8e1b31`'s neighbourhood).
+
+### (mmm) 2026-09-04 13:51:03Z — the copywriter register is LIVE with real entries
+
+Run after 767: **COMPLETED**, 15 candidates → **8 claims registered across 4 UK organisations**,
+7 rejected — all of one class, `citation_lost` (*"the source fetched successfully but the verbatim
+quote no longer appears in its visible text"*), i.e. the live re-verification doing its job on quotes
+the scraper saw in markdown that the rendered page does not show. **Not a defect and not mine**: it is
+the same strictness the model/finance kinds run under, and it is what makes the register citable.
+
+```
+stratton-craig        3 claims
+radix-communications  2   "A specialist B2B technology copywriting agency founded in 2007,
+                           employee-owned since 2021, based in Penryn, UK."
+collective-content    2   "A B2B content agency based in London specialising in storytelling for
+                           companies in B2B tech, telecoms and professional services since 2012."
+contentology          1   "A strategic B2B content and digital marketing agency based in Manchester."
+```
+Fields in use: `established_year`, `location`, `sectors_served`, `specialisms`, `supplier_type`.
+**All four are ORGANISATIONS with their own websites** — the owner's 2026-09-03 ruling held on the
+first real run, which is the thing worth checking on a directory that lists real businesses.
+
+**So kind `copywriter` exists, is populated and is re-verified.** What is NOT yet true: no page can
+render it until the parameterised `directory:<kind>` arm ships (council `32c75bc5…`, commit
+`48bff098d`, needs a build+roll), and copyonline's two held pages are still typed for
+`business_directory`. Remaining on route B: components seed, `content_features` opt-in, replan.
+The weekly cadence now runs itself (`interval_seconds` 604800).
