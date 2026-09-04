@@ -2372,3 +2372,11 @@ Three refinements relayed to the check's author: rename-first-record-second (the
 forward-only); and the strongest argument for routing by council correlation: both instrumented
 failure modes are renumber-adjacent, and the correlation is the one identifier a renumber cannot
 break. Thread genuinely closed.
+**Orphan-thread final:** all three refinements adopted AND independently verified by the check's
+author; correlation-survives-renumber promoted to the routing entry's lead argument in its
+stronger form (a filename on this tree is mutable BY DESIGN — routing by it keys on the field the
+estate actively changes); the 521 note deliberately NOT written (another lane's audit row — the
+restraint matching this week's standard); and one closing lesson from their side: **530's own
+`notes` column had documented the renumber for three weeks — the sweep compared filenames and
+never read `schema_migrations.notes`, where sessions explain themselves. Read the NOTE of
+anything a sweep flags before believing the flag.** Thread closed on all sides.
