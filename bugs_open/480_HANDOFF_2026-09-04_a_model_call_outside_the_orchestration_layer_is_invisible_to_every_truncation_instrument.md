@@ -101,3 +101,60 @@ VISIBLE, not about how it chose.
   `error_message ILIKE '%stop_reason=max_tokens%'` and **never** from `output_tokens >= max_tokens`: a
   truncated call has `output_tokens` NULL, and the obvious form undercounted 94 truncations to 4.
 - `bugs_closed/076`, `012`, `046` — the silent-truncation lineage.
+
+---
+
+## CONTRIB 2026-09-04, `copy_quality_two_stage` lane — the table has a SECOND blindness: a row that exists and a column that cannot record what it names
+
+Invited by the 257 lane, who declined to fold it in themselves so it would be tracked where it
+belongs. **This is not the same defect as §1 and does not change its census** — §1 is about a call
+that writes NO ROW. This is about a call that writes a row, in the normal way, through the
+orchestration layer, where one column is structurally incapable of holding the thing it is named
+after. Both make the same table answer confidently and wrongly, which is why it belongs here.
+
+**`llm_call_log.thinking_tokens` cannot see extended thinking on `claude-sonnet-5`.** The column is
+populated from parsed thinking-block TEXT, and Sonnet 5 returns thinking blocks **empty** by default
+(`display: "omitted"`, a silent change from 4.6 where summaries came back). The model reasons; the
+blocks arrive empty; the column records nothing. `[MEASURED 2026-09-04]`:
+
+```sql
+SELECT count(*) FILTER (WHERE thinking_tokens > 0) AS with_thinking, count(*) AS total
+FROM llm_call_log WHERE agent_type='page-content-writer' AND created_at > now() - interval '7 days';
+--  0 | 6724
+
+SELECT count(*) FILTER (WHERE thinking_tokens > 0), count(*) FROM llm_call_log
+WHERE created_at > now() - interval '30 days';
+--  1 | 40716      -- the ONE non-null row in 30 days fleet-wide is a Gemini call
+```
+
+`page-content-writer` runs adaptive thinking on **every one** of those 6,724 calls: the client omits
+`thinking` (`platform/aiservice/anthropic.go:278-300` sends it only when `budget_tokens` is set), and
+omitting it on Sonnet 5 means adaptive is ON. So the column reads 0 for an agent that reasons
+constantly. **Fleet-wide it is not measuring which agents reason — it is measuring which PROVIDER
+returns thinking summaries**, and today that is Gemini, once.
+
+**Why it is worth a line in this bug rather than a note somewhere.** A zero in a column named
+`thinking_tokens` does not look like missing instrumentation. It looks like a finding, and it is the
+finding a reader wants: it reads as "this agent does not use extended thinking", which is exactly the
+sentence I wrote into a lane document before the API reference contradicted me. §1's absence at least
+*looks* like an absence; this one looks like data.
+
+**The honest instruments, both available today.** `output_tokens` against the visible text — the
+benchmark row spent 2,713 output tokens to return ~1,100 tokens of JSON, and that gap IS the
+reasoning. And a replay with `"thinking":{"type":"adaptive","display":"summarized"}`, which returns
+the summary text the column wants; two such replays this morning carried 2,334 and 761 characters of
+summary while the production column stayed null.
+
+**Sizing note for whoever takes §4.** If a fix populates `thinking_tokens` from the API's own
+`usage`, it is worth checking whether the same call site can record `stop_reason` verbatim. A related
+trap from the same session: at `output_config.effort: "max"` a writer prompt spent its ENTIRE budget
+on thinking and returned zero characters of text, four times, at `max_tokens` 16,000 and again at
+40,000, `stop_reason: max_tokens` each time. A row like that is indistinguishable from a successful
+call in every column this table currently exposes, and any prose measure over its output scores it as
+a perfect zero (`LANDMINES.md`, *"A model can spend its ENTIRE token budget on thinking and return NO
+text"*). The `fleet-step-token-pressure` check is the live instrument closest to it.
+
+**Not ours to fix and we have not started on it** — filed here so it is tracked with the rest of the
+table's blind spots. Evidence trail:
+`docs/agent_docs/docs024_key_docs_latest/copy_quality_two_stage/NOTES_two_stage_copy.md` 2026-09-04,
+`WRONG_CALLS.md` 2026-09-04 (the claim it produced, and the check that would have caught it).

@@ -4681,9 +4681,27 @@ of them actually reaches the Anthropic client with it set is unverified.
 > same independently.
 > **So the honest statement, and it is a cheaper ask than mine would have been:** the risk is
 > **LATENT, not live.** The arm fires only when the first operator declares `budget_tokens`, and on
-> Sonnet 5 or Opus 5 that first declaration 400s every call for that agent. The guard belongs at the
-> moment of DECLARATION; there is nothing deployed to clean up. Relayed to the `bugs_open/257` lane
-> in those terms, with both queries.
+> Sonnet 5 or Opus 5 that first declaration 400s every call for that ~~agent~~ **STEP** — corrected by
+> the 257 lane the same day: the budget ladder resolves **per step**, so the blast radius is the step
+> that declares it, or every step of the agent only if it is declared at the agent root. Their round 3
+> that morning widened where it can be declared from two places to **six**, which is why the trap grew
+> while the exposure stayed zero. The guard belongs at the moment of DECLARATION; there is nothing
+> deployed to clean up. Relayed to the `bugs_open/257` lane in those terms, with both queries.
+>
+> **RESOLVED by that lane 2026-09-04 (`22ba668dd`), and checking it CHANGED the fix — my rule was
+> right but not uniform.** I said "4.7+ models reject it". True, and there are **three** live answers,
+> not two: reject (`claude-sonnet-5`, `claude-opus-4-8`), deprecated-but-functional
+> (`claude-sonnet-4-6`, `claude-opus-4-6`), and **REQUIRED** (`claude-haiku-4-5` and older — no
+> thinking happens without it). Their figures, attributed not re-measured: 88 of 176 model
+> declarations reject, 53 are deprecated-but-working, and **32 across 24 agents REQUIRE it**. So the
+> obvious remedy — stop sending `budget_tokens` to Anthropic — would have removed extended thinking
+> from the only models where it still works. **A defect I found by hitting a 400 on ONE model does not
+> license a rule about the provider**, and the ~24 agents that would have quietly lost thinking are
+> what that overreach would have cost. Shipped instead as `aiservice.AcceptsThinkingBudget(model)`
+> (verified at `platform/aiservice/model_aliases.go:181`) plus a parity test and a
+> `thinking_unsupported` arm in `config-key-audit --budget-placement`, which fails before anything is
+> sent. `anthropic.go` is untouched; the client-side behaviour (refuse / drop / keep the 400) is
+> deliberately left open as a shared-seam decision, in their §2026-09-04b and council round `47ea9498`.
 > **The lesson is one I had half-learned the same morning:** I marked the claim unverified, which was
 > right, and still put a number in it that a reader would act on. A substring census over config text
 > answers "who says this word", and a keyword list is exactly the shape that says a word without
