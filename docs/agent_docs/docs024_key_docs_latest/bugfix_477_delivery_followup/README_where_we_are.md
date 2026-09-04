@@ -93,8 +93,8 @@ The rule in our own documentation is that a customer's address comes from the or
 is right, and for a site that came through an order it works. But idea.uk — the only site we have
 ever delivered — was our own rehearsal, sent to your address typed in by hand, so there is no order
 and there is no recorded address. The one other place it exists is the log of the delivery run
-itself, and those are thrown away a day after the run finishes. A follow-up due days later would be
-looking for something already gone.
+itself, and I checked how long those are kept: **under twenty-four hours.** A follow-up due in a week
+would be looking for it six days after it was thrown away.
 
 I only found this because I ran the query with the calendar deliberately relaxed, so that it *had* to
 return idea.uk, and it returned nothing. Without that, the follow-up would have sat there switched
