@@ -1,5 +1,12 @@
 # HANDOFF — bugfix 417/420/462 lane — 2026-09-03b, continue here
 
+> **⚠ SUPERSEDED 2026-09-04 by `HANDOFF_2026-09-04_continue_here.md` — read that one first.**
+> This file is kept as the record and its §5/§6 are still live, but **§2 item 1 is DONE**: the
+> standalone legibility sweep it asks for is built, calibrated, run fleet-wide and committed
+> (`scripts/audit-logo-legibility.py`, register IMG-080, `bugs_open/462` §8). A session following
+> this file's ⭐ would rebuild it. What replaced it as the blocking item is **routing** — where a
+> logo-legibility finding is filed, which is a decision and not a build.
+
 **Supersedes `HANDOFF_2026-09-03_continue_here.md`** (kept — its §5 traps and §6 owner decisions are
 unchanged and still live). That file's ⭐ item was "trigger ONE logo regeneration and look at it".
 **Done, four times over. 417 looks fixed; a different problem is now the urgent one.**
