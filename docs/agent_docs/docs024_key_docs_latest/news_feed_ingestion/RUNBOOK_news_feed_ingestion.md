@@ -265,20 +265,37 @@ Record the correlation in NOTES when it lands. The commit deliberately carries *
 list it as un-reviewed until a later commit carries the trailer. That is accurate, not a
 gap to paper over: never write `Council-Reviewed:` on a verdict you have not read.
 
-## ⚠ After the 332 lane's display projection rolls, the SERVED feed surfaces stop being evidence about STORED data
+## ⚠ The 332 lane's display projection IS LIVE — the SERVED feed surfaces are no longer evidence about STORED data
+
+> **CORRECTED 2026-09-04 15:5xZ — this section said "Inert until a chassis roll" and was
+> written in the future tense. It had ALREADY ROLLED when that was written.**
+> `[MEASURED 2026-09-04]` `feed_display_text.go` landed in `0a3a7985a` (2026-09-03
+> 18:33 BST) and the chassis rolled at **2026-09-03 22:07Z** into `239ab3626`, which
+> contains it — confirmed by ancestry (`git merge-base --is-ancestor 0a3a7985a 239ab3626`
+> → yes) and at the artefact (`service_binary_capabilities`: both `agent-chassis` pods
+> stamped `239ab3626`, started 22:06–22:07Z). It is also in the v1.0.1361 cut
+> (`06c0b18f2`), so the in-progress roll does not change this either way.
+> **So the "After the roll" column below is the PRESENT, not the future** — it was already
+> the present for every verification run today. Found while assessing the v1.0.1361 roll,
+> not by reading this file, which is the point: a status line phrased as a pending event
+> keeps reading as pending long after it has happened
+> (MEMORY `a-stale-status-line-prevents-the-thing-it-describes`).
+> **What this did NOT invalidate:** today's 746 conclusions were read from
+> `content_feed_items.status` / `relevance_score` in the database, never from a served
+> surface, so they stand. The exposure was entirely in the FORWARD instructions.
 
 The `332` lane has shipped one display projection (`queryresolve/feed_display_text.go`)
 called by the news page resolver, `loadNewsItems` (the `/data/*.json` files) and
-`loadRSSItems`, with `DISABLE_NEWS_MARKDOWN_STRIP` moved into it. Inert until a chassis
-roll. **This changes what this lane's own verifications mean, in a direction that reads
-as success:**
+`loadRSSItems`, with `DISABLE_NEWS_MARKDOWN_STRIP` moved into it. **This changes what this
+lane's own verifications mean, in a direction that reads as success:**
 
-- **Before the roll**, a clean `/data/news-archive.json` meant the stored
-  `source_summary` was clean.
-- **After the roll**, it means the strip ran. Stored rows can be full of raw markdown and
-  the JSON will look perfect.
+- ~~**Before the roll**~~ **Until 2026-09-03 22:07Z**, a clean `/data/news-archive.json`
+  meant the stored `source_summary` was clean.
+- ~~**After the roll**~~ **Since then, and now**, it means the strip ran. Stored rows can be
+  full of raw markdown and the JSON will look perfect.
 
-So **do not** judge feed-data health at a served surface once that is live. For "is the
+So **do not** judge feed-data health at a served surface — that is today's situation, not a
+future one. For "is the
 visitor seeing markdown?", the served page is still exactly right. For "is my ingestion
 clean?", read the column:
 

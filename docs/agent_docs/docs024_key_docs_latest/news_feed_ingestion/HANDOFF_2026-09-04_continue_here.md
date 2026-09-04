@@ -18,9 +18,19 @@ queue fairness, and normalising/extracting structure out of what arrives. Concre
 `content-feed-refresh`, and `content_feed_items` as a data asset. Full charter and
 exclusions in PLAN's opening section.
 
-## 1. ⚠ READ FIRST — a FLEET-WIDE outage is live and it is NOT this lane's
+## 1. ✅ RESOLVED 2026-09-04 — the fleet-wide LLM outage that shaped everything below
 
-Every Anthropic LLM call has failed since **2026-09-04 11:17:05Z**:
+> **UPDATE 2026-09-04 ~15:55Z: OVER.** `[MEASURED]` the outage ran **11:17:05Z →
+> 13:31:30Z** (last failure); the first success after it was **11:58:12Z**, so recovery was
+> staggered rather than a clean cutover — expect a mixed band, not a step. Since 13:31:30Z:
+> **0 failures**, ~20 successful calls per 10-minute bucket. **Everything §5 defers to "once
+> LLM calls succeed" is now unblocked**, subject only to the v1.0.1361 roll settling
+> (see §1a). Re-check before relying on it:
+> `SELECT max(created_at) FILTER (WHERE success) FROM llm_call_log WHERE provider='anthropic';`
+
+Kept in full because it is what caused §3a, the unscored items in §5.1, and the four owed
+landmine verifications — and because the shape recurs. Every Anthropic LLM call failed from
+**2026-09-04 11:17:05Z**:
 
 ```
 API request failed with status 400: {"type":"invalid_request_error",
@@ -49,6 +59,24 @@ usage limits"* (a monthly **cap**); this is prepaid **credits** exhausted. Diffe
 same trap: there are ≥2 Anthropic orgs and the console's default is not the fleet's, so
 credit bought on the wrong one changes nothing. Decisive check is **API keys → `Last
 used`** (a failed call is still a use). Memory: `the-fleet-key-is-not-on-the-default-console-org`.
+
+## 1a. The v1.0.1361 roll (cut `06c0b18f2`) — nothing of this lane's is at risk
+
+Notified by the `inter thread comms` session, 15:29–15:44Z. Checked rather than assumed:
+
+- **No Go of this lane's is uncommitted.** All 16 dirty `.go` files in the shared tree
+  belong to other lanes; this session wrote docs and one shell script, all committed.
+- **This lane's Go shipped long ago** — the UK-region fix is in `v1.0.1358`
+  (`d0252fd4d`), verified at the binary on 2026-09-03.
+- **Nothing of this lane's was in flight** to be killed by the restart. The 746 council run
+  had already died on the outage (§3a) and both feed dispatches had completed.
+- **⚠ 332's display projection was ALREADY LIVE before this roll**, not shipped by it —
+  see the RUNBOOK's corrected section. It is in both `239ab3626` (running) and
+  `06c0b18f2` (the new cut).
+
+**The one operational consequence: three dispatches are owed and must wait ~300 s after the
+agent pods restart**, or the spawn is silently dropped (CLAUDE.md). They are §3a's council
+re-fire, §5.1's advertise re-triage, and the four landmine verifications in NOTES.
 
 ## 2. DONE this session — all three of yesterday's blockers, on the owner's authorisation
 
@@ -123,8 +151,8 @@ not, and each is a potential false negative. Full entry in `LANDMINES.md`
 
 ## 5. RESUME HERE
 
-1. **Blocked on §1.** advertise.co.uk fetched **19 items, all `status='ingested'`, none
-   scored.** Two causes, neither a 746 defect: the hand dispatch raced its own ingestion
+1. **Unblocked (§1 resolved); wait for the roll (§1a), then do this first.**
+   advertise.co.uk fetched **19 items, all `status='ingested'`, none scored.** Two causes, neither a 746 defect: the hand dispatch raced its own ingestion
    (triage 11:34:16→26 while items landed 11:34:17→35 — the 6-hourly route does not race),
    and the outage stopped `score_relevance`. **Once LLM calls succeed**, re-dispatch
    `scripts/dispatch_content_feed_orchestrator.sh advertise.co.uk` (in this dir; it is
