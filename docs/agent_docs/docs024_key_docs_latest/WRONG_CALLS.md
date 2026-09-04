@@ -65360,3 +65360,20 @@ against a test that replaced a seven-day wait — the owner's idea, and a good o
 - **The cheap checks that would have.** (1) Any query_database text with `$n`: PREPARE it in
   the verify. (2) Any `replace()`: assert the anchor count first. (3) A fail-open design's
   canary must read the FAILURE field, because success is what a broken fail-open looks like.
+
+## 2026-09-04 — committed a DUPLICATE bug file because I resolved "the 450 file" with `ls`, not `git ls-files` (`portfolio_positioning`)
+
+- **What I did.** Appended a cross-reference to `bugs_open/450_…` using the name `ls bugs_open | grep ^450`
+  returned, saw `??` (untracked) in `git status`, read that as "my file was never committed", and
+  `git add`ed it. The tracked 450 lives under a DIFFERENT slug — its lane renamed it on 2026-09-02/03
+  ("…by_the_link_repair_before_their_tools_exist") — and the old-slug file on disk was the stale copy a
+  `git mv` leaves behind. For one commit (`8d100edab`) the tree carried two 450s. Removed forward-only
+  the next commit; nothing lost.
+- **Why it mattered.** A bare number already names two unrelated cases on this tree (CLAUDE.md lists
+  eight such collisions); a duplicate under the SAME number with divergent content is worse, and the
+  LANDMINES entry for `git mv` says exactly this: *"verify at HEAD, not at the tree: `git ls-tree` should
+  return exactly one line. `ls` cannot tell you this."* I had read that entry the same morning.
+- **The cheap check that would have.** `git ls-files bugs_open | grep /450_` before touching a bug file
+  by number — one command, and it prints the real name. `??` on a bug-numbered file means "someone
+  renamed it", not "you forgot to commit".
+- **Cost.** One duplicate commit, one removal commit, ten minutes.
