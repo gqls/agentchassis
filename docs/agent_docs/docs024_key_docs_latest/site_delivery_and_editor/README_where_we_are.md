@@ -1123,3 +1123,44 @@ lights on and someone to answer when they do not. That is your call and not mine
 Meanwhile the follow-up email is set to **three days** as you asked, and I have passed that to the
 session building it, with your forty-minute experience attached — because at three days a customer
 who has not confirmed may not be dawdling, they may be stuck in a signup fight.
+
+---
+
+### 2026-09-04, late afternoon — the accounts decision, and one sentence that now has an expiry date
+
+**You asked me to decide about accounts, so here it is: we build the rental link, and we do not build
+accounts yet.**
+
+The thing that decided it is arithmetic rather than judgement. Every customer link we issue dies after
+six weeks. A monthly rental does not. So a customer who buys hosting today and wants to cancel in two
+months has no way back in to do it — which sounds like an argument for accounts, and is not, because
+with one paying customer the honest answer is that they email us and we send them a fresh link. That is
+not a workaround at this size, it is the right amount of machinery. Building a self-service portal for a
+queue of one is how you end up maintaining two customer-facing surfaces and finishing neither.
+
+**But there is one thing worth doing now because it is free today and expensive later.** A monthly
+subscription creates a customer record at Stripe's end; a one-off payment does not, which is why we have
+never had one. So the first rental sale is the first time we will ever have a durable identity for a
+customer, and we should catch it when it arrives rather than discover in six months that we let it go
+past. That is the whole of what I would do today.
+
+**And I have written down when this decision expires**, so nobody has to re-argue it from scratch: the
+day somebody wants to cancel or change a card *after* their link has run out. That is a date, roughly six
+weeks after the first rental, not a feeling.
+
+**One thing I want to flag, because it is the same mistake as the other four.** Your FAQ currently says
+the £149 is "one payment rather than a subscription". That is true today and it is what we want to say.
+The day the £10-a-month rental goes live, it stops being true — on the page whose entire job is telling
+people what they are buying. It is one sentence, and it is now written into the handoff as something the
+person shipping the rental link has to change in the same breath.
+
+That is the fourth time this week that a piece of our own copy promised something the software does not
+do, and all four were found by somebody reading the words rather than by anything we run. We do not have
+any check anywhere that compares what we say to what we actually do. I think that is worth someone's
+attention, and it is bigger than this lane.
+
+**On the chassis you are rolling.** It matters more than a routine one for us. Another session made a
+delivery record who it was sent to — and the table went in yesterday while the code that writes to it did
+not. So right now a delivery would stamp itself as done and record nobody, which is exactly the hole that
+change exists to close. Your roll closes it. I will check it properly once it lands rather than assume,
+and I will check the chassis itself rather than the version number, because those have disagreed before.

@@ -1,3 +1,12 @@
+# ⚠ SUPERSEDED 2026-09-04 by `HANDOFF_2026-09-04_continue_here.md` — read that first
+
+> This file remains the record of the rehearsal night. Two things in it are now OUT OF DATE and are
+> corrected in 09-04: **`bugs_open/466` is LIVE** (§1 item 3 says it needs a release — it got one),
+> and **the three-lifetime finding in §1 item 2 is RESOLVED** — `zip-link-refresher` was proven to
+> advance the presign, so the 30-day promise is real. Its §6b note on lane boundaries still holds.
+
+---
+
 # HANDOFF 2026-09-03b (evening) — the owner's copy edits are LIVE, the approve-to-apply seam is fixed and council-approved, and the delivery rehearsal is running on a non-customer site, blocked on one click
 
 **Supersedes `HANDOFF_2026-09-03_continue_here.md`.** That file is still the record of the day's
