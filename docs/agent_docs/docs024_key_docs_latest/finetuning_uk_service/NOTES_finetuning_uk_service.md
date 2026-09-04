@@ -3686,3 +3686,26 @@ popular"*
    synthesis: stroke-based or few-shot image models from tablet strokes or word images, CPU generation
    in seconds), plus a cheap third (a font from his hand). Recorded as a product idea in PLAN; not
    designed.
+
+## 2026-09-04 (11:50Z) — CORRECTION: the planner prompt change is ALREADY LIVE (migration 718, 09-02); the infographic lever is a COMPONENT, not prompt text
+
+The prompts lane (their CONTRIB in this dir, `CONTRIB_2026-09-04_from_framework_prompts_the_infographic_
+prompt_change_is_already_live_and_the_gate_is_downstream.md`): **migration 718 landed 2026-09-02 and
+replaced the exact sentence my brief quoted** — "Use sparingly in v1" greps ZERO in the live prompt; it
+now says "Content-carrying imagery is EXPECTED here, not exceptional", names infographic for numbers /
+comparisons / steps, rule 13 requires a section-scope illustration or infographic on index, rule 16
+appears twice, and the worked example carries an infographic entry. The uplift lane's 09-02 measurement
+was the same day as 718, earlier — quoted as current that evening by them, and by me last night in the
+brief. **Same disease as 664 and the stale 404 rows: a state proven once, quoted as still true.**
+**The demand control since 718:** 111 imagery entries planned — 68 heroes, 23 icons, 12 illustrations
+(19 in ALL prior history → 12 in two days: 718 works), 8 logos, **0 infographics**. So the prompt asks
+and nothing answers. Their hypothesis, marked unconfirmed by them: the planner attaches imagery only to
+a component that can display it, and **0 of 505 active components are named or categorised
+infographic** → the owner's "fleet-wide, framework-driven" decision needs an INFOGRAPHIC COMPONENT
+(with VIZ-007/009/011 as its specification — the uplift lane's offer), not another prompt edit. They
+will not cut a migration (the 450 lane's 729 has anchors on this prompt). They are putting the
+component question to the owner with the numbers. My CONTRIB to their dir stands as the owner's
+decision record; its mechanism paragraph is superseded by theirs.
+Also from the uplift lane (their `4fb9b526f`): the prompt reaches LANDING pages (several sections, one
+can hold a graphic); article/guide pages (358 of 360 are one prose block + chrome; `article-body` cannot
+hold an image; 686 rolled back) gain nothing from it. Both carried to the owner.
