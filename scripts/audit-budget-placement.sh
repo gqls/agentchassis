@@ -12,6 +12,14 @@
 #
 # THE THREE KINDS, and the fix differs for each:
 #
+#   THINKING       The step declares `budget_tokens` against a model that REJECTS a
+#   UNSUPPORTED    manual thinking budget with a 400 - the Claude 5 family and Opus
+#                  4.7/4.8. anthropic.go emits thinking:{type:enabled,budget_tokens:N}
+#                  whenever the key resolves, so this fails EVERY call for that step,
+#                  not one. ⚠ NOT a blanket rule: it is deprecated-but-functional on
+#                  4.6 and REQUIRED on 4.5 and older, so the check is model-aware and
+#                  the reader was deliberately not changed to drop the key.
+#                  FIX: delete it, or move the step to a model that accepts it.
 #   UNCONFIGURED   The step declares an ai_service block and NO budget at any
 #                  level, so it runs at the provider floor of 2048 — the smallest
 #                  number in the estate. bugs_open/205 counted 64 truncations
@@ -33,7 +41,7 @@
 # findings, every one healthy.
 #
 # Usage: scripts/audit-budget-placement.sh [--json]
-# Exit:  0 = clean (or advisory-only) · 1 = ambiguous/unconfigured found
+# Exit:  0 = clean (or advisory-only) · 1 = thinking_unsupported/ambiguous/unconfigured found
 #        2 = could not determine
 set -uo pipefail
 
@@ -90,7 +98,7 @@ r = json.load(sys.stdin)
 f = r["findings"]
 # Group on the KIND the binary assigned. An unrecognised kind is surfaced rather
 # than dropped: a new class must be noisy here, not invisible.
-known = ("unconfigured", "ambiguous", "non_canonical")
+known = ("thinking_unsupported", "unconfigured", "ambiguous", "non_canonical")
 def of(k): return [x for x in f if x.get("kind") == k]
 
 print("scanned: {} model steps across {} live agents, {} max_tokens declarations".format(
@@ -113,6 +121,8 @@ def show(title, rows, note=None):
         print("  -> {}".format(note))
     print()
 
+show("THINKING UNSUPPORTED: budget_tokens against a model that answers 400", of("thinking_unsupported"),
+     "delete budget_tokens, or move the step to a model that still accepts it (4.6 deprecated-but-works, 4.5 and older require it)")
 show("UNCONFIGURED: running at the 2048 provider floor, because nobody sized the step", of("unconfigured"),
      "declare ai_service.max_tokens on the step")
 show("AMBIGUOUS: one level, both spellings, different numbers - the two readers disagree", of("ambiguous"),

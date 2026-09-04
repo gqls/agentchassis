@@ -192,3 +192,72 @@ func TestStepsWithNoModelDeclarationAreNotScanned(t *testing.T) {
 			report.StepsScanned, len(report.Findings))
 	}
 }
+
+// TestBudgetTokensAgainstARejectingModelIsFatal — the trap a peer lane hit
+// first-hand on 2026-09-04, four times, replaying a stored prompt against
+// claude-sonnet-5. Live exposure is ZERO (no active agent declares the key), so
+// this test IS the exercise: without it the arm would ship never having fired.
+func TestBudgetTokensAgainstARejectingModelIsFatal(t *testing.T) {
+	agent := budgetAgent(t,
+		map[string]interface{}{"ai_service": budgetService(16000.0)},
+		map[string]models.Step{
+			"write": {Action: "execute_llm_prompt", Config: map[string]interface{}{
+				"ai_service": map[string]interface{}{
+					"model": "claude-sonnet-5", "provider": "anthropic",
+					"max_tokens": 16000.0, "budget_tokens": 10000.0,
+				},
+			}},
+		})
+	report := budgetPlacementFindings([]liveAgent{agent})
+	if len(report.Findings) != 1 || report.Findings[0].Kind != "thinking_unsupported" {
+		t.Fatalf("findings = %+v, want exactly one thinking_unsupported — a budget_tokens "+
+			"declaration against claude-sonnet-5 is a 400 on every call for this step", report.Findings)
+	}
+	if report.Findings[0].Effective != 10000 {
+		t.Errorf("effective = %d, want the declared 10000", report.Findings[0].Effective)
+	}
+}
+
+// TestBudgetTokensAgainstAnAcceptingModelIsNotAFinding is the other half, and it
+// is why the arm is model-aware rather than a blanket refusal: claude-haiku-4-5
+// carries 32 model declarations across 24 live agents and REQUIRES budget_tokens
+// for thinking to happen at all. Flagging it would be telling operators to break
+// the only models where the key still works.
+func TestBudgetTokensAgainstAnAcceptingModelIsNotAFinding(t *testing.T) {
+	for _, model := range []string{"claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-6"} {
+		t.Run(model, func(t *testing.T) {
+			agent := budgetAgent(t, map[string]interface{}{}, map[string]models.Step{
+				"write": {Action: "execute_llm_prompt", Config: map[string]interface{}{
+					"ai_service": map[string]interface{}{
+						"model": model, "provider": "anthropic",
+						"max_tokens": 8000.0, "budget_tokens": 4000.0,
+					},
+				}},
+			})
+			if kinds := budgetKinds(t, agent); kinds["thinking_unsupported"] != 0 {
+				t.Errorf("%s was flagged; it accepts a manual thinking budget (4.6 deprecated-but-functional, "+
+					"4.5 and older require it)", model)
+			}
+		})
+	}
+}
+
+// TestTheThinkingArmInheritsTheAgentModel — the model is resolved by the same
+// overlay production uses, so a step that names no model of its own is judged
+// against the agent root one. Getting this wrong would silently exempt every
+// step that inherits, which is most of them.
+func TestTheThinkingArmInheritsTheAgentModel(t *testing.T) {
+	agent := budgetAgent(t,
+		map[string]interface{}{"ai_service": map[string]interface{}{
+			"model": "claude-sonnet-5", "provider": "anthropic", "max_tokens": 16000.0,
+		}},
+		map[string]models.Step{
+			"write": {Action: "execute_llm_prompt", Config: map[string]interface{}{
+				"ai_service": map[string]interface{}{"budget_tokens": 4000.0},
+			}},
+		})
+	if kinds := budgetKinds(t, agent); kinds["thinking_unsupported"] != 1 {
+		t.Errorf("findings %v — a step declaring no model of its own must be judged against the "+
+			"agent root model, which is what the ai_service overlay does at runtime", kinds)
+	}
+}

@@ -90,6 +90,7 @@ import (
 	"strings"
 
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/aiservice"
 	"github.com/gqls/agentchassis/platform/orchestration/actions"
 	"github.com/gqls/agentchassis/platform/validation"
 )
@@ -218,6 +219,7 @@ func budgetPlacementFindings(agents []liveAgent) budgetPlacementReport {
 			if stepService == nil && !bareDecl && !canonDecl {
 				return
 			}
+			_ = rootService // read below by the thinking arm and the ladder
 			report.StepsScanned++
 
 			// A top-level step's config occupies the workflow_step rung at runtime;
@@ -260,6 +262,24 @@ func budgetPlacementFindings(agents []liveAgent) budgetPlacementReport {
 				Agent: agent.Type, Path: path, Effective: effective, From: from, Declarations: decls,
 			}
 
+			// budget_tokens BEFORE max_tokens, because this one is not a sizing
+			// question at all — it is a request the provider refuses outright.
+			if btValue, btFrom, _ := actions.ResolveStepBudget("budget_tokens", root, workflowStepCfg, runtimeStepCfg); btFrom != "" {
+				model := resolveStepModel(stepService, rootService)
+				if !aiservice.AcceptsThinkingBudget(model) {
+					report.Findings = append(report.Findings, budgetFinding{
+						Agent: agent.Type, Path: path, Kind: "thinking_unsupported",
+						Effective: btValue, From: btFrom,
+						Detail: fmt.Sprintf("declares budget_tokens=%d at %q against model %q, which REJECTS a manual "+
+							"thinking budget with a 400. anthropic.go emits thinking:{type:enabled,budget_tokens:N} "+
+							"whenever this key resolves to a positive number, so this fails EVERY call for this step, "+
+							"not one. Anthropic replaced the fixed budget with adaptive thinking; the key is still "+
+							"correct on 4.6 (deprecated) and REQUIRED on 4.5 and older, which is why the reader was "+
+							"not simply changed to drop it (bugs_open/257)", btValue, btFrom, model),
+					})
+				}
+			}
+
 			switch {
 			case from == "":
 				finding.Kind = "unconfigured"
@@ -297,6 +317,22 @@ func budgetPlacementFindings(agents []liveAgent) budgetPlacementReport {
 		return report.Findings[i].Path < report.Findings[j].Path
 	})
 	return report
+}
+
+// resolveStepModel is the effective model for a step, by the same overlay order
+// resolveAIServiceConfig uses: the step's ai_service block wins over the agent's
+// root one. Returns "" when neither declares a model, which AcceptsThinkingBudget
+// treats as unknown-and-permissive.
+func resolveStepModel(stepService, rootService map[string]interface{}) string {
+	for _, m := range []map[string]interface{}{stepService, rootService} {
+		if m == nil {
+			continue
+		}
+		if model, ok := m["model"].(string); ok && model != "" {
+			return model
+		}
+	}
+	return ""
 }
 
 // ambiguousLevel names the level, if any, that declares the budget in both
@@ -395,6 +431,9 @@ func emitBudgetPlacement(args []string) {
 	// Only shadowed and unconfigured fail the run. non_canonical is honoured config
 	// and must never turn a clean fleet red — an advisory that fails the exit code
 	// stops being read as advisory within a week.
+	// non_canonical is the ONLY advisory kind. thinking_unsupported is the most
+	// urgent of the rest: it is not a sizing mistake, it is a request the provider
+	// refuses, and it takes down every call for the step.
 	fatal := 0
 	for _, f := range out.Findings {
 		if f.Kind != "non_canonical" {
@@ -421,9 +460,10 @@ func budgetPlacementRunSummary(r budgetPlacementReport) string {
 	if len(r.Findings) == 0 {
 		b.WriteString("CLEAN: every step's budget is declared once, canonically, and takes effect.")
 	} else {
-		fmt.Fprintf(&b, "%d unconfigured (running at the 2048 floor), %d ambiguous (two spellings at one level, "+
-			"different numbers, the two readers disagree), %d non-canonical (honoured, declared outside ai_service): ",
-			byKind["unconfigured"], byKind["ambiguous"], byKind["non_canonical"])
+		fmt.Fprintf(&b, "%d thinking_unsupported (budget_tokens against a model that 400s), %d unconfigured "+
+			"(running at the 2048 floor), %d ambiguous (two spellings at one level, different numbers, the two "+
+			"readers disagree), %d non-canonical (honoured, declared outside ai_service): ",
+			byKind["thinking_unsupported"], byKind["unconfigured"], byKind["ambiguous"], byKind["non_canonical"])
 		for i, f := range r.Findings {
 			if i > 0 {
 				b.WriteString("; ")
