@@ -291,3 +291,29 @@ re-ships stored `rendered_html` byte for byte and completes successfully. Your e
 `summary`; `reason` takes a literal. A completed rerender with the right reason is necessary and
 NOT sufficient — verify at the artefact. (And in `page_component_history`, join on `page_id`,
 never `component_id` — NULL on 44,555 of 45,285 rows.)
+
+### 8h. A credit outage kills a council run SILENTLY — `complete_invalid`, not an error — and the correlation is still usable
+
+`[2026-09-04, "inter thread comms" session, verified]` If fleet credit runs out mid-council-round,
+the run ends `status='COMPLETED'`, `error` NULL, `current_step='complete_invalid'` — reading as
+"your submission was malformed" when the submission was fine and the infrastructure just went
+down under it. The only way to see it:
+```sql
+SELECT left((collected_data->'__step_errors')::text,2000) FROM orchestration_states
+ WHERE collected_data->'input_data'->>'fix_correlation_id'='<CORR>';
+```
+⚠ **The correlation is NOT spent — reuse it, do not mint a new one.** Verified: one correlation
+carried FOUR rounds (revise → complete_invalid → revise → approved) across a real outage.
+`RESUBMIT_CORR=<the same corr>` is correct here exactly as it is after a roll-kill (§ elsewhere in
+this file) — `098`'s commit↔verdict join is keyed on the correlation, so a fresh one splits the
+trail and can leave a `Council-Submitted:` trailer pointing at a correlation that never resolves,
+with forward-only forbidding the amend to fix it.
+
+### 8i. A mixed-fleet mid-roll capability probe LIES — read `kubectl rollout status`, not pod presence
+
+`[2026-09-04]` During a roll, a moment exists where new pods are not-ready and old ones still
+serve. A capability probe taken then reads the OLD binary and reports a clean pass about the wrong
+one — success-shaped failure. `kubectl rollout status` is the signal. Also: `service_binary_
+capabilities` filtered on `pod_name LIKE '<deployment>-%'` can return more rows than live pods —
+a deployment can cycle two replicasets inside a minute — so a row existing is not evidence its pod
+is alive.
