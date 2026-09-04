@@ -4710,3 +4710,65 @@ of them actually reaches the Anthropic client with it set is unverified.
 **What the owner is owed now:** the verbatim outputs to read (his ear, not our scanner, is the
 instrument that matters for register), the cost/latency table, and the choice. Nothing about the
 production writer has been changed.
+
+## 2026-09-04 (late) — the boxingonline title-promise case, checked at the writer's INPUTS, and I nearly published the trap I logged twice today
+
+The `boxingonline.com` lane relayed an owner rejection that lands on this lane's title-promise work:
+a page slugged *"last night's result — underdog shocks the champion"* that contains no result, no
+fighter and no date, its worked example **Buster Douglas beating Tyson in 1990**. Their causal claim
+was that the writer had no facts because `evidence_base` holds real dated facts and *nothing consumes
+them*, so a rewrite today would produce another general essay. **That is a claim about the writer's
+inputs, which is this lane's mechanism, so I checked it rather than relaying it.**
+
+**What is measured `[2026-09-04]`, and it supports their conclusion for a reason they did not give:**
+
+| when | facts in `evidence_base` |
+|---|---|
+| 08-31 12:21Z | 2 |
+| 08-31 15:54Z | **1** |
+| 09-02 12:41Z | 7 |
+| 09-04 09:13Z (current) | 8 |
+
+The offending article's verdict was filed **09-01**, so it was written while the site held **ONE**
+fact — *"The business is called Boxing Online."* **The writer had nothing to write from because
+there was nothing there, which is a simpler and better-evidenced explanation than a consumption
+gap, and it is true regardless of whether the consumption gap is also real.** The dated results
+(Hrgovic stopping Itauma 08-30, Cameron beating Mayer 08-29) arrived **09-02 12:41Z**, after the page
+existed. So a rewrite dispatched today is a genuinely different experiment from the one that failed,
+and "it would produce another general essay" is a prediction, not a measurement.
+
+### ⚠ And the near-miss, which is the third instance of one trap in one day — caught this time
+
+Sampling five `page-content-writer` prompts for this site (09-03 17:4xZ), I found `Hrgovic` present
+in one — the `news-listing` section — and was one sentence away from writing *"consumption works for
+at least one section type, so their claim is too strong."* **It is not evidence of consumption.**
+Reading the surrounding 700 characters: the match sits inside the page's own **existing rendered
+HTML** (`<h3 class="news-list-item-title"><a href="https://www.bbc.com/sport/boxing/live/...">Relive
+Hrgovic's dramatic stoppage win…`), i.e. the *Existing Content* block that every rewrite prompt
+carries. The string arrived from the page, not from `evidence_base`.
+
+I also ran `position('Verified Facts' IN prompt_rendered) > 0` and got TRUE on all five — **also
+worthless**: it matches STRICT RULE 14's own prose (*"…not given in THIS prompt (Verified Facts,
+Research Findings, Admin Content Brief, or Existing Content)"*). There is no `## Verified Facts`
+heading in any of the five (`position(...)` = 0 on both checked).
+
+**So both of my instruments were substring presence, and both matched the prompt talking ABOUT facts
+rather than carrying them.** That is `WRONG_CALLS` 2026-09-04 twice over (the `budget_tokens` mention
+census, and the fabricated commit hash) and `LANDMINES`' generalised `::text LIKE` entry — mine, added
+this morning. **The check that saved it was reading the surrounding context of the hit instead of the
+boolean**, which is exactly what that entry now tells a reader to do. I did it because I had just
+written it down. That is the only reason.
+
+**What I can state, and the bound on it.** `[MEASURED]` in five sampled 09-03 writer prompts for this
+site, no fact from `evidence_base` appears as supplied evidence; the one apparent hit is the page's
+own prior HTML. `[NOT ESTABLISHED]` whether a facts block is assembled for this site at all — that
+needs the assembly path read, not more greps, and it is the same seam as this lane's
+empty-writer-context finding (`Company:` empty on 41% of 6,931 writer calls, diagnosis `fbe2be91`
+returned UNVERIFIABLE). **The decisive test before promoting the parked rewrite is one dispatch and a
+read of the resulting prompt for a facts BLOCK — not a grep for a fact STRING**, which cannot
+distinguish evidence from the page's own text. Relayed to that lane in those terms.
+
+**For this lane's title-promise item:** the case is a good demonstration and a bad first target. The
+demonstration is exact — a titled promise with no data behind it, on a page the plan does not type as
+a listing — but the site is a **paid build** whose dispatches belong to `site_delivery_and_editor`,
+and the copy cannot be right until the inputs are. Sequence: inputs, then rewrite, then measure.
