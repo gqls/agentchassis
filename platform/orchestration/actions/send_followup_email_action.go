@@ -21,7 +21,7 @@
 //   - No interval. followup_after_days is REQUIRED config with no default,
 //     because the interval is the owner's decision ("a week or so" is not a
 //     number) and a compiled-in guess would quietly become the answer.
-//   - No hosting steps. The email carries {{instructions_url}} and never the
+//   - No hosting steps. The email carries {{instructions_link}} and never the
 //     instructions themselves — the rule from bugs_open/475: anything that can
 //     go out of date lives on the page, never in a copy the customer already
 //     holds. An email is exactly such a copy.
@@ -46,7 +46,7 @@
 //       "instructions_url":    "https://webdesign.uk/your-site",
 //       "followup_after_days": 7,
 //       "subject":             "Your website files, and where the instructions live",
-//       "body_template":       "... {{live_site}} ... {{instructions_url}} ... {{confirm_link}}"
+//       "body_template":       "... {{live_site}} ... {{instructions_link}} ... {{confirm_link}}"
 //     },
 //     "output_field": "followup_email",
 //     "next_step": "complete"
@@ -164,7 +164,14 @@ func SendFollowupEmailAction(ctx context.Context, params ActionParams) (interfac
 	// than silent, but it fires AFTER the claim, which is worse.
 	instructionsURL := stringOr(config, "instructions_url")
 	for _, l := range []struct{ placeholder, value, source string }{
-		{"{{instructions_url}}", instructionsURL, "instructions_url config"},
+		// NAME NOTE: the placeholder is {{instructions_link}} while its config key
+		// is instructions_url, and that mismatch is the estate's convention rather
+		// than a slip — send_delivery_email_action.go:127-129 does exactly this
+		// three times ({{domain_rent_link}} from domain_rent_url, and two more).
+		// Agreed with the bugs_open/475 lane 2026-09-04; renamed from
+		// {{instructions_url}} while 775 was still seeded-and-unapplied, so it
+		// cost nothing. After 775 is applied a rename costs a migration.
+		{"{{instructions_link}}", instructionsURL, "instructions_url config"},
 		{"{{zip_link}}", "", "a zip presign, which a scheduled follow-up has no step to mint"},
 		{"{{domain_rent_link}}", stringOr(config, "domain_rent_url"), "domain_rent_url config"},
 		{"{{domain_buy_link}}", stringOr(config, "domain_buy_url"), "domain_buy_url config"},
@@ -222,7 +229,7 @@ func SendFollowupEmailAction(ctx context.Context, params ActionParams) (interfac
 	}
 
 	body := fillTemplate(
-		strings.ReplaceAll(bodyTemplate, "{{instructions_url}}", instructionsURL),
+		strings.ReplaceAll(bodyTemplate, "{{instructions_link}}", instructionsURL),
 		delivery.Prepared{
 			Handover: prepared,
 			Links: delivery.Links{

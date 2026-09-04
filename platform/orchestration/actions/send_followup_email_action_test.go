@@ -40,7 +40,7 @@ func baseFollowupConfig() map[string]interface{} {
 		"followup_after_days": float64(7), // float64: this is how JSON config arrives from the DB
 		"subject":             "Your website files, and where the instructions live",
 		"body_template": "Your site is still live at {{live_site}}. The instructions are kept up to date here: " +
-			"{{instructions_url}} . When you have moved, tell us: {{confirm_link}}",
+			"{{instructions_link}} . When you have moved, tell us: {{confirm_link}}",
 	}
 }
 
@@ -218,7 +218,7 @@ func TestSendFollowupEmailRefusesWithoutAnInterval(t *testing.T) {
 // replaced by an empty string and the customer would read "Your files: " with
 // nothing after it — invisible to the post-fill scan, because the fill succeeded.
 func TestSendFollowupEmailRefusesAnUnfillableLinkBeforeClaiming(t *testing.T) {
-	for _, placeholder := range []string{"{{zip_link}}", "{{instructions_url}}", "{{stripe_portal_link}}"} {
+	for _, placeholder := range []string{"{{zip_link}}", "{{instructions_link}}", "{{stripe_portal_link}}"} {
 		t.Run(placeholder, func(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			if err != nil {

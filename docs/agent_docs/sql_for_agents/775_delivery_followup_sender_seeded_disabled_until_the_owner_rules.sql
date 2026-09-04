@@ -144,7 +144,7 @@ SELECT
           'instructions_url',    'https://webdesign.uk/your-site',
           'followup_after_days', 3,
           'subject',             'Your website, and where the instructions live',
-          'body_template',       E'A few days ago we sent you your finished site and your files.\n\nThis is the one follow-up you will get from us.\n\nYOUR SITE\nIt is still live at {{live_site}} for the rest of the {{days}} days.\n\nTHE INSTRUCTIONS\nEverything about putting the site on your own hosting is kept here, and it is kept up to date:\n{{instructions_url}}\nIf that page and anything you downloaded ever disagree, believe the page.\n\nPutting it up takes about forty minutes, and most of that is waiting for the host to email you back. It feeling slow does not mean anything has gone wrong.\n\nIF YOU HAVE ALREADY PUT IT UP\nOpen your new address in a private browsing window. Some hosts show a brand new site only to the person who uploaded it, and it looks completely normal to you while nobody else can reach it. If you see a page saying the site is private, your host will have a setting to make it public.\n\nTHE DOMAIN\nIf you have not decided yet, reply to this email and we will sort it out.\n\nWHEN YOU HAVE MOVED\nOnce your site is off our hosting, press the button here to tell us:\n{{confirm_link}}\n\nwebdesign.uk'
+          'body_template',       E'A few days ago we sent you your finished site and your files.\n\nThis is the one follow-up you will get from us.\n\nYOUR SITE\nIt is still live at {{live_site}} for the rest of the {{days}} days.\n\nTHE INSTRUCTIONS\nEverything about putting the site on your own hosting is kept here, and it is kept up to date:\n{{instructions_link}}\nIf that page and anything you downloaded ever disagree, believe the page.\n\nPutting it up takes about forty minutes, and most of that is waiting for the host to email you back. It feeling slow does not mean anything has gone wrong.\n\nIF YOU HAVE ALREADY PUT IT UP\nOpen your new address in a private browsing window. Some hosts show a brand new site only to the person who uploaded it, and it looks completely normal to you while nobody else can reach it. If you see a page saying the site is private, your host will have a setting to make it public.\n\nTHE DOMAIN\nIf you have not decided yet, reply to this email and we will sort it out.\n\nWHEN YOU HAVE MOVED\nOnce your site is off our hosting, press the button here to tell us:\n{{confirm_link}}\n\nwebdesign.uk'
         ),
         'output_field', 'followup_email',
         'next_step', 'complete'
@@ -241,8 +241,8 @@ BEGIN
   -- loud rather than silent.
   SELECT default_config->'workflow'->'steps'->'send_followup'->'config'->>'body_template'
     INTO tpl FROM agent_definitions WHERE type='delivery-followup-sender' AND deleted_at IS NULL;
-  IF tpl NOT LIKE '%{{live_site}}%' OR tpl NOT LIKE '%{{confirm_link}}%' OR tpl NOT LIKE '%{{instructions_url}}%' THEN
-    RAISE EXCEPTION '775 FAILED: the follow-up template is missing one of {{live_site}} / {{confirm_link}} / {{instructions_url}}';
+  IF tpl NOT LIKE '%{{live_site}}%' OR tpl NOT LIKE '%{{confirm_link}}%' OR tpl NOT LIKE '%{{instructions_link}}%' THEN
+    RAISE EXCEPTION '775 FAILED: the follow-up template is missing one of {{live_site}} / {{confirm_link}} / {{instructions_link}}';
   END IF;
   -- And it must NOT promise the reminders stop, because this IS the reminder.
   IF tpl ILIKE '%stop reminding%' OR tpl ILIKE '%no more reminders%' THEN

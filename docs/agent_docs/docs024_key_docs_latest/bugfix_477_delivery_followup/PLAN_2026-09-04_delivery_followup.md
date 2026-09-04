@@ -80,7 +80,12 @@ scheduled sender has **no equivalent unless one is built**.
   AND `followup_sent_at IS NULL`. This is what gives `transfer_confirmed_at` its first reader and is
   the half of the bug that makes the button mean something.
 - **Copy is CONFIG**, following `send_delivery_email_action.go:8`, and it must **carry
-  `{{instructions_url}}`, not restate the hosting steps** — the rule from `bugs_open/475`: anything
+  `{{instructions_link}}`, not restate the hosting steps**
+  *(> **RENAMED 2026-09-04:** this said `{{instructions_url}}` when written. Agreed with the
+  `bugs_open/475` lane: the estate's convention is a `*_url` CONFIG KEY feeding a `*_link`
+  PLACEHOLDER — `send_delivery_email_action.go:127-129` does it three times — so the placeholder is
+  `{{instructions_link}}` and the config key stays `instructions_url`. Done while `775` was still
+  seeded-and-unapplied, when it cost nothing; after it is applied a rename costs a migration.)* — the rule from `bugs_open/475`: anything
   that can go out of date lives on the page, never in a copy the customer already holds. A follow-up
   email is a fourth exit for that same body of copy, not a new one.
 - **Keep the promise-vs-artefact guard.** `send_delivery_email_action.go:125-132` refuses to send
