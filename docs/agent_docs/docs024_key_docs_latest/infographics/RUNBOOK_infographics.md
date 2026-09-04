@@ -124,3 +124,34 @@ Re-run at every phase boundary; every ownership check is lagging.
   component. Always say which. A bare "infographic" in this lane's docs means route A only.
 - Any count carries the date it was counted (`**N** as of <date>`), per the owner ruling.
 - This lane **specifies**; peers **build**. See PLAN §4 for the "will not do" list.
+
+## 7. Route C — structure written INTO the prose (the third arm, added 2026-09-04)
+
+Neither §1 arm can see it: route C produces **no `page_components` row**, only markup inside
+`article-body`'s `content` blob.
+
+```sql
+SELECT s.domain, count(*) AS bodies,
+       count(*) FILTER (WHERE pc.content_data->>'content' ~ '<table') AS with_table,
+       count(*) FILTER (WHERE pc.content_data->>'content' ~ '<ul')    AS with_ul
+  FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id AND cc.name='article-body'
+  JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+ GROUP BY 1 ORDER BY 3 DESC;    -- repeat for 'generic-text-block' (274 rows, 79 <ul>, 2 <table>)
+```
+
+**To find what DRIVES it**, read the site's `content_direction` spec — that is where the structural
+rule lives (`list_usage`, and prose rules naming tables).
+
+### ⚠ Two probe traps, both hit on 2026-09-04, each one step from a REVERSED conclusion
+
+1. **`ILIKE '%table%'` matches "accep-table".** On webdesign.co.uk it returns **6** hits, **all six**
+   the word *acceptable*; word-boundary matched the true count is **0**. Caught by
+   `news_editorial_features` one step before reporting *"webdesign mentions tables MORE than
+   gamesdesign, so the rule is not the discriminator"* — the exact inverse of the finding.
+   **Use `~* '\mtable'` or a word-boundary match**; `suitable`/`comfortable`/`acceptable` all contain it.
+2. **`data ? 'list_usage'` tests TOP-LEVEL keys only.** It returns **0 for gamesdesign.co.uk** — the
+   site the field was quoted *from*, because the key is nested. This lane's *"8 of 40 sites have
+   `list_usage`"* is **wrong**, not merely incomplete: it is a count of sites with that key **at top
+   level**, and other sites express the same guidance as prose with no such key at all
+   (vetcomparison does). **Never quote a `?` count as capability without a text-search control in the
+   same breath** — a key-shape probe answers a question about SHAPE and reads as one about PRESENCE.

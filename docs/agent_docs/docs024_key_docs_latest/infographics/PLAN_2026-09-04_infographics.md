@@ -12,6 +12,24 @@ where you fit in in the responsibility set."*
 **For a given explanatory need on a page, decide which artefact answers it — prose, a generated
 picture, or a code-rendered component — and make the framework's rules say that consistently.**
 
+> ### THE RULE, in one line (arrived at 2026-09-04 with `news_editorial_features`, their formulation)
+>
+> **If the thing is made of the page's own words, a RULE re-derives it. If it is an ASSET, something
+> must own its persistence.**
+>
+> That is the top-level fork, and it decides the route before any component is chosen:
+>
+> | the thing is… | route | durability | needs building |
+> |---|---|---|---|
+> | **structure** made of the page's own words (table, checklist, ordered steps) | **C** — a `content_direction` rule; or **B** — a mounted component | **C: by REGENERATION** (the rewrite re-reads the rule). **B: by separation** (a sibling section is never rewritten) | C: nothing. B: nothing — the components exist |
+> | an **asset** (a picture, a chart of registered figures) | **A** (diffusion) or **B** (`evidence-chart`) | **an owner of persistence is required** — a spec rule can ASK for an image and cannot produce one; the writer emits prose, not a JPEG | `inline_guide_imagery`'s binding (IMG-075) for in-body; a sibling section otherwise |
+>
+> **Why the fork is load-bearing:** this lane stated the regeneration property too broadly on
+> 2026-09-04 (*"the artefact is not durable, the RULE is"*) and `news_editorial_features` bounded it
+> the same day. It is true of structure and **false of assets**, and the whole difference is that a
+> writer emits words. Their narrowed scoreboard follows and this lane endorses it: **composition's
+> justification is removed for structure-inside-prose and SURVIVES for imagery-inside-prose.**
+
 Nobody owns that question today. Every neighbouring lane owns a *mechanism* and each correctly
 stopped at its own boundary (§4). The selection rule between mechanisms fell between them, and the
 consequence is measured in §2: the estate's own written rules currently disagree about which
