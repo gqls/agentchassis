@@ -111,7 +111,17 @@ var (
 	// 30 days [MEASURED 2026-09-03] carry a link severed mid-URL — a shape
 	// MDLinkRe cannot match by construction, which is why the news pages measured
 	// clean in August 2026 and served dirty in September (bugs_open/332).
-	MDLinkTruncatedRe = regexp.MustCompile(`(?:^|[\s(])\[[A-Za-z][^\]\n]{0,80}\]\((?:https?://|/)[^)\s]{0,200}$`)
+	// ⚠ `!?` ADDED 2026-09-04, and it is the whole of bugs_open/332's residual.
+	// The first cut's left boundary was `(?:^|[\s(])`, which EXCLUDES a preceding
+	// `!` — and `!` is exactly the markdown image marker. So `![alt](url…`, an
+	// image whose alt text closed but whose URL was severed, fell through every
+	// rule in this file: mdImageStripRe needs the closing `)`, this pattern's
+	// boundary rejected the `!`, and mdFeedImageTailRe requires no `]` at all.
+	// Found live on idea.uk's news-listing, re-rendered 2026-09-04 10:49Z — HOURS
+	// after the roll that shipped the rest of this fix, so it was a genuine gap
+	// and not a stale binary (proven separately: dartsonline's column was dirty,
+	// its page re-rendered post-roll, and it came out clean).
+	MDLinkTruncatedRe = regexp.MustCompile(`(?:^|[\s(])!?\[[A-Za-z][^\]\n]{0,80}\]\((?:https?://|/)[^)\s]{0,200}$`)
 	// A value carrying markup or script is not a text-typed field — the
 	// code-span and md-link patterns are suppressed there.
 	HTMLMarkupRe = regexp.MustCompile(`<[A-Za-z/!]`)
@@ -143,6 +153,13 @@ var (
 	// mdLinkTruncatedStripRe is MDLinkTruncatedRe with the visible text captured.
 	// Applied through stripTruncatedLink, NOT ReplaceAllString — see there.
 	mdLinkTruncatedStripRe = regexp.MustCompile(`(^|[\s(])\[([A-Za-z][^\]\n]{0,80})\]\((?:https?://|/)[^)\s]{0,200}$`)
+	// mdImageTruncatedUrlStripRe is the image form of the rule above: alt text
+	// CLOSED, URL severed. It must run BEFORE mdLinkTruncatedStripRe for the same
+	// reason mdImageStripRe runs before mdLinkStripRe — otherwise the link rule
+	// would keep the `!` as part of its boundary capture. Keeps the alt text,
+	// matching what the complete-image rule already does (`![alt](url)` -> `alt`,
+	// council 060bcc0a's property: a bare image token keeps its visible text).
+	mdImageTruncatedUrlStripRe = regexp.MustCompile(`(^|[\s(\[])!\[([A-Za-z][^\]\n]{0,80})\]\((?:https?://|/)[^)\s]{0,200}$`)
 )
 
 // TIER 2 — feed display only. In no detector; see the WHY TWO TIERS block above.
@@ -190,6 +207,26 @@ var (
 // Still strip-only. The re-emitted "..." was in the input — it is the same three
 // bytes, moved left, and the output is always shorter than the input because the
 // bracket, the "](" and the scheme go with it.
+// stripTruncatedImageURL removes an image whose URL was severed, keeping the alt
+// text and RE-EMITTING THE TRUNCATION MARKER — same contract and same reason as
+// stripTruncatedLink below, which see for why the marker matters.
+func stripTruncatedImageURL(s string) string {
+	return mdImageTruncatedUrlStripRe.ReplaceAllStringFunc(s, func(m string) string {
+		sub := mdImageTruncatedUrlStripRe.FindStringSubmatch(m)
+		if sub == nil {
+			return m
+		}
+		out := sub[1] + sub[2]
+		switch {
+		case strings.HasSuffix(m, "..."):
+			out += "..."
+		case strings.HasSuffix(m, "\u2026"):
+			out += "\u2026"
+		}
+		return out
+	})
+}
+
 func stripTruncatedLink(s string) string {
 	return mdLinkTruncatedStripRe.ReplaceAllStringFunc(s, func(m string) string {
 		sub := mdLinkTruncatedStripRe.FindStringSubmatch(m)
@@ -224,6 +261,21 @@ func LiteralMarkdownPatterns(text string, includeCodeSpan bool) [][2]string {
 		if m := MDLinkRe.FindString(text); m != "" {
 			out = append(out, [2]string{"md_link", m})
 		}
+		// ⚠ WIRED 2026-09-04, and it should have been wired on 2026-09-03.
+		// MDLinkTruncatedRe was declared, exported, documented as a detection
+		// pattern and NEVER CALLED HERE. The strip removed truncated links; the
+		// scan never looked for them. Two consequences worth stating because both
+		// are the shapes this file exists to prevent:
+		//   - the detector was blind to the exact defect bugs_open/332 is about,
+		//     so a page serving one scanned CLEAN;
+		//   - and TestStripThenScanFindsNothing passed VACUOUSLY for it — the
+		//     fixpoint holds trivially when Scan cannot see the pattern at all.
+		// Caught only by a test that asserted detection directly, on a live
+		// production string. A declared-but-uncalled pattern is invisible to every
+		// property test in this package, because they all go through this function.
+		if m := MDLinkTruncatedRe.FindString(text); m != "" {
+			out = append(out, [2]string{"md_link_truncated", m})
+		}
 	}
 	if m := MDHeadingRe.FindString(text); m != "" {
 		out = append(out, [2]string{"heading", m})
@@ -257,6 +309,7 @@ func stripTier1(s string, includeCodeSpan bool) string {
 			// "[Title](url)" intact only where it was the whole heading text, and
 			// md links can carry bold/code inside their text.
 			out = mdLinkStripRe.ReplaceAllString(out, "$1")
+			out = stripTruncatedImageURL(out)
 			out = stripTruncatedLink(out)
 		}
 		out = mdBoldStripRe.ReplaceAllString(out, "$1")

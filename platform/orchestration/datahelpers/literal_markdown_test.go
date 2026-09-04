@@ -346,3 +346,53 @@ func TestFeedDisplayStripLeavesAuthoredProseAlone(t *testing.T) {
 		}
 	}
 }
+
+// bugs_open/332 RESIDUAL, found in production 2026-09-04 and fixed the same day.
+//
+// This is the shape that survived the first fix: a markdown IMAGE whose alt text
+// CLOSED but whose URL was severed by the 197-byte snippet cut. It fell through
+// every rule in the file — mdImageStripRe needs the closing `)`,
+// mdLinkTruncatedStripRe's left boundary rejected the `!`, and mdFeedImageTailRe
+// requires no `]` at all — so the value passed through completely untouched.
+//
+// The fixture is VERBATIM from idea.uk's served news-listing, which re-rendered
+// at 2026-09-04 10:49Z, hours AFTER the roll that shipped the rest of the fix.
+// That timing is what made it a gap rather than a stale binary, and it is why
+// the fixture is the live string rather than a constructed one.
+func TestTruncatedImageURLIsStripped(t *testing.T) {
+	in := "UK AI start-up Callosum secures $100m in seed funding round\n20 Aug 2026\n\n" +
+		"![Two young men in casual attire standing with their backs against a city skyline.]" +
+		"(https://www.siliconrepublic.com/wp-con..."
+
+	for _, tc := range []struct {
+		name string
+		got  string
+	}{
+		{"tier 1", mustStrip(StripLiteralMarkdown(in, true))},
+		{"feed tier", mustStrip(StripFeedDisplayMarkdown(in, true))},
+	} {
+		for _, marker := range []string{"](http", "![", "]("} {
+			if strings.Contains(tc.got, marker) {
+				t.Errorf("%s: marker %q survived: %q", tc.name, marker, tc.got)
+			}
+		}
+		// The alt text is the visible text and must SURVIVE — council 060bcc0a's
+		// property for the complete-image form, which this mirrors.
+		if !strings.Contains(tc.got, "Two young men in casual attire") {
+			t.Errorf("%s: lost the alt text: %q", tc.name, tc.got)
+		}
+		// And the truncation marker must survive, for the same reason it does on
+		// the link form: without it the fragment reads as a finished sentence.
+		if !strings.HasSuffix(tc.got, "...") {
+			t.Errorf("%s: lost the truncation marker: %q", tc.name, tc.got)
+		}
+	}
+
+	// The DETECTION half must see it too, or the scan passes a page that serves
+	// it — the blind-check shape this whole bug is about.
+	if got := LiteralMarkdownPatterns(in, true); len(got) == 0 {
+		t.Errorf("detection is blind to the truncated-image shape: %q", in)
+	}
+}
+
+func mustStrip(s string, _ bool) string { return s }
