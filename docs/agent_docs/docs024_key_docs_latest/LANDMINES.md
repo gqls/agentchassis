@@ -23933,3 +23933,30 @@ WHERE p.status='active'
 - **relations:** `bugs_open/475` (the lane most likely to add the next placeholder — an instructions link) · `bugs_open/477` (the follow-up that reuses the vocabulary) · register `EMAIL-003` · the sibling duplicate in the same fortnight, `ConfirmTokenURL` vs `prepare.go`'s `tokenURL`, where three council seats made the general point: **a cross-reference comment in one file protects nobody reading the other**, which is why the warning now sits at `fillTemplate` itself and not only in the follow-up
 - **added:** 2026-09-04, bugs_open/477 lane
 - **⚠ RESTORED (SECOND ATTEMPT) 2026-09-04 by the `infographics` lane.** This entry, filed by the `bugs_open/477` lane, has now been lost from HEAD **twice**: once by my commit `2e4f155eb` (a read-modify-write clobbering a concurrent append), and again within the hour — my first restore's trailing note survived in the file while the ten lines above it did not, leaving an **orphaned note asserting a restore that had not held**. That orphan is still further up this file and is **stale — ignore it; this block is the live copy.** Reinstated verbatim from `9af520228`. **The lesson is the one this pair of failures keeps teaching: on this file, a clean `git status` and a successful commit are both consistent with your change having been reverted under you. ASSERT AT HEAD** — `git show HEAD:<file> | tr '\\n' ' ' | grep -c '<phrase>'` — **immediately after committing, and again a few minutes later.** A pre-commit `--numstat` deletions==0 check is necessary and is NOT sufficient; it cannot see a loss that happens after your commit.
+- **⚠ CORRECTED 2026-09-04, ~40 minutes after filing, by the entry's own author.** The
+  mechanism above is right and the worked example was **WRONG**. I wrote that
+  `redeploy-agents` restarts agent deployments and that `auth-service` "is not one, and
+  empirically did not restart". **It did restart** — `[MEASURED 2026-09-04 16:19Z]` all
+  three pods came back on a new ReplicaSet (`auth-service-6bdf6f8645-*`,
+  `startTime` 15:59:43–16:00:26Z). My 15:58Z snapshot was simply taken **before the rollout
+  reached that deployment**, and I generalised a mid-roll observation into a claim about
+  which deployments the target covers. What caught it: running the post-roll check properly
+  once the fleet settled, which I had recorded as an explicit debt rather than skipping.
+- **the trap survives the correction, and is SHARPER for it.** A rollout reaches deployments
+  **in an order and at a pace you do not control**, so "the release has started" tells you
+  nothing about whether *your* consumer has re-read its environment yet. Both readings look
+  identical — a pre-restart pod and a healthy post-restart pod **both** answer `400`. The
+  false comfort is not "auth-service never restarts"; it is **"I checked after the release,
+  so the keys survived"**, when what you actually sampled was the old process. That is the
+  same wrong answer, reached by a shorter road, and it is available in *every* roll.
+- **the check, corrected — date the POD, not the release:** before believing any post-roll
+  secret verification, confirm the consumer actually restarted *after the cut*:
+  `kubectl -n ai-persona-system get pods -l app=<svc> -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.startTime}{"\n"}{end}'`
+  — every pod's `startTime` must be **later than the roll's image-build time**, and the pod
+  NAME should carry a new ReplicaSet hash. A `startTime` from yesterday means your green
+  check is about yesterday's process. Then run both halves (consumer + secret key names).
+- **the result, now that it was run properly:** `[MEASURED 2026-09-04 16:19Z, post-restart]`
+  webhook **400**, apex **200** (control), secret carries **STRIPE_SECRET_KEY** and
+  **STRIPE_WEBHOOK_SECRET**, 10 keys total. **The terraform-047 fix is proven again on a
+  real release with the consumer genuinely restarted** — which is the evidence the 2026-08-26
+  incident never had.
