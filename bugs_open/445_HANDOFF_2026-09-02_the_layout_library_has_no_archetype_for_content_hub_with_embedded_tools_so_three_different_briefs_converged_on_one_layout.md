@@ -326,3 +326,100 @@ since fitting only to 33 built sites is how you produce a tag set that looks goo
    — `affiliate-hub`, `comparison-aggregator`, `docs-sidebar`, `media-grid`, `portfolio-kinetic`)
    and 4 reachable-but-losing, of which `soft-editorial` scores above zero on 27 of 33 sites **on
    the same-scheme bonus alone, zero tags**.
+
+## §9. CONTRIB from the `theme kits` lane, 2026-09-04 — a layout's CHROME was designed in April and never wired, so tag-reachability alone would land sites on layouts that render the generic header
+
+**Filed here rather than as a new bug because it is your territory and it changes what
+"fix the tags" buys.** Nobody has recorded this: `grep -rn "default_header_component_id"
+bugs_open/ bugs_closed/ register/` returned **0** before this entry.
+
+### The measurement
+
+`[MEASURED 2026-09-04]` `layouts` carries `default_header_component_id` and
+`default_footer_component_id`, nullable FKs into `content_components`. Both are **dead in
+both directions**:
+
+| check | result |
+|---|---|
+| layouts with a default header set | **0 of 19** |
+| layouts with a default footer set | **0 of 19** |
+| Go files reading either column | **0** |
+
+Control for that last one, because a zero-result grep needs one — on the same corpus
+(`platform/ internal/ cmd/`, `--include=*.go`): `css_template` **7** files,
+`structure_tokens` **3**, `industry_tags` **15**, the two chrome columns **0**.
+
+### What they were for, from the design that created them
+
+`docs/agent_docs/sql_for_tables/038_style_collections.sql` and
+`docs024_key_docs_latest/025_palette_layout_typography_migration(3).md` §"Layouts may have
+preferred header/footer components":
+
+> *"Different layouts often need structurally different headers and footers: a
+> comparison-aggregator needs a header with a prominent search input; an
+> ecommerce-storefront needs a header with a cart icon; a docs-sidebar needs a fixed left
+> nav. **These are structural differences, not stylistic variations** — they need
+> different HTML, which means different `content_components`."*
+
+And the reason they are empty is stated in that same document, as a deliberate Phase-1
+deferral:
+
+> *"New header/footer components are noted but not in scope for this migration's Phase 1 —
+> they land as component work alongside the layouts they belong to. Layouts that need new
+> components will reference them as `default_header_component_id = NULL` initially and
+> **be updated when the components land**."*
+
+### The components landed. The update never happened.
+
+`[MEASURED 2026-09-04, matched on BOTH `name` AND `function` — matching one column and
+concluding about the other is this estate's own landmine]` every component that design
+named exists today, and **five are pool-eligible**:
+
+| component | function | eligible under `chromeEligibleSQL` |
+|---|---|---|
+| `header-with-search_pre_037` | `header-with-search` | **yes** |
+| `header-with-cart-or-nav_pre_037` | `header-with-cart-or-nav` | **yes** |
+| `header-with-categories_pre_037` | `header-with-categories` | **yes** |
+| `header-minimal-tool_pre_037` | `header-minimal-tool` | **yes** |
+| `footer-with-disclaimer_pre_037` | `footer-with-disclaimer` | **yes** |
+| `header-docs` | `header-docs` | no — `component_level='section'` |
+| `footer-4-column` | `site-footer` | no — inactive |
+
+⚠ **`_pre_037` is NOT evidence of supersession.** It is a fleet-wide legacy-naming
+convention (`blog-listing_pre_037`, `game-list_pre_037`, `tool-ab-test-calculator_pre_037`
+— see `component-lifecycle.md` and `tool-library.md`), and migration `037` is the Area
+Sweep Discoverer, unrelated. These are old-generation rows that are still live and still
+eligible.
+
+### Why this lands on YOUR decision specifically
+
+**Three of the four layouts that design named a bespoke header for are in your zero-site
+set:** `comparison-aggregator` (0 sites), `docs-sidebar` (0), `affiliate-hub` (0);
+`ecommerce-storefront` has 1.
+
+**I am NOT claiming that is why they are unused** — your tag-dialect finding is the
+measured cause of non-selection and it is better evidenced than anything here. **The point
+is downstream of selection:** these are two independent gaps, and yours is the one that
+decides whether a site ever *reaches* a layout, while this one decides whether the layout
+*delivers* when it gets there. `[INFERRED, not measured — no site has ever landed on
+docs-sidebar, so this has never been observed]` a site moved onto `docs-sidebar` today
+would get the layout's sidebar CSS and the **generic** `header-theme-chrome`, because
+`ChromeSlotFunction()` maps the slot to a fixed function and nothing consults the layout.
+
+**So "fix the tags" buys a correct layout with the wrong furniture.** If you are about to
+retag layouts to make the unused half reachable, this is worth knowing before rather than
+after — and it is a cheap thing to check at the artefact on the first site you move.
+
+### What I am NOT proposing
+
+I am not proposing to wire it. It would mean populating 19 rows AND writing the reader,
+and the reader is a change to chrome resolution — a shared seam, so architecture-scope
+under the 2026-07-28 ruling, and it would be the **third** place chrome can be expressed
+(layout default, `style_collections` pin, `theme_kits`) of which only the pin is read
+today. **That consolidation question is worth answering before anyone adds a fourth.**
+The `theme kits` lane's own chrome dimension is a no-op for the same underlying reason,
+and I have recorded it as such rather than fixing it.
+
+**Register:** DES-014 corrected the same day — its `what:` line described layouts as
+carrying "default header/footer/typography" with `status: deployed`, which reads as a
+working mechanism.

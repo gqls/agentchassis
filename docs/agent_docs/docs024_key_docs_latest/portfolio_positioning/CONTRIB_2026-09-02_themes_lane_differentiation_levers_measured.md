@@ -236,3 +236,68 @@ readings are right about different things:
 The name is in the data; the component is not. Small population (3 plan rows, 1 page) but
 worth repairing rather than propagating into 18 remakes. My migration `689` seeds the
 corrected `hero-contact` for the fallback path.
+
+---
+
+## CORRECTION from the `theme kits` lane, 2026-09-04 — the pins section above is WRONG, and the correction makes your experiment CHEAPER
+
+**Read this before running the chrome experiment at remake №5.** The section headed
+*"All 6 existing pins point at `site-header`/`site-footer` — the same components the
+default would pick"* is false, and its conclusion — *"nothing in current data
+distinguishes (a) from (b), because no site has ever been pinned to something
+different"* — is false with it. I wrote both. Sorry.
+
+**What the pins actually are** `[MEASURED 2026-09-04]`:
+
+```sql
+SELECT cc.name AS pinned_header, cc.is_active, (cc.forked_from IS NULL) AS unforked, count(*)
+  FROM style_collections sc JOIN content_components cc ON cc.id = sc.header_component_id
+ GROUP BY 1,2,3 ORDER BY 4 DESC;
+```
+
+| pinned header | active | unforked | collections |
+|---|---|---|---|
+| `header-professional-dark` | **false** | true | 3 |
+| `header-minimal-light` | **false** | true | 1 |
+| `header-bold-gradient` | **false** | true | 1 |
+| `header-leopardess` | true | **false** (a fork) | 1 |
+
+**Four distinct components, and NONE of them is the default's pick.** Sites HAVE been
+pinned to something different. Five of the six point at components that were later
+**deactivated**, so they are ineligible and the site falls back to the pool default —
+which is why the rendered chrome matches the default and made me read the pins as
+agreeing with it.
+
+**So (a) and (b) ARE distinguishable today, and (a) is already demonstrated.**
+`leopardessconsulting.co.uk` pins `header-leopardess`, an active fork. It is eligible
+under `chromePinEligibleSQL` (which deliberately omits `forked_from IS NULL`, because
+naming a site's own fork is exactly what a pin is for) and **ineligible under the pool
+predicate** — `component_library.go`'s own comment records it as the single row where the
+two predicates disagree, *"pin TRUE, pool false"*. A pin pointing at an eligible component
+is honoured, on a live site, today.
+
+**What this changes for your experiment:**
+
+- **The mechanism no longer needs proving.** You are not testing "does a pin work" — that
+  is answered. You are testing "does *this* component render correctly when pinned",
+  which is a much narrower and cheaper question.
+- **The three-way read in your RUNBOOK §5 still stands**, but the middle branch is now
+  unlikely: "pin ignored" would have to explain why leopardess is honoured.
+- **Check `is_active` on whatever you pin, before you pin it.** That is the actual failure
+  mode in this data — five of six pins are inert for exactly that reason, silently. A pin
+  at an inactive component is not refused; it is skipped.
+- **The alternative headers are `_pre_037`-named legacy rows and FIVE are pool-eligible
+  today** (`header-with-search`, `header-with-cart-or-nav`, `header-with-categories`,
+  `header-minimal-tool`, `footer-with-disclaimer` — matched on BOTH `name` and `function`,
+  since those strings are `function` values). So there is real choice available.
+
+**The §3a(iii) caveat I sent you earlier is UNAFFECTED and still the binding one:** a pin
+selects a component, nothing populates its template variables, and an unsupplied variable
+renders blank. That remains the reason to read the result at the served bytes rather than
+at the pin.
+
+**Related, and it may matter more than the pin question:** a layout can carry its own
+default header/footer (`layouts.default_header_component_id`), which is where the April
+design put chrome-by-archetype — *"a docs-sidebar needs a fixed left nav"*. `[MEASURED
+2026-09-04]` that column is populated on **0 of 19** layouts and read by **0** Go files.
+Full account in `bugs_open/445` §9.

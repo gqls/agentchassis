@@ -136,7 +136,22 @@ deduplication begins; the "raw extractions" count above and the per-concept
 - **verify-later:** legacy columns still read anywhere; Phase 4.5/7 progress; layouts/palettes/typography_sets row counts; render_css_composition_loader.go
 
 ### DES-014 — Layout archetype library (15/17/18 named layouts) — overview
-- **status:** deployed
+- **status:** deployed — **19 live layouts as of 2026-09-04**, all `is_active`, **10 in
+  use and 9 with ZERO sites**. Each carries a genuinely distinct template: 19 distinct
+  `css_template` bodies and 19 distinct `structure_tokens` across 19 rows (13.8–30.3 KB
+  each), so the library is real, not near-duplicates. **Layout is the one composition
+  dimension that reliably reaches the served page** — `render_css_composition_helpers.go`:
+  *"Structure tokens: layout always wins (spec does not contribute)"*, i.e. the LLM design
+  overlay cannot overwrite it, unlike the 8 core palette slots.
+  > **⚠ CORRECTED 2026-09-04 — the `what:` line below describes a mechanism that DOES NOT
+  > RUN.** It says each layout has a "default header/footer/typography". The
+  > `default_header_component_id` / `default_footer_component_id` columns exist and are
+  > **dead in both directions**: `[MEASURED 2026-09-04]` **0 of 19** rows populate either,
+  > and **0** Go files read either (control on the same corpus: `css_template` 7 files,
+  > `structure_tokens` 3, `industry_tags` 15). So a layout does NOT carry chrome today, and
+  > this entry's `status: deployed` should not be read as covering that half. Full account,
+  > including the April design intent and the fact that the components it named all exist
+  > and five are chrome-eligible: **`bugs_open/445` §9**.
 - **status-evidence:** "Phase 1 is next: designing and writing the 15 layout CSS templates" → "Phase 1 — Layouts seeded (15 rows in layouts table)... deployed"; two further layouts (tool-portal-dark, social-lobby) and a light variant (tool-portal-light) added later, bringing the live count to 17–18 by mid-2026.
 - **what:** Taxonomy of named structural/visual archetypes (brochure-formal, portfolio-kinetic, utility-tool, media-grid, docs-sidebar, etc.), each with character/structural-trait descriptions, default header/footer/typography, and legacy-theme mappings — the target library for migration 025's `layouts` table. Individual archetypes are catalogued as their own concepts below (DES-015 through DES-031-ish); this entry is the umbrella claim about the library as a whole.
 - **sources:** old_design_and_styling/FOCUS_design_and_styling_adoption_HANDOFF_2026-04-17.md#"4. The 15 Layouts" (U12); 025_palette_layout_typography_migration(3).md
@@ -1139,10 +1154,24 @@ deduplication begins; the "raw extractions" count above and the per-concept
   > withdrawn correction above** — it said the pins "resolve to
   > `site-header`/`site-footer`", conflating the row's `name` with its
   > `function`. The finding is unchanged; state it as row identity, not as a
-  > function string. This is the same
-  indistinguishability already recorded for the six pre-existing
-  `style_collections.header_component_id` pins (all six point at the
-  default's own pick); the kits add four more.
+  > function string.
+
+  ~~This is the same indistinguishability already recorded for the six
+  pre-existing `style_collections.header_component_id` pins (all six point at
+  the default's own pick); the kits add four more.~~
+  > **FALSE — corrected 2026-09-04 by reading the pins.** `[MEASURED 2026-09-04]` the six
+  > pins point at **FOUR DISTINCT** components and **none** is the default's own pick:
+  > `header-professional-dark` ×3, `header-minimal-light` ×1, `header-bold-gradient` ×1 —
+  > **all three of those components are `is_active = false`** — plus `header-leopardess`
+  > ×1, which is active but forked. So the observable outcome ("36 of 37 sites render
+  > identical chrome") is unchanged, and **the reason is the opposite of what was
+  > recorded**: people DID select different chrome and the components they chose were
+  > later DEACTIVATED, so five of six pins are ineligible and fall back to the pool.
+  > **The consequence matters for the queued chrome experiment:** "pin honoured" and "pin
+  > ignored" are NOT indistinguishable in current data — `leopardessconsulting.co.uk` is a
+  > live pin that IS honoured (`chromePinEligibleSQL`'s own comment records it as the one
+  > row where the pin and pool predicates disagree, pin TRUE / pool false). The mechanism
+  > is demonstrably working on one site today.
   ```sql
   SELECT tk.name, hc.function, hc.component_level, fc.function, fc.component_level
     FROM theme_kits tk

@@ -221,3 +221,90 @@ change my answer to the question I asked you earlier about whether a "look" is t
 idea at all — because with this, three of the four things a look bundles don't work on a new
 site, and the fourth is the page layout, which we can already choose without any of this
 machinery.
+
+---
+
+## 2026-09-04 — you asked about the layouts we built and never used
+
+Short answer: **the layouts are the most solid thing in this whole area, they are not
+superseded, and about half of them have never been used. But there is a second thing
+buried in them that was designed, half-built and then forgotten, and it explains a
+problem we have been circling for days.**
+
+### The layouts themselves
+
+We have nineteen. All of them are switched on. Ten are in use and nine have never been
+used by any site.
+
+I checked whether they are actually different from each other, because a library of
+near-duplicates would not be worth much. They are genuinely different: nineteen distinct
+stylesheets, nineteen distinct sets of structural settings, each between fourteen and
+thirty kilobytes of real CSS. Somebody did the work properly.
+
+More importantly, **a layout is the one design decision that survives all the way to the
+page.** Colours get overwritten by the design step, as I explained the other day. Page
+shapes barely apply. But the code is explicit that the layout always wins on structure and
+the design step cannot override it. So when a site gets a layout, it really does get that
+layout.
+
+**So no, layouts are not superseded, and they are not the thing that is broken.** They are
+the one piece of this machinery that does what it says.
+
+### Why half of them sit unused
+
+Another team already found the main reason and it is not ours to redo: the layouts are
+tagged with industry words like "bakery", "law", "artisan", while the step that classifies
+a new site emits words about what a site *does* — "publication", "tool portal". So the
+matching never fires for the industry-tagged ones. They are unreachable rather than
+unwanted. That team is building a proper scoring tool for it.
+
+### The thing I found, which nobody had recorded
+
+Back in April, when this system was designed, the plan said something sensible that I had
+not seen anyone mention since:
+
+> *"Different layouts often need structurally different headers and footers: a
+> comparison-aggregator needs a header with a prominent search input; an
+> ecommerce-storefront needs a header with a cart icon; a docs-sidebar needs a fixed left
+> nav. These are structural differences, not stylistic variations."*
+
+So they gave each layout two fields: its own preferred header and its own preferred
+footer. The idea was that choosing a layout would also bring the right furniture with it.
+
+**Those two fields are empty on all nineteen layouts, and no code anywhere reads them.**
+They were created in April and never connected to anything. The design document even says
+why they were left empty at the time — the headers themselves had not been built yet, and
+they would be filled in "when the components land".
+
+**The components landed.** Five of them are alive and usable right now, including the
+search header, the cart header and the disclaimer footer. Nobody ever went back and joined
+them up.
+
+### Why that matters, and it is not just tidiness
+
+Three of the four layouts that design named a special header for are in the never-used
+group. That is not the reason they are unused — the tagging problem above is. But it means
+**fixing the tagging alone would put sites onto layouts that then render with the generic
+header.** You would get the right shape with the wrong furniture, and it would look like
+the layout was a poor choice when the real gap is one field nobody filled in.
+
+It also explains the chrome puzzle I described to you: every site has an identical header
+partly because the mechanism designed to vary it by layout was never wired.
+
+### What I have not done, and why
+
+I have not wired it up. Filling in nineteen rows is trivial; the part that would take
+judgement is that nothing reads the field, so somebody has to decide where layout-chosen
+furniture sits relative to the two other places we can already express the same choice. We
+would be adding a third answer to one question. That is a design decision, not a task, and
+it is adjacent to a question you already have in front of you about whether "kits" are the
+right idea at all.
+
+My honest read: **the layout is the natural place for this.** The April argument is right
+— a documentation layout needs a sidebar nav because it is a documentation layout, not
+because of who the client is. That is a property of the archetype. If we ever consolidate
+the three ways of choosing a header, I would consolidate onto the layout.
+
+I have written the full account into the layout team's file so it reaches the people
+making that decision, and corrected our internal reference where it described the field as
+though it worked.
