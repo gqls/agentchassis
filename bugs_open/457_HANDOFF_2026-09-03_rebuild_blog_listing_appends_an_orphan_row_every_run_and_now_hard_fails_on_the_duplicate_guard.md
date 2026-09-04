@@ -427,3 +427,144 @@ empties clear and the card count stays at 36, a re-render happened and the delet
   could both see zero occupants; the second now degrades to a result rather than aborting the chain,
   but a duplicate is still possible if their bytes differ. An advisory lock or a `23505` catch would
   close it.
+
+---
+
+## RESIDUAL FOUND AND FIXED 2026-09-04 (commit `828b22c7c`, council `28bd3fd3` — verdict pending) — the authority gate guarded the INSERT and not the UPDATE
+
+Picked up by the same lane (`bugfix_451_457_433_unowned_queue`), resumed after it went quiet
+2026-09-03 20:21. **The 09-03 fix is right about the root cause and closed only one of the two
+write verbs.**
+
+### The defect, in one ordering
+
+`decideBlogListingWrite` tested `Occupants == 1 → opUpdate` **above** `switch slot.Origin`. So the
+origin gate — the whole point of the 09-03 fix — reached `opInsert` and never reached `opUpdate`.
+
+On a slot resolved by strategy **2b's guess** or strategy **3's default**, the single occupant is
+not the listing. It is whatever the page legitimately keeps in that slot. "Refreshing the listing"
+therefore **overwrites it**. That is the same unauthorised structural edit the append was, with a
+worse verb: **the append added a row nobody asked for; the update destroys a row somebody did.**
+
+The inconsistency was visible inside the 09-03 fix's own test file and neither of us saw it:
+
+| origin | slot EMPTY | slot OCCUPIED |
+|---|---|---|
+| guessed (2b) / defaulted (3) | **refused** — "creating a listing there is a silent structural edit to someone else's page" | **written** |
+
+The safer case was being refused and the more damaging one permitted.
+
+**It is not a return to the root cause.** That bug used a question about the RESOLVER (*"did
+strategy 1 fire"*) as a proxy for a question about the DATA. Occupancy is still read on every path
+and still decides refresh-vs-create. Origin decides a different question that was never asked:
+**whether anything authorises a write here at all.** Both have to be answered; only one was.
+
+### It was armed by this bug's OWN remediation
+
+`[MEASURED 2026-09-04 ~16:15Z]` the four live `blog-index` pages, and whether strategy 1 matches:
+
+| site | url | `sections` | strategy 1 hit | origin |
+|---|---|---|---|---|
+| ai-agent-orchestration.com | /blog.html | `[]` | `blog-listing` | existing row |
+| **boxingonline.com** | **/articles/index.html** | `[hero, generic-text-block, call-to-action]` | **none** | **2b guess** |
+| finetuning.uk | /blog.html | `[blog-listing]` | `article-grid` | existing row |
+| leopardessconsulting.co.uk | /blog.html | `[]` | `blog-listing` | existing row |
+
+**Three of four never reach 2b at all**, so this narrowing cannot affect them. Boxingonline is the
+only page that does — and it holds **7** rows in `generic-text-block` (the six orphans at position 3
+plus the page's own prose block `3de9aa68` at position 2, `pending`, real `component_id`), so it
+refuses as *ambiguous* today.
+
+**Delete the six orphans — fix candidate 4, owner-assigned to `site_delivery_and_editor` — and
+occupancy falls to 1.** The next `rerender-pages` run then overwrites the page's prose block with
+the article listing. *The remediation for this bug is what triggers it.* Disconfirming result would
+have been a blog-index page resolving by 2b or 3 with exactly one occupant today, whose listing
+would stop refreshing under the narrowing; **there is none.**
+
+> ⚠ **ORDERING, for whoever does the deletion: roll first, delete second.** Go changes are inert
+> until the image rolls. `828b22c7c` was committed 2026-09-04 ~16:45Z; the chassis running at that
+> moment was `239ab3626` (pods up 09-03 22:07Z), which carries the 09-03 fix but **not** this one.
+> Check before deleting:
+> ```
+> SELECT pod_name, git_commit FROM service_binary_capabilities
+>  WHERE kind='build' AND pod_name LIKE 'agent-chassis-%' ORDER BY started_at DESC;
+> git merge-base --is-ancestor 828b22c7c <that commit>
+> ```
+
+### What changed, and what did not
+
+One cell of the decision table. Every other cell is bit-identical. `opRefuseAmbiguous`,
+`opRefuseUnknown`, the swallow guard and the never-INSERT-into-an-occupied-slot guard are untouched.
+Refusal still returns `rebuilt:false` and never an error — `rerender-pages` declares no
+`error_step`, and an error here aborts before `create_rerender_items`, which IS the 18-page outage.
+
+`TestBlogListingUpdatesTheSingleOccupantWhateverStrategyNamedTheSlot` asserted the old behaviour, so
+it is **narrowed rather than deleted**, with the correction recorded in place: it now loops the two
+*authorised* origins (`slotOriginExistingRow`, `slotOriginPlanListing`), so the mutation it was
+written to catch — making the update arm conditional on `slotOriginExistingRow` alone, i.e.
+restoring the root-cause proxy — still kills it. The new cell is pinned by
+`TestBlogListingRefusesToOverwriteTheOccupantOfAGuessedSlot`, mutation-proven 2026-09-04:
+reinstating the pre-switch `Occupants == 1` line fails it on both origins.
+
+### State of the bug on 2026-09-04, all three axes re-measured
+
+- **Code (producer):** 09-03 fix `f895616d7` is **live** — running chassis `239ab3626`,
+  `merge-base --is-ancestor` true. The residual fix `828b22c7c` is **committed and inert** until the
+  next roll.
+- **Exercise:** `[MEASURED 2026-09-04 ~16:05Z]` `orchestration_states` retains back to 09-03 15:15Z
+  and holds **52** `rebuild_blog_listing`-bearing runs, **all COMPLETED**, and **zero for
+  boxingonline**. So the 09-03 fix has never been exercised on the page that reproduces the bug.
+  The chain no longer aborting is inferred from the decision table, not yet observed on this site.
+- **Served damage:** `[MEASURED 2026-09-04 ~16:30Z]` unchanged. Fetched
+  `https://boxingonline.ugg2.com/articles/index.html` cache-busted, controls passing (invented path
+  → 404; `<body>` count = 1): **36** `article-card__title`, **6** "Latest Articles", **14** empty
+  `article-card__category`, **2** empty `article-card__excerpt`. Identical to the pre-fix baseline
+  recorded above, from a third independent instrument. **The apex `boxingonline.com` does not
+  resolve from this machine either — use the `ugg2.com` host** (given by the `boxingonline.com`
+  lane, 2026-09-04).
+- **Rows:** 6 orphans, unchanged, **newest still 09-02 16:28:02**.
+
+### ⚠ THE GROWTH READING CAME BACK, for the fourth time
+
+The `boxingonline.com` lane reported this hour that the repeat count grew 4× → 6× and concluded
+*"the population is still growing, and every run adds one."* **It is not.** They compared a verdict
+row written 09-01 against a measurement taken 09-04; the growth is real and lies **inside** that
+interval, having ended 09-02 16:28:02. Corrected to them directly.
+
+This is the fourth lane to read it that way, and §"TWO PRODUCERS WEAR ONE SYMPTOM" above was written
+after the first three. **A section warning about a misreading does not stop the misreading** — the
+document is only consulted by someone who already suspects. The durable check is in the dates of the
+rows, not in the count: `SELECT max(created_at) FROM page_components WHERE page_id=… AND
+component_id IS NULL` answers "is it still growing" in one query and cannot be read the other way.
+
+### After the deletion, the page still has no article list — and that is correct
+
+`pages.sections` for `/articles/index.html` is `["hero","generic-text-block","call-to-action"]`. It
+names **no listing section**. Once the orphans are gone, a `blog-index` page will serve no article
+list, because the fixed code's correct behaviour is to refuse to invent one. **Someone must add a
+listing-class section to that page's plan.** That is the structural gap under this whole bug, it is
+a content/plan change and not a code fix, and it should be said to the owner before the deletion
+rather than after, or it reads as a new fault.
+
+### Still open (unchanged from 09-03, plus one)
+
+- **The discovery check.** The refusal is still legible only in the action's Error log and the step
+  result. It needs its own `item_type`, a registered handler and a register entry. This change makes
+  it bite on one more page, so it is more valuable than it was — deliberately not smuggled into the
+  guard commit.
+- **Concurrency.** Still check-then-insert. See below: the estate-wide instrument for it was
+  examined this session and is not free.
+- **NEW — the estate has no invariant here, and the obvious one is refused prior art.**
+  `[MEASURED 2026-09-04 ~16:00Z]` `UNIQUE (page_id, slot_name, position) WHERE build_status <>
+  'removed'` holds across all **3,420** live `page_components` rows with exactly **one** violating
+  group — this bug's six orphans. It would close the door for all **7** writers (measured
+  2026-09-04) and for the ones born later, and would close the concurrency race for free.
+  **Do not just apply it.** `316_page_components_no_byte_identical_duplicate.sql` tested that class
+  against production on 2026-08-05 and refused it: *"A constraint stricter than the guard is the
+  worst combination … the disagreement surfaces as a dropped section nobody asked for."*
+  `[MEASURED 2026-09-04]` **2 of 7 writers swallow an INSERT failure** — `save_page_sections_action.go:1130`
+  (`Warn` + `continue`, and it is the writer for every page's sections) and
+  `deploy_tool_action.go:517` (`ON CONFLICT DO NOTHING` + Warn). So the constraint's first effect
+  would be silently missing sections on live pages. **Writer honesty is the prerequisite, not a
+  follow-up**, and the whole thing is architecture-scope. Recorded here with the measurement dated
+  so the next lane does not have to re-derive it — and so it is not attempted in the wrong order.

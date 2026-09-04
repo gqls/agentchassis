@@ -151,3 +151,58 @@ the same counter — so two problems that resolved on their own in a week cause 
 finding to be parked, blaming a repair that was never even attempted. Nineteen watchers work this
 way. That is a straightforward miscount rather than a judgement call, and fixing it leaves your
 2026-08-24 reasoning entirely intact.
+
+## 2026-09-04 — I went back to 457 and found the fix was half a fix
+
+Yesterday's fix for the duplicated article list was right about the cause and only closed half of
+it. I found the other half today, before it could do any harm, and it is fixed and committed.
+
+**What the code is doing.** When the platform rebuilds a site's list of articles, it first has to
+work out *which block on the page* the list belongs in. It has four ways of answering that. Two of
+them are real answers: it finds a list already there, or the page's own plan says where the list
+goes. The other two are guesses: it picks the first block that looks like content, or it falls back
+to a default name when the page has no plan at all.
+
+**The rule yesterday's fix established.** A guess does not give you permission to write. If the
+platform is only guessing where the list goes, it should do nothing and say so, rather than
+inventing a list in a block somebody is using for something else.
+
+**Where it fell short.** That rule was applied when the block was empty and not when it had
+something in it. So on a guessed block, if there was exactly one thing already there, the platform
+would treat it as "the list" and overwrite it. That is worse than the original bug, not better: the
+original added a block nobody asked for, this one deletes a block somebody did.
+
+**And it was about to happen.** The boxing site's articles page is the only page on the estate that
+reaches the guessing path. It currently has seven blocks stacked in that slot — the six duplicates
+plus the page's own text block — and seven is too many to guess between, so the platform refuses and
+nothing happens. **The moment we delete the six duplicates, it drops to one, and the one left is the
+page's own text.** The clean-up we have been planning for this bug is the thing that would have
+triggered it.
+
+So the ordering matters and I have told both lanes: **the new build has to be running before anyone
+deletes those rows.** I have committed the fix and it will go out with the chassis that is building
+now.
+
+**One thing you should know before the clean-up, because it will look like a new fault.** That
+page's plan does not name an article-list section at all — it lists a hero, a text block and a
+call-to-action, and nothing else. So once the six duplicates are deleted, the articles page will
+show **no article list**, correctly, because the fixed code refuses to invent one. Somebody has to
+add a list section to that page's plan. That is a content change, not a code change, and the
+boxingonline thread is putting it to you together with the other two things outstanding on that page
+family, which I think is the right way round.
+
+**Where I was wrong today.** I found a way to make this whole class of bug impossible — a database
+rule saying two blocks can never sit in the same slot at the same position. I measured it and it
+holds across all 3,420 blocks on the estate, with exactly one exception, which is this bug. I wrote
+it up as the answer.
+
+It had already been tried and rejected, a month ago, for a good reason I had not gone and read. Two
+of the seven places in the code that write these blocks quietly ignore a failure — so the database
+rule would not have stopped a duplicate, it would have made a *section silently vanish* from a live
+page instead. The reasoning was sitting in the file that created the existing rule; this bug's own
+notes reference that file four times, and none of those references carries the reasoning. I had read
+all four and gone ahead anyway.
+
+Nothing was lost — I caught it before it went into a plan. It is written down, and the measurement
+is recorded with today's date so the next person does not have to redo it, and does not attempt it
+in the wrong order.

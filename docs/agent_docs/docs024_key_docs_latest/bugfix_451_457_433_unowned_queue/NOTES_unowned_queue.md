@@ -98,3 +98,65 @@ fixture test; the 433 one is mutation-proven in both directions.
   empty exemption map. Council `82989388`. Registered as **IMG-079**.
 - **451 is NOT shipped.** Its converter-parity half stands; the exemption half needs a premise that
   survives misstep 2. The decision is with the owner.
+
+## 2026-09-04 — lane resumed; 457's fix was half a fix
+
+Resumed after the lane went quiet 2026-09-03 20:21. Ownership re-checked properly this time:
+`who-owns.py` names `site_delivery_and_editor` and `components_lane_425`, both ACTIVE — but
+`ListAgents` shows **no live session for this lane**, and the check that settles it is the one
+MISSTEP 1 named: grep what the named lanes DECLINED. Both declined the fix. Resumed here.
+
+**State on arrival, all three axes re-measured rather than inherited:**
+
+- `f895616d7` is LIVE — chassis `239ab3626` (pods up 09-03 22:07Z), `merge-base --is-ancestor` true.
+- `[MEASURED 09-04 ~16:05Z]` it has **never been exercised on the page that reproduces the bug**.
+  `orchestration_states` retains to 09-03 15:15Z, 52 `rebuild_blog_listing` runs, all COMPLETED,
+  **zero for boxingonline**. "The fix is live" and "the fix has run" are different facts and I nearly
+  wrote the first as though it were the second.
+- Served damage unchanged: 36 cards / 6 headings / 14 / 2, controls passing.
+
+### The finding: the origin gate guarded one write verb
+
+`decideBlogListingWrite` tested `Occupants == 1 → opUpdate` **above** `switch slot.Origin`, so the
+authority gate the 09-03 fix exists to install reached `opInsert` and never reached `opUpdate`. A
+guessed (2b) or defaulted (3) slot with one occupant was UPDATED — i.e. the page's own content
+overwritten with the article listing.
+
+The tell was in the fix's own test file, not in the code: a guessed origin with an EMPTY slot
+refused, a guessed origin with an OCCUPIED slot wrote. **The safer case was the one being refused.**
+When a decision table refuses the harmless case and permits the damaging one, the gate is in the
+wrong place — that asymmetry is cheaper to spot than re-deriving the logic.
+
+Armed by this bug's own remediation: boxingonline holds 7 rows in that slot so it refuses today, and
+falls to 1 the moment `site_delivery_and_editor` deletes the six orphans. Told them; ordering is
+**roll first, delete second**. Shipped `828b22c7c`, council `28bd3fd3`, mutation-proven.
+
+### MISSTEP 6 — I proposed prior art that had already been refused, in writing, in the migration
+
+Full entry in `WRONG_CALLS.md`. Short form: I measured that
+`UNIQUE (page_id, slot_name, position) WHERE build_status <> 'removed'` holds across all 3,420 live
+rows with one violating group (this bug's own), and wrote it into a planning brief as the
+framework-wide door-closer. Migration **316** had tested that class against production on 08-05 and
+refused it — a constraint stricter than the writers' guard turns a duplicate into a *silently
+dropped section*, and `[MEASURED 09-04]` **2 of 7 writers swallow an INSERT failure**
+(`save_page_sections` Warn+`continue`; `deploy_tool` ON CONFLICT DO NOTHING+Warn).
+
+**The bug file cites 316 four times, by number and by effect. I had read every one of those citations
+and none of them carries the reasoning — that lives only in the migration header.** The check:
+`ls docs/agent_docs/sql_for_agents/ | grep <table>` and READ it before proposing an index.
+
+### MISSTEP 7 — I asked a subagent to plan before I had done the prior-art read
+
+The brief went out with the refused constraint in it as "E1". Had it not rate-limited, it would have
+planned around a premise I disproved myself twenty minutes later. **The prior-art read belongs
+before the delegation, not in parallel with it** — a subagent inherits your framing and has less
+reason than you to doubt it.
+
+### The growth misreading recurred, for the fourth time
+
+The `boxingonline.com` lane reported this hour that the count grew 4×→6× and concluded "every run
+adds one". It stopped 09-02 16:28:02. They compared a 09-01 document to a 09-04 measurement, so the
+growth sits inside the interval and had already ended. §"TWO PRODUCERS WEAR ONE SYMPTOM" in the bug
+file was written after the first three lanes did this, and did not prevent the fourth — **a section
+warning about a misreading is only read by someone who already suspects.** The durable check is
+`max(created_at)`, which answers "is it still growing" in one query and cannot be read backwards.

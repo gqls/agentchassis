@@ -67555,3 +67555,34 @@ your-measurement-answers-the-question-you-encoded, a-shared-tree-commit-can-brea
   and require successes in it. *Cost:* two lanes and the owner were told a 3-hour outage where a
   36-minute one happened — and a run that actually succeeded at 12:30 would have been written
   off as a casualty.
+
+- **2026-09-04 — bugfix_451_457_433_unowned_queue (457 residual) — I wrote a DB constraint into a
+  planning brief as "the framework-wide door-closer" for `bugs_open/457`; migration 316 had already
+  tested that exact class against production and refused it, in writing, 30 days earlier.**
+  I measured that `UNIQUE (page_id, slot_name, position) WHERE build_status <> 'removed'` holds
+  across all 3,420 live `page_components` rows with exactly one violating group — 457's own six
+  orphans — and put it in a brief as the remedy that makes the bad state unrepresentable for every
+  writer, present and future. The measurement was sound and the conclusion was already answered.
+  `316_page_components_no_byte_identical_duplicate.sql` had tried three index shapes against live
+  data and rejected the stricter one: *"A constraint stricter than the guard is the worst
+  combination — the guard says 'save both', the database then rejects one, and the disagreement
+  surfaces as a dropped section nobody asked for."* Its own header even records that
+  `save_page_sections`'s INSERT handler logs a Warn and `continue`s, so the failure mode is a
+  **silently missing section on a live page** — worse than the duplication I was trying to close.
+  Caught before it reached a plan, but only because I went looking for prior art *after* writing
+  the brief, not before. *The cheap check:* **for any constraint or index idea, `ls
+  docs/agent_docs/sql_for_agents/ | grep <table>` and READ the migration that already touches that
+  table — its header is where the variants that were tried and refused are recorded.** The bug file
+  cited 316 by number and by effect ("the thing that finally reported it") four separate times; the
+  *reasoning* that kills the idea exists only in the migration. **A migration referenced by number
+  is not a migration read.** *Cost:* none this time; had the brief gone to a planner unchallenged it
+  would have produced a phased plan whose first phase was refused prior art.
+
+  Second half of the same lesson, and the reason it is worth the words: 316's header also contains a
+  per-writer blast-radius audit that reads `rebuild_blog_listing` as *"same check-then-update-else-
+  insert pattern"* — i.e. safe. That is the identical misreading the action's own caller made, and
+  457 is what it cost. A hand audit of N writers is the instrument that already failed on this exact
+  table. Prefer something that does not depend on reading seven call sites correctly.
+
+Family: prior-art-search-goes-stale, a-citation-you-did-not-open-is-a-claim,
+order-fix-candidates-by-what-closes-the-door, a-report-is-not-a-measurement.
