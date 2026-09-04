@@ -32,7 +32,12 @@ Both consumers read a `text`-less brief. `Council-Reviewed: 888e7319…`.
   addendum names the scheduled tasks as a second footprint). The copywriter query was **444** chars;
   every working kind is under 200. **Shortened to 165 and re-fired ~12:12Z** (old text kept under
   `input_data.research_query_previous_over_200`). Watcher `b0am5q9c1`. The 22:05Z researcher config
-  change was NOT the cause (its `search_web` step is byte-identical to July). Check:
+  change was NOT the cause (its `search_web` step is byte-identical to July).
+  **Run #2 (11:55:43Z DB) PASSED search_web** — the cap fix is proven — and died at `extract_claims`
+  on a FLEET-WIDE credit cap (11:17–11:57Z, 49 failures / 9 agent types; lifted; copyonline's page
+  builds untouched). Re-fire loop `bthn77u18` fires when 10 min show no credit error and follows only
+  runs after its own fire time (an earlier loop of mine misread psql's `UPDATE 0` tag as a returned
+  row — test for the RETURNING literal, never for non-empty output). Check:
   `SELECT last_triggered_at, last_completed_at FROM scheduled_tasks WHERE name='copywriter-directory-discovery'; SELECT count(*) FROM directory_entities WHERE kind='copywriter';`
 - **Once entries exist, the plan must be re-run to add the two pages**: file `needs_site_plan`
   (`source='manual-replan'`, key `site_plan_copyonline.co.uk`, handler `build-site-planner`, the fleet

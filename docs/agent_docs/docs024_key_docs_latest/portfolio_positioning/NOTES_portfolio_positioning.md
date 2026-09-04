@@ -5962,3 +5962,33 @@ brief tools are "not_built — needs owner-aware build, not the generic builder"
 **Housekeeping:** `bugs_open/479` is now DOUBLE-BOOKED by two lanes on 2026-09-04 (CLAUDE.md's
 collision list grows again); `480` taken. My ledger slip: commit `bdb846972` dropped the 462 lane's
 landmine entry (tree behind HEAD); restored `d48756a77`; CONTRIB to `bugfix_424_logo_transparency`.
+
+### (iii) 2026-09-04 ~12:10Z (DB clock) — a fleet-wide credit cap for forty minutes, which I first reported too widely; the directory research's second and third attempts; two watcher instrument errors of mine
+
+**Clock note first:** the DB clock is ~45 min behind my wall clock. (hhh)'s "~12:12Z" for the shortened
+query + re-nudge was wall-clock; the DB says the task re-fired at **11:55:42Z**. DB times below.
+
+**The cap `[MEASURED at llm_call_log, per 5-min bucket, anthropic]`:** 11:20 ok=0 err=8 · 11:25 0/9 ·
+11:30 0/30 · 11:35 0/22 · 11:40 0/13 · 11:45 0/14 · 11:50 0/5 · 11:55 6/5 · **12:00 9/0**. Every error
+body: *"Your credit balance is too low to access the Anthropic API."* Earliest orchestration failure
+with that text 11:17:05Z; **49** failed orchestrations across **9** agent types in the 11:00 hour;
+**2** work items fleet-wide exhausted their attempts. Lifted by ~11:57Z (someone topped up — session
+`b269fb5b` recorded this outage in the shared memory at 11:25Z, so the owner was already being told).
+**copyonline was untouched:** `needs_page` 30 `triaged` / 2 `complete`, attempts 0, **0** failures.
+
+**I over-reported it.** My push notification said *"copyonline's page builds included"* — false; I had
+not yet read the site's items. The correct statement: fleet-wide, 11:17–11:57Z, copyonline's builds
+not yet dispatched. Corrected here and to the owner.
+
+**The directory research:** run #2 (11:55:43Z, the 165-char query) **passed `search_web`** — the cap
+fix is proven — and died at `extract_claims` on the credit error. Run #3: my re-fire loop declared
+"RE-FIRED (guard passed)" and printed the OLD run as the result — **two instrument errors**: (1) with
+`-t -A` psql still prints the command tag, so `UPDATE 0` became the non-empty string `UPDATE0` and my
+"a row came back" test passed on a refusal; (2) my run search used a 45-minute window instead of the
+captured fire time, so it matched the 11:55 run. No re-fire had happened. Replaced by loop `bthn77u18`:
+tests for the `RETURNING` literal (`FIRED:<timestamp>`), captures that time, and follows only
+`directory-researcher` runs created after it. The guard (no credit error in 10 min, ≥1 success)
+refused at 12:04:44Z with 5 tail errors still inside the window; it retries every 90s.
+
+**Standing facts unchanged:** plan 34 pages; 764 proven both halves; the two deferred pages wait on
+directory entries; the classification flag and the owned-aware tool builds are the owner's.

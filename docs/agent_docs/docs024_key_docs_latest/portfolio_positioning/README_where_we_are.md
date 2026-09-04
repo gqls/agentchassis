@@ -1821,3 +1821,21 @@ enough after the replan.
 
 One slip to own: a commit of mine briefly dropped another lane's entry from the landmine ledger. It
 is restored, byte for byte, and that lane has been told.
+
+**Ten past twelve — a forty-minute outage, now over, and a correction to my alarm.**
+
+Between about twenty past eleven and just before twelve, the whole fleet's model calls failed with
+the API saying the credit balance was too low. Forty-nine runs across nine kinds of agent failed in
+that hour. It was lifted before twelve, another session had already recorded it, and calls have been
+clean since. My notification to you said copyonline's page builds were among the failures. They were
+not: none had been dispatched yet, and all thirty are still queued untouched. I should have read the
+site before naming it.
+
+The directory research did get caught. The shortened query passed the search step, which proves that
+fix, and the run then died at the extraction step on the credit error. It is queued to fire again as
+soon as a ten-minute window shows no credit errors; the first attempt at that refused because the
+tail of the outage was still inside the window, which is the guard working.
+
+One more slip of mine, in the tooling rather than the site: my watcher misread a "nothing updated"
+message as a success and reported the old failed run as new. Replaced with one that tests for the
+actual returned value and only looks at runs after the moment it fired.
