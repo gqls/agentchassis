@@ -3517,3 +3517,46 @@ never proven. Landmine appended (`LANDMINES.md`), footprint `agent_error_log`.
 > And note what it now costs a reader: **the retention window is PER-CODE**, so "is my
 > evidence still there?" cannot be answered from the row's age — you must check whether
 > its code is on the list.
+
+## 2026-09-04 (later) — cross-lane: the 114 session asked whether this lane owns its bug; it does not, and three of today's findings are theirs
+
+A session resuming `bugs_open/114` (imagery wiring) asked whether this lane owns 114 or
+`bugfix_114_imagery_wiring/`, since `who-owns.py` reads commits and cannot see an
+uncommitted session. **Answered: no.** This session's entire footprint is six doc files
+(this lane's three, `LANDMINES.md`, `WRONG_CALLS.md`, `bugs_closed/382`) — zero `.go`,
+zero migrations, nothing in their dir, nothing touching `wire_hero_on_landing` or 710.
+
+**I also told them where to actually look, because I am not it.** Today's live 114
+activity is the **finetuning lane** — `2a377d8a1` (14:29Z, *"the owner chose arming
+`wire_hero_on_landing` over another hand-wire"*), `8da1d5a4f`, `34fbec928`. A CONTRIB
+written into a bug four hours ago is a far stronger activity signal than the lane dir's
+own mtime, which is what read "inactive" to them.
+
+**Three of today's findings handed over as theirs, not mine:**
+1. **Migration `390` applied-but-unrecorded** — they intend to touch migration 710, so a
+   runner pass will surprise them. Now its own landmine (below).
+2. **Two of the four kind-less steps are `generate_hero_image`** — that is hero wiring,
+   their territory. Currently unfixable in config (`input_mapping` resolves paths, not
+   literals), but **if their work gives those workflows a field whose value is the string
+   `hero`, the config fix becomes available.** That is a real opening created by their
+   change, and it is in `bugs_closed/382` §11.
+3. **`agent_error_log` retention is per-code** — flagged so they do not repeat today's
+   mistake if they measure an absence there.
+
+Also told them `assets.origin_model` is the durable instrument for "has this path run",
+since `orchestration_states` is a 1-day window — that is the transferable half of §1.
+
+**Edges declared:** my remaining interest is **hero VARIANTS** (migration `586` made them
+reach `getImageryStyleGuideForSite` for the first time; nobody has checked whether output
+changed). Offered to drop it if they take it. Live neighbours named for them:
+`infographics` (opened 14:13Z today), `editorial_design_uplift`, and the `462`
+logo-legibility lane, which touched `register/imagery.md` at 14:53Z (IMG-080).
+
+**A second landmine went in from this session's work:** *"A missing `schema_migrations`
+row does NOT mean the migration is unapplied"*. It is worth noting **why** it earned an
+entry rather than sitting in the bug file: it **bounds an existing entry's prescribed
+check.** The migration-400 `thunder_config` entry tells readers to *"confirm the migration
+is RECORDED, not merely applied by hand"* — sound as a confirmation, and a **false
+negative** as a refutation, which is exactly how 390 reads. An entry that corrects the
+reliability of another entry's check is the most valuable kind this ledger holds, because
+the wrong belief is being actively taught.
