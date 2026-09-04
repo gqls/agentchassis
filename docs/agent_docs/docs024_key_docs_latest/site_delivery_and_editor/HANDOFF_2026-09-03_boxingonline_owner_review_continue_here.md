@@ -966,3 +966,69 @@ false-positive."*
 gate is the fix for his question, and it is a different thing from releasing the parked backlog —
 457 verified no auditor seat ever filed this structural gap (10 rows queried, all `page_rerender` /
 `section_edit`, all complete), so releasing all 3,184 would not produce it.
+
+---
+
+# UPDATE 12 — 2026-09-04 ~17:05Z. ⚠ CORRECTION 6: THE FIGHT CALENDAR WORKS. I told the owner it did not.
+
+## The calendar was rebuilt 09-04 10:36Z and serves real, dated, cited fixtures.
+
+`tool-fight-calendar` now holds `hero-tool` (0bf81196) + **`event-list` (3647c0c2)**, both deployed.
+The fabricated `e5e8fa33` is `is_active=false` with **ZERO** `page_components` rows and **ZERO**
+`page_component_history` rows referencing it — no placement at all.
+
+`content_data` on 3647c0c2 carries sourced fixtures with `date`, `title`, `venue`, `fact_id`,
+`source_url`, `source_title` and a change-disclaimer. **The SERVED page renders them visibly:**
+
+> Confirmed fights · **2026-10-24 Emanuel Navarrete vs O'Shaquie Foster, San Antonio** ·
+> **2026-10-31 Canelo Alvarez vs Christian Mbilli** · *"Schedule details can change after this was
+> checked — confirm with an official source before relying on it."*
+
+`[MEASURED]` **0** occurrences of "2025" on that page — against the countdown's six.
+
+## Where I went wrong, and it is a straight inheritance failure
+
+The 09-03 handoff says *"Calendar still 0 inputs / 0 data / 0 fetch"*. **I carried that forward and
+repeated it to the owner today without re-measuring the page's contents** — I fetched
+`/tools/fight-calendar/index.html` in my 15:00Z sweep, recorded its byte count, and never looked
+inside it. The rebuild landed **10:36Z, four and a half hours before that sweep.** The page in my own
+scratch directory contained the answer.
+
+**And the owner's actual words were the tell I missed:** *"the calendar only shows two confirmed
+fights."* He said **two**, not none. I folded it into a "no data" cluster with the comparator and the
+countdown, where it did not belong. **Read the complaint's own arithmetic before assigning it to a
+class.**
+
+## "Only two" is a SUPPLY problem, not a calendar defect
+
+`evidence_base` is a **`site_specs` aspect, not a table** (`aspect='evidence_base'`, payload in
+`data->'facts'` — two failed queries before I found that). `[MEASURED 2026-09-04]`:
+
+**8 facts · 7 dated · exactly 2 with `event_date >= today`** — and those two are precisely the two on
+the calendar. The other five dated facts are results, not fixtures (1998 Klitschko/Puritty, two on
+2026-08-29, two on 2026-08-30).
+
+**The consumer is displaying everything it has.** The gap is forward-fixture research, not
+consumption. So `bugs_open/427`'s title is now not merely half false but wrong in both halves for
+this component: the writer half works AND the consumption half works — for `event-list`.
+
+## ⚠ A NEW WARNING FOR `427` §23.2 LAYER 3 — same anti-informative shape as §24
+
+`fact_id` lives in `content_data` and **does NOT reach the served markup**: `[MEASURED]`
+`data-fact-id` **0**, `CIT-` **0** on the served calendar page. So a Layer 3 validating
+`data-fact-id` attributes scores **zero on the page doing everything right** and zero on the
+fabricated countdown — **the same result for opposite reasons.** Either Layer 3 reads `content_data`
+rather than markup, or the renderer must emit the attribute. Until then it cannot distinguish
+provenance-backed from fabricated. Sent to the `427` lane.
+
+## Standing correction table, updated
+
+| my claim | corrected to | by |
+|---|---|---|
+| countdown counts to 2026-09-02 | six FABRICATED fights, all `year: 2025` | `calendar` |
+| the duplication is still growing | flat since 09-02 16:28 | `457` |
+| RFC_056 phase 3 = "switch the loop back on" | phase 3 CREATED record mode | `site_delivery_and_editor` |
+| 740 would flip 54 | 51; +8 was my filter, only +4 growth | `offer analyser / visual designer` |
+| a rewrite today repeats the failure | a prediction; inputs changed 09-02 | `copy_quality_two_stage` |
+| 39 index pages lack a listing | 20 lack one, 6 empty; the regex scored `guide-list` as an offender | me, on re-read |
+| **the fight calendar has no data** | **it works; 2 real cited fixtures; "only two" is supply** | **me, on re-read** |
