@@ -151,7 +151,7 @@ func SendDeliveryEmailAction(ctx context.Context, params ActionParams) (interfac
 		linkCfg.ZipPresignExpiresAt = time.Now().Add(time.Duration(mins) * time.Minute)
 	}
 
-	prepared, err := delivery.Claim(ctx, params.DB, siteID, linkCfg, time.Now())
+	prepared, err := delivery.Claim(ctx, params.DB, siteID, linkCfg, customerEmail, time.Now())
 	if err != nil {
 		// ErrNotReviewed and ErrAlreadyDelivered surface verbatim: the first is
 		// the owner's gate doing its job, the second is the once-only stamp

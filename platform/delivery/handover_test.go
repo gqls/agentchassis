@@ -326,3 +326,84 @@ func TestConfirmTokenURLRefusesAHostThatWouldBuildADeadLink(t *testing.T) {
 		t.Errorf("built %q", got)
 	}
 }
+
+// ── The delivery recipient is recorded by the claim (bugs_open/477) ──────────
+
+// A handover with no recorded recipient must be UNREPRESENTABLE. The refusal
+// happens before the database is touched — sqlmock is given NO expectations, so
+// any query fails the test. That ordering matters: refusing after the claim would
+// have already stamped the site.
+func TestStampHandoverRefusesAHandoverWithNoRecipient(t *testing.T) {
+	for _, empty := range []string{"", "   ", "\t"} {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = StampHandover(context.Background(), db, uuid.New(), empty, time.Now())
+		if err == nil || !strings.Contains(err.Error(), "deliveredTo is required") {
+			t.Errorf("deliveredTo %q was accepted: %v", empty, err)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("the site was claimed before the recipient was validated: %v", err)
+		}
+		db.Close()
+	}
+}
+
+// The recipient is written in the SAME statement as the claim. Pinned here
+// because the failure mode of splitting them is silent: a claim that succeeds and
+// a follow-on INSERT that is lost leaves a delivered site whose recipient nobody
+// knows, which is the whole defect this closes.
+//
+// ⚠ A regex over the SQL a mock RECEIVED proves the statement was SENT, not that
+// Postgres honours it. The behaviour — that a WON claim inserts and a LOST claim
+// does not — is proven against real Postgres in a rolled-back transaction, and
+// that run is recorded in the 477 lane's NOTES for 2026-09-04.
+func TestStampHandoverRecordsTheRecipientInTheClaimStatement(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	site := uuid.New()
+	now := time.Now().UTC()
+
+	mock.ExpectQuery(`(?s)WITH claimed AS.*UPDATE sites.*handed_over_at IS NULL.*INSERT INTO site_deliveries.*ON CONFLICT \(site_id\) DO NOTHING`).
+		WithArgs(site, now.UTC(), now.UTC().Add(LiveLinkWindow), "customer@example.co.uk").
+		WillReturnRows(sqlmock.NewRows([]string{"h", "l", "c"}).
+			AddRow(now, now.Add(LiveLinkWindow), false))
+
+	h, err := StampHandover(context.Background(), db, site, "customer@example.co.uk", now)
+	if err != nil {
+		t.Fatalf("StampHandover: %v", err)
+	}
+	if h.AlreadyHandedOver {
+		t.Error("a won claim reported AlreadyHandedOver")
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the claim did not carry the recipient write: %v", err)
+	}
+}
+
+// The address is passed through verbatim apart from trimming. A handover that
+// "tidied" a recipient would record a different customer from the one emailed.
+func TestStampHandoverTrimsButDoesNotAlterTheRecipient(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	site := uuid.New()
+	now := time.Now().UTC()
+
+	mock.ExpectQuery(`(?s)WITH claimed AS`).
+		WithArgs(site, now.UTC(), now.UTC().Add(LiveLinkWindow), "Mixed.Case+tag@Example.CO.UK").
+		WillReturnRows(sqlmock.NewRows([]string{"h", "l", "c"}).AddRow(now, now, false))
+
+	if _, err := StampHandover(context.Background(), db, site, "  Mixed.Case+tag@Example.CO.UK  ", now); err != nil {
+		t.Fatalf("StampHandover: %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("the recipient was altered on its way to the database: %v", err)
+	}
+}

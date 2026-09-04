@@ -158,9 +158,20 @@ type Handover struct {
 //
 // It does not mint tokens. Minting is the caller's step, so a re-issued link
 // never depends on re-running handover.
-func StampHandover(ctx context.Context, db *sql.DB, siteID uuid.UUID, now time.Time) (Handover, error) {
+func StampHandover(ctx context.Context, db *sql.DB, siteID uuid.UUID, deliveredTo string, now time.Time) (Handover, error) {
 	var h Handover
 	h.SiteID = siteID
+
+	// A handover with no recorded recipient is refused, and that is the whole
+	// point of bugs_open/477's second half: it must be UNREPRESENTABLE to hand a
+	// site to a customer and not know which customer. Before this, the estate
+	// recorded the address nowhere durable — `build_queue` has it only for
+	// order-originated sites, and the run log that has it for the rest is a
+	// ~26-hour rolling window.
+	deliveredTo = strings.TrimSpace(deliveredTo)
+	if deliveredTo == "" {
+		return Handover{}, fmt.Errorf("delivery: deliveredTo is required (a handover with no recorded recipient is what bugs_open/477 exists to prevent)")
+	}
 
 	// The claim is the WHERE clause, not a timestamp comparison.
 	//
@@ -181,15 +192,40 @@ func StampHandover(ctx context.Context, db *sql.DB, siteID uuid.UUID, now time.T
 	// (READ COMMITTED), matches nothing, and lands in the ErrNoRows arm below —
 	// which reads the stamp the winner wrote. No timestamp takes part in the
 	// decision, so equal or reused `now` values cannot confuse it.
+	// ⚠ ONE STATEMENT, and the recipient is recorded INSIDE it (owner ruling
+	// 2026-09-04, bugs_open/477). The CTE writes site_deliveries only from rows
+	// the claim actually won, so the record cannot exist without the handover and
+	// the handover cannot exist without the record. Doing the INSERT afterwards
+	// as a second call would reintroduce exactly the shape this lane spent the
+	// day removing: a claim that succeeds and a follow-on write that is lost,
+	// leaving a delivered site whose recipient nobody knows.
+	//
+	// site_deliveries.site_id is the PRIMARY KEY, so ON CONFLICT DO NOTHING makes
+	// the write idempotent without weakening anything — the claim above is what
+	// enforces once-only, and a conflict here can only mean a backfilled row
+	// (migration 778) already holds the same fact.
+	//
+	// ⚠ ORDERING: migration 778 MUST be applied before an image carrying this
+	// code rolls. The table is not optional to this statement — without it every
+	// delivery fails at the claim. 778 is live-on-apply and this is inert until a
+	// roll, so applying it the same day closes the window; do not let this reach
+	// a fleet where 778 has not run.
 	err := db.QueryRowContext(ctx, `
-		UPDATE sites
-		   SET handed_over_at       = $2,
-		       live_link_expires_at = COALESCE(live_link_expires_at, $3)
-		 WHERE id = $1
-		   AND handed_over_at IS NULL
-		RETURNING handed_over_at, live_link_expires_at,
-		          transfer_confirmed_at IS NOT NULL
-	`, siteID, now.UTC(), now.UTC().Add(LiveLinkWindow)).
+		WITH claimed AS (
+			UPDATE sites
+			   SET handed_over_at       = $2,
+			       live_link_expires_at = COALESCE(live_link_expires_at, $3)
+			 WHERE id = $1
+			   AND handed_over_at IS NULL
+			RETURNING handed_over_at, live_link_expires_at,
+			          transfer_confirmed_at IS NOT NULL AS confirmed
+		), recorded AS (
+			INSERT INTO site_deliveries (site_id, delivered_to, delivered_at, recorded_by)
+			SELECT $1, $4, claimed.handed_over_at, 'delivery-email' FROM claimed
+			ON CONFLICT (site_id) DO NOTHING
+		)
+		SELECT handed_over_at, live_link_expires_at, confirmed FROM claimed
+	`, siteID, now.UTC(), now.UTC().Add(LiveLinkWindow), deliveredTo).
 		Scan(&h.HandedOverAt, &h.LiveLinkExpiresAt, &h.TransferConfirmed)
 	if errors.Is(err, sql.ErrNoRows) {
 		// Either the site does not exist, or it is already stamped. Get

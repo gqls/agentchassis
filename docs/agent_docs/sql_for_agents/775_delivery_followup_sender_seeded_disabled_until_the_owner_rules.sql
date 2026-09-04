@@ -8,13 +8,16 @@
 -- three things are true — see "BEFORE YOU ENABLE" below. The check at the end
 -- REFUSES to apply if anything here would already be live.
 --
--- WHY DISABLED. The owner has NOT ruled on this. His words were "maybe repeat
--- them in the first follow up email that would normally go a week or so later" —
--- a suggestion in passing, which is what caused 477 to be filed. "A week or so"
--- is not a number, and a scheduled thing that emails customers is the one to get
--- wrong quietly. The interval below (7 days) is a PLACEHOLDER standing where his
--- decision goes; the Go action refuses to run without one rather than defaulting,
--- so the number cannot be quietly inherited from this file if he chooses another.
+-- WHY DISABLED. Not because the interval is unknown — that is now settled — but
+-- because enabling it emails a real person and that should be a deliberate act by
+-- someone who has read the warning below.
+--
+-- ⚠ THE INTERVAL IS RULED: **THREE DAYS** (owner, 2026-09-04, verbatim: "I think
+-- the follow up should be 3 days"), relayed by the site_delivery_and_editor lane.
+-- It supersedes the "a week or so" in his original suggestion, which is what
+-- caused 477 to be filed. The Go action still refuses to run without an explicit
+-- `followup_after_days` rather than defaulting, so this value is a decision
+-- recorded in config, never a fallback.
 --
 -- ⚠ AND THE FIRST REAL RUN WILL EMAIL THE OWNER. idea.uk is the only site in the
 -- estate this can select (handed_over_at set, transfer_confirmed_at NULL — 1 of
@@ -65,7 +68,8 @@
 -- sites that came through an order, and the verify below says how many that is.
 --
 -- BEFORE YOU ENABLE (all three, in this order):
---   1. The owner has given an interval, and it is in this agent's config.
+--   1. ~~The owner has given an interval~~ DONE — three days, ruled 2026-09-04
+--      and carried in this agent's config below.
 --   2. The owner has been told, in words, that enabling it emails him about
 --      idea.uk.
 --   3. An image carrying send_followup_email has rolled. Check per SERVICE:
@@ -74,7 +78,31 @@
 --      then: git merge-base --is-ancestor <the commit adding the action> <stamp>
 --   Then: UPDATE scheduled_tasks SET enabled = true WHERE name = 'delivery-followup-send';
 --
--- Council: submitted with the step B round. Rollback sidecar: 775_..._ROLLBACK.sql.
+-- ⚠ THE COPY SAYS "A FEW DAYS AGO", NOT "THREE DAYS AGO", DELIBERATELY. The
+-- interval is CONFIG (`followup_after_days`) and prose that restates a config
+-- value is a lie waiting for the config to change — set it to 5 and the letter
+-- is wrong, silently, with nothing to catch it. Never write a configurable number
+-- into copy that the same file makes configurable.
+--
+-- TWO THINGS THE COPY DOES CARRY, both from the owner performing the hosting
+-- steps himself on 2026-09-04 and neither of them guesses:
+--   * "about forty minutes, and most of that is waiting" — his measured elapsed
+--     time, most of it a signup confirmation, a rejected password and an
+--     invisible security check. At three days a customer who has not confirmed
+--     may be stuck in a signup fight rather than ignoring us, so the letter reads
+--     "here is what you need", never "you have not done this yet".
+--   * ⚠ THE PRIVATE-BY-DEFAULT PARAGRAPH IS THE MOST USEFUL LINE IN THE EMAIL.
+--     A Netlify Drop site is PRIVATE by default and looks perfectly public to the
+--     person who uploaded it — he opened his own URL, saw his site, and it was
+--     rendering only because he was signed in; a private window said "This site
+--     is private". So a customer can believe in good faith that they are
+--     finished, press the confirm button, and have a site nobody can reach — and
+--     transfer_confirmed_at would then suppress the one message that might have
+--     told them. We cannot check somebody else's host, so the email carries the
+--     check instead. It costs nothing and it is the one nobody thinks to run.
+--
+-- Council: submitted with the step B round; the interval and copy changes go with
+-- the 778 round. Rollback sidecar: 775_..._ROLLBACK.sql.
 
 BEGIN;
 
@@ -114,9 +142,9 @@ SELECT
           'live_site_url',       'input_data.live_site_url',
           'links_host',          'links.webdesign.uk',
           'instructions_url',    'https://webdesign.uk/your-site',
-          'followup_after_days', 7,
+          'followup_after_days', 3,
           'subject',             'Your website, and where the instructions live',
-          'body_template',       E'A week ago we sent you your finished site and your files.\n\nThis is the one follow-up you will get from us.\n\nYOUR SITE\nIt is still live at {{live_site}} for the rest of the {{days}} days.\n\nTHE INSTRUCTIONS\nEverything about putting the site on your own hosting is kept here, and it is kept up to date:\n{{instructions_url}}\nIf that page and anything you downloaded ever disagree, believe the page.\n\nTHE DOMAIN\nIf you have not decided yet, reply to this email and we will sort it out.\n\nWHEN YOU HAVE MOVED\nOnce your site is off our hosting, press the button here to tell us:\n{{confirm_link}}\n\nwebdesign.uk'
+          'body_template',       E'A few days ago we sent you your finished site and your files.\n\nThis is the one follow-up you will get from us.\n\nYOUR SITE\nIt is still live at {{live_site}} for the rest of the {{days}} days.\n\nTHE INSTRUCTIONS\nEverything about putting the site on your own hosting is kept here, and it is kept up to date:\n{{instructions_url}}\nIf that page and anything you downloaded ever disagree, believe the page.\n\nPutting it up takes about forty minutes, and most of that is waiting for the host to email you back. It feeling slow does not mean anything has gone wrong.\n\nIF YOU HAVE ALREADY PUT IT UP\nOpen your new address in a private browsing window. Some hosts show a brand new site only to the person who uploaded it, and it looks completely normal to you while nobody else can reach it. If you see a page saying the site is private, your host will have a setting to make it public.\n\nTHE DOMAIN\nIf you have not decided yet, reply to this email and we will sort it out.\n\nWHEN YOU HAVE MOVED\nOnce your site is off our hosting, press the button here to tell us:\n{{confirm_link}}\n\nwebdesign.uk'
         ),
         'output_field', 'followup_email',
         'next_step', 'complete'
@@ -141,7 +169,7 @@ INSERT INTO scheduled_tasks
   (name, description, interval_seconds, target_agent_type, input_data, concurrency_group, max_concurrent, pre_query, enabled, timeout_seconds)
 SELECT
   'delivery-followup-send',
-  'One post-delivery follow-up per site, a week after handover, suppressed by the confirm button. SEEDED DISABLED (bugs_open/477): the owner has not ruled on the interval, and the only selectable site today is idea.uk, whose delivery address is his own.',
+  'One post-delivery follow-up per site, three days after handover (owner ruling 2026-09-04), suppressed by the confirm button. SEEDED DISABLED (bugs_open/477): enabling it emails a real customer, and the only selectable site today is idea.uk, whose delivery address is the owner''s own.',
   21600, -- six hours: the follow-up is due on a day, not a minute
   'delivery-followup-sender',
   '{}'::jsonb,
@@ -170,7 +198,7 @@ SELECT
               ORDER BY created_at DESC LIMIT 1
            ) bq ON true
      WHERE s.handed_over_at IS NOT NULL
-       AND s.handed_over_at <= now() - interval '7 days'
+       AND s.handed_over_at <= now() - interval '3 days'
        AND s.live_link_expires_at > now()
        AND s.transfer_confirmed_at IS NULL
        AND s.followup_sent_at IS NULL
@@ -225,7 +253,7 @@ BEGIN
   -- it knows who gets an email. Not an assertion: the population changes.
   SELECT count(*) INTO selectable FROM sites s
    WHERE s.handed_over_at IS NOT NULL
-     AND s.handed_over_at <= now() - interval '7 days'
+     AND s.handed_over_at <= now() - interval '3 days'
      AND s.live_link_expires_at > now()
      AND s.transfer_confirmed_at IS NULL
      AND s.followup_sent_at IS NULL;

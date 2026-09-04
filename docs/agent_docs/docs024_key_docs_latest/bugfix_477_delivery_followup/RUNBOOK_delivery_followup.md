@@ -9,9 +9,10 @@ change it **here**, not in your scrollback.
 
 The schedule ships **disabled** (`775`). All three must be true before the flip:
 
-1. **The owner has ruled on the interval.** "a week or so" is not a number. The action REFUSES to run
-   without `followup_after_days` rather than defaulting, so the placeholder `7` in `775` cannot
-   quietly become his answer.
+1. ~~**The owner has ruled on the interval.**~~ **DONE — THREE DAYS** (owner, 2026-09-04, verbatim:
+   *"I think the follow up should be 3 days"*), carried in `775`'s agent config. It supersedes the
+   "a week or so" of his original suggestion. The action still refuses to run without an explicit
+   `followup_after_days`, so this is a recorded decision and never a default.
 2. **The owner has been TOLD, in words, that enabling it emails him.** idea.uk is the only selectable
    site and its delivery address is `aaa@designconsultancy.co.uk`.
 3. **An image carrying `send_followup_email` has rolled** — a seed naming an unregistered action
@@ -44,7 +45,7 @@ SELECT s.domain, s.handed_over_at, bq.direction->>'customer_email' AS would_emai
   JOIN LATERAL (SELECT direction FROM build_queue
                  WHERE lower(domain)=lower(s.domain) ORDER BY created_at DESC LIMIT 1) bq ON true
  WHERE s.handed_over_at IS NOT NULL
-   AND s.handed_over_at <= now() - interval '7 days'
+   AND s.handed_over_at <= now() - interval '3 days'
    AND s.live_link_expires_at > now()
    AND s.transfer_confirmed_at IS NULL
    AND s.followup_sent_at IS NULL
@@ -74,9 +75,34 @@ population whatever. `775`'s verify prints this on every apply.
 
 > **Do NOT "fix" it with `orchestration_states`.** It does hold the address a delivery used, and it
 > passes every test you write this afternoon. `SELECT min(created_at) FROM orchestration_states` was
-> **2026-09-03 11:47Z** on 2026-09-04 — under 24 hours of history. A follow-up due in seven days
-> reads a reaped row. The real fix is to stamp the recipient where `handed_over_at` is stamped;
-> routed to the `site_delivery_and_editor` lane.
+> **2026-09-03 11:47Z** on 2026-09-04 — under 24 hours of history, so a follow-up due days later
+> reads a reaped row.
+
+> ⚠ **AND THE COLUMN A READER REACHES FOR IS POPULATED AND WRONG, WHICH IS WORSE THAN EMPTY.**
+> `[MEASURED 2026-09-04]` idea.uk carries `sites.email = 'idea.uk@contactforsales.com'` — a site
+> mailbox. The delivery went to `aaa@designconsultancy.co.uk`. There is no NULL to warn anyone:
+> somebody answering a support or refund question finds a well-formed, plausible address and is
+> confidently misled. `sites.email` is the PUBLISHED contact by definition (`bugs_open/420`) and is
+> correct as itself; it is simply never the customer.
+
+**FIXED — `site_deliveries` (migration `778`).** The recipient is now recorded in the SAME STATEMENT
+that claims the handover (`StampHandover`'s CTE), so the record cannot exist without the delivery and
+the delivery cannot happen without the record — `StampHandover` refuses an empty recipient outright.
+Owner ruling 2026-09-04: a dedicated table, not `sites.delivered_to`, because `sites` is read by a
+great many things and `bugs_open/420` exists to control which address lives where.
+
+```sql
+SELECT s.domain, d.delivered_to, d.delivered_at, d.recorded_by
+  FROM sites s LEFT JOIN site_deliveries d ON d.site_id = s.id
+ WHERE s.handed_over_at IS NOT NULL;   -- a NULL delivered_to here is a delivery we cannot trace
+```
+`recorded_by` tells you how much to trust it: `delivery-email` = written by the delivery itself;
+`backfill-orchestration-states-778` = recovered from the run log before it aged out.
+
+> ⚠ **ORDERING, and it is the one way this change can break production:** `778` must be applied
+> **before** an image carrying the new `StampHandover` rolls. The table is not optional to that
+> statement — without it every delivery fails at the claim. `778` is live-on-apply and the Go is
+> inert until a roll, so applying it the same day closes the window.
 
 ## "Stamped but never sent" — finding a site the claim consumed and the send lost
 

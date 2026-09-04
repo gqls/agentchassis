@@ -245,7 +245,7 @@ type Prepared struct {
 //
 // A caller that wants to re-send after a failure must do it deliberately, with a
 // fresh token, not by calling Claim again and hoping.
-func Claim(ctx context.Context, db *sql.DB, siteID uuid.UUID, cfg LinkConfig, now time.Time) (Prepared, error) {
+func Claim(ctx context.Context, db *sql.DB, siteID uuid.UUID, cfg LinkConfig, deliveredTo string, now time.Time) (Prepared, error) {
 	if err := cfg.validate(); err != nil {
 		return Prepared{}, err
 	}
@@ -258,7 +258,12 @@ func Claim(ctx context.Context, db *sql.DB, siteID uuid.UUID, cfg LinkConfig, no
 		return Prepared{}, ErrNotReviewed
 	}
 
-	h, err := StampHandover(ctx, db, siteID, now)
+	// deliveredTo travels to the stamp because the recipient is recorded in the
+	// same statement that claims the handover (bugs_open/477): the estate had no
+	// durable record of who a delivered site went to, and sites.email — the
+	// column a reader reaches for — is the PUBLISHED contact and is populated
+	// with a DIFFERENT address on the only delivery we have ever made.
+	h, err := StampHandover(ctx, db, siteID, deliveredTo, now)
 	if err != nil {
 		return Prepared{}, err
 	}

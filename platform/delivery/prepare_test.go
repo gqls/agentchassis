@@ -87,7 +87,7 @@ func TestClaimRefusesAnUnreviewedSiteAndDoesNothingElse(t *testing.T) {
 	// Deliberately NOTHING else is queued. An UPDATE sites or an INSERT INTO
 	// customer_access_tokens now fails as an unexpected call.
 
-	_, err = Claim(context.Background(), db, siteID, testLinkConfig(), time.Now())
+	_, err = Claim(context.Background(), db, siteID, testLinkConfig(), "customer@example.co.uk", time.Now())
 	if !errors.Is(err, ErrNotReviewed) {
 		t.Fatalf("Claim on an unreviewed site returned %v, want ErrNotReviewed", err)
 	}
@@ -112,7 +112,7 @@ func TestClaimRefusesASiteAlreadyHandedOverAndMintsNoToken(t *testing.T) {
 	// No INSERT is queued: minting after a refused claim would hand out a live
 	// customer link for a delivery that is not happening.
 
-	_, err = Claim(context.Background(), db, siteID, testLinkConfig(), now)
+	_, err = Claim(context.Background(), db, siteID, testLinkConfig(), "customer@example.co.uk", now)
 	if !errors.Is(err, ErrAlreadyDelivered) {
 		t.Fatalf("Claim on a delivered site returned %v, want ErrAlreadyDelivered", err)
 	}
@@ -135,7 +135,7 @@ func TestClaimBuildsCustomerLinksOnTheLinksHost(t *testing.T) {
 	mock.ExpectExec(`INSERT INTO customer_access_tokens`).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	got, err := Claim(context.Background(), db, siteID, testLinkConfig(), now)
+	got, err := Claim(context.Background(), db, siteID, testLinkConfig(), "customer@example.co.uk", now)
 	if err != nil {
 		t.Fatalf("Claim: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestClaimReportsTheAdvertisedWindowNotTheServedOne(t *testing.T) {
 	expectStamp(mock, now, false)
 	mock.ExpectExec(`INSERT INTO customer_access_tokens`).WillReturnResult(sqlmock.NewResult(1, 1))
 
-	got, err := Claim(context.Background(), db, siteID, testLinkConfig(), now)
+	got, err := Claim(context.Background(), db, siteID, testLinkConfig(), "customer@example.co.uk", now)
 	if err != nil {
 		t.Fatalf("Claim: %v", err)
 	}
@@ -223,7 +223,7 @@ func TestClaimRefusesAConfigThatWouldBuildABrokenLink(t *testing.T) {
 			// No queries queued at all: config is checked before the database is
 			// touched, so a broken config cannot stamp a handover.
 
-			_, err = Claim(context.Background(), db, uuid.New(), tc.cfg, time.Now())
+			_, err = Claim(context.Background(), db, uuid.New(), tc.cfg, "customer@example.co.uk", time.Now())
 			if err == nil {
 				t.Fatal("a config that cannot build a working link was accepted")
 			}
@@ -354,7 +354,7 @@ func TestClaimMintsTheZipTokenWithTheSuppliedPresign(t *testing.T) {
 	cfg.ZipPresignedURL = "https://bucket.example/zip?sig=abc"
 	cfg.ZipPresignExpiresAt = now.Add(7 * 24 * time.Hour)
 
-	got, err := Claim(context.Background(), db, siteID, cfg, now)
+	got, err := Claim(context.Background(), db, siteID, cfg, "customer@example.co.uk", now)
 	if err != nil {
 		t.Fatalf("Claim: %v", err)
 	}
