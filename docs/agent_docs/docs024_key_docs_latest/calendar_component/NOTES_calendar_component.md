@@ -184,3 +184,17 @@ tool (`bugs_open/427`, now essentially fixed), and this: tools that actively fab
 dated content rather than merely omitting it. Not updating PLAN §0's list itself — it's
 already served its purpose (disambiguation for a fresh reader) and this is 482's story to
 carry, not a new permanent category to maintain here.
+
+**Both bugs staffed, this lane's involvement closed out.** A fresh session named "427"
+resumed the mechanism/fence work; a fresh session named "482" took the fix. Confirmed to
+both: nothing built on this side, no objection to either taking it. "482" ran the fleet
+census this lane had flagged as missing (§6) and sharpened it into a better bug than the
+one filed here — 335 active tool components fleet-wide, `year:`-keyed dates → **1** (only
+mine), `data-fact-id` anywhere → **0**, so layer 3 isn't just blind on my case, it has
+**zero fleet-wide subjects.** Bigger finding: an existing, working fabrication gate
+(`check_tool_fabrication_action.go`, `bugs_open/020`) already covers one of the three write
+paths (`tool-recreation-handler`) and simply isn't wired to the birth path that built these
+two tools — `bugs_closed/021`'s "a durable write guard covers one path only" class,
+recurring. That reframing is strictly better than "a fourth calendar tool is broken", and
+I said so. Nothing left for this lane here; watch `bugs_open/427`/`482` directly for
+outcomes rather than this file going forward.
