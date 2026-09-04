@@ -97,7 +97,8 @@ it.
 |---|---|---|
 | `finetuning_uk_service` | carousel component constraint spec | **DELIVERED** — `SPEC_2026-09-04_carousel_component_constraints.md` (`c2cc6fb55`) |
 | `finetuning_uk_service` | checking the creator's output against that spec's §6 | **offered, not yet asked for** |
-| `bugs_open/114` | the producer that drops a hero's `content_data` key | **candidate given**: `save_page_sections_action.go:1130`'s delete-and-reinsert funnel, flagged UNVERIFIED — nobody has checked whether hero slots are in the agent-writable set that DELETE takes |
+| `bugs_open/114` | the producer that drops a hero's `content_data` key | **CONFIRMED by that lane** — heroes ARE in the DELETE set (`AgentWritableSQLFor` gates on the lock alone; 122 of 123 violating rows satisfy it). `save_page_sections`' page-wide DELETE + reinsert is the mechanism behind the 664 decay |
+| `bugs_open/114` | a COMPLETE census of wholesale `page_components.content_data` writers | **DELIVERED** — `bugfix_114_imagery_wiring/CONTRIB_2026-09-04_…_wholesale_page_components_writer_census.md`. **~10 writers, three OUTSIDE `platform/orchestration/actions`** (the admin API, `cmd/webdesignport`, `cmd/content-data-recover`), so enforcement in the action layer would not see them |
 | `framework_prompts_positive_voice` | VIZ constraints as template guidance | standing offer, not taken up |
 
 **REFUSED, deliberately, and the next session should keep refusing it:** choosing what new carousels
