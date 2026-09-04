@@ -3560,3 +3560,55 @@ is RECORDED, not merely applied by hand"* — sound as a confirmation, and a **f
 negative** as a refutation, which is exactly how 390 reads. An entry that corrects the
 reliability of another entry's check is the most valuable kind this ledger holds, because
 the wrong belief is being actively taught.
+
+## 2026-09-04 (later still) — the v1.0.1361 roll, and both landmine verdicts dispositioned
+
+**The roll does not touch this lane's conclusions, and that is checked, not assumed.**
+The "inter thread comms" session flagged the `v1.0.1361` release (cut `06c0b18f2`) and
+aimed a warning at this lane about two in-flight imagery orchestrations.
+
+**Neither row was mine, and both had already completed.** `[MEASURED 2026-09-04 15:49Z]`
+the cited `image-generator` row at 15:43:13Z is correlation `1dd79256`, **COMPLETED at
+15:43:34Z — 21 seconds after the snapshot that produced the warning**. Its whole batch
+(15:42:59→15:48:47Z, 8 rows) and the batch before it (`89076e42`) all completed; live
+imagery rows now: zero. This session dispatched no image work at all — its only three
+dispatches were landmine-verifier runs, all COMPLETED before the window.
+
+**Transferable, and worth more than the incident:** a point-in-time `SELECT` on
+non-terminal `status` **systematically over-reports risk on a short-lived path**. These
+runs last ~20–60s, so the row is usually terminal before a message about it is delivered,
+and the instrument cannot separate "in flight and at risk" from "started 19s ago and about
+to finish". Report the row's **age** (`now() - created_at`) beside its status, or re-check
+at send time and warn only on rows older than the path's median. Fed back to that session.
+
+**The roll cannot invalidate §1–2 above, and I checked rather than assuming:**
+`git diff --name-only 239ab3626..06c0b18f2 | grep '\.go$'` → **48 files, of which ZERO
+match `imag|hero|routing|kind|asset`**; control, the range resolves to **393** commits
+(both figures independently match what that session reported). The four kind-less steps
+are a **live-config** fact read from `agent_definitions`, and the SDXL census reads
+`assets`, so neither is code-dependent in the first place — but "my finding predates a
+393-commit roll" is exactly the question a later reader will ask, so it is answered here.
+
+### Disposition of both landmine verdicts: NEEDS_HUMAN_REVIEW is a CORPUS LIMIT, not a doubt
+
+Both entries came back `NEEDS_HUMAN_REVIEW`, and in both cases the verifier says why in
+its own words — **its index holds `.go` only** (9,617 symbols, `kinds with NO rows: type`),
+and both entries are footprinted on things that are not Go:
+
+- **`schema_migrations` entry:** *"the critical items (`schema_migrations` table,
+  `run-migrations.sh`, `390_…sql`, `sql_for_agents/`) are NOT ANSWERABLE by the Go-only
+  index and require human/DB verification."* It **confirmed** the Go-adjacent half —
+  `image-build-handler`, `call_hero_gen`, `call_logo_gen`, the `kind` mapping, across 17+
+  indexed symbols.
+- **`agent_error_log` entry:** all footprint symbols resolved in current code; the flag
+  was a `465`-vs-`466` numbering discrepancy — **which was real, and understated the
+  problem** (both superseded by `567`). That one earned its correction and got it.
+
+**So the verdicts carry no information against either claim**, and both claims were
+established first-hand at the DB before the verifier ran. Recorded because an
+undispositioned `NEEDS_HUMAN_REVIEW` reads to the next session as "this entry is doubted",
+and the corpus limit is a property of the verifier, not of the entry — a lane hit exactly
+this on the infographics entry earlier today. ⚠ **The verifier also dates itself:** its
+answers describe indexed commit `de1b9a58` (2026-09-03 09:51Z), *"the last pushed tip, not
+the present tree"* — so it cannot see today's work at all, which is a second reason a
+NEEDS_HUMAN_REVIEW on a same-day entry is uninformative.
