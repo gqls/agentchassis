@@ -100,6 +100,19 @@ SELECT s.domain, s.handed_over_at, bq.direction->>'customer_email' AS would_emai
 > `b2worker.go:63`, which REFUSES when it is empty), so it is opted in by hand per site and a fresh
 > build has none. `775`'s verify reports the gap on every apply as `GAP 2`.
 
+> ⚠ **THE `publish_project` FILTER IS A NARROWING, NOT A CORRECTNESS TEST — and the obvious guard is
+> WRONG.** Requiring the address's host to equal `publish_project` would have **refused the only
+> successful delivery this estate has made**: idea.uk has `publish_project` NULL and `https://idea.uk`
+> was the correct address, because we own that domain and had pointed it. **The two legitimate cases —
+> a pointed customer domain, and an opted-in ugg2 host — share no column**, so any guard built on the
+> one column that exists fires on the good case and passes the bad one. The filter is kept because
+> skipping is safe, not because it is right.
+> **The control that actually works tests the address rather than a proxy for it:** fetch it expecting
+> **200**, AND fetch an invented path under it expecting **404**. The second is not optional — a bare
+> 200 cannot tell a served site from a parking page that answers every path. **Not built** (a network
+> call inside a scheduled sender, and the sender is disabled with no population). **Whoever widens
+> this filter beyond `publish_project` owes that probe first.**
+
 > ⚠ **A ZERO HERE IS NOT INFORMATION ON ITS OWN.** Re-run it with `interval '0 days'` as a **demand
 > control**. If the relaxed version also returns nothing, the zero is not about the calendar — it is
 > the `build_queue` gap below, and the sender can select nobody at all. This is the only reason that

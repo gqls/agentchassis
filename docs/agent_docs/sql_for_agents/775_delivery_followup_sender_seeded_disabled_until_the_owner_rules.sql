@@ -227,6 +227,36 @@ SELECT
            -- transferred. A site with no serving host is EXCLUDED here and
            -- COUNTED in the verify block, so the silence is loud at apply time
            -- rather than looking like "nothing due".
+           --
+           -- ⚠⚠ AND THIS FILTER IS A CONSERVATIVE NARROWING, NOT A CORRECTNESS
+           -- TEST. Do not read it as "we now send only to addresses that work".
+           -- It restricts the sender to sites opted in to a ugg2 host, and it
+           -- WILL SKIP A LEGITIMATE CASE: a customer domain already pointed at
+           -- us is a perfectly good address with publish_project NULL. idea.uk
+           -- is exactly that — `https://idea.uk` was the correct address for the
+           -- only successful delivery this estate has made, and this filter
+           -- excludes it.
+           --
+           -- THERE IS NO CHEAP INVARIANT AVAILABLE, and the obvious guard is
+           -- actively wrong (site_delivery_and_editor lane, 2026-09-04, who
+           -- started writing it and stopped): requiring the URL's host to EQUAL
+           -- publish_project would have REFUSED that one real delivery while
+           -- passing a dead un-transferred domain. The two legitimate cases — a
+           -- pointed customer domain, and an opted-in ugg2 host — SHARE NO
+           -- COLUMN. A guard built on the only column that exists fires on the
+           -- good case and passes the bad one.
+           --
+           -- THE CONTROL THAT ACTUALLY WORKS TESTS THE THING, NOT A PROXY FOR
+           -- IT: fetch the composed URL expecting 200, AND fetch an invented
+           -- path under it expecting 404, in the same breath as the dispatch.
+           -- The second is not optional — a bare 200 cannot tell a served site
+           -- from a registrar's parking page that answers every path, and that
+           -- pair is what established idea.uk was genuinely ours.
+           -- ⚠ NOT BUILT, and that is a deliberate deferral rather than an
+           -- oversight: it is a network call inside a scheduled sender, the
+           -- sender is disabled with no population, and the safe narrowing above
+           -- means the untested path cannot mail anyone meanwhile. Whoever
+           -- widens this filter beyond publish_project OWES that probe first.
            'https://' || s.publish_project AS live_site_url,
            s.domain
       FROM sites s
