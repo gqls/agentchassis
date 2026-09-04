@@ -1975,3 +1975,73 @@ false positives.
 a migration, nor `scripts/pattern-check.py` — the only in-scope script. `council-scope.sh`
 read directly rather than assumed. No submission; recorded here so the absence does not read
 as a skipped gate.
+
+---
+
+## 2026-09-04 ~15:55Z — the 090 came back UNVERIFIABLE, and it was still worth its cost
+
+**Verdict on `ebb08a21` (filed yesterday to check my claim that `call_agent` cannot reach an
+unspawned agent): `status: UNVERIFIABLE`, `stopped_by: iteration-cap`.** COMPLETED
+2026-09-03 15:49:56Z, 5 LLM calls. *"Diagnosis NOT confirmed. Best-effort trail attached for a
+human; no fix proposed."*
+
+**So my claim is NOT independently confirmed, and the handoff now says exactly that.** I have
+corrected §4 rather than leaving a reader to infer that filing a 090 amounts to corroboration.
+Filing is not confirming — a distinction easy to lose a day later when all you remember is that
+you did the diligent thing.
+
+**Its reasoning agreed with me; it refused to certify its own reasoning.** The last hypothesis
+says `dispatch_agent` *"IS a spawn (just remote), not a consumer"* and `StartOrchestrationAction`
+*"enforces spawn-before-use rather than bypassing it"* — then stops, because its bundle held an
+`ls` for one file and a one-line fragment for the other, so those claims were *"asserted but not
+quotable from anything in this bundle."* That is the standard I ask of myself, applied to me.
+
+### It named a symbol I never opened, in a file I had read end to end
+
+`call_agent.go:findOrSpawnAgent` (~:721). Its body **checks collected data and, failing that,
+spawns the agent on demand.** If it were reachable, my entire §4 correction would be wrong.
+
+**It has zero callers** — measured repo-wide with a positive control (`findTargetAgent` returns
+its live call site at `:39`; `findOrSpawnAgent` returns only its own definition and its own log
+line). `CallAgentAction` calls `findTargetAgent`. So the claim survives, and the finding is
+sharper than the claim: **a dead function whose NAME is the answer to the one question a reader
+would grep.** Go does not flag an unused function, so it will sit there indefinitely. Landmine
+filed.
+
+**The transferable bit:** I read that file end to end and still missed it, because I was
+following the call graph *down* from `CallAgentAction` and it is not on that path. A symbol
+scan is not a substitute for reading, and reading is not a substitute for a symbol scan. The
+loop's cheapest contribution was a list of names, not a conclusion.
+
+### The runtime evidence the loop asked for, which I could get and it could not
+
+Its fair objection: no runtime row shows the mechanism either way. `agent_error_log` answers it
+and is **durable** — 56,450 rows back to 2026-07-24, unlike `orchestration_states`, which I
+re-measured today at **6,096 rows over ~28 hours**.
+
+| measured 2026-09-04 | |
+|---|---|
+| `call_agent` failures logged — **positive control**, 4th most common failing action | **6,074** |
+| `no spawned … agent found` | **0** |
+| `no agent with role …` | **0** |
+
+**I nearly wrote this up as confirmation and it is not.** It cuts both ways: consistent with my
+claim (every live `call_agent` has a spawn in front of it), *and* proof that my predicted
+failure has no production precedent in six weeks. Both go in the handoff; quoting only the first
+would be the more useful-sounding half.
+
+⚠ My first pass at this ran against `orchestration_states` and returned "0 call_agent errors
+ever" from a table with a **28-hour** horizon. The number was right and the word "ever" was
+false. The durable table changed the answer from 0-of-0 to **0-of-6,074**, which is the
+difference between no evidence and a strong control.
+
+### Meanwhile, rule D ran itself
+
+CronJob fired **2026-09-04 07:40:00Z**, succeeded 07:41:04, receipt written unattended: **18
+rule D of 127 candidates — 72 list something, 28 skipped, 8 never built, 1 divergence.** The
+fleet grew by one candidate and it LISTS something (71 → 72). **Rule B is now 0** (was 1):
+boxingonline's fight-calendar, the page this whole family was built from, has been repaired.
+
+694's markers survived two more rolls (seat `updated_at` now 2026-09-03 22:05:57, chassis
+`v1.0.1360` from `239ab3626`). Auditor over the last 24h: **60 calls, avg 6,749 input tokens, 0
+failures**, against a fleet demand control of 2,814 calls across 31 agent types.

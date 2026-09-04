@@ -7,6 +7,13 @@
 older file stays for the trail; **its §5c contains an instruction that the code refutes — see
 §4 here before you act on any of it.**
 
+> **UPDATED 2026-09-04 15:5xZ.** The diagnosis this file was waiting on has landed and it is
+> **UNVERIFIABLE, not CONFIRMED** — §4 now says so plainly and says what that does and does not
+> license. The loop also named a symbol I had never opened, **`findOrSpawnAgent`**, which would
+> have refuted the whole section had it been reachable; it is **dead code** and that is now the
+> sharpest thing in §4. Rule D has since **run unattended on schedule** (§2). Everything else
+> below stood up to a day and at least two chassis rolls.
+
 ---
 
 ## 1. Where this stands in one paragraph
@@ -35,6 +42,14 @@ outstanding peer promises are **discharged**.
 **Fleet at ship, 2026-09-03:** 126 collection candidates — **71 list something, 28 bare
 section-indexes skipped, 18 rule D findings across 9 sites, 8 never built, 1 render-vs-data
 divergence.** Demand control 62 structured / 2 runtime / 7 own-links / **0 prose**.
+
+**IT HAS SINCE RUN ITSELF, WHICH IS THE ONLY PROOF THAT COUNTS.** The CronJob fired on schedule
+**2026-09-04 07:40:00Z**, succeeded at 07:41:04, and wrote its receipt at 07:41:00 with nobody
+watching: **18 rule D of 127 candidates — 72 list something, 28 skipped, 8 never built, 1
+divergence.** The fleet grew by one candidate overnight and that page LISTS something (71 → 72),
+which is the demand control doing its job rather than a number drifting. **Rule B is now 0**
+(was 1): boxingonline's fight-calendar, the page the whole family was built from, has been
+repaired by another lane.
 
 **Ground truth, both directions, sampled away from the motivating site:** all **18** findings
 confirmed EMPTY at the served body with a per-domain invented-URL control; **11 of 12** cleared
@@ -87,23 +102,79 @@ already a `call_agent` to copy verbatim."*
   (`spawn_actions.go` ~:1685) begins with `findSpawnData(params)`.
 
 **So: every in-workflow path to another agent appears to require a prior `spawn_agent`.** That
-is a structural claim, so per the 2026-07-31 owner ruling it is **filed for independent
+is a structural claim, so per the 2026-07-31 owner ruling it was **filed for independent
 diagnosis rather than asserted**: `RUN_CORRELATION_ID=ebb08a21-4460-427c-b2ca-dea66ef40c04`
 (queue was empty; prior art checked — `bugs_open/210` is a *different* `call_agent` failure,
-an `input_mapping` path miss, not this arm). **Read that verdict before you build.**
+an `input_mapping` path miss, not this arm).
+
+### ⚠ THE VERDICT IS **UNVERIFIABLE**, NOT CONFIRMED — read this before quoting me
+
+The run COMPLETED 2026-09-03 15:49:56Z after 5 LLM calls and returned
+**`status: UNVERIFIABLE`, `stopped_by: iteration-cap`** — *"Diagnosis NOT confirmed. Best-effort
+trail attached for a human; no fix proposed."* **So the claim above rests on my code-read alone.
+Do not cite the 090 run as corroboration; it explicitly declines to give any.**
+
+What the loop *reasoned* agrees with me — its last hypothesis says `dispatch_agent` *"IS a spawn
+(just remote), not a consumer of an earlier spawn step"* and that `StartOrchestrationAction`
+*"explicitly requires prior spawn data … which is the opposite of an escape hatch: it enforces
+spawn-before-use"*. But it then **refused to certify its own reasoning**, because its bundle
+never contained those two function bodies — only an `ls` for one and a one-line fragment for the
+other — so its claims were *"asserted but not quotable from anything in this bundle."* That is
+the loop being honest about its evidence, and it is the right call. It is also the same
+discipline this file asks of you.
+
+### The loop earned its cost anyway: it named `findOrSpawnAgent`, and that is the real trap
+
+Its symbol scan surfaced **`platform/orchestration/actions/call_agent.go:findOrSpawnAgent`** —
+a function I had never opened, sitting in the very file I had just read end to end. **Its body
+does exactly what §4 says is impossible:** it checks collected data, and failing that builds a
+`spawn_agent` step config and spawns one on demand (`:749-761`).
+
+**It has ZERO callers.** Measured 2026-09-04, repo-wide, with a positive control:
+
+```bash
+grep -rn "findOrSpawnAgent" --include=*.go .   # only its own definition + its own log line
+grep -rn "findTargetAgent"  --include=*.go .   # CONTROL: returns call_agent.go:39, the live call site
+```
+
+`CallAgentAction` calls `findTargetAgent` (`:39`), never `findOrSpawnAgent`. So the claim stands
+— **but a future reader who greps "can call_agent spawn on demand?" finds a function whose NAME
+answers yes and whose body answers yes, and it is dead.** That is a landmine and is filed as one.
+
+### The durable evidence the loop asked for, and what it does NOT prove
+
+The loop's fair objection was that no runtime row shows the mechanism either way. That is
+answerable from `agent_error_log`, which is **durable** — 56,450 rows back to 2026-07-24, unlike
+`orchestration_states` (a ~28-hour window; see §6):
+
+| measured 2026-09-04 | count |
+|---|---|
+| `call_agent` failures logged (**positive control** — this log does capture them; 4th most common failing action) | **6,074** |
+| of those, `no spawned … agent found` | **0** |
+| of those, `no agent with role …` | **0** |
+
+**Read this twice, because it cuts both ways.** It is consistent with my claim — every live
+`call_agent` step is preceded by a spawn, so the target-not-found arms are never reached. It also
+means **my predicted failure has no production precedent in six weeks**, so wiring a bare
+`call_agent` would be exercising a path this estate has never run. Neither reading licenses
+skipping the fix.
 
 ### The options, once the verdict lands
 
 1. **`spawn_agent` + `call_agent`**, the `site-review-agent` pattern. Honest cost: the
    handshake's ~50% failure. Mitigation worth designing rather than assuming: the audit is
    advisory and record-mode, so a failed handshake should not fail the build — make the step
-   non-fatal.
-2. **A cold-dispatch action.** What I did by hand today proves the *transport* works: one
+   non-fatal. **This is the only option with production precedent** — see the 6,074-row table
+   above: every `call_agent` this estate has ever run had a spawn in front of it.
+2. **A cold-dispatch action.** What I did by hand proves the *transport* works: one
    `orchestrate` message to `system.agent.generic.requests` naming
    `content-quality-auditor` with `{site_id, domain}` ran the whole audit in 51 seconds. There
    is no workflow action that does this. Adding one is **platform code and architecture-scope**
    (a new shared mechanism on a shared seam — see CLAUDE.md's 2026-07-28 ruling), so it needs
-   the concept register in the same commit and a council round.
+   the concept register in the same commit and a council round. **⚠ `findOrSpawnAgent` is the
+   trap on this route:** it looks like option 2 already built. Reviving a dead function is a
+   behaviour change to a shared action with no callers to regress against — treat it as new
+   code, not as a revert.
 3. **Leave it out of the workflow** and let the sweep cover it, which it already does — 13
    distinct sites audited today, roughly one every 15–20 minutes, all COMPLETED. This is the
    option to argue against explicitly rather than by omission: the owner asked for the build
@@ -151,20 +222,50 @@ Target the **group agent** directly; that is what avoids the spawn→call handsh
 
 ## 6. Per-roll verification (unchanged, still cheap, still do it)
 
-Chassis was `v1.0.1358` today (pods up 12:06/12:07Z); the seat's `updated_at` moved to
-12:06:08 with every 694 marker intact — that is now **five rolls survived**. The three queries
-are in the superseded handoff §2 and still correct. **Use `llm_call_log`, never
-`orchestration_states`** — that table is a **24-hour rolling window** (§4 of the old file) and
-a zero there means "reaped", not "never ran".
+**Re-run 2026-09-04 15:5xZ, against `v1.0.1360` (chassis pods up 2026-09-03 22:06/22:07Z, both
+stamped `239ab3626`). Every 694 marker intact** — allow-list gone, non-greedy strip,
+`ORDER BY pc.position`, all four dimensions, `filing_mode` still `record`. The seat's
+`updated_at` moved again (now 2026-09-03 22:05:57), as it does at roughly every roll, with **no
+snapshot taken and nothing lost**. That is now **seven rolls survived**.
 
-Post-694 behaviour today: **~7,000 input tokens average** against a pre-694 average of
-**1,744**, 0 failures.
+| measured 2026-09-04, last 24h, from `llm_call_log` | |
+|---|---|
+| auditor calls | **60** |
+| average input tokens | **6,749** (pre-694 average was **1,744**) |
+| failures | **0** |
+| demand control: fleet calls / distinct agent types | **2,814 / 31** |
+
+**⚠ A ROLL IS IN FLIGHT AS THIS IS WRITTEN.** A peer session reports
+`make release redeploy-agents` running for **`v1.0.1361`, cut at `06c0b18f2`**, all 14 images
+built 15:29–15:36Z and pushing. Nothing in this lane is Go, so **nothing here ships or breaks
+with it** — rule D is a CronJob mounting a ConfigMap and is untouched by an agent-pod roll. Two
+consequences that ARE yours: **re-run the marker check above once the new pods are up**, and
+**do not dispatch for ~300s after they restart** (the spawn is silently dropped).
+
+**Read the running commit from the table, not from a log line** (CLAUDE.md was reordered
+2026-09-04 to say so):
+```sql
+SELECT pod_name, git_commit, started_at FROM service_binary_capabilities
+ WHERE kind='build' AND pod_name LIKE 'agent-chassis-%' ORDER BY started_at DESC;
+```
+⚠ It is a **two-hour window**, not a history — it answers *what is running now*.
+
+**Use `llm_call_log`, never `orchestration_states`,** for anything durable. That table is a
+rolling window: `[MEASURED 2026-09-04]` oldest row **2026-09-03 11:47**, newest now, **6,096
+rows** — about **28 hours**. A zero there means "reaped", not "never ran". For errors the
+durable table is **`agent_error_log`** (56,450 rows back to 2026-07-24), which is what §4's
+6,074-row control is built on.
 
 ---
 
 ## 7. What is left
 
-1. **The routing (§4)** — read the diagnosis verdict `ebb08a21`, pick an option, argue it.
+1. **The routing (§4)** — the diagnosis came back **UNVERIFIABLE**, so there is no verdict to
+   lean on: the claim is mine, from the code, and §4 now carries the six-week durable evidence
+   and the `findOrSpawnAgent` trap. Pick an option and argue it. If you want independent
+   confirmation, a **re-filed 090 naming the two function bodies the last run could not get**
+   (`DispatchAgentAction`, `StartOrchestrationAction`) is the cheap next move — the loop said
+   exactly what it was missing.
 2. **CONTRIB ask 3, planner half** — refusing to SELECT a tool at planning time when we hold
    no data to put in it. The mechanical half shipped as SQ-005 rule B; this is the
    planner-side door-closer.
