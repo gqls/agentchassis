@@ -3952,3 +3952,32 @@ is not a defence.* Every damaging passage discussed — the Leacock minstrel mat
 essays, the Saki premise, the Pepys coercion entries — is ON Project Gutenberg, free, and greppable in
 seconds by anyone reading our press release. **The corpus FILTER is the deliverable, not the source.**
 That sentence should shape the copyright page the owner has asked for.
+
+## 2026-09-04 (14:38–14:45Z) — the pricing page came back MISSING TWO OF THREE PRICES, and the cause is a fleet-wide trap
+
+Rebuild #1 (`c1517aa0`) completed 14:38:55, deployed 14:38:06. Shape is right: h1 *"Two ways to pay us:
+a model you keep, or an hour you rent"*, then What you can have / What's included / What's actually for
+sale / A fine-tuned model, yours to keep / An hour in the playground, standard machine / An hour in the
+playground, larger machine / Questions people ask about the two ways to pay. **Every number on the
+served page: `£99` only.** 0 em dashes.
+**Cause, measured at the rendered prompt, not guessed:** `evidence_base.facts[]` and
+`evidence_base.writer_block` are different fields, and the writer's "Verified Facts (the ONLY numbers
+you may assert)" block is built from the PROSE in `writer_block` — which still read "NUMBERS (state only
+these): the £99 … the ~$5,000 …". The build's prompts contained **`ft-hour-small` (t)** — because my
+brief named the fact id — and **`3.15` nowhere (f)**. So the writer could not state the price and
+correctly wrote the page without it. **Registering a fact is necessary and NOT sufficient.**
+**Fixed:** `SQL_2026-09-04_writer_block_admit_hour_prices.sql` appends one clause to the NUMBERS
+sentence, anchored on a verbatim string, with a length assertion proving the anchor matched exactly once
+and post-conditions that the never-state list, the licence rule, the 12 facts and the 1 chart are
+untouched. Rebuild #2 `47282bc6` queued 14:40:24.
+**Filed as a LANDMINE** (fleet-wide, verifier armed): the page comes back well written and silently
+missing the number, no error anywhere; and **the reverse is worse** — a figure named in `writer_block`
+but absent from `facts[]` is stateable with no attestation behind it. The prose is the control, the
+array is the audit trail, and nothing reconciles them.
+
+**Also 14:45Z — payments have an owner.** A new `stripe` session owns Stripe and payment-transaction
+work estate-wide. Told them what this lane will bring and when: the booked hour (one-off, £3.15/£6.65,
+now registered), the £99 fine-tune (one-off, today arranged by conversation), and — only if the owner
+takes it — the examples catalogue, which is the piece needing accounts and possibly payouts. Their
+useful fact: the live surface (`internal/auth-service/billing`, PAY-009) is **one-off `mode=payment`
+only, no recurring path anywhere**, which is fine because nothing this lane needs is recurring.
