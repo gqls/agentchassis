@@ -93,6 +93,14 @@ SELECT spp.name, spp.role, spp.url, spp.parent_section
   `service` column — that column also carries rows for other pods on the same image
   (`agent-landmine-verifier-*` etc.) which may have started at a different time and could be
   running something else.
+  ⚠ **That table is a TWO-HOUR WINDOW, not a history** (`LANDMINES.md`, "…IS A TWO-HOUR WINDOW…";
+  `RetentionWindow` in `platform/buildcapability/buildcapability.go`). It answers *what is running
+  now*. It **cannot** date a past event — and it fails silently, because a surviving pod's
+  `started_at` can precede your event and read as proof that binary served it. **This matters for
+  the verification below:** when the re-plan lands, do NOT reach for this table to ask "was the fix
+  live when it ran". Corroborate with something that is not pruned —
+  `kubectl -n ai-persona-system get rs -l app=agent-chassis --sort-by=.metadata.creationTimestamp`,
+  which is how the 22:07:19Z roll time in §1 was established.
   What genuinely is NOT evidence here: the **image tag** (unchanged, `v1.0.1360` either side)
   and the **`build provenance` log line** (scrolled; reading the whole log OOM-kills the tool).
 - **The capability probe is the fallback when your change adds a literal** — and it needs a
@@ -114,6 +122,14 @@ SELECT spp.name, spp.role, spp.url, spp.parent_section
 - **HEAD may be red for reasons that are not yours.** It was when this lane started, from another
   lane's `83407cd37`. Run `scripts/verify-head-builds.sh --test ./platform/orchestration/...`
   against HEAD **alone** before attributing a failure to your change.
+- ⚠ **`CLAUDE.md`'s "Ask the service what it is running" section is STALE relative to the landmine
+  corpus, and following it is what cost this lane an hour.** It prescribes the `build provenance`
+  log line first (which scrolls) and a binary probe as fallback, and never names
+  `service_binary_capabilities` — which `LANDMINES.md` documents in nine places, including the
+  retention caveat above and the rule that INERT code must be verified by ancestry rather than by
+  literal. The corpus had the answer; the file every session loads unasked did not, and the
+  SessionStart hook only surfaces landmines for files already dirty in the tree. Raised with the
+  owner as a proposed CLAUDE.md edit; not made unilaterally.
 - Full prospective entry: `LANDMINES.md`, "Comparing pages by their FIRST PATH SEGMENT…".
 
 ## 6. Everything committed
