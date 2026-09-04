@@ -87,8 +87,9 @@ cannot read the brief directly.** It also renders the WRONG classification, so c
 ## 1w. ⚠ ADDED 2026-09-04 ~07:50Z — the plan's real blocker, and what is in flight now
 - **copyonline never had `needs_briefing` or `needs_site_plan`**: `domain-strategist.gate_next_item`
   skips the briefing when `check_site_deployed` says `is_deployed`, and that query counts ANY page
-  with `deployed_at` — the five blind tool pages satisfied it. 090 filed (item `467f0283`); bug file
-  owed after its verdict. `needs_briefing` filed by hand 07:47:25Z (item `479614c9`) → expect
+  with `deployed_at` — the five blind tool pages satisfied it. 090 `467f0283` → UNVERIFIABLE (loop
+  cannot read `default_config` steps); **`bugs_open/478` FILED** on the first-hand chain; §9.100 in 016b.
+  oxenunity.com and cookly.uk are stalled the same way (no plan); loancalculator was redriven by hand 08-15. `needs_briefing` filed by hand 07:47:25Z (item `479614c9`) → expect
   `needs_site_plan` → the plan. Watcher `bwdqsjvzs`. If the plan lands, read the planner's rendered
   `## Mission` block (764's second half) — but note PRC-003 is LIVE (v1.0.1360, image label
   `239ab362…`), so count holes with `ScanMissingValues` on the raw execution, never `<no value>`.

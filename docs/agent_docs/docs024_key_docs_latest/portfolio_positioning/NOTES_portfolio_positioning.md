@@ -5881,3 +5881,29 @@ form; bug file after the verdict.
 files `ON CONFLICT DO NOTHING` against `idx_swi_dedup`, whose terminal set is complete/failed/verified —
 `wont_fix` is NOT terminal there, so the row blocks a re-file for as long as it stands; if the stale
 reaper archives it, the doc_notes ruling is the record of decision.
+
+### (ggg) 2026-09-04 ~08:25Z — `bugs_open/478` filed; the loop's UNVERIFIABLE was an instrument limit; two more stalled sites; §9.100
+
+090 run `467f0283` returned **UNVERIFIABLE (scope-not-narrowing)** because the loop read
+`orchestrator_workflow` / `task_workflow` / `orchestration_workflow` (all NULL on this agent) and never
+`default_config->workflow->steps` — the register already records that workflow JSON is invisible to its
+static tier (`diagnosis-loop.md` line 268). Not a refutation. Filed **`bugs_open/478`** on the first-hand
+chain under the 2026-07-31 ruling's substitute, quoting the three step configs, both strategist
+orchestration rows (`is_deployed: true`, no `next_item_created`), the 341/359 intent ("never chain a
+re-plan of a serving site"), and the designblog control timeline.
+
+**Blast radius, honestly `[MEASURED 08:1xZ]`:** a census on `pages.deployed_at` returned ZERO — the
+column MOVES with every rerender (copyonline's `min(deployed_at)` is now 18:23Z, after its 17:44Z
+strategy). The stable proxy `pages.created_at < first strategy AND never briefed` gives **5 of 40**:
+copyonline, **oxenunity.com** (six `tool-*` pages before strategy, no plan), **cookly.uk** (a seeded
+`index/about/contact` before strategy, no plan — a SECOND pre-plan page producer), and two ADOPTED sites
+(lampenkap, loancash) where the gate's answer is arguably right. **loancalculator.co.uk** hit it on
+08-08 and was briefed by hand on 08-15 (`manual-redrive-…-post-b2-gate`) — the 359 header's own witness
+site. Control: 33 briefed sites whose first page postdates their strategy.
+
+**§9.100** written in 016b: a gate that asks a site-level question against a page-level column is
+decided by a race; ask who WRITES the column; never census it on `deployed_at`.
+
+**Fix candidate 1** (478 §5): the gate asks "has this site ever been PLANNED" (`site_plans`) or "is it
+PUBLISHED" (`sites.published_at`), not "does any page carry a stamp". One config step. Not mine to
+apply unasked — it is a shared agent and the owner's call after the morning he has had with shared agents.
