@@ -256,3 +256,53 @@ bears on this lane's future council submissions: **a killed correlation is REUSA
 correlation carried four council runs across the outage (revise 11:15, complete_invalid 11:29,
 revise 12:08, approved 12:23). Use `RESUBMIT_CORR=<corr>`; minting a fresh one splits the trail
 and leaves a `Council-Submitted:` trailer pointing at a correlation that never produces a verdict.
+
+### 16:3xZ — the worst thing on the site is invisible to every link checker: 41 buttons advertising deleted tools
+
+`[MEASURED 2026-09-04, served HTML of all 18 active pages]` **41 anchors across 15 of the 18
+pages carry a LABEL inviting the reader to use one of the seven tools the owner had deleted on
+08-31, and every one of them points somewhere else that returns 200.** Examples, verbatim:
+
+| page | label | href |
+|---|---|---|
+| `/contact.html` | "Check what cover your farm might need with the Farm Insurance Needs Checker" | `/blog/farm-machinery-insurance.html` |
+| `/crop-insurance` | "Try the Farm Insurance Needs Checker" | `/guides/index.html` |
+| `/legal.html` | "Try the Livestock Value Estimator" | `/blog/livestock-insurance.html` |
+| `/glossary.html` | "Try the Farm Insurance Needs Checker to see which areas of your own cover…" | `/blog/farm-machinery-insurance.html` |
+
+Two named tools account for nearly all of it — Farm Insurance Needs Checker and Livestock Value
+Estimator. Plus **41 prose mentions across 9 pages** (outside anchors) naming the culled tools,
+including 5 of "Farm Building Rebuild"/"Rebuild Cost Estimator" on `/blog/farm-buildings-insurance`
+and 4 of "Farm Insurance Needs Checker" on `/guides/index.html`.
+
+**Why this is the sharpest thing found today and why nothing caught it.** The CTA recompute
+during the cull did its job — it re-pointed every href at a page that exists — so *every link
+returns 200*. My own crawl this morning proved 27/27 internal targets healthy and was blind to
+this by construction: a link checker asks "does this go somewhere?", and the defect is "it goes
+somewhere that is not what the button says". A reader clicking "Try the Farm Insurance Needs
+Checker" lands on a blog post about machinery insurance. On 15 of 18 pages.
+
+**Ownership:** this is `copy_quality_two_stage`'s parcel — they named the class first
+("misdirected-CTA labels, 52 fields; live-URL-dead-label class first") and hold the ruling.
+Their 52 is a count of stored spec/CTA FIELDS; my 41 + 41 is a count of what the SERVED pages
+show today. Different populations, both true, and the served count is the one that says what a
+visitor meets. Handed over as a CONTRIB rather than touched here.
+
+### 16:3xZ — the contact page is a dead end, three ways, and one of them is fleet-wide
+`[MEASURED 2026-09-04 at the served page]` `/contact.html`:
+
+1. **The form silently swallows messages.** `<form class="contact-form" id="cf-contact-form"
+   action="#contact" method="POST">` — it POSTs to a fragment of itself on a static host.
+   Nothing receives it. The work item `contact_form_undeliverable` said exactly this on
+   **2026-08-28** and has sat at `needs_human_review` for a week.
+2. **There is no other way to reach anyone.** No `mailto:`, no `tel:` anywhere in the page, and
+   the identity spec's contact block is `{email: null, phone: null, address: null}`.
+3. **The page contradicts itself.** Its own opening line is "Farmer Insurance UK does not arrange
+   insurance or *take your contact details*, so this page will not get you a quote" — and then it
+   presents "Send us a message · Name · Email · Message · Send Message". Given (1), the honest
+   version of this page may be one with no form at all; that is a content decision, not a bug fix.
+
+**Fleet-wide, the form defect is 7 sites** `[MEASURED 2026-09-04]`: ai-agent-orchestration.com,
+**boxingonline.com** (the first paid build), cv1.co.uk, farmerinsurance.uk, garden-tools.uk,
+relojistas.com, vonc.com. That is the `static_site_form_endpoint` lane's mechanism — routed to
+them, not fixed here.
