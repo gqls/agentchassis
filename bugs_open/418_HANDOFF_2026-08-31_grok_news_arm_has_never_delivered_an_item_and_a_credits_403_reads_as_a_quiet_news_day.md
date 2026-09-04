@@ -92,3 +92,22 @@ completely.
   off `llm_call_log` — the wrong instrument (the news path calls HTTP directly and never logs
   there). The conclusion happened to survive re-measurement at the right instrument; the census
   would have missed a WORKING arm entirely.
+
+---
+
+> **UPDATE 2026-09-04 (copy_quality_two_stage) — the OPERATIONAL half is resolved; the STRUCTURAL
+> half is untouched and the bug stays open on it.** `[MEASURED 2026-09-04 ~11:30Z]` the xAI arm's
+> first run that wrote items is `2026-09-03 15:06:22Z`; since then 10 runs, 45 items written, and
+> the `fetched_items.error` key is NULL on every row in the window (`orchestration_states` is a
+> rolling window — the 08-30/31 rows quoted above have aged out, so the 403 evidence now lives only
+> in this file). So the owner funded team `d443dd72-…` on the afternoon of 09-03. Nothing in
+> `fetchViaResponsesAPI` changed: a refusal would still complete as an empty result nobody reads.
+> The Grok WRITER trial that this bug was found while running has now run — results in
+> `docs/agent_docs/docs024_key_docs_latest/copy_quality_two_stage/AUDIT_prompts/EXPERIMENT_2026-08-31_model_trials.md`
+> (Grok arms section). Query used:
+> ```sql
+> SELECT min(created_at), count(*), sum(COALESCE((collected_data->'write_items'->>'written')::int,0))
+> FROM orchestration_states
+> WHERE collected_data->'input_data'->'source_config'->>'provider'='xai'
+>   AND COALESCE((collected_data->'write_items'->>'written')::int,0) > 0;
+> ```

@@ -4590,3 +4590,84 @@ case-sensitive) stays as the standing check.
 Note the timing for the "zero rows can turn non-zero later" trap: this spawn was organic, ~10
 hours after the opt-ins' last unobserved check, which is roughly what "answers itself on any
 organic run" costs on this fleet for an agent that fires per site build.
+
+---
+
+## 2026-09-04 — the Grok arm finally RAN, and it is the first model to beat sonnet on the owner's own fault without failing his ear
+
+**Why it could run today: the owner funded the xAI account yesterday afternoon.** `[MEASURED
+2026-09-04 ~11:30Z]` the news arm's first delivering run is `2026-09-03 15:06:22Z`; 10 runs since,
+45 items, zero 403s. `bugs_open/418` updated — its OPERATIONAL half is closed, its STRUCTURAL half
+(`fetchViaResponsesAPI` turning every API failure into an empty COMPLETED result) is untouched and
+keeps the bug open. Note for anyone re-checking: `orchestration_states` is a rolling window, so the
+08-30/31 rows carrying the verbatim 403 have aged out and that evidence now lives only in the bug
+file.
+
+**Model list first, because the recipe in the doc named a model that no longer exists.**
+`grok-4-1-fast` (the news arm's recommended model, in a Go doc comment) is NOT in `/v1/models`
+today; the list runs `grok-4.20` (reasoning / non-reasoning / multi-agent), `grok-4.3`, `grok-4.5`,
+`grok-4.6` (newest, 2026-08-06), `grok-build`, and the imagine families. Two arms: the strongest
+sibling and the cheapest non-reasoning one.
+
+**Result, production scanner (`datahelpers.ScanDefineByNegation`), sonnet re-scored in the same run
+as the control:** sonnet 8 · **grok-4.6 0 and 0** · grok-4.20-non-reasoning 4 and 5. The read does
+not veto grok-4.6 — it reaches zero by statement, keeps every fact the prompt supplies (checked
+term by term: Llama/Mistral/Phi, DoRA, GDPR, the sectors, Bulk Data Collection, review gates), and
+**expands** rather than compresses (1,015 words against sonnet's 695), which is the exact fault that
+downgraded Fable under ruling 13. Two illustrative-not-factual caveats recorded honestly: #2's
+insurer/auditor/questionnaire scenario and #1's gate examples are not in the brief. The non-reasoning
+arm reproduces the sonnet prior verbatim ("Start with the work, not the technology") plus an
+ungrounded ChatGPT disparagement and an EMPTY highlights array — it does not promote.
+
+### The instrument mattered more than usual, three times
+
+1. **The 08-31 rows quote NEG=5 for sonnet on "six shapes"; today the same stored text scores 8.**
+   Not a change in the text — the production scanner has gained shapes since. Every number in the
+   new block is one instrument (the Go scanner, at HEAD `763c8002f`) over all arms in one run, and
+   the 08-31 Fable/Gemini rows are explicitly NOT on it. Their outputs were never stored, so they
+   cannot be re-scored. **Fixed from today:** `AUDIT_prompts/TRIAL_OUTPUTS_2026-09-04_*` holds every
+   arm's output verbatim.
+2. **I asserted "the production writer does not reason" from `llm_call_log.thinking_tokens = 0 of
+   6,724` — and that column CANNOT see it.** Sonnet 5 returns thinking blocks empty by default
+   (`display: "omitted"`), and the column is filled from parsed block text, so it reads NULL whether
+   or not the model thought. The writer DOES reason: production omits `thinking`, which on this model
+   means adaptive is ON. The tell was in the row I was quoting — `output_tokens` 2,713 for ~1,100
+   tokens of visible JSON. Caught by the API reference after four replays 400'd, not by any check of
+   mine. `WRONG_CALLS.md`.
+3. **Six Anthropic 400s that I wrote up as a BusyBox `wget` defect were the fleet credit outage of
+   11:21–11:57Z** (the 420 425 lane's message named the window; the council died in it, six lanes'
+   submissions returned `complete_invalid`). I had switched to a Go poster at the moment of failure,
+   so tool and window were perfectly confounded — and the poster's first call went out three minutes
+   after the outage ended. The control that refuted it: re-run the ORIGINAL wget now → **200**.
+   Second-order and the part worth keeping: **BusyBox discards 4xx bodies, so the outage's own error
+   text was the one thing invisible — the tool that hid the evidence got blamed for the failure it
+   hid.** `WRONG_CALLS.md`.
+
+### Arm 5, pre-registered and then REFUTED, which is the useful outcome
+
+The cross-vendor pattern suggested "models that reason before writing score zero". Tested WITHIN
+sonnet on the same prompt: thinking disabled → 9 and 6; adaptive at production's effort → 9 and 7
+(summaries prove the reasoning happened); shipped section → 8. **One band, 6–9, whatever the dose.**
+So the reasoning-dose story is dead and the 08-25 canary's P2a conclusion stands on a direct test:
+**the carrier is the model prior.** The pre-registered reading for exactly this outcome was written
+before the run, which is the only reason it is worth anything.
+
+**And a trap that would have flattered the wrong arm:** `effort: "max"` produced FOUR runs of NO
+TEXT — the whole budget spent thinking, `stop_reason: max_tokens`, at 16,000 and again at 40,000.
+A prose battery scores that **zero**, i.e. a perfect result from an empty output, on the most
+expensive arm. Assert `stop_reason == end_turn` and non-zero words before reading any count.
+Landmine filed; it is `bugs_open/012`'s rule (`output_tokens == max_tokens` means CUT) arriving from
+the scoring side rather than the persistence side.
+
+**Latent defect found on the way, not this lane's to fix and not filed as a bug yet:**
+`platform/aiservice/anthropic.go:278-300` still sends `thinking: {type:"enabled", budget_tokens:N}`
+when a step config sets `budget_tokens`. Anthropic **400s** that shape on 4.7+ models, so any live
+config that sets it would take the whole call down. `[MEASURED 2026-09-04]` the three live rows whose
+config mentions the key are `council-gate`, `council-gate-036scratch`, `fix-proposer` — a MENTION
+census, not a settings census (the landmine about `::text ILIKE` applies to me here), so whether any
+of them actually reaches the Anthropic client with it set is unverified. `bugs_open/257` owns the
+token-budget contract; raised to that lane rather than filed here.
+
+**What the owner is owed now:** the verbatim outputs to read (his ear, not our scanner, is the
+instrument that matters for register), the cost/latency table, and the choice. Nothing about the
+production writer has been changed.

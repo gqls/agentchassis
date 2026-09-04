@@ -1054,3 +1054,52 @@ MaPS error, one size smaller. Still yours when you have a minute: the batch revi
 top-up at console.x.ai, and one word to the offer thread confirming the question-hierarchy
 build — they'd rather hear it from you directly than through a relay, which I think is the
 right instinct.
+
+---
+
+**2026-09-04 (early afternoon) — we finally have a Grok result, and it is the best answer yet to the
+copy problem.**
+
+You asked what happened when we compared Grok. Until today the honest answer was "nothing": the
+trial was blocked since 31 August because the xAI account had no credit, so every call was refused.
+You funded it yesterday afternoon — the news feed started delivering at 15:06 and has brought in 45
+stories since, having delivered exactly zero before that. So this morning the comparison could
+finally run.
+
+It ran on the same piece of writing every other model has been tested on: the "Our Approach" page
+section from finetuning.uk, the worst-scoring page of the canary, using the exact prompt the live
+system sent on 26 August. Nothing about the live site was touched.
+
+The result. The fault we are chasing is the habit of saying what something is NOT in order to say
+what it is. On that section the shipped copy commits it eight times. Grok's newest model committed
+it **zero times, twice running** — and not by being vague, which is how a model usually gets a zero.
+It kept every fact it was given, wrote longer than our current model rather than shorter, and made
+its points as statements: "a model aimed at a muddled process will still produce a muddle, and you
+will have paid for it." That length matters, because it is the thing you rejected Fable for — Fable
+also scored zero but compressed everything into riddles.
+
+Grok's cheap model was the opposite: it reproduced our current model's tic word for word, invented a
+swipe at ChatGPT that was nowhere in the brief, and returned a third of the words. It is not a
+candidate.
+
+I also checked the obvious cheaper alternative before recommending a change of model: whether our
+current model simply needs to think harder. It does not. With thinking off it scores 9 and 6; with
+thinking on at the normal setting, 9 and 7; the live page, 8. Turned up to maximum it spent its
+entire budget thinking and returned no text at all, four times. So there is no setting that fixes
+this — the difference really is the model.
+
+**What I need from you is a read, not a decision on my numbers.** Our count is a machine measure and
+your ear has overruled it twice already. The four Grok samples and the four control samples are
+written out in plain prose in
+`docs/agent_docs/docs024_key_docs_latest/copy_quality_two_stage/AUDIT_prompts/TRIAL_OUTPUTS_2026-09-04_grok_arms_verbatim.md`.
+Two things to weigh besides the writing: Grok's best model takes four to five minutes per section
+against our thirty-eight seconds, and it costs about ten to fourteen cents a section. And one
+honest caveat — in one sample it wrote that a model you own "can be explained to an insurer, an
+auditor, or a client who issues a questionnaire". That is a reasonable thing to say and it was not
+in the brief, which is the same class of fault, milder, that ruled Gemini out.
+
+Two of my own mistakes today, both caught and written down: I claimed our writer does not think,
+from a database column that turns out to be incapable of recording it; and I blamed a broken
+command-line tool for a batch of errors that were actually the Anthropic account running out of
+credit for half an hour this morning. Neither reached you or another team, and both are logged with
+the check that would have caught them sooner.
