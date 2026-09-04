@@ -894,3 +894,75 @@ So the ~3,184 parked findings **do not contain this one**. "Someone must add a l
 to `articles-index`'s plan" is **genuinely unowned** — there is no verdict row to release, and
 releasing the whole backlog would not produce one. Third instance in two days of the backlog not
 holding the live defect (cf. UPDATE 9).
+
+---
+
+# UPDATE 11 — 2026-09-04 ~16:50Z. OWNER RULINGS ×4, the ZONE IS LIVE, and his §4 question answered.
+
+## Owner rulings, 2026-09-04
+
+1. **The parked findings now have their own thread.** Out of this thread's scope; do not duplicate.
+2. **"I authorize the cloudflare zone for the .coms too."** — settles the `.uk`-only guard in
+   `cf_customer_domain_zone.sh` (owner ruling 2026-08-21) as scoped to the *registration offer*, not
+   to zones for domains we already own.
+3. **Carousel: "it can have its own carousel forked from the best one and made better."** → `content-listing`
+   gets its OWN, forked and improved, not a re-use of `info-card-grid`'s. Default-OFF / boxingonline-only
+   by implication (one request, one section, one site). `show_load_more` NOT addressed — the designer lane
+   is to decide it in the design and state it, not block.
+4. **"the plan should have what goes on the index page and that should be followed, surely?"** — answered below.
+
+## THE CLOUDFLARE ZONE IS CREATED. Registrar NS change is the only remaining step.
+
+```
+zone_id      26aae5db4c834f4a7c92218fb6dd2a03      status  pending (expected)
+ASSIGNED_NS  elsa.ns.cloudflare.com, kianchau.ns.cloudflare.com
+Dynadot has  alexis.ns.cloudflare.com, leah.ns.cloudflare.com   <- MUST CHANGE
+```
+
+⚠ **A THIRD nameserver pair.** Our 46 zones used only two (31× alexis/leah, 15× betty/ivan) and I
+had told the `dynadot` lane a match was *likely*. **It was not.** This is exactly why the runbook says
+TAKE THE NAMESERVERS FROM THE CREATE RESPONSE and the script calls the pair "convention, not
+contract". **Never infer the pair from another zone.**
+
+Verified by RE-READING both zones (not by trusting POST receipts) and diffing against reference
+`garden-tools.uk`: **2 proxied A records at `192.0.2.1` (apex + www), 2 worker routes →
+`portfolio-sites-router`, nothing else — byte-identical in shape.** Content is already staged
+(`boxingonline.com/` prefix in B2; worker keys on `objectKey = hostname + path`), so it should serve
+the moment delegation moves. Reversal: `DELETE /zones/26aae5db4c834f4a7c92218fb6dd2a03`.
+
+Handed to `dynadot` with the three cautions from their own runbook: `set_ns`/`add_ns` are
+**unexercised**; the target pair must exist in the account first (`add_ns`); `Locked: yes`.
+**Verify at the artefact:** `dig @elsa.ns.cloudflare.com boxingonline.com` → NOERROR (not REFUSED),
+then apex 200.
+
+## §4 ANSWERED: the plan DOES declare it. Nothing carries the declaration into the build.
+
+`site_plan_pages` for this site holds `articles-index | role='section-index' | /articles/index.html`.
+**So the plan does say what the page IS.** But `site_plan_pages`' columns are
+`id, plan_id, name, role, slug, url, parent_section, in_header, in_footer, nav_order, created_at,
+title, meta_description, nav_label` — **there is NO column for a page's contents**, and
+`pages.page_spec` is **NULL** here. So the plan declares a *role* whose whole purpose is to list
+things, and nothing ever states, or checks, that the built page contains a listing.
+
+`[MEASURED 2026-09-04]` across **82** active index-family pages (`section-index`, `blog-index`,
+`news-index`, `entity-directory`): **56 name a listing · 20 have sections but none · 6 are empty.**
+
+⚠ **My first cut of this said 39 offenders and was WRONG** — the regex looked for `listing` and so
+scored `guide-list`, `tool-list`, `game-list` as offenders when they are listings. Sixth instance
+today of a pattern encoding the wrong question. **Corrected figures above.**
+
+**Six of the 20 share the IDENTICAL signature** `["hero", "generic-text-block", "call-to-action"]`
+across four sites — `boxingonline/articles-index`, `designblog/{criticism,inspiration,the-design-feed}-index`,
+`gamedesign/articles-index`, `seotools/blog-index`. That is one producer's fingerprint, not coincidence.
+
+**It is ALREADY FILED: `bugs_open/444`** — *"Remake listing pages ship EMPTY of their content type,
+filled with brief-echo prose"*, filed 2026-09-02 by `portfolio_positioning` **from the owner's own
+designblog critique** (*"explaining the brief and not answering it"*), verified as a CLASS across four
+remakes. 444 already designs a gate with a **section-index arm** that `bugs_open/450` §383 records as
+*"order-safe BY CONSTRUCTION: a hub's children are IN the plan, so post-plan builders cannot
+false-positive."*
+
+**So the answer to him is: yes, and the gate that would enforce it is designed and not armed.** That
+gate is the fix for his question, and it is a different thing from releasing the parked backlog —
+457 verified no auditor seat ever filed this structural gap (10 rows queried, all `page_rerender` /
+`section_edit`, all complete), so releasing all 3,184 would not produce it.
