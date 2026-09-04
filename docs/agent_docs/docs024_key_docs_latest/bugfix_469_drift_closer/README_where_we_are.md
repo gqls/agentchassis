@@ -193,3 +193,47 @@ general rule written down in my own notes — *"closing a row archives it out of
 queried"* — and applied it to somebody else's claim this morning while writing its opposite
 into mine this afternoon. It is corrected everywhere it appeared, including in the code
 comment, which is the copy a future reader inherits without asking anyone.
+
+## 2026-09-04 — it's live, and it has correctly done nothing
+
+The fleet rebuilt overnight and the safety net is now running. I checked that properly
+rather than trusting the version tag: the tag was one I'd already seen used before my work,
+so it proves nothing on its own. Asking git whether my change is inside the build that is
+actually running says yes, and the control — a commit made after that build — correctly says
+no.
+
+**It has not fired once, and that is the right answer.** There is no drift anywhere on the
+estate at the moment, so there is nothing for it to close. I've been careful to record that
+as "running and never exercised" rather than "working", because those are different claims
+and only one of them is evidenced. The thing still owed is one real case going through it.
+
+I did check it isn't silently broken, which is the failure that would look identical to
+"nothing to do": the detector's owning agent ran nine times overnight, and there is not one
+error recorded against this check — against 97 such errors on record overall and five since
+the rebuild for *other* checks. So the silence is real silence.
+
+**I also nearly told you the opposite.** My first check was to look inside the running
+program for my change's fingerprint. It wasn't there — which looks exactly like "it didn't
+ship". It turns out a built program records only the single point it was built from, not
+everything that went into it, so my change was fully present and invisible to that test. The
+right question was one command away and I asked it second. Written up, because every safety
+check I ran on that measurement passed; it was simply measuring the wrong thing.
+
+## So what's actually left
+
+**Nothing to build.** Three decisions, all about the one page, and I'd take them together
+because the third can make the first two irrelevant:
+
+1. **May a repair withdraw a page's "already built" mark so it actually renders?** Without
+   this the correction sits in the database and never reaches a visitor. It isn't a tidiness
+   question here — it's the difference between the repair happening and not.
+2. **Does the rebuild machinery even reach an archived page?** I don't know.
+3. **Should that page be serving at all?** It's marked archived and serves a normal page.
+   There's already an untriaged flag about that, and eight more like it. If the answer is
+   "retire it properly", questions 1 and 2 stop mattering.
+
+The repair itself is written, safety-checked, rehearsed against the live database again this
+morning, and held.
+
+**Handoff for a fresh session:**
+`docs/agent_docs/docs024_key_docs_latest/bugfix_469_drift_closer/HANDOFF_2026-09-04_continue_here.md`
