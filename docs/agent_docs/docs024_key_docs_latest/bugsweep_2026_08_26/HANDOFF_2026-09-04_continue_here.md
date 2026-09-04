@@ -19,8 +19,8 @@ correction is the main thing that happened today.
 | **442** §3 "nothing can be refused" | ❌ **WRONG, corrected.** It is a **drained queue**, not absent demand. 4 dispatches / 5 pages / 0 refusals in 25 h — §1 |
 | **442** council (`76288ff9`) | APPROVED round 3, verdict read, advisories answered. **Nothing owed** |
 | **442** NEW defect found + fixed | ⚖ **migration `773` APPLIED AND VERIFIED LIVE** — the message said "read each `save_result`" and that key holds only the LAST page. §2 |
-| **773** council (`8bf83b59`) | ⏳ **SUBMITTED, verdict PENDING** — was at `gate_render` at 11:58Z. **This is the one thing owed.** §5 |
-| LANDMINE (new) | dispatched for verification, corr `10d6ea46-320d-4ab0-8a55-c45453e75534`, verdict pending |
+| **773** council (`8bf83b59`) | ⚖ **APPROVED at round 2** — 11 seats readable, **0 objections**, `decided_by: all reviewers approve`. Round 1's `revise` was an LLM OUTAGE, not a review — §7 |
+| LANDMINE (new) | ⚠ first dispatch **DIED IN THE OUTAGE** (4 attempts, all credit-400). Re-fired: `c034492e` (loop entry) and `b68cf7b8` (council addendum) — §7 |
 | **464** | CLOSED 09-03, unchanged |
 | 338 / 320 / 407 / 359 / 404 | unchanged — not this lane's, see the 09-03 handoff §0 |
 
@@ -214,3 +214,72 @@ ORDER BY created_at DESC;
 -- 4. Has the mechanism finally fired? (the acceptance evidence)
 SELECT status, count(*) FROM site_work_items WHERE item_type='meta_description_refused' GROUP BY 1;
 ```
+
+---
+
+## 7. UPDATE 12:15Z — §5's "one thing owed" is DISCHARGED, and finding out why cost the most interesting hour of the day
+
+§5 above says the one thing owed is the `8bf83b59` verdict. **It landed, and the story is worth the
+four paragraphs.**
+
+### It came back `revise` — and that was not a review
+
+Round 1, 12:02:36Z: `decision: revise`, but `decided_by` reads **"unreadable reviewer(s):
+review_editquality, review_reuse_agent, review_guidelines, review_constitution, review_mission,
+review_prior_art"** — `unreadable: 6, reviewers: 3, abstained: 8`. **The three seats that WERE
+readable all APPROVED** (`guardian`, `debug_historian`, `architecture`) and the round contains **not
+one objection.**
+
+### The cause: the estate's Anthropic credit balance ran out
+
+`[MEASURED 2026-09-04]` Every council seat call 11:21:00Z → 11:53:42Z failed with HTTP 400
+*"Your credit balance is too low to access the Anthropic API"*. **Fleet-wide, not council-only:
+ZERO successful LLM calls of any kind, any agent type, between 11:25 and 11:50**; 117 credit-400
+failures in the 11:00 hour. Two OTHER lanes' rounds took the identical mechanical `revise` in the
+same window (`3e9e8ce8` 11:22, `5de01fd3` 11:28) — **three unrelated submissions failing the same
+way at the same time is the estate, not your plan.** Recovered unaided; last failure 11:56:47Z.
+
+⚠ `gated_by_truncation` was **`false`**, which is true and irrelevant — the seats were not
+truncated, they never ran. The discriminator is `llm_call_log`, not the gate's own metadata.
+
+### The control, and it is decisive
+
+Resubmitted on the **same** correlation with the plan **byte-identical** — no revision, because
+there was nothing to revise. Round 2, 12:14:47Z: **`approved`, `decided_by: all reviewers approve`,
+11 readable seats, 0 unreadable, 0 objections.** Same plan, healthy estate, opposite verdict. That
+is what makes "round 1 was mechanical" a measurement rather than an excuse.
+
+**`Council-Reviewed: 8bf83b59-cda4-43e1-af07-838ea10c1df7`** is now legitimate (verdict read).
+Commit `75f7b843d` already carries `Council-Submitted:` for the same correlation and **`098` credits
+it automatically** — forward-only forbids an amend and none is needed.
+
+### What was filed out of it, so nobody re-derives it
+
+- **`bugs_open/243`** — the episode, plus the finding that this file's own title names a **different
+  failure mode** from the one now firing: `usage limit` (15,315 failures) **ended 2026-08-31**;
+  `credit balance` (934) is what has fired since. **Mutually exclusive by day across 31 affected
+  days — not one day shows both.** Full mode-A history: 04-10 (78) · 08-08 (20) · **08-25/26 (711,
+  ~10 h)** · 09-02 (8) · 09-04 (117). Two of those (04-10, 09-02) were not in the file, and 04-10 is
+  **earlier than the 07-31 it calls the first**.
+- **`LANDMINES.md`** — an addendum for the **partial** outage (the existing entry covers the total
+  one, which at least leaves an absence; the partial case writes a positive `revise` artefact).
+  ⚠ **It also corrects a sibling entry filed the same day by the bugfix_257 lane**, which calls this
+  *rare* on a base rate of 3-in-225-councils/7-days: all three landed inside **one 40-minute
+  window**, so it is **clustered, not rare**, and the base rate predicts nothing. The actionable
+  form is "check estate health", not "this is unlikely".
+
+### ⚠ Three process notes the next session should not have to learn again
+
+1. **An armed dispatch dies silently in an outage.** My `landmines-verify-dispatch.sh` run at 11:56
+   failed 4× on credit-400. **A verifier that never reports is a health question, not a patience
+   question.** Both entries re-fired: `c034492e`, `b68cf7b8`.
+2. **Another session swept my LANDMINES edit into their commit** (`d9e5c0b71`, the 384 lane). Nothing
+   lost — verified all 8 markers present in HEAD — and forward-only holds. Expected on this tree;
+   noting it so the commit trail reads straight.
+3. **`grep '^### '` is not a prior-art search.** I missed the bugfix_257 sibling entry because it is a
+   `##`. And when I then checked whether my own edit had dropped references, a **single-line** grep
+   reported three false absences on a hard-wrapped file — `tr '\n' ' '` first, exactly as
+   `MEMORY.md` warns.
+
+**So: nothing is owed on 442 or 773.** The open items are §5's three unchanged ones, plus the two
+landmine verdicts now in flight.
