@@ -67637,3 +67637,41 @@ accurate story about WHY: it grew by 4, and I had been measuring the wrong set f
 Family: measurement-discipline-index, a-closer-census-cannot-see-what-it-succeeded-at,
 prior-art-search-goes-stale, a-report-is-not-a-measurement.
 - **2026-09-04, `bugs_open/477` lane — I wrote "DELIBERATE LANDMINE DELETION" in a commit message and the deletion did not happen; another lane's append had silently restored the entry 15 seconds earlier.** I removed my own `fillTemplate`-coupling entry from `LANDMINES.md` (correct: the commit made its trap not exist), committed with an explicit pathspec naming `LANDMINES.md`, and git reported success — **4 files changed, and `LANDMINES.md` was not one of them.** `e2c295b3f` landed at 17:12:52 appending a different lane's entry from a working-tree copy that still contained mine; my commit ran at 17:13:07 against a file that now matched HEAD, so the pathspec matched a clean path and committed nothing for it. **The commit message at HEAD therefore asserted a deletion that had not occurred**, which is worse than the lost edit — a reader greps the entry, finds it, and concludes the entry is somehow immortal or that I lied. **What caught it:** reading the commit's own `--stat`, because the scope report listed one `docs/` file where I expected two. **The cheap check, and it is the exact inverse of the one already in this file** (`527c91bd7`: a stale tree DELETING another lane's entry): after committing a deliberate deletion from a shared append-only ledger, assert the deletion at **HEAD**, not in your working tree — `git show HEAD:<file> | grep -c "<the heading>"` must be 0. `git status` reporting clean is NOT evidence your change landed; it is equally consistent with your change having been reverted under you. **The general form: on a file every lane writes, "my commit succeeded" and "my change is in HEAD" are different claims, and a pathspec commit will happily report the first while the second is false.**
+
+## 2026-09-04 — infographics lane: I DELETED another lane's landmine entry from HEAD with a read-modify-write on a shared append-only file, and nothing about it was loud
+
+**What went wrong:** commit `2e4f155eb` removed the `bugs_open/477` lane's entire LANDMINES entry —
+*"Adding a placeholder to `fillTemplate`'s closed vocabulary silently disarms a SECOND email's
+guard"*, ten lines, filed earlier the same day. Not edited, not merged: **gone from HEAD**, leaving
+the `bugs_open/475` entry's cross-reference to *"the sibling entry in this file"* dangling at nothing
+for ~20 minutes.
+
+**The cause, and it is a distinction I did not know I was making:** I edited `LANDMINES.md` both ways
+that afternoon — `cat >>` for appends, and `python3 open().read()` … `open('w').write()` for two
+in-place corrections. **A whole-file rewrite of a fleet-wide append-only ledger clobbers whatever
+another session appended between your read and your write.** The append form cannot do this. I used
+both within an hour and treated them as interchangeable.
+
+**What caught it:** `scripts/pattern-check.py`'s `shared-ledger-not-appended` advisory — *"10 line(s)
+removed from LANDMINES.md"* — **and only because I read the PostToolUse hook advisory rather than the
+commit summary.** The advisory prints FIRST and git's summary prints LAST, so my habitual
+`| tail -N` had been cutting it off all day. Nothing else signalled: the commit succeeded, the hook
+never blocks, `git status` was clean afterwards, and the entry's absence is indistinguishable from
+its never having been written.
+
+**The cheap check that would have prevented it, now in my practice:** **if you touch a shared
+append-only file with anything other than an append, `git diff --numstat <file>` and require
+deletions == 0 before committing.** One command. It is the only thing that separates a legitimate
+in-place correction from a clobbered concurrent append — and the estate already documents
+`--numstat` as the gate for the *inverse* case (a deleted markdown bullet that `grep '^-'` cannot
+see).
+
+**Disposition:** restored verbatim from `9af520228` with a dated note recording the loss and cause;
+heading back in HEAD, entry intact at 11 lines, `doc_notes` row present, `landmines-sync.py --apply`
+reports 0 delta. The 477 lane lost nothing and was told directly.
+
+**Second-order, worth its own line:** I had run `landmines-verify-dispatch.sh` (which runs
+`sync --apply`) *while the entry was deleted*. Had the sync orphaned its `doc_notes` row, the entry
+would have vanished from the corpus council seats and agents read, not just from the file — a
+silent, wider loss than the git one. It did not, but that was luck rather than a control, and it is
+the reason this entry is here rather than only in a lane note.
