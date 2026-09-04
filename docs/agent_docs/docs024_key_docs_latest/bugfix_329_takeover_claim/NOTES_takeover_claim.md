@@ -523,3 +523,22 @@ correctness gap rather than a fire.
 - ⚠ **A stale row is not a takeover.** The arms fire only when a MESSAGE ARRIVES for an orchestration
   whose row is already stale. That conjunction is rare, which is why the needle is still 0 and why
   nobody should read 0 as "the fix does not work" — only as "it has not been exercised yet".
+
+## (m) 2026-09-04 ~08:1xZ — re-verified on `v1.0.1360`; still live, still not exercised
+
+A second build rolled overnight. Re-probed rather than assumed the fix survived it — a new image is
+built from whatever HEAD was, and "it was in the last one" is not evidence about this one.
+
+`agent-chassis` on **`v1.0.1360`**; fleet **36** images, **min tag = max tag = 1360**, 0 pre-fix.
+Binary probe: control `Orchestration is actively executing` **PRESENT** · `STALE_TAKEOVER_CLAIMED`
+**PRESENT** · `Found stuck orchestration, taking over` **ABSENT**. **The fix is still live.**
+
+**Needle: still 0** — `processing_history @> '[{"action":"stale_takeover_claimed"}]'` — against
+**6,890** orchestrations created in the last 24 h `[MEASURED 2026-09-04]`.
+
+⚠ **That traffic control is now much stronger than yesterday's**, and it is what makes the zero
+readable: 6,890 rows means the chassis is thoroughly exercised, so a zero is "the arms have not been
+reached with a stale row", not "nothing is running". **Still not a fault, and still not evidence the
+fix works** — the arms fire only when a message arrives for an orchestration whose row is *already*
+stale, which is rare by design. Do not read the zero either way; read it as "not yet exercised", and
+keep watching per the handoff.

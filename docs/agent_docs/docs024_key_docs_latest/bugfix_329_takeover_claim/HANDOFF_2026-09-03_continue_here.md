@@ -80,7 +80,9 @@ Any zero from that log is uninformative and would read identically before the fi
 SELECT count(*) FROM orchestration_states
 WHERE processing_history @> '[{"action":"stale_takeover_claimed"}]';
 ```
-**0 as of 2026-09-03 ~16:0xZ.** That zero **is** trustworthy — `processing_history` is persisted, not
+**0 as of 2026-09-04 ~08:1xZ**, against **6,890** orchestrations in 24 h — re-checked after the
+`v1.0.1360` roll, where the binary probe still reads control PRESENT / `STALE_TAKEOVER_CLAIMED`
+PRESENT / old line ABSENT. That zero **is** trustworthy — `processing_history` is persisted, not
 windowed. It means no takeover has been claimed since the roll, which is consistent with everything
 else measured. Before this fix, a takeover left **no durable trace at all**, so "have the arms ever
 fired?" was unanswerable outside a live log window. It is answerable now.
