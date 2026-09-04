@@ -138,48 +138,49 @@ func SendFollowupEmailAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("follow-up email sender unavailable (check DELIVERY_SMTP_* env + secret): %w", err)
 	}
 
-	// TEMPLATE-VS-LINKS, ALSO BEFORE THE CLAIM, inherited from the delivery
-	// send.
+	// TEMPLATE-VS-LINKS, ALSO BEFORE THE CLAIM, and now DERIVED rather than
+	// mirrored. This declaration IS the guard: delivery.Fill.Check refuses
+	// malformed, unknown, uncovered and unavailable tokens in one pass, before
+	// ClaimFollowup. Adding a token to delivery.Vocabulary and not declaring it
+	// here turns this sender's coverage test red rather than putting a blank in
+	// a customer's letter.
 	//
-	// ⚠ THIS IS A LOCAL GUARD AND THERE IS NO SHARED ONE — stated explicitly
-	// because a council seat asked whether this reinvents a platform mechanism
-	// (016b §9 case 7: Go templates render a missing field as empty with NO
-	// error under missingkey=zero, and only one call site was ever fixed). It
-	// does not reuse one, because none exists: `grep -rn "missingkey"` over
-	// platform/ and internal/ finds only COMMENTS describing the hazard, and the
-	// only other placeholder-refusal in the estate is send_delivery_email's,
-	// which this copies deliberately rather than shares. Note this seam is not
-	// even text/template — it is a strings.Replacer over a closed vocabulary, so
-	// a shared template guard would not cover it anyway. If a shared mechanism is
-	// ever built, these two are its first two callers. Every link this email can carry is knowable from config alone, so a
-	// template naming one this dispatch cannot produce is refused before
-	// anything irreversible happens. Without it, {{zip_link}} would be replaced
-	// by an EMPTY STRING and the customer would read "Your files: " with nothing
-	// after it — which no post-fill scan can see, because the fill succeeded.
+	// ⚠ THE CHECK MUST PRECEDE **ClaimFollowup**, NOT delivery.Claim. The two
+	// senders have DIFFERENT irreversible statements, and a Check that ran after
+	// this one would pass every assertion in it while having already burnt
+	// followup_sent_at — the customer's single follow-up, spent on a refusal.
+	// The order is asserted in this package's tests, not in the vocabulary.
 	//
-	// The list is every placeholder fillTemplate knows MINUS the two this action
-	// always produces ({{live_site}} from input, {{confirm_link}} from the mint
-	// below). If fillTemplate's vocabulary grows, this list must grow with it:
-	// the {{ scan after filling is the backstop that makes a miss loud rather
-	// than silent, but it fires AFTER the claim, which is worse.
+	// NAME NOTE: the placeholder is {{instructions_link}} while its config key is
+	// instructions_url. That is the estate's convention, not a slip —
+	// {{domain_rent_link}} comes from domain_rent_url, and two more like it.
 	instructionsURL := stringOr(config, "instructions_url")
-	for _, l := range []struct{ placeholder, value, source string }{
-		// NAME NOTE: the placeholder is {{instructions_link}} while its config key
-		// is instructions_url, and that mismatch is the estate's convention rather
-		// than a slip — send_delivery_email_action.go:127-129 does exactly this
-		// three times ({{domain_rent_link}} from domain_rent_url, and two more).
-		// Agreed with the bugs_open/475 lane 2026-09-04; renamed from
-		// {{instructions_url}} while 775 was still seeded-and-unapplied, so it
-		// cost nothing. After 775 is applied a rename costs a migration.
-		{"{{instructions_link}}", instructionsURL, "instructions_url config"},
-		{"{{zip_link}}", "", "a zip presign, which a scheduled follow-up has no step to mint"},
-		{"{{domain_rent_link}}", stringOr(config, "domain_rent_url"), "domain_rent_url config"},
-		{"{{domain_buy_link}}", stringOr(config, "domain_buy_url"), "domain_buy_url config"},
-		{"{{stripe_portal_link}}", stringOr(config, "stripe_portal_url"), "stripe_portal_url config"},
-	} {
-		if strings.Contains(bodyTemplate, l.placeholder) && l.value == "" {
-			return nil, fmt.Errorf("body_template names %s but %s is empty: the email would carry a blank where a link should be. Nothing was claimed — fix the template or supply the link and re-dispatch", l.placeholder, l.source)
-		}
+	fill := delivery.Fill{
+		delivery.TokenLiveSite: {Value: inputs.Get("live_site_url"), Source: "live_site_url input"},
+
+		// PRODUCED BY THE CLAIM, so legitimately empty when Check runs: this
+		// sender mints its own confirm token AFTER ClaimFollowup (the delivery
+		// sender's is minted inside delivery.Claim — same token, different
+		// provenance, which is why provenance is the caller's business). Apply
+		// refuses if Claimed never supplied it.
+		delivery.TokenConfirmLink: {FromClaim: true, Source: "the confirm token minted after ClaimFollowup"},
+
+		// NEVER, BY CONSTRUCTION — not "empty today". A scheduled follow-up has
+		// no zip step and no presign to mint, so {{zip_link}} in a follow-up
+		// template is an AUTHOR ERROR to catch at dispatch, not a value someone
+		// might later supply. The sentence is the point: flattening this to
+		// "empty => refuse" behaves identically today and loses the reason that
+		// stops a later session wiring a presign into a scheduled sender.
+		delivery.TokenZipLink: {NeverReason: "a scheduled follow-up has no zip step and no presign to mint"},
+
+		delivery.TokenInstructions: {Value: instructionsURL, Source: "instructions_url config"},
+		delivery.TokenDomainRent:   {Value: stringOr(config, "domain_rent_url"), Source: "domain_rent_url config"},
+		delivery.TokenDomainBuy:    {Value: stringOr(config, "domain_buy_url"), Source: "domain_buy_url config"},
+		delivery.TokenStripePortal: {Value: stringOr(config, "stripe_portal_url"), Source: "stripe_portal_url config"},
+		delivery.TokenDays:         {Value: fmt.Sprintf("%d", delivery.AdvertisedLiveWindowDays), Source: "delivery.AdvertisedLiveWindowDays"},
+	}
+	if err := fill.Check(bodyTemplate); err != nil {
+		return nil, fmt.Errorf("follow-up template refused (nothing was claimed, this site is still selectable): %w", err)
 	}
 
 	now := time.Now()
@@ -228,22 +229,34 @@ func SendFollowupEmailAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("follow-up confirm link could not be built for site %s (followup_sent_at IS stamped; RUNBOOK \"stamped but never sent\"): %w", siteID, err)
 	}
 
-	body := fillTemplate(
-		strings.ReplaceAll(bodyTemplate, "{{instructions_link}}", instructionsURL),
-		delivery.Prepared{
-			Handover: prepared,
-			Links: delivery.Links{
-				LiveSite:        inputs.Get("live_site_url"),
-				ConfirmTransfer: confirmLink,
-			},
-			AdvertisedWindowDays: delivery.AdvertisedLiveWindowDays,
-		})
+	// The claim produced the one token Check was allowed to let through empty.
+	// Claimed refuses a token this sender never declared or did not mark
+	// FromClaim, so the post-claim value cannot land anywhere Check did not
+	// already reason about.
+	filled, err := fill.Claimed(map[delivery.Token]string{delivery.TokenConfirmLink: confirmLink})
+	if err != nil {
+		return nil, fmt.Errorf("follow-up fill rejected the claim's outputs for site %s (followup_sent_at IS stamped): %w", siteID, err)
+	}
+	body, err := filled.Apply(bodyTemplate)
+	if err != nil {
+		// Apply is the last gate before a customer sees the text: it refuses a
+		// claim-produced token that is still empty, which is the hole the
+		// FromClaim exemption would otherwise open.
+		return nil, fmt.Errorf("follow-up body could not be filled for site %s (followup_sent_at IS stamped; RUNBOOK \"stamped but never sent\"): %w", siteID, err)
+	}
+	// BACKSTOP, deliberately kept though Check now makes it near-unreachable: it
+	// asks whether Apply actually SUBSTITUTED, where Check asks whether the
+	// vocabulary KNOWS. A declared token that Apply somehow failed to replace is
+	// invisible to Check by construction, and this is the last thing between
+	// that and literal mustache in a customer's letter. Do not delete it as
+	// redundant — it now guards a different failure from the one it was written
+	// for.
 	if i := strings.Index(body, "{{"); i >= 0 {
 		end := i + 40
 		if end > len(body) {
 			end = len(body)
 		}
-		return nil, fmt.Errorf("body_template still contains %q after filling: the template names a link this dispatch did not produce. NOTE: followup_sent_at IS stamped; this site will not be picked up again", body[i:end])
+		return nil, fmt.Errorf("body_template still contains %q after filling despite passing Check: Apply did not substitute a declared token. NOTE: followup_sent_at IS stamped; this site will not be picked up again", body[i:end])
 	}
 
 	msg := mailer.Message{To: []string{customerEmail}, Subject: subject, Text: body}

@@ -247,45 +247,6 @@ func deliveryEmailFill(config map[string]interface{}, liveSiteURL, zipPresign st
 	}
 }
 
-// fillTemplate substitutes the closed placeholder vocabulary.
-//
-// ⚠ DEPRECATED, AND STILL LIVE FOR EXACTLY ONE CALLER. THIS ACTION NO LONGER
-// USES IT — the vocabulary and its guard are now single-sourced in
-// platform/delivery/vocabulary.go (delivery.Vocabulary / Fill.Check /
-// Fill.Apply), so the token set and the "must be producible" rule are one
-// declaration instead of a replacer here plus a hand-kept mirror elsewhere.
-// bugs_open/475; council c8ed56d2, approved round 2.
-//
-// The remaining caller is send_followup_email_action.go (bugs_open/477), which
-// converts on ITS OWN LANE'S COMMIT — deliberately not in the same change that
-// created the shared type. The council's gating objection on round 1 was
-// precisely that this lane was editing that lane's active file, and adoption is
-// per-caller by design (see vocabulary.go's header on ActionInputSpec).
-//
-// SO, UNTIL THAT CONVERSION LANDS:
-//   - DO NOT add a placeholder here. Add it to delivery.Vocabulary. This
-//     function is frozen.
-//   - The follow-up sender's own hand-kept pre-claim list still mirrors THIS
-//     list, not the Vocabulary, so a token added to the Vocabulary does not
-//     reach it. Its guard is unaffected either way, because it does not consume
-//     the Vocabulary yet — it keeps working exactly as it did.
-//   - The trap the 477 lane filed in LANDMINES.md about these two lists is
-//     STILL LIVE for that caller and must not be deleted until it converts.
-//
-// Delete this function when the follow-up sender adopts delivery.Fill.
-func fillTemplate(tpl string, p delivery.Prepared) string {
-	r := strings.NewReplacer(
-		"{{live_site}}", p.Links.LiveSite,
-		"{{confirm_link}}", p.Links.ConfirmTransfer,
-		"{{zip_link}}", p.Links.ZipDownload,
-		"{{domain_rent_link}}", p.Links.DomainRent,
-		"{{domain_buy_link}}", p.Links.DomainBuy,
-		"{{stripe_portal_link}}", p.Links.StripePortal,
-		"{{days}}", fmt.Sprintf("%d", p.AdvertisedWindowDays),
-	)
-	return r.Replace(tpl)
-}
-
 func stringOr(config map[string]interface{}, key string) string {
 	v, _ := config[key].(string)
 	return v

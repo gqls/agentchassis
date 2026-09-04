@@ -243,8 +243,21 @@ func TestSendFollowupEmailRefusesAnUnfillableLinkBeforeClaiming(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), placeholder) {
 				t.Fatalf("expected a refusal naming %s, got %v", placeholder, err)
 			}
-			if !strings.Contains(err.Error(), "Nothing was claimed") {
+			// The operator must be told the site is UNSPENT, or a scheduled
+			// refusal reads as a lost follow-up and gets "recovered" by hand.
+			if !strings.Contains(strings.ToLower(err.Error()), "nothing was claimed") &&
+				!strings.Contains(strings.ToLower(err.Error()), "nothing was stamped") {
 				t.Errorf("the refusal does not say the site is still claimable: %v", err)
+			}
+			// ⚠ THE {{zip_link}} CASE MUST CARRY ITS REASON, NOT JUST REFUSE.
+			// "This sender can never produce it, by construction" is the whole
+			// point of NeverReason: a refusal that only says "empty" invites a
+			// later session to "fix" it by wiring a presign into a SCHEDULED
+			// sender. Pinning the sentence is what makes that a test failure
+			// rather than a plausible improvement.
+			if placeholder == "{{zip_link}}" &&
+				!strings.Contains(err.Error(), "no zip step and no presign to mint") {
+				t.Errorf("the zip refusal lost its never-reason, so nothing now explains WHY a follow-up cannot carry it: %v", err)
 			}
 			if len(rec.sent) != 0 {
 				t.Fatalf("an email with a blank link was SENT: %+v", rec.sent)
