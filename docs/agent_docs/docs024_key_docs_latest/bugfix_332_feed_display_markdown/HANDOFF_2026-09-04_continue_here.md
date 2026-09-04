@@ -5,13 +5,42 @@ Lane dir: `docs/agent_docs/docs024_key_docs_latest/bugfix_332_feed_display_markd
 
 ---
 
+> ## ⚠ CORRECTED 2026-09-04 16:02Z — READ THIS BEFORE THE REST
+>
+> **Everything on this lane is now LIVE, including today's residual fix.** The roll completed
+> at **16:00–16:01Z**; `service_binary_capabilities` shows three fresh `agent-chassis` pods on
+> `06c0b18f2`, which contains `adef5d481`. **Item 1 of §3 and decision 1 of §5 are DISCHARGED
+> — do not ask for another roll.**
+>
+> **And I had the earlier roll wrong, in my reasoning rather than my conclusion.** I wrote that
+> the v1.0.1360 build commit `239ab3626` was dated 22:37 and therefore *later* than the
+> 22:06:58Z pod start, so the tag could not settle what was running. That was a **timezone
+> conflation**: `git log --date=format:` printed **BST**, `kubectl` prints **UTC**.
+> `239ab3626` is `22:37:21+01:00` = **21:37 UTC**, thirty minutes BEFORE the pods started. The
+> ancestry check settles it cleanly and always did. Caught by the `inter thread comms` lane.
+> My conclusion (the fix is live) was right and independently proven by dartsonline; the
+> **path** to it was wrong, and a wrong path published as reasoning is worth correcting.
+>
+> **Use the table, not the log or the binary** — CLAUDE.md gained this today (BLD-023):
+> ```sql
+> SELECT pod_name, git_commit, started_at FROM service_binary_capabilities
+>  WHERE kind='build' AND pod_name LIKE 'agent-chassis-%' ORDER BY started_at DESC;
+> ```
+> then `git merge-base --is-ancestor <your-commit> <the stamp>`. ⚠ It is a **two-hour window**,
+> so it answers *what is running now* and cannot date anything older.
+>
+> **What is still owed is only the verification**, and it cannot be run yet: at 16:01:44Z **no
+> news component had re-rendered since the roll**, so the truncated-image fix is live but
+> **unexercised**. Re-run §4 once `rerendered_since_roll=1` rows exist — hours, not minutes.
+
 ## 1. One paragraph of state
 
 The fix **is live and it works** — proven at the artefact this morning, not inferred. A residual
 gap and a second, worse defect (a detection pattern that was never wired) were found today by
-verifying after the roll, and both are **fixed and committed but NOT yet rolled**. So there is
-one more chassis build owed before this lane can close. Migration 758 is council-approved and
-deliberately **held** for a human. Two spin-off bugs are filed and owned elsewhere.
+verifying after the roll — both are now **fixed, committed and LIVE** (`06c0b18f2`, 16:00–16:01Z),
+but **unexercised**, so the only code-side work left is re-running §4 once pages re-render.
+Migration 758 is council-approved and deliberately **held** for a human. Two spin-off bugs are
+filed and owned elsewhere.
 
 ---
 
@@ -37,9 +66,11 @@ column is *no evidence at all*, and reading them as success is the trap this lan
 
 `boxingonline.ugg2.com/news/index.html` has gone **5 → 0** occurrences.
 
-### 2.2 ⚠ Two defects found TODAY, fixed, NOT YET LIVE
+### 2.2 ⚠ Two defects found TODAY — fixed, and LIVE since 16:00Z
 
-Both are in `adef5d481`. **They need a chassis build to take effect.**
+Both are in `adef5d481`, which is in `06c0b18f2`, running on all three chassis pods since
+16:00–16:01Z. **Live but UNEXERCISED**: no news component had re-rendered since the roll as of
+16:01:44Z, so neither has yet been demonstrated on a served page.
 
 **(a) A truncated IMAGE survived.** `![alt](url…` — alt text closed, URL severed — fell through
 every rule: `mdImageStripRe` needs the closing paren, `mdLinkTruncatedStripRe`'s left boundary
@@ -69,18 +100,18 @@ Gate A re-run after wiring detection: **zero co-firing rows, control 128**. Safe
 
 | # | Item | Blocked on | Who |
 |---|---|---|---|
-| 1 | **Roll a chassis build** carrying `adef5d481` | a build + roll | owner / any lane rolling |
-| 2 | **Re-verify at the artefact after that roll** (§4) | 1 | next session |
+| ~~1~~ | ~~**Roll a chassis build** carrying `adef5d481`~~ **DONE 2026-09-04 16:00–16:01Z**, pods on `06c0b18f2` | — | — |
+| 2 | **Re-verify at the artefact** (§4) — the truncated-image fix is live but UNEXERCISED; wait for `rerendered_since_roll=1` | the feed cycle (hours) | next session |
 | 3 | **Apply migration 758** (`bugs_open/472`) + look at a news page in a browser | a human | owner's call |
 | 4 | `bugs_open/473` — scraped nav as article text | nothing; unowned by choice | feed lane's charter |
-| 5 | Close 332 | 1, 2 | next session |
+| 5 | Close 332 | 2 | next session |
 
 **Nothing else is owed.** Council `803f0d81` **APPROVED** (332 Go work, 4 advisory objections all
 actioned). Council `17a61f16` **APPROVED** at round 3 (migration 758).
 
 ---
 
-## 4. THE EXACT CLOSING CHECK — run this after the next roll
+## 4. THE EXACT CLOSING CHECK — run once pages have re-rendered since 16:01Z
 
 Full commands with their gotchas are in `RUNBOOK` §2. The short form, and **all three parts are
 required**:
@@ -125,10 +156,9 @@ ever). `sweep_site_defects.sh` §1.4 now does this automatically.
 
 ## 5. DECISIONS THE OWNER NEEDS TO MAKE
 
-1. **Roll the chassis again?** Today's two fixes are committed and inert. Without a roll, the
-   truncated-image defect stays on the news pages and the detector stays blind to truncated
-   links. Nothing else in this lane needs a roll. *(No downside identified; it is a question of
-   when, and whose build.)*
+1. ~~**Roll the chassis again?**~~ **DISCHARGED 2026-09-04 16:00–16:01Z.** Today's fixes went
+   out in `06c0b18f2` on a roll another lane was already running. **No decision needed.** The
+   only thing left on the code side is waiting for pages to re-render and then re-running §4.
 2. **Apply migration 758, and who looks at the browser?** It is approved, rehearsed against the
    live rows, induced-failure-proven, and **held on purpose**: it rewrites how a page draws
    itself on ten sites, and every automated check we have would pass on a page that came out

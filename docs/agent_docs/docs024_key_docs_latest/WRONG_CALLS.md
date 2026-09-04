@@ -67457,3 +67457,33 @@ Tally: substring-probe-over-matched; key-shape-probe-under-matched.
 - **2026-09-04, `inline_guide_imagery`. I published a gate query fleet-wide in which `_` was silently acting as a WILDCARD, and it returned the right verdict for the wrong reason.** Checking whether `bugs_open/443`'s prompt fix had landed, I used `default_config::text ILIKE '%section_subject%'` and read `t` as "the rule is live". **`_` matches any single character in `LIKE`/`ILIKE`**, so the pattern actually matched the unrelated path `section.subject`. `[MEASURED 2026-09-04]` the escaped literal `LIKE '%section\_subject%'` is **false** — that string is not in the config at all — while the capability *is* live under the name `current_section.subject`. **A broken instrument and a renamed fix cancelled out**, which is why nothing looked partial: the verdict was correct, the mechanism was not, and a reader copying the query would inherit a pattern that is looser than it reads and will fire on the wrong thing next time. It went into `LANDMINES.md` as the fleet-wide worked example for "ask the running agent for the capability", so the blast radius was every lane, not just mine. **What caught it:** the peer lane that had originally passed me the pattern re-tested their own gate — not me, and not any of the three times I re-ran it. **The cheap checks I skipped, both one line:** escape the `_` (`LIKE '%section\_subject%'`), or better, **test the interpolation the template actually performs rather than a key name you expect it to contain** — I had separately enumerated `current_section.*` with `regexp_matches` and seen `current_section.subject`, so the correct name was already in my own output while I kept asserting the other one. ⚠ **Second-order:** the same query against `build-site-planner` returns `f` for the capability AND `f` for its control, because that agent has no `current_section` at all — **a control borrowed from a different agent cannot fire, so its `f` is inapplicable rather than informative**, and I had read it as evidence that 640 did not land. That conclusion happens to be true, established elsewhere. Corrected in `LANDMINES.md`, the lane HANDOFF §2a, and NOTES §23.
 
 - **2026-09-04, `bugfix_450_tool_page_shells`. I measured the middle of a fleet outage and wrote the numbers up as if it had ended.** My council run died with *"no reviewer produced a readable opinion (6 abstained, 11 unreadable)"*; I traced it to Anthropic returning `400 "Your credit balance is too low"` at every seat, and recorded `[MEASURED 2026-09-04 11:45Z]` **"96 failures across 7 agent types … and zero successes since"** in the lane NOTES, a commit message and a report to the owner. The outage was **still running**. It ended at 11:56:49Z, and the real figures are **146 failures across the window 11:21:11–11:56:49**. Every clause I wrote was true at 11:45 and the total was wrong by half. **What caught it:** the `inter thread comms` session, which measured the closed window four hours later — not me, and I had re-run my query twice inside the outage without once noticing that re-running a query during the event is not the same as waiting for it to close. **The cheap check, and it is one clause:** *an ongoing event has no total.* "Zero successes since X" is a claim about the FUTURE while the thing is still happening, and a count of an open interval is a lower bound, not a measurement. Either write it as *"≥96 so far, still running as of 11:45Z"* — which is honest and stays honest — or wait for the interval to close before quoting a total. ⚠ **The reason this shape is easy to miss:** the estate's count-goes-stale rule (owner ruling 2026-08-22, "a count of things must carry the date it was counted") trains you to attach a date and feel finished, and **the date is exactly what makes a partial reading of a live event look rigorous.** Dating it does not close it. **Family:** MEMORY [[a-closer-census-cannot-see-what-it-succeeded-at]] and [[prior-art-search-goes-stale]] — same failure one axis over, except this one goes stale in minutes rather than days. Corrected in the lane NOTES (ad).
+
+## 2026-09-04 — I compared a BST git timestamp against a UTC pod start and concluded the running binary could not be the one I was looking at (`bugs_open/332`)
+
+- **The claim.** Verifying after the roll, I wrote that the v1.0.1360 build commit `239ab3626`
+  was dated **22:37** while the pods started **22:06:58Z**, so the commit postdated the pods and
+  the tag could not tell me what was running. I said the same in the handoff and to the owner.
+- **What was true.** `git log --date=format:'%m-%d %H:%M'` prints **local** time; this box is
+  **BST (+0100)**; `kubectl` prints **UTC**. `239ab3626` is `2026-09-03T22:37:21+01:00` =
+  **21:37 UTC** — thirty minutes *before* the pods started. The ancestry check settles it
+  cleanly and always did.
+- **Why it mattered — and why it nearly didn't.** My conclusion (*the fix is live*) was correct
+  and independently established by a capability probe: dartsonline's column was dirty, its page
+  re-rendered post-roll, and it came out clean. So the right answer survived a wrong route. That
+  is the uncomfortable part: **the wrong reasoning was published in a handoff as the reason the
+  cheap check couldn't be trusted**, which would have taught the next reader to distrust an
+  instrument that works.
+- **What caught it.** The `inter thread comms` lane, who had made the mirror-image error (telling
+  37 lanes 332 was *shipping* in the next roll when it was already live) and re-checked.
+- **The cheap check that would have.** **Never compare two timestamps from different tools
+  without forcing a common zone.** `git log --date=iso-strict` prints the offset; or
+  `--date=format-local:` with `TZ=UTC`. One flag. And more generally: when a timestamp
+  comparison produces a *surprising* result — a commit that postdates the pod running it —
+  suspect the units before the world.
+- **A second one from the same episode, worth its own line.** I then ran a 40-sha binary probe
+  which was **Terminated** by its timeout, and correctly labelled its empty output "not
+  evidence" — but I had reached for the binary at all only because the timezone error had made
+  me distrust the tag. **A broken inference sent me to a more expensive instrument**, and the
+  expensive one then failed too. The cheap check was right the whole time.
+- **Cost.** No wrong action. One paragraph of published reasoning corrected in the handoff, the
+  NOTES and the owner log.
