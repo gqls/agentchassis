@@ -67331,6 +67331,23 @@ from `content_data`, does the page's hero slot actually paint anything? Three at
   orchestration_states WHERE status='COMPLETED' AND updated_at > now() - interval '15 minutes';`) —
   the original failure was **billing, not timing**, and re-firing into an outage burns it again.
   The entry itself stands and is committed regardless; what is missing is only its advisory verdict.
+- **✅ DONE 2026-09-04 16:08Z — and this bullet is the third state of one claim, which is the point.**
+  It read "re-fired" (false), then "OWED, here is the gate" (true), now this. Each correction in
+  place, visible, never edited away. All three gates were verified **by me** rather than taken from
+  the roll session's report: chassis pods restarted 16:01:26Z/16:01:53Z and ready, now 16:07:47Z so
+  the 300s window had closed by 354s, 54 orchestrations COMPLETED in the preceding 15 minutes and
+  **zero** carrying `credit balance is too low`. Fired at 16:08:07Z, correlation `024e14ae`; both
+  runs **COMPLETED** at 16:08:52/54Z with `error` NULL.
+- **The verdict is `UNVERIFIABLE`, and that is the RIGHT outcome, not a failure.** Its stated reason:
+  *"All cited footprints (.py script, .sh script, SQL/assets table column) fall outside the Go-only
+  symbol index and could not be checked."* That is the documented scope limit — this file already
+  carries *"A `landmine-verification` verdict of STALE / 'does not exist' is NOT evidence against
+  your entry — the index it consults is 100% Go, and 81% of all footprints are not."* **Do not read
+  it as doubt about the entry**; all three of my entries today and both of the neighbouring lanes'
+  drew the same class of non-verdict for the same reason. What was actually broken — a run that died
+  in a billing outage and was never re-fired — is fixed, and the difference between "no verdict
+  because nobody looked" and "no verdict because the index cannot see .py" is the whole reason this
+  row exists.
 
 ## 2026-09-04 — `static_site_form_endpoint`: I dated a whole day's work from the newest file I had read, not from the clock
 
