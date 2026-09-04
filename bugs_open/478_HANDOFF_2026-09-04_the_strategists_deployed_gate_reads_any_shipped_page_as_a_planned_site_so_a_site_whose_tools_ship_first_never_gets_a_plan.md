@@ -101,3 +101,9 @@ with a current plan and shipped pages receiving a `needs_briefing` from a strate
 `deployed_at` written without publishing) · `bugs_closed/037` (why 359 chose the shipped predicate) ·
 LANDMINES *"`pages.deployed_at` is set on EVERY page of a site that has never been published"*
 (2026-09-03 — the human version of this same read) · `portfolio_positioning` NOTES (eee)/(fff).
+
+**Ownership of the other two stalled sites `[checked 2026-09-04 ~08:35Z]`:** neither `oxenunity.com`
+nor `cookly.uk` has a lane directory under `docs024_key_docs_latest/` or a `who-owns.py` match; the
+handoffs that mention them are other bugs citing them in passing. So there is nobody to send a CONTRIB
+to. Whoever takes this bug: the one-row workaround (§6, copyonline's item `479614c9` is the template)
+unblocks each of them without waiting for the gate fix; do not apply it to the two adopted sites.
