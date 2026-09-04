@@ -2437,3 +2437,40 @@ now enforced by a clock rather than by someone reading a handoff.
 canary on `/about.html` first, and a guard that REFUSES to include `/guides/animal-health-certificates/`
 — your hand-attested block is protected in the migration itself, not just in my intentions. Your
 recommended caps wording is used verbatim.
+
+## 2026-09-04 — ⚠ LIVE FABRICATED PRACTICE DATA ON THE HOMEPAGE, found by bugs_open/482, CONTAINED
+
+**The 020 class, live again on the site 020 was filed about.** The homepage comparison tool
+(component `tool-vet-comparison-vetcomparison-uk`, adopted by 701 on 09-02 but the BYTES ARE
+OLDER — 701 lifted them byte-identically, so it did not author this) bundled **30 invented UK
+practices with invented postcodes** and `example-vet-*.co.uk` websites. VERIFIED AT THE SERVED
+PAGE before acting: 30 hosts live; the code comment claimed *"Bundled, verified sample"*; the
+tool-doc claimed it *"never seeds or fabricates"*; and the served disclaimer told readers to
+*"confirm anything important directly with the practice"* and cited the RCVS — i.e. it routed the
+public at invented businesses under the regulator's name. **482's gate analysis is confirmed by
+the artefact:** the component was BORN with the fabrication (never recreated), so `dataBacked` is
+structurally false, Tier B's corroboration arm cannot fire, and the gate saw the 30-entity
+signature and discarded it — and the gate is wired only on `tool-recreation-handler`, not the
+birth path.
+
+**MY AUDITS DID NOT CATCH THIS, and the reason is the same one the register lane exposed
+yesterday:** every check I ran on this page was scoped to what I CHANGED (colours, chrome, hero
+image, ordering) — I never read the tool's own content. Same shape as the November-2024 date the
+register found. **A page you have audited ten times is not an audited page.**
+
+**Decision: REPAIR, not withdraw — because a verified source exists** (`/data/vet-full-index.json`,
+2,201 practices, 0 contamination as of today, field-identical shape). Shipped: 30 real records
+selected MECHANICALLY (towns A–Z over 924 towns with well-formed postcodes, 30 at even intervals —
+nobody curated the sample); provenance comment replaced; tool-doc line rewritten to be true;
+disclaimer now states 30-of-2,201 and links the full directory. Component `b262312c` updated
+(snapshot: table `bak_vetcomp_tool_fabrication_20260904`, pre-fix bytes also at
+scratchpad/tool_PRE_FABRICATION_FIX_20260904.html), top-priority `template_changed` rerender
+`273dc848` filed (correct literal — this section is template-rendered, NOT query-backed, so the
+09-03 snapshot landmine does not apply), monitor armed on the SERVED page.
+
+**Two checks earned here:** (a) my first provenance comment CONTAINED the literal `example-vet`
+while explaining the incident — it would have permanently tripped any grep census on this
+component; a fixed page can carry the tell in its own explanation, so **a fabrication detector
+must read the RECORDS, not the file**. (b) My verification SQL divided by 16 for a 15-character
+placeholder and reported 15-of-16 — arithmetic, not damage, but it is why the count is re-derived
+with the right divisor before trusting it.
