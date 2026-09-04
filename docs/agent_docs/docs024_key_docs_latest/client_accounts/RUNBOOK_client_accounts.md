@@ -138,3 +138,16 @@ them**, or use the pathspec you committed with.
   the same commit) and not harmless in general. **Match `pod_name` against `kubectl get pods` first.**
   This compounds the two-hour retention window already in CLAUDE.md: that window makes rows
   *disappear*, this makes dead ones *linger*.
+
+## Writing a commit message that MENTIONS a trailer
+
+⚠ **The `commit-msg` trailer gate cannot tell prose about a trailer from the trailer itself.**
+`[MEASURED 2026-09-04]` a commit message body containing the sentence *"…leaves any
+`Council-Submitted:` trailer already written pointing at a correlation that can never…"* was
+**refused**, with the gate quoting my own sentence back as an invalid join key. It parses the token
+wherever it appears, not only in the trailer block.
+
+**The check:** when writing *about* the submission trailers, do not spell the token followed by a
+colon. Say "an already-written submission trailer", or name it in backticks split from its colon.
+The gate fails **loudly** and blocks the commit, so this costs a minute rather than shipping a bad
+join key — it is a nuisance, not a trap.
