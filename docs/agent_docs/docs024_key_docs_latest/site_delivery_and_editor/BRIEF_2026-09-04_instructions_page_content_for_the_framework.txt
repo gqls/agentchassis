@@ -33,5 +33,7 @@ WHAT NOT TO WRITE, EACH BECAUSE IT WAS TRIED AND WAS WRONG.
 - Do NOT name any customer, domain or file. This page is generic and public, and is read by every customer.
 - Do NOT promise anything about what is inside their ZIP beyond index.html and assets.
 - Do NOT tell them to check the site by visiting it in their normal browser. That is the exact check that silently passes while the site is invisible to everyone else.
+- Do NOT offer or link to any hosting plan, domain rental, or domain purchase from us. Those offers exist but their links do not yet, and a page that points at a link that is not built is the exact failure this page was written to correct. The closing section may say that a domain they own can be pointed at this hosting; it must not say we will sell them one here.
+- Do NOT include a sales call-to-action aimed at buying a website. Everyone reading this page has already bought one.
 
 STRUCTURE. A short honest introduction that sets the half-hour expectation; the eight steps as a numbered walkthrough with the private-by-default step visually prominent; a short closing section on editing and domains. Screenshots will be added separately — leave the steps readable without them.
