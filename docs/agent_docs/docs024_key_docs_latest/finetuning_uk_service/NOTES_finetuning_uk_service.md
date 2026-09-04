@@ -3709,3 +3709,32 @@ decision record; its mechanism paragraph is superseded by theirs.
 Also from the uplift lane (their `4fb9b526f`): the prompt reaches LANDING pages (several sections, one
 can hold a graphic); article/guide pages (358 of 360 are one prose block + chrome; `article-body` cannot
 hold an image; 686 rolled back) gain nothing from it. Both carried to the owner.
+
+**12:00Z — RETRACTION relayed from the prompts lane, and mine to carry:** their "no component can display
+an infographic" hypothesis is WRONG, tested by them: section imagery is placed by one query
+(`plan_sections_action.go:563`, filter `spi.kind IN ('illustration','icon','infographic')`), all three
+kinds resolve through the same path to the same slots, nothing in placement branches on kind — an
+infographic goes where an illustration goes, and illustrations are being planned. No capability gate.
+(Their own naming of the error: a code-path question answered with a census over objects.) **I relayed
+the hypothesis to the owner in chat and to the uplift lane; both corrected.** Still standing: 718 already
+says what the owner decided; no migration; the 111 → 0 split (7 sites, not 111 — smaller than it
+reads). Why infographics are zero is OPEN; one candidate they will not file: an infographic needs
+registered figures and only 2 of those 7 sites have an evidence base — finetuning.uk does, which makes
+it the place to find out. The two homepage graphics are not blocked on a component; whether they are
+blocked on anything is unknown until a build on this site is watched.
+
+## 2026-09-04 (11:44Z) — **THE CARD CANARY IS APPLIED**; rerender queued
+
+`SQL_2026-09-04_case_studies_to_swipeable_carousel.sql` applied 11:44:53Z after a green ROLLBACK
+rehearsal: row `c00de077` now `component_id=cbd81d06` (swipeable-insight-carousel), `slot_name`
+`swipeable-insight-carousel`, `content_data` = five cards mapped verbatim by script (label=category,
+headline=title, body=excerpt, link_url, link_label, attribution=client_name) + section_title/eyebrow;
+`pages.sections` carries the carousel and not the grid (6 entries); `page_rerender` `25e2f3d1` queued
+with `reason=section_data_resolved` (the rerender_sections branch: every section re-rendered from STORED
+content_data through its own template; the six other components are render_mode template — no LLM
+anywhere in this path, read at `rerender_page_sections_action.go` and `RenderComponentAction`). Dropped
+by the carousel's contract: the section intro sentence, the section's own CTA, the five card images
+(still on /case-studies.html). Rollback material and pre-swap section md5s in
+`canary_case_studies_carousel/`. Chosen the PROVEN carousel (1 live use, fundamentallyai.com) over
+`hero-card-carousel` (image cards, 0 live uses, auto-advancing) for a first-ever swap; the image one is
+the next step if the owner wants the pictures back.
