@@ -38,7 +38,13 @@ SELECT json_build_object(
   'heartbeat_s', round(EXTRACT(epoch FROM now() - gs.computed_at)),
   'last_change', (SELECT left(body, 200) FROM doc_notes
                    WHERE subject_key = 'spend-governor' AND categories ? 'level-change'
-                   ORDER BY created_at DESC LIMIT 1)
+                   ORDER BY created_at DESC LIMIT 1),
+  'account_wall', (SELECT left(w.body, 260) FROM doc_notes w
+                    WHERE w.subject_key = 'spend-governor' AND w.categories ? 'account-wall'
+                      AND w.created_at > now() - interval '6 hours'
+                      AND NOT EXISTS (SELECT 1 FROM doc_notes c WHERE c.subject_key = 'spend-governor'
+                                      AND c.categories ? 'account-wall-cleared' AND c.created_at > w.created_at)
+                    ORDER BY w.created_at DESC LIMIT 1)
 )::text
 FROM governor_config gc, governor_state gs WHERE gc.id = 1 AND gs.id = 1;
 """
@@ -61,7 +67,17 @@ def read_governor():
 
 def banner(g):
     """None when there is nothing to shout about."""
-    if not g or not g.get("enabled"):
+    if not g:
+        return None
+    wall = g.get("account_wall")
+    if wall:
+        # An uncleared account wall (mig 756) outranks everything: the governor cannot see it,
+        # and every LLM-bearing step is failing until the balance is topped up.
+        return ("⚠ ACCOUNT WALL — the Anthropic API is refusing calls for CREDIT BALANCE. The spend governor "
+                "cannot see this. Every LLM step is failing; council submissions end at complete_invalid. "
+                "OWNER: top up the prepaid balance. Do not re-trigger until an account-wall-cleared note follows.\n"
+                + wall)
+    if not g.get("enabled"):
         return None
     level = int(g.get("level") or 0)
     council_ok = bool(g.get("council_admitted", True))
