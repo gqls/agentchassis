@@ -67222,3 +67222,90 @@ is the only reason this afternoon's chain of corrections has stayed cheap.
 - **Cost.** None realised — the peer corrected it within minutes and the escape hatch was declined on better evidence than either of us started with. Had they not, the estate would have hand-built a page, on a hand-built domain, to solve a problem that did not exist, **against an owner ruling that every site goes through the framework** — and the ruling would have been set aside on my measurement.
 - **What survives from my side:** the `content_hero` finding is real and unaffected — four distinct `s3://` keys, real objects, nothing serving them. That is a genuine gap, now scoped to those rows rather than to imagery as a whole.
 - **Family:** MEMORY [[a-post-fix-zero-needs-a-demand-control]] (a zero needs a demand control) — this is the same shape where the "demand" is *a case the instrument must be able to see*. Sibling of [[a-parked-domain-200s-every-path]]: there the control catches a false POSITIVE, here it catches a false NEGATIVE, and the negative is the one nobody thinks to control for.
+
+## 2026-09-04 — three instruments on one question, two of them absence-tests I never showed could see a present case (`bugs_open/114` lane)
+
+The question: for the 121 deployed component rows whose `site_assets.*` image field is absent
+from `content_data`, does the page's hero slot actually paint anything? Three attempts.
+
+- **1. A COMPOSED page URL, read as an artefact result.** I curled
+  `https://leopardessconsulting.co.uk/can-you-trust-ai-with-your-data` — **404** — with an
+  invented-page control also 404, and for a moment took it as "this page is not served at all",
+  which would have been a much bigger finding than the one I was chasing. The **recorded**
+  `pages.url` is `/blog/can-you-trust-ai-with-your-data.html`: **200, 59,177 bytes**. I built
+  the URL from `pages.name` because the name looked like a slug.
+  **What caught it:** the LANDMINES entry that says to curl the *recorded* `pages.url` plus a
+  same-form sibling — the corpus, before I wrote anything down. Nothing in my own evidence
+  would have.
+- **2. `rendered_html LIKE '%background-image%'`, which cannot come out otherwise.** All seven
+  components in the population carry `background-image` **inside their own `<style>` block**
+  (position ~88 of ~2,000). So the predicate is true for essentially every row regardless of
+  whether the image slot is filled. It reported **"102 of 119 rows paint an image"** and I
+  believed it for one turn. The number is not wrong-ish; it is void.
+- **3. The repair had the same defect one step along.**
+  `position('background-image') > position('</style>')` — but `position()` returns the FIRST
+  occurrence, which is always the style block, so the test just re-asked question 2 with extra
+  arithmetic. **Its control inverted and that is the only reason I caught it:** of 753 rows that
+  DO hold an image value, **708 read as "slot empty"**. A treatment arm cannot be trusted when
+  the control arm says the opposite of a fact you already know.
+- **The instrument that works, and the rule that produces it.** Validate on the control FIRST:
+  *does the rendered html contain the stored value verbatim* → **752 of 753**. Only then read
+  the treatment arm: of the 121 with no stored value, **86 paint the site-wide `hero-home.jpg` /
+  `hero.jpg`** and **35 paint nothing**. That is a real finding, and it is 114's originally filed
+  symptom; the two broken versions would have supported either conclusion.
+- **The compounding part.** This file's OWN entry from earlier the same day (the 475 mechanism
+  lane) records the identical class: an extraction that knew `src|href` but not CSS `url()`, so
+  it could not see the heroes it was asked about, and **seven pages agreeing added no
+  information** because one blind instrument answered all seven. I read that entry this session,
+  in this file, and then wrote two more absence-tests without feeding either a known-present
+  case. **Knowing the lesson is not the check.**
+- **The cheap check, one line, before believing any absence:** run the predicate against a row
+  you KNOW is positive and require it to fire. If the control does not light up, the instrument
+  is broken, not the data. For markup specifically: an image reaches a page as an attribute
+  **or** as a CSS `url()`, and a component's own `<style>` block will contain the property name
+  you are grepping for — so a bare `LIKE '%background-image%'` is a test of the stylesheet, not
+  of the page.
+- **Cost.** None realised — all three were caught inside the session and before any doc or peer
+  message carried them. What it cost was three query rounds and one turn of misplaced
+  confidence, on a claim that is now load-bearing for a fleet-wide fix.
+- **Family:** sibling of the same-day `src|href`-vs-`url()` entry above; MEMORY
+  [[a-post-fix-zero-needs-a-demand-control]] — an absence needs a demand control, and here the
+  "demand" is a case the instrument must be able to see.
+
+## 2026-09-04 — I read "Dispatched 1, 0 failed to publish" as verification arranged; the run failed 18 seconds later and I found out four hours on, by accident (`bugfix_417_logo_text_policy`)
+
+- **What I did.** Appended a landmine, ran `./scripts/landmines-verify-dispatch.sh`, found it had
+  already consumed my entry's "new" status, and fired it by hand exactly as prescribed:
+  `./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#a-logo-check-that-finds-no-logo-in-the-…'`.
+  It printed `PUBLISHED topic=system.agent.generic.requests correlation=a823f925…`. I recorded that
+  as armed, said so to a peer lane, and moved on.
+- **What was true.** The run **FAILED 18 seconds later** — `derive_checks` →
+  `execute_llm_prompt` → `provider=anthropic … "Your credit balance is too low to access the
+  Anthropic API"`. My dispatch at 11:56:31Z landed inside the fleet-wide credit outage that began
+  **11:17:05Z** and was already recorded in `LANDMINES.md` by another lane. The entry has **no
+  verdict** and never will unless someone re-fires it. My two later dispatches (12:01, 14:01)
+  completed, so nothing in my own session's experience suggested a problem.
+- **What caught it.** Nothing I did on purpose. A **fleet-roll notice** from another session made me
+  audit my in-flight orchestrations for roll-kill exposure, and the failure fell out of that query
+  four hours after the fact. Had the roll not been announced I would not have looked, and the entry
+  would sit unverified indefinitely while I believed otherwise.
+- **The cheap check that would have — and it is QUOTED IN THE LANDMINE I WAS FOLLOWING.** The entry
+  *"Running `landmines-sync.py --apply` before `landmines-verify-dispatch.sh` consumes the 'new
+  entry' status"* ends with exactly this: *"Confirm a verdict actually landed:
+  `SELECT created_at, left(body,120) FROM doc_notes WHERE subject_key='LANDMINES.md#<slug>' AND
+  categories ? 'landmine-verification';`"* I followed that entry's remedy (fire by hand) and stopped
+  one line short of its verification. **One query, on a slug I already had in my shell history.**
+- **Why it is worth a row rather than a shrug.** `PUBLISHED` and `Dispatched N, 0 failed to publish`
+  are **publish receipts** — they assert that a message left, which is all a producer can know. The
+  run's outcome arrives minutes later in a different table, and **nothing joins them for you.**
+  Reading a receipt as an outcome is the same error as reading `complete` as a repaired artefact,
+  and I have the memory note for that (*"a receipt nobody ASSERTS on is a log line"*). It read as an
+  outcome here because the script's last line is a success line and there is nothing after it.
+- **The tally point, which is the reason this file exists.** This is the **second** time today I
+  reached a landmine's own prescribed check late: this morning I wrote a duplicate entry without
+  grepping first, which that file also tells you to do. Both times I had read the relevant entry.
+  **Following an entry's remedy and stopping before its verification step is its own failure mode**,
+  and it is invisible because the remedy visibly succeeded.
+- **Cost.** One unverified landmine entry for four hours, and a claim to a peer lane ("its verifier
+  armed") that was true when made and that I would not have caught going stale. Re-fired once the
+  fleet roll settled. Nothing shipped wrong.
