@@ -67487,3 +67487,40 @@ Tally: substring-probe-over-matched; key-shape-probe-under-matched.
   expensive one then failed too. The cheap check was right the whole time.
 - **Cost.** No wrong action. One paragraph of published reasoning corrected in the handoff, the
   NOTES and the owner log.
+
+## 2026-09-04 — I ran two test commands before committing, and the set of tests they could BOTH fail on was empty
+
+- **The claim**: that `83407cd37` was tested. I ran, and recorded as verification, two things —
+  `go test ./platform/orchestration/actions/ -run 'TestRefusalMessage|TestRenderFailWorkItem|TestFailWorkItemConfigKeys|TestErrorMessageTemplate'` (green) and
+  `go test ./platform/orchestration/actions/ -run ZzzNoSuchTestZzz` (green, the lane's own idiom for
+  "the test files COMPILE").
+- **What was actually true**: the commit left `platform/orchestration/actions/` RED on **two**
+  package tests — `TestTemplateExecutorsAreDeclared` (my `renderFailWorkItemMessage` is an
+  undeclared template executor: "a new executor is a new DIALECT") and
+  `TestFindingCodeScanEveryWriteIsRegistered` (my `FAIL_WORK_ITEM_MESSAGE_TEMPLATE_FALLBACK` is
+  written by the package and declared in no registry). **Both tests exist precisely to catch a
+  symbol of the shape I had just added.** Found by two other lanes, independently, ~3 hours apart,
+  each while taking that package's test run as a pre-commit baseline for unrelated work.
+- **Why neither command could have caught it, which is the part worth keeping**: the first `-run`
+  filter was written **from my own test names**. A filter you compose from the tests you just wrote
+  is structurally incapable of failing on a test you did not write — and the tests that guard a
+  package against a NEW symbol are, by definition, never in that list. The second runs nothing at
+  all by construction. Each is defensible alone; together they read as "I tested it" while the set
+  of tests they could both fail on is **empty**. Two green checks, zero coverage of the actual risk.
+- **The cheap check**: run the package BARE — `go test ./platform/orchestration/actions/` — at least
+  once before committing. `-run` is for iterating, never for the last run before a commit.
+- **The compounding bit**: this lane's own handoff carries the craft note *"a test FAIL naming
+  symbols you have never heard of is a neighbour's WIP — NO DATA, not a result."* That note is
+  about correctly DISMISSING someone else's red. Having written it, I skipped the run where I would
+  have seen my own — the note gave me a ready-made reason not to look at package output, and I used
+  it before there was anything to dismiss. **A rule for discounting a signal is worth less than the
+  habit of generating the signal.**
+- **What it cost other people, which is the real damage**: that package's test run is a baseline
+  several lanes take before committing. While it was red, each of them either spent the time
+  proving the failure was not theirs — two lanes did exactly that, and said so — or stops running
+  it, which is worse and permanent. The `bugs_open/332` lane also noted the two failures are
+  separated in the output by a wall of `t.Logf` lines, so a `| tail` keeps the second and cuts the
+  first; they nearly filed only one.
+
+Family: mutate-the-code-to-prove-the-guard, a-quiet-test-passes-when-the-rule-is-gone,
+your-measurement-answers-the-question-you-encoded, a-shared-tree-commit-can-break-head.

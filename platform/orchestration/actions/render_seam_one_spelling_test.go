@@ -90,6 +90,20 @@ var declaredTemplateExecutors = map[string]string{
 	"extractSearchQuery":              "search query from step config",
 	"evaluateConditionTemplateFormat": "workflow condition expression",
 	"RenderCSSFromSpecAction":         "CSS from a design spec",
+	// bugs_open/440 / WII-038. OPERATOR-AUTHORED, which is the one in this group
+	// that most needs its language written down: a person writes this template into
+	// a step config (`error_message_template` on fail_work_item), so they are the
+	// "template author" the group above is about, one seam along.
+	// ITS LANGUAGE: plain text/template over the run's collected_data, NO FuncMap,
+	// and `missingkey=error` — the OPPOSITE of executeGoTemplate's missingkey=zero.
+	// So {{safe}}/{{default}}/{{isset}} are parse errors here (as in
+	// RenderTemplateWithMap), AND a path that is merely absent is a RENDER error
+	// rather than an empty string. Both are deliberate: this renders a refusal
+	// message a human acts on, so failing loudly and falling back to the static
+	// error_message beats emitting a confidently wrong one. How an author knows
+	// which executor they are writing for: this dialect is reachable from exactly
+	// one config key, and the key's own doc header states it.
+	"renderFailWorkItemMessage": "fail_work_item refusal message from step config; NO FuncMap; missingkey=ERROR (not zero); <no value> guarded; falls back to the static error_message and files FAIL_WORK_ITEM_MESSAGE_TEMPLATE_FALLBACK",
 }
 
 // parsePackageFuncs returns funcName -> body, for non-test files in this package.

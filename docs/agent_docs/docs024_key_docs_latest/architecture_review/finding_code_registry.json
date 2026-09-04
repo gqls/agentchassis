@@ -1,440 +1,446 @@
 {
- "_doc": "bugs_open/358 — one entry per agent_error_log error_code. THE AUTHORITY IS THE LIVE TABLE, not this file and not a source scan: `config-key-audit --finding-codes` reads SELECT DISTINCT error_code and asks whether each observed code is declared here. That is deliberate — agenterrors.Write calls itself 'The ONE writer against agent_error_log' and it is NOT (four of five INSERT paths bypass it, and internal/agents/contentcreator CANNOT use it: *pgxpool.Pool against a *sql.DB parameter), so a check anchored on the seam or on a grep would read clean while most writers walked past. KEYED ON THE CODE UP TO THE FIRST COLON (358 §8: error_code is free text and one writer emits colon-suffixed variants); raw_variants lists what is actually written, so a family cannot double-count as compliance. DISPOSITIONS: consumed (an automated reader selects by this code and acts — `reader` must be a file:line the checker verifies CONTAINS the code, AND `reader_sink` must name the TABLE that reader selects it from, which the checker verifies the reader file mentions); instrumented (deliberate, time-boxed measurement — `owner` doc and a `review_by` date the checker expires); human-evidence (hand-run forensics only — `why` must name the retention window it accepts); operational (failure plumbing, whose correct consumption IS the generic newest-N diagnostic read — 358 §2.3); unruled (declared, not yet decided — a COUNTED BACKLOG, listed at exit 0, never an exemption). Every required field is chosen so it cannot be satisfied by typing, which is RFC_029 §10.15's lesson from optional_explicit_wire_acks.json: 'an ack satisfiable by typing the key is no ack'. AN OBSERVED CODE ABSENT FROM THIS FILE IS A FINDING (exit 1). A registered code NOT observed is report-only — retention is 30 days, so absence proves 30 days and never 'never'. ⚠ STATED LIMIT: `consumed` says a reader selects by this code and acts on it. It does NOT say the WRITER can see the whole population it would need to — a detector that only fires on one code path is blind to everything off it, however faithfully its rows are read (worked example: STRUCTURAL_KEY_CARRY_MISS below). Coverage of the writer is a separate question this registry does not answer and must not be read as answering. ⚠ SECOND STATED LIMIT, and a DIFFERENT one (added 2026-08-23): `consumed` also used to be silently ambiguous about WHICH SINK the reader reads. component_validation_rejected has a genuine automated reader — migration 563 branches the component-creator's prompt on the failure class — but that reader reads `site_work_items.retry_feedback` (single writer: store_generated_component_action.go:1587, wired by 564), NOT this table. Its agent_error_log row is a PARALLEL record nothing reads. Marked `consumed` it would have passed the reader check (563 does contain the string) and read as a closed loop for ever. Hence `reader_sink`: a value other than `agent_error_log` is REPORTED, not failed — a parallel append-only record beside an overwritten column is often deliberate — but it can never again read as though THIS table's row were consumed. The check's own limit, stated: it proves the reader file MENTIONS the sink, not that it selects this code from it; a file naming several tables can satisfy it wrongly.",
- "_unruled_cap": 0,
- "_unruled_cap_doc": "THE RATCHET (owner ruling 2026-08-23: cap it). The unruled count may never EXCEED this number — a new code parked rather than decided is a FINDING, which is what capping the backlog means. Below it is REPORTED with the number to lower it to: lowering is a one-word edit in the same commit as the ruling, and the report is what stops ground gained being quietly given back. ABSENT is a finding too — a cap you can delete is not a cap. It is a ratchet rather than a flat target because this check lists `unruled` at exit 0 on purpose: a check that fails from day one over a pre-existing backlog is a check that gets ignored, so a target of 10 against a live backlog of 32 would be permanently red and therefore disabled. Set to 32 = the measured count on 2026-08-23, before batch 1 is ratified. Precedent: 102_coverage_ratchet.txt.",
- "_scan_baseline": [
-  "BRAND_HEAD_TAGS_DECLINED",
-  "CONTENT_LINK_REPAIR_SKIPPED",
-  "FACT_ASSIGNMENT_ABSENT",
-  "FACT_SCOPING_EMPTY_COMPOSITION",
-  "HANDLER_VERDICT_UNRECOGNISED",
-  "LOCKED_MERGE_SKIPPED",
-  "PLAN_PAGE_IDENTITY_TYPE_CONFLICT",
-  "PLAN_SECTION_NAME_KEPT_BY_STORED_SLOT",
-  "PLAN_SECTION_STORED_SLOT_READ_FAILED",
-  "RECOMPOSE_INTENT_NOT_REALISED",
-  "SKIP_PERSISTENCE_FAILED",
-  "SOURCE_GUARD_ASPECT_SET_UNAVAILABLE",
-  "VISION_FINDING_INSERT_FAILED"
- ],
- "_scan_baseline_doc": "bugs_open/358. Codes that platform/orchestration/actions WRITES and this registry does not yet declare — the pre-existing backlog for findingcodes_scan_test.go's source-side early warning, which fails on anything NOT listed here. A RATCHET, for the same reason the unruled cap is one: a check that fails from day one over a pre-existing backlog is a check that gets ignored, and the crisp signal is 'someone just added a code nobody declared'. MEASURED 2026-08-24 when this was seeded: all 13 have fired ZERO times in the retained window, so the live-table check is blind to them BY CONSTRUCTION (its own stated blind spot: an unfired code produces no unread findings) — this list is precisely the population that blind spot leaves, which is why the scan is worth having at all. THE LIST MAY ONLY SHRINK: declare a code and delete its line in the same commit. An entry that is now declared is REPORTED as stale rather than failed, because a baseline that outlives its findings is how a check goes green by going blind.",
- "CONTENT_VALIDATION_BLOCKER_DETAIL": {
-  "disposition": "consumed",
-  "writer": "platform/orchestration/actions/validate_page_content.go:636",
-  "reader": "platform/orchestration/actions/reconcile_superseded_reviews_action.go:228",
-  "reader_sink": "agent_error_log",
-  "note": "reader merges the last 20 blocker values per page into its supersede finding"
- },
- "CONTENT_KEY_LOSS": {
-  "disposition": "consumed",
-  "writer": "cmd/content-loss-check/main.go:292",
-  "reader": "cmd/content-loss-check/main.go:325",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_238_regeneration_key_loss",
-  "note": "bugs_open/355 A2+A3. Writer and reader are one binary; it also re-grades and RESOLVES — the first user of the resolved triple in the table's history (2026-08-22)"
- },
- "STRUCTURAL_KEY_CARRY_MISS": {
-  "disposition": "consumed",
-  "writer": "platform/orchestration/actions/plan_sections_action.go:1520",
-  "reader": "cmd/content-loss-check/main.go:325",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_238_regeneration_key_loss",
-  "note": "⚠ CONSUMED IS NOT COMPLETE, and this is the worked example. It gained its reader on 2026-08-22 (cba51ad1d) — 8 of its 28 rows are already resolved — but the WRITER only fires when a page is BUILT, so a component that never gets built is invisible to it for ever (bugs_open/309's at-rest audit found eleven such, and cites bugs_open/358 in its own code for why it does NOT route findings here). That limit is independent of the reader: a disposition says who reads a code, never that the writer can see the whole population it would need to. Do not read `consumed` as coverage."
- },
- "CONTENT_DATA_REGRESSION": {
-  "disposition": "consumed",
-  "writer": "platform/orchestration/actions/save_sections_metadata_source.go:306",
-  "reader": "cmd/content-loss-check/main.go:325",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_238_regeneration_key_loss"
- },
- "DEPLOY_STAMP_REFUSED_ON_SKIP": {
-  "disposition": "consumed",
-  "writer": "platform/orchestration/actions/page_build_failure_guard.go:110",
-  "reader": "platform/orchestration/actions/page_build_failure_guard.go:131",
-  "reader_sink": "agent_error_log",
-  "note": "writer and reader are one mechanism — a 7-day strike ladder counting its own rows. Zero rows in the window is legitimately quiet, not absent. ⚠ the reader binds a Go CONST to $1, so a literal-grep verdicts this code unread (358 §3.2)"
- },
- "CTA_LABEL_MISMATCH": {
-  "disposition": "instrumented",
-  "writer": "platform/orchestration/actions/cta_label_audit.go:auditCTALabelAgreement (entry point; emits via its writeCTALabelAuditLog helper)",
-  "owner": "bugs_open/399_HANDOFF_2026-08-25_the_framework_computes_the_right_cta_destination_stores_it_beside_the_wrong_copy_and_never_compares_them.md",
-  "review_by": "2026-10-01",
-  "note": "bugs_open/399. Write-time record that a CTA's copy names a different page than its destination, asked through the SHARED datahelpers.JudgeCTALabel so it cannot drift from check_misdirected_cta (RFC_047 §9). Deliberately NOT 'consumed': no reader exists, and 392's editquality seat named an inert reader paired with 'consumed' as a dishonesty surface. Deliberately NOT a work item: 78 cta_names_unknown_destination + 70 unresolved_cta already sit at needs_human_review with no handler, and bugs_closed/023's closure warns that more detection makes the invisible pile bigger. THE READING IS THE RATE, NOT THE ROW — the baseline is 155 of 1,060 pairs written since migration 477 [MEASURED 2026-08-26]; what matters is whether that moves. Query + reading obligation: docs024_key_docs_latest/bugfix_399_cta_label_agreement/RUNBOOK_cta_label_agreement.md. Inherits the surfacing risk bugs_open/410 was filed for, and says so rather than pretending otherwise"
- },
- "RESOLVER_CONFLICTING_CANDIDATES": {
-  "disposition": "instrumented",
-  "writer": "platform/orchestration/datahelpers/unified_extractor.go:589",
-  "owner": "docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_029_the_aggressive_recursive_search_has_no_boundary_for_an_unmapped_field.md",
-  "review_by": "2026-10-01",
-  "note": "RFC_029 Phase-1 instrumentation. Six dated reads (§10.5, §10.6, §10.7, §10.9, §10.11, §10.12) and an owner ruling 2026-08-18 (§10.13) sequencing Phase 2 on its evidence. NOT deduped by design: 'frequency is the population §9's disconfirmation clause needs'. The architecture seat's 2026-08-16 scope note (register/contracts-and-standards.md:511) applies — a second finding type or a second consumer on this sink gets a fresh architecture look"
- },
- "RESOLVER_MAPPING_BYPASSED": {
-  "disposition": "instrumented",
-  "writer": "platform/orchestration/datahelpers/action_inputs.go:932",
-  "owner": "docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_029_the_aggressive_recursive_search_has_no_boundary_for_an_unmapped_field.md",
-  "review_by": "2026-10-01",
-  "note": "sibling of RESOLVER_CONFLICTING_CANDIDATES, same sink, same scope note"
- },
- "UNKNOWN": {
-  "disposition": "operational",
-  "writer": "platform/orchestration/agenterrors/agenterrors.go:178",
-  "note": "ClassifyError's default arm — the code a row gets when nothing named one"
- },
- "PROCESSING_FAILED": {
-  "disposition": "operational",
-  "writer": "platform/agentbase/agent.go:1425"
- },
- "LLM_API_ERROR": {
-  "disposition": "operational",
-  "writer": "platform/orchestration/agenterrors/agenterrors.go:172"
- },
- "TIMEOUT": {
-  "disposition": "operational",
-  "writer": "platform/orchestration/agenterrors/agenterrors.go:168"
- },
- "CHILD_ORCHESTRATION_FAILED": {
-  "disposition": "operational",
-  "writer": "platform/orchestration/agenterrors/agenterrors.go:174"
- },
- "PARSE_ERROR": {
-  "disposition": "operational",
-  "writer": "platform/orchestration/agenterrors/agenterrors.go:176"
- },
- "CONTENT_VALIDATION_FAILED": {
-  "disposition": "operational",
-  "writer": "platform/orchestration/agenterrors/agenterrors.go:164",
-  "note": "a ClassifyError arm, NOT the deliberate CONTENT_VALIDATION_BLOCKER_DETAIL finding beside it"
- },
- "TEMPLATE_FIELD_ERROR": {
-  "disposition": "operational",
-  "writer": "platform/orchestration/agenterrors/agenterrors.go:162"
- },
- "CONNECTION_ERROR": {
-  "disposition": "operational",
-  "writer": "platform/orchestration/agenterrors/agenterrors.go:170"
- },
- "MISSING_FIX_TYPE": {
-  "disposition": "operational",
-  "writer": "platform/orchestration/agenterrors/agenterrors.go:166"
- },
- "DISPATCH_UNRESOLVABLE": {
-  "disposition": "operational",
-  "writer": "platform/errors/errors.go:53"
- },
- "INCOMING_MESSAGE_REJECTED": {
-  "disposition": "operational",
-  "writer": "platform/agentbase/agent.go:998"
- },
- "UNROUTED_IMAGE_KIND": {
-  "disposition": "operational",
-  "writer": "internal/adapters/imagegenerator/routing.go:160"
- },
- "DISCOVERY_CHECK_ERROR": {
-  "disposition": "operational",
-  "writer": "platform/orchestration/actions/discovery_checks.go:393",
-  "note": "severity 'warning' deliberately: a check ERRORING is 'we could not check this', which must not be graded alongside a real content finding"
- },
- "CONTENT_LINK_REPAIR_DETAIL": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/validate_page_content.go:728",
-  "note": "358 §2.1's third-largest unread code. Cited as precedent by save_sections_content_data_links.go:57 — the record shape propagated and the missing reader propagated with it (358 §3.1)",
-  "why": "Records what the link-repair pass DID on a build that SUCCEEDED, deliberately distinct from the blocker code because 'the two rows answer different questions' (validate_page_content.go). Its stated purpose is to name WHICH of three origins repaired, so a row that cannot say which path acted cannot spot the path that stopped acting. Comparing the three origins over time is a longitudinal question, and migration 567 gives it 365 days rather than the 30-day unresolved window this table's sweep otherwise applies — accepted knowingly. This records TODAY'S TRUTH, not the ambition: it is the code in this batch most worth a real reader (count by origin; an origin dropping to zero is the bugs_open/097 drift it exists to catch), and human-evidence is what 'nothing reads it yet' honestly says."
- },
- "CONTENT_VALIDATION_WARNING_DETAIL": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/validate_page_content.go:834",
-  "note": "added 2026-08-22 by 0ce242d9c (071's residual) — the SAME MORNING bugs_open/358 was filed about this class. Zero rows: inert until the next chassis roll. It is the seventeenth member of §2.1 and the live proof of §3.1",
-  "why": "What the gate SAW and left in place on a build that succeeded — deliberately distinct from the consumed BLOCKER sibling; the distinctness is the point and nothing reads this half. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "VALIDATION_ERROR_DROPPED": {
-  "disposition": "human-evidence",
-  "writer": "platform/messaging/validation_drop.go:109",
-  "note": "TWO writers — also platform/agentbase/agent.go:1489",
-  "why": "The row is the ONLY trace a dropped message ever existed — written on a detached context precisely so a cancelled request cannot take the record with it (validation_drop.go). It already has a named hand-run consumer: bugs_open/034's VERIFY_034_post_roll.sh greps for exactly this code. Accepts the retention window it lives under (30 days unresolved, 14 resolved, migration 466), now 365 under 567."
- },
- "PLAN_SECTION_NAME_DROPPED": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/component_name_resolver_menu.go:183",
-  "why": "A section the planner proposed that resolves to no active component, carrying a `remedy` string distinguishing 'the planner invented it' from 'this planner cannot read its own menu' (component_name_resolver_menu.go). The strongest human-evidence case in the batch: site_db_actions.go:429 tells a reader IN PROSE to query agent_error_log for exactly this code, so the hand-run path is documented rather than merely possible. Accepts the 30-day unresolved window of migration 466, extended to 365 by 567."
- },
- "component_validation_rejected": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/store_generated_component_action.go:1439",
-  "note": "one of three codes from a hand-rolled INSERT that BYPASSES agenterrors — kept deliberately (a council round's edit-quality and guardian seats objected to consolidating it; the reason is at :1428). A 'component_validation_%' LIKE query exists live, so prefix-disjointness matters for this family",
-  "why": "NOT `consumed`, and the distinction is this registry's `reader_sink` field in miniature. Its code value IS automatically consumed — migration 563 branches the component-creator's prompt on the failure class, so a rejected component is regenerated with the right remedy — but that reader reads site_work_items.retry_feedback, a dedicated single-writer column (store_generated_component_action.go:1587 recordRetryFeedback) wired to the prompt by 564. THE agent_error_log ROW IS A SECOND, PARALLEL RECORD THAT NOTHING READS. Marked consumed it would have passed the reader check (563 does contain the string) and read as a closed loop for ever. Accepts this table's retention window (30 days unresolved under migration 466; 365 under 567) for the parallel row."
- },
- "component_validation_orphan_schema_field": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/store_generated_component_action.go:1423",
-  "why": "Consumed FROM ANOTHER SINK, exactly its sibling component_validation_rejected's shape: migration 563 branches the component-creator's prompt on this code via site_work_items.retry_feedback, so the failure class IS acted on — and this table's row is a second, parallel record nothing reads. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "component_validation_unknown_template_var": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/store_generated_component_action.go:1426",
-  "why": "Same as its two siblings: consumed via site_work_items.retry_feedback (migration 563 branches on it), this table's row unread. Zero rows in the window when ruled. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "ARCHIVED_PAGE_DEPLOY_REFUSED": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/git_deployer_actions.go:103",
-  "note": "TWO writers — also v3_site_actions.go:911",
-  "why": "A deploy refused because the page is archived, written BEFORE the return 'so a refusal is countable even though this action dispatches nothing further' (git_deployer_actions.go:100). Nothing counts them today, and the honest record of that is human-evidence plus the accepted window — not a `consumed` claim. Accepts 30 days unresolved (migration 466), 365 under 567. Two writers; v3_site_actions.go:911 is the second."
- },
- "CONTENT_CLAIMS_FLOOR_DETAIL": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/save_sections_claims_guard.go:104",
-  "why": "Claims-guard detail on the SAVE path, deliberately distinct from the gate's own code so 'which path caught this' stays answerable — the same bugs_open/097 rationale as CONTENT_LINK_REPAIR_DETAIL, and the two are one design and are ruled together. Longitudinal by nature, so the 365-day clock of migration 567 rather than the 30-day unresolved default of 466 is what it accepts."
- },
- "CONTENT_CREATOR_CLAIMS_DETAIL": {
-  "disposition": "human-evidence",
-  "writer": "internal/agents/contentcreator/claims_guard.go:184",
-  "note": "the writer that CANNOT use the seam: the agent holds a *pgxpool.Pool (agent.go:92) and agenterrors.Write takes a *sql.DB. Zero rows in the window; content-creator writes nothing to llm_call_log, so this row is the only trace that would ever exist",
-  "why": "The content-creator's claims-guard detail — written by the pgxpool path that cannot use the seam. Zero rows in the window when ruled. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "TRUNCATION_DEGRADED_REVIEW": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/diagnose_council_decide_action.go:625",
-  "note": "EXTRACTED 2026-08-22 before the cleaner reached it — all 41 rows, 24 rounds, 12 seats: bugfix_358_unread_finding_codes/EVIDENCE_truncation_degraded_review_2026-08-22.json. ⚠ THE CODE IS MISNAMED FOR ITS OWN POPULATION: 40 of 41 rows come from the `json.Valid(rb) == false` arm, logged as 'invalid JSON, likely truncated at max_tokens' — and the token data refutes that for those 40. Across the whole retained llm_call_log only FIVE review calls have ever hit their ceiling exactly (four on 2026-07-18, before this writer existed; the fifth 2026-08-02), and 11,514 of 11,519 reviewer replies end in '}'. Exactly ONE row (branch producer_marker) is a confirmed truncation. The other 40 record 'this seat's output did not parse', cause unmeasured. THE SILENCE SINCE 2026-08-02 IS A FIX, NOT A BLIND DETECTOR, and the control is the sibling channel written by the SAME function: diagnosis_artifacts kind='council_report' carries `unreadable` and `gated_by_truncation` unconditionally — 248 reports in the week of 2026-08-17, 100% carrying the key, and unreadable seats ran 17 (wk 07-20) → 24 (wk 07-27) → 0 → 0 → 0. The mechanism is proven executing and reporting clean, which is the demand control a zero row count cannot supply on its own. [CORRELATED, not proven causal] reviewer ceilings moved 8000 → 16000 over the same weeks (5 calls at 16k in wk 07-20, 1,756 in wk 08-17). The 2026-08-02 final row was review_adoption_guardian running at max_tokens=120, a misconfiguration since corrected (8000 today, outputs ~300 tokens)",
-  "why": "Settled by this lane's Task A: the whole population was EXTRACTED before the cleaner reached it (EVIDENCE_truncation_degraded_review_2026-08-22.json), and the condition has been clean since 2026-08-02 with the mechanism proven executing and reporting via the sibling diagnosis_artifacts channel — a demand control a zero row count cannot supply alone. Accepts the retention window knowingly (30 days unresolved under migration 466, 365 under 567) because the durable record is the extracted evidence file, not the rows. ⚠ CARRY THE CORRECTION: the code is MISNAMED for its own population — 40 of its 41 rows are not truncation; see this entry's note."
- },
- "CONTENT_DATA_LINK_AUDIT": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/save_sections_content_data_links.go:62",
-  "why": "One design with CONTENT_LINK_REPAIR_DETAIL (ruled together, batch 1): which of three origins repaired, so a path dropping to zero is findable. A reader for the pair is COMMISSIONED (owner decision 4, 2026-08-25 — contributed into bugs_open/071, whose lane owns this territory); upgrade to consumed when it ships. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "tool_crosslink_not_emitted": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/create_tool_cross_link_items.go",
-  "raw_variants": [
-   "tool_crosslink_not_emitted:tool_page_will_not_go_live",
-   "tool_crosslink_not_emitted:no_related_pages"
+  "_doc": "bugs_open/358 — one entry per agent_error_log error_code. THE AUTHORITY IS THE LIVE TABLE, not this file and not a source scan: `config-key-audit --finding-codes` reads SELECT DISTINCT error_code and asks whether each observed code is declared here. That is deliberate — agenterrors.Write calls itself 'The ONE writer against agent_error_log' and it is NOT (four of five INSERT paths bypass it, and internal/agents/contentcreator CANNOT use it: *pgxpool.Pool against a *sql.DB parameter), so a check anchored on the seam or on a grep would read clean while most writers walked past. KEYED ON THE CODE UP TO THE FIRST COLON (358 §8: error_code is free text and one writer emits colon-suffixed variants); raw_variants lists what is actually written, so a family cannot double-count as compliance. DISPOSITIONS: consumed (an automated reader selects by this code and acts — `reader` must be a file:line the checker verifies CONTAINS the code, AND `reader_sink` must name the TABLE that reader selects it from, which the checker verifies the reader file mentions); instrumented (deliberate, time-boxed measurement — `owner` doc and a `review_by` date the checker expires); human-evidence (hand-run forensics only — `why` must name the retention window it accepts); operational (failure plumbing, whose correct consumption IS the generic newest-N diagnostic read — 358 §2.3); unruled (declared, not yet decided — a COUNTED BACKLOG, listed at exit 0, never an exemption). Every required field is chosen so it cannot be satisfied by typing, which is RFC_029 §10.15's lesson from optional_explicit_wire_acks.json: 'an ack satisfiable by typing the key is no ack'. AN OBSERVED CODE ABSENT FROM THIS FILE IS A FINDING (exit 1). A registered code NOT observed is report-only — retention is 30 days, so absence proves 30 days and never 'never'. ⚠ STATED LIMIT: `consumed` says a reader selects by this code and acts on it. It does NOT say the WRITER can see the whole population it would need to — a detector that only fires on one code path is blind to everything off it, however faithfully its rows are read (worked example: STRUCTURAL_KEY_CARRY_MISS below). Coverage of the writer is a separate question this registry does not answer and must not be read as answering. ⚠ SECOND STATED LIMIT, and a DIFFERENT one (added 2026-08-23): `consumed` also used to be silently ambiguous about WHICH SINK the reader reads. component_validation_rejected has a genuine automated reader — migration 563 branches the component-creator's prompt on the failure class — but that reader reads `site_work_items.retry_feedback` (single writer: store_generated_component_action.go:1587, wired by 564), NOT this table. Its agent_error_log row is a PARALLEL record nothing reads. Marked `consumed` it would have passed the reader check (563 does contain the string) and read as a closed loop for ever. Hence `reader_sink`: a value other than `agent_error_log` is REPORTED, not failed — a parallel append-only record beside an overwritten column is often deliberate — but it can never again read as though THIS table's row were consumed. The check's own limit, stated: it proves the reader file MENTIONS the sink, not that it selects this code from it; a file naming several tables can satisfy it wrongly.",
+  "_unruled_cap": 0,
+  "_unruled_cap_doc": "THE RATCHET (owner ruling 2026-08-23: cap it). The unruled count may never EXCEED this number — a new code parked rather than decided is a FINDING, which is what capping the backlog means. Below it is REPORTED with the number to lower it to: lowering is a one-word edit in the same commit as the ruling, and the report is what stops ground gained being quietly given back. ABSENT is a finding too — a cap you can delete is not a cap. It is a ratchet rather than a flat target because this check lists `unruled` at exit 0 on purpose: a check that fails from day one over a pre-existing backlog is a check that gets ignored, so a target of 10 against a live backlog of 32 would be permanently red and therefore disabled. Set to 32 = the measured count on 2026-08-23, before batch 1 is ratified. Precedent: 102_coverage_ratchet.txt.",
+  "_scan_baseline": [
+    "BRAND_HEAD_TAGS_DECLINED",
+    "CONTENT_LINK_REPAIR_SKIPPED",
+    "FACT_ASSIGNMENT_ABSENT",
+    "FACT_SCOPING_EMPTY_COMPOSITION",
+    "HANDLER_VERDICT_UNRECOGNISED",
+    "LOCKED_MERGE_SKIPPED",
+    "PLAN_PAGE_IDENTITY_TYPE_CONFLICT",
+    "PLAN_SECTION_NAME_KEPT_BY_STORED_SLOT",
+    "PLAN_SECTION_STORED_SLOT_READ_FAILED",
+    "RECOMPOSE_INTENT_NOT_REALISED",
+    "SKIP_PERSISTENCE_FAILED",
+    "SOURCE_GUARD_ASPECT_SET_UNAVAILABLE",
+    "VISION_FINDING_INSERT_FAILED"
   ],
-  "note": "the colon family this file's normalisation rule exists for. A live 'tool_crosslink_not_emitted%' LIKE query reads both variants as one",
-  "why": "Cross-links withheld for a tool page, reason as a colon suffix. Has a NAMED HAND-RUN reader — cmd/backfill-tool-crosslinks/main.go:90 selects one variant, and 211_VERIFY/602_HOLD carry LIKE queries — but nothing automated. If the 602 lane ships an automated consumer this upgrades to consumed with reader_sink agent_error_log. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "REVIEW_SUPERSEDED_BY_PASSING_SAVE": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/reconcile_superseded_reviews_action.go:181",
-  "note": "the oldest rows in the table (2026-07-23 only) — days from deletion at the time 358 was filed",
-  "why": "The supersede reconciler's OUTPUT row. Its entire first population (25 rows) was deleted unread by retention on 2026-08-22 — the event that opens this lane's handoff — and nothing reads new ones. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "NO_CHANGE_GATE_UNREADABLE_RESULT": {
-  "disposition": "consumed",
-  "writer": "platform/orchestration/actions/complete_work_item_no_change.go:504",
-  "why": "A gate that could not read a handler's result — the item completed UNGRADED, so rows here mean a handler's result shape drifted. A reader is COMMISSIONED (owner decision 4, 2026-08-25 — bugs_open/393; every row is item_type dark_section_audit, so there is also ONE concrete shape fix); ruled human-evidence per decision 1 option (a) and upgraded to consumed when the reader ships. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567).",
-  "reader": "cmd/config-key-audit/ungradedcompletions.go:58",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_393_ungraded_completions",
-  "note": "Reader declares the code as a same-file const (the LINK_CONTEXT_UNAVAILABLE precedent) and ratchets item_types against no_change_unreadable_acks.json daily (CronJob ungraded-completions-check). Upgraded from human-evidence per its own why: the commissioned reader shipped (bugs_open/393 part B)."
- },
- "ACCEPTANCE_PREDICATE_NOT_EVALUABLE": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/complete_work_item_acceptance_predicate.go:413",
-  "why": "Completion gate 1c could not evaluate an item's OWN stored acceptance predicate, so the item completed ungraded by it (bugs_open/395, CLM-024). Declared human-evidence for the same reason as its sibling NO_CHANGE_GATE_UNREADABLE_RESULT, which is the same shape one file along: no automated reader, and the rows are what a person reads when asking whether the gate is grading anything. ITS ONE INTERESTING PROPERTY, which is why it is worth writing at all: a stored predicate was evaluable AT EMISSION by construction (the emit gate refuses to store one that is not), so a row here means the page changed shape, the vocabulary moved, or THIS GATE HAS GONE BLIND — and if it fires on every item of an armed type it is the third, which otherwise wears the same face as the acceptable outcome 'no item carried a predicate'. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567): the blind-gate case is a standing property that re-fires on every completion, so a 30-day window cannot hide it."
- },
- "COMPONENT_COLLISION_DIVERTED": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/store_generated_component_action.go:127",
-  "why": "A shared-function collision diverted to a new base component — the RFC_034 programme's instrumentation. Nothing counts diverts today. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "COMPONENT_COLLISION_DIVERT_BLOCKED": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/store_generated_component_action.go:146",
-  "why": "The divert itself refused. Zero rows in the window when ruled. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "RETRACTION_AUDIT": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/retract_page_deployment_action.go:457",
-  "note": "written BEFORE the dispatch on purpose — this table is the only sink that survives an awaited step (RFC_012 addendum 2), so a failed send cannot unrecord what the action found",
-  "why": "OWNER RULING 2026-08-25 (decision 3): the 365-day clock is ACCEPTED KNOWINGLY for the retraction audits. The writer's stated purpose is to be 'the ONLY durable record of what a retraction considered, refused and stripped' — after 365 days that answer is gone, and the owner chose to accept that rather than commission a permanent audit home unless retractions ever need accounting for. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "RETRACTION_REFUSED": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/retract_page_deployment_action.go:420",
-  "why": "A page retraction refused, with the reason. Same owner ruling as RETRACTION_AUDIT: the 365-day clock is accepted knowingly for the audit family. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "ASSET_RETRACTION_AUDIT": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/retract_asset_files_action.go:360",
-  "why": "One info row per asset-retraction run. Same owner ruling as RETRACTION_AUDIT: 365 days accepted knowingly for the audit family. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "ASSET_RETRACTION_REFUSED": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/retract_asset_files_action.go:348",
-  "why": "One warning row per refused asset deletion, best-effort by design. Same owner ruling as RETRACTION_AUDIT. Zero rows in the window when ruled. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "tool_birth_instance_scope_refused": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/create_tool_component_action.go:255",
-  "note": "reaches the table as a POSITIONAL argument to LogActionError, so an `ErrorCode:` grep cannot see it — a fourth blindness beyond the const one 358 §3.2 records",
-  "why": "The record that the instance-scope guard HELD at tool birth — refusals countable by hand. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "tool_birth_truncation_blocked": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/create_tool_component_action.go:168",
-  "why": "A tool birth refused because the generated HTML was structurally incomplete. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "tool_regeneration_hollow_blocked": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/create_tool_component_regenerate.go:161",
-  "why": "The record that a hollow regeneration was refused and the incumbent stood (bugs_open/331; the 012/056 hollow-overwrite class). Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "CONTENT_DATA_ENVELOPE": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/content_data_envelope_guard.go:142",
-  "why": "A refused save, 'so refusals are countable in SQL rather than only visible in pod logs' — the counting is hand-run (the query lives in a comment at render_content_envelope_guard.go:273). Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "FIX_PLAN_VALIDATION_REFUSED": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/diagnose_persist_fix_plan_action.go:318",
-  "why": "A council fix-plan refusal made findable by someone who does not already know to look in diagnosis_artifacts. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "RENDER_AUDIT_TRUNCATED": {
-  "disposition": "consumed",
-  "writer": "platform/orchestration/actions/request_render_audit_action.go:173",
-  "reader": "cmd/config-key-audit/rendertruncation.go:1",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_394_render_audit_rotation_cursor",
-  "note": "bugs_open/394, owner decision 4 (2026-08-25). THE ROW'S MEANING CHANGED with the coverage cursor: under coverage_mode=cursor it reports this run's coverage WINDOW, not a permanent tail, so the reader's job is telling the three meanings apart rather than alarming on the code. Three arms, each mutation-proven: (a) coverage_mode absent or 'prefix' from render-audit-agent, the opted-in rotating caller — the migration-649 flip regressed or the pod predates the cursor, and the tail is permanent again while that holds; (b) two consecutive cursor rows for one (domain, agent_type) at the same window_first — a stalled cursor, which looks healthy from every other angle; (c) a caller neither opted in nor acknowledged. design-critique-agent is acked at birth (manual sampler, no cadence, its 8-page prefix is plausibly the intended vision-critique sample) in render_truncation_acks.json. Vacuity guard: refuses to report over an empty agent_error_log. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "PLAN_PAGE_MERGE_LOSSY": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/write_site_plan_action.go:391",
-  "why": "The only artefact that can answer 'did richer-wins ever actually drop content' — the plan looks identical either way. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "PLAN_PAGE_SAME_NAME_IDENTITY_HELD": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/v3_site_actions.go:4229",
-  "why": "Stored page identities kept over the canonicaliser's re-derivation, honour_realised_identity ON. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "CONTENT_DUPLICATE_SECTIONS_COLLAPSED": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/save_sections_dedup.go:144",
-  "why": "Duplicate sections collapsed on save, recording the ORDER pattern (1,1,2,2 vs 1,2,3,1,2,3) that discriminates producers — forensic by design. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "component_write_shared_blocked": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/update_component_html_action.go:240",
-  "why": "A write to a shared-scope component refused — the guard's countable record. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
- },
- "LINK_CONTEXT_UNAVAILABLE": {
-  "disposition": "consumed",
-  "writer": "platform/orchestration/actions/prepare_link_context_action.go:488 (const :33)",
-  "why": "Caught undeclared by the daily check on its FIRST live run, 2026-08-24, ~2h after the code's first row. It records that a run could not establish what pages exist, deliberately distinct from 'this site has no pages' because the two have opposite remedies (bugs_closed/092). READER SHIPPED 2026-08-25 (bugs_open/392): discovery check `missing_prose_links` selects unresolved rows for the site it is running on, resolves each to its page, files an edit_live content_rewrite if the page still carries no writer-authored prose links, and resolves the row on a healed verdict only (resolved_by='missing_prose_links:<verdict>'). CORRECTION to this entry's previous text: it said these rows accept '30 days unresolved, 14 resolved — migration 466'. That is STALE. Migrations 567 and 580 removed the resolved-halves-life arm entirely; this code is not in 567's short-retention list, so its rows live 365 days whether resolved or not, and a consumer may resolve freely. The writer now also records page_name/page_id in context (2026-08-25) — the row's orchestration_id column does resolve the page, but orchestration rows are reaped while the row lives 365 days.",
-  "note": "Disposition flipped human-evidence -> consumed 2026-08-25 by the bugfix_392 lane, in the same commit as the reader (924079c94), council APPROVED corr 7d923ff6 round 2. The reader declares the code as a same-file const because the checker verifies the reader FILE contains the literal; the writer's const (prepare_link_context_action.go) is a deliberate duplicate across a package boundary. ⚠ THE READER IS COMMITTED BUT NOT YET RUNNING, and 'consumed' must not be read as 'draining' until it is. Raised by the council's editquality seat as an advisory objection and it is right: the Go is inert until the next fleet roll, and inert AGAIN after it until 'missing_prose_links' is named by hand in a live run_checks.config.checks array. Until BOTH have happened no code path reads these rows. Whoever completes those steps should replace this paragraph with the date they did. ⚠ CONSUMED IS NOT COVERAGE either: the reader only sees sites the discovery rotation visits, and the artefact half of that check is what actually finds link-less pages — 444 of 773 deployed pages under the check's own predicate as of 2026-08-25, against 2 rows this code has ever written.",
-  "reader": "platform/orchestration/actions/discovery_checks/check_missing_prose_links.go:503",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_392_link_context_unread"
- },
- "CONTENT_LINK_SUPPRESSED_UNSHIPPED": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/refused_link_targets.go:249 (const :52)",
-  "why": "Second code caught by the daily check on 2026-08-24, within an hour of its first row. Records that an href pointed at a page of this site that has never been served and is not arriving — deliberately distinct from the repair codes, which say 'this href pointed at nothing'. MEASURED 2026-08-24: no reader anywhere (Go, SQL, python, shell, live agent_definitions, scheduled_tasks). Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 under 567). ⚠ ITS OWN DOC COMMENT IS 358 §3.1 HAPPENING LIVE: it introduces itself as 'a FOURTH code beside CONTENT_LINK_REPAIR_DETAIL, CONTENT_LINK_REPAIR_SKIPPED and CONTENT_DATA_LINK_AUDIT' and reasons from their record shape — which is exactly the propagation 358 measured, 'the record shape propagates; the missing reader propagates with it'. Three of those four are human-evidence today.",
-  "note": "Declared by the bugs_open/358 lane, not by its author, for the same reason as LINK_CONTEXT_UNAVAILABLE: the check is red until a code is declared. The OWNER may overrule the disposition; the measurement behind it is not in doubt."
- },
- "COMPONENT_FUNCTION_PIN_DIVERGENCE": {
-  "disposition": "instrumented",
-  "writer": "platform/orchestration/actions/store_generated_component_action.go",
-  "owner": "bugs_open/388_HANDOFF_2026-08-25_component_creator_is_advised_one_rows_field_contract_while_the_store_enforces_a_different_row.md",
-  "review_by": "2026-09-25",
-  "note": "bugs_open/388. The writer emitted a function name other than the one the pre-generation advisory pinned it to. HARMLESS BY CONSTRUCTION once the pin ships — the advised component_id already decided which row is written — and recorded precisely because it is harmless: it is the only durable meter of how often the model disagrees. Before the pin, obedience could only be sampled, and the sample was 11 observations with zero failures, which at n=11 bounds the disobedience rate no better than ~24% at 95% confidence. Compared against the ADVISED function, never against the final one, which may since have been site-suffixed by bugs_open/311's diversion. NOT deduped: the rate is the point. Review trigger: a sustained non-zero rate means the prompt pin has drifted from what the advisory emits and should be re-anchored."
- },
- "COMPONENT_ADVISED_ROW_VANISHED": {
-  "disposition": "instrumented",
-  "writer": "platform/orchestration/actions/store_generated_component_action.go",
-  "owner": "bugs_open/388_HANDOFF_2026-08-25_component_creator_is_advised_one_rows_field_contract_while_the_store_enforces_a_different_row.md",
-  "review_by": "2026-09-25",
-  "note": "bugs_open/388. The advisory pinned a content_components row by id and, by store time, no non-forked row with that id existed — deleted, or turned into a fork, in the window between advice and store. The store falls back to the legacy by-function resolution, which is correct; doing so SILENTLY would not be, because this race is otherwise invisible and a silent fallback is indistinguishable from the pin never having been wired. Expected count is approximately zero. Review trigger: a sustained non-zero rate means the pin should carry a snapshot of the schema as well as an id, which is a follow-up round rather than a patch."
- },
- "COMPONENT_PARALLEL_SECTION_BIRTH": {
-  "disposition": "instrumented",
-  "writer": "platform/orchestration/actions/store_generated_component_action.go",
-  "owner": "bugs_open/388_HANDOFF_2026-08-25_component_creator_is_advised_one_rows_field_contract_while_the_store_enforces_a_different_row.md",
-  "review_by": "2026-09-25",
-  "note": "bugs_open/388, and CLC-006's silent fork made loud. An UNPINNED creation on a section_type that already has an active non-forked section component. The field-contract guard cannot see this case at all — isRegeneration is false, so it is vacuous — which is why the duplicate is born with no error and no work item. Two such pairs exist in the live library from the generated route (tool-archetype-taster-quiz, tool-gripper-payload-calculator, both second rows born 2026-05-06 with function == section_type). Unrepresentable on the pinned path, so this fires only on the fail-open residual, which is what makes it worth counting. Diverted writes are excluded — a site-scoped twin is bugs_open/311 working as designed and already records COMPONENT_COLLISION_DIVERTED. The census is deliberately a DIFFERENT question (by section_type) from the one that resolved the identity (by id): bugs_open/324 shipped 32 dangling rows because its completeness check re-grepped the resolver's own patterns."
- },
- "COMPONENT_UNPINNED_REGENERATION_AMBIGUOUS": {
-  "disposition": "instrumented",
-  "writer": "platform/orchestration/actions/store_generated_component_action.go",
-  "owner": "bugs_open/388_HANDOFF_2026-08-25_component_creator_is_advised_one_rows_field_contract_while_the_store_enforces_a_different_row.md",
-  "review_by": "2026-09-25",
-  "note": "bugs_open/388, added in council round 2 on bug_historian's advisory objection that the un-pinned CREATE path was instrumented (COMPONENT_PARALLEL_SECTION_BIRTH) while the un-pinned REGENERATE path was not. This is the worse shape of the two: an existing row is OVERWRITTEN, and which one was decided by ORDER BY is_active DESC, updated_at DESC LIMIT 1 over a name that does not identify a row. [MEASURED 2026-08-25] 25 of 330 non-forked rows' function values carry more than one row (site-footer and site-header five each, spanning component_level 'section' AND 'site'), so the winner can change with no code change — anything touching a sibling's updated_at reorders the contest. Fires only when the count exceeds 1, so a row always means a real contest. Deliberately asks the question the resolver DISCARDS (how many were there) rather than the one it asked (which one wins): a LIMIT 1 structurally cannot report a contest, and bugs_open/324 shipped 32 dangling rows because its check re-ran the resolver's own query. Best-effort and never fatal — the row is written either way. Review trigger: a sustained non-zero rate means an un-pinned caller exists in practice and the pin should become required on that path."
- },
- "WORK_ITEM_STATUS_OVERRIDE_REFUSED": {
-  "disposition": "operational",
-  "writer": "platform/orchestration/actions/load_work_item_actions.go:1344",
-  "note": "bugs_open/396. FailWorkItemAction's `status_override` step-config key used to be honoured verbatim; it is now checked against workItemStatusOverrideAllowed and an unrecognised value is REFUSED, with the item falling through to the normal failure ladder. This row is what makes that refusal visible — it names the misconfigured STEP, not a failing item, which is why it is its own code rather than a generic one. OPERATIONAL rather than consumed: nothing selects by it, and its correct consumption is the generic newest-N diagnostic read of that agent's recent errors. It is expected to be RARE-to-never in practice — as of 2026-08-25 a recursive walk over every agent_definitions row (snapshots and soft-deleted included) found status_override on 4 steps in 3 agents and every value was 'needs_human_review', so nothing live can trigger it; a row appearing here means someone has configured a NEW value, which is exactly the event worth seeing."
- },
- "SUBJECT_MISSING_ON_REPEATED_COMPONENT": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/write_site_plan_action.go (subjectlessRepeatFindings, via LogActionFindings)",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "apis_uk_bees_homepage",
-  "why": "Observe-only by design: the finding names a plan-shape defect a human reads, and no automated consumer exists yet (the entry's own note says 'Revisit disposition when an automated consumer exists'). Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567) — acceptable here because the code is GATED on the plan carrying any subject at all, so it fires only on plans built after seed 640 and a lost row costs a re-observation on the next build rather than a lost fact. ADDED 2026-09-02 by the bugfix_394 lane, not by this entry's owner: the prose below was filed under `note`, which is the field the `consumed` shape reads, while the human-evidence arm reads `why` — so TestShippedRegistryIsSelfConsistent had been RED at HEAD for seven days, blocking a green run of the whole cmd/config-key-audit package. The original `note` is left exactly as written.",
-  "note": "Structural half of planner rule 17 (seed 640, PBP-049): a repeated component with no subject on a subject-carrying plan gets identical briefs. Observe-only; GATED on the plan carrying any subject at all, so zero rows until seed 640 applies. Expected reader today: whoever drives 640 adoption and the apis.uk un-defer (council 4bd35ed8 r2 advisory, bug_historian). Revisit disposition when an automated consumer exists."
- },
- "REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/plan_sections_action.go (repeatedComponentSubjectGaps, via LogActionEntryInheritingProvenance)",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_443_fallback_tier_subjects",
-  "why": "Observe-only by design: the build proceeded, and the row records that a page built N same-typed sections with no subject to tell the instances apart — identical briefs, near-duplicate output predicted (bugs_open/443: 11 of 11 such pages served real repetition, measured 2026-09-02). Expected reader today: whoever backfills subjects for the 443 cohort and the RFC_063 decision. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567): a lost row costs a re-observation on the next build of the same page, not a lost fact. Bounded: 25 repeat-layout pages fleet-wide as of 2026-09-02, one row per rebuild of one of them at worst. Revisit disposition when an automated consumer exists.",
-  "note": "Build-side sibling of SUBJECT_MISSING_ON_REPEATED_COMPONENT (planner-side, write_site_plan, apis.uk lane): distinct code because the remedy differs — the planner one means the PLAN is malformed (replan / write subject rows, rule 17); this one means the page WAS BUILT with no subjects reachable at its serving tier (site_plan_sections.subject for planned sites; pages.section_subjects for plan-less pages, bugs_open/443). Deliberately NOT gated on the page carrying any subject: the pages this surfaces can never carry one."
- },
- "LISTING_PAGE_HELD_NO_ITEM_SOURCE": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/listing_item_sources.go (enforceListingItemSources, via LogActionFindings)",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_444_empty_listing_pages",
-  "why": "The durable record that validate_site_plan's listing-source gate (opt-in, migration 720) HELD a listing page out of a plan because its item source resolved to zero — so 'the gate fired' and 'the planner proposed nothing unfillable' never produce identical evidence (bugs_open/444). The ACTIONABLE artefact is the paired capability_gap work item (item_key capability_gap:<page_type>:<page_name>, spec.gap_kind=producer_missing, spec.builder_needed names the enablement); this row is the gate's own audit trail. A lost row costs nothing operational — the work item is the receipt — so the retention window is accepted: 30 days unresolved, 14 resolved (migration 466; 365 days under 567).",
-  "note": "One row per held page per plan run. Expected readers: the enablement operator answering a capability_gap (the row carries the same producer_needed slug), and anyone auditing why a planned page never appeared. Sibling of the gate's Warn logs, which do not survive pod restarts — the entire reason this durable row exists (the 444 diagnosis lost the build-time Warn lines to a restart)."
- },
- "TOOL_PAGE_HELD_NO_TOOL_SOURCE": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/tool_item_sources.go (enforceToolItemSources, via LogActionFindings)",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_450_tool_page_shells",
-  "why": "The durable record that validate_site_plan's TOOL-source gate (opt-in key enforce_tool_sources, sibling of enforce_listing_sources) HELD a tool page out of a plan because no active component_level='tool' component exists on the site under any of the page's candidate function names. Without it, 'the gate held three tool pages' and 'the planner proposed no tool pages' are the same evidence. bugs_open/450: the planner names tool pages BEFORE their tools exist — tools arrive from the ~3h design rotation, later, under names the planner never saw (seotools.co.uk: 0 of 7 planned names matched what tool-deployer built) — so the planned page is one nothing will ever fill, and generic producers publish prose about the missing tool at a URL that serves 200. The ACTIONABLE artefact is the paired capability_gap work item (item_key capability_gap:tool:<page_name>, spec.builder_needed='tool-builder'), which deliberately co-dedups with builderForPageType's own unavailable-builder arm so one page yields one gap. This row is the gate's audit trail; losing one costs nothing operational.",
-  "note": "One row per held page per plan run. ⚠ A hold is NOT a defect report about the tool pipeline: holding a planner tool stub starves nothing, because tool-deployer creates its own page rows under its own names and never reads planned tool pages (bugs_open/450 §7, measured at the rows 2026-09-03) — that measurement is the gate's licence to exist, and if it is ever falsified this gate is the thing to switch off. Sibling code LISTING_PAGE_HELD_NO_ITEM_SOURCE; sibling guard PBP-053, which stops such a page being FILLED where this stops it being PLANNED."
- },
- "RECOMMENDED_TYPE_RECONCILED": {
-  "disposition": "instrumented",
-  "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_428_planner_deferral",
-  "why": "The row EVERY reconciled plan writes, clean ones included — the always-on audit half of bugs_open/428's strategy-to-plan check. Without it, 'every strategy-recommended page_type reached the plan' and 'the reconciliation never ran' are the same evidence, which is the exact failure the check exists to remove, reproduced one level up. Context carries recommended_types, omitted_count, by_class and family_substitutions, so a fleet census of how often the planner diverges from strategy is one query rather than a re-derivation from llm_call_log.",
-  "note": "info severity, sanctioned by agenterrors.Finding's own contract for always-written audit rows. One row per plan_site validation on a site whose strategy names recommended_page_types; sites with no strategy aspect write nothing at all and are deliberately NOT counted as reconciled."
- },
- "RECOMMENDED_TYPE_DROPPED_IN_VALIDATION": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_428_planner_deferral",
-  "why": "The planner PLANNED pages of a strategy-recommended page_type and ValidateSitePlanAction's own identity/truncation passes deleted them before any source gate ran. Measured on gamedesign.uk 2026-09-03 (orchestration correlation 9fe9660e-7272-4f51-b968-2ff769738086): 9 pages in, 4 out, five blog-post pages gone, capability_gaps_emitted 0, no agent_error_log row, no error — the count landed in counts.DroppedCollision, which is logged and nowhere else. This code exists so that a platform defect on the plan and a planner decision stop producing identical evidence. The ACTIONABLE artefact is the paired parked capability_gap (item_key recommended_type_gap:<page_type>, spec.builder_needed='plan_page_identity').",
-  "note": "Severity warning. Context carries proposed_pages — the page names that carried the type before it was removed — which is what makes the drop traceable to a pass. This code says WHICH STAGE, never WHICH PASS: attributing it to Pass C specifically is the fixing lane's job, not this detector's."
- },
- "RECOMMENDED_TYPE_HELD_BY_GATE": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_428_planner_deferral",
-  "why": "A strategy-recommended page_type reached the source gates (bugs_open/444's listing arm, bugs_open/450's tool arm) and was held there. Recorded so the reconciliation's own census is complete, and DELIBERATELY files no work item: the gate has already filed a capability_gap naming the enablement, and a second row for one fact is the duplicate-producer shape this estate keeps paying for.",
-  "note": "info severity — this is not a defect report, it is the reconciliation saying 'accounted for, by a mechanism that already recorded it'. Pinned by TestHeldByGateIsRecordedButFilesNoSecondItem, whose mutation (actionable() always true) is what stops the no-second-item rule being quietly dropped."
- },
- "RECOMMENDED_TYPE_PLANNER_OMITTED": {
-  "disposition": "human-evidence",
-  "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_428_planner_deferral",
-  "why": "A strategy-recommended page_type is absent from the planner's own output AND no running producer can supply it. This is bugs_open/428's residual made checkable: migration 687 obliged the planner to name each omitted type with a per-type reason and it complied, but the reason it gave was false as applied — gamedesign.uk deferred blog-post to 'the blog infrastructure', i.e. blog-content-planner, which has not run since 2026-04-24 (bugs_open/460). The obligation was met into a channel nothing read. This row is that check's output. ACTIONABLE artefact: the paired parked capability_gap (item_key recommended_type_gap:<page_type>).",
-  "note": "Severity warning. Context carries claimed_producer (the planner's own structured page_type_decisions claim, when present), registered_producer, producer_verdict and liveness_tracking_since. The tracking window travels with every verdict because agent_run_stats is FORWARD-ONLY: 'never_since_tracking' cannot support an all-history 'never ran'."
- },
- "RECOMMENDED_TYPE_DEFERRED_TO_LIVE_PRODUCER": {
-  "disposition": "instrumented",
-  "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
-  "reader_sink": "agent_error_log",
-  "owner_lane": "bugfix_428_planner_deferral",
-  "why": "A strategy-recommended page_type is absent from the plan and the planner deferred it to a producer this estate can see RUNNING — a sound decision, recorded rather than flagged. THIS CODE IS THE DISCRIMINATING CONTROL for RECOMMENDED_TYPE_PLANNER_OMITTED: without it the check would fire on every deferral, including the correct ones, and a queue that cries wolf is a queue nobody reads. The planner keeps the licensed final say migration 687 deliberately preserved; what is checked is only whether the mechanism it named is running.",
-  "note": "info severity, no work item filed. Pinned by TestDeferralToLiveProducerFilesNoItem, which stays GREEN under the Live()-always-true mutation that kills its dormant-producer twin — that asymmetry is what makes the pair discriminating rather than two assertions about one branch."
- }
+  "_scan_baseline_doc": "bugs_open/358. Codes that platform/orchestration/actions WRITES and this registry does not yet declare — the pre-existing backlog for findingcodes_scan_test.go's source-side early warning, which fails on anything NOT listed here. A RATCHET, for the same reason the unruled cap is one: a check that fails from day one over a pre-existing backlog is a check that gets ignored, and the crisp signal is 'someone just added a code nobody declared'. MEASURED 2026-08-24 when this was seeded: all 13 have fired ZERO times in the retained window, so the live-table check is blind to them BY CONSTRUCTION (its own stated blind spot: an unfired code produces no unread findings) — this list is precisely the population that blind spot leaves, which is why the scan is worth having at all. THE LIST MAY ONLY SHRINK: declare a code and delete its line in the same commit. An entry that is now declared is REPORTED as stale rather than failed, because a baseline that outlives its findings is how a check goes green by going blind.",
+  "CONTENT_VALIDATION_BLOCKER_DETAIL": {
+    "disposition": "consumed",
+    "writer": "platform/orchestration/actions/validate_page_content.go:636",
+    "reader": "platform/orchestration/actions/reconcile_superseded_reviews_action.go:228",
+    "reader_sink": "agent_error_log",
+    "note": "reader merges the last 20 blocker values per page into its supersede finding"
+  },
+  "CONTENT_KEY_LOSS": {
+    "disposition": "consumed",
+    "writer": "cmd/content-loss-check/main.go:292",
+    "reader": "cmd/content-loss-check/main.go:325",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_238_regeneration_key_loss",
+    "note": "bugs_open/355 A2+A3. Writer and reader are one binary; it also re-grades and RESOLVES — the first user of the resolved triple in the table's history (2026-08-22)"
+  },
+  "STRUCTURAL_KEY_CARRY_MISS": {
+    "disposition": "consumed",
+    "writer": "platform/orchestration/actions/plan_sections_action.go:1520",
+    "reader": "cmd/content-loss-check/main.go:325",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_238_regeneration_key_loss",
+    "note": "⚠ CONSUMED IS NOT COMPLETE, and this is the worked example. It gained its reader on 2026-08-22 (cba51ad1d) — 8 of its 28 rows are already resolved — but the WRITER only fires when a page is BUILT, so a component that never gets built is invisible to it for ever (bugs_open/309's at-rest audit found eleven such, and cites bugs_open/358 in its own code for why it does NOT route findings here). That limit is independent of the reader: a disposition says who reads a code, never that the writer can see the whole population it would need to. Do not read `consumed` as coverage."
+  },
+  "CONTENT_DATA_REGRESSION": {
+    "disposition": "consumed",
+    "writer": "platform/orchestration/actions/save_sections_metadata_source.go:306",
+    "reader": "cmd/content-loss-check/main.go:325",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_238_regeneration_key_loss"
+  },
+  "DEPLOY_STAMP_REFUSED_ON_SKIP": {
+    "disposition": "consumed",
+    "writer": "platform/orchestration/actions/page_build_failure_guard.go:110",
+    "reader": "platform/orchestration/actions/page_build_failure_guard.go:131",
+    "reader_sink": "agent_error_log",
+    "note": "writer and reader are one mechanism — a 7-day strike ladder counting its own rows. Zero rows in the window is legitimately quiet, not absent. ⚠ the reader binds a Go CONST to $1, so a literal-grep verdicts this code unread (358 §3.2)"
+  },
+  "CTA_LABEL_MISMATCH": {
+    "disposition": "instrumented",
+    "writer": "platform/orchestration/actions/cta_label_audit.go:auditCTALabelAgreement (entry point; emits via its writeCTALabelAuditLog helper)",
+    "owner": "bugs_open/399_HANDOFF_2026-08-25_the_framework_computes_the_right_cta_destination_stores_it_beside_the_wrong_copy_and_never_compares_them.md",
+    "review_by": "2026-10-01",
+    "note": "bugs_open/399. Write-time record that a CTA's copy names a different page than its destination, asked through the SHARED datahelpers.JudgeCTALabel so it cannot drift from check_misdirected_cta (RFC_047 §9). Deliberately NOT 'consumed': no reader exists, and 392's editquality seat named an inert reader paired with 'consumed' as a dishonesty surface. Deliberately NOT a work item: 78 cta_names_unknown_destination + 70 unresolved_cta already sit at needs_human_review with no handler, and bugs_closed/023's closure warns that more detection makes the invisible pile bigger. THE READING IS THE RATE, NOT THE ROW — the baseline is 155 of 1,060 pairs written since migration 477 [MEASURED 2026-08-26]; what matters is whether that moves. Query + reading obligation: docs024_key_docs_latest/bugfix_399_cta_label_agreement/RUNBOOK_cta_label_agreement.md. Inherits the surfacing risk bugs_open/410 was filed for, and says so rather than pretending otherwise"
+  },
+  "RESOLVER_CONFLICTING_CANDIDATES": {
+    "disposition": "instrumented",
+    "writer": "platform/orchestration/datahelpers/unified_extractor.go:589",
+    "owner": "docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_029_the_aggressive_recursive_search_has_no_boundary_for_an_unmapped_field.md",
+    "review_by": "2026-10-01",
+    "note": "RFC_029 Phase-1 instrumentation. Six dated reads (§10.5, §10.6, §10.7, §10.9, §10.11, §10.12) and an owner ruling 2026-08-18 (§10.13) sequencing Phase 2 on its evidence. NOT deduped by design: 'frequency is the population §9's disconfirmation clause needs'. The architecture seat's 2026-08-16 scope note (register/contracts-and-standards.md:511) applies — a second finding type or a second consumer on this sink gets a fresh architecture look"
+  },
+  "RESOLVER_MAPPING_BYPASSED": {
+    "disposition": "instrumented",
+    "writer": "platform/orchestration/datahelpers/action_inputs.go:932",
+    "owner": "docs/agent_docs/docs024_key_docs_latest/architecture_review/RFC_029_the_aggressive_recursive_search_has_no_boundary_for_an_unmapped_field.md",
+    "review_by": "2026-10-01",
+    "note": "sibling of RESOLVER_CONFLICTING_CANDIDATES, same sink, same scope note"
+  },
+  "UNKNOWN": {
+    "disposition": "operational",
+    "writer": "platform/orchestration/agenterrors/agenterrors.go:178",
+    "note": "ClassifyError's default arm — the code a row gets when nothing named one"
+  },
+  "PROCESSING_FAILED": {
+    "disposition": "operational",
+    "writer": "platform/agentbase/agent.go:1425"
+  },
+  "LLM_API_ERROR": {
+    "disposition": "operational",
+    "writer": "platform/orchestration/agenterrors/agenterrors.go:172"
+  },
+  "TIMEOUT": {
+    "disposition": "operational",
+    "writer": "platform/orchestration/agenterrors/agenterrors.go:168"
+  },
+  "CHILD_ORCHESTRATION_FAILED": {
+    "disposition": "operational",
+    "writer": "platform/orchestration/agenterrors/agenterrors.go:174"
+  },
+  "PARSE_ERROR": {
+    "disposition": "operational",
+    "writer": "platform/orchestration/agenterrors/agenterrors.go:176"
+  },
+  "CONTENT_VALIDATION_FAILED": {
+    "disposition": "operational",
+    "writer": "platform/orchestration/agenterrors/agenterrors.go:164",
+    "note": "a ClassifyError arm, NOT the deliberate CONTENT_VALIDATION_BLOCKER_DETAIL finding beside it"
+  },
+  "TEMPLATE_FIELD_ERROR": {
+    "disposition": "operational",
+    "writer": "platform/orchestration/agenterrors/agenterrors.go:162"
+  },
+  "CONNECTION_ERROR": {
+    "disposition": "operational",
+    "writer": "platform/orchestration/agenterrors/agenterrors.go:170"
+  },
+  "MISSING_FIX_TYPE": {
+    "disposition": "operational",
+    "writer": "platform/orchestration/agenterrors/agenterrors.go:166"
+  },
+  "DISPATCH_UNRESOLVABLE": {
+    "disposition": "operational",
+    "writer": "platform/errors/errors.go:53"
+  },
+  "INCOMING_MESSAGE_REJECTED": {
+    "disposition": "operational",
+    "writer": "platform/agentbase/agent.go:998"
+  },
+  "UNROUTED_IMAGE_KIND": {
+    "disposition": "operational",
+    "writer": "internal/adapters/imagegenerator/routing.go:160"
+  },
+  "DISCOVERY_CHECK_ERROR": {
+    "disposition": "operational",
+    "writer": "platform/orchestration/actions/discovery_checks.go:393",
+    "note": "severity 'warning' deliberately: a check ERRORING is 'we could not check this', which must not be graded alongside a real content finding"
+  },
+  "CONTENT_LINK_REPAIR_DETAIL": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/validate_page_content.go:728",
+    "note": "358 §2.1's third-largest unread code. Cited as precedent by save_sections_content_data_links.go:57 — the record shape propagated and the missing reader propagated with it (358 §3.1)",
+    "why": "Records what the link-repair pass DID on a build that SUCCEEDED, deliberately distinct from the blocker code because 'the two rows answer different questions' (validate_page_content.go). Its stated purpose is to name WHICH of three origins repaired, so a row that cannot say which path acted cannot spot the path that stopped acting. Comparing the three origins over time is a longitudinal question, and migration 567 gives it 365 days rather than the 30-day unresolved window this table's sweep otherwise applies — accepted knowingly. This records TODAY'S TRUTH, not the ambition: it is the code in this batch most worth a real reader (count by origin; an origin dropping to zero is the bugs_open/097 drift it exists to catch), and human-evidence is what 'nothing reads it yet' honestly says."
+  },
+  "CONTENT_VALIDATION_WARNING_DETAIL": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/validate_page_content.go:834",
+    "note": "added 2026-08-22 by 0ce242d9c (071's residual) — the SAME MORNING bugs_open/358 was filed about this class. Zero rows: inert until the next chassis roll. It is the seventeenth member of §2.1 and the live proof of §3.1",
+    "why": "What the gate SAW and left in place on a build that succeeded — deliberately distinct from the consumed BLOCKER sibling; the distinctness is the point and nothing reads this half. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "VALIDATION_ERROR_DROPPED": {
+    "disposition": "human-evidence",
+    "writer": "platform/messaging/validation_drop.go:109",
+    "note": "TWO writers — also platform/agentbase/agent.go:1489",
+    "why": "The row is the ONLY trace a dropped message ever existed — written on a detached context precisely so a cancelled request cannot take the record with it (validation_drop.go). It already has a named hand-run consumer: bugs_open/034's VERIFY_034_post_roll.sh greps for exactly this code. Accepts the retention window it lives under (30 days unresolved, 14 resolved, migration 466), now 365 under 567."
+  },
+  "PLAN_SECTION_NAME_DROPPED": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/component_name_resolver_menu.go:183",
+    "why": "A section the planner proposed that resolves to no active component, carrying a `remedy` string distinguishing 'the planner invented it' from 'this planner cannot read its own menu' (component_name_resolver_menu.go). The strongest human-evidence case in the batch: site_db_actions.go:429 tells a reader IN PROSE to query agent_error_log for exactly this code, so the hand-run path is documented rather than merely possible. Accepts the 30-day unresolved window of migration 466, extended to 365 by 567."
+  },
+  "component_validation_rejected": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/store_generated_component_action.go:1439",
+    "note": "one of three codes from a hand-rolled INSERT that BYPASSES agenterrors — kept deliberately (a council round's edit-quality and guardian seats objected to consolidating it; the reason is at :1428). A 'component_validation_%' LIKE query exists live, so prefix-disjointness matters for this family",
+    "why": "NOT `consumed`, and the distinction is this registry's `reader_sink` field in miniature. Its code value IS automatically consumed — migration 563 branches the component-creator's prompt on the failure class, so a rejected component is regenerated with the right remedy — but that reader reads site_work_items.retry_feedback, a dedicated single-writer column (store_generated_component_action.go:1587 recordRetryFeedback) wired to the prompt by 564. THE agent_error_log ROW IS A SECOND, PARALLEL RECORD THAT NOTHING READS. Marked consumed it would have passed the reader check (563 does contain the string) and read as a closed loop for ever. Accepts this table's retention window (30 days unresolved under migration 466; 365 under 567) for the parallel row."
+  },
+  "component_validation_orphan_schema_field": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/store_generated_component_action.go:1423",
+    "why": "Consumed FROM ANOTHER SINK, exactly its sibling component_validation_rejected's shape: migration 563 branches the component-creator's prompt on this code via site_work_items.retry_feedback, so the failure class IS acted on — and this table's row is a second, parallel record nothing reads. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "component_validation_unknown_template_var": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/store_generated_component_action.go:1426",
+    "why": "Same as its two siblings: consumed via site_work_items.retry_feedback (migration 563 branches on it), this table's row unread. Zero rows in the window when ruled. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "ARCHIVED_PAGE_DEPLOY_REFUSED": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/git_deployer_actions.go:103",
+    "note": "TWO writers — also v3_site_actions.go:911",
+    "why": "A deploy refused because the page is archived, written BEFORE the return 'so a refusal is countable even though this action dispatches nothing further' (git_deployer_actions.go:100). Nothing counts them today, and the honest record of that is human-evidence plus the accepted window — not a `consumed` claim. Accepts 30 days unresolved (migration 466), 365 under 567. Two writers; v3_site_actions.go:911 is the second."
+  },
+  "CONTENT_CLAIMS_FLOOR_DETAIL": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/save_sections_claims_guard.go:104",
+    "why": "Claims-guard detail on the SAVE path, deliberately distinct from the gate's own code so 'which path caught this' stays answerable — the same bugs_open/097 rationale as CONTENT_LINK_REPAIR_DETAIL, and the two are one design and are ruled together. Longitudinal by nature, so the 365-day clock of migration 567 rather than the 30-day unresolved default of 466 is what it accepts."
+  },
+  "CONTENT_CREATOR_CLAIMS_DETAIL": {
+    "disposition": "human-evidence",
+    "writer": "internal/agents/contentcreator/claims_guard.go:184",
+    "note": "the writer that CANNOT use the seam: the agent holds a *pgxpool.Pool (agent.go:92) and agenterrors.Write takes a *sql.DB. Zero rows in the window; content-creator writes nothing to llm_call_log, so this row is the only trace that would ever exist",
+    "why": "The content-creator's claims-guard detail — written by the pgxpool path that cannot use the seam. Zero rows in the window when ruled. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "TRUNCATION_DEGRADED_REVIEW": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/diagnose_council_decide_action.go:625",
+    "note": "EXTRACTED 2026-08-22 before the cleaner reached it — all 41 rows, 24 rounds, 12 seats: bugfix_358_unread_finding_codes/EVIDENCE_truncation_degraded_review_2026-08-22.json. ⚠ THE CODE IS MISNAMED FOR ITS OWN POPULATION: 40 of 41 rows come from the `json.Valid(rb) == false` arm, logged as 'invalid JSON, likely truncated at max_tokens' — and the token data refutes that for those 40. Across the whole retained llm_call_log only FIVE review calls have ever hit their ceiling exactly (four on 2026-07-18, before this writer existed; the fifth 2026-08-02), and 11,514 of 11,519 reviewer replies end in '}'. Exactly ONE row (branch producer_marker) is a confirmed truncation. The other 40 record 'this seat's output did not parse', cause unmeasured. THE SILENCE SINCE 2026-08-02 IS A FIX, NOT A BLIND DETECTOR, and the control is the sibling channel written by the SAME function: diagnosis_artifacts kind='council_report' carries `unreadable` and `gated_by_truncation` unconditionally — 248 reports in the week of 2026-08-17, 100% carrying the key, and unreadable seats ran 17 (wk 07-20) → 24 (wk 07-27) → 0 → 0 → 0. The mechanism is proven executing and reporting clean, which is the demand control a zero row count cannot supply on its own. [CORRELATED, not proven causal] reviewer ceilings moved 8000 → 16000 over the same weeks (5 calls at 16k in wk 07-20, 1,756 in wk 08-17). The 2026-08-02 final row was review_adoption_guardian running at max_tokens=120, a misconfiguration since corrected (8000 today, outputs ~300 tokens)",
+    "why": "Settled by this lane's Task A: the whole population was EXTRACTED before the cleaner reached it (EVIDENCE_truncation_degraded_review_2026-08-22.json), and the condition has been clean since 2026-08-02 with the mechanism proven executing and reporting via the sibling diagnosis_artifacts channel — a demand control a zero row count cannot supply alone. Accepts the retention window knowingly (30 days unresolved under migration 466, 365 under 567) because the durable record is the extracted evidence file, not the rows. ⚠ CARRY THE CORRECTION: the code is MISNAMED for its own population — 40 of its 41 rows are not truncation; see this entry's note."
+  },
+  "CONTENT_DATA_LINK_AUDIT": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/save_sections_content_data_links.go:62",
+    "why": "One design with CONTENT_LINK_REPAIR_DETAIL (ruled together, batch 1): which of three origins repaired, so a path dropping to zero is findable. A reader for the pair is COMMISSIONED (owner decision 4, 2026-08-25 — contributed into bugs_open/071, whose lane owns this territory); upgrade to consumed when it ships. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "tool_crosslink_not_emitted": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/create_tool_cross_link_items.go",
+    "raw_variants": [
+      "tool_crosslink_not_emitted:tool_page_will_not_go_live",
+      "tool_crosslink_not_emitted:no_related_pages"
+    ],
+    "note": "the colon family this file's normalisation rule exists for. A live 'tool_crosslink_not_emitted%' LIKE query reads both variants as one",
+    "why": "Cross-links withheld for a tool page, reason as a colon suffix. Has a NAMED HAND-RUN reader — cmd/backfill-tool-crosslinks/main.go:90 selects one variant, and 211_VERIFY/602_HOLD carry LIKE queries — but nothing automated. If the 602 lane ships an automated consumer this upgrades to consumed with reader_sink agent_error_log. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "REVIEW_SUPERSEDED_BY_PASSING_SAVE": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/reconcile_superseded_reviews_action.go:181",
+    "note": "the oldest rows in the table (2026-07-23 only) — days from deletion at the time 358 was filed",
+    "why": "The supersede reconciler's OUTPUT row. Its entire first population (25 rows) was deleted unread by retention on 2026-08-22 — the event that opens this lane's handoff — and nothing reads new ones. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "NO_CHANGE_GATE_UNREADABLE_RESULT": {
+    "disposition": "consumed",
+    "writer": "platform/orchestration/actions/complete_work_item_no_change.go:504",
+    "why": "A gate that could not read a handler's result — the item completed UNGRADED, so rows here mean a handler's result shape drifted. A reader is COMMISSIONED (owner decision 4, 2026-08-25 — bugs_open/393; every row is item_type dark_section_audit, so there is also ONE concrete shape fix); ruled human-evidence per decision 1 option (a) and upgraded to consumed when the reader ships. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567).",
+    "reader": "cmd/config-key-audit/ungradedcompletions.go:58",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_393_ungraded_completions",
+    "note": "Reader declares the code as a same-file const (the LINK_CONTEXT_UNAVAILABLE precedent) and ratchets item_types against no_change_unreadable_acks.json daily (CronJob ungraded-completions-check). Upgraded from human-evidence per its own why: the commissioned reader shipped (bugs_open/393 part B)."
+  },
+  "ACCEPTANCE_PREDICATE_NOT_EVALUABLE": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/complete_work_item_acceptance_predicate.go:413",
+    "why": "Completion gate 1c could not evaluate an item's OWN stored acceptance predicate, so the item completed ungraded by it (bugs_open/395, CLM-024). Declared human-evidence for the same reason as its sibling NO_CHANGE_GATE_UNREADABLE_RESULT, which is the same shape one file along: no automated reader, and the rows are what a person reads when asking whether the gate is grading anything. ITS ONE INTERESTING PROPERTY, which is why it is worth writing at all: a stored predicate was evaluable AT EMISSION by construction (the emit gate refuses to store one that is not), so a row here means the page changed shape, the vocabulary moved, or THIS GATE HAS GONE BLIND — and if it fires on every item of an armed type it is the third, which otherwise wears the same face as the acceptable outcome 'no item carried a predicate'. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567): the blind-gate case is a standing property that re-fires on every completion, so a 30-day window cannot hide it."
+  },
+  "COMPONENT_COLLISION_DIVERTED": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/store_generated_component_action.go:127",
+    "why": "A shared-function collision diverted to a new base component — the RFC_034 programme's instrumentation. Nothing counts diverts today. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "COMPONENT_COLLISION_DIVERT_BLOCKED": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/store_generated_component_action.go:146",
+    "why": "The divert itself refused. Zero rows in the window when ruled. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "RETRACTION_AUDIT": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/retract_page_deployment_action.go:457",
+    "note": "written BEFORE the dispatch on purpose — this table is the only sink that survives an awaited step (RFC_012 addendum 2), so a failed send cannot unrecord what the action found",
+    "why": "OWNER RULING 2026-08-25 (decision 3): the 365-day clock is ACCEPTED KNOWINGLY for the retraction audits. The writer's stated purpose is to be 'the ONLY durable record of what a retraction considered, refused and stripped' — after 365 days that answer is gone, and the owner chose to accept that rather than commission a permanent audit home unless retractions ever need accounting for. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "RETRACTION_REFUSED": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/retract_page_deployment_action.go:420",
+    "why": "A page retraction refused, with the reason. Same owner ruling as RETRACTION_AUDIT: the 365-day clock is accepted knowingly for the audit family. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "ASSET_RETRACTION_AUDIT": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/retract_asset_files_action.go:360",
+    "why": "One info row per asset-retraction run. Same owner ruling as RETRACTION_AUDIT: 365 days accepted knowingly for the audit family. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "ASSET_RETRACTION_REFUSED": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/retract_asset_files_action.go:348",
+    "why": "One warning row per refused asset deletion, best-effort by design. Same owner ruling as RETRACTION_AUDIT. Zero rows in the window when ruled. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "tool_birth_instance_scope_refused": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/create_tool_component_action.go:255",
+    "note": "reaches the table as a POSITIONAL argument to LogActionError, so an `ErrorCode:` grep cannot see it — a fourth blindness beyond the const one 358 §3.2 records",
+    "why": "The record that the instance-scope guard HELD at tool birth — refusals countable by hand. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "tool_birth_truncation_blocked": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/create_tool_component_action.go:168",
+    "why": "A tool birth refused because the generated HTML was structurally incomplete. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "tool_regeneration_hollow_blocked": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/create_tool_component_regenerate.go:161",
+    "why": "The record that a hollow regeneration was refused and the incumbent stood (bugs_open/331; the 012/056 hollow-overwrite class). Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "CONTENT_DATA_ENVELOPE": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/content_data_envelope_guard.go:142",
+    "why": "A refused save, 'so refusals are countable in SQL rather than only visible in pod logs' — the counting is hand-run (the query lives in a comment at render_content_envelope_guard.go:273). Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "FIX_PLAN_VALIDATION_REFUSED": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/diagnose_persist_fix_plan_action.go:318",
+    "why": "A council fix-plan refusal made findable by someone who does not already know to look in diagnosis_artifacts. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "RENDER_AUDIT_TRUNCATED": {
+    "disposition": "consumed",
+    "writer": "platform/orchestration/actions/request_render_audit_action.go:173",
+    "reader": "cmd/config-key-audit/rendertruncation.go:1",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_394_render_audit_rotation_cursor",
+    "note": "bugs_open/394, owner decision 4 (2026-08-25). THE ROW'S MEANING CHANGED with the coverage cursor: under coverage_mode=cursor it reports this run's coverage WINDOW, not a permanent tail, so the reader's job is telling the three meanings apart rather than alarming on the code. Three arms, each mutation-proven: (a) coverage_mode absent or 'prefix' from render-audit-agent, the opted-in rotating caller — the migration-649 flip regressed or the pod predates the cursor, and the tail is permanent again while that holds; (b) two consecutive cursor rows for one (domain, agent_type) at the same window_first — a stalled cursor, which looks healthy from every other angle; (c) a caller neither opted in nor acknowledged. design-critique-agent is acked at birth (manual sampler, no cadence, its 8-page prefix is plausibly the intended vision-critique sample) in render_truncation_acks.json. Vacuity guard: refuses to report over an empty agent_error_log. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "PLAN_PAGE_MERGE_LOSSY": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/write_site_plan_action.go:391",
+    "why": "The only artefact that can answer 'did richer-wins ever actually drop content' — the plan looks identical either way. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "PLAN_PAGE_SAME_NAME_IDENTITY_HELD": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/v3_site_actions.go:4229",
+    "why": "Stored page identities kept over the canonicaliser's re-derivation, honour_realised_identity ON. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "CONTENT_DUPLICATE_SECTIONS_COLLAPSED": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/save_sections_dedup.go:144",
+    "why": "Duplicate sections collapsed on save, recording the ORDER pattern (1,1,2,2 vs 1,2,3,1,2,3) that discriminates producers — forensic by design. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "component_write_shared_blocked": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/update_component_html_action.go:240",
+    "why": "A write to a shared-scope component refused — the guard's countable record. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567)."
+  },
+  "LINK_CONTEXT_UNAVAILABLE": {
+    "disposition": "consumed",
+    "writer": "platform/orchestration/actions/prepare_link_context_action.go:488 (const :33)",
+    "why": "Caught undeclared by the daily check on its FIRST live run, 2026-08-24, ~2h after the code's first row. It records that a run could not establish what pages exist, deliberately distinct from 'this site has no pages' because the two have opposite remedies (bugs_closed/092). READER SHIPPED 2026-08-25 (bugs_open/392): discovery check `missing_prose_links` selects unresolved rows for the site it is running on, resolves each to its page, files an edit_live content_rewrite if the page still carries no writer-authored prose links, and resolves the row on a healed verdict only (resolved_by='missing_prose_links:<verdict>'). CORRECTION to this entry's previous text: it said these rows accept '30 days unresolved, 14 resolved — migration 466'. That is STALE. Migrations 567 and 580 removed the resolved-halves-life arm entirely; this code is not in 567's short-retention list, so its rows live 365 days whether resolved or not, and a consumer may resolve freely. The writer now also records page_name/page_id in context (2026-08-25) — the row's orchestration_id column does resolve the page, but orchestration rows are reaped while the row lives 365 days.",
+    "note": "Disposition flipped human-evidence -> consumed 2026-08-25 by the bugfix_392 lane, in the same commit as the reader (924079c94), council APPROVED corr 7d923ff6 round 2. The reader declares the code as a same-file const because the checker verifies the reader FILE contains the literal; the writer's const (prepare_link_context_action.go) is a deliberate duplicate across a package boundary. ⚠ THE READER IS COMMITTED BUT NOT YET RUNNING, and 'consumed' must not be read as 'draining' until it is. Raised by the council's editquality seat as an advisory objection and it is right: the Go is inert until the next fleet roll, and inert AGAIN after it until 'missing_prose_links' is named by hand in a live run_checks.config.checks array. Until BOTH have happened no code path reads these rows. Whoever completes those steps should replace this paragraph with the date they did. ⚠ CONSUMED IS NOT COVERAGE either: the reader only sees sites the discovery rotation visits, and the artefact half of that check is what actually finds link-less pages — 444 of 773 deployed pages under the check's own predicate as of 2026-08-25, against 2 rows this code has ever written.",
+    "reader": "platform/orchestration/actions/discovery_checks/check_missing_prose_links.go:503",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_392_link_context_unread"
+  },
+  "CONTENT_LINK_SUPPRESSED_UNSHIPPED": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/refused_link_targets.go:249 (const :52)",
+    "why": "Second code caught by the daily check on 2026-08-24, within an hour of its first row. Records that an href pointed at a page of this site that has never been served and is not arriving — deliberately distinct from the repair codes, which say 'this href pointed at nothing'. MEASURED 2026-08-24: no reader anywhere (Go, SQL, python, shell, live agent_definitions, scheduled_tasks). Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 under 567). ⚠ ITS OWN DOC COMMENT IS 358 §3.1 HAPPENING LIVE: it introduces itself as 'a FOURTH code beside CONTENT_LINK_REPAIR_DETAIL, CONTENT_LINK_REPAIR_SKIPPED and CONTENT_DATA_LINK_AUDIT' and reasons from their record shape — which is exactly the propagation 358 measured, 'the record shape propagates; the missing reader propagates with it'. Three of those four are human-evidence today.",
+    "note": "Declared by the bugs_open/358 lane, not by its author, for the same reason as LINK_CONTEXT_UNAVAILABLE: the check is red until a code is declared. The OWNER may overrule the disposition; the measurement behind it is not in doubt."
+  },
+  "COMPONENT_FUNCTION_PIN_DIVERGENCE": {
+    "disposition": "instrumented",
+    "writer": "platform/orchestration/actions/store_generated_component_action.go",
+    "owner": "bugs_open/388_HANDOFF_2026-08-25_component_creator_is_advised_one_rows_field_contract_while_the_store_enforces_a_different_row.md",
+    "review_by": "2026-09-25",
+    "note": "bugs_open/388. The writer emitted a function name other than the one the pre-generation advisory pinned it to. HARMLESS BY CONSTRUCTION once the pin ships — the advised component_id already decided which row is written — and recorded precisely because it is harmless: it is the only durable meter of how often the model disagrees. Before the pin, obedience could only be sampled, and the sample was 11 observations with zero failures, which at n=11 bounds the disobedience rate no better than ~24% at 95% confidence. Compared against the ADVISED function, never against the final one, which may since have been site-suffixed by bugs_open/311's diversion. NOT deduped: the rate is the point. Review trigger: a sustained non-zero rate means the prompt pin has drifted from what the advisory emits and should be re-anchored."
+  },
+  "COMPONENT_ADVISED_ROW_VANISHED": {
+    "disposition": "instrumented",
+    "writer": "platform/orchestration/actions/store_generated_component_action.go",
+    "owner": "bugs_open/388_HANDOFF_2026-08-25_component_creator_is_advised_one_rows_field_contract_while_the_store_enforces_a_different_row.md",
+    "review_by": "2026-09-25",
+    "note": "bugs_open/388. The advisory pinned a content_components row by id and, by store time, no non-forked row with that id existed — deleted, or turned into a fork, in the window between advice and store. The store falls back to the legacy by-function resolution, which is correct; doing so SILENTLY would not be, because this race is otherwise invisible and a silent fallback is indistinguishable from the pin never having been wired. Expected count is approximately zero. Review trigger: a sustained non-zero rate means the pin should carry a snapshot of the schema as well as an id, which is a follow-up round rather than a patch."
+  },
+  "COMPONENT_PARALLEL_SECTION_BIRTH": {
+    "disposition": "instrumented",
+    "writer": "platform/orchestration/actions/store_generated_component_action.go",
+    "owner": "bugs_open/388_HANDOFF_2026-08-25_component_creator_is_advised_one_rows_field_contract_while_the_store_enforces_a_different_row.md",
+    "review_by": "2026-09-25",
+    "note": "bugs_open/388, and CLC-006's silent fork made loud. An UNPINNED creation on a section_type that already has an active non-forked section component. The field-contract guard cannot see this case at all — isRegeneration is false, so it is vacuous — which is why the duplicate is born with no error and no work item. Two such pairs exist in the live library from the generated route (tool-archetype-taster-quiz, tool-gripper-payload-calculator, both second rows born 2026-05-06 with function == section_type). Unrepresentable on the pinned path, so this fires only on the fail-open residual, which is what makes it worth counting. Diverted writes are excluded — a site-scoped twin is bugs_open/311 working as designed and already records COMPONENT_COLLISION_DIVERTED. The census is deliberately a DIFFERENT question (by section_type) from the one that resolved the identity (by id): bugs_open/324 shipped 32 dangling rows because its completeness check re-grepped the resolver's own patterns."
+  },
+  "COMPONENT_UNPINNED_REGENERATION_AMBIGUOUS": {
+    "disposition": "instrumented",
+    "writer": "platform/orchestration/actions/store_generated_component_action.go",
+    "owner": "bugs_open/388_HANDOFF_2026-08-25_component_creator_is_advised_one_rows_field_contract_while_the_store_enforces_a_different_row.md",
+    "review_by": "2026-09-25",
+    "note": "bugs_open/388, added in council round 2 on bug_historian's advisory objection that the un-pinned CREATE path was instrumented (COMPONENT_PARALLEL_SECTION_BIRTH) while the un-pinned REGENERATE path was not. This is the worse shape of the two: an existing row is OVERWRITTEN, and which one was decided by ORDER BY is_active DESC, updated_at DESC LIMIT 1 over a name that does not identify a row. [MEASURED 2026-08-25] 25 of 330 non-forked rows' function values carry more than one row (site-footer and site-header five each, spanning component_level 'section' AND 'site'), so the winner can change with no code change — anything touching a sibling's updated_at reorders the contest. Fires only when the count exceeds 1, so a row always means a real contest. Deliberately asks the question the resolver DISCARDS (how many were there) rather than the one it asked (which one wins): a LIMIT 1 structurally cannot report a contest, and bugs_open/324 shipped 32 dangling rows because its check re-ran the resolver's own query. Best-effort and never fatal — the row is written either way. Review trigger: a sustained non-zero rate means an un-pinned caller exists in practice and the pin should become required on that path."
+  },
+  "WORK_ITEM_STATUS_OVERRIDE_REFUSED": {
+    "disposition": "operational",
+    "writer": "platform/orchestration/actions/load_work_item_actions.go:1344",
+    "note": "bugs_open/396. FailWorkItemAction's `status_override` step-config key used to be honoured verbatim; it is now checked against workItemStatusOverrideAllowed and an unrecognised value is REFUSED, with the item falling through to the normal failure ladder. This row is what makes that refusal visible — it names the misconfigured STEP, not a failing item, which is why it is its own code rather than a generic one. OPERATIONAL rather than consumed: nothing selects by it, and its correct consumption is the generic newest-N diagnostic read of that agent's recent errors. It is expected to be RARE-to-never in practice — as of 2026-08-25 a recursive walk over every agent_definitions row (snapshots and soft-deleted included) found status_override on 4 steps in 3 agents and every value was 'needs_human_review', so nothing live can trigger it; a row appearing here means someone has configured a NEW value, which is exactly the event worth seeing."
+  },
+  "SUBJECT_MISSING_ON_REPEATED_COMPONENT": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/write_site_plan_action.go (subjectlessRepeatFindings, via LogActionFindings)",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "apis_uk_bees_homepage",
+    "why": "Observe-only by design: the finding names a plan-shape defect a human reads, and no automated consumer exists yet (the entry's own note says 'Revisit disposition when an automated consumer exists'). Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567) — acceptable here because the code is GATED on the plan carrying any subject at all, so it fires only on plans built after seed 640 and a lost row costs a re-observation on the next build rather than a lost fact. ADDED 2026-09-02 by the bugfix_394 lane, not by this entry's owner: the prose below was filed under `note`, which is the field the `consumed` shape reads, while the human-evidence arm reads `why` — so TestShippedRegistryIsSelfConsistent had been RED at HEAD for seven days, blocking a green run of the whole cmd/config-key-audit package. The original `note` is left exactly as written.",
+    "note": "Structural half of planner rule 17 (seed 640, PBP-049): a repeated component with no subject on a subject-carrying plan gets identical briefs. Observe-only; GATED on the plan carrying any subject at all, so zero rows until seed 640 applies. Expected reader today: whoever drives 640 adoption and the apis.uk un-defer (council 4bd35ed8 r2 advisory, bug_historian). Revisit disposition when an automated consumer exists."
+  },
+  "REPEATED_COMPONENT_BUILT_WITHOUT_SUBJECT": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/plan_sections_action.go (repeatedComponentSubjectGaps, via LogActionEntryInheritingProvenance)",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_443_fallback_tier_subjects",
+    "why": "Observe-only by design: the build proceeded, and the row records that a page built N same-typed sections with no subject to tell the instances apart — identical briefs, near-duplicate output predicted (bugs_open/443: 11 of 11 such pages served real repetition, measured 2026-09-02). Expected reader today: whoever backfills subjects for the 443 cohort and the RFC_063 decision. Accepts the retention window it lives under (30 days unresolved, 14 resolved — migration 466; 365 days under 567): a lost row costs a re-observation on the next build of the same page, not a lost fact. Bounded: 25 repeat-layout pages fleet-wide as of 2026-09-02, one row per rebuild of one of them at worst. Revisit disposition when an automated consumer exists.",
+    "note": "Build-side sibling of SUBJECT_MISSING_ON_REPEATED_COMPONENT (planner-side, write_site_plan, apis.uk lane): distinct code because the remedy differs — the planner one means the PLAN is malformed (replan / write subject rows, rule 17); this one means the page WAS BUILT with no subjects reachable at its serving tier (site_plan_sections.subject for planned sites; pages.section_subjects for plan-less pages, bugs_open/443). Deliberately NOT gated on the page carrying any subject: the pages this surfaces can never carry one."
+  },
+  "LISTING_PAGE_HELD_NO_ITEM_SOURCE": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/listing_item_sources.go (enforceListingItemSources, via LogActionFindings)",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_444_empty_listing_pages",
+    "why": "The durable record that validate_site_plan's listing-source gate (opt-in, migration 720) HELD a listing page out of a plan because its item source resolved to zero — so 'the gate fired' and 'the planner proposed nothing unfillable' never produce identical evidence (bugs_open/444). The ACTIONABLE artefact is the paired capability_gap work item (item_key capability_gap:<page_type>:<page_name>, spec.gap_kind=producer_missing, spec.builder_needed names the enablement); this row is the gate's own audit trail. A lost row costs nothing operational — the work item is the receipt — so the retention window is accepted: 30 days unresolved, 14 resolved (migration 466; 365 days under 567).",
+    "note": "One row per held page per plan run. Expected readers: the enablement operator answering a capability_gap (the row carries the same producer_needed slug), and anyone auditing why a planned page never appeared. Sibling of the gate's Warn logs, which do not survive pod restarts — the entire reason this durable row exists (the 444 diagnosis lost the build-time Warn lines to a restart)."
+  },
+  "TOOL_PAGE_HELD_NO_TOOL_SOURCE": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/tool_item_sources.go (enforceToolItemSources, via LogActionFindings)",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_450_tool_page_shells",
+    "why": "The durable record that validate_site_plan's TOOL-source gate (opt-in key enforce_tool_sources, sibling of enforce_listing_sources) HELD a tool page out of a plan because no active component_level='tool' component exists on the site under any of the page's candidate function names. Without it, 'the gate held three tool pages' and 'the planner proposed no tool pages' are the same evidence. bugs_open/450: the planner names tool pages BEFORE their tools exist — tools arrive from the ~3h design rotation, later, under names the planner never saw (seotools.co.uk: 0 of 7 planned names matched what tool-deployer built) — so the planned page is one nothing will ever fill, and generic producers publish prose about the missing tool at a URL that serves 200. The ACTIONABLE artefact is the paired capability_gap work item (item_key capability_gap:tool:<page_name>, spec.builder_needed='tool-builder'), which deliberately co-dedups with builderForPageType's own unavailable-builder arm so one page yields one gap. This row is the gate's audit trail; losing one costs nothing operational.",
+    "note": "One row per held page per plan run. ⚠ A hold is NOT a defect report about the tool pipeline: holding a planner tool stub starves nothing, because tool-deployer creates its own page rows under its own names and never reads planned tool pages (bugs_open/450 §7, measured at the rows 2026-09-03) — that measurement is the gate's licence to exist, and if it is ever falsified this gate is the thing to switch off. Sibling code LISTING_PAGE_HELD_NO_ITEM_SOURCE; sibling guard PBP-053, which stops such a page being FILLED where this stops it being PLANNED."
+  },
+  "RECOMMENDED_TYPE_RECONCILED": {
+    "disposition": "instrumented",
+    "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_428_planner_deferral",
+    "why": "The row EVERY reconciled plan writes, clean ones included — the always-on audit half of bugs_open/428's strategy-to-plan check. Without it, 'every strategy-recommended page_type reached the plan' and 'the reconciliation never ran' are the same evidence, which is the exact failure the check exists to remove, reproduced one level up. Context carries recommended_types, omitted_count, by_class and family_substitutions, so a fleet census of how often the planner diverges from strategy is one query rather than a re-derivation from llm_call_log.",
+    "note": "info severity, sanctioned by agenterrors.Finding's own contract for always-written audit rows. One row per plan_site validation on a site whose strategy names recommended_page_types; sites with no strategy aspect write nothing at all and are deliberately NOT counted as reconciled."
+  },
+  "RECOMMENDED_TYPE_DROPPED_IN_VALIDATION": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_428_planner_deferral",
+    "why": "The planner PLANNED pages of a strategy-recommended page_type and ValidateSitePlanAction's own identity/truncation passes deleted them before any source gate ran. Measured on gamedesign.uk 2026-09-03 (orchestration correlation 9fe9660e-7272-4f51-b968-2ff769738086): 9 pages in, 4 out, five blog-post pages gone, capability_gaps_emitted 0, no agent_error_log row, no error — the count landed in counts.DroppedCollision, which is logged and nowhere else. This code exists so that a platform defect on the plan and a planner decision stop producing identical evidence. The ACTIONABLE artefact is the paired parked capability_gap (item_key recommended_type_gap:<page_type>, spec.builder_needed='plan_page_identity').",
+    "note": "Severity warning. Context carries proposed_pages — the page names that carried the type before it was removed — which is what makes the drop traceable to a pass. This code says WHICH STAGE, never WHICH PASS: attributing it to Pass C specifically is the fixing lane's job, not this detector's."
+  },
+  "RECOMMENDED_TYPE_HELD_BY_GATE": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_428_planner_deferral",
+    "why": "A strategy-recommended page_type reached the source gates (bugs_open/444's listing arm, bugs_open/450's tool arm) and was held there. Recorded so the reconciliation's own census is complete, and DELIBERATELY files no work item: the gate has already filed a capability_gap naming the enablement, and a second row for one fact is the duplicate-producer shape this estate keeps paying for.",
+    "note": "info severity — this is not a defect report, it is the reconciliation saying 'accounted for, by a mechanism that already recorded it'. Pinned by TestHeldByGateIsRecordedButFilesNoSecondItem, whose mutation (actionable() always true) is what stops the no-second-item rule being quietly dropped."
+  },
+  "RECOMMENDED_TYPE_PLANNER_OMITTED": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_428_planner_deferral",
+    "why": "A strategy-recommended page_type is absent from the planner's own output AND no running producer can supply it. This is bugs_open/428's residual made checkable: migration 687 obliged the planner to name each omitted type with a per-type reason and it complied, but the reason it gave was false as applied — gamedesign.uk deferred blog-post to 'the blog infrastructure', i.e. blog-content-planner, which has not run since 2026-04-24 (bugs_open/460). The obligation was met into a channel nothing read. This row is that check's output. ACTIONABLE artefact: the paired parked capability_gap (item_key recommended_type_gap:<page_type>).",
+    "note": "Severity warning. Context carries claimed_producer (the planner's own structured page_type_decisions claim, when present), registered_producer, producer_verdict and liveness_tracking_since. The tracking window travels with every verdict because agent_run_stats is FORWARD-ONLY: 'never_since_tracking' cannot support an all-history 'never ran'."
+  },
+  "RECOMMENDED_TYPE_DEFERRED_TO_LIVE_PRODUCER": {
+    "disposition": "instrumented",
+    "writer": "platform/orchestration/actions/recommended_type_reconciliation.go (reconcileRecommendedPageTypes, via LogActionFindings)",
+    "reader_sink": "agent_error_log",
+    "owner_lane": "bugfix_428_planner_deferral",
+    "why": "A strategy-recommended page_type is absent from the plan and the planner deferred it to a producer this estate can see RUNNING — a sound decision, recorded rather than flagged. THIS CODE IS THE DISCRIMINATING CONTROL for RECOMMENDED_TYPE_PLANNER_OMITTED: without it the check would fire on every deferral, including the correct ones, and a queue that cries wolf is a queue nobody reads. The planner keeps the licensed final say migration 687 deliberately preserved; what is checked is only whether the mechanism it named is running.",
+    "note": "info severity, no work item filed. Pinned by TestDeferralToLiveProducerFilesNoItem, which stays GREEN under the Live()-always-true mutation that kills its dormant-producer twin — that asymmetry is what makes the pair discriminating rather than two assertions about one branch."
+  },
+  "FAIL_WORK_ITEM_MESSAGE_TEMPLATE_FALLBACK": {
+    "disposition": "human-evidence",
+    "writer": "platform/orchestration/actions/load_work_item_actions.go:1371",
+    "note": "bugs_open/440 / RFC_062 phase 3, register WII-038. Written when fail_work_item's opt-in `error_message_template` fails to render and the item is parked with the static `error_message` instead. ZERO ROWS TODAY and correctly so: `[MEASURED 2026-09-03]` 7 live fail_work_item steps across 6 agents, 0 carrying the key, and its first consumer (741_..._HOLD.sql) is unapplied. Declared in the commit that answers the scan rather than the one that added the writer — the gap itself is recorded in WRONG_CALLS 2026-09-04.",
+    "why": "NOT `operational`, though it looks like failure plumbing at a glance. Two reasons, and the second is the load-bearing one. (1) VOLUME: `operational`'s stated rationale is that 'plumbing is the high-volume half of this table' (UNKNOWN, PROCESSING_FAILED, LLM_API_ERROR — the generic classifier arms). This fires only when a human has written a broken template into one step config, so it is near-zero volume by construction. (2) RETENTION IS THE WHOLE QUESTION: `operational` obliges naming the code in database-cleanup's short-retention arm (migration 567), giving it 30 days. But the failure this records is a MISCONFIGURATION THAT PERSISTS — a broken operator template keeps parking items with the degraded message and nothing else announces it, so the forensic question is 'when did this start and how many refusals got the fallback', which is longitudinal. Thirty days would delete the evidence while the defect was still live. So it accepts, knowingly, the 365-day default that 567 gives an unnamed code, and is deliberately absent from the short-retention list — which the retention-parity check asserts in the opposite direction for this disposition. Nothing reads it yet; `human-evidence` is what that honestly says, and the row a human would read is the newest-N for the offending work_item_id."
+  }
 }
