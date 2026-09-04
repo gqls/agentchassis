@@ -311,6 +311,10 @@ Approved with 3 advisory objections (8 raised across seats, none high-severity).
 Recorded because a cold-start reader of this lane would not otherwise know either, and both are
 things that look like tidy-ups a future session might "helpfully" do or skip.
 
+> **⚠ SUPERSEDED WITHIN THE HOUR — read the correction at the foot of this file before acting on
+> commitment 1. The dependency it describes is gone: converting this caller is now THIS lane's work,
+> on its own schedule, and the pre-substitution can stay indefinitely.**
+
 **1. DO NOT delete the `{{instructions_link}}` pre-substitution in `send_followup_email_action.go`
 until the `bugs_open/475` lane says their shared vocabulary landed — or that it did not.** It looks
 like a redundant hand-patch around a shared filler. It is the only thing filling that token today,
@@ -346,3 +350,44 @@ side.
 **And their point 3 found a defect in MY docs** — the enable-check named the commit that added the
 action rather than the one that renamed the placeholder. Fixed in `b92beae38`; the reasoning is in
 the RUNBOOK and in `775`'s own header, because the person applying it reads the migration.
+
+
+## 2026-09-04 (evening) — CORRECTION: the two commitments above have changed, and one has inverted
+
+The `bugs_open/475` round came back **REVISE, gated HIGH by the guardian seat**, and the objection
+was that their submission edited **this lane's file**. Their edit 3 converted
+`send_followup_email_action.go` to the shared `Fill`. The seat's point, near enough: it touches a file
+explicitly said to belong to another lane, mid-flight on its own migration, in the same submission
+that changes the shared vocabulary that file depends on — *"exactly the concurrent-edit collision
+pattern the plan itself warns about elsewhere"*, since they had scoped `handover.go` OUT for that very
+reason one edit earlier.
+
+**Verified rather than taken on trust:** their resubmission (`9af520228`,
+`COUNCIL_SUBMISSION_2026-09-04b…r2.json`) has **four edits and none of them touches this lane's
+file** — `vocabulary.go`, `send_delivery_email_action.go`, `vocabulary_test.go`, `prepare.go`.
+
+### What this lane now owes, replacing the list above
+
+- **Commitment 1 is RETIRED, not merely relaxed.** There is no window where neither lane owns the
+  fill, because their change binds a caller only *when that caller adopts `Fill`*. The hand-kept
+  guard slice and the `{{instructions_link}}` pre-substitution keep working untouched. **Keep them for
+  as long as suits this lane.** Their adoption model is copied deliberately from `ActionInputSpec`,
+  whose own comment records that a fleet-wide version was rejected because *"an over-strict validator
+  is a considerably worse bug than the inert key it is chasing"* and that adoption is *"driven by the
+  coverage report, not by a flag day"*.
+- **NEW: converting this caller to `delivery.Fill` is THIS LANE'S WORK.** Not theirs, not optional
+  forever, and not urgent. When it happens, use `AssertNeverProduces(t, f, "{{zip_link}}")` from their
+  test helper — it exists because the architecture seat objected that `NeverReason` otherwise depends
+  on a human reading a string correctly for ever, which is that round's own thesis turned back on its
+  author. That assertion is what makes "a scheduled follow-up can never mint a presign" fail a test
+  rather than be read past.
+- **The coupling landmine (`d67f08ff4`) STAYS, and deleting it is THIS LANE'S COMMIT.** They removed
+  their deletion edit. With only one caller converted the trap is still live in this file, and
+  **removing a warning from a real trap is worse than leaving a stale one.** It goes when the second
+  caller adopts `Fill` — i.e. in the same commit as the conversion above.
+
+> **The lesson is one this lane gave them and then received back.** I told them a comment in one file
+> protects nobody reading the other; the seat told them that editing another lane's file inside a
+> round that changes what that file depends on is the collision their own plan warned about. Both are
+> the same rule — **the person who bears a risk should be the one who takes the change** — and the
+> useful part is that neither of us spotted it in our own work, only in each other's.
