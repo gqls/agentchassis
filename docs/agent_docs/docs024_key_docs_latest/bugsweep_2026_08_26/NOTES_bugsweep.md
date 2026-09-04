@@ -534,3 +534,30 @@ working as designed. This lane's own 10 tests pass at HEAD when run by name.
 Also: 8 abandoned `~/.claude-scratch/head-verify/` trees, ~3.9 GB, left by other sessions
 (disk is at 48%, so not urgent — but this is the accumulation CLAUDE.md warns about, and
 `scripts/scratch-report.py` is the tool rather than a hand-rolled `rm`). I removed only my own.
+
+### Later the same day — shipped 773, and the verdict turned into the day's real finding
+
+Shipped the §11d candidate after all (migration `773`, applied 11:57Z, verified at the live row,
+re-run ABORTs on its own guard). Reasoning for the change of mind is in `README_where_we_are.md`
+and `bugs_open/442` §11f; the §4.1 landmine fired on my own verification query and that is recorded
+there too.
+
+**Then the council verdict came back `revise` and it was not a review.** Six seats unreadable,
+three readable and all approving. Cause: the estate's Anthropic credit balance ran out — every LLM
+call fleet-wide failed 11:21→11:56Z. Resubmitted the plan **byte-identical** and round 2 came back
+**`approved`, 11 seats, 0 objections**. Same plan, healthy estate, opposite verdict.
+
+**Not restated here — it is filed where it belongs:** `bugs_open/243` (the episode, and the finding
+that `usage limit` ended 08-31 while `credit balance` is what fires now — mutually exclusive by day
+across 31 affected days), `LANDMINES.md` (the partial-outage addendum, which also corrects a
+sibling entry's "rare" to "clustered"), and this lane's `HANDOFF_2026-09-04_continue_here.md` §7.
+
+**Three method errors worth keeping**, all of the same family — *my check could not have returned
+the other answer*:
+1. `grep '^### '` for prior art missed a `##` heading, so I wrote an entry that partly duplicated
+   one filed hours earlier. **A heading-level grep is not a prior-art search.**
+2. Checking whether my own edit had dropped references, a single-line `grep` reported **three false
+   absences** on a hard-wrapped file. `tr '\n' ' '` first — `MEMORY.md` says so in bold and I still
+   did it.
+3. Reported a landmine dispatch as "verdict pending" when it had **failed four times** in the
+   outage. An armed dispatch that never reports is a health question, not a patience question.
