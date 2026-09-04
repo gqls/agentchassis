@@ -663,3 +663,55 @@ and is the nearest owner for farmerinsurance.uk, which has **no dedicated lane**
 retraction of yesterday's "permanently blocked" claim explicitly, so they cannot inherit it,
 and hands them the one item that is genuinely theirs (`/guides/index.html`, 17 days parked,
 zero components, their own RUNBOOK recipe applies). **Nothing was fired at their sites.**
+
+## 2026-09-04 16:11Z — fully drained, and a near-miss about how warnings propagate
+
+`[MEASURED 2026-09-04 16:11Z]` **0** `unresolved` rows remain in the entire 437 family (251 on
+09-03 14:00Z → 175 this morning → 0). **275** rows `complete` across **56** keys. **0** new
+failures of the defect. **No human touched a single row at any point.**
+
+The daily drain ran 16:08:06Z → COMPLETED 16:11:05Z (`fba38b50-cb4f-44de-a290-51019c2a0262`)
+and closed all 175 `auto:revalidated` — loanzy 113, farmerinsurance 63/19 keys.
+
+So the "52 permanently blocked keys" claim is now refuted by events as well as by mechanism.
+Every one recovered unaided. Worth stating plainly because I committed the opposite and put a
+surgery decision to the owner on it: **the system's existing repair path was sufficient the
+whole time, and every intervention I contemplated would have been unnecessary.**
+
+### The near-miss, which is the part worth keeping
+
+The v1.0.1361 roll restarted the chassis at 16:01:26Z/16:01:53Z. The sweep was due ~16:06Z —
+inside the ~300s window where CLAUDE.md says a dispatch is silently dropped. I flagged that
+risk to a peer session in advance, in some detail, because the failure is invisible.
+
+The peer measured at ~16:0xZ, found no orchestration row, and reported the drop as fact. It
+was heading for escalation and a manual re-trigger. **The row appeared at 16:08:06Z** — after
+the window closed, and *inside* the "absent after ~16:10Z means dropped" threshold I had
+supplied in the same message. Deferred, not swallowed.
+
+**My framing caused that.** I described the silent-drop mode vividly enough that an absence
+read as confirmation of it, and the threshold that would have caught the error was in the same
+message but did not carry the same weight as the story. That is a real hazard of warning
+peers: *the warning propagates faster than its calibration.*
+
+The check that resolves it is trivial and I should have led with it rather than buried it:
+**when you warn about a silent failure, put the wait time in the same sentence as the
+symptom**, and when the absence turns up early, look at the clock before believing it. This is
+the third time in three days this lane has read a state too early — see also the `updated_at`
+census and the "52 blocked keys" reading.
+
+Also settled, because the peer flagged it unverified rather than guessing (good practice):
+a dropped dispatch could not have wedged tomorrow's run. `scheduled_tasks` has **no `state`
+column** — columns are id, name, description, interval_seconds, target_agent_type,
+target_topic, input_data, concurrency_group, max_concurrent, pre_query, enabled,
+last_triggered_at, last_completed_at, timeout_seconds, created_at, updated_at, fire_message —
+so there is no status field to stick, and the group has one member.
+
+### Roll v1.0.1361: nothing owed by this lane
+
+Fix `a0044e73b` is live since v1.0.1358 and rides cut `06c0b18f2` by ancestry; the other half
+is an `agent_definitions` row (migration 724), which a binary roll does not touch. No dirty Go.
+Disclaimed two files to the peer that were not mine: `internal/tools-api/clientip/clientip.go`
+(they then resolved it outright — pure gofmt output) and the untracked
+`plan_sections_item_fields_dialect_test.go`, which sits in this lane's subject area but locks
+down `bugs_open/240`, the adjacent defect this lane settled as separate.

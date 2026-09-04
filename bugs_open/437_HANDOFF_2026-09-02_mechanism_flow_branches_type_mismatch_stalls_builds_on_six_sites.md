@@ -189,6 +189,47 @@ fail-loud re-run guard means it is not safely re-runnable. Both are true. The mi
 carries its own verified rollback and the row was read back after apply; a future editor of
 this row should take the snapshot.
 
+## ✅✅ 2026-09-04 16:11Z — FULLY DRAINED. Zero unresolved rows, zero failures, zero human actions.
+
+`[MEASURED 2026-09-04 16:11Z]`, the whole family, every site:
+
+| | |
+|---|---|
+| `unresolved` rows remaining | **0** (was **251** on 2026-09-03 14:00Z, **175** this morning) |
+| `complete` | **275** rows across **56** keys |
+| `failed` | 123 rows / 69 keys — terminal and historical; a `failed` row re-mints on its own (§Unsticking) |
+| new failures of the defect since the fix | **0** |
+
+**Not one row was touched by a human at any point.** The daily drain ran at 16:08:06Z and
+closed all 175 remaining rows `auto:revalidated` in ~3 minutes (loanzy 113, farmerinsurance
+63 across 19 keys). Sweep `fba38b50-cb4f-44de-a290-51019c2a0262`, COMPLETED 16:11:05Z.
+
+**This is the decisive refutation of this file's own "52 permanently blocked keys" claim.**
+Every one of them recovered unaided. The correction banner below explains the mechanism error;
+this is the outcome that settles it.
+
+### ⚠ A near-miss worth more than the result: the sweep was LATE, not dropped
+
+The v1.0.1361 roll restarted the chassis at 16:01:26Z/16:01:53Z, and the sweep was due ~16:06Z
+— squarely inside the ~300s window in which CLAUDE.md says a dispatch is **silently dropped**.
+At ~16:0xZ a peer session measured, found no orchestration row, and reported the drop; this
+lane had primed that reading by flagging the silent-drop risk in advance. It was about to be
+escalated to a human for a manual re-trigger.
+
+**The row appeared at 16:08:06Z** — about a minute after the restart window closed, and
+*inside* the "absent after ~16:10Z means dropped" threshold this lane had itself supplied. The
+tick was deferred by the restart, not swallowed by it.
+
+**The transferable part: a vividly-described failure mode makes an absence look like
+confirmation of it**, and it does so for whoever you described it to, not just for you. The
+threshold was correct and stated; the reading was simply taken before it. **When you warn a
+peer about a silent failure, give them the wait time in the same breath as the symptom** —
+and when an absence arrives early, re-check the clock before believing it.
+
+Also checked, because the peer flagged it as explicitly unverified: a dropped dispatch could
+NOT have wedged tomorrow's run. `scheduled_tasks` has **no `state` column at all**, so there
+is no status field to stick, and the concurrency group has a single member.
+
 ## ✅ 2026-09-04 — THE ORIGINAL SYMPTOM IS GONE, AT THE SERVED BYTES, WITH NO INTERVENTION
 
 `[MEASURED 2026-09-04 11:05Z]` **Zero** new failures of this defect since 2026-09-03

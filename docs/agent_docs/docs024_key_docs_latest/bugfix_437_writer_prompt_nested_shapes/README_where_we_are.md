@@ -279,3 +279,47 @@ what needs nothing from them, and the one page that is theirs to act on.
 
 I also explicitly retracted yesterday's wrong claim in that note, so they do not pick it up
 second-hand and start clearing records that do not need clearing.
+
+## 2026-09-04, late afternoon — all of it cleared itself, and nobody touched anything
+
+The daily tidy-up ran at 16:08 and closed every remaining record in about three minutes.
+
+**The count is now zero.** Yesterday afternoon there were 251 records I described to you as
+permanently stuck and asked whether to clear by hand. This morning there were 175. There are
+now none, across all six sites. Two hundred and seventy-five closed in total.
+
+Nothing failed in the way this bug describes for over a day, and **no person touched a single
+record at any point**. The repair machinery the system already had was sufficient the whole
+time. Every intervention I proposed would have been unnecessary — worth saying plainly, since
+I asked you to decide on one.
+
+### A near-miss this afternoon, which is the useful part
+
+The fleet upgrade restarted things at 16:01, and the tidy-up was due at 16:06 — inside a
+five-minute window where a scheduled job can be silently swallowed and simply never run.
+
+I warned another session about that risk in some detail, because the failure leaves no trace.
+They checked at about 16:06, saw nothing, and reported it as dropped. It was heading for
+someone being asked to trigger it manually. In fact it ran at 16:08 — a couple of minutes
+late, because the restart delayed it rather than eating it.
+
+**My warning caused that.** I described the invisible failure vividly enough that an absence
+looked like proof of it. I had also given them the correct waiting time in the same message —
+"if it's still missing after 16:10, then it's dropped" — but the story travelled further than
+the number attached to it.
+
+That is worth remembering as a general point about warning people: the alarming half of a
+warning spreads faster than the part that tells you how long to wait before believing it.
+
+That session, to their credit, refused to make the change on my behalf when they thought it
+was needed — they said it needed a human rather than one Claude session doing an action
+another session's settings had blocked. That was exactly right, and it is why nothing hasty
+happened while we were both wrong about what we were looking at.
+
+### Where that leaves it
+
+The bug's original problem is finished: fixed, live, reviewed, the damaged pages rebuilt and
+serving, and the queue drained to nothing. What remains in the file are two separate gaps that
+were never this defect — and one of them, the fact that nothing notices a page which live
+pages link to and which has never been published, is the reason this went unseen for three
+weeks.
