@@ -738,3 +738,18 @@ Routed to `bugs_open/427` (today's active owner of that mechanism) rather than
 produce a confident-sounding guess. Matches the day's own standing lesson:
 answer what you checked, decline what you didn't, and don't let "closest
 planner-sounding name" turn into "closest plausible-sounding answer" either.
+
+## 2026-09-04 (later) — `bugs_open/431` is LIVE in the fleet
+
+A coordinated fleet roll (v1.0.1361, cut `06c0b18f2`) landed 16:01Z and
+`bd8e45aba` is in it — confirmed by stamp (`agent-chassis` pods matched
+against `kubectl get pods` first, not trusted from the query alone, per the
+`inter thread comms` lane's own caveat about stale replicaset rows) and by
+`git merge-base --is-ancestor bd8e45aba 06c0b18f2`. Updated `bugs_open/431`'s
+status accordingly, but **deliberately did not close it** — the fix being in
+the binary is a different claim from the served behaviour having changed, and
+nobody has re-resolved any of the four affected sites since the roll. That is
+each site's own decision, not this thread's to force, so the bug stays open
+until someone does and records the before/after. This closes the loop this
+whole workstream opened two days ago: diagnosed, fixed, reviewed, and now
+genuinely shipped — the only thing left is a real site proving it.
