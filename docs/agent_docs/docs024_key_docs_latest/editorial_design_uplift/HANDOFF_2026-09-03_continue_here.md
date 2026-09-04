@@ -443,6 +443,28 @@ on a cause already fixed. Retraction + the two surviving candidates (rule 13's d
 rather than defective) are in `c44f2b613`. **A verbatim quotation is a measurement of a mutable string
 and decays exactly like a count** — `WRONG_CALLS.md` 2026-09-04.
 
+**RESOLVED 2026-09-04 — the infographic question is CLOSED as "untested, not broken", and no prompt
+edit is indicated.** The chain in full is in the two prompts-lane CONTRIBs (`c44f2b613`, `8b9aeb439`,
+`9689ba21e`); the finding: an infographic needs a current `site_plan` **and** a registered fact.
+`[MEASURED 2026-09-04]` **21** sites fleet-wide have both; **0** of them planned imagery since 718,
+and **0** of the 7 that did are capable. **Disjoint sets — so migration 718 has never run anywhere it
+could be answered, and the 12–0 illustration/infographic scoreline carries no information about the
+prompt at all.**
+
+**The canary, if anyone forces the test: `robot-hands.com`** — 20 facts / 18 numeric including
+`series`, it already runs the fact-resolved chart components, and it is **this lane's own editorial
+instance**, so no other lane's approved copy is in the blast radius. `agritec.uk` is the volume choice
+(116 facts / 96 numeric) but has no `series`. **Wanted: the owner's word before forcing it, even on
+our own site.**
+
+⚠ **THREE figures of mine in that chain were true and answered a NEIGHBOURING question** — a prompt
+string quoted from this lane's own handoff without re-reading the live row (718 had replaced it the
+day I read it); "2 of 7 sites hold an `evidence_base`" counting **aspect rows, not facts** (both were
+empty — and that number designed a test that could not come out false); and naming finetuning.uk the
+only askable site on its 10 facts **without checking it had a `site_plans` row** (it has none, so it
+cannot hold section imagery at all). **A capability is a CONJUNCTION; measuring the conjunct that is
+easiest to query and reporting capability is the error.** `WRONG_CALLS.md` 2026-09-04 ×2.
+
 **Papers:** the ask and its constraints —
 `editorial_design_uplift/CONTRIB_2026-09-03_from_finetuning_owner_asks_for_more_imaginative_card_structures_on_the_homepage.md`;
 this lane's answer — `finetuning_uk_service/CONTRIB_2026-09-03_from_editorial_design_uplift_answer_on_the_homepage_cards_and_infographics.md`
