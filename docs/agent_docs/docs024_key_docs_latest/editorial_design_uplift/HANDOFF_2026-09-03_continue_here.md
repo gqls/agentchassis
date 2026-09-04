@@ -432,6 +432,17 @@ pages lost in eight days. 412 §10 predicted it verbatim. Written up for the own
 state at COMMIT and nothing re-checks it after — an asserted repair with no `last_verified_at` is a
 dated claim wearing the clothes of an invariant.**
 
+⚠ **AND THE EVIDENCE THIS LANE SUPPLIED FOR THAT DECISION WAS ALREADY WRONG — see the 09-02
+handoff's §4 banner.** The verbatim prompt quote (*"Use sparingly in v1…"*) had been replaced by
+migration **718** on 2026-09-02, the same day this lane read the prompt; it was quoted from our own
+handoff on 09-03 without re-reading the live row. `[MEASURED 2026-09-04]` the sentence is gone,
+`infographic` occurs 8 times not 3, and **since 718 there have been 111 planned imagery entries and 0
+infographics** — so the instruction was never the binding constraint. The owner's decision was routed
+on a cause already fixed. Retraction + the two surviving candidates (rule 13's disjunction, 12–0 since
+718; and only **2 of 7** planning sites holding an `evidence_base`, which would make the zero correct
+rather than defective) are in `c44f2b613`. **A verbatim quotation is a measurement of a mutable string
+and decays exactly like a count** — `WRONG_CALLS.md` 2026-09-04.
+
 **Papers:** the ask and its constraints —
 `editorial_design_uplift/CONTRIB_2026-09-03_from_finetuning_owner_asks_for_more_imaginative_card_structures_on_the_homepage.md`;
 this lane's answer — `finetuning_uk_service/CONTRIB_2026-09-03_from_editorial_design_uplift_answer_on_the_homepage_cards_and_infographics.md`

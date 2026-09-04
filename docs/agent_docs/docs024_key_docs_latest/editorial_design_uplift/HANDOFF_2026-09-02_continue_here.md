@@ -103,7 +103,32 @@ to fill it, and has nowhere to put the result.
 
 ---
 
-## 4. ANSWERED on 2026-09-02: "what would ever WRITE an infographic row?"
+## 4. ~~ANSWERED on 2026-09-02~~ **REFUTED 2026-09-04 — READ THIS BEFORE QUOTING ANY OF §4**
+
+> **⚠ THE ANSWER BELOW IS WRONG, AND IT WAS ALREADY WRONG WHEN IT WAS WRITTEN.** §4 says the planner
+> produces no infographics because the prompt tells it *"Use sparingly in v1 — most plans will have
+> zero section-scope entries."* `[MEASURED 2026-09-04]` that sentence is **not in the live prompt**:
+> migration **718** replaced it with *"Content-carrying imagery is EXPECTED here, not exceptional"* on
+> **2026-09-02 — the same day this §4 was written**, and `infographic` now occurs **8** times, not 3.
+> The behaviour did not follow the instruction either way: **since 718 there have been 111 planned
+> imagery entries, 12 illustrations and 0 infographics**, so the prompt was never the binding
+> constraint.
+>
+> **The observation survives; the cause does not.** The estate really does hold **1** infographic in
+> all history. Two live candidates, both measured 2026-09-04 and neither confirmed: **(A)** rule 13 is
+> a DISJUNCTION (`illustration … or … infographic`, illustration named first) and it has won 12–0
+> since 718; **(B)** of the 7 sites that planned imagery since 718, only **2** hold an
+> `evidence_base` — so on 5 of 7 there is nothing for a figure to be *about*, and the zero may not be
+> a defect at all. Full account and the free test that separates them:
+> `framework_prompts_positive_voice/CONTRIB_2026-09-04_…_my_section2_was_ALREADY_WRONG_…` (`c44f2b613`).
+> Also dead: the "no infographic-typed component" theory — `plan_sections_action.go:563` takes all
+> three kinds in one query and never branches on kind.
+>
+> **The lesson, because it cost an owner decision:** a verbatim quotation is a measurement of a
+> mutable string and decays exactly like a count. I re-measured every number that evening and quoted
+> this one from my own handoff. `WRONG_CALLS.md` 2026-09-04.
+
+## 4. (original, retained) ANSWERED on 2026-09-02: "what would ever WRITE an infographic row?"
 
 This lane asked it on 08-31 and could not answer it. **The planner is obeying an instruction.**
 Verified by me at the live prompt (`agent_definitions` id `f263eaa1-61e1-446e-9410-648e12b7875b`,
