@@ -231,3 +231,37 @@ having made the opposite version of the same mistake themselves.
 the small database change for the script security issue, with someone then looking at a news
 page in a browser; and whether to prioritise the ESPN-menu problem, which is filed and which
 nobody has picked up yet.
+
+## 2026-09-04, 16:30 — the database change is applied, and one thing about it you should know
+
+I applied the small database change (the script security fix). It went in cleanly at 16:28 and
+I checked the result immediately: both components now build the page properly instead of
+gluing text together, and both handle links safely.
+
+Before applying I re-checked the things I had assumed yesterday rather than trusting them —
+that there are exactly two components and no per-site copies of them, which would have meant
+patching one site and silently leaving nine broken. Still true. I also rehearsed the whole
+change against the live database and rolled it back, twice, before doing it for real.
+
+**The one thing you should know, because it changes what the "hold for a browser check" was
+protecting.** I had held this change back so a person could look at a news page before it
+reached customers. Applying it is what you asked for, and it was the right call — but applying
+and publishing are not the same step here. The updated script does **not** go out immediately:
+each site picks it up the next time that site rebuilds its news page, which happens on its own
+schedule, a few times a day. Nothing had rebuilt as of 16:31.
+
+So the browser check has changed character. It is no longer a gate *before* customers see it;
+it is now a check *after*, with a one-command undo ready if it looks wrong. I want to be
+straight that this is a slightly weaker position than the one I described yesterday, and it
+follows from applying the change rather than from anything going wrong.
+
+**What I checked instead, and what it does and does not prove.** I ran a structural check over
+both scripts as they now sit in the database: brackets and braces all balanced, both ending
+correctly, and — the one that would have been nasty — neither contains the marker that would
+have cut the script in half while still appearing to save successfully. That rules out the
+clumsy failures. It does **not** rule out a subtle one like a missing comma. Only a browser
+can, and this machine has none; the browser service we have needs the updated script to be
+published first, which brings us back to the same wait.
+
+**What to watch for, in one sentence:** if a news page comes up with an empty list where the
+articles should be, that is this change, and the undo is ready and takes seconds.
