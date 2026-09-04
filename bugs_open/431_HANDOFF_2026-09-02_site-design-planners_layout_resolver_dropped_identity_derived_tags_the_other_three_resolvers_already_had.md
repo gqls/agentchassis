@@ -4,15 +4,28 @@
 owner — see `docs/agent_docs/docs024_key_docs_latest/site_design_planner/`).
 **Status: FIXED IN CODE (`bd8e45aba`), COUNCIL APPROVED**
 (`bd469ba1-228e-443e-a04d-6a577a210e5d`, verdict read 2026-09-02 — no objections
-required a revision), **STILL INERT — the deployed chassis binary
-(`a2732c7207da4f24ed3aceb6f62b238605db0530`, checked via
-`service_binary_capabilities`) predates this commit** (`git merge-base
---is-ancestor bd8e45aba a2732c7207d...` → false; the reverse holds → true, so the
-deployed build is an ancestor of, not a descendant of, this fix). Per CLAUDE.md's
-bar, stays in `/bugs_open/` until verified live at the served behaviour, not just
-approved in code review. The commit already carries `Council-Submitted:` — do
-**not** amend it to add `Council-Reviewed:`; forward-only forbids the amend and
-098's own report resolves this correlation to APPROVED automatically once it
+required a revision), **LIVE IN THE DEPLOYED BINARY as of the 2026-09-04
+16:01Z fleet roll (v1.0.1361, cut `06c0b18f2`).** Verified by the stamp, not a
+literal (this resolver has a live caller either way, but the pattern is the
+right one regardless): both currently-`Ready` `agent-chassis` pods, matched by
+`pod_name` against `kubectl get pods` first (a stale-replicaset row would
+otherwise pass silently — `inter thread comms` lane's own caveat, worth
+repeating since it is exactly the trap this check exists to avoid), are
+stamped `git_commit=06c0b18f233bc600918ef481d32b40f29535f78f`, and
+`git merge-base --is-ancestor bd8e45aba 06c0b18f2` → true.
+
+**Still kept in `/bugs_open/`, and deliberately** — the bar is fixed AND live,
+and "live" here needs to mean the served BEHAVIOUR changed, which is a
+different claim from "the binary carries the fix". Nobody has triggered a
+re-resolve for any of the four affected sites since the roll (that decision
+was always the sites' own to make, not this lane's — see "What this does NOT
+do" below), so the end-to-end effect — a real site's layout resolver actually
+deriving tags from `identity` and picking something other than a fallback —
+remains unexercised. Close this when one of the four sites re-resolves and the
+before/after is recorded, not before. The commit already carries
+`Council-Submitted:` — do **not** amend it to add `Council-Reviewed:`;
+forward-only forbids the amend and 098's own report resolves this correlation
+to APPROVED automatically once it
 runs, crediting the commit without any edit.
 
 Grepped `/bugs_open/` and `/bugs_closed/` for `resolve_composition_layout`,
