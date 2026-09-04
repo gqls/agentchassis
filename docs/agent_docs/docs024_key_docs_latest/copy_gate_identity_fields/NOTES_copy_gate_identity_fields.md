@@ -28,8 +28,10 @@ and neither was in the file:
 
 **The general shape, which is the transferable part:** one field-name list was answering *"is this
 worth scanning?"* and *"may I overwrite this?"* — questions whose false answers cost opposite
-things. Filed as a LANDMINES entry; `sectionAssetKeyLike` is the unsplit fourth member and its
-mutating consumer executes a `DELETE`.
+things. Filed as a LANDMINES entry. ~~`sectionAssetKeyLike` is the unsplit fourth member and its
+mutating consumer executes a `DELETE`.~~ **REFUTED later the same day — see misstep 6 below.** That
+delete keys on the RAW blob, not the normalised text, so it is the estate's worked MITIGATION of
+this class rather than an open hole.
 
 ### The census, and why the structural test won
 
