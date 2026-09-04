@@ -391,3 +391,42 @@ file** — `vocabulary.go`, `send_delivery_email_action.go`, `vocabulary_test.go
 > round that changes what that file depends on is the collision their own plan warned about. Both are
 > the same rule — **the person who bears a risk should be the one who takes the change** — and the
 > useful part is that neither of us spotted it in our own work, only in each other's.
+
+## 2026-09-04 (evening) — round 4 APPROVED, and a defect caught in an unapplied file
+
+**`ac9eb6b4-ae6a-4486-96ef-6f07dcf7b09c` — APPROVED, "all reviewers approve", no objections.** The
+vocabulary conversion stands: both letter senders derive their guards from `delivery.Vocabulary`,
+`fillTemplate` is gone, and the coupling landmine is retired in place.
+
+**Four council rounds this lane, all approved:** `b9fc0004` (honest copy), `3555a7a1` (the sender),
+`62a99103` (the recipient record, architecture seat `point_fix`), `ac9eb6b4` (the conversion).
+
+### The last defect of the day, and it was mine, in a file that had never been applied
+
+The `site_delivery_and_editor` lane found that `775`'s `pre_query` composed
+`live_site_url` as `'https://' || s.domain`. **That is right only for a domain already pointed at us.**
+For a customer who has bought a build and not yet transferred theirs — the normal case — it composes
+a URL that does not resolve. Owner ruling the same afternoon: *"the delivery email should say it is on
+the ugg2 subdomain not paper-cups.com."*
+
+`[MEASURED 2026-09-04, by me, not taken from the report]` `publish_project` set on **2 of 60**;
+idea.uk NULL; **no code writes it** — the only non-test reference is `b2worker.go:63`'s refusal, which
+also refuses a `publish_project` equal to the site domain, i.e. the code's own statement that the two
+are different things.
+
+> **THE SHARPER HALF, and it is about how I check rather than what I found.** My own header, **two
+> lines above the defect**, warns that a `COALESCE` over `publish_target` would have mailed a customer
+> the word `b2worker`. **The fix I chose to avoid that trap landed on the other wrong answer.** I
+> checked the column I was about to use and never checked the one I fell back to. The trap was one
+> step along from where I was looking — which is the general form of every column-name failure this
+> lane logged today, arriving in my own file after I had spent the afternoon telling three lanes to
+> check the values behind a name.
+
+**No `COALESCE` fallback to the domain**, and I nearly wrote one: it is correct for the two pointed
+sites and quietly wrong for every customer who has not transferred — the same defect wearing a guard.
+Sites with no serving host are excluded and **counted**, so `775` now prints `GAP 2` on every apply
+alongside the recipient gap. Both read `1 of 1` today, and the sender consequently selects nobody.
+**That is correct behaviour, loudly.**
+
+**It was caught because the file had never been applied.** Every other instance of this class this
+week reached a customer or a live row first.
