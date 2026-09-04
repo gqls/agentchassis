@@ -22346,3 +22346,41 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   quoting the live-vs-committed rule at the estate. Found by a plain `git status` on re-orientation
   the next morning, not by any check.
 - **added:** 2026-09-04, `site_delivery_and_editor` lane
+
+## Route a migration to its author by its COUNCIL CORRELATION, never by the lane name in its filename — this estate names files after their SUBJECT, and `git log` authorship is `cqls` for every commit on the tree
+
+- **footprint:** `docs/agent_docs/sql_for_agents/` · `schema_migrations.filename` · `git log --format=%an`
+  · `scripts/who-owns.py` · any `NNN_<lane-or-site>_<description>.sql`
+- **fires when:** you find a migration you need to route — unowned, unexplained, or in your way — and
+  reach for the only lane-shaped word in front of you, which is sitting in the filename.
+- **why the wrong result looks exactly right:** the field built to answer "who wrote this" is dead
+  here. **Every commit on this tree is authored `cqls`**, because many sessions share one git
+  identity, so `git log --format=%an` cannot separate lanes at all. With that gone, a filename like
+  `767_vetcomparison_posture_as_a_doc_notes_decision_record.sql` reads like data rather than a guess
+  — and this estate names site-specific migrations after their **SUBJECT** as a matter of routine, so
+  the word is usually a site, not an author.
+- **what it costs:** you message the wrong lane, who then have to prove a negative about their own
+  work. Measured 2026-09-04: I routed `767` to `vetcomparison`; it belonged to
+  `bugfix_414_planted_marker_as_claim`, which was building vetcomparison's evidence register. The
+  lane that did not write it spent its time correcting me, twice, generously.
+- **the check — two routes, both one command, both naming the AUTHOR rather than the subject:**
+  ```bash
+  # 1. the migration's own note usually carries the council correlation it answers
+  psql -At -c "SELECT notes FROM schema_migrations WHERE filename='<file>'"
+  # then find the lane that claims that correlation:
+  grep -rl "<corr>" docs/agent_docs/docs024_key_docs_latest/ | cut -d/ -f4 | sort -u
+  # 2. or, for a bug-shaped question, the tool that already exists:
+  scripts/who-owns.py <number|slug>
+  ```
+  A `Council-Submitted:`/`Council-Reviewed:` trailer on the commit that introduced a sibling
+  migration is the same identifier and resolves just as well.
+- **⚠ this generalises past migrations.** Any artefact named `<n>_<word>_<description>` invites the
+  same read: seeds, SQL, docs, work-item keys. `MEMORY[a-subagent-report-is-another-doc]` states the
+  rule — **a naming convention is not a measurement; a key SHAPE is a hypothesis about provenance.**
+  I have that written down and still treated a path segment as an author field.
+- **relations:** the entry above on hand-applied migrations (same investigation, different trap) ·
+  `WRONG_CALLS.md` 2026-09-04(b) · `scripts/who-owns.py`
+- **source:** 2026-09-04, `site_delivery_and_editor`. Restored here as an append after I lost it in a
+  rewrite of the entry above — the pattern check flagged 23 removed lines from this append-only
+  ledger and was right to: they were all my own, an hour old, but one of them was this lesson.
+- **added:** 2026-09-04, `site_delivery_and_editor` lane
