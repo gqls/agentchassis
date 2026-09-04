@@ -117,3 +117,34 @@ removed: you still have to run the apply at all.
 owner's call. Recorded in the cronjob header, the register entry, the index row, `bugs_open/462` §9f
 and this file — five places, because a detector that is built and inert while reading as live is a
 documented failure mode on this estate, and the correction always arrives late.
+
+### RULED (option A) and APPLIED — and the first in-cluster run found two defects a hand run cannot
+
+The owner ruled §9e **option (A)**: apply the standing check, defer the filer. Applied 13:44Z;
+CronJob `logo-legibility-check`, daily 08:15 UTC. First run reproduced §8a exactly (34 assets: 2
+FINDING, 2 blind, 3 not displayed, 22 baked-background, 5 legible) and its `doc_notes` row landed.
+
+**The two defects are the useful part, and both are about tool-versus-job, not about the check.**
+
+1. **The exit code.** `1 if anything is not clean` is right for a person and wrong for a scheduler.
+   Two findings stand and **one is ruled permanent**, so the Job fails every run, for ever;
+   `backoffLimit: 1` then re-runs the whole 5m15s sweep and writes a **second** `doc_notes` row for
+   one run — destroying the one-row-per-run property the flag exists to provide. I found it by
+   reading the Job status and seeing a **second pod already running**, not by reading logs.
+   Fixed by splitting what the exit code answers. Full write-up: `bugs_open/462` §10a.
+2. **Buffered stdout.** Five minutes of completely empty `kubectl logs`. A working run and a hung
+   run were indistinguishable — inside the check written because a broken thing and a fine thing
+   look identical. I established it was alive from `/proc/<pid>/wchan` (`do_poll`) and one
+   ESTABLISHED socket on :443. `python3 -u` fixed it; streaming confirmed on the next run.
+
+**And one figure corrected before anyone reuses it:** in-cluster the sweep takes **5m15s**, not the
+~90s it takes by hand. Same assets, same verdicts, slower egress. Anyone sizing
+`activeDeadlineSeconds` from a laptop timing cuts it far too fine.
+
+> **What I want to remember from this.** I had read `component-render-check`'s cronjob header, which
+> says in terms *"a permanently-red job is a job everybody learns to ignore"* — I quoted it while
+> writing my own — and I still shipped exactly that. **Reading a warning is not applying it.** The
+> thing that actually caught it was running the job once and looking at what it did, which is the
+> same lesson 462 is about at every level: only looking proves it worked.
+
+A LANDMINES entry now carries the transferable half, footprinted on the check fleet's cronjobs.

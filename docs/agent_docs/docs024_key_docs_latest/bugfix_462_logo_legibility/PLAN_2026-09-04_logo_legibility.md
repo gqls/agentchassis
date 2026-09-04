@@ -34,6 +34,11 @@ widespread is 462" is not yet answerable for most of the estate.
 
 **Open:** routing. §9 works it and the answer is uncomfortable — see below.
 
+## The decision this lane WAS waiting on — **RULED 2026-09-04: option (A)**
+
+> **The owner ruled option (A): apply the standing check, defer the filer.** It is live. The fork
+> below is kept as written because the reasoning is what a later reader needs when (B) comes back on
+> the table — not because it is still open.
 ## The decision this lane is waiting on
 
 §9e's fork. Stated once here so it is not re-derived:
@@ -62,7 +67,10 @@ a logo worse.
    "stopped running". ✅ **BUILT 2026-09-04 (`c0e2900ff`) and deliberately NOT APPLIED** —
    `deployments/kustomize/services/logo-legibility-check/`, daily 08:15 UTC. Applying it is one
    command and is **pending the owner's answer**, because applying it *is* choosing option (A).
-   ⚠ Do not let it sit built-and-inert unnoticed: that is its own documented failure mode.
+   ✅ **RULED AND APPLIED 2026-09-04 — option (A).** Live at 08:15 UTC daily. Two defects that only
+   a scheduled run exposes were found and fixed on the first in-cluster run (462 §10a): the exit
+   code, and buffered logs. Verified at the artefact — fleet numbers reproduced, `doc_notes` row
+   landed.
 4. **Routing** — only on the owner's answer. If (B): the concept-register entry must carry the
    producer set, the `item_key` shape **and the provenance branch**, in the shipping commit
    (owner ruling 2026-08-02).

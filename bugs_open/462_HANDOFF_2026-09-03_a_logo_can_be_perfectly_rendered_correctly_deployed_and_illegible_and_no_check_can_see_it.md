@@ -689,3 +689,65 @@ no further decision. What it requires, stated so the next reader can pick it up:
 > premature* — a detector sat off for 9 days after its blocker cleared). One command, pending the
 > §9e answer:
 > `kubectl apply -k deployments/kustomize/services/logo-legibility-check/overlays/production/uk_001`
+
+---
+
+## 10. OWNER RULING 2026-09-04 — **§9e option (A): apply the standing check, defer the filer.** It is LIVE
+
+The fork in §9e is answered. **Apply the standing report; do not build the work-item filer yet.**
+So 462's remedy today is: the estate looks at every logo daily and says what it sees, and nothing
+automatically acts on what it finds. §9d is why that is not slippage — a filer built today would
+have zero legitimate targets and one illegitimate one.
+
+**Live since 2026-09-04 ~13:44Z.** `deployments/kustomize/services/logo-legibility-check/`, CronJob
+`logo-legibility-check`, daily **08:15 UTC**, applied to `ai-persona-system` from the `uk_001`
+overlay. It writes one `doc_notes` row per run at `subject_type='pipeline'`,
+`subject_key='logo-legibility'`.
+
+**Verified at the artefact, not at the apply.** The first in-cluster run reproduced §8a's fleet
+numbers exactly — **34 assets: 2 FINDING, 2 blind, 3 not displayed, 22 baked-background, 5 measured
+legible** — and the `doc_notes` row landed (13:49:57Z). It fires on `websitepromotion.co.uk`, which
+§7 sets as the test of whether the detector works.
+
+### 10a. Two defects the FIRST IN-CLUSTER RUN found, neither visible from a hand run
+
+Both are about the difference between a tool a person runs and a job a scheduler runs. Recording
+them because they are the transferable part, and because I had read the header that warns about the
+first one.
+
+**1. The job would have been RED FOR EVER, and would have double-reported.** The script exits 1
+whenever anything is not measured-and-legible — correct for a hand run, wrong for a CronJob. Two
+findings stand, **one of them ruled permanent by the owner** (§7: websitepromotion stays), plus 2
+structural BLIND rows and 3 not-displayed. So every run would fail, for ever; `backoffLimit: 1`
+would retry the whole **5-minute** sweep; and the retry would write a **second** `doc_notes` row for
+one run — breaking the one-row-per-run rule that `--report` exists to keep. Caught because the retry
+pod was already running when I read the job status.
+
+> **The fix is to split the question the exit code answers.** Hand-run: *"is the estate clean?"* —
+> 1 if anything was not measured and legible, and a BLIND row is not a pass. `--report`: *"did the
+> RUN work?"* — the findings are the `doc_notes` row's job. It still fails when the **sweep** is
+> broken rather than the estate imperfect: nothing measured at all, or every row blind.
+> `component-render-check`'s own header says *"a permanently-red job is a job everybody learns to
+> ignore"*. I read that header, and made the mistake anyway; reading a warning is not applying it.
+
+**2. It logged NOTHING for five minutes.** Python block-buffers stdout to a pipe, so `kubectl logs`
+was empty for the whole run and a working job was **indistinguishable from a hung one** — which is
+this bug's own theme, occurring inside the check written to fix it. I only established it was alive
+by reading `/proc/<pid>/wchan` (`do_poll`) and its one ESTABLISHED socket on :443. Fixed with
+`python3 -u`; streaming confirmed on the next run.
+
+**3. And a figure to correct before anyone reuses it:** the sweep takes **5m15s in-cluster**
+(13:44:42 → 13:49:57), not the ~90s a hand run takes. Same 34 assets, same verdicts, slower egress.
+`activeDeadlineSeconds` sized from a laptop timing would be cut far too fine.
+
+### 10b. What this does NOT do, stated so it is not assumed later
+
+- **Nothing files.** A finding reaches a `doc_notes` row and a person, and stops there. The routing
+  work is §9, and the constraint that binds whoever picks it up is §9c: **branch on
+  `assets.origin_type`**.
+- **It cannot see 22 of 34 logos** — the baked-background population (§8a). That number shrinks as
+  the pre-`424` estate regenerates; it is not fixed by this deployment.
+- **Its passes go stale.** It reads a *declared* theme token. §7a option (a) — measuring the backdrop
+  from the render — is still the destination and is still unbuilt. Every row records `header_bg` and
+  `measured_at` so a later reader can tell "passed against a palette that no longer exists" from
+  "passed".

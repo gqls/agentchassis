@@ -81,3 +81,29 @@ websitepromotion logo.
 option (A), which is your call rather than mine. So it sits there, committed and doing nothing, and
 I have said so in five places — a check that is built but not running, while looking to a reader as
 though it is running, is a mistake this estate has made before and always notices too late.
+
+**And then you said yes, so it is on.**
+
+The check now runs by itself every morning at 08:15 and writes a short report each time. Its first
+real run agreed exactly with what we had measured by hand: 34 logos, two below the line, five clearly
+fine, and 22 we still cannot judge because they have a background baked in.
+
+Switching it on immediately found two things wrong with how I had set it up — neither of them
+anything to do with whether the check works, both about the difference between a tool a person runs
+and a job that runs itself.
+
+The first would have quietly wasted the whole exercise. The check reports a problem by exiting with
+an error, which is right when you are sitting at a terminal. As a scheduled job it means the job is
+marked *failed* every single morning — because there will always be something on the list, including
+the websitepromotion logo you have deliberately decided to keep. A job that is red every day is one
+everybody stops looking at within a fortnight, and then the next real problem arrives somewhere
+nobody reads. It was also re-running the entire five-minute sweep on failure and filing its report
+twice, which breaks the one thing the report is for.
+
+The second is smaller but the same shape: it printed nothing at all for five minutes, so a job that
+was working looked exactly like a job that had hung — inside the check we built precisely because a
+broken thing and a fine thing look identical.
+
+Both fixed, and the second run confirms it. I have written the general lesson into the shared
+landmines file, because any of the other twenty-odd scheduled checks could be sitting on the same
+trap.
