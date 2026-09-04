@@ -74,3 +74,51 @@ platform (`bugs_open/106`).
 - `[INFERRED]` that the `Boxing Online` client row was created by hand or via `POST /admin/customers`.
   Nothing in the build path writes `clients`, so it cannot have come from the pipeline — but I did
   not find the actual call.
+
+---
+
+## 2026-09-04 (later) — the delivery lane had already written a pre-plan, and RFC_058 had already ruled
+
+**I opened this lane without knowing either existed.** Two things I should have found in the survey
+and did not:
+
+1. `site_delivery_and_editor/PLAN_2026-09-04_preliminary_customer_accounts_for_the_client_accounts_thread.md`
+   — a pre-plan written *for* this thread, the same day. The owner pointed me at it.
+2. `architecture_review/RFC_058_…md` — **an OWNER RULING of 2026-09-03** deciding the identity model
+   (Option C, four identities; multi-valued contacts NOT deferred; a fifth selling-party identity
+   deferred). The survey's §1 cited the 2026-08-10 `clients→networks→sites` ruling as the live one.
+   It is live, and it is no longer the whole story: RFC_058 postdates it by three weeks and changes
+   the shape.
+
+**What would have caught both, cheaply:** the survey grepped for the *mechanism* (`customer account`,
+`account hub`, `magic link`) and never grepped `architecture_review/` for the *subject* (`identity`).
+An RFC is where a decided-but-unbuilt thing lives on this estate, and it is exactly the directory a
+"has this been decided?" question should hit first. Recorded because the survey's own §7 asked the
+owner four questions, and **one of them (identity model) had already been answered by him the day
+before.** Asking a question already ruled is not neutral — it invites a re-ruling.
+
+**What survived the collision intact**, which is the useful half: both lanes measured the ownership
+chain independently, hours apart, and agreed — the chain is a schema with no data in it. And the
+three counts in circulation (33/54 on 09-02, 42/60 twice on 09-04) are all correct and differ only
+by date. Six sites were built in between.
+
+### Further code facts established this session, each verified
+
+- **`EnsureSiteRecordAction` takes no network parameter** (`site_db_actions.go:178`) — it calls
+  `getDefaultNetworkID` unconditionally and falls back to the literal
+  `00000000-0000-0000-0000-000000000002` on failure (`:182`; same literal again at `:1031` in
+  `createPlaceholderSiteRecord`). **So attribution cannot be supplied at build time today**, and a
+  backfill without a producer change is stale on the next build.
+- **`customer_access_tokens.site_id` is `NOT NULL REFERENCES sites(id)`** (migration 511). The token
+  machinery is structurally per-SITE. A customer-scoped account page cannot be keyed on it without
+  a migration.
+- **Nothing enforces `live_link_expires_at`** `[MEASURED 2026-09-04]` — every Go reference is a
+  write at handover, a follow-up eligibility predicate, or a test. Serving is unbounded, as
+  migration 511's header predicted. So "we host for six weeks" currently fails in the *safe*
+  direction, and the whole cost of Option C sits in the stop-serving half.
+- **`scheduled_tasks`** has no retraction job: `[MEASURED 2026-09-04]` names matching
+  `health|avail|endpoint|zip|deliver|followup|retract|expire` return five rows, of which the
+  relevant live ones are `zip-link-refresh` (6h) and `site-discovery-rotation-availability` (5 min,
+  `bugs_open/236`, probes least-recently-checked deployed sites for `site_unreachable`).
+  **There IS an availability probe** — worth knowing before costing "someone to answer when it
+  breaks", because part of the detection already exists.
