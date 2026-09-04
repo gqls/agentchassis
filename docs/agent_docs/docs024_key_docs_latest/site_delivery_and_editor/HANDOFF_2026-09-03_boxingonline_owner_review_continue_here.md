@@ -848,3 +848,49 @@ superseded (they describe a pre-build "buried in a paragraph" state). Combined w
 that is twice in two days that the recorded backlog did not contain the live defect. **Do not treat
 the record-mode backlog as an inventory of what is wrong with a site** — it is an inventory of what
 the seats happened to look at.
+
+---
+
+# UPDATE 10 — 2026-09-04 ~16:35Z. ⚠ CORRECTION 5: the duplication gate does NOT open on v1.0.1361.
+
+UPDATE 7 said *"roll first, delete second — the roll landed 16:01Z"*, and I told the owner the
+precondition was satisfied. **It is not.** Session 457 corrected their own ordering advice and I
+verified it independently:
+
+```
+828b22c7c  2026-09-04T17:08:21+01:00  fix(bugs_open/457 residual): the origin gate guarded the INSERT and not the UPDATE
+06c0b18f2  2026-09-04T16:22:24+01:00  (the v1.0.1361 cut)
+git merge-base --is-ancestor 828b22c7c 06c0b18f2  →  FALSE
+```
+
+The residual fix was committed **~46 minutes AFTER the cut**. All four chassis pods are running
+`06c0b18f233bc600918ef481d32b40f29535f78f` (started 16:01:07–16:02:05Z), and
+`--is-ancestor 828b22c7c <running>` is **false**. **The gate opens on the NEXT chassis roll, not this
+one.**
+
+⚠ **Do not read that `false` as "the fix failed to ship" — read it as "not yet cut".** The check to
+trust is ancestry against the running stamp, never a roll number:
+
+```sql
+SELECT pod_name, git_commit FROM service_binary_capabilities
+ WHERE kind='build' AND pod_name LIKE 'agent-chassis-%' ORDER BY started_at DESC;
+```
+then `git merge-base --is-ancestor 828b22c7c <that commit>`.
+
+**Where this came from:** 457 said "roll first" while a roll was in flight, and I resolved the
+ambiguity to the roll I could see landing rather than asking which. **"After the roll" is not a
+timestamp** — on a tree cutting releases hourly it names whichever roll the reader has in mind. Say
+the commit, not the roll.
+
+**It strengthens the one-coherent-change recommendation rather than weakening it.** The deletion
+cannot safely happen for at least one more roll regardless, so bundling it with the listing-section
+addition costs nothing in elapsed time and closes the window where the page serves no list.
+
+## And the listing-section gap is UNOWNED, not merely undispatched
+
+457 queried every boxingonline work item naming a listing, an article, or the listing slot names:
+**10 rows, all `page_rerender` or `section_edit`, all `complete`, none filing the structural gap.**
+So the ~3,184 parked findings **do not contain this one**. "Someone must add a listing-class section
+to `articles-index`'s plan" is **genuinely unowned** — there is no verdict row to release, and
+releasing the whole backlog would not produce one. Third instance in two days of the backlog not
+holding the live defect (cf. UPDATE 9).
