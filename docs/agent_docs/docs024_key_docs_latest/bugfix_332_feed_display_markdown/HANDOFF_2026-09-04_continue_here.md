@@ -102,7 +102,8 @@ Gate A re-run after wiring detection: **zero co-firing rows, control 128**. Safe
 |---|---|---|---|
 | ~~1~~ | ~~**Roll a chassis build** carrying `adef5d481`~~ **DONE 2026-09-04 16:00–16:01Z**, pods on `06c0b18f2` | — | — |
 | 2 | **Re-verify at the artefact** (§4) — the truncated-image fix is live but UNEXERCISED; wait for `rerendered_since_roll=1` | the feed cycle (hours) | next session |
-| 3 | **Apply migration 758** (`bugs_open/472`) + look at a news page in a browser | a human | owner's call |
+| ~~3a~~ | ~~**Apply migration 758**~~ **DONE 2026-09-04 16:28:35Z**, verified at the rows; preconditions re-checked (2 rows, 0 forked); scripts balanced | — | — |
+| 3b | **Look at a news page in a browser** — the published assets republish on each site's NEXT RENDER, so this cannot be done until then. The failure mode is an EMPTY list (`container.innerHTML = ""` runs before the loop) | a site render | a human |
 | 4 | `bugs_open/473` — scraped nav as article text | nothing; unowned by choice | feed lane's charter |
 | 5 | Close 332 | 2 | next session |
 
@@ -159,13 +160,14 @@ ever). `sweep_site_defects.sh` §1.4 now does this automatically.
 1. ~~**Roll the chassis again?**~~ **DISCHARGED 2026-09-04 16:00–16:01Z.** Today's fixes went
    out in `06c0b18f2` on a roll another lane was already running. **No decision needed.** The
    only thing left on the code side is waiting for pages to re-render and then re-running §4.
-2. **Apply migration 758, and who looks at the browser?** It is approved, rehearsed against the
-   live rows, induced-failure-proven, and **held on purpose**: it rewrites how a page draws
-   itself on ten sites, and every automated check we have would pass on a page that came out
-   blank. It needs a person to apply it and then load a news page — specifically to see the
-   "More insights" link resolve, which is the one behaviour nothing in the chain can check.
-   `browser-runner-adapter` can do the first two checks; the screenshot is the artefact worth
-   keeping.
+2. ~~**Apply migration 758**~~ **APPLIED 2026-09-04 16:28:35Z.** What remains is **who looks at
+   a browser, and when.** The published assets republish on each site's next render, so this
+   cannot be done yet. When it can: `selector_count article.news-list-item` > 0 proves the
+   script ran and built the list; `selector_exists a.news-more-link[href^="/"]` proves the
+   internal link resolved — **the one behaviour nothing else in the chain can see**, and the
+   regression that nearly shipped. ⚠ Those checks pass on count > 0 and **fail on zero, with no
+   expect-zero form**, so every assertion must be the presence of the RIGHT state. If the list
+   comes up empty, run `758_..._ROLLBACK.sql`.
 3. **`bugs_open/473` — scraped navigation** (`Tennis`, `NFL`, `MLB` appearing as article
    summaries). The feed lane owns it and has explicitly **not** taken it, on the reasoning that
    a word-list nav filter would be worse than the open bug. **The news pages will still read a

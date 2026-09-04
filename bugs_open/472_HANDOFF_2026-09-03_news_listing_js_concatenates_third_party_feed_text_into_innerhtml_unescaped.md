@@ -1,5 +1,39 @@
 # 472 — `news-listing` / `latest-news` `js_content` concatenate third-party feed text into `innerHTML` unescaped
 
+> ## ✅ FIXED IN THE LIBRARY 2026-09-04 16:28:35Z — migration 758 applied by hand
+>
+> Council `17a61f16` **APPROVED** (round 3). Both components now build DOM nodes and assign
+> `textContent`, with `innerHTML` kept for clearing only, and hrefs routed through
+> `safeExternalHref` / `safeInternalHref`.
+>
+> **Verified at the rows immediately after apply:** `still_concatenates=f`,
+> `innerHTML = html` absent, `textContent` helper present, both href helpers present, and the
+> `^\/(?!\/)` relative-href arm present — on both components.
+>
+> **Preconditions re-checked on the day, not inherited:** exactly 2 rows, **0 forked**, both
+> still on the old form and untouched since July/August. Rehearsed under `BEGIN/ROLLBACK`
+> against live state first (2 UPDATEs, 1 row each, all five post-conditions true), then applied.
+>
+> **Structural check on the applied scripts** (a character scanner tracking string, comment and
+> regex-literal state): both **balanced** — curly/paren/bracket all 0 — both end on `})();`,
+> and **neither contains its own `$js$` delimiter**, which is the failure that would truncate a
+> script mid-function and still apply successfully. ⚠ **This is NOT a parse**: it cannot see a
+> missing comma, a bad member expression, or a reserved word used as an identifier.
+>
+> **⚠ STILL OUTSTANDING — the browser check, and it is the load-bearing one.** The published
+> `/tools/assets/*.js` do NOT change on apply; they republish on each site's **next render**.
+> Verified 16:29Z: idea.uk and ai-agent-orchestration.com still serve the OLD 3,587-byte asset.
+> So nothing has yet been demonstrated in a browser, and the failure mode that matters — the
+> new script throwing and leaving an empty list, because `container.innerHTML = ""` runs before
+> the loop — is only visible there. See §Verify.
+>
+> **No ledger row needed, and do not try:** `run-migrations.sh --record-only` **refuses** a
+> `_HOLD.sql`, correctly — it is classed as an uppercase-suffixed sidecar the runner never
+> applies, so it can never be replayed and a ledger row would be meaningless.
+>
+> **Rollback if the browser check fails:** `758_..._ROLLBACK.sql`, which restores both scripts
+> verbatim and states plainly that running it re-opens this defect.
+
 **Filed** 2026-09-03 by the `bugs_open/332` lane, found while fixing the markdown that reaches
 the same surface. **Severity: LOW. Status: an exposure to close, NOT a live vulnerability —
 and it must not be written up as one.**
