@@ -65762,12 +65762,24 @@ between them**, however well measured.
 
 **What caught it:** the owning lane read the rows I had not. Nothing in my own process would have.
 
-**Cost, and it was not zero:** the throughput lane **disarmed the council gate estate-wide** on the
-strength of my report. That was the right call under a credible report of a gate withholding
-everything, and it was unnecessary in hindsight — their words. So a wrong mechanism, escalated
-confidently, caused a live configuration change to a shared mechanism. The report was still worth
-sending: reviews *were* dead fleet-wide and nobody had been told. **Being right that something is
-broken does not license being confident about why.**
+**Cost — and the owning lane disputed my first accounting of it, in my favour, so here is the
+version I think is actually accurate.** The throughput lane **disarmed the council gate
+estate-wide** on my report. I first recorded that as "caused by my wrong mechanism". They objected:
+it was caused by my *true* report — six reviews dead, silently, fleet-wide — and a reversible switch
+on a shared gate, taken within twenty minutes, is what a credible report of that should buy,
+whatever the cause turned out to be.
+
+They are right about the decision and I think slightly generous about the causation, so both halves
+belong on the record: **the disarm was a sound hedge under uncertainty, and my wrong mechanism is
+what made the gate the prime suspect rather than the account.** Had the cause been known, that
+particular lever would not have been pulled — disarming a gate does nothing about an API outage.
+Sound action, wrong target, and the wrongness of the target was mine.
+
+The measurable cost lands elsewhere and is smaller: roughly ten minutes of the owning lane's
+diagnosis aimed at the conditional instead of `__step_error`, which they have filed against
+themselves for accepting a cause before reading a trail. **The report was right to send. Being
+right that something is broken licensed the disarm; it did not license either of us to be confident
+about why.**
 
 **The cheap check, as a rule rather than a query:** *before naming a mechanism from a terminal
 state, read (a) that state's own description, (b) `__step_error`, and (c) whether a
@@ -66388,3 +66400,27 @@ then wrong.
 - **Cost.** ~7 minutes of ungoverned council admission (12:07–12:14Z, at level 0 — no practical
   effect), one wrong incident note (corrected), and a peer's 40 minutes. Logged because the
   induced error is a property of the TEXT, not of the reader.
+
+## 2026-09-03/04 — a recipe written into the OWNER'S BRIEF named a producer as kind-generic on the strength of a register line, without opening its prompt (`portfolio_positioning`)
+
+- **The claim.** Brief revision 3 (2026-09-03 13:42Z), `directory_opportunity`: *"Enabling a new kind
+  is a known, repeated recipe, not new engineering: (1) a scheduled_tasks row '<kind>-directory-discovery'
+  targeting directory-researcher…"* — written after reading the register's DIR-001 entry and the
+  finance seeds I had written myself three weeks earlier.
+- **What was true.** `directory-researcher`'s extraction prompt begins *"You are extracting ATOMIC,
+  CITABLE claims about AI MODELS for a public model directory"*. `finance-directory-researcher`'s
+  begins with UK financial services providers and closes `entity_kind` to three values. The kind is
+  emitted by the prompt; no kind-generic researcher exists — the register's own producer-set line says
+  "(kind model)" beside the name, which I read as a label rather than a scope. Three research runs
+  returned zero candidates before I read the first sentence of the prompt they ran.
+- **Why it mattered.** It went into the owner's document as a settled fact, shaped a scheduled task,
+  and cost two days of "the directory is not populating yet" during which the planner held the site's
+  only converting page for want of it. Corrected in brief rev 6 (that sentence only).
+- **What caught it.** Run #3's full funnel: 10 results → 3 scrapes → an empty extraction — the model
+  did exactly as instructed. The instruction was the first line of the prompt.
+- **The cheap check that would have.** Before calling any producer generic, **read the first sentence
+  of its prompt**: `SELECT left(default_config #>> '{workflow,steps,<step>,config,prompt_template}', 200)
+  FROM agent_definitions WHERE type='<agent>' AND is_active`. Ten seconds. And when a register line
+  carries a parenthesis like "(kind model)", it is a scope, not a tag.
+- **Cost.** One false sentence in the owner's brief for ~23 hours; three wasted research runs; the
+  directory and lead route still waiting — on a decision now, not on a mystery.
