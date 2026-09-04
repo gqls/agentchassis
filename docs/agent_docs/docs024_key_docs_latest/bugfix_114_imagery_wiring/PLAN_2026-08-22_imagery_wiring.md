@@ -493,3 +493,103 @@ of this work, which is the one datum showing a visitor can see the defect.
 no current `site_plans` row. Phase 1 is plan-INDEPENDENT by construction (it reads the component
 schema, not the plan), which is a real advantage over the REVISE's preferred route-1 upsert —
 **and that must be stated in the submission rather than discovered.**
+
+## ADDENDUM 2026-09-04 (later) — four consumer constraints that CHANGE Phase 1's implementation. All four verified at the code here, not taken on report.
+
+The consumer notice (owner ruling 2026-07-29 §3) came back with more than clearances. **No lane
+depends on the wholesale rebuild to clear a key** — `475`, `site_delivery_and_editor` and the
+`bugs_open/450`/`479` lane all answered no — but three lanes returned constraints that change
+where and how the seal must be built.
+
+### 1. ⚠ "Layer 2 already carries `content_data` forward" IS NOT REASSURANCE — its carry is OBJECT-level, mine is per-KEY
+
+Raised by the `450` lane via `inter thread comms`; **verified here at
+`save_page_sections_action.go:594-596`**:
+
+```go
+sections[matchedIdx].HTML = p.html
+if p.contentData != nil {
+    sections[matchedIdx].ContentData = p.contentData
+}
+```
+
+It declines to overwrite with **nil**, then otherwise **replaces the whole object**. So a payload
+arriving with a non-nil `content_data` that merely **OMITS** a key still destroys that key, straight
+through Layer 2. **That is exactly this bug's defect, and it survives the carry-forward that looks
+like it should stop it.** Recorded because "Layer 2 carries content_data forward" is the sentence a
+future reader will use to conclude the fix is unnecessary.
+
+### 2. ⚠ PLACEMENT IS THE BINDING CONSTRAINT — the seal must go UPSTREAM of `sanitizeSectionsContentData` (~:644), not near the INSERT
+
+`bugs_open/190`'s envelope guard sits at ~:644 and **its own comment names the invariant a third
+carry path would break** — verified verbatim: *"Placed HERE deliberately: after the Layer 2
+carry-forward above, which is **one of the two paths that recycles a stored envelope back into the
+section set**, and so **after the last point at which content_data can enter it** — and before the
+history snapshot and the DELETE below, **so a refused save writes nothing at all**."*
+
+My original sketch read the prior row *between the history snapshot and the INSERT* — i.e. **after**
+that guard. That would make the seal a **third** envelope-recycling path, positioned where the
+guard can no longer see it, able to reintroduce a stored LLM transport envelope from a new
+direction **and** to write on a save the guard would have refused. **Order today:** enrich :426 →
+Layer 2 carry :517 → **envelope guard :644** → DELETE :938 → INSERT :1130. **The seal belongs
+before :644.** This supersedes edit 2's sketch in the approved submission; it also happens to
+answer the guardian's concurrency objection more cleanly, since the read then sits well before the
+destructive statement rather than adjacent to it.
+
+### 3. ⚠ THE `450` LANE'S LIVE CHANGE (`2fae8baa4`, shipped in v1.0.1361 TODAY) WIDENED THE POPULATION THE SEAL WILL ACT ON
+
+Before it, a re-appended interactive section reached the INSERT with `component_id` **NULL** — no
+component, therefore no `input_schema`, therefore **a schema-driven mechanism could not fire on it
+at all**. It now carries the stored row's component id, so **those rows have a schema for the first
+time, as of today**. `[MEASURED by the 450 lane, 2026-09-04]` **48 of 335** active
+`component_level='tool'` components carry a non-empty `input_schema`, and **a self-contained tool's
+`content_data` is legitimately NULL** — so a fallback fill on one is a **wrong write onto a working
+tool**, in a class that only became reachable hours ago.
+
+**And the obvious guard cannot be inherited.** `isSelfContainedSection`
+(`rerender_page_sections_action.go`) is **verified here** as exactly:
+
+```go
+if len(comp.InputSchema) > 0 { return false }
+level, _ := comp.Raw["component_level"].(string)
+return level == "tool"
+```
+
+It excludes the schema-**LESS** tools and leaves precisely the **schema-carrying** ones exposed —
+which are the only rows the seal would act on. **So it protects the wrong half and must not be
+reused as the exclusion.** ⚠ That function's doc comment says *"as of 2026-07-20 this matches 12 of
+122 active components"*; against 335 active tool-level components today it is nearly **three-fold
+stale**. It carries its date, which is why it is catchable — **do not size anything from it.**
+
+### 4. ⚠ AN EMPTY STRING IS NOT ALWAYS A DEFECT — an OWNER RULING can be stored as one
+
+From `site_delivery_and_editor`, and it belongs where the fallback decision is made rather than in
+their lane. On boxingonline, the owner's *"cut it"* ruling was applied as an **explicit empty
+string with the key PRESENT** (`call-to-action.subheadline`, len 0), and the only record that the
+emptiness was a **decision** lives in `site_work_items.spec.approved_data[].owner_ruling` on item
+`5edadfbe` — *"OWNER ruled CUT IT. The copy-editor proposed a rewrite; the owner cut the line
+entirely rather than reword it."* **`page_components` knows nothing about that.**
+
+**Today it is out of scope and safe:** the field is `llm`-sourced and declares no fallback, and 0 of
+that component's 6 fields declare one, so the seal cannot touch it. **The hazard is the obvious next
+step** — any widening to llm fields, or any later "this field is empty, repair it" mechanism, would
+reinstate a line the owner deliberately removed, **and it would look exactly like a repair**. So the
+rule goes in the code, not just here: **the seal fills only an ABSENT key, never an EMPTY one**, and
+`valueIsEmpty` must not be used to conflate the two. That also settles the `editquality` seat's low
+objection about empty-set-on-purpose versus omitted — with a real reason rather than an assumption.
+
+### 5. Arming order, granted as asked
+
+**Arm `seal_declared_field_contract` on ONE step first, and make it `page-rerender`** (the `450`
+lane's ask): that path already **refuses** to render a section with no `content_data` rather than
+blanking it, so a bad interaction surfaces as a refusal rather than a write. This also answers the
+`475` lane's warning that an opt-in default-OFF mechanism nobody arms becomes a silent undriven
+seam — **the first arming is named here, with its reason, rather than left to "someone will".**
+
+### One seam flagged, deliberately not taken
+
+`bugs_open/479` §4a: `loadComponentSchemas` does `result[ci.Function] = ci` over a query with **no
+`ORDER BY`**, so last-write-wins silently re-bound `advertise.co.uk/tool-ad-budget-calculator` to
+another site's fork at 14:05Z (stored bytes 16,953 → 17,238). **That map is shared with
+`plan_sections`.** The `450` lane scoped it open rather than fixing it. **Not this lane's** — but if
+any future change makes a save re-resolve a component **by name**, that is the seam it will hit.
