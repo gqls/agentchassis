@@ -465,3 +465,65 @@ object older than the change ⇒ wait. Worth a second look only if it survives t
    join, don't duplicate.
 4. **`bugs_open/427`** — root of owner items 7, 9, 10. Restate the title first (§6).
 5. **Nobody re-seeds this site** until `420`'s class fix rolls.
+
+---
+
+# UPDATE 4 — 2026-09-04. A CORRECTION TO THIS FILE THAT COST ANOTHER LANE A WRONG TURN.
+
+## ⚠ "`bugs_open/427`'s session has ENDED and needs restarting" is FALSE, and has been since 20:00Z.
+
+That claim appears in §3, in UPDATE 1, in UPDATE 2's action 3 and in this file's action lists — four
+places. **The 427 lane restarted the same evening and is active:** `0e086d854` 20:00, `527961354`
+20:13, `f35a6dfd5` 20:14, `a12d787d0` 21:19 (s22.4 → s23), working verified-facts plans with
+negative and positive controls.
+
+**It propagated.** The `bugs_open/463` lane went looking for a live 427 session, was routed here by
+site-design-planner, and arrived asking this thread questions on the strength of it — plus a second
+misattribution (migration **687** is `05905ebcb`, the **428** lane's build-site-planner prompt work;
+nothing in this thread shipped a migration). *Do not route 427 work at this thread.* Reach the 427
+lane directly, and **check `git log --since` on `bugs_open/427*` before repeating any status from
+this file** — "session ended" is the single most perishable claim a handoff can carry, because
+nothing updates it when the session comes back.
+
+## Census run answering that lane's question, recorded here so the number carries its date
+
+`[MEASURED 2026-09-04]` `parent_section` is persisted on **`site_plan_pages`**, not on `pages`
+(`pages` has no such column; `datahelpers.ParentSectionFromURL` exists to recover the directory from
+the URL instead). `site_plans` is full history — 56 plans, 2026-05-12 → 2026-09-04, 21 superseded
+and retained — so this is a complete census, not a rolling window.
+
+- **881 planned pages; 860 (97.6%) declare no `parent_section`.**
+- The 21 that do are **four values on two days**: `archetypes` (8) and `tools` (1) on 2026-06-22,
+  `glosario` (8) and `guias` (4) on 2026-07-16.
+- **Since 2026-07-16: 44 plans, 702 pages, ZERO declarations.**
+
+The 463 lane measured independently that the live 32,191-char plan_site prompt never contains the
+string `parent_section`. The two together say the field is **undriven, not disputed** — the model is
+never asked, so production holds no sample of what it would honour. And the only three occasions it
+ever named a section unprompted it **invented vocabulary** (`guias`, `glosario`) beside an estate
+whose head is `guides`.
+
+⚠ **Do not compare 881 against the estate's 1,362 pages.** `site_plan_pages` is planning intent;
+pages created by adoption or by `deploy_tool_action` never appear in it.
+
+## This site is a worked example of the directory problem, if anyone writes that RFC
+
+```
+blog-index     /articles/index.html                      <- children are NOT in its directory
+blog-post      /blog/<six>.html
+blog-post      /guides/tool-fight-calendar-guide.html    <- role differs from its four siblings
+guide          /guides/tool-<four>-guide.html
+section-index  /guides/index.html
+```
+
+A `blog-index` at `/articles/` whose every child is `/blog/` — stem-matching index to children
+returns **zero**. And the four `role=guide` companions sit in the same directory as one
+`role=blog-post` companion produced by `deploy_tool_action.go:739`, which hardcodes
+`Role: "blog-post", ParentSection: "guides"`.
+
+**A second candidate cause for the `/guides/tool-fight-calendar-guide.html` 404 in UPDATE 3.** I put
+it down to latency (row created 17:35, site published 17:32) and that remains the simpler
+explanation. But it is also **the only companion guide on this site with a different role**, and the
+only one not serving. `[UNVERIFIED]` — two candidate causes, not one. Watch it on the next publish
+tick; if it is still 404 after a publish that postdates 17:35, latency is refuted and the role
+difference is where to look.
