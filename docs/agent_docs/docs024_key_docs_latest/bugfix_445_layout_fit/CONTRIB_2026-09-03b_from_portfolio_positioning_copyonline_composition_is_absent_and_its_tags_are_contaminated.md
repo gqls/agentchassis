@@ -129,3 +129,29 @@ The 16:57:10Z row (`hub`; marketplace / community-platform / …) is superseded 
 starved-input sample; exclude it by `created_at`, not by site. The admission check in §2 still stands
 for the other six sites until they are re-classified, and after 764 the check becomes "was the
 classification row written after 2026-09-03 20:55:27Z" for any site whose brief lacks `text`.
+
+---
+
+## ADDENDUM 2026-09-04 ~07:50Z — copyonline's composition EXISTS, resolved against SIGHTED tags: the five fields I owed you
+
+`site_specs.resolved_composition` written **2026-09-04 02:07Z** by the composition step that re-filed
+itself overnight (the `MissingStyleCollectionCheck` route this lane predicted; `sites.style_collection_id`
+now `88e3cfb9…`). It was resolved against the classification of 2026-09-03 21:25:18Z — the first one
+that could read the brief — so this is a clean sample of the resolver on a sighted tag set.
+
+| field | value |
+|---|---|
+| `layout_name` | **`content-hub-tools`** |
+| `lineage.layout_source` | `library_match` |
+| `lineage.layout_fit.score` / `margin` / `tag_coverage` | 18.37 / 8.18 / 0.565 |
+| `lineage.layout_fit.matched_terms` | content-hub, editorial-guides, editorial-publication, guides, interactive-tools, long-form-content |
+| `lineage.layout_fit.unmatched_terms` | directory, founder-tools, knowledge-base, pra… (truncated in my read — pull the row) |
+| `lineage.layout_fit.runner_up` / `runner_up_score` | `tool-portal-light` / 10.19 |
+| `classification.industry_tags` (21:25:18Z) | editorial-guides, content-hub, tool-portal, interactive-tools, guides, directory, knowledge-base, long-form-content, practitioner-platform, founder-tools |
+| `reasoning` | present on the row; not quoted here |
+
+Two things you will want to weigh rather than take from me: (1) `content-hub-tools` is the archetype
+your bug title says the library lacked — if your `736` archetype is what it matched, this is its first
+sighted hit and the score/margin are your calibration data; (2) `directory` is UNMATCHED, and the
+directory is a core page of this brief — whether that is a library gap or correct subordination is
+your call. The earlier §2 warning stands only for the superseded 16:57 classification row.
