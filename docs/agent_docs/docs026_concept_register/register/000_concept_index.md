@@ -791,6 +791,7 @@ an ID prefix, or a status word.
 | DEV-010 | Specialist vs handler: the persistence boundary | deployed | Handlers must persist their own outputs; specialists-as-handlers need a save/deploy wrapper. | development-guide.md |
 | CTS-016 | Handler dispatch input-path contract (input_data.spec.*) | deployed | Handlers must read spec via input_data.spec, not top-level flattening; rediscovered twice | contracts-and-standards.md |
 | EMAIL-002 | Transactional email sending realities (587-only, relay filtering, SES + DKIM) | deployed | Hard-won SMTP truths: 587-only, MailChannels blocks, dedicated SES sender adopted | email-infrastructure.md |
+| EMAIL-003 | Post-delivery follow-up email: once-only claim, suppressed by the confirm button | built, seeded DISABLED | The 2nd customer email; first reader sites.transfer_confirmed_at ever had. Can reach NOBODY today — no durable record of who a site was delivered to | email-infrastructure.md |
 | LNK-007 | Layer 1b header/footer phantom fix (shared site components) | deployed | Hardcoded ContentData in render_site_components fixed at the Go source | link-management.md |
 | IMG-042 | Header logo resolution from plan imagery | deployed | Header component fixed to resolve locked logo via site_plan_imagery, not dead sites.logo_url. | imagery.md |
 | CTS-028 | Chrome templates must be variable-driven | aspirational | Header/footer LLM-hardcode links; pre-store hardcoded-link gate designed, not built | contracts-and-standards.md |

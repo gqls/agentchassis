@@ -61,3 +61,60 @@ night's rehearsal, and the address on it is your own. The first time I test this
 
 Until you have answered, I will build it switched off: the code written, the schedule seeded but
 disabled, so that turning it on is one deliberate flick rather than a surprise.
+
+---
+
+**2026-09-04, early afternoon.**
+
+Three things since the note above, one of which you should know about before you next look at a
+customer email.
+
+**The same untrue sentence was in a third place, and it is the one that actually reached somebody.**
+The delivery email itself — the one that went out with the rehearsal last night — said *"press the
+button here so we stop reminding you"*. So it was not only on the two web pages I fixed this morning;
+it was in the letter. That one was editable without a release, and the delivery lane rewrote it within
+the hour. It now says *"press the button here to tell us you have moved"*, which is true. Nothing
+false about reminders is now live anywhere.
+
+**I have built the follow-up email you asked for, and deliberately left it switched off.** The code
+is written and committed, the schedule is seeded but disabled, and turning it on is one command once
+you have answered two questions. The care went into one thing above all: making it impossible for it
+to email somebody twice. The way it works is that a site is *claimed* before anything is sent, in a
+single database statement that can only succeed once — so even if the scheduler ran twice at the same
+instant, or ran every minute for a week, exactly one email can go. I proved that against the real
+database rather than a mock, including the case that matters most: a customer who presses the confirm
+button in the gap between us choosing to email them and the email being sent does not get it.
+
+**And then it turned out it cannot email anyone at all, for a reason worth your attention.**
+
+We do not have a durable record of who any site was delivered to.
+
+The rule in our own documentation is that a customer's address comes from the order they placed. That
+is right, and for a site that came through an order it works. But idea.uk — the only site we have
+ever delivered — was our own rehearsal, sent to your address typed in by hand, so there is no order
+and there is no recorded address. The one other place it exists is the log of the delivery run
+itself, and I checked how long those are kept: **under twenty-four hours.** A follow-up due in a week
+would be looking for it six days after it was thrown away.
+
+I only found this because I ran the query with the calendar deliberately relaxed, so that it *had* to
+return idea.uk, and it returned nothing. Without that, the follow-up would have sat there switched
+on, selecting nobody, looking perfectly healthy for as long as anyone cared to watch it. That is the
+kind of failure I would rather find in an afternoon than in a month.
+
+The fix is small and belongs in the delivery step rather than in mine: record the address on the site
+at the moment we hand it over. I have handed that to the lane that owns delivery rather than reaching
+into their code. Until it is done, the follow-up can reach ordinary customers who came through an
+order, and cannot reach anything we deliver by hand.
+
+**So, two questions and one warning, unchanged from this morning and now more concrete.**
+
+How long after delivery should the follow-up go? The code refuses to run without a number rather than
+picking one for you, so nothing happens until you say.
+
+And the warning stands: idea.uk is the only site this thing can currently see, and its address is
+yours. The first time it is switched on for real, **you get the email**. Better you read that here.
+
+**One thing that went wrong on our side, for completeness.** The review council that checks work like
+this was dead for about forty minutes this morning — the account had run out of credit. It has been
+topped up and everything is running again. It matters only because a dead review looks exactly like a
+finished one unless you go and look, so I have written down how to tell the difference.

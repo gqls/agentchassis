@@ -139,7 +139,19 @@ func SendFollowupEmailAction(ctx context.Context, params ActionParams) (interfac
 	}
 
 	// TEMPLATE-VS-LINKS, ALSO BEFORE THE CLAIM, inherited from the delivery
-	// send. Every link this email can carry is knowable from config alone, so a
+	// send.
+	//
+	// ⚠ THIS IS A LOCAL GUARD AND THERE IS NO SHARED ONE — stated explicitly
+	// because a council seat asked whether this reinvents a platform mechanism
+	// (016b §9 case 7: Go templates render a missing field as empty with NO
+	// error under missingkey=zero, and only one call site was ever fixed). It
+	// does not reuse one, because none exists: `grep -rn "missingkey"` over
+	// platform/ and internal/ finds only COMMENTS describing the hazard, and the
+	// only other placeholder-refusal in the estate is send_delivery_email's,
+	// which this copies deliberately rather than shares. Note this seam is not
+	// even text/template — it is a strings.Replacer over a closed vocabulary, so
+	// a shared template guard would not cover it anyway. If a shared mechanism is
+	// ever built, these two are its first two callers. Every link this email can carry is knowable from config alone, so a
 	// template naming one this dispatch cannot produce is refused before
 	// anything irreversible happens. Without it, {{zip_link}} would be replaced
 	// by an EMPTY STRING and the customer would read "Your files: " with nothing
@@ -201,12 +213,12 @@ func SendFollowupEmailAction(ctx context.Context, params ActionParams) (interfac
 		// The claim stands. Loud and recoverable beats silent and duplicated:
 		// the work item fails, a human sees it, and this customer is not
 		// re-chased by the next tick.
-		return nil, fmt.Errorf("follow-up confirm token mint failed (followup_sent_at IS stamped; a re-send is a deliberate operator act): %w", err)
+		return nil, fmt.Errorf("follow-up confirm token mint failed for site %s (followup_sent_at IS stamped; a re-send is a deliberate operator act, RUNBOOK \"stamped but never sent\"): %w", siteID, err)
 	}
 
 	confirmLink, err := delivery.ConfirmTokenURL(linksHost, confirmToken)
 	if err != nil {
-		return nil, fmt.Errorf("follow-up confirm link could not be built (followup_sent_at IS stamped): %w", err)
+		return nil, fmt.Errorf("follow-up confirm link could not be built for site %s (followup_sent_at IS stamped; RUNBOOK \"stamped but never sent\"): %w", siteID, err)
 	}
 
 	body := fillTemplate(
@@ -231,7 +243,7 @@ func SendFollowupEmailAction(ctx context.Context, params ActionParams) (interfac
 	if err := sender.Send(ctx, msg); err != nil {
 		// The stamp stands, deliberately. For a chase email, not sending beats
 		// sending twice — and the run is red, so a human decides.
-		return nil, fmt.Errorf("follow-up email send failed (followup_sent_at IS stamped; a re-send is a deliberate operator act): %w", err)
+		return nil, fmt.Errorf("follow-up email send failed for site %s (followup_sent_at IS stamped; a re-send is a deliberate operator act, RUNBOOK \"stamped but never sent\"): %w", siteID, err)
 	}
 
 	logger.Info("follow-up email sent",

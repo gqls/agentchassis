@@ -154,3 +154,33 @@ quiet.
 > theirs either.
 
 Council: step B submitted, `SUBMISSION_CORR=3555a7a1-cf53-4b3b-91ba-4907a2e43ae4`.
+
+## 2026-09-04 (mid-afternoon) — both rounds APPROVED, and what the advisories were owed
+
+**Step A: `b9fc0004-74a4-4e17-8e5a-0e9c82d32052` — APPROVED**, 1 advisory objection.
+**Step B: `3555a7a1-cf53-4b3b-91ba-4907a2e43ae4` — APPROVED**, 4 advisory objections, none
+high-severity. Both `complete_approved`.
+
+> ⚠ **STEP A'S FIRST CORRELATION (`eee96972-…`) IS DEAD AND ITS TRAILER CAN NEVER RESOLVE.** That
+> run was killed by the credit outage; the commit `76ec663d3` carries
+> `Council-Submitted: eee96972…`, forward-only forbids an amend, and `098` will therefore read that
+> commit as unreviewed for ever. **The live replacement is `b9fc0004-…`, and it is APPROVED.** I have
+> NOT back-dated a `Council-Reviewed:` onto a later commit touching the same files to tidy the
+> report — that is precisely the dishonesty surface the trailer exists to protect. The mapping lives
+> here and in `bugs_open/477`.
+
+### Disposition of every step-B objection
+
+| seat | objection | disposition |
+|---|---|---|
+| editquality | *775 shows only a `scheduled_tasks` INSERT; the matching `agent_definitions` row is not visible* | **Objection is mistaken, and the sketch is why.** `775` does insert the agent row (`INSERT INTO agent_definitions … 'delivery-followup-sender' … WHERE NOT EXISTS`); my `sketch` field showed only the schedule half. No code change. **The lesson is mine, not the seat's:** a sketch is what the reviewer reads, so omitting half the migration from it manufactures an objection. |
+| editquality | *`followup_after_days` has no visible landing place once the owner rules* | **Mistaken for the same reason.** It is in `775`'s agent config (`'followup_after_days', 7`) as a placeholder. Re-read the file: the landing place exists and the RUNBOOK names it. No change. |
+| editquality · tooling_provenance · guardian (**three seats**) | *`ConfirmTokenURL` duplicates `prepare.go`'s `tokenURL`; a comment in one file protects nobody reading the other* | **ACTED ON.** Added a cross-reference comment **in `prepare.go`** naming the duplicate, why they are apart, and the instruction to collapse them. `prepare.go` was clean in the tree at the time (checked before editing) and the edit is comment-only, 9 lines added, 0 deleted. |
+| bug_historian | *the placeholder guard may reinvent a shared template-safety mechanism (016b §9 case 7)* | **CHECKED, then stated.** `grep -rn "missingkey" platform/ internal/` finds **only comments describing the hazard** — no shared guard exists. Also: this seam is not `text/template` at all, it is a `strings.Replacer` over a closed vocabulary, so a template guard would not cover it. Written into the action as a comment rather than left implied. |
+| bug_historian | *a post-claim send failure leaves `followup_sent_at` set with no email and no way for an operator to find it* | **HALF RIGHT, and the half that was right is fixed.** The failure IS durably logged — `routeToErrorStep` writes `__step_error` and `agent_error_log` together (`coordinator.go:3997-4002`). But `v3_site_actions.go:6230` records that **triage reads the work item, not the log**, so the row was findable only by someone who already suspected. The three post-claim errors now **name the site id** and point at the RUNBOOK, and `RUNBOOK_delivery_followup.md` has a "stamped but never sent" section with the join and the deliberate-recovery warning. |
+| tooling_provenance | *no durable cross-lane record; coordination was by message* | **ACTED ON.** `CONTRIB_2026-09-04_from_the_477_lane_no_durable_record_of_who_a_site_was_delivered_to.md` written into the `site_delivery_and_editor` lane directory, plus the register entry `EMAIL-003` and the `bugs_open/477` §4 contribution. The message was how it was raised in time; the file is how it survives the session. |
+
+**Two of six objections were factually wrong, and both for the same reason — my `sketch` fields
+showed a fragment.** Worth carrying: the seats read the plan, not the tree, so an abbreviated sketch
+is not a neutral summary, it is the evidence. That is a cheaper lesson than it sounds — a REVISE on
+either would have cost a round.

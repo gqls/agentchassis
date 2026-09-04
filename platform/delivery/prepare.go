@@ -312,6 +312,15 @@ func Claim(ctx context.Context, db *sql.DB, siteID uuid.UUID, cfg LinkConfig, no
 
 // tokenURL builds a customer link. Paths are two characters because they are
 // read aloud and retyped out of an email.
+// ⚠ THERE IS A SECOND BUILDER FOR THE /c/ CONFIRM LINK: delivery.ConfirmTokenURL
+// in handover.go (bugs_open/477). Two builders for one customer-facing link is a
+// drift risk whose failure mode is a link that quietly goes somewhere else, and
+// three council seats flagged it — this cross-reference is here because a comment
+// only in the OTHER file protects nobody reading this one. They exist apart only
+// because two lanes were editing these two files in the same week. COLLAPSE THEM:
+// export this one (taking ConfirmTokenURL's host validation with it, which this
+// one delegates to LinkConfig.validate) and delete the duplicate. If you change
+// the scheme, host handling or path here, change it there in the same commit.
 func tokenURL(host, prefix, token string) string {
 	u := url.URL{Scheme: "https", Host: host, Path: "/" + prefix + "/" + token}
 	return u.String()

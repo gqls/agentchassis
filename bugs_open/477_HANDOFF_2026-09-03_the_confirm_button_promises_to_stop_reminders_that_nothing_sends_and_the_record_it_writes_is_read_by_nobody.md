@@ -184,3 +184,26 @@ due in seven days would look for it six days after it was reaped.
 tripwire test is what makes doing it a conscious act. It should happen when the sender is live, and
 the same is true of the email's *"so we stop reminding you"*, which `776`'s header and rollback both
 say should come back then.
+
+## 6. COUNCIL: both rounds APPROVED (2026-09-04)
+
+| round | correlation | verdict |
+|---|---|---|
+| step A — honest copy | `b9fc0004-74a4-4e17-8e5a-0e9c82d32052` | **APPROVED**, 1 advisory |
+| step B — the sender | `3555a7a1-cf53-4b3b-91ba-4907a2e43ae4` | **APPROVED**, 4 advisories, none high-severity |
+
+> ⚠ **Step A's commit `76ec663d3` carries a DEAD correlation** (`Council-Submitted: eee96972…`). That
+> run was killed by the fleet's Anthropic credit exhaustion (11:21Z–~12:00Z) — `COMPLETED` at
+> `complete_invalid`, no `council_report`, `__step_error` = *"no reviewer produced a readable opinion
+> (6 abstained, 11 unreadable) — a council with no opinions cannot decide"*. Forward-only forbids an
+> amend, so `098` will read that commit as unreviewed for ever. **`b9fc0004-…` is its live,
+> approved replacement.** No `Council-Reviewed:` has been back-dated onto a later commit to tidy the
+> report; the mapping is here instead.
+
+Objections acted on: a cross-reference comment added **in `prepare.go`** naming the duplicate link
+builder (three seats raised it); the post-claim errors now **name the site id** and the RUNBOOK gained
+a "stamped but never sent" recovery section (the failure was already durably logged, but triage reads
+the work item, not the log); and the placeholder guard is now explicitly documented as a **local** fix
+after checking that no shared template-safety mechanism exists. Two objections were factually wrong,
+both because my submission's `sketch` fields showed only a fragment of the migration — the seats read
+the plan, not the tree. Full dispositions: this lane's `NOTES_delivery_followup.md`.
