@@ -647,3 +647,89 @@ dated cited facts (incl. a forward fixture, Canelo v Mbilli 31 Oct) and **nothin
 
 Cross-recorded by that lane as §1.3b of
 `docs/agent_docs/docs024_key_docs_latest/site_delivery_and_editor/HANDOFF_2026-09-04_continue_here.md`.
+
+---
+
+# UPDATE 7 — 2026-09-04 ~16:10Z. TWO CORRECTIONS TO UPDATE 6, both caught by other lanes.
+
+## ⚠ CORRECTION 1 — the countdown. My date was wrong; the truth is worse.
+
+UPDATE 6 said *"only ISO date in page is 2026-09-02, two days PAST"*. **False.** The `calendar` lane
+read `page_components.rendered_html` directly and found no such string; I re-fetched the served page
+to discriminate (they have no outbound internet) and they are right.
+
+`[MEASURED 2026-09-04 ~16:0xZ]` served `/tools/fight-countdown/index.html`, cache-busted, control
+`<body>`=1: **`var fights` ×1 · `year: 2025` ×6 · `year: 2026` ×0** (months 5,6,5,8,9,6). My
+`2026-09-02` returns **no context match at all** on a fresh fetch.
+
+**So: served == DB, NO publish/cache gap** (a clean negative — that branch is closed). And the defect
+is not one stale entry among working ones: **all six fights are dated 2025**, about a year past, so
+selecting ANY option immediately trips the tool's own *"This fight has started or concluded"*. **Every
+option is dead on arrival.** The six are also *fabricated* — Usyk/Fury II, Joshua/Wilder II,
+Canelo/Benavidez, Inoue/Nery, Davis/Garcia II, Taylor/Serrano III — none is the genuine Canelo/Mbilli
+31 Oct 2026 fixture sitting in `evidence_base`.
+
+**How I got it wrong, and it is the reusable part:** I ran a generic `\b20\d{2}-\d{2}-\d{2}\b` regex,
+got one hit, and reported it as *the fight date* without establishing what the string was. The real
+dates are `year: 2025, month: N` — a shape that regex cannot see. **I found a date-like string and
+published it as the defect.** A structural read of the data beat a pattern match over the text.
+
+**Root cause is NOT 427** (`calendar` lane, verified): the component is `component_level='tool'`, has
+**no `input_schema`**, and templates only `{{.InstanceID}}` — every other value is a static literal
+baked in at generation. **There is no `content_data` path for this tool to consume `evidence_base`
+through at all.** So it is a generator inventing plausible content where it had none — the same shape
+as the logo inventing a wordmark. Filed as its own bug, cross-referenced to 427.
+
+⚠ **And it was undetected until now** — none of the five deferred verdicts names it, and the four
+calendar ones are SUPERSEDED (they describe a pre-build "buried in a paragraph" state). **So the
+record-mode backlog is NOT a complete inventory of this site's defects. "It is already filed" is not
+a safe assumption.**
+
+## ⚠ CORRECTION 2 — the articles duplication is NOT growing. It stopped 48 hours ago.
+
+UPDATE 6 implied "still growing" and I told three parties so. **False**, caught by session 457.
+Verified live: the six NULL-`component_id` rows are dated 08-31 16:29:47, 08-31 18:14:32,
+09-01 01:31:57, 09-01 01:58:36, 09-01 02:34:51, **09-02 16:28:02** — nothing since.
+
+I compared a verdict written 09-01 ("four times") against a measurement taken 09-04 (six) and
+attributed the delta to *ongoing* growth. The interval contained the growth; the growth had already
+ended inside it. **UPDATE 2 of this very file lists those six timestamps — I wrote them myself two
+days ago and did not read them before asserting.** The check was free and already done.
+Appending stopped because migration 316's duplicate guard began hard-failing the action; the
+producer-side fix shipped 09-03 (`f895616d7`).
+
+**This inverts the remedy: deletion is now a ONE-WAY REPAIR**, not a losing race. Two conditions:
+1. **ROLL FIRST, DELETE SECOND.** `828b22c7c` is inert until the chassis rolls. The shipped fix
+   refuses to CREATE a listing in a guessed slot but still UPDATEs one if a single row occupies it.
+   Seven rows sit there today so it refuses; delete six and occupancy falls to 1 — the page's own
+   prose block — and the next rerender overwrites that prose with a listing. *(The roll landed
+   16:01Z; dispatch safe from ~16:07Z.)*
+2. **THE LIST DOES NOT COME BACK ON ITS OWN.** Verified: `pages.sections` for `articles-index` is
+   `["hero", "generic-text-block", "call-to-action"]` — **no listing-class section named**. After the
+   deletion the page correctly serves **no** article list until one is added to the plan. Say this to
+   the owner in advance or it reads as a fresh fault.
+
+## The carousel request — the section he means cannot be carouselled, and a held migration would put one in the WRONG section
+
+`offer analyser / visual designer` lane, verified by me. `/index` (`build_status='needs_rebuild'`):
+pos 1 `content-listing` "Latest from the site" ← **what he means; schema has NO carousel field**;
+pos 2 `info-card-grid` "A few places to start" ← **schema HAS one**; pos 3 `call-to-action`. None
+carries a `carousel` key today.
+
+⚠ **`740_info_card_grid_carousel_defaults_on_HOLD.sql` is approved, UNAPPLIED (0 rows in
+`schema_migrations`), and carries OWNER RULING 2026-09-03 "switch the switches".** If it lands and
+this page rebuilds, **a carousel appears in "A few places to start" while "Latest from the site"
+stays a grid** — the owner would see a carousel materialise on the page he complained about, in the
+wrong section, and could reasonably read his request as actioned.
+
+⚠ **740's own blast-radius census has gone STALE BY ADDITION.** Its header states *"39 do not carry
+the key at all"*. `[MEASURED 2026-09-04]` live: **55 instances across 55 pages, 1 with the key, 54
+without.** The ruling was taken against 39 and would now flip **54** — a 38% under-count. **Re-take
+that census before applying.**
+
+## Counts, reconciled — quote the FILTER with the number
+
+`[MEASURED 2026-09-04]` boxingonline: **63** rows `status='deferred'` · **58** of those carrying
+`[verdict, not dispatched]` · **46** of those content-type. Three lanes quoted 46, 58 and 63 at each
+other as if they disagreed; all three are right and measure different sets. Fleet: 3,181 → 3,184
+within the hour — drift, not disagreement.
