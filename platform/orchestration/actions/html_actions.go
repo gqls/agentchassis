@@ -709,13 +709,30 @@ Return ONLY body content (no DOCTYPE, html, head, or body tags).`,
 // HELPER FUNCTIONS
 // ============================================================================
 
+// getMaxTokens resolves this step's output budget through the package's one
+// budget ladder (llm_options.go), falling back to defaultVal.
+//
+// It used to read the BARE `config["max_tokens"]` and nothing else, which made it
+// the only reader in the estate that honoured the non-canonical spelling and
+// ignored the canonical one — so `html-developer-chunked`'s three steps work
+// today only because they happen to be written the way this one function reads.
+// Move those numbers into the `ai_service` block they sit beside, as every other
+// agent writes them, and this function would silently have returned 16000 for all
+// three (bugs_open/257 round 3, owner decision 4). Reading both spellings, in the
+// same order as every other call site, is what makes that migration safe.
+//
+// The value is then handed to ExecuteLLMPromptAction inside a synthesised
+// ai_service block (see GenerateHTMLAction), so the canonical ladder sees it at
+// its most specific level and agrees. ⚠ That synthesis also hardcodes the model
+// and provider, discarding whatever the step declared — a separate defect, out of
+// this change's scope, recorded here because the next reader of this function
+// will wonder.
 func getMaxTokens(config map[string]interface{}, defaultVal int) int {
-	if maxTokensRaw, ok := config["max_tokens"]; ok {
-		if tokens, ok := maxTokensRaw.(float64); ok {
-			return int(tokens)
-		} else if tokens, ok := maxTokensRaw.(int); ok {
-			return tokens
-		}
+	if value, from, _ := resolveBudgetKey("max_tokens", []budgetLevel{
+		{subConfigMap(config, "ai_service"), "step_config.ai_service"},
+		{config, "step_config"},
+	}); from != "" {
+		return value
 	}
 	return defaultVal
 }

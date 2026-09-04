@@ -74,16 +74,8 @@ func resolveAIServiceConfig(agentConfig, runtimeStepConfig map[string]interface{
 		if root, ok := agentConfig["ai_service"].(map[string]interface{}); ok {
 			overlay(root, "root")
 		}
-		if workflow, ok := agentConfig["workflow"].(map[string]interface{}); ok {
-			if steps, ok := workflow["steps"].(map[string]interface{}); ok {
-				if stepDef, ok := steps[currentStep].(map[string]interface{}); ok {
-					if stepConfig, ok := stepDef["config"].(map[string]interface{}); ok {
-						if block, ok := stepConfig["ai_service"].(map[string]interface{}); ok {
-							overlay(block, "workflow_step")
-						}
-					}
-				}
-			}
+		if block := subConfigMap(workflowStepConfig(agentConfig, currentStep), "ai_service"); block != nil {
+			overlay(block, "workflow_step")
 		}
 	}
 	if runtimeStepConfig != nil {
@@ -93,6 +85,25 @@ func resolveAIServiceConfig(agentConfig, runtimeStepConfig map[string]interface{
 	}
 
 	return merged, sources
+}
+
+// workflowStepConfig returns the config block the agent definition declares for
+// one named step, or nil.
+//
+// Factored out of resolveAIServiceConfig 2026-09-04 so the ai_service overlay and
+// the token-budget ladder (llm_options.go) reach the step through ONE traversal.
+// Two hand-written descents into the same four-deep jsonb path is how the budget
+// ladder came to look at a different step's config from the one the ai_service
+// block came from — see bugs_open/144 for what a second descent costs elsewhere.
+//
+// Returns nil for a NESTED step: currentStep for a loop body is a synthesised
+// name that does not appear in workflow.steps. Its config arrives as the runtime
+// StepConfig instead. Unchanged behaviour, stated because it is invisible here.
+func workflowStepConfig(agentConfig map[string]interface{}, currentStep string) map[string]interface{} {
+	workflow := subConfigMap(agentConfig, "workflow")
+	steps := subConfigMap(workflow, "steps")
+	stepDef := subConfigMap(steps, currentStep)
+	return subConfigMap(stepDef, "config")
 }
 
 // checkOverlayRequiredKeys fails loud when a required ai_service key is present
@@ -353,27 +364,63 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		options["temperature"] = temp
 	}
 
-	var maxTokens float64
-	if maxTokens, ok = agentConfig["max_tokens"].(float64); ok {
-		options["max_tokens"] = int(maxTokens)
-	} else if maxTokens, ok = aiServiceConfig["max_tokens"].(float64); ok {
-		options["max_tokens"] = int(maxTokens)
+	// THE TOKEN BUDGET, resolved by the ladder in llm_options.go rather than by
+	// two arms here (bugs_open/257 round 3, owner decision 4, 2026-09-04).
+	//
+	// What this replaced was `agentConfig["max_tokens"]` THEN the merged
+	// ai_service block — the agent's own top-level key beating every step-level
+	// declaration, and a step's top-level key read by nobody. Both failures were
+	// silent and both were live: ten agents pinned their single 8000-token step
+	// to a leftover root 500–2000, and site-adoption-agent's four steps ran at
+	// the root 16000 while asking for 32000/6000/4000/4000. The full census and
+	// the precedence contract are in llm_options.go; this call site holds no copy
+	// of the rule.
+	budgetLevels := budgetLevelsForStep(agentConfig, workflowStepConfig(agentConfig, currentStep), params.StepConfig.Config)
+
+	if maxTokens, from, shadowed := resolveBudgetKey("max_tokens", budgetLevels); from != "" {
+		options["max_tokens"] = maxTokens
+		// Which level supplied the number is a FACT in the log, not an inference
+		// from the source. The whole of round 3 was diagnosed by re-deriving this
+		// by hand against a jsonb census; nobody should have to do that twice.
+		params.Logger.Info("token budget resolved",
+			zap.String("key", "max_tokens"), zap.Int("value", maxTokens),
+			zap.String("from", from), zap.Strings("shadowed_levels", shadowed),
+			zap.String("agent_type", params.AgentType),
+			zap.String("step", params.ExecutionContext.StepName))
+		if len(shadowed) > 0 {
+			// An operator wrote a number and is getting a different one. Say so
+			// where they will see it, and name the winner: this is the shape that
+			// made ten agents look correctly configured while capped.
+			params.Logger.Warn("max_tokens declared at more than one level; the most specific wins",
+				zap.Int("effective", maxTokens), zap.String("from", from),
+				zap.Strings("overridden", shadowed),
+				zap.String("agent_type", params.AgentType),
+				zap.String("step", params.ExecutionContext.StepName))
+		}
 	} else {
 		// No cap at any level: the provider client's hardcoded fallback will
-		// apply (anthropic.go: 2048 — the smallest number in the estate). That
-		// is a transport safety net, not a sizing decision; a step reaching it
-		// means nobody chose this step's output budget, and the first oversized
-		// document meets a silent cliff (bugs_open/205: 8 of 126 active LLM
-		// steps ran unconfigured, 64 truncations before anything said so).
+		// apply (aiservice.DefaultMaxOutputTokens, 2048 — the smallest number in
+		// the estate). That is a transport safety net, not a sizing decision; a
+		// step reaching it means nobody chose this step's output budget, and the
+		// first oversized document meets a silent cliff (bugs_open/205: 8 of 126
+		// active LLM steps ran unconfigured, 64 truncations before anything said so).
 		params.Logger.Warn("max_tokens not configured at any level; provider hardcoded default will apply",
 			zap.String("agent_type", params.AgentType),
 			zap.String("step", params.ExecutionContext.StepName))
 	}
 
-	// Pass through budget_tokens for extended thinking
+	// Extended thinking, from the SAME ladder — it used to read the merged
+	// ai_service block alone. [MEASURED 2026-09-04] no live agent declares
+	// budget_tokens anywhere, so this arm changes nothing today; it is here so the
+	// first operator to declare one is not caught by a second precedence rule.
 	// Config: "ai_service": {"budget_tokens": 10000}
-	if budgetTokens, ok := aiServiceConfig["budget_tokens"].(float64); ok && budgetTokens > 0 {
-		options["budget_tokens"] = int(budgetTokens)
+	if budgetTokens, from, shadowed := resolveBudgetKey("budget_tokens", budgetLevels); from != "" {
+		options["budget_tokens"] = budgetTokens
+		params.Logger.Info("thinking budget resolved",
+			zap.String("key", "budget_tokens"), zap.Int("value", budgetTokens),
+			zap.String("from", from), zap.Strings("shadowed_levels", shadowed),
+			zap.String("agent_type", params.AgentType),
+			zap.String("step", params.ExecutionContext.StepName))
 	}
 
 	// Resolve model alias to actual API model name
