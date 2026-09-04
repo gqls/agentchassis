@@ -135,6 +135,52 @@ sibling 200.) The damage is **prospective, on the re-render path**, and it has t
 reasonable inference and it is wrong in both directions: the pre-check will not blank a section
 with no `content_data`, and the real risk is a *different tool* rendering, not an empty slot.
 
+## 4a. ⚠ THE PREDICTED HARM HAPPENED, on one of these very pages, the same afternoon
+
+§4(1) was written at ~11:00Z as a prediction: with `component_id` NULL the re-render falls through
+to the slot-NAME map, which has no `ORDER BY`, so with 2-3 active same-function forks **which tool
+renders is decided by row order**. At **14:05:08Z** — after that was written, before the fix rolled
+at 16:01Z — it happened.
+
+`advertise.co.uk/tool-ad-budget-calculator`, slot `tool-ad-budget-calculator`:
+
+| | this morning 09:30Z | now 16:0xZ |
+|---|---|---|
+| `component_id` | NULL | `tool-ad-budget-calculator-advertise-co-uk-**websitepromotion-co-uk**` |
+| `rendered_html` | 16,953 B | **17,238 B** |
+| `name="industry"` on the select | absent | **present** |
+
+**`name="industry"` is the fork's distinguishing attribute** — it is in the websitepromotion
+template and is NOT in `tool-ad-budget-calculator-advertise-co-uk`. That is the discriminator §6
+below establishes at the bytes, and it says the page was re-rendered from **another site's
+component**. `[MEASURED 2026-09-04 16:0xZ]` advertise's own component now has **zero** users on
+any site, and the fork serves **both** advertise.co.uk and websitepromotion.co.uk.
+
+The page still serves a working tool (2 forms / 22 inputs / 8 scripts, 200, controls held), which
+is exactly why this is worth writing down: **nothing about the artefact would tell you it changed
+owner.**
+
+- The re-bind to the fork and the byte change are `[MEASURED]`.
+- That the writer was the re-render name-fallback specifically is `[INFERRED]` — consistent with
+  every column, and with `adopt_fragment_section_test.go`'s own note that *"an unadopted row named
+  `hero` resolves to the hero component there and the fresh-render entry re-emits hero's id —
+  which re-binds it on the next save"*, but I did not catch the write in the act.
+
+**Two consequences for whoever picks this up:**
+
+1. **The repair population has CHANGED and shrunk for the wrong reason.** 5 tool orphans this
+   morning → **3** now (`advertise/tool-cpm-cpc-benchmark-comparator`, `idea.uk/tool-funding-fit`,
+   `loanzy.uk/tool-loan-vs-savings`). Two left the census: `finetuning.uk/playground` re-bound at
+   11:57Z to `tool-playground-finetuning-uk`, which is **correct** (one candidate, so the name
+   match was unambiguous); `advertise/tool-ad-budget-calculator` re-bound at 14:05Z to the **wrong
+   fork**. A shrinking orphan count is not progress — **check what each departure bound to.**
+   `advertise/tool-cpm-cpc-benchmark-comparator` was itself rewritten at 14:21:42Z and came back
+   NULL, so it has been round the loop and is orphaned again.
+2. **A WRONGLY-BOUND row is not repaired by this bug's fix or its repair script.** Both act on
+   `component_id IS NULL`; a row bound to the wrong fork has a non-NULL id and is invisible to
+   both. It needs correcting, not binding, and nothing currently detects it. **That is an open
+   residual with no owner** — see §6.
+
 ## 5. Fix — BUILT, submitted, committed 2026-09-04
 
 **Split the two carry arms on the identity axis.** The splice arm keeps the narrowed, opt-in
