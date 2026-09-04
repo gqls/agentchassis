@@ -620,6 +620,30 @@ answered BEFORE apply.**
 > without its prompt, and now a work-item type without its rows. **Same check every time: open the
 > thing.**
 
+## ✅ THE 2026-09-04 FLEET ROLL (v1.0.1361, cut `06c0b18f2`) DISTURBS NOTHING IN THIS FILE — CHECKED
+
+The obvious worry on picking this up is that a roll landed after the handoff was written, so every
+measured grounding below might be stale. **It is not, and here is the check rather than the
+assurance.** `git log 239ab3626..06c0b18f2` over the five paths this lane's claims rest on:
+
+| path | why this lane depends on it | commits in the roll |
+|---|---|---|
+| `internal/adapters/browserrunner/` | the fence-is-read-only grounding for running on a client page | **0** |
+| `plan_sections_action.go` | `carryStored`/fallback precedence — `740`'s whole mechanism | **0** |
+| `rerender_page_sections_action.go` | the path that actually applies the fallback | **0** |
+| `datahelpers/content_type_violations.go` | `IsEmptyContentValue` — why a stored `false` beats the fallback | **0** |
+| `discovery_checks/check_tool_acceptance.go` | no work item / no rerender on a failing fence | **0** |
+| **control — all `*.go` in the same range** | proves the greps discriminate | **18** |
+
+⚠ **And note WHY git is the right instrument here and the pod is not:** these groundings are claims
+about **what the code does**, not about which binary is serving. A roll cannot change them without
+changing those files. (For "did my fix ship?" the answer is the opposite — `service_binary_capabilities`
+per service, and mind that it is a **two-hour window**, not a history.)
+
+**Both migrations are unaffected in any case:** they are `content_components` / `agent_definitions`
+config, applied by hand, and a Go roll neither applies nor alters a migration. Nothing was in flight
+to lose — both council runs completed 2026-09-03.
+
 ## What the next session owes, in order
 
 1. **BOTH ARE APPROVED — `740` at r3 (16:02:39Z), `747` at r2 (16:18:20Z) — and both advisory sets
