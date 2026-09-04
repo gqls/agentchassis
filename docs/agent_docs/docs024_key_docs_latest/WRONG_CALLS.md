@@ -67848,3 +67848,56 @@ the reason this entry is here rather than only in a lane note.
 >
 > `deletions == 0` stays useful — it is cheaper and it fires *before* the commit. But it is a
 > pre-flight check, and the HEAD assertion is the one that establishes what actually happened.
+
+---
+
+## 2026-09-04 · `site_delivery_and_editor` · I read ONE function and reported a mechanism's absence to the owner
+
+**The claim.** I told the owner, in chat and twice over, *"paying does not start the build — the
+Stripe webhook marks the order paid and writes a log line, that's all it does. Someone still has to
+fire the build separately."* He was mid-decision about a live trial run, and I offered it as a
+readiness finding.
+
+**It was false.** Payment→build has been automatic all along. `billing.Service.HandleWebhook` really
+does only mark paid and log — that part was right. But the seam is a **poller**, not a webhook
+dispatch, which is the better design because it survives a lost webhook:
+
+| mechanism | measured, same session |
+|---|---|
+| `order-intake-collect` → `order-intake-collector` | 900s, `enabled`, last triggered 16:03:46Z, **80 COMPLETED** runs |
+| `build-pipeline-trigger` | 30s, `enabled`, last completed 16:15:30Z, **503 COMPLETED** runs |
+
+**What caught it.** The owner asking the follow-up question — *"How do we link up the payment with
+the build so it works automatically"* — which made me look at the thing I had asserted about instead
+of around it. **Nothing in my own process caught it.** Had he accepted my answer, the plausible next
+move was scoping work to build a seam that already existed and has run 583 times.
+
+**The cheap check that would have.** One query, and I ran it only after being asked:
+
+```sql
+SELECT name, target_agent_type, interval_seconds, enabled, last_triggered_at
+  FROM scheduled_tasks WHERE target_agent_type LIKE '%order%' OR name ILIKE '%intake%';
+```
+
+Or, before that: `grep -rln "build_queue" --include=*.go .` — which returns
+`collect_external_orders_action.go`, whose **header comment states the whole seam in prose**,
+including the design ruling behind it. The answer was in a file comment the entire time.
+
+**THE TRANSFERABLE RULE, and it is not "read more code".**
+**A mechanism's absence at ONE call site is not its absence.** I checked where I expected the
+dispatch to be, found nothing, and reported *nothing exists* rather than *it is not here*. Those are
+different claims and only the second was evidenced. The disconfirming check for "X does not happen
+automatically" is never a reading of one handler — it is a search for **anything that could do X**
+(the table it would write, the schedule that would drive it), because the mechanism is under no
+obligation to live where you looked.
+
+**This is the day's fourth of one shape on this lane** — after a verify block that could not fire,
+a detector with two false positives out of two, and a `[MEASURED]` census that could not have come
+out otherwise. The common element is not carelessness: every one of them was a check that **could
+not have produced a different answer**. Here the check was "is the dispatch in this function?", and
+its negative result was reported as though the question had been "does the dispatch exist?".
+
+> **Peer note, same hour.** The `stripe` lane owns this seam and had **not** verified it either —
+> they held *"a poller exists"* on one observed release. Their weaker, hedged claim was the
+> better-calibrated one, and they said so when handed the measurement. **Two lanes were uncertain
+> about the same mechanism and only the one who guessed confidently got it wrong.**
