@@ -4067,3 +4067,32 @@ survive that path and not only `page-build-handler`; and their council caught th
 filling SILENTLY with no work item, which on this site would have shown the shared `hero.jpg` while the
 page's own generated hero sat unused — indistinguishable from correct at the artefact, and the exact
 shape that kept this invisible for a month.
+
+## 2026-09-04 (16:10Z) — my render-timing hypothesis REFUTED, and the real split is better
+
+The 114 lane tested it `[MEASURED 2026-09-04, theirs]`: each row's last write against its page's render
+stamp, over the null-safe 123. Of the 88 that still paint an asset, **87 were rendered AFTER the row
+write**; of the 35 that paint nothing, **33 were also rendered after**. Render-after-write is
+near-universal in BOTH arms (120 of 123), so it cannot be the discriminator. They carried my own caveat
+— `updated_at` is the row's write, not the moment the key vanished, so it is a proxy — and noted
+correctly that **a proxy which comes out identical on both arms still refutes a hypothesis requiring
+them to differ.** So: **the 88 are NOT pending and the visibly-broken count does not grow on its own.**
+Good news, and worth the one query it cost.
+**What it implies instead, which is a better account than mine:** if a page rendered after its row
+already lacked the key and the HTML still paints a hero, the value is supplied at RENDER time and never
+persisted back. So the population is **88 resolved-at-render-but-unpersisted** (page looks acceptable,
+shows the site's SHARED hero rather than its own, stored row wrong) and **35 that resolve nothing at
+all** — this site's four among them, carrying neither their own `content-hero-` nor the `hero.jpg`
+fallback, with the pricing-hero control positive on the same site. That is why a human reported one of
+ours and none of the 88.
+**Two things this lane's measurement changed in their plan, recorded because they are the useful
+output:** (1) **the 88 must be verified at the STORED ROW, not at the page** — the page already looks
+fine, so an artefact-only check would read them as fixed before anything changed; that is now a stated
+constraint. (2) **`page-rerender` is the named FIRST arming** of their opt-in key, arrived at
+independently by this lane (our pages go through it routinely, so a carry-forward must survive it) and
+by the 450 lane (that path REFUSES to render a section with no content_data rather than blanking it, so
+a bad interaction surfaces as a refusal instead of a write).
+**And the silent-fill objection reached them by two independent routes** — this lane from the site (a
+shared hero shown while the page's own generated hero sits unused is indistinguishable from correct at
+the artefact) and their `bug_historian` seat from the pattern file. They are treating it as the design's
+centre rather than a refinement.
