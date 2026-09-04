@@ -717,12 +717,32 @@ VALUES (
   jsonb_build_object(
     'handler',   'page-build-handler',
     'page_name', 'putting-your-site-online',
-    'page_role', 'guide',
     'reason',    'owner ruling 2026-09-04: the hosting instructions are a generic public framework-built page',
     'suggestion', :'brief'),
   'triaged', 'page-build-handler')
 RETURNING id;
 ```
+
+> ### ⚠ CORRECTED 2026-09-04 — `page_role` was in this spec and reaches NOTHING
+>
+> The first draft carried `'page_role', 'guide'`. **There is no `page_role`.** The column is
+> `pages.page_type`, and `page-build-handler` interpolates only `spec.mode`, `spec.page_id`,
+> `spec.page_name`, `spec.suggestion` and `spec_sections` — so the key was inert. **A spec key that
+> reaches nothing looks exactly like one that works**, because the item still completes.
+>
+> **`page_type` is what decides the URL on this site**, and nothing else does — no site area is
+> involved (`site_area_id` is NULL on all 18 pages):
+>
+> | `page_type` | URL shape |
+> |---|---|
+> | `content` | `/<name>.html` |
+> | `blog-post` | `/guides/<name>.html` |
+> | `tool` | `/tools/<name>/index.html` |
+>
+> **So the URL is a placement decision, and it must match the `{{instructions_link}}` the delivery
+> email will carry.** Routed to the `475` lane, who own the placeholder. Do not fire until it is
+> answered — a page at the wrong URL that a customer letter then points at is worse than a page that
+> waits.
 
 **After it completes, verify at the SERVED page, not at the status** (a `complete` work item is not a
 rendered artefact): fetch `https://webdesign.uk/guides/putting-your-site-online.html`, assert the
