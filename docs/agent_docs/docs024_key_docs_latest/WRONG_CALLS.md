@@ -67901,3 +67901,46 @@ its negative result was reported as though the question had been "does the dispa
 > they held *"a poller exists"* on one observed release. Their weaker, hedged claim was the
 > better-calibrated one, and they said so when handed the measurement. **Two lanes were uncertain
 > about the same mechanism and only the one who guessed confidently got it wrong.**
+
+---
+
+## 2026-09-04 — `news_feed_ingestion`: I offered a CONFOUNDED site as proof of my own fix, and never ran the controlled test I had myself specified
+
+**The claim.** That migration 691 plus the `region` code had delivered the owner's ask —
+UK news on `.uk` sites. My evidence was advertise.co.uk: the enablement ran, the sources
+fetched cleanly, items arrived.
+
+**Why it proves nothing.** advertise's five queries are "CAP Code advertising rules",
+"Advertising Standards Authority rulings", "UK advertising industry news", "IAB UK digital
+advertising spend", "Advertising Association WARC expenditure report". **I wrote every one
+of them by hand, and every one names a UK institution.** So that site cannot separate "the
+`country` parameter reaches the provider and constrains results" from "these queries would
+have returned UK sources with no flag at all". The test and the treatment were confounded
+by my own authorship.
+
+**The farmer lane ran the uncontaminated case** — queries `claims`, `premiums`,
+`insurance market`, `insurance regulation`, generic nouns that fit US trade press equally
+well — on a site carrying `region=uk`, on a binary containing the reader by ancestry, and
+got **16 US hosts to 2 UK**, including `cbo.gov` beside `bbc` and `ft`.
+
+**The compounding error, which is the worse one.** This lane's own plan named the
+controlled test — step 4, dispatch a real `.uk` fetch and read `region` at the adapter. It
+was blocked on 691; another session applied 691; **step 4 was never run**, and I kept
+reporting the fix as working. So a change reached production having never once been
+verified end to end at the provider, while I had written down exactly how to verify it.
+A verification step that is blocked does not stop being owed when the blocker clears —
+and nothing in my own docs re-armed it, because "pending 691" reads as satisfied the
+moment 691 lands.
+
+**The cheap checks that would have prevented it, both of which I know:**
+1. **A proof site must be able to produce the negative result.** Before citing a site as
+   evidence for a mechanism, ask what it would look like if the mechanism did nothing —
+   here, identical, because the queries carry the signal on their own. Same family as the
+   estate's "a control that matches everything".
+2. **When a blocked step's blocker clears, re-arm the step, not just the status line.**
+   The estate already has this as "an INERT until the roll line makes the correct action
+   look premature"; mine was "pending 691", and it aged into a false all-clear the moment
+   someone else applied it.
+
+Family: a-post-fix-zero-needs-a-demand-control, a-pass-from-a-blind-check-outlives-the-blindness,
+a-stale-status-line-prevents-the-thing-it-describes, measurement-discipline-index.

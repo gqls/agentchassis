@@ -422,6 +422,34 @@ not a better result — it is the tell that the census is wrong, because 288 old
 known to carry it. That is a demand control in the shape this estate keeps re-learning:
 a post-fix zero means nothing without proof the query could have found a non-zero.
 
+
+## ⚠ OUTSTANDING: the region fix has NEVER been verified at the provider — and the A/B that would
+
+`691` is applied and the `region` key reaches the provider by code-reading at every hop
+(chain tabulated in `RESPONSE_2026-09-04_to_the_farmer_lane_…md`). **What has never been
+run is the controlled test**, this lane's own step 4. The farmer lane's 2026-09-04 fetch —
+`region=uk` on all four sources, reader present in the serving binary — returned **16 US
+hosts to 2 UK**, including `cbo.gov` beside `bbc` and `ft`.
+
+**Do not cite advertise.co.uk as evidence.** Its five queries each name a UK institution
+because I wrote them by hand, so it cannot produce a negative result and is confounded.
+
+**The discriminator (the farmer lane's design, credited to them).** Run farmer's exact four
+queries — `claims`, `premiums`, `insurance market`, `insurance regulation` — through the
+adapter twice in one run, `region='uk'` and `region=''`:
+
+- **same results** ⇒ `country` biases rather than constrains. 691 is INCOMPLETE, not
+  broken, and the remedy is query wording at seed time, not the flag.
+- **British under `uk`** ⇒ the value is not arriving at runtime, and the scheduled path is
+  where to look — though every hop of it reads correct.
+
+⚠ **This spends credits and dispatches live: it is the owner's call, not a quiet run.**
+
+⚠ **If the remedy turns out to be query wording, note the dedup trap:** the source `name`
+is derived from the keyword and `idx_cs_site_name` is UNIQUE on `(site_id, name)` with
+`ON CONFLICT DO NOTHING`. Editing `vertical_keywords` alone changes **nothing** for the 57
+existing sources and verifies green. Retuning is DELETE + re-insert.
+
 ## Dry-running a migration WITHOUT the runner's probe
 
 The runner's probe refuses any file whose flattened text contains the WORD
