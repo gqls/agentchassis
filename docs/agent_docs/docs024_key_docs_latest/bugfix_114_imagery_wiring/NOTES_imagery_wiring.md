@@ -1470,3 +1470,52 @@ exactly the shape that made this bug invisible for a month.
 > `035:`, `114`) and `scripts/who-owns.py`, which reads messages and paths, not authorship.**
 > `who-owns.py` was doing all the work in the pair. This matters beyond my note because the
 > `inter thread comms` lane relays attributions all day and was given the same inert half.
+
+> ## ⚠ CORRECTION 2026-09-04 — "the HTML still carries the value the stored row lost" IS WRONG, and I said it to five lanes, the council submission and four commit messages
+>
+> The `imagery` lane flagged it as a caveat on their own numbers and it lands on mine: *"rendered_html
+> carrying the image is a PROXY for what the destroyed key held. It is YOUR proxy — the same one
+> behind your 86-row figure — but it is `[INFERRED]`, not measured: a resolver could have produced
+> that html independently of the key."* **They were right, and one query settles it.**
+>
+> **The direct test** — is the painted value the page's OWN content hero (the only shape consistent
+> with a residue of a page-specific lost key), or the SITE-WIDE value (consistent with the resolver
+> supplying it at render, i.e. nothing to do with the lost key)? `[MEASURED 2026-09-04]` over the
+> null-safe 123:
+>
+> | what the component's `rendered_html` paints | rows |
+> |---|---|
+> | the **SITE-WIDE** value (`hero.jpg` / `hero-home.jpg`) — resolver-supplied at render | **86** |
+> | **nothing** | **35** |
+> | the page's **OWN** content hero — the only residue-consistent shape | **2** |
+>
+> **So for 86 of 88, the painted value is NOT what the key held.** It is the site brand hero that
+> route 3 of `ensureAssets` resolves fresh at every render. My phrase — *"`rendered_html` and
+> `content_data` disagree: the HTML carries the value the stored row lost"* — asserts a provenance
+> the data never supported. The honest statement is: **"the HTML carries a resolver-supplied
+> site-wide value that the stored row does not hold."** The disagreement is real; my account of
+> WHY was an inference stated as a finding.
+>
+> **What this costs the argument, stated plainly rather than minimised.** I had been citing the
+> html/`content_data` disagreement as *"exactly the 86-row signature"* of destruction — my
+> strongest-sounding evidence that `save_page_sections` destroys keys. **It is not evidence for
+> that at all.** It is equally consistent with a key that was never written in the first place.
+> The destruction claim now rests on the four legs that do hold: (a) the contract's **totality** —
+> 874 of 874 declare `use_fallback` with a non-null fallback, so absent is forbidden however it
+> arose; (b) **122 of 123** rows sit inside the DELETE's own predicate; (c) `page_component_history`
+> rows tagged **`source = 'save_page_sections_overwrite'`**; (d) migration 664's measured **9 → 3**
+> decay, which requires an active destroyer. **That is still a strong case — but it is a different
+> case from the one I put in the submission, and one leg has gone.**
+>
+> ⚠ **It also makes the untraced lifecycle MORE important, not less.** The handoff already names it
+> as the implementing session's first task; it is now the only thing that would distinguish
+> "destroyed" from "never written", and I had been treating the html disagreement as a substitute
+> for it. **It is not.**
+>
+> **Why my own earlier test did not catch this even though it should have.** The timing refutation
+> above concluded the value is *"supplied at RENDER time and not persisted back"* — which **already
+> implies** the html value is resolver-produced and therefore says nothing about the lost key. I
+> wrote that sentence and did not carry it back to the claim it undermines, two entries up. **The
+> instrument was fine; I failed to propagate its consequence.** That is a distinct failure mode from
+> the four earlier ones today and worth its own line: **a refutation can invalidate a DIFFERENT
+> claim you made earlier, and nothing prompts you to go and look.**

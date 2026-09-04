@@ -68127,3 +68127,36 @@ public-facing RCVS disclaimer, which is the sharpest fact in the whole bug.
 
 Family: your-measurement-answers-the-question-you-encoded, a-report-is-not-a-measurement,
 a-closer-census-cannot-see-what-it-succeeded-at, the-claim-that-makes-your-argument-neater.
+
+## 2026-09-04 (bugs_open/114, fifth and worst of the day) — I stated a PROVENANCE the data never supported, and it was my strongest-sounding evidence
+
+- **The claim, repeated to five lanes, in a council submission and in four commit messages:**
+  *"`rendered_html` and `content_data` disagree — the HTML carries the value the stored row lost."*
+  I cited it as *"exactly the 86-row signature"* of a writer destroying keys.
+- **What was actually true.** `[MEASURED 2026-09-04]` of the 123, **86 paint the SITE-WIDE brand
+  hero** (`hero.jpg`/`hero-home.jpg`), which the resolver supplies fresh at every render; **35 paint
+  nothing**; and only **2** paint the page's own content hero — the sole shape consistent with a
+  residue of a page-specific lost key. **So the painted value is not what the key held**, and the
+  disagreement is equally consistent with a key that was never written at all.
+- **What caught it.** A peer lane flagged it as a caveat on *their own* numbers and noted it applied
+  to mine: *"it is YOUR proxy — `[INFERRED]`, not measured."* Not me, and not any control I ran.
+- **The part that is genuinely embarrassing, and the reason this is the day's worst entry.** My own
+  earlier test had already refuted it and I did not notice. Testing a peer's timing hypothesis, I
+  concluded the value is *"supplied at RENDER time and not persisted back"* — which **entails** that
+  the html value is resolver-produced and therefore silent about the lost key. I wrote that sentence,
+  committed it, and left the contradicting claim standing two entries above it in the same file.
+- **The cheap check, and it is not "run another control".** **When a test refutes something, ask what
+  ELSE you have claimed that it bears on.** A refutation arrives aimed at the hypothesis you were
+  testing; nothing prompts you to re-audit your own earlier assertions against it. One re-read of my
+  own file, filtered by "what does resolved-at-render-unpersisted contradict?", would have found it.
+- **Cost.** One leg of a four-leg argument, removed after it had been distributed. The finding
+  survives — the contract's totality (874 of 874), 122 of 123 inside the DELETE predicate, the
+  `save_page_sections_overwrite` history tag, and 664's measured 9→3 decay all stand — but the
+  submission argues from a signature that does not exist, and five lanes were told it did. It also
+  makes the untraced page lifecycle load-bearing rather than confirmatory: it is now the only thing
+  that separates "destroyed" from "never written", and I had been treating the disagreement as a
+  substitute for it.
+- **Family:** this is NOT the same as the day's earlier four (instruments that could not come out
+  otherwise). The measurement was sound; **the interpretation attached a cause to it**. Sibling of
+  MEMORY [[damage-confirmed-is-not-mechanism-confirmed]] — damage confirmed is not mechanism
+  confirmed — and of [[a-justification-in-an-evidence-column-reads-as-evidence]].
