@@ -3738,3 +3738,17 @@ by the carousel's contract: the section intro sentence, the section's own CTA, t
 `canary_case_studies_carousel/`. Chosen the PROVEN carousel (1 live use, fundamentallyai.com) over
 `hero-card-carousel` (image cards, 0 live uses, auto-advancing) for a first-ever swap; the image one is
 the next step if the owner wants the pictures back.
+
+**12:10Z — the infographic-zero test, run here `[MEASURED]`:** `site_plan_imagery` since 2026-09-02
+(718) joined to the current `evidence_base` aspect. Evidence-backed sites: apis.uk (6 illustrations),
+gamedesign.uk (5 illustrations, 16 heroes, 3 logos). The five without one (advertise, copyonline,
+designblog, seotools, websitepromotion): heroes, icons, logos, ONE illustration. **11 of 12 illustrations
+came from evidence-backed sites; 0 infographics anywhere.** So candidate B ("nothing to resolve
+through") is not the sole cause. apis.uk's illustration subjects include a COMPARISON ("a crowded hive
+beside a single solitary bee") and STEPS ("one comb showing a worker's successive tasks") — 718's own
+named infographic cases — drawn as illustrations on a site with an evidence base: candidate A (rule 13
+is a disjunction, illustration named first, wins 12–0) survives. Caveat: whether those bee sections had
+registered figures was not checked. Sent to both lanes; the experiment (split the disjunction on one
+site, prompt-only, reversible; finetuning.uk's £99 vs `ft-market-anchor` as the subject) is theirs and
+the owner's. Query note for the record: `regexp_replace(prompt, E'\\s+', …)` through kubectl loses the
+backslash and strips every "s" — read the prompts raw next time.
