@@ -126,3 +126,156 @@ or every generation fails here"*. **That precedent is directly on point and must
 4. What is the **smallest change closing the largest fraction** of risk, if the owner wants one
    commit rather than six?
 5. Does the third outcome (§4) exist in the current tool contract, or must it be built?
+
+---
+
+# PLAN v2 — 2026-09-04, after simulation and peer review
+
+The draft above stands unedited. Three of its load-bearing assumptions were refuted within the
+day; each is marked below with what refuted it. **Nothing here was refuted by argument — all three
+fell to a measurement**, which is the reason the plan is written this way round.
+
+## v2.0 What was refuted, and by what
+
+| draft claim | refuted by | outcome |
+|---|---|---|
+| §3B "give Tier B a birth arm; calibrate the threshold against the 134-set" | **Simulation** over `427`'s calibration set: dropping corroboration at threshold 15 → **28 convictions, 3 true, 25 false (89%)**. And the motivating bug sits at **6 records**, below the threshold, while the corpus's largest legitimate dataset is **73**. | **Withdrawn.** Record count is not under-tuned — it is the wrong axis, in both directions. |
+| "port `ea` because it is the narrower, conservative column" | `427`'s diagnosis + first-hand check: `ds` and `ea` are **independent predicates, not subset/superset**. `ds` requires a human-readable string (≥8 chars with a space); `ea` requires identity+attribute keys. Three single-word-name records (`Secateurs`, `Loppers`, `Wheelbarrow`) pass `ea` and fail `ds`. | **Right choice, false reason.** `ds` would have discarded single-word entity names — and an invented product, practice or fighter is very often one word. |
+| "`FactBearingFields(schema)` lets the birth arm ask a structural question instead of a content one" | `[MEASURED 2026-09-04, this lane]` **287 of 335** active tools have `input_schema` NULL — **85.7%**. | **Near-inert as an inculpatory signal.** Leaning on it reintroduces the 89% shape through a different door. |
+
+## v2.1 The governing constraint
+
+**Declaring nothing is what 86% of tools do, and most of them are innocent.** Therefore:
+
+- the provenance declaration is a sound **exculpatory** test — declares a fact-bearing field, ids
+  resolve ⇒ clean, cheaply and certainly, and this strengthens as `427`'s rail lands;
+- it is a near-useless **inculpatory** one today;
+- so **the `ea` content predicate carries essentially all the discrimination**, and this plan says
+  so rather than presenting a two-part conjunction as though both halves bore weight.
+
+⚠ **Do not restore the symmetry later without re-running the census.** The moment schema adoption
+rises materially above 48/335, the inculpatory half becomes worth something — and until then a
+reviewer reading "declares nothing" as suspicious is reading the corpus's default state as a
+finding.
+
+## v2.2 The plan
+
+Ordered by **what it makes unrepresentable**, not by what it detects.
+
+### Phase 1 — the prompt half (DB config; live immediately, no roll)
+`generate_tool_html`'s `prompt_template` gains the provenance rules migration 183 already gives the
+*recreation* prompt: do not invent real-world records; if you have no real data, ship the
+interface with an explicit empty state rather than illustrative-looking data.
+
+**Why first:** DB config is live immediately and Go is inert until a roll, so this cannot be
+overtaken by the gate. The inverse order refuses generations the prompt was never taught to
+satisfy — the trap `create_tool_component_action.go:124-126` already records for the tool-doc
+header gate (*"apply the prompt update before or with the binary carrying this gate, or every
+generation fails here"*). **That precedent is directly on point.**
+
+*Makes unrepresentable:* nothing. It is a prompt. It is first because of ordering, not strength.
+
+### Phase 2 — the `ea` content predicate, as a shared, testable pure function
+`platform/orchestration/datahelpers/` — a pure `DetectEmbeddedEntityClaims(html) ClaimsResult`
+returning the records found and the identity/attribute keys that matched. Pure core, no DB, no
+`ActionParams`, mirroring `DetectToolFabrication`'s own testability design.
+
+*Verified by:* replaying it over `427`'s **134-tool calibration set** and requiring the published
+confusion matrix — this estate's doctrine (`component_write_guard.go`) is that a threshold is
+simulated against the full live corpus **before** commit, and that two candidate checks were
+dropped when the simulation caught them misfiring.
+
+*Makes unrepresentable:* nothing yet — it is the instrument. Shipped alone it is inert and safe.
+
+### Phase 3 — wire it into the uncovered authorship paths, REPORT-ONLY, default OFF
+`create_tool_component_action.go` (covers birth **and** regeneration —
+`regenerateToolComponentInPlace` is called from `:307`, after the `:127`/`:160` gates) and
+`update_component_html_action.go`.
+
+**Opt-in field, unsafe side default OFF**, per the owner ruling of 2026-08-02 §2. Report to
+`recordComponentWriteRejection`'s existing observability path; refuse nothing.
+
+⚠ **Optional-key budget:** adding a key to these actions counts against **N=10**
+(`cmd/config-key-audit --optional-key-budget`, register WFA-013). **Run it before committing**, and
+if either action crosses N, record the accumulated-surface review in
+`architecture_review/optional_key_budget_acks.json`.
+
+*Makes unrepresentable:* still nothing — deliberately. This phase exists to produce the live
+false-positive figure on real traffic before anything refuses.
+
+### Phase 4 — the coverage ratchet
+`tool_content_writer_coverage_test.go`, map `provenanceExemptWriters`, mirroring
+`component_template_writer_coverage_test.go`.
+
+**Contract wording, agreed with `427`:** *"declares provenance OR is listed with a written
+reason"* — **not** *"is fenced OR listed"*. Their rail's writers satisfy the obligation by emitting
+provenance rather than by calling this gate; a fence-membership contract would make compliant
+writers read as exemptions, which is worse than a missing check because it reads as a decision
+someone made.
+
+Inherited weakness restated in the header, unsoftened: **it reads SOURCE, so it proves the call
+exists, not that it executes.**
+
+*Makes unrepresentable:* **a future authorship path appearing unfenced without a human decision.**
+This is the phase that actually closes the door, and it is the reason the whole plan is worth more
+than a checker.
+
+### Phase 5 — turn refusal on, to `needs_human_review`, never to breakage
+Only once Phase 3's live figure justifies it. Refusal routes to human review — the existing gate's
+own design — never to a silent failure.
+
+⚠ **Needs a THIRD outcome besides build and refuse.** `evidence_base` on boxingonline holds 8
+facts, 7 dated, **2** forward; `tool-fighter-comparator` needs fighter attribute data for which
+**no source exists on the estate**. A refusal with two outcomes converts *fabricated tool* into
+*unbuildable tool* for a whole category, and *"a guard that refuses good work gets switched off,
+and then it protects nothing"* is this estate's own doctrine. The third outcome is **build it
+honestly empty with a stated empty state** — `427` §22.3's precedent: *"an empty calendar that
+says so is not a false claim; twelve invented ones are."*
+
+*Makes unrepresentable:* a new tool being born with undeclared invented entity records.
+
+### Phase 6 — remediation of what already shipped
+Birth-time refusal is a control on the **future**; every known violation predates any gate that
+could have refused it. Census is `427`'s calibration file plus this lane's verification.
+
+**Not this lane's to execute on live sites.** boxingonline is with the owner via its lane;
+vetcomparison is with its lane. This lane supplies evidence and the verification contract.
+
+## v2.3 Smallest change closing the largest fraction
+
+**Phase 4, the ratchet — but only if exactly one thing ships.**
+
+Phases 2+3 produce a measurement; Phase 5 produces a control on new tools. **Phase 4 is the only
+one that prevents the bug's actual recurrence mechanism**, which was not "a detector was too
+narrow" but *"a live, correct, council-reviewed gate covered one authorship path of several and
+nobody noticed for seven weeks"* — `bugs_closed/021`'s named class, recurring.
+
+Second choice, if the owner wants something that moves today rather than at the next roll:
+**Phase 1**, because it is DB config, is live immediately, needs no build, and addresses the cause
+the evidence actually supports — `[MEASURED]` the generator was never told not to fabricate and
+has no step that could consult a real fact.
+
+## v2.4 Architecture scope
+
+**None of the above is architecture-scope** under the 2026-07-29 ruling, on the current reading:
+each phase is additive, opt-in with the unsafe side OFF, and changes no shared mechanism's
+*guarantee*. Under the 2026-08-11 RFC_022 narrowing, an opt-in field with an unsafe-OFF default
+that no live consumer names is explicitly **not** architecture-scope — but the consumers must be
+**enumerated, not asserted**, and that enumeration is owed at submission.
+
+**Explicitly out of scope, and both lanes agree not to file it:** widening `ExtractAssertionText`
+to script bodies. If the rail lands and the fence consumes it, that widening is *duplicative*
+rather than deferred.
+
+## v2.5 Still open
+
+1. Does the "build honestly empty" third outcome exist in the current tool contract, or must it be
+   built? **Unanswered — and Phase 5 cannot ship without it.**
+2. Placement of the serve-time backstop (owner's §5 ask): `experience_loop` audit machinery vs the
+   tool pipeline. Both named in 482 §5; neither chosen.
+3. `deploy_tool_action.go` forks a component to a second site **without re-inspecting it**. Not an
+   authorship path, so outside the ratchet as scoped — but it propagates a fabrication. Recorded,
+   not solved.
+4. The `ea` extractor's exact record-splitting: `ds=18 / ea=20` on one row does not close
+   arithmetically even after the subset confusion is resolved (18+3=21). Does not move any
+   conclusion; must be settled before the predicate is ported verbatim.
