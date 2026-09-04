@@ -1630,3 +1630,53 @@ Not built. Awaiting the owner's go-ahead, and layer 2 depends on layer 1 of the 
 change landing first. The verified record is ready: `CIT-5b2cc9894bfc475f`, `event_date`
 2026-10-31, `participants`, full citation, `verified_at` — one real fight, which is the honest
 content for this page today.
+
+## 24. Status update, 2026-09-04 — a PRE-EXISTING instance of §22's exact root cause found on two OTHER tools, and it would evade all three §23.2 checkers as currently scoped
+
+Filed by the `calendar` session as its own bug, **`bugs_open/482`**, after a report relayed by
+`boxingonline.com` — verified independently, corrected on one figure, then cross-checked
+against this file only after filing (a `grep`/re-read gap on my part, worth naming rather
+than hiding: 427 had grown to 1,600+ lines since I last read it in full, and I filed before
+re-reading the tail). **Not a duplicate — genuinely a different pair of tools** —
+`tool-fight-countdown` and `tool-fighter-comparator`, both pre-existing (built long before
+§22's `tool-generator` dispatch), not the fight-calendar tool this section is about. But it
+is the **identical mechanism**: a generator with nothing real to draw on fabricated
+plausible-sounding dated content, and nobody had caught it until now.
+
+**Why it matters here rather than only in 482: it evades all three of §23.2's checkers, and
+that is worth knowing before any of them are built.**
+
+- **Layer 2 (birth-time refusal) would NOT have caught it.** Its stated shape is *"an array
+  literal of objects carrying an **ISO-date-valued key**"*. `tool-fight-countdown`'s fixtures
+  are `{ year: 2025, month: 5, day: 14, ... }` — three separate numeric fields, constructed
+  into a date via `Date.UTC(fight.year, fight.month, fight.day, ...)`, never an ISO string
+  anywhere in the component. `[MEASURED 2026-09-04]` a plain `grep -oE
+  '202[0-9]-[0-9]{2}-[0-9]{2}'` over its 13,475-byte `rendered_html` returns **zero** hits —
+  confirmed directly, not inferred. **So the "0 matches, zero false positives" figure in
+  §23.2 is correct for its own definition and still has a live blind spot**: a
+  year/month/day numeric triplet is the same fabrication in a shape the stated pattern does
+  not look for. Widen it before relying on "satisfiable now, zero false positives" as the
+  reason to ship layer 2 as scoped.
+- **Layer 3 (`data-fact-id` resolution) would NOT have caught it either, for a different
+  reason.** `tool-fight-countdown` carries no `data-*` attributes at all — its fixtures are
+  bare JS object literals, not rendered as elements with a `data-fact-id`. A checker that
+  validates every `data-fact-id` resolves to a real fact never looks at this component in
+  the first place; it is silently out of scope rather than silently passing. The same is
+  true of `tool-fighter-comparator`, which has no fixtures to validate (0 options, 0
+  selects) — a different failure the checker was never aimed at either.
+- **Layer 1 (`check_event_fixture_completeness`) is about the wrong side of the seam** — it
+  checks *facts declared without evidence*, not *tool content with no fact behind it*. Not
+  applicable to either shape found here.
+
+**So `bugs_open/482`'s finding is not "one more site with the same bug" — it is a working
+counter-example against the specific detection shapes §23.2 proposes**, found by reading
+one pre-existing tool's actual JS rather than by running any of the three checkers (none of
+which existed yet to run). Whoever builds §23's plan should read `482` first: at minimum,
+layer 2's pattern needs to cover numeric year/month/day date construction alongside ISO
+strings, and a **census pass over already-built tools** is needed regardless of which
+layers ship — birth-time refusal only stops new fabrication, and at least one violation
+(now two, counting the comparator's emptiness as the sibling failure mode) already shipped
+before any checker existed to refuse it.
+
+Cross-referenced both ways. Not this section's job to re-plan §23 — recorded so the plan is
+built against the fuller picture, not the one available when it was drafted.
