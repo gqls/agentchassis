@@ -161,6 +161,52 @@ not rounded it into the story.
 - **A lane's NAME is not its FOOTPRINT.** I told the `450` lane we were editing the same prompt row
   from their directory name and a commit subject. We were not. One grep would have settled it.
 
+## 6b. ⚠ ADDED 2026-09-04 — `/blog` can neither re-render nor escalate, and the whole site has no plan
+
+Flagged by the `bugfix_384_page_list_invalidation` lane, **verified first-hand** the same day.
+
+`/blog`'s `hero` and `call-to-action` slots carry `content_data` **NULL**. The render gate
+(`rerender_page_sections_action.go:428-459`) refuses to render rather than blank the page; the
+escalation that would fix it then asks `pageSectionsSatisfiable`, which fails **all three** sources
+— so the disposition is `skipped_sectionless_page`, **no `needs_page` item is raised, and the run
+reports COMPLETED.** The page serves fine today; it simply cannot receive any future re-render, and
+nothing says so.
+
+Three required `source:"llm"` fields are unsatisfied: `hero.headline`,
+`call-to-action.headline`, `call-to-action.primary_cta`.
+
+⚠ **Because `content_data` is NULL entirely, the gate trips its FIRST branch** (`no stored
+content_data`) and never reaches the missing-required-field branch. The writer must author **all**
+fields on those slots, not top one up.
+
+⚠ **The site-level fact, which is worse than the page-level one:** this site has **zero current
+`site_plans` rows** and no `site_specs` `aspect='site_plan'`. So `declaredPageSections`' two plan
+lookups and `pageInCurrentPlan` return nothing for **every page here**. 39 of 45 active pages are
+safe *only* because they carry their own `pages.sections`. **Five more sit on empty `sections`
+today** — `ai-readiness-quiz`, `roi-estimator`, `tool-ai-agent-roi-estimator`,
+`tool-build-vs-buy-analyzer`, `tool-llm-cost-calculator` — and are one content loss away from the
+same hole. (Two of those five are the very pages §5.5 says cannot be measured. Possibly unrelated;
+**not** investigated.)
+
+⚠ **`roi-estimator` has ZERO components** and is `status='active'`. Different defect, not chased.
+
+**`sql_for_agents/777` is written, rehearsed and COMMITTED but NOT APPLIED.** It repairs source 3
+only — declaring `["hero","blog-listing","call-to-action"]`, derived from the page's own slots in
+position order with the slot set pinned by a guard.
+
+⚠ **It repairs NOTHING by itself** (the 384 lane's own correction, which they had to make against
+themselves): the empty `sections` is not why the page fails to render, it only suppresses the
+fallback. This converts a **silent skip** into a `needs_page` item, and the repair then depends on
+that item draining. **Do not hand-author the missing content** — owner ruling 2026-08-04.
+
+`needs_page` **does** drain (449 complete fleet-wide, newest the same day), so applying this
+produces a **real page build**, not a queue row that sits. It is not an inert change.
+
+⚠ **Trap, if you re-derive any of this:** `content_components.input_schema.fields` is an **object
+keyed by field name, not an array**. A `jsonb_path_query_array($.fields[*] ? (@.required == true))`
+returns a clean **empty result** — indistinguishable from "no required fields". Use
+`jsonb_each(input_schema->'fields')`. This cost me a wrong reading before I checked the shape.
+
 ## 7. Standing facts
 
 - Site `2a8ebf9c-20a2-4c39-b191-840b012371da`. **45 active pages** as of 2026-09-03.
