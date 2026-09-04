@@ -1,6 +1,34 @@
 # 420 — the negation gate's prose walker skips `name` fields, so heading-surface tics ship unscanned
 
-> ## STATUS 2026-09-04 — FIXED IN CODE, COUNCIL **APPROVED** (round 3), INERT UNTIL THE NEXT ROLL. STAYS OPEN.
+> ## STATUS 2026-09-04 — **LIVE ON v1.0.1361**, COUNCIL APPROVED. STAYS OPEN: LIVE BUT NOT YET EXERCISED.
+>
+> **PROVEN AT THE ARTEFACT 2026-09-04 ~16:0xZ, by two independent methods, each with a control that
+> could have come out otherwise.** Chassis pods restarted 16:00:33–16:02:05Z on stamp
+> `06c0b18f233b`.
+>
+> 1. **Ancestry** — `git merge-base --is-ancestor 60091e140 06c0b18f233b` → **YES**.
+>    ⚠ Control: a commit that genuinely postdates the cut reads **NOT an ancestor**, so the test
+>    discriminates. (My first control was invalid — I picked a commit believing it post-dated the
+>    cut from memory of session order; it was 13:35Z against a 15:22Z cut, i.e. two hours EARLIER.
+>    **A negative control has to be verified negative, not assumed.**)
+> 2. **Binary probe**, all three in the same breath on `agent-chassis-6f699988d5-s4gg9`:
+>    `identityContentField` **PRESENT** (the new capability) · `AcceptNegationRewrite` **PRESENT**
+>    (positive control — the probe works) · a nonsense symbol **ABSENT** (negative control — the
+>    probe discriminates).
+>
+> **WHY THIS STAYS OPEN.** The capability is live; the BEHAVIOUR is unexercised. Nothing has yet
+> been observed scanning a `name` field in a real run. The estate's bar is "fixed AND live", and by
+> the letter this qualifies — but a live-and-never-exercised fix is exactly the state the sibling
+> 417/420 lane flagged as worth keeping visible, and closing here would retire the file before
+> anyone checks the mechanism actually fires. **The first behavioural read closes it** — see
+> "How to verify" below.
+>
+> **POST-ROLL CENSUS BASELINE `[MEASURED 2026-09-04, minutes after the roll]`: 36 name-field tells,
+> 15 domains, 22 pages** (was 37 / 15 / 23 on 2026-09-03). ⚠ **Do NOT attribute that −1 to this
+> fix** — the fix had been live for minutes, and a page rebuilt on the OLD binary would not have
+> been repaired by it. 36 is the baseline to watch fall, not evidence of anything yet.
+>
+> Council APPROVED at 12:29Z on `3e9e8ce8-fb9b-4f5b-a610-016b57427a27`.
 >
 > **Council APPROVED at 12:29Z on correlation `3e9e8ce8-fb9b-4f5b-a610-016b57427a27`** —
 > revise (11:22) → revise (12:19) → **approved (12:29)**, 2 advisories, none high. No trailer to

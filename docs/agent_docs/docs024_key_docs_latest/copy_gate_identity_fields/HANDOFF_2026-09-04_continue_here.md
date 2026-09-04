@@ -9,7 +9,9 @@
 checked (see the bug file's STATUS block)** · **Register:** CQ-037 · **Started from:** the session
 named `420 425`.
 
-**⚠ The council step is DONE. The only thing still owed is the post-roll verification (action 2).**
+**⚠ COUNCIL DONE. ROLL DONE AND VERIFIED AT THE ARTEFACT (v1.0.1361, stamp `06c0b18f233b`).**
+**The ONE thing still owed: a behavioural read — see action 2. The capability is live; nothing has
+yet been observed scanning a `name` field in a real run.**
 
 ---
 
