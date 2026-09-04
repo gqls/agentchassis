@@ -416,3 +416,98 @@ hypothetical).** After the deploy:
   `PLAN_imagery_best_in_class.md` in sync with decisions.
 - Flagging exactly which of your tasks (A/B numbers) are needed next, rather
   than assuming you've read the whole queue.
+
+## The `seal_declared_field_contract` before/after (added 2026-09-04, for the 114 lane)
+
+**What it is for.** The 114 lane is adding a declared-field carry-forward to
+`save_page_sections` (opt-in key `seal_declared_field_contract`, default OFF, **0** live
+`agent_definitions` rows as of 2026-09-04; consumers are exactly three pipelines, one step
+each — `page-build-handler`, `page-rerender`, `tool-recreation-handler`). Arming it changes
+whether `wire_page_hero_on_landing`'s value-gate refuses a row. This measures that.
+
+### ⚠ READ THIS BEFORE RE-RUNNING ANYTHING — the obvious method is wrong
+
+**Do NOT re-run the population filter after arming and diff the counts.** The filter is
+defined by `hero_url` being page-specific, and that is *the very property the seal
+changes*. A row leaving the set is then indistinguishable from a row that was never in it,
+and from a row someone edited in between. **Key the comparison on pinned `component_id`s
+and compare PER ROW.** This holds whoever runs it, and it is why the baseline below stores
+ids rather than a number.
+
+### ⚠ The gate has TWO conjuncts — a census of one arm answers nothing
+
+`wire_page_hero_on_landing.go:147-148` requires **both** `hero_url` **and**
+`background_image` to be in `('', $3, $5)`. A census filtering on `hero_url` alone
+overstates the affected set: on 2026-09-04 that mistake produced a set of 20 of which
+**8 were already refused today** (leopardess, blocked by the `background_image` arm) and
+**12 were already empty in both keys** (so the carry-forward carries emptiness forward and
+they stay wireable). Always select both arms.
+
+**And the principle the whole exercise turns on: the carry-forward PREVENTS FUTURE LOSS,
+it does not RESTORE PAST LOSS.** Rows already emptied by an earlier rebuild are past the
+event and unaffected. The population that moves is the one that *still holds* a value.
+
+### The baseline (pinned 2026-09-04, before arming)
+
+- `baselines/BASELINE_2026-09-04_seal_at_risk_312_pinned.jsonl` — **312 rows**, the
+  at-risk set: hero-family components whose `hero_url` is page-specific today, so the value
+  is destroyed on their next rebuild now and preserved after arming.
+- `baselines/BASELINE_2026-09-04_hero_gate_at_risk_20.jsonl` — the **superseded** 20-row
+  set, kept because it is the worked example of the one-arm mistake above.
+
+Each row carries `component_id`, `page_id`, `domain`, `page`, both key values, the site
+fallback, `build_status` and `updated_at`.
+
+### Re-pin the baseline (before arming)
+
+```sql
+COPY (
+  WITH h AS (
+    SELECT pc.id AS component_id, p.id AS page_id, s.domain, p.name AS page,
+           COALESCE(pc.content_data->>'hero_url','')         AS hero_url_now,
+           COALESCE(pc.content_data->>'background_image','') AS bg_image_now,
+           COALESCE(s.content_data->>'hero_url','')          AS site_fallback,
+           pc.build_status, pc.updated_at
+      FROM page_components pc
+      JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+      JOIN content_components cc ON cc.id=pc.component_id
+     WHERE (cc.function='hero' OR cc.function LIKE 'hero-%'
+            OR cc.function LIKE '%-hero' OR cc.category='hero')
+  )
+  SELECT row_to_json(h) FROM h
+   WHERE (hero_url_now <> '' AND hero_url_now NOT IN ('/assets/images/hero.jpg', site_fallback))
+) TO STDOUT;
+```
+
+### Read the same rows back (after arming) — per row, by id
+
+```sql
+-- $1 = the pinned component_ids, e.g. from: jq -r .component_id BASELINE_*.jsonl | paste -sd,
+SELECT pc.id, s.domain, p.name,
+       COALESCE(pc.content_data->>'hero_url','')         AS hero_url_after,
+       COALESCE(pc.content_data->>'background_image','') AS bg_image_after,
+       pc.updated_at
+  FROM page_components pc
+  JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+ WHERE pc.id = ANY($1::uuid[])
+ ORDER BY s.domain, p.name;
+```
+
+**Reading it.** A pinned row still holding its page-specific value **after a rebuild that
+went through an armed pipeline** = the seal worked. The same row gone empty = it was
+rebuilt through an un-armed pipeline, or the seal did not fire. **`updated_at` is what
+tells you a rebuild happened at all** — without a rebuild in between, an unchanged value
+proves nothing, and that is the control this comparison needs most.
+
+⚠ **Arming may be partial.** There are three consumer pipelines and the 114 lane spoke of
+arming `page-rerender` first. A row only tests the seal if it was rebuilt through an
+**armed** pipeline, so record which are armed at the time you read:
+
+```sql
+SELECT a.type, s.key
+  FROM agent_definitions a, jsonb_each(a.default_config->'workflow'->'steps') s
+ WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+   AND s.value->>'action'='save_page_sections';
+```
+Use `jsonb_each` as above — a naive `default_config::text LIKE '%save_page_sections%'`
+returns **ten** types because it also catches prompt text that merely mentions the action.

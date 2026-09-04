@@ -68243,3 +68243,57 @@ message. None was caught by re-checking the claim in the place I wrote it.
 
 Family: a-citation-you-did-not-open-is-a-claim, a-report-is-not-a-measurement,
 the-claim-that-makes-your-argument-neater-is-the-one-to-check-first.
+
+---
+
+## 2026-09-04 — `imagery` lane, third of the day: I censused ONE arm of a two-arm gate, and sized another lane's blast radius from it
+
+**The claim.** Answering the 114 lane's consumer notice, I told them — and wrote into a
+CONTRIB in their lane dir — that arming `seal_declared_field_contract` would move
+**"20 hero components on 8 sites"** from wireable to `skipped_no_eligible_component`. They
+pinned it in their plan and said so.
+
+**It was wrong, and not by a little: the real at-risk population is 312 on 34 sites, and
+NONE of my 20 is in it.** `wire_page_hero_on_landing.go:147-148` gates on **two**
+conjuncts — `hero_url` **and** `background_image` must both be in `('', $3, $5)`. I built
+the set by filtering `hero_url` alone. With the second arm selected:
+
+- **8 of the 20 are already refused today** (all leopardess — their `background_image`
+  carries a page-specific value, so the second arm blocks them now);
+- **12 have BOTH keys empty**, so the carry-forward carries emptiness forward and they
+  stay exactly as wireable as they are today.
+
+**The conceptual error under the arithmetic one, which is the part worth keeping: the
+carry-forward PREVENTS FUTURE LOSS; it does not RESTORE PAST LOSS.** My 20 were rows where
+the destruction had *already happened* — past the event, unreachable by the fix. The
+population a write-preserving change acts on is the one that **still holds** the value.
+I had the direction of the mechanism right and applied it to the wrong side of its own
+event.
+
+**And I walked into the exact trap I had just warned them about, one message later.** I
+told them `rendered_html` is a proxy for what a key held and must not be read as evidence
+of a lost value — they retracted a distributed claim on that basis — and I then used that
+same proxy to classify those 12 as "page-specific". All 12 paint
+`/assets/images/hero-home.jpg`, the **site-wide brand hero**: precisely the shape their
+retraction had just identified as resolver-produced and silent about the key. Giving good
+advice is not the same as taking it, and the gap between them was about fifteen minutes.
+
+**What caught it.** Not review, and not the aggregate — the aggregate had no column for
+the second arm, so at the altitude I was working the mistake was **invisible by
+construction**. It surfaced only when I wrote the rows out individually with their ids to
+build a durable baseline, and `background_image` appeared in the first line of output. **A
+count cannot show you the column you failed to select; a row can.**
+
+**The cheap checks, both one line:**
+1. **When a predicate has N conjuncts, the census must carry all N.** Before sizing
+   anything off a gate, copy the gate's `WHERE` clause verbatim and check your query has a
+   column for every arm of it.
+2. **Print rows before you publish a count.** Writing out the first two rows of any
+   population you are about to quote costs nothing and shows you the fields your aggregate
+   silently dropped.
+
+**Cost.** One CONTRIB and one message distributed to an active lane that had already pinned
+the figure in a plan; corrected within the hour, before implementation, and the correction
+carried the reasoning rather than just a new number. The *direction* of every other finding
+in that CONTRIB — the gate's intent being defeated by the destroyer, the fourth cause
+joining the folded bucket, the `$5` inertness — was unaffected.
