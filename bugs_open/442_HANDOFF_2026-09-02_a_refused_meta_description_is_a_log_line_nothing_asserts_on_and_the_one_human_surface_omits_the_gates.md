@@ -827,3 +827,64 @@ what they were built to do; the fix is a declaration, and it is the 440 author's
 **This lane's own tests are green at HEAD:** all 10 of
 `TestSavePageMetaDescription_*` / `TestMetaDescriptionRefusal*` pass when run by name against
 `541193665`. Do not read the package FAIL as this lane's.
+
+### 11f. ⚠ CORRECTION to §11d's last paragraph — the candidate WAS shipped, later the same session
+
+§11d ends "**Candidate, not shipped** … deliberately left for a decision". That was true when
+written and is **wrong now**, so it is corrected here rather than edited away.
+
+**Migration `773` is written, council-submitted, applied and verified live.**
+`docs/agent_docs/sql_for_agents/773_meta_description_backfill_message_names_the_per_page_result_keys.sql`
+(+ `_ROLLBACK`), commit `75f7b843d`, `Council-Submitted: 8bf83b59-cda4-43e1-af07-838ea10c1df7`.
+
+What changed my mind is not new evidence — it is that §4 of this very bug is *about* the human
+surface being followable and wrong. Leaving a second instance of the same defect on the same
+message, having just measured it, would have made this file a description of a problem it had
+stopped fixing.
+
+**How it is built, and why that shape:** the UPDATE concatenates onto the row's **own** current
+value instead of restating 728's text, so 728 can be neither mis-transcribed here nor drift from
+what is live. The drift guard demands the 728-era message **and** the absence of this amendment,
+so re-application and a concurrent rewrite both abort before the UPDATE. Verify is `DO`/`RAISE`
+(a block of `SELECT`s cannot stop a `COMMIT`) and carries a whole-pre-image positive control.
+
+**Evidence it is live, shown rather than claimed** `[VERIFIED 2026-09-04 11:57Z]`:
+
+```
+names_series | warns_bare | r728_intact | negative_control | msg_len
+      t      |     t      |      t      |        f         |  2410
+```
+
+and re-running the file now aborts on its own guard, which is the check that the guard is real
+rather than merely present:
+
+```
+ERROR:  ABORT: expected exactly 1 live meta-description-backfiller carrying the 728
+result_message and not yet carrying this amendment, found 0.
+```
+
+Before applying, the round trip was proven against the live row inside one rolled-back
+transaction — `773` then `773_ROLLBACK`, both `NOTICE`s, no `ERROR`, and nothing persisted
+(re-checked: the live message still did not contain `save_result_0` afterwards).
+
+**⚠ And §4.1's landmine fired on my own verification query, exactly as it warns.** My first
+post-apply check read
+`default_config#>'{workflow,steps,save_description,config}' ? 'overwrite_existing'` on the
+**backfiller** and returned **blank** — because the backfiller's save step is nested in
+`backfill_loop.sub_workflow`, so that top-level path does not exist. **Blank is NULL, and NULL is
+not `f`.** Re-read at
+`{workflow,steps,backfill_loop,config,sub_workflow,steps,save_description,config}` with a positive
+control proving the path resolves:
+
+```
+backfiller_declares_overwrite | positive_control_path_is_real
+              f               |               t
+```
+
+The owner ruling holds. Worth recording that the landmine caught a real slip *in the session that
+was citing it*: a `?` on a non-existent path is a quiet false negative, and had I been checking
+that the key was **present** rather than absent I would have read the blank as good news.
+
+**Still owed:** read the `8bf83b59` verdict and act on a REVISE/REJECTED — the migration is
+already applied and the branch is shared, so the verdict is answered by a further migration, not
+by holding this one back.
