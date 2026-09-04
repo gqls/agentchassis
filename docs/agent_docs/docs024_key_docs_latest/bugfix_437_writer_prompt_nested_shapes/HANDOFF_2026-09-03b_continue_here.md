@@ -5,6 +5,27 @@ then `NOTES_writer_prompt_nested_shapes.md` from the bottom up.**
 Supersedes `HANDOFF_2026-09-03_continue_here.md`, which is kept for its account of the
 wrong-pod wrong turn.
 
+## ⏩ UPDATE 2026-09-04 11:05Z — the original symptom is GONE, at the served bytes
+
+`[MEASURED 2026-09-04 11:05Z]` **Zero** new failures since 2026-09-03 12:23:58Z (~23h,
+spanning overnight build traffic). **loanzy `/your-rights.html` — the page this bug was filed
+about — deployed 04:36:00Z and serves 200 / 116,614 B / 5 rendered decision branches**, with a
+404 control. `/guides/tool-loans-consolidation-guide.html` (04:42:50Z) and farmerinsurance
+`/claims.html` (01:18:56Z) likewise. **Nobody fired anything at them.**
+
+The 175 remaining `unresolved` rows are **stale, not blocked**: they all point at those two
+target pages, and the daily drain last ran 2026-09-03 16:06:07Z — 9-12h *before* the deploys.
+Next run ~16:06Z daily; it drains `unresolved`, `max_items` is 1500 (not the code default 50),
+and the resolving predicate now passes for both targets. **Do not clear any rows.**
+
+**Owner asked on 2026-09-04 to "trigger the builds and tell the lanes". No builds were
+triggered — there were none to trigger.** The lanes were told:
+`loanzy_uk_example_site/CONTRIB_2026-09-04_from_437_lane_...md` (that lane owns loanzy.uk and
+is the nearest owner for farmerinsurance.uk, which has no lane of its own).
+
+**Candidate 2 needs RESTATING, not building** — for `unbuilt_internal_link` a repair path
+exists and works. **Candidate 3 is the valuable one** and is untouched.
+
 ## The one-line state
 
 **✅ CANDIDATE 1 IS FIXED, LIVE, COUNCIL-APPROVED AND PROVEN AT THE SERVED ARTEFACT.** Nothing

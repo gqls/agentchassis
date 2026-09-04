@@ -230,3 +230,52 @@ and looking is what showed the reasoning was wrong.
 
 I have written the mistake up properly in the shared log of wrong calls, including the
 one-column check that would have caught it in the first place.
+
+## 2026-09-04, late morning — you asked me to trigger the builds; there were none left to trigger
+
+Good news, and it is the third time this week the answer has been "it already sorted itself
+out, go and look again before doing anything".
+
+**The page this whole bug was about is live.** Loanzy's `/your-rights.html` — the one that was
+active, linked from other live pages, and had never been published since 18 August — went
+live at 4:36 this morning. I loaded it: it serves, it is 116KB, and the decision-point boxes
+that were the whole problem render properly, five of them. A second loanzy page came back six
+minutes later, and farmerinsurance's claims page at 1:18am. All three by themselves.
+
+So I have not triggered any builds, because there is nothing left to build.
+
+**Nothing has failed this way in about 23 hours**, which is the strongest evidence yet that
+the fix is holding — that window covers the overnight run when most building happens.
+
+### The queue rows that are still showing
+
+There are still 175 alarming-looking records across the two sites. They are stale, not stuck.
+
+They are all complaints of the form "this page links to something that was never published".
+They all point at the two pages that have now been published. The check that clears them runs
+once a day and last ran at 16:06 yesterday — **nine to twelve hours before those pages went
+live**. So it was right when it ran, and it simply has not run since. It is due again around
+16:06 today and should clear all 175 by itself.
+
+I checked that properly rather than assuming, because I have been wrong twice on this bug by
+predicting instead of measuring: the check does look at records in this state, it processes up
+to 1,500 at a time rather than the 50 I first feared, and the test it applies now passes for
+both pages. And there is a precedent from yesterday — two other sites in exactly this
+position cleared themselves the same way.
+
+### One thing that is genuinely still broken, and it is not mine
+
+Loanzy's `/guides/index.html` has been sitting unpublished since 18 August. **It is not this
+bug** — it has no content at all, so it never got as far as the stage that was broken. It is
+a different fault on someone else's site, and it was hidden behind this bug's noise. I have
+flagged it to the loanzy lane along with a farmerinsurance page in a similar state, and left
+both alone.
+
+### Lanes told
+
+I have written to the loanzy lane, which owns loanzy.uk and is the closest thing
+farmerinsurance.uk has to an owner — it has no lane of its own. I told them what happened,
+what needs nothing from them, and the one page that is theirs to act on.
+
+I also explicitly retracted yesterday's wrong claim in that note, so they do not pick it up
+second-hand and start clearing records that do not need clearing.

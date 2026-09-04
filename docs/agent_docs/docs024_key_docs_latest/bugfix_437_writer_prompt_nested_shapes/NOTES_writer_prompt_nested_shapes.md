@@ -584,3 +584,82 @@ canary's value here was not that it limited blast radius. It was that it made a 
 - Demand control, re-measured: **29** mechanism-flow writer calls since the fix
   (6/9/11/3 across 13:00–16:00), against the 6 recorded at 14:00Z. Candidate 1 is unaffected
   by any of this and is in better shape than when it was written up.
+
+## 2026-09-04 11:05Z — asked to trigger builds; there were none to trigger, and the symptom is gone
+
+Owner instruction: *"trigger the builds but tell the respective lanes."* **No builds were
+triggered, because the pages had already built themselves overnight.** Third time in this
+lane that re-measuring first has changed the action — recording it as a pattern, not an
+anecdote.
+
+### What I found before firing anything
+
+`[MEASURED 2026-09-04 11:05Z]`
+
+- **Zero** new failures of this defect since 2026-09-03 12:23:58Z — ~23 hours, across the
+  fleet's overnight traffic. Candidate 1 is holding.
+- **The page this bug was filed about is live.** loanzy `/your-rights.html` deployed
+  **2026-09-04 04:36:00Z**, serves **200 / 116,614 B / 5 rendered `branch-label` +
+  5 `branch-body`**; invented-URL control on the same domain **404**.
+  `/guides/tool-loans-consolidation-guide.html` deployed 04:42:50Z (200);
+  farmerinsurance `/claims.html` deployed 01:18:56Z (200).
+- **The two remaining unbuilt pages on those sites are not this bug.** loanzy
+  `/guides/index.html` has **zero `page_components` rows** — it never reached the writer.
+  farmerinsurance `/contact.html` carries 2 components, no mechanism-flow.
+
+So the instruction's object did not exist. Reported rather than substituted a different
+action of my own choosing.
+
+### Why the 175 rows are still open, and why that is fine
+
+All 175 point at exactly **two** target pages — the two that deployed above. The daily drain
+last ran **2026-09-03 16:06:07Z** and recorded `verifier_target_still_unbuilt` on every one.
+**That verdict was correct when written**: both targets deployed 9-12 hours later. The rows
+are stale, not blocked.
+
+Next run ~**2026-09-04 16:06Z**. Verified rather than assumed, because this lane has now been
+burned twice by a plausible prediction:
+
+- `workItemRevalidatableStatuses` (`work_items_common.go:143`) = `needs_human_review`,
+  **`unresolved`** — our rows qualify;
+- `max_items` is **1500** in the agent's step config, not the code default of 50
+  (`GetIntField(config,"max_items",50)`); one 2026-09-03 run revalidated **440** rows across
+  15 sites, so the cap is not binding at 175;
+- the resolving disjunct is `NOT NeverDeployedPagePredicate` =
+  `NOT (deployed_at IS NULL AND COALESCE(build_status,'') <> 'deployed')`
+  (`datahelpers/links.go:277`). Both targets now fail it on **both** arms.
+
+Precedent with the same shape: cv1 + remortgagecalculator, 20 keys / 76 rows, closed
+`auto:revalidated` unattended on 2026-09-03.
+
+### A false-start worth recording: the `max_items` scare
+
+I read `GetIntField(config, "max_items", 50)` and briefly concluded the sweep processes 50
+items a day, which would have meant 175 rows taking days and a real argument for firing
+something. **The default is not the value.** The observed run had done **440** rows in one
+pass, which contradicted the 50 outright, and the agent's step config carries **1500**.
+*Read the configured value; a code default tells you only what happens when config is
+silent.* Cost: nothing, because the contradiction (440 > 50) was already on screen from a
+query I had run for another reason.
+
+### What this does to the fix candidates
+
+**Candidate 2 must be restated, not built.** For `unbuilt_internal_link` a repair path
+**exists and works**. The bug's assertion that "nothing re-plans the section or regenerates
+the field" is false for the item type this bug's damage is actually made of. Whether it
+holds for other types is now an open question rather than a finding — and answering it is
+the honest version of candidate 2.
+
+**Candidate 3 is untouched and is the one worth building.** Nothing escalated
+`/your-rights.html` across the three weeks it sat active, linked from live pages and never
+deployed. Its recovery was incidental — a sweep that happened to reach it — not triggered by
+anything noticing. That is exactly the gap.
+
+### Lanes told
+
+`CONTRIB_2026-09-04_from_437_lane_...md` into `loanzy_uk_example_site/` — it owns loanzy.uk
+and is the nearest owner for farmerinsurance.uk, which has **no dedicated lane** (checked
+`MEMORY_workstreams.md` and every lane `README_where_we_are.md`). The CONTRIB carries the
+retraction of yesterday's "permanently blocked" claim explicitly, so they cannot inherit it,
+and hands them the one item that is genuinely theirs (`/guides/index.html`, 17 days parked,
+zero components, their own RUNBOOK recipe applies). **Nothing was fired at their sites.**

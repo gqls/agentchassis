@@ -101,6 +101,16 @@ occurrences; it rebuilds nothing. What happens to the existing stuck pages split
   this fix does not smuggle in**, and it should follow a verified build on one page rather
   than precede it.
 
+  > ⚠ **THIS BULLET IS TRUE ONLY FOR THE THREE ITEM TYPES `loadOpenPageItems` READS**
+  > (`needs_page`, `owned_page_review`, `page_build_failed`) — added 2026-09-04, after it
+  > misled this lane into a confident, committed, wrong claim. **Every row this bug's damage
+  > actually consists of is `unbuilt_internal_link`**, which that function never looks at.
+  > That type is governed by `idx_swi_dedup`, whose predicate lists `'unresolved'` among the
+  > statuses that **FREE** the dedup slot — and it has its own working drain
+  > (`revalidate_unbuilt_link.go`), which closed 20 keys / 76 rows unattended on 2026-09-03.
+  > **Before applying this bullet to a population, project `item_type` and check it is one of
+  > the three.** Full account: `WRONG_CALLS.md`, 2026-09-03.
+
 Do the census before acting — the split is per item, not per site:
 ```sql
 SELECT s.domain, w.item_key, w.status, left(w.summary,80)
@@ -178,6 +188,57 @@ now measures exactly how much of the damage candidate 1 cannot reach.
 fail-loud re-run guard means it is not safely re-runnable. Both are true. The migration
 carries its own verified rollback and the row was read back after apply; a future editor of
 this row should take the snapshot.
+
+## ✅ 2026-09-04 — THE ORIGINAL SYMPTOM IS GONE, AT THE SERVED BYTES, WITH NO INTERVENTION
+
+`[MEASURED 2026-09-04 11:05Z]` **Zero** new failures of this defect since 2026-09-03
+12:23:58Z — ~23 hours, spanning the fleet's overnight build traffic.
+
+**The page this bug was filed about is live.** loanzy `/your-rights.html` — active, linked
+from live pages, `deployed_at` NULL since 2026-08-18 — **deployed 2026-09-04 04:36:00Z** and
+serves **HTTP 200, 116,614 B, with 5 rendered `branch-label` / 5 `branch-body`** elements.
+An invented URL on the same domain returns **404**, so this is not a parked-domain artefact.
+
+| site | page | deployed | serves |
+|---|---|---|---|
+| loanzy.uk | `/your-rights.html` | 2026-09-04 04:36:00Z | 200, 116,614 B, 5 branches |
+| loanzy.uk | `/guides/tool-loans-consolidation-guide.html` | 2026-09-04 04:42:50Z | 200, 102,470 B |
+| farmerinsurance.uk | `/claims.html` | 2026-09-04 01:18:56Z | 200, 85,055 B |
+
+**Two of the three pages §4 named as stuck are now live, and nobody fired anything at them.**
+The third, loanzy `/guides/index.html`, is **not this bug**: it carries **zero
+`page_components` rows**, so it never reached the writer. Referred to its owning lane.
+
+### The 175 remaining queue rows are STALE, not blocked — and this closes the correction below
+
+loanzy (113 rows / 14 keys) and farmerinsurance (62 / 18) still read `unresolved`. They are
+inert. Every one points at just **two** target pages — the two deployed above — and the daily
+drain last ran **2026-09-03 16:06:07Z**, recording `verifier_target_still_unbuilt`. That was
+**correct when written**: both targets deployed **9-12 hours later**. The next run (~16:06Z
+daily, `review-queue-revalidate-daily`, enabled) should close all 175 as `auto:revalidated`.
+
+Checked, not assumed:
+- the sweep drains `status IN ('needs_human_review','unresolved')` — `unresolved` **is**
+  included (`workItemRevalidatableStatuses`, `work_items_common.go:143`);
+- `max_items` is **1500** in the agent's step config, not the code default of 50; one run on
+  2026-09-03 revalidated **440** rows across 15 sites;
+- the resolving disjunct is `NOT NeverDeployedPagePredicate` =
+  `NOT (deployed_at IS NULL AND COALESCE(build_status,'') <> 'deployed')`
+  (`datahelpers/links.go:277`) — both targets now fail that predicate on **both** arms.
+
+**Precedent for the prediction:** cv1.co.uk and remortgagecalculator.uk sat in exactly this
+state on 2026-09-03, their pages built, and all 20 keys / 76 rows closed themselves
+`auto:revalidated` at 16:08Z. **No rows have been touched by this lane, and none should be.**
+
+### What this means for the fix candidates
+
+**Candidate 2 needs restating rather than building.** For `unbuilt_internal_link` a repair
+path **exists and works** — `revalidate_unbuilt_link.go`, drained via
+`revalidate_review_queue_action.go:324`. The gap this bug asserted ("nothing re-plans or
+regenerates") is **not true for this item type**. Whether it holds for others is now an open
+question, not a finding. **Candidate 3 is untouched and is the valuable one:** nothing
+escalated `/your-rights.html` for the three weeks it sat active, linked and unbuilt — the
+recovery, when it came, was incidental rather than triggered.
 
 ## ~~THE 52 BLOCKED KEYS~~ — the fix's reach, and the claim this section got WRONG
 
