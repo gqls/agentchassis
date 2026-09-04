@@ -283,3 +283,21 @@ it automatically** — forward-only forbids an amend and none is needed.
 
 **So: nothing is owed on 442 or 773.** The open items are §5's three unchanged ones, plus the two
 landmine verdicts now in flight.
+
+### 7a. ⚠ The landmine verifier returned `NEEDS_HUMAN_REVIEW` on the council addendum — that is its INDEX, not a challenge to the entry
+
+Do not read it as doubt. Its own note says why: it confirmed the core infrastructure
+(`diagnosis_artifacts`, `kind='council_report'`, `metadata->>'decision'`, `llm_call_log`) in Go
+code, and reports that `metadata->>'unreadable'`, `metadata->>'reviewers'`, the two `097`/`098`
+shell scripts and `agent_type='council-gate'` **"live outside the .go-only index and could not be
+checked"** — *"9 checks ran; 4 matched indexed code; **2 NOT ANSWERABLE by this index**; 3 matched
+nothing in scope … the indexed corpus holds only: .go"*.
+
+**So the verdict is structural: an entry whose footprint is jsonb keys, SQL or shell can never do
+better than `NEEDS_HUMAN_REVIEW`, however true it is.** The unverifiable half here is precisely the
+half measured first-hand today — `unreadable: 6 / reviewers: 3` on round 1 and `0 / 11` on round 2,
+both read straight off `diagnosis_artifacts`.
+
+⚠ And note its own staleness disclosure: it answered against **indexed commit `de1b9a58`, committed
+2026-09-03 09:51Z — "the last pushed tip, not the present tree"**. A day behind, and it says so; a
+reader who skips that line will take its silence about a symbol as absence.
