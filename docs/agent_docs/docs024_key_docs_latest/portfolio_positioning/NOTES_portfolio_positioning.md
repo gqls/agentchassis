@@ -6204,3 +6204,38 @@ vonc/webdesign, seotools/webdesign ×2, advertise/websitepromotion ×2). Under t
 are SANCTIONED — a check on that alone is a duplicate-tool detector, not a defect detector. The defect
 signal is narrower: **a site's own generated component with zero users while a fork of it serves that
 site's page.**
+
+> **⚠ CORRECTION to (ooo), 2026-09-04 ~16:35Z — the 450 lane was right and I was wrong about their
+> marker.** (ooo) says *"`name="industry"` occurs 0 times in either site's rows or either template"*
+> and that I told them to strike it. **It reproduces.** Re-measured via a HEREDOC into psql with
+> `regexp_matches(...,'g')` counting instead of `LIKE` inside `psql -c "…"`:
+>
+> | | bytes | `name="industry"` |
+> |---|---|---|
+> | template `…-advertise-co-uk` (advertise's own) | 16,531 | **0** |
+> | template `…-advertise-co-uk-websitepromotion-co-uk` (the fork) | 16,662 | **1** |
+> | stored row, advertise.co.uk | 17,238 | **1** |
+> | stored row, websitepromotion.co.uk | 17,238 | **1** |
+>
+> So it IS a fork-only marker and it answers a question my md5 test cannot: **which template produced
+> these bytes** (provenance), where md5-identity answers **are two sites serving the same markup**
+> (detection). Both are worth keeping; the peer is adopting mine and I have withdrawn my objection to
+> theirs.
+>
+> **Why my probe read zero:** a literal containing double quotes inside `psql -c "…LIKE '%name=\"industry\"%'…"`
+> does not survive the shell reliably, **and it fails as a clean 0, never an error** — indistinguishable
+> from a true absence. Same family as the `default_config::text LIKE` escaping trap and the
+> `_`-is-a-LIKE-wildcard one; the peer reports several lanes hitting it today.
+>
+> **The distinction that actually saved me elsewhere, and it is the lesson:** this session's RETIREMENT
+> inbound audits used the same escaped-quote pattern — and they were SOUND, re-verified just now with
+> the heredoc form: the three retired tool URLs still show zero inbound in body and chrome, while the
+> control `/tools/website-brief-starter/index.html` shows **62** referring page/slot pairs. They were
+> trustworthy **because they carried a positive control that came back non-empty**; the marker probe
+> carried none and returned zeros everywhere. It is my own standing rule — *a zero needs a control* —
+> and I applied it to the retirement, where the stakes were obvious, and not to a one-line check of
+> somebody else's claim. **The cheap habit: every string probe gets a needle that MUST hit, in the same
+> query.**
+>
+> (ooo)'s other half stands unchanged: the served PAGES differ (113,199 B vs 97,219 B, control OK) and
+> the owner has ruled duplicated tools may be kept, so this remains lineage housekeeping, not an incident.
