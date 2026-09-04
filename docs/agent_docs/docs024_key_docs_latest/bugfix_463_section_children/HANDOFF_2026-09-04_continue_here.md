@@ -7,6 +7,15 @@ Lane dir: `docs/agent_docs/docs024_key_docs_latest/bugfix_463_section_children/`
 
 ## 1. State in one paragraph
 
+> **⚠ SUPERSEDED 2026-09-04 12:26Z BY THE VERIFICATION RUN — READ §10 FIRST.**
+> The re-plan ran (`gamedesign.uk`, correlation `9f21d476-5603-45ea-a85f-40dfaca9c3fd`).
+> **Half A PASSED and is proven at the artefact** — proposed 9, survived 9, nothing dropped on a
+> hub that would previously have lost all five children. **Half B FAILED: it is INERT in
+> production**, and the paragraph below describing the fix as complete is wrong. All five
+> articles landed at `/blog/` with `parent_section` EMPTY. Cause found and confirmed — §10.
+> **463 stays open. Do not re-run the re-plan; it will fail identically.**
+
+
 The fix is **written, committed, council-APPROVED, and LIVE in the running chassis since
 2026-09-03 22:07:19Z**. It has **never been exercised** — zero plan runs have happened since the
 roll, so it is proven in the binary and in tests but not at the artefact. **One re-plan of
@@ -341,3 +350,78 @@ fills" argument available, including from the lane that filed 468.**
 
 **Ownership unchanged:** `468` stays filed and unowned, `460` stays unowned, the RFC is this
 lane's. The feed lane explicitly declined to take any of it.
+
+## 10. HALF B IS INERT — the verification run refuted it, 2026-09-04
+
+**This lane's own fix was half wrong, and the artefact is what caught it.** Recorded here at full
+strength because 463's entire thesis was that a plausible fix can change nothing on the served
+page — and then this lane shipped one.
+
+### What happened
+
+`gamedesign.uk` ran the re-plan at 12:26Z (correlation `9f21d476-5603-45ea-a85f-40dfaca9c3fd`).
+
+- **Step 1 PASSED.** `proposed = 9`, `survived = 9`. Nothing dropped. **Half A (the Pass C
+  collision fix) is proven at the artefact**, on a hub that under the old rule would have lost
+  all five children. That half is real and it is the half that was silently destroying pages.
+- **Step 2 FAILED.** All five articles landed at `/blog/<slug>.html`, and `parent_section` came
+  out **EMPTY** — not wrong, *absent*. That distinction is the whole diagnosis.
+
+### The cause, verified at both ends
+
+Half B is one condition (`page_role_validator.go:241-242`):
+
+```go
+if v.ParentSection == "" && !p.RealisedIdentity && isLeafRole(v.Role) {
+    v.ParentSection = ParentSectionFromURL(p.URL)
+}
+```
+
+`ParentSectionFromURL` returns the first path segment of the planner's URL, and returns `""` when
+there is no second `/` (`page_identity.go:120-127`).
+
+**The planner does not emit a URL.** `[MEASURED 2026-09-04]` the `plan_site` output for that run
+carries, per page: `name`, `title`, `sections`, `meta_description`, `nav_label`, `nav_order`,
+`in_header`, `in_footer`, `page_type`. There is **no `url`, no `role`, no `parent_section`** —
+`url` is literally `null` on all nine pages.
+
+So: URL empty → `ParentSectionFromURL` returns `""` → `parent_section` stays empty →
+`CanonicalisePage` falls through to `blog-post`'s hardcoded default `dir = "blog"` → `/blog/`.
+**Every line works as written. The fix reads a field production never populates.**
+
+### Why the tests passed, and why they could not have caught it
+
+**Every fixture in `page_role_validator_test.go` supplies a populated `URL:`** — `/tools/ttk-calculator/index.html`,
+`/guides/rng-design/index.html`, `/games/snake/index.html`, and so on down the file. The tests
+hand the function the one input production never sends. They are not weak tests; they encode a
+false premise about the caller, and no amount of mutation-proving inside that premise would have
+surfaced it. **§2B of this handoff states the premise explicitly — "Both write surfaces discard
+the planner's URL" — and it is FALSE. There is no URL to discard.**
+
+### What this means for the fix
+
+**Do not patch this by deriving the parent from the page NAME.** The five pages are named
+`article-*` and the hub is `articles-index`, so a prefix match is available and tempting — and it
+is the *same stem-matching move that caused 463 in the first place*. That symmetry should be
+treated as a warning, not a convenience.
+
+**The real finding is that there is no channel at all.** Three lanes converged on it within one
+hour, from three directions:
+
+- **this lane:** the planner emits no `url`, so the URL-derivation has nothing to read;
+- **`boxingonline` lane:** `parent_section` has been declared on **21 of 890** planned pages ever
+  (`[MEASURED 2026-09-04]`, re-run here: 890 total / 869 empty / **97.6%**), four values on two
+  days, **none after 2026-07-16**;
+- **`feed lane`:** `create_blog_posts` calls `CanonicalisePage` with a two-field literal and reads
+  no section from anywhere — *a registry is vocabulary, 468 is transport, and they are orthogonal*.
+
+**So the section never reaches the write path by ANY route** — not by declaration, not by URL, not
+by the producer. The hub's existence is the only signal in the system, and nothing reads it. That
+is an RFC subject, not a patch, and it is the same RFC as the directory-vocabulary work in §9.
+
+### Status
+
+**463 STAYS OPEN** — the owner ruled that this morning on general principle, before any of this
+was known; the run has now vindicated it specifically. Half A may be described as fixed and
+proven. **Half B must not be described as live anywhere.** `gamedesign.uk` has been told to hold:
+no re-run, no rerender, no deploy, and to leave the plan rows in place as the reproduction.
