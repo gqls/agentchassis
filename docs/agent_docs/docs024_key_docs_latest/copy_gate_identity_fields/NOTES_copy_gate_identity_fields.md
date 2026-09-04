@@ -149,6 +149,25 @@ So: *a claim sourced from a subagent gets the same evidence bar as one I would o
 `[INFERRED]`.* Corrected in four places plus a follow-up to the components lane, who I had told it
 might be worth their picking up.
 
+### 6a. …and the correction tripped the append-only ledger check, which was worth answering rather than waving through
+
+`scripts/pattern-check.py` flagged **7 lines removed from `LANDMINES.md`**, a fleet-wide
+append-only ledger where a removed line is most likely another session's entry.
+
+Checked rather than assumed, and gated on the COUNT first because the recorded trap here is that
+`git diff | grep '^-[^-]'` cannot see a deleted markdown bullet:
+
+```bash
+git diff --numstat <sha>^ <sha> -- …/LANDMINES.md          # 65 added, 7 deleted
+git diff <sha>^ <sha> -- …/LANDMINES.md | grep '^-' | grep -v '^---'
+```
+
+All 7 are my own false bullet from an hour earlier. Nothing of another session's was touched, and
+the original claim survives struck-through inside the replacement, so the record of what was
+believed is intact — which is the property the ledger exists to protect. **The advisory was right
+to fire**: nothing downstream can tell a deleted entry from one never written, and "it was mine"
+is only knowable by running the diff.
+
 ## DECISIONS AND THEIR REASONS
 
 - **The guard went in the JUDGE, not the walker.** A filter at the enumeration point is bypassable
