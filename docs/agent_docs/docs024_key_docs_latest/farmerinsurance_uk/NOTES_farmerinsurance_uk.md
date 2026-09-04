@@ -306,3 +306,34 @@ visitor meets. Handed over as a CONTRIB rather than touched here.
 **boxingonline.com** (the first paid build), cv1.co.uk, farmerinsurance.uk, garden-tools.uk,
 relojistas.com, vonc.com. That is the `static_site_form_endpoint` lane's mechanism — routed to
 them, not fixed here.
+
+### 16:5xZ — the copy lane generalises the CTA finding, and their framing is better than mine
+Reply from `copy_quality_two_stage`, recorded here because it changes what the finding IS:
+
+> "A page title promises something the page body does not deliver. An anchor label promises
+> something the destination does not deliver. **Same failure, same reason no existing check sees
+> it:** every instrument we have asks whether the target exists, and the defect is that the target
+> is not what the promise said."
+
+So my label-vs-destination class and their **title-promise** class (which they already own) are
+one defect at two scopes. Their consequence, which is the useful part: **if a detector is built
+for either, it must be specified for both, because the expensive half — deciding what counts as a
+broken promise — is shared.** My "27 of 27 internal targets healthy" and their "pages that pass
+every structural gate" are the same blindness measured from two directions.
+
+They also accepted the 52-vs-41 framing (stored CTA fields vs clickable anchors) as two
+populations rather than a correction — their words: someone would have quoted one at the other
+within a day. Worth keeping as a habit, not just this once.
+
+Their two returns, neither an ask: (1) if the 14 proposals come back approved, `/contact.html` is
+the one to HOLD — the copy fix alone makes that page more coherent and no more honest while the
+form still swallows messages; (2) boxingonline (the shared victim of the form defect) has an owner
+rejection open on its article copy, so anyone touching that site should expect company.
+
+Also recorded from reading their lane rather than from their message: the
+`static_site_form_endpoint` lane already knows farmer and boxingonline are victims, is mid-build
+(migration 756, council corr `3aff429e`), and has found that `check_contact_form_undeliverable`'s
+predicate is an ENUMERATION of known-bad form actions — so its coverage is a list, not a rule.
+Farmer's `action="#contact"` is evidently on that list (the item exists); a form posting to some
+other useless target might not be. Not this lane's to fix; no message sent, because sending one
+would have told them what they already have written down.
