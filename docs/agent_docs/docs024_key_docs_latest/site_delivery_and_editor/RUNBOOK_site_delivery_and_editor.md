@@ -581,6 +581,38 @@ the verbatim Netlify strings, the private-by-default trap, the forty minutes.
 ⚠ **`sections` is a list of section NAMES, not content** (verified against a completed item: an
 11-element array whose first element is the string `hero`). Do not try to pass prose through it.
 
+> ### ⚠ CORRECTED 2026-09-04 by the `475` lane — "`spec.suggestion` is the ONLY channel" is WRONG
+>
+> **THREE channels reach the writer, and for verbatim strings `suggestion` is the wrong one:**
+>
+> | channel | arrives as |
+> |---|---|
+> | `spec.suggestion` | `rewrite_guidance` — free text. The prose channel, as written above |
+> | `spec_sections.section_subjects` | `PlanItem.Subject` → `current_section.subject`; a parallel array **aligned to `sections` by index**, enforced not guessed (`load_page_sections_from_spec_action.go:624`, *"aligned or absent, never guessed"*) |
+> | `spec_sections.section_facts` | `assigned_fact_ids` → **`AssignedWriterBlock`, composed from ONLY the assigned facts** |
+>
+> **So the four verbatim Netlify strings belong in `section_facts`, not in `suggestion`.** The
+> difference is that the writer is *handed* them as its evidence block rather than asked in prose to
+> please quote something exactly — which is the entire reason this estate has an evidence register.
+> `webdesign.uk` already carries a live `evidence_base` of **27 facts** (`[MEASURED 2026-09-04]`, all
+> with `source`, none with `attested_by`), so the register is armed there; an attested fact — the right
+> shape for something the owner performed once — would be first-of-kind on that site.
+>
+> **The limit, so nobody builds a plan on it:** registering them buys NO automatic staleness
+> detection. `refresh_evidence_base` re-runs a fact's `source.sql`, re-proves an `artifact_check`, or
+> re-proves a citation against its URL — **none of which can re-derive what a third party's signup
+> screen says today**, and `attested_by` has no automatic re-check at all. A citation pointed at
+> Netlify would be *worse* than nothing: the estate already rejected a Cloudflare-fronted source for
+> perpetual false drift (`maps.org.uk`, 2026-09-02). **What it buys is that the writer cannot
+> paraphrase them away.** Staleness stays a human job.
+>
+> **The do-not-write list stays in `suggestion`** — negative instructions are not facts.
+>
+> ⚠ **Grep trap that produced my wrong claim, worth its own line:** the `{{…}}` interpolations are
+> **escaped in the stored JSON**, so grepping the live agent row for braces returns **zero** and reads
+> as *"nothing is interpolated"*. **Grep the bare key names.** My census found the `spec.*` keys but
+> concluded "only one free-text channel" because I never saw the `spec_sections` sub-keys.
+
 ### Pre-flight, all done 2026-09-04 ~17:2xZ
 
 | check | result |
