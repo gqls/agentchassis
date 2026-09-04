@@ -57,15 +57,64 @@ func TestBlogListingRefusesToWriteIntoAnOccupiedGuessedSlot(t *testing.T) {
 // even when a row was sitting in it. The decision must depend on OCCUPANCY, not
 // on which strategy found the name.
 //
+// > **CORRECTED 2026-09-04 — this test asserted the wrong thing, and it is my
+// > lane's own earlier assertion being corrected.** It ran the loop over all
+// > FOUR origins and required opUpdate from every one. That is over-wide. On a
+// > slot resolved by 2b's guess or strategy 3's default, the single occupant is
+// > not the listing; it is whatever the page legitimately keeps there, and
+// > "refreshing" it overwrites someone's content. The old assertion licensed
+// > exactly that, and it was armed to fire on boxingonline the moment the six
+// > orphan rows were deleted and the occupancy count fell to 1.
+// >
+// > What the test was RIGHT about is kept: the update arm must not be
+// > conditional on Origin == slotOriginExistingRow, because strategy 2a's
+// > plan-declared slot must refresh too. So the loop keeps both authorised
+// > origins and the named mutation still kills it. The guessed and defaulted
+// > origins moved to TestBlogListingRefusesToOverwriteTheOccupantOfAGuessedSlot.
+//
 // Mutation that must kill it: restore the old `existingComponentID != uuid.Nil`
 // proxy, i.e. make the update arm conditional on Origin == slotOriginExistingRow.
-func TestBlogListingUpdatesTheSingleOccupantWhateverStrategyNamedTheSlot(t *testing.T) {
+func TestBlogListingUpdatesTheSingleOccupantOfAnAuthorisedSlot(t *testing.T) {
 	for _, origin := range []blogSlotOrigin{
-		slotOriginExistingRow, slotOriginPlanListing, slotOriginPlanFallback, slotOriginDefault,
+		slotOriginExistingRow, slotOriginPlanListing,
 	} {
 		op, reason := decideBlogListingWrite(occupied(origin, "blog-listing", 1))
 		if op != opUpdate {
 			t.Errorf("origin %s with exactly one occupant must UPDATE it, got %v (%s)", origin, op, reason)
+		}
+	}
+}
+
+// The residual half of bugs_open/457, and the one the first fix left armed.
+//
+// A guessed (2b) or defaulted (3) slot name is by construction NOT a listing
+// slot — strategy 1 or 2a would have matched if it were. The sibling test
+// TestBlogListingRefusesToInventASlotFromAGuess already refuses to CREATE a
+// listing there. Overwriting the row that is already there is the same
+// unauthorised edit with more damage: the create adds a row nobody asked for,
+// the overwrite destroys a row somebody did. Refusing the empty case while
+// writing the occupied one had the safety ordering backwards.
+//
+// The live case this pins, measured 2026-09-04: boxingonline.com
+// /articles/index.html resolves `generic-text-block` by 2b, holds 7 rows in that
+// slot today (so it refuses as ambiguous), and drops to 1 — the page's own prose
+// block at position 2 — as soon as bugs_open/457's six orphans are deleted. Of
+// the four live blog-index pages, it is the only one that reaches 2b at all;
+// the other three match strategy 1, so this narrowing changes nothing for them.
+//
+// Mutation that must kill it: test Occupants before Origin again, i.e. return
+// opUpdate for any origin with exactly one occupant.
+func TestBlogListingRefusesToOverwriteTheOccupantOfAGuessedSlot(t *testing.T) {
+	for _, origin := range []blogSlotOrigin{
+		slotOriginPlanFallback, slotOriginDefault,
+	} {
+		op, reason := decideBlogListingWrite(occupied(origin, "generic-text-block", 1))
+		if op != opRefuseNoSlotAuthority {
+			t.Errorf("origin %s with one occupant must refuse, got %v (%s)", origin, op, reason)
+		}
+		if !strings.Contains(reason, "overwrite") {
+			t.Errorf("origin %s: the refusal must say it declined to OVERWRITE, not to invent — "+
+				"the two cases need different fix text for whoever reads the work item, got %q", origin, reason)
 		}
 	}
 }

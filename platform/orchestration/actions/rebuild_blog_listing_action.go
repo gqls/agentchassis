@@ -908,17 +908,53 @@ func decideBlogListingWrite(slot blogListingSlot) (blogListingOp, string) {
 	if slot.Occupants > 1 {
 		return opRefuseAmbiguous, fmt.Sprintf("%d rows already occupy slot %q — refusing to guess which is the listing", slot.Occupants, slot.Name)
 	}
-	if slot.Occupants == 1 {
-		return opUpdate, ""
-	}
+	// The origin gate applies to BOTH write ops, not only the INSERT.
+	//
+	// NARROWED 2026-09-04 (bugs_open/457 residual). The first cut of this
+	// function tested Occupants before Origin and returned opUpdate for a single
+	// occupant WHATEVER strategy named the slot. That closed the INSERT half of
+	// the defect and left the other half armed: on a slot resolved by 2b's guess
+	// or by strategy 3's default, the one occupant is not the listing — it is
+	// whatever the page legitimately keeps there. Refreshing "the listing" then
+	// OVERWRITES it. That is the same unauthorised structural edit the append
+	// was, with a worse verb: the append added a row nobody asked for, the
+	// update destroys a row somebody did.
+	//
+	// The inconsistency is visible in the old decision table itself. A guessed
+	// origin with an EMPTY slot refused (nothing would be destroyed); a guessed
+	// origin with an OCCUPIED slot wrote (someone's content would be). The safer
+	// case was the one being refused.
+	//
+	// This is NOT a return to the root-cause bug. That bug branched on
+	// `existingComponentID != uuid.Nil`, i.e. "did strategy 1 fire" used as a
+	// proxy for "is this slot free" — a question about the RESOLVER standing in
+	// for a question about the DATA. Occupancy is still read on every path and
+	// still decides between refresh and create. Origin decides something
+	// different and previously unasked: whether anything authorises us to write
+	// here AT ALL. Both questions have to be answered, and only one of them was.
+	//
+	// Authority is exactly the two paths that identified a listing slot:
+	// strategy 1 matched an existing row in a listing-class slot name, and
+	// strategy 2a matched a listing-class name in the page's own plan. A guess
+	// (2b) and a default (3) are by construction not listing slots — 1 or 2a
+	// would have matched if they were.
 	switch slot.Origin {
-	case slotOriginPlanListing:
-		return opInsert, ""
 	case slotOriginExistingRow:
+		if slot.Occupants == 1 {
+			return opUpdate, ""
+		}
 		// Strategy 1 matched a row and the count then said zero: the row went
 		// between the two queries. Do not fall through to a write.
 		return opRefuseUnknown, "the listing row disappeared between resolution and the occupancy count"
+	case slotOriginPlanListing:
+		if slot.Occupants == 1 {
+			return opUpdate, ""
+		}
+		return opInsert, ""
 	default:
+		if slot.Occupants == 1 {
+			return opRefuseNoSlotAuthority, fmt.Sprintf("no listing slot is declared for this page (slot %q resolved by %s); refusing to overwrite the row that occupies it", slot.Name, slot.Origin)
+		}
 		return opRefuseNoSlotAuthority, fmt.Sprintf("no listing slot is declared for this page (slot %q resolved by %s); refusing to invent one", slot.Name, slot.Origin)
 	}
 }
