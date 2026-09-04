@@ -72,14 +72,35 @@ sentence; "invisible" is not. Whether it earns a regeneration is the owner's cal
    reads against its own box. The sweep reports that measurement (`baked_bg`, `baked_max`,
    `baked_legible_frac`) and takes **no verdict**, because there is no known-bad artefact to
    calibrate one against. 22 of 29 logos sit there. Do not close this by picking a number.
-4. **The fence (417) — sample is STILL n=1 and the fence stays UNBUILT.** Terms unchanged: any
+4. ⚠ **IF THE FENCE IS EVER BUILT, ITS FINDINGS NEED A DESTINATION THAT IS NOT `needs_human_review`.**
+   Contributed by the `bug 462` lane, **re-measured here, and their number is right while their
+   framing needs one correction that makes the warning STRONGER** `[MEASURED 2026-09-04 ~13:4xZ]`:
+   - the **`item_type`** `needs_human_review` is small — **40 rows all-time**, 35 open, oldest
+     2026-07-22, **0 in the archive**. On that reading the queue looks alive;
+   - but the same string is **also a STATUS**, and `status='needs_human_review'` holds **1,440 rows
+     across ~dozens of item types**, oldest **2026-03-15** — `owned_page_review` 176,
+     `cta_names_unknown_destination` 111, `image_source_unsatisfiable` 93, `unresolved_cta` 72,
+     `voice_tells` 69, and so on. `revalidate_review_queue_action.go:3-5` records **370** on
+     2026-07-25 and `bugs_open/033`'s auto-drain has closed 390 since, so it has still grown ~4x.
+   **So it is not one dead queue you can route around — it is a dead STATE that almost any item type
+   falls into.** A 417 finding does not have to be typed `needs_human_review` to end up parked with
+   1,440 others; it only has to reach that status. Whatever the fence files, check where its type
+   parks, and do not treat "filed for review" as having told anyone anything.
+   ⚠ **And do not repeat the 1,439 figure as a count of that item_type** — it is the status. Both
+   numbers are real and they answer different questions; the type/status collision is what makes
+   the wrong one look right.
+
+5. **The fence (417) — sample is STILL n=1 and the fence stays UNBUILT.** Terms unchanged: any
    lettered logo that carried the clause builds it. ⚠ **Check regeneration by the STORAGE KEY's date
    prefix, never `updated_at`** — see §5. A session wanting to close this deliberately should
    regenerate one of the 12 licence-carrying sites on purpose rather than wait; nothing schedules it.
-5. **`not displayed` (3 sites) belongs to someone else** — `ai-agent-orchestration.com`, `cookly.uk`,
+6. **`not displayed` (3 sites) belongs to someone else** — `ai-agent-orchestration.com`, `cookly.uk`,
    `webdesign.co.uk` hold an active logo asset their header never loads. That is the 417 RUNBOOK's
    "a site has a logo asset but the header still shows TEXT" case, not a 462 finding. Nobody owns it.
-6. **417, 420 and 462 all stay OPEN.** 462 on items 1–3; 417 on the fence residual; 420 on §C.
+7. **417, 420 and 462 all stay OPEN.** ⚠ **462 TRANSFERRED 2026-09-04** to a dedicated session
+   (lane docs `docs024_key_docs_latest/bugfix_462_logo_legibility/`, transfer recorded in 462 §5).
+   **This lane keeps 417 and 420.** Do not edit `bugs_open/462_*`, `scripts/audit-logo-legibility.py`
+   or the 462 sections of this lane's RUNBOOK/NOTES; tell them first if you must. 462 on items 1–3; 417 on the fence residual; 420 on §C.
 
 ## 4. STILL THE OWNER'S — carried forward from the 09-03b handoff §6, unchanged except where noted
 
