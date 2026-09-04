@@ -1,6 +1,6 @@
 # 471 — the dead-form detector matches a LIST of known-bad actions, so a plausible-looking one is never probed — and there is at least one live instance
 
-**Filed** 2026-09-03 by lane `static_site_form_endpoint`, found while censusing fleet form shapes
+**Filed** 2026-09-04 by lane `static_site_form_endpoint`, found while censusing fleet form shapes
 for the form-endpoint build. Class: **a detector whose predicate is an enumeration of known-bad
 values, so the defect it exists to catch is invisible whenever it wears an unfamiliar name.**
 Sibling of `bugs_open/228` (a form that reports success over a `setTimeout`) — same visitor-facing
@@ -68,7 +68,7 @@ matched — they test the SITE's address, not the action's target. They are not 
 seam declares deliverable, because both are the same enumeration written twice. Adding `/request`
 to both fixes this one site and reproduces the class at the next unfamiliar spelling.
 
-## Scope `[MEASURED 2026-09-03 — a count, so it carries its date]`
+## Scope `[MEASURED 2026-09-04 — a count, so it carries its date]`
 
 Fleet-wide, by served form shape (`page_components.rendered_html`, any `<form>`):
 
@@ -146,7 +146,7 @@ seam and the check should read one exported source, the way the estate already p
 
 ## Relationship to the form endpoint
 
-This lane is building a real receiver (`static_site_form_endpoint/PLAN_2026-09-03_form_endpoint_build.md`,
+This lane is building a real receiver (`static_site_form_endpoint/PLAN_2026-09-04_form_endpoint_build.md`,
 migrations 756 + 757), which gives the seam a third destination and gives address-less sites
 somewhere to point. **It does not fix this bug**: an endpoint changes what a form *can* point at,
 while this is about the platform being unable to tell whether a form's existing target answers.

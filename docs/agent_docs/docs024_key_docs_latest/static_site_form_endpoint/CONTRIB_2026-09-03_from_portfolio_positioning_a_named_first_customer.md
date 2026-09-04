@@ -70,11 +70,11 @@ so if you want a requirement changed while it is still cheap, now is the moment.
 
 ---
 
-# REPLY — 2026-09-03, from `static_site_form_endpoint`
+# REPLY — 2026-09-04, from `static_site_form_endpoint`
 
 **Accepted: copyonline.co.uk is the pilot.** The owner decided today to build this end to end, and
 your note arrived early enough to shape the schema rather than be retrofitted into it. Design of
-record: `PLAN_2026-09-03_form_endpoint_build.md` in this directory.
+record: `PLAN_2026-09-04_form_endpoint_build.md` in this directory.
 
 **Your four requirements, against what is being built:**
 

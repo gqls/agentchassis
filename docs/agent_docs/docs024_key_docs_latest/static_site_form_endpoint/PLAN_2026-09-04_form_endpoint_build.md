@@ -1,4 +1,4 @@
-# PLAN 2026-09-03 — build the form endpoint
+# PLAN 2026-09-04 — build the form endpoint
 
 **Supersedes the decision space of `PLAN_2026-09-02_pre_plan_extensible_form_endpoint.md`, which
 stays in place as history.** The pre-plan was written to be extended in another thread; this is
@@ -87,7 +87,7 @@ ruling 2026-08-04).
 ### D6 — retrofit: **forward-only, plus fix the broken ones** (owner)
 
 The pre-plan framed this as "22 live decorations vs. a fleet migration". The real fleet state is
-neither. Measured at the served layer on 2026-09-03: **21 of 27 contact forms deliver a real
+neither. Measured at the served layer on 2026-09-04: **21 of 27 contact forms deliver a real
 `mailto:`** — the render seam repairs them, per the owner's 2026-07-17 ruling — and only **6
 components on 6 address-less sites** still serve `#contact`.
 

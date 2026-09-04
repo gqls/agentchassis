@@ -63,7 +63,7 @@ probe <domain> /<the-form-action>              # the target
 
 **Reading it:** `405` = a real POST-only handler (the method is wrong, the route exists).
 `404` **with both controls holding** = nothing answers; the form is dead. Verified discriminating
-on 2026-09-03: `idea.uk/request` 405, `relojistas.com/intent` 405, `gamesdesign.co.uk/request`
+on 2026-09-04: `idea.uk/request` 405, `relojistas.com/intent` 405, `gamesdesign.co.uk/request`
 404. Without control B a 404 could just mean the site is down; without control A it could mean
 nothing at all.
 
@@ -115,7 +115,7 @@ SELECT COALESCE(publish_target,'-') tgt, COALESCE(github_repo,'-') repo, count(*
 FROM sites WHERE status IN ('active','deployed') GROUP BY 1,2 ORDER BY 3 DESC;
 
 -- liveness predicate: use IN ('active','deployed'), NOT status='deployed' alone.
--- (744 / CLM-033, 2026-09-02.) Today 39 deployed / 0 active, so the narrow form is
+-- (744 / CLM-033, 2026-09-03.) Today 39 deployed / 0 active, so the narrow form is
 -- latently wrong rather than visibly wrong — which is why it survives unnoticed.
 SELECT status, count(*) FROM sites GROUP BY 1 ORDER BY 2 DESC;
 ```

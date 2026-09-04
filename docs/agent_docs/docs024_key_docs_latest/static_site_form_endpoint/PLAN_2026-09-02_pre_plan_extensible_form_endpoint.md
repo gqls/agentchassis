@@ -1,7 +1,7 @@
 # PRE-PLAN 2026-09-02 — an extensible real form endpoint for static sites
 
-> **STATUS 2026-09-03 — EXTENDED AND DECIDED. The decision space below is answered in
-> `PLAN_2026-09-03_form_endpoint_build.md`; read that for what is being built.** This file stays
+> **STATUS 2026-09-04 — EXTENDED AND DECIDED. The decision space below is answered in
+> `PLAN_2026-09-04_form_endpoint_build.md`; read that for what is being built.** This file stays
 > as history and as the record of what we believed on 2026-09-02. **Five of its premises are
 > corrected inline** (§1, §2 twice, D1's hosting table, D2) — struck through and dated, never
 > edited away, because what it was wrong about is *what already exists*, which is the expensive
@@ -35,7 +35,7 @@ A visitor filling one in gets nothing, and no operator is told. The owner has se
 that boxingonline's contact page is deleted and that contact pages become opt-in on explicit
 request — which removes the immediate exposure but not the class.
 
-> **CORRECTED 2026-09-03 — the census was taken one layer above the defect, and could not have
+> **CORRECTED 2026-09-04 — the census was taken one layer above the defect, and could not have
 > come out any other way.** `content_data` is the value the content LLM *wrote*; the render seam
 > rewrites it on the way out. `deliverableFormAction`
 > (`platform/orchestration/actions/component_library.go:1495`) replaces a non-delivering action
@@ -43,7 +43,7 @@ request — which removes the immediate exposure but not the class.
 > `check_contact_form_undeliverable` files a human-review item for the sites where no address
 > resolves. Both predate this pre-plan by six weeks.
 >
-> Re-measured at **both** layers the same day (RUNBOOK §1): `content_data` now holds `#contact`
+> Re-measured at **both** layers on 2026-09-04 (RUNBOOK §1): `content_data` now holds `#contact`
 > ×**27** (it grew by 5 overnight — a form census goes stale by *addition*), but of those,
 > **21 serve a real `mailto:`** and only **6 components on 6 sites** still serve `#contact` —
 > exactly the address-less sites (`boxingonline.com`, `cv1.co.uk`, `farmerinsurance.uk`,
@@ -68,7 +68,7 @@ request — which removes the immediate exposure but not the class.
   `contact_submission`, `/api/contact`, `form-submit` across `platform/ internal/ cmd/ services/`
   returns one unrelated file.~~
 
-> **CORRECTED 2026-09-03 — the search vocabulary matched nothing that exists, and three of the
+> **CORRECTED 2026-09-04 — the search vocabulary matched nothing that exists, and three of the
 > four things this pre-plan says must be built are already in the build.** The table claim stands;
 > the two Go claims do not. The named search terms are the only reason: none of the real
 > mechanisms is called anything like them.
@@ -77,15 +77,15 @@ request — which removes the immediate exposure but not the class.
 > |---|---|
 > | **D4**, "the part most likely to be under-scoped… the reason a form endpoint is not a small job" | **`platform/httpguard`** (`3632874d4`, 2026-07-28, `features_open/024` A3) — `CheckIntake(honeypotValue, elapsedMillis, minFill)`, i.e. *a form intake gate*; `NewLimiter(bands…)/Allow(key)`; `ClientIP(r, front)` with `Nginx()`/`CloudflareTunnel()`/`Direct()` |
 > | **D2**, notification | **`platform/mailer`** (`1d747f5e8`, 2026-07-28, A2) — "the platform's ONE way to send email", whose header names its third intended caller: *"idea.uk's paid report today, the gripper dossier next, **contact forms after that**"* |
-> | **D1(b)**, "a new public surface to defend" | **not new.** `https://tools.apis.uk/api/v1/tools/*` is live: Cloudflare tunnel → island Caddy (that prefix only, 1 MB body cap, `gauntlet_dead_cta/infra/island/Caddyfile`) → `tools-api`, which **already imports both packages above**. Probed with controls 2026-09-03: `OPTIONS …/gauntlet/round` **204**, `OPTIONS …/gripper/session` **204**, unregistered path **404**, `/health` (outside the prefix) **404** |
+> | **D1(b)**, "a new public surface to defend" | **not new.** `https://tools.apis.uk/api/v1/tools/*` is live: Cloudflare tunnel → island Caddy (that prefix only, 1 MB body cap, `gauntlet_dead_cta/infra/island/Caddyfile`) → `tools-api`, which **already imports both packages above**. Probed with controls 2026-09-04: `OPTIONS …/gauntlet/round` **204**, `OPTIONS …/gripper/session` **204**, unregistered path **404**, `/health` (outside the prefix) **404** |
 > | the nearest existing thing is the box order path | the nearest existing thing is **`internal/tools-api/handlers/gripper.go:227` `GripperSubmitHandler`** — a live, browser-facing form intake that runs the bot gates first, returns an indistinguishable rejection, hashes the IP and logs structurally only |
 >
 > **What caught it:** grepping `OPEN_THREADS_RESTART_LIST.md` for the workstream rather than the
 > symbol, which surfaced the consolidation programme's line *"build `platform/mailer` (item A2),
 > then `platform/httpguard` (A3)"* — and both had landed. A symbol search cannot find a package
 > whose name you have not guessed; the index of what the estate is building can.
-- ~~**Two hosting modes, and this is the crux:**~~ **CORRECTED 2026-09-03 — it is not the crux,
-  and the table covers 5 of 39 live sites.** `[MEASURED 2026-09-03]` 34 live sites have
+- ~~**Two hosting modes, and this is the crux:**~~ **CORRECTED 2026-09-04 — it is not the crux,
+  and the table covers 5 of 39 live sites.** `[MEASURED 2026-09-04]` 34 live sites have
   `github_repo` **and** `publish_target` NULL, because `publish_target` is itself an opt-in seam
   with the default OFF (`publish_site_action.go:120`: *"publish_target not set for &lt;domain&gt;
   (seam is opt-in, default OFF)"*). Only `idea.uk`, `webdesign.uk`, `relojistas.com` and
@@ -157,7 +157,7 @@ yet answerable** — the estate does not currently model who that is. This pre-p
 **depends on the identity replumb** (`bugs_open/420`'s class fix), and should not choose a
 notification target before that lands.
 
-> **DISCHARGED 2026-09-03 — the dependency is real but already satisfied, and by a route this
+> **DISCHARGED 2026-09-04 — the dependency is real but already satisfied, and by a route this
 > paragraph did not anticipate.** `bugs_open/420`'s class fix (committed `162877051`) separated
 > the two contracts that had shared one column: the payer's address is **delivery-only** and stays
 > in `build_queue.direction.customer_email`, while `sites.email` is now **only** the published

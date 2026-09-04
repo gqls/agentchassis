@@ -5,7 +5,7 @@ system actually said, and every misstep.
 
 ---
 
-## 2026-09-03 — session 2 picks the thread up, and the pre-plan's survey does not survive contact
+## 2026-09-04 — session 2 picks the thread up, and the pre-plan's survey does not survive contact
 
 The owner asked this session to pick the thread up if it could find it. It found
 `PLAN_2026-09-02_pre_plan_extensible_form_endpoint.md` (the pre-plan), the
@@ -17,7 +17,7 @@ Not out of suspicion — the pre-plan is a day old and the tree moves at ~1,500 
 re-grounding a figure before repeating it is the standing rule. Five of its load-bearing claims
 came out differently.
 
-**1a. `platform/httpguard` exists, and it is a form intake gate.** `[MEASURED 2026-09-03]`
+**1a. `platform/httpguard` exists, and it is a form intake gate.** `[MEASURED 2026-09-04]`
 
 ```
 $ ls platform/httpguard/
@@ -152,7 +152,7 @@ finding, and the new middleware will use the wider predicate rather than inherit
 
 ---
 
-## 2026-09-03 (later) — MY OWN WRONG CALL: I applied the schema to the wrong database
+## 2026-09-04 (later) — MY OWN WRONG CALL: I applied the schema to the wrong database
 
 **I said `tools-api` runs in the cluster and reads `clients_db`. It does not.** Migration 756 is
 applied to `clients_db`, and the public receiver cannot see it.
@@ -250,7 +250,7 @@ care on my side collapses them.
 
 ---
 
-## 2026-09-03 — council round 1 on migration 756: APPROVED, and the objections are worth more than the verdict
+## 2026-09-04 — council round 1 on migration 756: APPROVED, and the objections are worth more than the verdict
 
 `SUBMISSION_CORR=3aff429e-c08e-4302-a6a7-0b465dc5229f` → **APPROVED**, "4 advisory objection(s) —
 none high-severity" in the summary line, 8 in the report. Dispositions, because an approved verdict
@@ -262,7 +262,7 @@ whose objections nobody answers is the coverage report's other dishonesty surfac
 > an existing token-based public-route pattern (`customer_access_tokens`, with `/c/<token>` confirm
 > handlers) … The plan's `grounded_in` never shows that mechanism was checked for reuse.
 
-**Correct, and I had not looked.** `[MEASURED 2026-09-03]` `customer_access_tokens` is a mature
+**Correct, and I had not looked.** `[MEASURED 2026-09-04]` `customer_access_tokens` is a mature
 per-site, purpose-scoped token table with `token_hash` (hashed at rest), `expires_at NOT NULL`,
 `revoked_at`, `single_use`/`used_at`/`use_count`, and partial indexes on
 `(site_id, purpose) WHERE revoked_at IS NULL`. Six Go call sites across `platform/delivery/` and
@@ -338,3 +338,55 @@ work; the work was done.
   left unreachable after a routing change, which is precisely what a rotated-or-dropped token does
   to already-published markup. **Carried into the receiver review as a named precedent** rather than
   left to be rediscovered, which is what the seat asked for.
+
+---
+
+## 2026-09-04 — CORRECTION: everything above was originally dated 2026-09-03, and it was all written today
+
+**The whole of this lane's first day was misdated by one day.** Filenames, headings, `[MEASURED]`
+markers, both migration headers, the bug file, two `WRONG_CALLS.md` entries, the `LANDMINES.md`
+entry, and eight commit messages all said **2026-09-03**. The date was and is **2026-09-04**.
+
+**How it happened.** I never checked. The session's own environment block states the date plainly,
+and I did not read it — I inferred "today" from the material I was reading: the pre-plan is
+2026-09-02, the `portfolio_positioning` CONTRIB is 2026-09-03, and the most recent commits in the
+log were 09-03. Every one of those is correctly dated *for what it is*, and reading them in
+sequence produces a confident, wrong answer for *now*. A date inferred from the newest thing you
+have read is the age of that thing, not the time.
+
+**Why it matters here more than it would elsewhere.** CLAUDE.md's rule that a count must carry the
+date it was counted exists so staleness is **mechanically checkable** —
+`git log --since=<census date> --diff-filter=A -- <dir>` is the check, and it takes the date
+literally. A census stamped one day early silently widens that window: it would list a day of
+additions as "since my count" that were in fact *before* it, and a reader reconciling them would
+be chasing changes that cannot explain a discrepancy. The error is small and it corrupts the exact
+mechanism the rule was written to enable.
+
+**What was corrected, and what deliberately was not.**
+
+- **Corrected:** every self-dated claim in this lane's files, three filenames (`PLAN_…`, the
+  gauntlet CONTRIB, `bugs_open/471_…`) and every reference to them, plus two relative-time phrases
+  in `README_where_we_are.md` that were wrong by a day once the absolute dates moved ("a pre-plan
+  written yesterday" → two days earlier; "a note that arrived this morning" → yesterday).
+- **NOT corrected, on purpose:** `submission_756_form_endpoint_storage.json` still says
+  "Applied and verified 2026-09-03". It is the artefact the council actually reviewed under
+  correlation `3aff429e`, and editing a submission after its verdict misrepresents what was judged.
+  The error is recorded here instead.
+- **NOT correctable:** eight commit messages say 2026-09-03. Forward-only forbids an amend, and
+  this note is the record. **A reader reconciling this lane's commit dates against its documents
+  should trust `git log`'s own timestamps, not the dates written in the messages.**
+- **Other lanes' 2026-09-03 references in these files are correct and were left alone** — the
+  `portfolio_positioning` CONTRIB's own header, migration 744/CLM-033, `BRIEF_2026-09-03c`. The
+  correction was applied by explicit per-string replacement with an expected-count assertion on
+  each, not by a blanket date sweep, precisely because a sweep would have falsified those.
+
+**The check, and it costs nothing:** run `date -u` at the start, before writing the first dated
+thing. Not "check the environment block" — *run the command*, because the failure mode is not
+missing information, it is not looking. See `WRONG_CALLS.md`.
+
+> One thing this did **not** damage, worth stating because it was the first thing I checked: the
+> measurements themselves are unaffected. Every figure was taken today and is correctly attributed
+> to today's system state; only the label was wrong. The `744`/CLM-033 citation was independently
+> re-verified while fixing its date and is **correct** — 744 is the widening of the site predicate
+> to `IN ('active','deployed')`, it names CLM-033/migration 742, and it landed 2026-09-03, so the
+> "yesterday's ruling" phrasing is now accurate rather than approximate.

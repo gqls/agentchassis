@@ -1,6 +1,6 @@
 # CONTRIB — a `/api/v1/tools/forms` route group in tools-api, and one finding about your Origin trust
 
-**From:** `static_site_form_endpoint`, 2026-09-03. **To:** the gauntlet lane, as the owner of
+**From:** `static_site_form_endpoint`, 2026-09-04. **To:** the gauntlet lane, as the owner of
 `tools-api` (`features_open/024` records A2/A3 landing in or next to it, and says to coordinate
 with you first).
 
@@ -57,7 +57,7 @@ worked alternative.
 **One smaller thing in the same query.** `ActiveSiteByOrigin` scopes on `status = 'deployed'`
 alone. Yesterday's `744` / CLM-033 ruling established the estate's liveness convention as
 `IN ('active','deployed')`, and that a narrower predicate re-creates a blind spot one status value
-over. Today it is **latent, not live** — 39 `deployed`, 0 `active` `[MEASURED 2026-09-03]` — so we
+over. Today it is **latent, not live** — 39 `deployed`, 0 `active` `[MEASURED 2026-09-04]` — so we
 are not filing anything. Our middleware will use the wider predicate rather than inherit the
 narrower one; flagging it so the two do not silently disagree later.
 

@@ -63769,9 +63769,9 @@ as applying it; what applies it is looking at the rows.
 - **Cost.** None — caught before commit. Three false citations would otherwise have entered a bug
   file, a council submission and this ledger.
 
-## 2026-09-03 — `static_site_form_endpoint`: a census one layer above the repair, and a search whose vocabulary could not match what exists
+## 2026-09-04 — `static_site_form_endpoint`: a census one layer above the repair, and a search whose vocabulary could not match what exists
 
-Two wrong calls in one document — this lane's own pre-plan of 2026-09-02, caught the next day by
+Two wrong calls in one document — this lane's own pre-plan of 2026-09-02, caught two days later by
 the session picking the thread up. Both were marked, dated and had their queries written out. That
 is the point of recording them.
 
@@ -63782,7 +63782,7 @@ is the point of recording them.
   LLM *wrote*. The render seam rewrites it on the way out: `deliverableFormAction`
   (`component_library.go:1495`) substitutes `mailto:<sites.email>`, the pattern the owner chose on
   2026-07-17, and has done since `cc2cff79b` (2026-07-24). Re-measured at **both** layers on
-  2026-09-03: `content_data` holds `#contact` ×27, but **21 of them serve a real `mailto:`** and
+  2026-09-04: `content_data` holds `#contact` ×27, but **21 of them serve a real `mailto:`** and
   only **6 components on 6 sites** still serve `#contact` — precisely the address-less sites the
   seam refuses to guess for. The class is real and roughly a quarter of the claimed size, and the
   true problem is different in kind: not "forms deliver nowhere" but "forms deliver by `mailto:`,
@@ -63818,7 +63818,7 @@ is the point of recording them.
   public endpoint beside a live one, and reversed the owner's 2026-07-17 `mailto:` ruling on 21
   working forms in the belief they were dead.
 
-## 2026-09-03 — `static_site_form_endpoint`, same lane, same shape, an hour later: I read the manifest where the request reads a DATABASE_URL
+## 2026-09-04 — `static_site_form_endpoint`, same lane, same shape, an hour later: I read the manifest where the request reads a DATABASE_URL
 
 Recorded immediately after the entry above, and the pairing is the point: I wrote that one up, named
 its lesson, and then made it again in a different layer within the hour.
@@ -67309,3 +67309,42 @@ from `content_data`, does the page's hero slot actually paint anything? Three at
 - **Cost.** One unverified landmine entry for four hours, and a claim to a peer lane ("its verifier
   armed") that was true when made and that I would not have caught going stale. Re-fired once the
   fleet roll settled. Nothing shipped wrong.
+
+## 2026-09-04 — `static_site_form_endpoint`: I dated a whole day's work from the newest file I had read, not from the clock
+
+- **The claim.** That today was 2026-09-03. Written into three filenames, every `[MEASURED]` marker
+  in the lane, two migration headers, a `bugs_open/` file, two entries in THIS ledger, a
+  `LANDMINES.md` entry, a council submission and eight commit messages.
+- **What actually happened.** It was **2026-09-04**, and the session's own environment block said
+  so in as many words. I never read it. I inferred the date from the material in front of me: the
+  pre-plan is 2026-09-02, the CONTRIB I was answering is 2026-09-03, the newest commits in
+  `git log` were 2026-09-03. Every one of those is correctly dated *for what it is*; reading them
+  in sequence yields a confident wrong answer for *now*.
+- **What caught it.** A peer session's fleet-roll message, whose first line read "Measured
+  2026-09-04". Not a check — an accident of someone else's correct habit. `date -u` then settled it
+  in one command.
+- **The cheap check.** **Run `date -u` before writing the first dated thing.** Not "read the
+  environment block" — run the command. The failure is not missing information (the date was in
+  front of me the whole session); it is that a date, unlike a count, never *looks* unverified, so
+  nothing prompts the check. **A date inferred from the newest artefact you have read is the age of
+  that artefact, not the time.**
+- **Why it is worth a row rather than a shrug.** This estate's staleness rule — a count carries the
+  date it was counted — exists so the check is mechanical:
+  `git log --since=<census date> --diff-filter=A -- <dir>`. That takes the date literally, so a
+  census stamped a day early silently widens its own window and reports additions as post-dating a
+  count they in fact preceded. The error is one day and it corrupts precisely the mechanism the
+  rule was written to enable. The same is true of every `[MEASURED <date>]` marker in the corpus:
+  the marker's value is that a later reader can bound what has changed since, and a wrong date
+  makes that bound wrong in the unsafe direction.
+- **One trap inside the correction, worth as much as the original error.** The obvious fix is a
+  sweep — `sed s/2026-09-03/2026-09-04/`. **That would have been a second, worse wrong call**: the
+  same files legitimately cite other lanes' 2026-09-03 work (the `portfolio_positioning` CONTRIB's
+  own header, migration 744/CLM-033, `BRIEF_2026-09-03c`), and a sweep would have falsified all of
+  them while looking like a tidy-up. The correction was done by explicit per-string replacement
+  with an expected-occurrence-count assertion on each, printing a SKIP where the count disagreed —
+  which caught two patterns that did not match what I assumed the text said. **When correcting a
+  systematic error, the value you are replacing is usually also correct somewhere.**
+- **Cost.** Under an hour, all of it in the correction. No measurement was affected — every figure
+  was taken today and correctly describes today's system; only the label was wrong. Eight commit
+  messages remain wrong for ever, which is the residual: a reader reconciling this lane should
+  trust `git log`'s timestamps over the dates written inside the messages.

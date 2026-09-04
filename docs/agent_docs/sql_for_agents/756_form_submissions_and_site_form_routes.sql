@@ -4,7 +4,7 @@
 -- seam (deliverableFormAction, platform/orchestration/actions/component_library.go) rewrites a
 -- non-delivering action to mailto:<sites.email> — the owner's 2026-07-17 pattern — and where no
 -- address resolves it leaves the form dead for check_contact_form_undeliverable to raise.
--- Measured 2026-09-03 at the SERVED layer: of 27 contact-form components, 21 serve a real
+-- Measured 2026-09-04 at the SERVED layer: of 27 contact-form components, 21 serve a real
 -- mailto: and 6 on 6 address-less sites still serve "#contact".
 --
 -- mailto: cannot carry a structured payload, cannot route to a recipient that changes without a
@@ -12,7 +12,7 @@
 -- (docs024_key_docs_latest/static_site_form_endpoint/CONTRIB_2026-09-03_...named_first_customer.md),
 -- and bugs_open/228 is a live component that tells a visitor "your message has been sent" over a
 -- setTimeout with no transport at all. Design of record:
--- docs024_key_docs_latest/static_site_form_endpoint/PLAN_2026-09-03_form_endpoint_build.md
+-- docs024_key_docs_latest/static_site_form_endpoint/PLAN_2026-09-04_form_endpoint_build.md
 --
 -- WHAT THIS MIGRATION DOES, and what it deliberately does NOT do.
 --   DOES: create site_form_routes (the opt-in switch AND the movable recipient) and

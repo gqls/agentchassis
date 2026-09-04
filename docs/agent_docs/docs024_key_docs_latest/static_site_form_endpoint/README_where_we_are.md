@@ -5,21 +5,21 @@ what's above.
 
 ---
 
-## 2026-09-03 — picking the thread up, and finding that most of the job was already built
+## 2026-09-04 — picking the thread up, and finding that most of the job was already built
 
-You asked me to find this thread if it existed. It did: a pre-plan written yesterday that
+You asked me to find this thread if it existed. It did: a pre-plan written two days earlier (2026-09-02) that
 deliberately decided nothing, a review from the team that owns the publishing side, and a note
-that arrived this morning from the copyonline lane asking for exactly this and naming themselves
+that arrived yesterday (2026-09-03) from the copyonline lane asking for exactly this and naming themselves
 as the first customer.
 
-The first thing I did was re-check the pre-plan's facts, because they were a day old and this
+The first thing I did was re-check the pre-plan's facts, because they were two days old and this
 repository moves fast. Most of them didn't survive.
 
 **The pre-plan said we had no machinery for handling forms. We have quite a lot of it.** Back in
 late July, a different piece of work built two things: a package for sending email, and a package
 for guarding public web endpoints — rate limiting, and a "is this a bot" check designed
 specifically for forms. The email package's own notes say what it was built for: idea.uk's paid
-report first, the robot-hands dossier next, and *contact forms after that*. Yesterday's search
+report first, the robot-hands dossier next, and *contact forms after that*. That search
 missed both because it searched for words like "form submission" and neither package is named
 anything like that.
 
@@ -71,7 +71,7 @@ One thing to know for later: committing this and it being *live* are two separat
 endpoint runs on a separate machine that doesn't pick up our normal releases automatically, so I'll
 confirm how it gets updated before I tell you it's working.
 
-## 2026-09-03, later — I got something wrong, and being wrong improved the design
+## 2026-09-04, later — I got something wrong, and being wrong improved the design
 
 I built the database tables and put them in the wrong database. Worth explaining, because the
 correction changes the shape of the thing and makes it better.
