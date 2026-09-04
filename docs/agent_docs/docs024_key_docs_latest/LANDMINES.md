@@ -23573,3 +23573,49 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   own in the file one along. Written by the 417 lane at the 462 lane's request so it is filed once
   rather than in parallel — which is itself the smaller version of the same lesson.
 - **added:** 2026-09-04, bugfix_417_logo_text_policy lane (with the bug 462 lane)
+
+## A Netlify Drop site is PRIVATE BY DEFAULT and looks perfectly public to the person who just uploaded it — the only check that tells the truth is a signed-out one
+
+- **footprint:** `app.netlify.com/drop` · Netlify Drop · customer hosting instructions ·
+  `DRAFT_*_customer_instructions_copy*.md` in `site_delivery_and_editor/` · any doc telling a
+  customer to "put the folder online and check it works"
+- **fires when:** you write, follow, or verify instructions that end "…and your site is live". It
+  fired on the owner performing this lane's own draft, 2026-09-04.
+- **why the wrong result looks exactly right, and it is the worst version of this shape:** Netlify
+  now ships *"🔒 New: Private by default — build privately, share when you're ready."* A dropped
+  site is reachable **only by the logged-in uploader**. So the person who just published it visits
+  their address, sees their site rendered perfectly, and concludes it is live. **It is live for an
+  audience of one.** Signed out, the same URL returns **401** with *"This site is private — sign in
+  with an invited Netlify account to view it."*
+- **and the confirmation screens do not settle it either.** Measured sequence: a *"Your project is
+  now private"* screen → choosing public there → **returned to a project page still marked Private**
+  → a separate **Make public** button → *"Your project is public"*. Two of those three screens can be
+  passed while the site remains private.
+- **the check, and it is the only one that discriminates:** open the address in a **private/incognito
+  window**, or `curl` it, or use a phone off wifi. From a script:
+  ```bash
+  curl -s -o /dev/null -w "%{http_code}\n" https://<name>.netlify.app/
+  curl -s -o /dev/null -w "%{http_code}\n" https://<name>.netlify.app/zzz-invented-control
+  # public: 200 and 404.   private: 401 and 401 — the CONTROL is what tells you it is auth
+  #                                              and not a missing file.
+  ```
+  ⚠ **Run the invented-path control.** A bare 401 on the index reads like a broken deploy; the same
+  401 on a path that cannot exist tells you it is the privacy gate. That control is what stopped this
+  lane filing a false "the customer's site is broken" finding on 2026-09-04 — the owner had simply
+  re-privated it to test.
+- **the general form, which is the reason this is here rather than only in a customer doc:**
+  **"I checked and it works" is worthless when the checker is authenticated and the audience is
+  not.** The same shape has bitten this estate as a logged-in preview, an owner-visible draft, and a
+  presigned URL that works for the holder. If the thing you are verifying has an access model, verify
+  it as the party who has the LEAST access, never as yourself.
+- **⚠ this also invalidates the instruction "no account is needed to try it".** There is no anonymous
+  preview and no unclaimed site to claim later. Signup is demanded on the drop, and the real elapsed
+  time from drop to publicly-reachable was about **forty minutes**, most of it waiting for a
+  confirmation email — against the "about a minute" a plausible-sounding draft claimed.
+- **relations:** `bugs_open/475` (the instructions this was written for) · `bugs_open/476` (the ZIP
+  that cannot be opened locally) · `DRAFT_2026-09-04_customer_instructions_copy_v3_after_the_owner_performed_it.md`
+- **source:** 2026-09-04, `site_delivery_and_editor`. The owner performed this lane's draft
+  instructions with the real `idea.uk` ZIP and captured ten screenshots; every correction is his
+  observation. **The draft he was testing said "no account is needed" and did not mention privacy at
+  all.**
+- **added:** 2026-09-04, `site_delivery_and_editor` lane
