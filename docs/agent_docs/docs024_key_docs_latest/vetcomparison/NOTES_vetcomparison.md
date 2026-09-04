@@ -2338,3 +2338,12 @@ retry_payload.go:ReplayRequest — start there). Not re-filed by this lane today
 platform-wide, the evidence is recorded in three places (here, the tool-rebuilds lane, the dead
 rows), and the tool-rebuilds seat called it "real but unowned" — a deliberate hand-off, not a
 drop. Lane queue: 0 open items; everything shipped this week remains live and verified.
+**2026-09-04, attribution correction handled:** site_delivery_and_editor's applied-vs-tracked
+sweep found migration 767 ("vetcomparison_posture…") live and untracked and attributed it to THIS
+lane off the filename. Refuted with the file's own header: it answers the REVISE on migration 761
+(corr 5d54f835) in the evidence-register programme's vocabulary — the 414 lane's work;
+"vetcomparison" in the name is the SUBJECT site, not the author (the naming-convention-as-
+provenance trap, again). This lane has applied ZERO migrations. Both the finder (correct your
+landmine entry's attribution) and the author (commit your pair) notified. Their comm check
+(applied filenames vs tracked filenames) adopted as an end-of-session habit for any session that
+hand-applies SQL.
