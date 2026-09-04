@@ -416,3 +416,67 @@ your ordering:
    asserting the five are symmetric.
 
 Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_404_rerender_reason_vocabulary/`.
+
+
+---
+
+# CLOSED 2026-09-04 — FIXED AND LIVE, verified at the artefact. Moved to `bugs_closed/`.
+
+Closed by the `bugfix_404_rerender_reason_vocabulary` lane. Council **APPROVED** at round 4
+(artifact `e1abb1bc-2713-4fda-84b6-f9b85b36129f`, corr `f2e4ac2a-2bfc-4c82-ac99-d5fd7616edef`,
+orch `40639f27-fdca-4059-92bd-1a01d9f55f57`, 2026-09-02 16:33:30.187Z — *"approved with 3 advisory
+objection(s) — none high-severity"*, 2 abstained). Four rounds, one trail; **every gating
+objection in all four was about submission accuracy, none about the design.**
+
+## What the closure rests on — all `[MEASURED 2026-09-04]`, at the artefact, not at git or a tag
+
+| | evidence |
+|---|---|
+| the Go reader is LIVE | both `agent-chassis` pods (`v1.0.1360`) contain the change's own literal (`sections-rerender vocabulary`), with a **positive control** (a pre-existing literal in the same file: present) and a **negative control** (a nonsense string: absent) in the same `exec`. ⚠ The `build provenance` line has scrolled out of `--tail=3000` on both, so an empty grep there means "not in range", not "unstamped" |
+| migration 656 is LIVE at the object | the fixer's `create_rerender` query carries `p.status = 'active'` exactly **once** |
+| the live gate is unchanged | five values, byte-identical to `livespec.CheckRerenderModeConditionClause()` |
+| the drift guard actually runs | `live-declaration-drift-check` (`0 7 * * *` UTC) at 07:00:10Z: *"probed 16 live object(s) (4 constraint, 2 scheduled_task, 1 trigger_bindings, 2 trigger_fn, 7 workflow); 0 finding(s)"* — and the tree holds exactly **16** Declarations, **7** of them `workflow`, so all three of this bug's declarations are inside the probed set. `compareAllDeclarations` iterates every Declaration regardless of `Phase` and **exits 2** on NO ROWS or NULL, so a clean run cannot mean "could not look" |
+| tests | `platform/livespec`'s 14 rerender/reason tests and the actions-package parity tests all pass |
+
+**Fix candidates 0, 1, 2 and 3 all shipped** (commit `ef4236b4d`, migration 656): one definition
+in `platform/livespec/rerender_reasons.go` carrying per value whether it scopes by component and
+whether it stamps without one; all four readers naming constants, so retiring a value breaks
+compilation everywhere rather than silently disarming one gate; three livespec Declarations
+(including a **paired count**, because the gate's clause has no terminator and only a count sees
+ADDITION); a corpus lint with positive controls naming migrations 460 and 473; and the fixer's
+missing page-status filter.
+
+## ⚠ One correction to a shipped artefact that cannot be edited
+
+`editquality` [medium] was right: 656's own comment reads *"[MEASURED 2026-08-26]
+component-template-fixer has exactly 1 active row, as do page-rerender and
+**availability-discovery-agent**"* while the verification query shown to the council checked
+`('component-template-fixer','page-rerender','**rerender-pages**')` — a `[MEASURED]` marker over a
+name no shown measurement covered. **Re-measured 2026-09-04 under the migration's own predicate:
+all four types have exactly 1 active row**, so nothing false shipped and the guard (scoped to
+`component-template-fixer` alone) never depended on it. **The file cannot be corrected — 656 is
+applied, and an applied migration is append-only history whose checksum is in
+`schema_migrations`.** The correction lives in the lane NOTES.
+
+## Residuals — none of them this bug's mechanism, each with a home
+
+- **An unknown routing key still completes green.** That is `bugs_open/440` / `RFC_062` phase 3,
+  spun out by owner decision 2026-09-02. Its migrations `741`/`742` were BUILT, council-APPROVED
+  r1, and held on owner ruling D2 (*the 404 lane co-signs*) — **the co-sign was GIVEN 2026-09-04**,
+  conditional on one added Declaration: 741's applier step (c) prescribes a `FragmentMatch` for
+  `check_routing_key_known`, which is blind to ADDITION for exactly the reason its own step (b)
+  exists. Mutation-proved with both controls (a value removed live → 1 finding, so the guard is
+  armed; a sixth value appended live → **0 findings, silent**). Remedy: a paired `CountEqual`,
+  `ExpectCount` derived from `CheckRoutingKnownConditionClause()` — **7**, because that clause
+  carries `== null` and `== ''` besides the five vocabulary values.
+- **The WARN has no durable consumer**, and per the 440 lane has fired **zero** times in
+  production because every live producer bypasses the Go creator (`bug_historian` [medium]). Not a
+  defect in the warning — it is the write-door placement question, and `RFC_062` owns it.
+- **The 7 pre-473 `literal_markdown` items and the 129 gate-side items.** Historical, and **no
+  discriminating marker exists** — the §CONTRIB 2026-08-26 entry records the cohort that failed to
+  discriminate (control and treatment agreed), and reaching for another until one agrees is how
+  this estate's worst measurements get made.
+- **`spec.reason` is two fields wearing one name** — `RFC_062`, ruled, in flight.
+
+Lane: `docs/agent_docs/docs024_key_docs_latest/bugfix_404_rerender_reason_vocabulary/`
+(NOTES + README only; the NOTES tail is the state).

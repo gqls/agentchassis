@@ -58,3 +58,66 @@ still using their own private copy of the list, arguing it was out of scope. Two
 independently pointed out that "fix one copy properly and leave its sibling alone" is *exactly the
 problem I was fixing*, one level up. That was the plan's own argument used against it, and they
 were right. It's done properly now.
+
+---
+
+## 2026-09-04 — the good news nobody had read, and a signature that found a fault in what it was signing
+
+Picking this up cold, the first thing I found was that the reviewers had **approved** our work on
+the 2nd of September, at 16:33 in the afternoon — nine minutes after the last person here stopped
+working — and **nobody had gone back to look.** Four rounds of review, and every single time the
+reviewers sent it back it was because of how we'd *described* the change, never the change itself.
+The design was never once objected to.
+
+That unread approval had a cost beyond tidiness. Another team's work was **held waiting on us.**
+They had built a related change, had it approved first time, and then stopped — because the owner
+had ruled that we had to counter-sign it, since it edits a set of declarations that belong to this
+piece of work. They wrote to us on the 2nd asking. Nobody was here to answer, and their own notes
+had (fairly) written us off as dormant, then corrected themselves the next day when they checked
+properly. **So a two-minute reading job had a built, approved, safe change parked behind it for
+two days.** That is the thing worth remembering from today.
+
+**I signed it — and reading it properly turned up a real fault, which is rather the point of
+asking someone to counter-sign.**
+
+Here is the fault in plain terms. We have two kinds of automatic check watching the live system.
+One asks "is this exact wording still there?" The other asks "are there still exactly five items in
+this list?" They catch different things: the first notices if something is *removed* or *altered*,
+and the second is the only one that notices if something is *added*. We wrote that distinction down
+ourselves, in a comment, back in August.
+
+The other team read our comment, applied it to our own checks, and found a genuine gap — good work,
+and they were right. Then, in the very next line of their instructions, they specified the
+"exact wording" kind of check for a new list. **Which is the same blind spot again, one step
+along.** So I built their check as written, added a sixth item to a copy of the live list, and
+watched it report everything fine. Then I *removed* an item, and it complained immediately — which
+is the important half: it proves the check was switched on and working, so the silence about the
+addition was a real blind spot and not a broken test. The fix is one extra check of the counting
+kind, and I've given them the exact line, including the one number that is easy to get wrong.
+
+**The moral, and it is uncomfortable because it is about us:** we wrote the principle down, in a
+comment, right next to the code. The other team read it, applied it correctly to our work, and
+then walked into it themselves within a paragraph. **Writing a rule down does not enforce it.** The
+only thing that actually revealed this was building the check and deliberately breaking things in
+front of it. That is the third time this small workstream has learned the same lesson in three
+sittings.
+
+**I also checked, rather than assumed, that our own fix is genuinely running.** The reviewers had
+made exactly that objection — we'd claimed the code was live based on a version number, which is
+not evidence. So I asked the two live servers directly whether they contain the new code, with a
+control in each direction: a phrase that must be there, and a nonsense phrase that must not.
+Both servers, both controls, correct. The database changes are live too, and the check that runs
+every morning is genuinely looking at all three of our declarations — I verified that by matching
+what it reported against what the code actually holds, rather than trusting a clean result.
+
+One last thing, less about this bug than about how we work. A shared piece of code has been
+**broken for nine days** because of an unrelated change, and *four* separate workstreams noticed,
+wrote it down, and correctly said "not ours to fix". None of them told the people whose file it
+is. Everyone was being careful; nobody was being useful. I've told them today, with the fix the
+error message itself suggests. Worth watching for — "I recorded it" can feel like "I dealt with
+it", and here it plainly wasn't.
+
+**The bug is closed.** The original fault — a template fix that would report success and change
+nothing — is fixed and running. What remains is deliberately somebody else's: an unrecognised
+instruction still completes quietly rather than being refused, and that is precisely the change I
+counter-signed today.

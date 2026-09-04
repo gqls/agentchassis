@@ -397,3 +397,186 @@ Boundaries, so nothing is done behind your back:
   over `collected_data` matches YOUR OWN council submissions quoting it — my first count said
   "fired twice" and both rows were your r3/r4 runs (WRONG_CALLS 2026-09-02). Exclude
   `fix_correlation_id IS NOT NULL` before counting emissions of any string your submissions quote.
+
+---
+
+## 2026-09-04 — r4 verdict READ (APPROVED), all three advisories dispositioned at the artefact, the D2 co-sign GIVEN, and the bug CLOSED
+
+Picked up cold. The lane's owed action was one line long and had been owed for two days: **read
+the round-4 verdict.** It was APPROVED, and because nobody had read it, another lane's built and
+approved work sat held on us.
+
+### 1. The verdict
+
+`[MEASURED 2026-09-04]` from `diagnosis_artifacts` (`orchestration_states` still returns nothing
+for this correlation — the runs have aged out, exactly as this file recorded on 09-02):
+
+| | |
+|---|---|
+| artifact | `e1abb1bc-2713-4fda-84b6-f9b85b36129f`, `kind='council_report'` |
+| correlation | `f2e4ac2a-2bfc-4c82-ac99-d5fd7616edef` (r1→r4 all on the one trail) |
+| orchestration | `40639f27-fdca-4059-92bd-1a01d9f55f57` |
+| landed | **2026-09-02 16:33:30.187Z** — nine minutes after this lane's last commit |
+| decision | **`approved`** · *"approved with 3 advisory objection(s) — none high-severity"* · 2 abstained |
+
+Four rounds, one trail: `revise` (08-26 18:57Z), `revise` (08-26 19:23Z), `revise` (09-02 13:53Z),
+`approved`. **Every gating objection across all four was about SUBMISSION ACCURACY; the design
+drew none.** That is worth saying plainly because it is this lane's whole council history.
+
+### 2. The three advisory objections, dispositioned — two answered, one conceded to another lane
+
+**(a) `editquality` [medium], edit 7 — CONFIRMED as a provenance defect, and the claim itself is
+TRUE.** The seat spotted that migration 656's shipped comment reads
+*"[MEASURED 2026-08-26] component-template-fixer has exactly 1 active row, as do page-rerender and
+**availability-discovery-agent**"* while the verification query the submission showed checked
+`('component-template-fixer','page-rerender','**rerender-pages**')`. Both halves verified today:
+
+- the mismatch is real — `656_fixer_rerender_page_status_filter.sql:94-95` names
+  `availability-discovery-agent`, and no shown measurement covered it;
+- re-measured under the migration's own predicate `[MEASURED 2026-09-04]`: **all four** types have
+  exactly **1** active row (`availability-discovery-agent` 1, `component-template-fixer` 1,
+  `page-rerender` 1, `rerender-pages` 1).
+
+So nothing false shipped — but a `[MEASURED]` marker sat over a name the measurement did not
+cover, which is this estate's own named failure (*a `[MEASURED]` marker proves a measurement was
+CLAIMED, not COMPLETE*). **The file cannot be corrected: 656 is applied, and an applied migration
+is append-only history — its checksum is in `schema_migrations`**, which is the very argument
+`TestNoNewMigrationFileReadersOutsideTheAllowList` makes in its own failure text. The correction
+therefore lives here, and it is the right place: the comment is decoration on a guard that is
+scoped to `component-template-fixer` alone, so no live behaviour ever depended on it.
+
+**(b) `debug_historian` [medium] edit 1 + [low] edit 5 — ANSWERED TODAY, at the artefact.** The
+objection was that "already committed and live (chassis v1.0.1345)" rests on a version tag rather
+than on the running binary, and that no pod-verification was named for the routing change. Fair,
+and re-checkable now that the fleet has rolled twice more. `[MEASURED 2026-09-04]`, both
+`agent-chassis` pods (`v1.0.1360`, started 2026-09-03T22:06Z):
+
+| probe | jvw92 | k866t |
+|---|---|---|
+| `sections-rerender vocabulary` (only the 404 change emits it) | **present** | **present** |
+| positive control — a pre-existing literal in the same file | present | present |
+| negative control — a nonsense string | absent | absent |
+
+⚠ **The `build provenance` line has scrolled out of `--tail=3000` on both pods**, exactly as
+CLAUDE.md says it will on a busy service — so the empty grep means "not in range", not
+"unstamped". ⚠ And the probe that suggests itself first is the WRONG one: grepping the binary for
+`ef4236b4d`'s sha would have come back ABSENT and meant nothing, because the binary stamps the
+commit it was BUILT from, not every ancestor. **Probe the capability, not the commit.**
+
+**(c) `bug_historian` [medium], edit 4 — REAL, NOT CLOSED, and now owned elsewhere.** The
+undeclared-reason signal is a `logger.Warn` plus `result["unknown_reason"]` and nothing consumes
+either; the seat's phrasing is the right one — *"loud enough to be found on purpose, not loud
+enough to be found by accident"*. The 440 lane then measured the sharper version of it: the
+warning has fired **zero** times in production, because every live producer bypasses the Go
+creator. That is not a defect in the warning, it is the write-door placement question, and it is
+`RFC_062`'s. Their `[low]` on `mark_complete` overwriting `site_work_items.result` is the same
+residual one layer downstream. Both stated as residuals in the closure, not fixed here.
+
+`guardian`'s two `[low]`s were conceded when made (a config scan cannot see a hand-dispatched
+caller; the r4 sketch was truncated before the verify block) and neither is a code defect.
+
+### 3. State at the artefact, which is what the closure rests on
+
+All `[MEASURED 2026-09-04]`:
+
+- **Go reader live** — the pod probe above, both pods, both controls.
+- **Migration 656 live at the object** — the fixer's `create_rerender` query carries
+  `p.status = 'active'` exactly **once**.
+- **Live gate unchanged** — five values, byte-identical to `CheckRerenderModeConditionClause()`.
+- **Tests green** — `platform/livespec` (14 rerender/reason tests) and the actions-package parity
+  tests all pass.
+- **The daily auditor is not passing blind.** `live-declaration-drift-check` (`0 7 * * *` UTC) ran
+  07:00:10Z: *"probed 16 live object(s) (4 constraint, 2 scheduled_task, 1 trigger_bindings,
+  2 trigger_fn, 7 workflow); 0 finding(s)"*.
+
+⚠ **The demand control on that last one, because a green auditor is exactly the shape this lane
+exists to distrust.** "0 findings" is worthless without evidence the run could have said
+otherwise, and the scope line alone does not give it. Two things do: `compareAllDeclarations`
+iterates **every** `Declaration` regardless of `Phase` and **exits 2** on NO ROWS or NULL (so
+"could not look" can never print as clean); and the tree holds exactly **16** Declarations, **7**
+of them `workflow` — the same numbers the run printed. That match is what places all three of
+this lane's declarations inside the probed set rather than merely hoping they were. (The 09-03 run
+read 15 / 6 workflow; the sixteenth is another lane's, added that day.)
+
+### 4. The D2 co-sign — GIVEN, and reviewing it found a real defect in the thing we were signing
+
+`RFC_062` phase 3 (`741_..._HOLD.sql` + `742_..._HOLD.sql`) has been BUILT and council-APPROVED
+since 09-03 and held on one thing: owner ruling D2, *the 404 lane co-signs*, because the livespec
+Declarations it rewrites are ours. Given today — see
+`bugfix_440_unknown_routing_key/CONTRIB_2026-09-04_from_the_404_lane_cosign_GIVEN_with_one_condition.md`,
+and the block now in both `_HOLD` headers.
+
+Their two claims about our declarations, re-derived **by execution** rather than read:
+
+| 741's claim | result |
+|---|---|
+| (a) the old five-value clause is a substring of `TransitionRerenderModeConditionClause()` **exactly once**, so the `FragmentMatch` still passes — "do not fix it" | **CONFIRMED**, count = 1 |
+| (b) the paired count still reads 5, so the five new `routing_reason ==` disjuncts arrive asserted by NOTHING | **CONFIRMED** — transition clause has `input_data.spec.reason ==` ×5 and `input_data.spec.routing_reason ==` ×5, and the probe's needle is **not** a substring of the new one (`spec.routing_reason` breaks `spec.reason ==`) |
+
+**And then the finding, which is the part worth this lane's time.** 741's applier checklist
+prescribes, one line after naming (b) "THE REAL GAP":
+
+> (c) ADD a Declaration for `check_routing_key_known.condition` (FragmentMatch,
+> `CheckRoutingKnownConditionClause()`, Min:1 Max:1).
+
+**That is blind to ADDITION for exactly the reason (b) is.** Built the Declaration as enumerated
+and ran it against mutated live values `[MEASURED 2026-09-04, BY EXECUTION]`:
+
+| case | findings |
+|---|---|
+| CONTROL — live == declared | `0` |
+| CONTROL — `literal_markdown` REMOVED live | **`1`** — so the guard is armed, not dead |
+| **a sixth routing value APPENDED live** | **`0` — SILENT** |
+
+The loss control is what makes the zero mean something: without it, "0 findings" is equally
+consistent with a declaration that never ran at all. Remedy given: a paired `CountEqual`,
+`ExpectCount` derived from `CheckRoutingKnownConditionClause()` — **7, not 5**, because that
+clause carries `== null` and `== ''` besides the vocabulary, and both are load-bearing (741's own
+header records that the `== null` disjunct was missing from its first cut and would have sent the
+fleet's normal re-render traffic to human review). Same mutated input then reports
+`live count is 8, declared 7`.
+
+**The lesson generalises past this file, and it is ours because we wrote the sentence:** *a
+fragment sees loss and mutation; only a count sees ADDITION.* We wrote it in the Declaration
+comment; the 440 lane applied it to our two declarations and caught a real gap; and the very next
+line of their own checklist re-created it. **A principle stated in a comment is not a control —
+the only thing that made this visible was building the guard and mutating its input.** Third time
+this lane has learned that in three sessions (misstep 6, the r3/r4 sketch failures, this).
+
+Two smaller notes handed over, neither a condition: **(d) will not match if you paste 742's own
+text** — `[VERIFIED 2026-09-04]` Postgres normalises `IN (...)` to `= ANY (ARRAY[…::text])`
+(checked against the live `doc_plans_subject_type_check` twin, which is why that Declaration's
+fragments are `'tool'::text`); and **(e) has room** — 16 Declarations against `MaxDeclarations`
+24, going to 20.
+
+### 5. Adjacent, re-checked and re-routed rather than repeated
+
+**`platform/livespec` is STILL RED at committed HEAD — nine days now**, unchanged since this file
+first recorded it on 08-26. `TestNoNewMigrationFileReadersOutsideTheAllowList` fails on
+`platform/orchestration/actions/write_audit_findings_origin_test.go` (405 lane, `ffa1707b3`,
+2026-08-26). Not ours to fix and still not fixed by us.
+
+⚠ **But re-recording it a third time is not an action, and this lane had already done that
+twice.** `[MEASURED 2026-09-04]` **four** lanes have written it down — this one, `bugfix_440`,
+`bugsweep_2026_08_26`, `bugfix_359` — each correctly saying "theirs, not touched", and **not one
+had told the owner**: `write_audit_findings_origin_test.go` appears nowhere in
+`loanzy_uk_example_site/` except inside that lane's own council submission JSON. Four detections,
+zero dispatches, on a package every lane compiles. Told them today (CONTRIB into their lane);
+the test's own failure text names both sanctioned remedies, so it is a small fix for whoever owns
+the file.
+
+### 6. What is closed, and what is deliberately not
+
+`bugs_open/404` → `bugs_closed/`. Fixed and live: the Go reader knows the whole vocabulary and
+derives from one definition; all four readers name constants; the fixer has its page-status
+filter; three declarations hold the live objects against Go every morning. Residuals, each with a
+home that is not this file:
+
+- an unknown routing key still completes green — `bugs_open/440` / `RFC_062` phase 3, co-signed
+  today, releasable once the added Declaration lands;
+- the WARN has no durable consumer and (per 440) zero production firings — same place, it is the
+  write-door question;
+- the 7 pre-473 `literal_markdown` items and the 129 gate-side items — historical, and **no
+  discriminating marker exists** (this file's 08-26 entry records the cohort that failed to
+  discriminate, and reaching for another until one agrees is how bad measurements get made);
+- `spec.reason` as two fields wearing one name — `RFC_062`, ruled, in flight.
