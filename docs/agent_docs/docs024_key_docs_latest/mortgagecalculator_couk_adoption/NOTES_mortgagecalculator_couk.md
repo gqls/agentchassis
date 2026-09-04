@@ -5421,3 +5421,63 @@ mirror image. Quote the scope line, not the word PASS.
 **11 of 18 tools now hold a passing Tier-4 verdict** (was 4 this morning, 1 usable yesterday). ⚠ And
 still **not one is verified for both correctness and liveness** — the two fence families remain
 disjoint.
+
+## 2026-09-04 — a peer's roll notice sent me to check, and every verdict I recorded yesterday is stale
+
+A cross-session note about fleet roll v1.0.1361 and a 35-minute credit outage (11:21:11–11:56:49
+UTC, 146 failures, council-gate 92) prompted a check of my own work. **Neither touched this lane** —
+my only `090` was 09-02 and completed; I hold no council-gate submission at all; the outage window on
+this site holds 5 `improve_tool` + 3 `section_edit`, all `complete`. Their figures reproduce exactly
+here, so that is independent confirmation rather than a finding.
+
+**What the check DID turn up is mine, and it matters more.**
+
+### All 8 of yesterday's PASS verdicts are stale — the tools were rewritten under them
+
+**25 `improve_tool` items completed on this site 05:34–12:04 today**, and **all eight** fenced tools
+have had both `content_components.updated_at` and `page_components.updated_at` move since the
+17:21 verdicts. Several fixes are **arithmetic**, not cosmetic:
+
+- *"In the amortise() function the final-month interest correction is mathematically…"*
+- *"The basisText logic is inverted. The condition `affordabilityBorrowing < multipl…"*
+- *"In computeBands(), the row pushed to the results stores `r.to` as `band.upTo` (the b…"*
+
+These fences pin **exact values** re-derived from independent oracles, so a corrected calculation can
+legitimately move a pinned number. **A failure in the re-run is therefore not evidence the tool
+broke** — it is the fence doing its job, and `no_auto_fix` routes it to a human to decide which
+number is right.
+
+**The fences themselves are fine: 0 of 8 broken**, re-checked against the live pages today. The
+rewrites preserved the `c-tool-…` ids, so yesterday's re-point survived a full pass of the
+improvement loop. That is a real (if quiet) confirmation that the re-point was structural rather
+than lucky.
+
+Re-fired all 8. ⚠ **And I corrected the handoff**, which was asserting "8 of 8 PASS" about tools that
+no longer exist in that form — a cold-start doc making a confident claim that had expired inside 24
+hours.
+
+### The transferable check, which pairs with the peer's own
+
+Their note warns *"a dispatch script's `PUBLISHED` line is a publish receipt, not an outcome"*. The
+sibling, which cost me a false handoff: **a completed VERDICT is not a current one.** A Tier-4 PASS
+is true only until `page_components.updated_at` moves, and on a site with an active improvement loop
+that is **hours**, not weeks. Before quoting any acceptance verdict:
+
+```sql
+SELECT p.name, pc.updated_at > '<verdict timestamp>' AS changed_since_verdict
+FROM pages p JOIN page_components pc ON pc.page_id=p.id
+JOIN content_components cc ON cc.id=pc.component_id
+WHERE cc.component_level='tool' AND p.site_id='<site>';
+```
+
+⚠ **This is the same family as `441` and I keep meeting it from new angles.** 441 is "the fence goes
+stale under the page"; this is "the verdict goes stale under the tool". Both are a record that stays
+readable and stops being true, with nothing in the system marking the moment it expired.
+
+### Answered the peer
+
+`clientip.go` is **not** an orphaned code change: the working-tree file is byte-for-byte
+`gofmt(HEAD)` (verified by piping `git show HEAD:…` through `gofmt` and diffing), and every changed
+line is a comment — three doc headings gaining Go 1.19's `# ` prefix. It lives in the file deciding
+the per-visitor rate-limit key, but this edit cannot affect it. Safe to commit or discard; almost
+certainly a stray `go fmt ./...` over the shared tree, which is why every lane disclaims it.

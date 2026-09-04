@@ -69,7 +69,22 @@ note to the 357 lane telling them their md5 guarantee had expired. It had not; r
 
 ## 3. What is in flight right now
 
-**LANDED — 8 of 8 PASS**, all terminal by 17:21:52Z, each run ~50s. simple, repayment,
+> **⚠ STALE AS OF 2026-09-04 — these eight verdicts no longer describe the tools they name.**
+> **25 `improve_tool` fixes landed on this site 05:34–12:04 on 09-04**, and **all eight** of these
+> tools have had both their `content_components` row and their `page_components` rendering rewritten
+> since. Several fixes were ARITHMETIC ("the final-month interest correction is mathematically…",
+> "the basisText logic is inverted", "computeBands stores `r.to` as `band.upTo`"), and these fences
+> pin exact values — so a pinned value may legitimately have moved.
+> **The fences themselves survived: 0 of 8 broken**, checked against the live pages 2026-09-04 —
+> the rewrites preserved the `c-tool-…` ids. So this is a stale VERDICT, not a stale fence.
+> **Re-fired 2026-09-04** as `773d6f9c` simple · `a1db08c0` repayment · `dd57a4e7` equity-release ·
+> `5fb4488e` fee-analyser · `2b17ba03` rate-forecaster · `d7f86c80` bridging-loan · `2e58d5f2`
+> overpayment · `d09cce26` stamp-duty. **Read those, not the ones below.**
+> ⚠ **A failure in the re-run may be CORRECT** — if a fix changed a value the fence pins against an
+> independent oracle, the fence is doing its job and a human decides which number is right. That is
+> what `no_auto_fix` is for. Do not assume a fail means the tool broke.
+
+**LANDED (2026-09-03) — 8 of 8 PASS**, all terminal by 17:21:52Z, each run ~50s. simple, repayment,
 equity-release, fee-analyser, rate-forecaster, bridging-loan, overpayment, stamp-duty.
 
 That closes the loop three ways: the calculators were correct throughout, the re-point is right, and
@@ -95,7 +110,7 @@ governor admits the type, we ranked 5th and eligible). Contributed as data to th
 | state | tools |
 |---|---|
 | **PASSING** on a verdict that predates today's fence churn | `tool-overpayment-priority`, `tool-rate-scenarios`, `tool-bridging-compound` |
-| **PASSING on today's arithmetic verdict** | `tool-simple`, `tool-repayment`, `tool-equity-release`, `tool-fee-analyser`, `tool-rate-forecaster`, `tool-bridging-loan`, `tool-overpayment`, `tool-stamp-duty` |
+| **PASSED 09-03 on arithmetic — ⚠ VERDICTS STALE, tools rewritten 09-04, re-fired** | `tool-simple`, `tool-repayment`, `tool-equity-release`, `tool-fee-analyser`, `tool-rate-forecaster`, `tool-bridging-loan`, `tool-overpayment`, `tool-stamp-duty` |
 | **FAILING for real** — `441` stale fence, fixer blocked by `448` | `tool-deposit-tracker`, `tool-remortgage-savings` |
 | **no fence at all** | `tool-affordability`, `tool-btl-investor`, `tool-credit-health-check`, `tool-portfolio`, `tool-rate-stress-test` |
 
