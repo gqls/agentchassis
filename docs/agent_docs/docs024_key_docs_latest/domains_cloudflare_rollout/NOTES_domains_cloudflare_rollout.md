@@ -944,3 +944,40 @@ shared:
   clean for organic `.com` registrations; the transferred-in/marketplace
   case remains unproven either way, no such arrival to test against today.
   No CSV update needed — the checked-in file already matches live exactly.
+
+## 2026-09-04 (cont.) — window released back; TLD coverage completed; walker's resume race fixed at source
+
+domain_valuation finished today's window (299/300, genuine 429) and sent back
+three findings that are properly this lane's to record, since it owns the
+walker and the RUNBOOK:
+
+- **Step-1 cross-registrar test retired** — settled without spending a call,
+  by reading the 588 appraisals already on disk: 136 were for domains
+  registered elsewhere (108 Porkbun, 28 Spaceship), all appraised cleanly.
+  RUNBOOK updated to cite this instead of the single `aakn.com` anecdote.
+- **TLD coverage completed**: the remaining untested TLDs from the handoff —
+  `.cv`, `.ai`, `.us`, `.io` — are all covered (one probe call each: $68,
+  $2,093, $3,615, $1,309). `.org`/`.biz`/`.club`/`.info`/`.shop` turn out to
+  already be proven covered too (via existing appraised rows, not fresh
+  calls). Only `.vin` remains genuinely untested — no domain on that TLD has
+  had a probe call. RUNBOOK's TLD-coverage bullet rewritten to the current
+  state rather than patched piecemeal.
+- **Dynappraisal is TLD-aware, not keyword-driven** (their finding, recorded
+  in RUNBOOK): `ant.uk` $23,144 vs `ant.com` $8,208,882, same SLD. Matters
+  for how a proxied `.co.uk` value gets explained to the owner — it is a
+  `.com`-market read, not a stand-in for what the real TLD would have said.
+- **Fixed at source: `dynadot-appraise-all.sh`'s resume-by-grep race.** The
+  skip check (line ~54, `grep "^$d," "$out"`) ran immediately before the API
+  call with no atomicity between them — two concurrent invocations against
+  the same output file could both pass the check for one domain before
+  either wrote it, double-spending the shared 300/day quota on that domain.
+  domain_valuation had already worked around this in their own
+  `run_appraisal_window.sh` wrapper (an exclusive flock) rather than edit the
+  walker mid-window, and asked whether the lock belonged in the walker
+  itself. Agreed it does — a wrapper only protects callers who use it, the
+  walker protects everyone. Added an exclusive, non-blocking `flock` on
+  `"$out.lock"` for the life of the run; a second invocation against the same
+  output file now refuses immediately with a clear message instead of racing
+  silently. Verified: syntax check clean, usage-error path unaffected, and a
+  held lock causes a concurrent run to exit 3 with the refusal message
+  (manual test, not against the live API — no quota spent).

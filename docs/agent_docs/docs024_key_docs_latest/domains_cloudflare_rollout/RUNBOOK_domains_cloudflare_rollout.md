@@ -145,10 +145,15 @@ becomes an invalid bearer header.
   is capped **PER DAY** by account price level (50 Regular / 100 Bulk / 300
   Super Bulk) and takes ONE domain per call — a 451-domain portfolio is a
   multi-day walk; keep a deterministic order so each day resumes cleanly.
-- **Cross-registrar CONFIRMED 2026-09-03**: `domain_appraisal` accepts domains
-  NOT registered at Dynadot — `aakn.com` (Porkbun) appraised at $4,554 with no
-  special handling. So the whole retail estate is appraisable via this one
-  account's quota, not just the Dynadot-registered slice.
+- **Cross-registrar CONFIRMED 2026-09-03, reconfirmed at scale 2026-09-04**:
+  `domain_appraisal` accepts domains NOT registered at Dynadot — `aakn.com`
+  (Porkbun) appraised at $4,554 with no special handling. Re-checked
+  2026-09-04 against the 588 appraisals already on disk: **136 were for
+  domains registered elsewhere (108 Porkbun, 28 Spaceship)**, all appraised
+  cleanly (domain_valuation lane, no extra quota spent — read off existing
+  data). So the whole retail estate is appraisable via this one account's
+  quota, not just the Dynadot-registered slice; no further test call needed
+  here, this is settled.
 - **⚠⚠ NOT AN INVENTORY LOOKUP — it's a keyword valuer, MEASURED 2026-09-03**
   (domain_valuation lane, taken further): appraises ANY domain string, owned
   or not, registered anywhere or nowhere — `mortgagecalculator.com` $64,597,
@@ -158,18 +163,30 @@ becomes an invalid bearer header.
   labelled as a proxy — never presented as a direct appraisal). One curiosity:
   `google.com` returns **HTTP 400** `"The price is too high"`, its own kind of
   answer rather than a number.
-- **⚠ TLD COVERAGE gap, MEASURED 2026-09-03** (domain_valuation lane): covers
-  `.com`/`.net`/`.uk` — confirmed working (`adapting.uk` $8,138,
-  `gardening-tools.net` $197). Does **NOT** cover `.co.uk`/`.org.uk`/`.me.uk` —
-  confirmed by 4 domains, all HTTP 200 with `appraisal_price: "$--"` (not an
-  error; the endpoint just has no answer for these TLDs). `.shop`/`.info`/
-  `.org`/`.club` UNTESTED as of 2026-09-03. **`dynadot-appraise-all.sh` handles
-  this since commit `95c103369`** — a non-numeric price writes an explicit
-  no-appraisal marker row (empty valuation+currency) rather than the literal
-  `"--"` as a fake price; before that fix one such row shipped
+- **⚠ TLD COVERAGE, MEASURED 2026-09-03, completed 2026-09-04**: **Confirmed
+  COVERED**: `.com`/`.net`/`.uk`/`.org`/`.biz`/`.club`/`.info`/`.shop`/`.cv`/
+  `.ai`/`.us`/`.io` (the last four one probe call each, 2026-09-04:
+  `.cv` $68, `.ai` $2,093, `.us` $3,615, `.io` $1,309). **Confirmed NOT
+  covered**: `.co.uk`/`.org.uk`/`.me.uk` — HTTP 200 with
+  `appraisal_price: "$--"` (not an error; the endpoint just has no answer for
+  these TLDs), confirmed by 4 domains. `.vin` still UNTESTED as of
+  2026-09-04 — no domain on that TLD has had a probe call yet.
+  **`dynadot-appraise-all.sh` handles the `$--` case since commit
+  `95c103369`** — a non-numeric price writes an explicit no-appraisal marker
+  row (empty valuation+currency) rather than the literal `"--"` as a fake
+  price; before that fix one such row shipped
   (`southernprints.co.uk,--,USD,…`, caught live 2026-09-03, not by review).
   For the ~half of the UK portfolio that is `.co.uk`, appraisal needs a
-  different route entirely — do not spend quota probing more of them.
+  different route entirely (the proxy-domain mechanism below) — do not spend
+  quota probing more `.co.uk`/`.org.uk`/`.me.uk` domains directly.
+- **⚠ Dynappraisal is TLD-aware, not keyword-driven, MEASURED 2026-09-04**
+  (domain_valuation lane) — the same SLD prices wildly differently by TLD:
+  `ant.uk` $23,144 vs `ant.com` $8,208,882; `design.uk` $23,558 vs
+  `design.com` $3,121,760. The proxy route above still works exactly as
+  designed (it deliberately imports the `.com`-market value for an
+  uncovered-TLD name), but a proxy value is **not** "what it would have said
+  about the real TLD" — don't read it that way when explaining a proxied
+  figure to the owner.
 
 ## Porkbun
 

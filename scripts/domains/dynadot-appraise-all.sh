@@ -27,6 +27,20 @@ if [[ $# -ne 2 ]]; then
   exit 2
 fi
 src="$1"; out="$2"
+
+# The resume check below (grep "$out" for $d) and the API call are NOT atomic —
+# two concurrent invocations against the SAME output file can both pass the
+# check for a domain before either writes it, double-spending the shared
+# 300/day quota on one domain. Take an exclusive, non-blocking lock on the
+# output file for the life of the run rather than let that race happen
+# silently; a second caller gets a clear refusal instead of a lost call.
+lockfd=9
+eval "exec $lockfd>\"$out.lock\""
+if ! flock -n "$lockfd"; then
+  echo "dynadot-appraise-all.sh: another run already holds the lock on $out — refusing to double-spend the shared quota" >&2
+  exit 3
+fi
+
 client="$(dirname "$0")/dynadot-restful.sh"
 col=$(head -1 "$src" | tr -d '\r' | tr ',' '\n' | grep -nx 'domain' | cut -d: -f1)
 if [[ -z "$col" ]]; then
