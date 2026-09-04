@@ -2355,3 +2355,12 @@ orphans — no false-positive window there). Useful census received in the same 
 all three live evidence_base writers are map-based as of 2026-09-04 (so the typed-struct
 citation-stripping landmine has no live instance TODAY) — re-run the grep before relying on it,
 the writer set grows by addition.
+**767/orphan-class final coda (2026-09-04):** the check's author retracted the class — 556
+applied migrations, ZERO true orphans (767 = in-flight window; 521 = the 414 lane's predicted
+record-then-renumber duplicate, re-recorded as 530 56s later, self-guarded; only real instance
+ever = the author's own 752, already fixed). Check now age-gated + stem-matched with the reverse
+arm; their WRONG_CALLS carries "recent was precisely the evidence it was still in progress". New
+landmine minted from MY attribution episode: **route a migration by its council correlation,
+never by the lane-shaped word in its filename — every commit on this tree is cqls, so the
+authorship field is dead and a path word reads like data; it usually names the SUBJECT.** Thread
+closed; thanks relayed both ways.
