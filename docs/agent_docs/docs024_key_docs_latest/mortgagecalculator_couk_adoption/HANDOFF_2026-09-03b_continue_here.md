@@ -150,7 +150,12 @@ all. **No tool on this site is verified for both.** Say which kind when you repo
 
 ## 7. Still open, unchanged
 
-The copy-quality CONTRIB of 08-26 **still needs an answer**. `/scorecard-simulator.html` is still the
+~~The copy-quality CONTRIB of 08-26 still needs an answer.~~ **ANSWERED 2026-09-04** — the voice
+fossil in our `content_direction` is handed to `copy_quality_two_stage`'s fleet sweep, at their
+offer. Re-verified first: their census still returns exactly one row, ours, brief untouched since
+08-12 while 12 other briefs moved since 08-26. **Not ours to edit** — a partial `content_direction`
+write rebuilds `formatted` from the partial, silently and site-wide, on a seam this lane does not
+own. They will report when it lands; chase only if it goes quiet for a few weeks. `/scorecard-simulator.html` is still the
 one dead internal link. The 13 `fact_drift_review` items, the contact-page business email and the
 "Contact" title question remain the owner's.
 
