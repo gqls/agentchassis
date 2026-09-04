@@ -366,3 +366,34 @@ Their reply (their file: `news_feed_ingestion/RESPONSE_2026-09-04_to_the_farmer_
   credited here. This lane does not fire it.
 
 They also supplied the uniqueness constraint that reorders `bugs_open/483` — appended there, §7.
+
+### 17:1xZ — three more stale rows (the stale tally is 120 of 269), and 22 icons that were made and never used
+
+**`image_url_404` — all 3 are FALSE at the artefact** `[MEASURED 2026-09-04, curl with a 404
+control]`:
+
+| claimed missing | served |
+|---|---|
+| `/assets/images/favicon.png` | **200**, 2,462 B, `image/png` |
+| `/assets/images/og-card.png` | **200**, 109,312 B, `image/png` |
+| `/assets/images/hero.jpg` | **200**, 200,160 B, `image/jpeg` |
+| control `/assets/images/nonexistent-control.png` | **404** |
+
+The first two are referenced on 18 of 18 pages and serve — they are the favicon/og re-derivation
+the loanzy lane did on 08-31, and the rows predate it. The third is the interesting one: the row
+says "Pages reference `/assets/images/hero.jpg`" and **nothing does** — 0 of 18 pages, and 0
+occurrences in the served stylesheet (fetched and grepped, not assumed). So that row is false in
+BOTH directions: the asset it calls missing is present, and the reference it calls present is
+absent. Same family as the finetuning lane's ten month-stale `image_url_404` rows.
+
+**Running stale tally: 120 of 269 open rows (44.6%)** — 117 from the earlier count plus these 3.
+Still 63 drainable, now 57 with no closer (`detected` is not in `workItemRevalidatableStatuses`).
+
+**22 `undeployed_asset` rows, all `icon`, all "generated but not deployed"** — the underlying
+`assets` rows are `status='active'` with `s3://…/images/system/20260828/…png` storage paths, made
+2026-08-28 19:5x. Checked at the artefact before calling it damage: the served stylesheet
+(20,563 B) contains **zero** `sprite`/`.icon` rules, the 18 pages contain **zero** `<svg>`
+elements and 9 elements carrying any icon-ish class. **So nothing 404s and nothing is broken — 22
+icons were generated for this site and never reached it.** That is waste, or a design that quietly
+lost its icons, not visible breakage; recorded as such rather than filed as a defect, because the
+disconfirming check (a 404 on a referenced icon path) was run and came back clean.
