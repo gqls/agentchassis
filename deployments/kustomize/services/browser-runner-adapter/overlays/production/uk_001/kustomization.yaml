@@ -15,7 +15,7 @@ patches:
 # release tooling seds it.
 images:
   - name: docker.io/aqls/browser-runner-adapter
-    newTag: v1.0.1360
+    newTag: v1.0.1361
 
 # Per-cluster service config. The repo-root configs/browser-runner-adapter.yaml
 # is the local-run copy; THIS copy is the deployed source of truth. Kustomize

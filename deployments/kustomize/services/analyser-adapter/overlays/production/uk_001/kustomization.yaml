@@ -21,7 +21,7 @@ patches:
 # Matches the thunder overlay: match on the full image name, swap the tag.
 images:
   - name: docker.io/aqls/analyser-adapter
-    newTag: v1.0.1360
+    newTag: v1.0.1361
 
 # Per-cluster service config (kafka brokers, environment, endpoints) —
 # generated here rather than in the base so each cluster/overlay carries its

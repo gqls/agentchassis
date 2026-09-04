@@ -15,4 +15,4 @@ labels:
 # between runs with no diff anybody reviewed.
 images:
   - name: docker.io/aqls/ungraded-completions-check
-    newTag: v1.0.1360
+    newTag: v1.0.1361
