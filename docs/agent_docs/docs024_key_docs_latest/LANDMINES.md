@@ -23390,6 +23390,8 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 
 ### An `agent_error_log` row cited as a bug's closing proof EXPIRES in 14–30 days — the query comes back empty and reads as "the fix was never proven"
 
+> **⚠ THE HEADING'S "14–30 days" IS WRONG — corrected 2026-09-04 by this entry's own author, hours after adding it. The window is PER-CODE: 30 days if the `error_code` prefix is on a 16-code allow-list, otherwise 365. The heading is left unedited ONLY so the slug, and with it this entry's `doc_notes` rows and verification history, stay put. See the struck-through retention bullet below for the live rule and the query that reads it.**
+
 - **footprint:** `agent_error_log`, `occurred_at`, `error_code`, `resolved`, `database-cleanup` arm 1, `sql_for_agents/465`, `reportedConditions`, `persistReportedConditions`, `UNROUTED_IMAGE_KIND`, `MISSING_IMAGE_KIND`, `bugs_closed/011`, `bugs_closed/382`
 - **fires when:** you cite, re-check, or build on a bug closure whose evidence is "we induced the fault and here is the `agent_error_log` row". Also fires the other way round — when you measure the ABSENCE of a condition code over a window and read the zero as "this never happened".
 - **the tell: there is none, and both directions of the error look like findings.** The table is not partitioned and there is no `_archive`; rows are simply gone. `SELECT … WHERE error_code='X'` returns `(0 rows)` whether the condition never fired or fired and was reaped, and a closed bug's own file will still describe the row in the present tense with a timestamp, which reads as something you can go and look at.
