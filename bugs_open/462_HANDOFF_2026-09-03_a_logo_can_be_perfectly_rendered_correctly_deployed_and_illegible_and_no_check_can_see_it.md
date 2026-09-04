@@ -546,6 +546,33 @@ obvious home for "tell someone, don't act", and it is the wrong one:
 **Filing 462's findings there would reproduce 462.** This bug is about a defect that produces
 silence; a queue nobody works is silence with a row number.
 
+> **CORRECTED 2026-09-04, same day — I wrote "queue" where the load-bearing word is STATUS, and a
+> reader checking the obvious column would have concluded the warning was stale.** `[MEASURED
+> 2026-09-04, re-run independently after the 417 lane raised it]`
+> `needs_human_review` is **both an `item_type` and a `status`**, and the two are nothing alike:
+>
+> | axis | rows | oldest | archived |
+> |---|---|---|---|
+> | `item_type='needs_human_review'` | **40** (35 open) | 2026-07-22 | **0** |
+> | `status='needs_human_review'` | **1,440** | 2026-03-15 | — |
+>
+> The 1,439 I reported is the **status**, and it is right. But a reader who greps the item_type finds
+> 40 rows and reasonably concludes the queue is small and alive — which is how a true warning gets
+> discarded.
+>
+> **And the correction makes the argument STRONGER, not weaker.** It is not one dead queue that a
+> new item type could route around: it is a dead **state** that almost any type falls into. The
+> carriers are `owned_page_review` 176, `cta_names_unknown_destination` 111,
+> `image_source_unsatisfiable` 93, `unresolved_cta` 72, `voice_tells` 69, `save_refused_incomplete`
+> 68, `lock_blocked_change` 55, `content_rewrite` 48 — dozens of types. So **"give the finding its
+> own type" is not an escape**: a 462 finding does not have to be *typed* `needs_human_review` to end
+> up parked with 1,440 others, it only has to reach that *status*. Any drain has to act on the status
+> across types.
+>
+> Raised by the `bugfix_417_logo_text_policy` lane, which nearly wrote back *"I measure 35, not
+> 1,439"* — and re-measured instead of replying. Re-verified here before recording, both axes in one
+> query.
+
 **(iii) `ingest_staged_asset` — the non-destructive remedy, and it needs a person with a file.**
 
 The estate *does* have a way to replace an image without a generator:
