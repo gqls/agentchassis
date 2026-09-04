@@ -27,13 +27,12 @@ Both consumers read a `text`-less brief. `Council-Reviewed: 888e7319…`.
   entries would create empty pages that rule 3 holds back."* The home page's closing CTA already says
   *"Ready to have a human write it? One page connects you with UK copywriting companies"* (rev-5
   wording) — pointing at a page that does not yet exist; the CTA resolver will retarget it until it does.
-- **Why no entries:** the `copywriter-directory-discovery` task (weekly, `directory-researcher`,
-  organisations-only query) fired ONCE, 09-03 15:50:03Z, and **FAILED at `search_web`** (*"search query
-  not found — check 'query', 'topic', or 'query_field'"*) — the researcher's config was then changed at
-  22:05:57Z (no migration in git, no `agent_definitions_backup` snapshot — an unsnapshotted live edit
-  by someone; not chased). `directory_entities` kind `copywriter` = **0**. **Re-fire NUDGED 11:4xZ**
-  (`last_triggered_at`/`last_completed_at` set NULL so the scheduler fires it on its next tick via the
-  real path). Watcher `bk751pk1k`. Check:
+- **Why no entries — CAUSE FOUND 12:1xZ:** `web_search`'s `extractSearchQuery` drops any resolved query
+  of **≥200 chars** as a "likely LLM error message" (LANDMINES entry titled with the error text; my
+  addendum names the scheduled tasks as a second footprint). The copywriter query was **444** chars;
+  every working kind is under 200. **Shortened to 165 and re-fired ~12:12Z** (old text kept under
+  `input_data.research_query_previous_over_200`). Watcher `b0am5q9c1`. The 22:05Z researcher config
+  change was NOT the cause (its `search_web` step is byte-identical to July). Check:
   `SELECT last_triggered_at, last_completed_at FROM scheduled_tasks WHERE name='copywriter-directory-discovery'; SELECT count(*) FROM directory_entities WHERE kind='copywriter';`
 - **Once entries exist, the plan must be re-run to add the two pages**: file `needs_site_plan`
   (`source='manual-replan'`, key `site_plan_copyonline.co.uk`, handler `build-site-planner`, the fleet

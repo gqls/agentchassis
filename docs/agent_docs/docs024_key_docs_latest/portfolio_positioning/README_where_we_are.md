@@ -1789,3 +1789,35 @@ notes, not legal or compliance advice", which is a define-by-negation shape the 
 avoid. The check says only you should change that wording. I have left it.
 
 Also confirmed from the image itself: the other lane's prompt-hole fix shipped in the overnight roll.
+
+**Friday, twenty to one — the plan is in, and it is your site.**
+
+While I was away this morning the briefing ran at nine and the plan at ten past eleven. Copyonline now
+has thirty-four planned pages and they are the ones you approved: the AI opening on the home page and
+three AI guides, your four tools, the glossary, the advertising-rules guide, the copy clinic, the
+house view, every how-to guide, and the "how to choose and brief a copywriter" page. The planner read
+your brief directly this time; I checked the rendered prompt and the brief is in it whole. The pages
+are being written now.
+
+Two pages are not in the plan yet, and they are the two that matter most: the directory and the
+"get copy written" page. The planner deferred them on purpose, and said so, because the directory has
+no entries and an empty listing page is exactly what the rules hold back. The home page already ends
+with the line pointing at "one page that connects you with UK copywriting companies", so the intent is
+there; the page will follow the entries.
+
+Why there are no entries is my fault. The research task I set up yesterday failed at its first step,
+and after an hour chasing three wrong explanations I found the real one: a safety check in the search
+step throws away any query of two hundred characters or more, assuming it must be a model's refusal
+message, and my query was four hundred and forty-four. Every directory that works uses a shorter one.
+The check that would have saved the hour was already written in the landmine ledger with the exact
+error in its title. I shortened the query and re-fired the task; a watch is on it. When entries land,
+the plan needs re-running to add the two pages, which is a visible step I will tell you about first.
+
+Two things sit with you. A review item says your four tools need what it calls an owner-aware build
+rather than the generic builder; I have not touched it. And the directory flag on the classification,
+which the brief's own recipe asks for, was never set as a proper field; the classifier rewrites that
+object every run, so a hand-set flag would not hold. I would rather see whether entries alone are
+enough after the replan.
+
+One slip to own: a commit of mine briefly dropped another lane's entry from the landmine ledger. It
+is restored, byte for byte, and that lane has been told.

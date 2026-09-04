@@ -5907,3 +5907,58 @@ decided by a race; ask who WRITES the column; never census it on `deployed_at`.
 **Fix candidate 1** (478 §5): the gate asks "has this site ever been PLANNED" (`site_plans`) or "is it
 PUBLISHED" (`sites.published_at`), not "does any page carry a stamp". One config step. Not mine to
 apply unasked — it is a shared agent and the owner's call after the morning he has had with shared agents.
+
+### (hhh) 2026-09-04 ~12:40Z — the plan landed and follows the brief; 764's second half proven; the two missing pages traced to a 200-character cap I tripped myself; a ledger slip and its restore
+
+**Chain, overnight into the morning `[MEASURED]`:** briefing item `479614c9` complete 09:02:46Z (briefing
+spec 09:02:42Z) → `needs_site_plan` complete 11:09:35Z → **plan: 115 rows, 34 new pages** (44 total, 38
+active). Named pages: `index` (AI-first hero, four-tools grid, AI carousel, guides, and a closing CTA
+*"Ready to have a human write it? One page connects you with UK copywriting companies"* — rev-5
+wording), `ai-commercial-copy`, `writing-with-ai`, `editing-ai-copy`, `tool-headline-scorer`,
+`tool-readability-checker`, `tool-cta-tester`, `tool-length-counter`, glossary, asa-cap-guide,
+copy-length-tables, checklists, house-view, copy-clinic (index + 3), every how-to guide,
+`choose-and-brief-a-copywriter`, `about`, `contact`, plus the two surviving library tools (their old
+`tool-*-guide` pages are NOT in the plan — replaced by `guide-*` pages; the orphan check will flag them).
+In flight: `needs_page ×30`, `needs_imagery ×20`.
+
+**764, planner half, PROVEN at the artefact:** the 11:09:25Z `plan_site` render's `## Mission` block
+carries the brief object (`{ "audience": { "primary": "UK founders…`). Both consumers now read a
+`text`-less brief. (`<no value>` count reads 0, but PRC-003 strips it now — the block content is the proof.)
+
+**The two pages the owner cares most about are deferred, traceably.** No `/get-copy-written/`, no
+`/directory/`. The planner's `strategy_notes`: *"The entity-page type from strategy is deferred: the
+directory compilation has not yet populated individual entity pages, and planning them without entries
+would create empty pages that rule 3 holds back."* The lead route's primary action IS that list, so it
+went with it. The home CTA points at a page that does not exist yet (the CTA resolver will retarget it).
+`page_type_decisions` (748) was not found in `site_specs` or the plan item's result — the deferral
+lives in prose only. Noted, not chased.
+
+**Why the directory is empty — and it was me.** `directory_entities` kind `copywriter` = 0. The
+`copywriter-directory-discovery` task fired 09-03 15:50:03Z and **FAILED at `search_web`**:
+*"search query not found — check 'query', 'topic', or 'query_field' config"*. I nudged a re-fire
+(11:45:28Z) — **failed identically**. Three theories, each refuted with evidence: a renamed config key
+(the action reads `query_from` at priority 3; the step config is byte-identical to a July snapshot);
+a chassis-roll skew (the key has been understood since January; in both images); the scheduler
+mis-delivering `input_data` (the persisted run carries `research_query` in full). **The cause is
+`extractSearchQuery`'s sanity arm `len(queryStr) < 200`** — a filter for LLM refusal messages that
+also drops a long, specific, human-written question. My query was **444** characters. Every kind that
+has ever written entries is under the cap: savings-provider 184, mortgage-lender 183, health-insurer
+171, model 137. **LANDMINES already carries this entry, titled with the error text.** Query cut to
+**165** chars (organisations-only intent kept; the old text preserved under
+`research_query_previous_over_200`) and re-nudged ~12:12Z; watcher `b0am5q9c1`. WRONG_CALLS row; the
+landmine got an addendum naming the scheduled tasks as a second footprint and the standing length sweep.
+
+**Not the cause, recorded:** `directory-researcher`'s `updated_at` = 09-03 22:05:57Z with no migration
+in git and no `agent_definitions_backup` snapshot — an unsnapshotted live edit by someone; its
+`search_web` step did not change. The 09-04 model-kind run failed at `extract_claims` (separate).
+
+**Still owner-facing:** `classification.content_features.copywriter_directory` was never set as a
+structured key (the brief's recipe step 2; live shape on loanandmortgagecalculator has `kind`,
+`reason`, `recommended`, `separate_page`); the classifier rewrites that object each run, so a hand-set
+flag is the `pinned=true does not hold` landmine — the strategy already carries the directory, so
+entries may suffice; decide after the replan. `owned_page_review:needs_human_review ×4`: the four
+brief tools are "not_built — needs owner-aware build, not the generic builder".
+
+**Housekeeping:** `bugs_open/479` is now DOUBLE-BOOKED by two lanes on 2026-09-04 (CLAUDE.md's
+collision list grows again); `480` taken. My ledger slip: commit `bdb846972` dropped the 462 lane's
+landmine entry (tree behind HEAD); restored `d48756a77`; CONTRIB to `bugfix_424_logo_transparency`.
