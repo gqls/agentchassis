@@ -21082,7 +21082,24 @@ print(len(f), f)
 - **fires when:** you add a CHECK (or any constraint) to `site_work_items` — or to any table the fleet writes continuously — and reason that `NOT VALID` makes it safe because it takes no table scan. `NOT VALID` skips the SCAN. It does **not** skip the LOCK: `ADD CONSTRAINT` still needs `ACCESS EXCLUSIVE`, which must wait for every in-flight transaction touching the table to finish.
 - **why the wrong result looks right:** the wait is probabilistic, so a single dry run certifies whichever answer it happened to get. MEASURED 2026-09-03, the SAME statement, both outcomes: one run took **2 ms**; an earlier one was **still waiting after 2 minutes** and had to be killed. A 2 ms reading reads as "this is instant and safe" and is not evidence. Worse than the wait itself: a **queued** `ACCESS EXCLUSIVE` request blocks every subsequent reader and writer of the table behind it in the lock queue, so an unbounded wait does not merely delay your migration — it stalls the work-item pipeline for as long as it waits.
 - **the check:** put `SET LOCAL lock_timeout = '5s';` inside the migration's transaction, above the ALTER. Failing fast is the safe direction — the whole migration is one transaction, so a timeout rolls back cleanly and changes nothing. If it fires, **re-run in a quiet window; do not raise the timeout to force it through.** Run the dry run at least TWICE before believing a fast reading. And count what a later `VALIDATE` would reject over the WHOLE table (every status, not the pending window a work-item census would filter to) before running it: `VALIDATE` takes only `SHARE UPDATE EXCLUSIVE` and lets traffic through, but it fails on the first bad row and the scan is wasted.
-- **source:** 2026-09-03, bugfix 440 lane, migration 741 (RFC_062 phase 3's write door, owner ruling D3).
+- **source:** 2026-09-03, bugfix 440 lane, migration 741 (RFC_062 phase 3's write door, owner
+  ruling D3). The constraint has since moved to its own file, `742_..._HOLD.sql`, on a council
+  objection that made this entry's own argument better: `guardian` [medium], round 56047b18 —
+  the lock is table-wide even though the CHECK's predicate is not, so a fleet-wide DDL and a
+  one-pipeline config edit want different windows, and bundled in one transaction a timeout on
+  the DDL rolls back the config edit too.
+- **verifier verdict, READ AND ANSWERED 2026-09-04: `NEEDS_HUMAN_REVIEW`, and it is a SCOPE
+  limit rather than a doubt.** The landmine verifier confirmed the premise it could see —
+  `site_work_items` is written from 40+ call sites — and then said the migration file, the
+  `sql_for_agents/` directory and the `lock_timeout` safeguard "all live outside the .go-only
+  index scope and could not be checked". That is correct and structural: this entry's footprint
+  is mostly SQL, and the index holds `.go` only (9,598 symbols). ⚠ **So do not read a future
+  `STILL_VALID` on a SQL-footprinted entry as confirmation either** — the same blindness would
+  produce it. The human half it asks for is supplied and is the measurement in this entry:
+  the same `ADD CONSTRAINT` statement, executed twice against the live database, took 2 ms once
+  and was still waiting after 2 minutes the other time. ⚠ Also note the verdict describes
+  indexed commit `92f90e11` (2026-09-02), NOT the present tree — two days stale at the moment
+  it was written.
 - **added:** 2026-09-03, bugfix 440 lane.
 
 ### Declaring ONE config key on a shared action ARMS the unknown-key detector against every key that was already undeclared — and it then says the old ones are "silently ignored" when they are read
