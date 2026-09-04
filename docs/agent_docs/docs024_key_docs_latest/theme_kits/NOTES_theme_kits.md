@@ -566,3 +566,68 @@ read its four verdicts correctly by **counting rows** (`reports=3` → `reports=
 than taking the latest, but that was not deliberate rigour so much as wanting the whole
 trail. **The rule is now in the handoff §4: count the rows against rounds submitted; never
 `LIMIT 1` across a resubmission.**
+
+---
+
+## 2026-09-04 — layouts assessed at the owner's request, and a designed mechanism found dead
+
+**Question:** does the built-but-unused layouts functionality still matter, or has it been
+superseded? **Answer: it matters, it is not superseded, and it is the soundest part of this
+area — but one sub-feature inside it was designed in April and never wired.**
+
+`[MEASURED 2026-09-04]` 19 layouts, all active, 10 in use, 9 with zero sites. **19 distinct
+`css_template` bodies and 19 distinct `structure_tokens` across 19 rows** (13.8–30.3 KB) —
+so the library is real, not near-duplicates. And confirmed at the code rather than
+inherited: `render_css_composition_helpers.go` says *"Structure tokens: layout always wins
+(spec does not contribute)"*, so a layout reaches the served page and the LLM overlay
+cannot overwrite it — the reason layout is the only kit dimension that moves anything.
+
+**The dead sub-feature.** `layouts.default_header_component_id` /
+`default_footer_component_id`, created April 2026 in `sql_for_tables/038_style_collections.sql`:
+
+| check | result |
+|---|---|
+| layouts populating a default header | **0 of 19** |
+| layouts populating a default footer | **0 of 19** |
+| Go files reading either column | **0** |
+| control — `css_template` / `structure_tokens` / `industry_tags` | 7 / 3 / 15 files |
+
+The 025 design doc states the intent (*"a docs-sidebar needs a fixed left nav … structural
+differences, not stylistic variations"*) **and** why they were empty at the time: the
+components had not been built, and the rows would be updated *"when the components land"*.
+**The components landed** — five are pool-eligible today. The update never happened.
+
+**Two near-misses worth recording, both of which the day's own lessons caught.**
+
+1. **I nearly read `_pre_037` as evidence of supersession.** It is a fleet-wide legacy
+   naming convention (`blog-listing_pre_037`, `game-list_pre_037`,
+   `tool-ab-test-calculator_pre_037`), and migration `037` is the Area Sweep Discoverer,
+   unrelated. **A suffix is a hypothesis about provenance, not a measurement** — the same
+   shape as the memory index's "a naming convention is not a measurement".
+2. **I ran the component lookup on `name` and got 2 rows, when the strings are `function`
+   values.** Exactly the trap this lane logged four times this week. Re-run on **both**
+   columns it returns 8 rows and five are eligible. **The RUNBOOK rule worked because I
+   remembered to apply it, not because anything enforced it.**
+
+**And a psql trap:** an apostrophe inside a `\echo` line (`the column's population`)
+produced `unterminated quoted string` and **silently truncated the first result set to 2
+of 7 rows**. The error was printed above a table that looked complete. **Never put an
+apostrophe in `\echo`**, and check the row count against what you asked for.
+
+**A correction this lane owed.** "All 6 `style_collections` pins point at the same
+component the default picks" is **false**: four distinct components, none the default's
+pick, and **five of six point at components later DEACTIVATED** — hence ineligible, hence
+the fallback that made them look like agreement. **The reason is inverted**: people DID
+select different chrome and their choices were switched off. `leopardessconsulting.co.uk`
+pins an active fork and IS honoured. Corrected in the register and in the CONTRIB feeding
+`portfolio_positioning`'s queued experiment — where it makes the test **cheaper**, because
+the mechanism no longer needs proving and the real failure mode to guard is pinning an
+inactive component.
+
+**Filed as `bugs_open/445` §9**, not as a new bug: they own layout work, and the finding
+changes what "fix the tags" buys them — the right shape with the wrong furniture.
+**Deliberately not wired.** Nothing reads the column, so populating it would do nothing;
+wiring it means deciding where layout-chosen chrome sits relative to `style_collections`
+pins and `theme_kits`, which would be a third answer to one question. **If they are ever
+consolidated, the layout is the natural owner** — a docs layout needs a sidebar nav
+because of what it is, not because of who the client is.

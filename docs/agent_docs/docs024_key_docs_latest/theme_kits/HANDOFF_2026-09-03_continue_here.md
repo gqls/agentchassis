@@ -108,6 +108,57 @@ unreachable layout — a workaround for a tag-vocabulary defect, not a design ch
 `bugs_open/445` is building a fleet scorer, and a kit candidate should be simulated against
 the live fleet before it is seeded. Adoption is 0, so reseeding is free.
 
+### 2a. LAYOUTS, assessed 2026-09-04 at the owner's request — sound, NOT superseded, and carrying one dead sub-feature
+
+Asked whether the built-but-unused layouts functionality still matters. **It does, and it
+is the soundest part of this area.**
+
+- **19 layouts, all active. 10 in use, 9 with ZERO sites.** They are genuinely distinct —
+  **19 distinct `css_template` bodies and 19 distinct `structure_tokens`** across 19 rows,
+  13.8–30.3 KB each. Not near-duplicates.
+- **Layout is the one composition dimension that reliably reaches the served page.**
+  `render_css_composition_helpers.go`: *"Structure tokens: layout always wins (spec does
+  not contribute)"* — unlike the 8 core palette slots, the LLM overlay cannot overwrite it.
+  **This is why §2 says layout is the only dimension a kit moves, and it is now confirmed
+  at the code rather than inherited.**
+- **Why half are unused is `bugs_open/445`'s finding, not a new one:** the tags are
+  industry dialect (`bakery`, `law`) and the classifier emits form words
+  (`publication`, `tool-portal`). Unreachable, not unwanted.
+
+**⚠ THE DEAD SUB-FEATURE, which nobody had recorded** (`grep` of `bugs_open/`,
+`bugs_closed/` and the register returned **0** before 2026-09-04):
+`layouts.default_header_component_id` / `default_footer_component_id` — created April 2026
+— are **populated on 0 of 19 rows and read by 0 Go files.** Control on the same corpus,
+because a zero-result grep needs one: `css_template` **7** files, `structure_tokens` **3**,
+`industry_tags` **15**.
+
+The April design says exactly what they were for — *"a docs-sidebar needs a fixed left
+nav … structural differences, not stylistic variations"* — and why they were empty at the
+time: the components had not been built, and the rows would be updated *"when the
+components land"*. **The components landed** (five pool-eligible today). The update never
+happened. **`_pre_037` in their names is a fleet-wide legacy convention, NOT evidence of
+supersession**; migration 037 is the Area Sweep Discoverer, unrelated.
+
+**Why it matters to this lane:** it is the same gap as our chrome no-op, one level up. A
+kit pins chrome directly and gets the default; a LAYOUT was designed to carry chrome and
+the wiring was never done. **If the three ways of expressing a chrome choice are ever
+consolidated, the layout is the natural owner** — a docs layout needs a sidebar nav
+because of what it is, not because of who the client is. Filed as **`bugs_open/445` §9**
+(their territory, and it changes what "fix the tags" buys them: the right shape with the
+wrong furniture). **Not proposed for wiring here** — nothing reads the column, so it needs
+a decision about where layout-chosen chrome sits relative to the two existing places.
+
+**⚠ AND A CORRECTION THIS LANE OWES: "all 6 `style_collections` pins point at the same
+component the default picks" is FALSE.** `[MEASURED 2026-09-04]` they point at **four
+distinct** components and none is the default's pick; **five of six point at components
+that were later DEACTIVATED**, so they are ineligible and fall back to the pool. The
+observable outcome is unchanged and **the reason is inverted**: people DID select
+different chrome and their choices were switched off. **So "pin honoured" vs "pin ignored"
+is NOT indistinguishable** — `leopardessconsulting.co.uk` pins an active fork and IS
+honoured, which `component_library.go` already documents as the one row where the pin and
+pool predicates disagree. Corrected in the register and in the CONTRIB feeding
+`portfolio_positioning`'s queued experiment, where it makes the test cheaper.
+
 ---
 
 ## 3. THE DEFECT THE COUNCIL FOUND — a kit applied before classification loses palette AND typography. The REPORTING half is fixed and live; the ordering half is `bugs_open/438`'s, not this lane's
