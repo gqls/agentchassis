@@ -1253,3 +1253,79 @@ Their grep matched the column name without checking the table; they caught it be
 `services-hero`, `case-studies-hero` and `use-cases-hero` as "theirs by name". They are **shared
 library rows**; that lane's remit is the editorial page family. So there is no approval owed
 from them on those components, and I should not have implied a sign-off existed.
+
+### The 090 came back UNVERIFIABLE — and its counter-claim is a sampling artefact, not a refutation
+
+Run correlation `f540f292-7e48-4f56-b812-00ec19f57973`, five bundle iterations, terminated on
+**iteration-cap**. Verdict **UNVERIFIABLE**, no fix proposed. `persist_note` SKIPPED by design
+(the intake carried no subject — the trigger printed that at launch), so **there is no
+`doc_notes` row for this run**; the trail is `site_work_items.result->'response'` on item
+`2f0a5e0e-…` and five `diagnosis_artifacts` rows of kind `bundle`. Recording that because a
+reader looking for the customary terminal note will find nothing and should not read the absence
+as a lost dispatch.
+
+**Its stated contradiction, and why it does not land.** The loop concluded: *"all five sampled
+deployed tool pages show `hero_url` and `background_image` populated with real per-tool resolved
+asset paths … This directly contradicts the hypothesis's central claim."* It sampled the
+population **"deployed tool pages"**; mine is **"rows where the declared field holds no value"**.
+Of 111 deployed tool rows, **60 are populated and 51 are not** — so five drawn from the whole
+gives roughly even odds of hitting no violator at all, and it hit none.
+
+Checked its own named example rather than arguing from the arithmetic:
+`copyonline.co.uk / tool-insight-injector` carries
+`background_image = /assets/images/content-hero-tool-insight-injector.jpg`. **Populated — it was
+never in my population.** So the loop measured pages where the mechanism WORKED and reported
+that as evidence against a claim about the pages where it did not. **This is the same class as
+my own three failures today** (an instrument answering a narrower or different question than the
+one asked), which is worth saying plainly rather than treating the loop's verdict as simply
+wrong: it was not careless, it drew a sample the symptom statement did not constrain. **That is
+my defect, not the loop's — a symptom that names a state should name the PREDICATE that selects
+it, or the sampler will pick the common case.**
+
+**Two things it contributed that I did not have, and both are real:**
+1. **Independent corroboration of the producer.** `page_component_history` carries rows tagged
+   `save_page_sections_overwrite`, firing ~0.1s before the row's `updated_at` — i.e. an
+   overwrite, not the birth INSERT, is what these rows reflect at rest. That is the
+   `editorial_design_uplift` candidate reached from a different direction, and it is why the
+   candidate is now stated as confirmed rather than plausible.
+2. **A correction to my own symptom text.** I wrote that `page_component_history.application_name`
+   names the writer. **It does not — `application_name` is NULL on these rows; the tag is in the
+   `source` column.** I had carried `application_name` from an older document without checking it.
+
+**What it says is still missing is fair and I am not going to pretend otherwise:** nobody has yet
+shown ONE page_id's full history with an unresolved BIRTH row followed by a
+`save_page_sections_overwrite` that added the value. The census, the lock arithmetic (122 of 123
+inside the DELETE predicate) and the `source` tag together make the mechanism the strong
+candidate; a single traced lifecycle would make it proven. **That trace is the first thing the
+implementing session should do, before writing the guard.**
+
+### One writer class the census missed, and it strengthens Phase 3
+
+`editorial_design_uplift` again, and it is the most consequential correction of the afternoon:
+**SQL MIGRATIONS write `page_components.content_data`, and no application-layer guard can ever
+see them.** `[MEASURED 2026-09-04]` ~**25** files under `docs/agent_docs/sql_for_agents/` contain
+both a `page_components` write and `content_data`. Most are additive (`jsonb_set` — 664, 230,
+229, 287) or in-place text rewrites that preserve keys (`regexp_replace` — 231, 232). At least
+one is wholesale destructive: `043_section_editor.sql:330` sets `content_data = NULL` on a single
+hero row by uuid.
+
+**Checked, one query, and it rules the class out for my population:** that uuid
+(`a41df8a0-7607-48a8-8462-722fb2d1c1b2`) **no longer exists in `page_components`** — 0 rows — so
+it is not one of my four NULL-`content_data` rows and 043 accounts for none of the 123.
+
+**But the class matters far more than the instance, and it settles the phasing argument.**
+A hand-repair IS a migration — 664 was — so the very mechanism that produced the 9→3 decay lives
+in a writer class that **Phases 1 and 2 cannot reach by construction**. An actions-layer contract
+constrains no `psql` session. **Only a table-level default catches a migration**, which turns
+Phase 3 from "the tidy long-term answer" into the only phase that closes the door on the writer
+that caused the observed decay. Recorded in the PLAN addendum and it will be the RFC's leading
+argument.
+
+Their method note, kept because it is the fourth instrument failure on this question today:
+their first regex over the writer question returned **3** files; hand-enumerating all 23 that
+write the table found **~10**. **A pattern that encodes the expected answer agrees with you.**
+They also closed their own dynamic-SQL worry properly — enumeration keyed on the literal
+`UPDATE page_components` / `INSERT INTO page_components`, which dynamic builders still contain
+(that is how `page_admin_handlers.go` was caught); only a writer building the TABLE NAME itself
+would escape, and none does. `rerender_pages_actions.go` is a **false positive** (reads
+`sites.content_data`, writes no `page_components`).
