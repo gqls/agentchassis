@@ -67979,3 +67979,22 @@ a-stale-status-line-prevents-the-thing-it-describes, measurement-discipline-inde
 > `git diff`, saw "3 deletions", and briefly believed I had clobbered again. **A bare `git diff`
 > compares against the INDEX, not HEAD** — with a stale index it invents deletions that do not exist.
 > `git diff HEAD --numstat` is the form that answers the question. The real answer was zero.
+
+> **⚠ AND THE VERIFICATION STEP ITSELF JUST PRODUCED A FALSE ABSENCE — on the entry above, minutes
+> after writing it.** I committed the block (35 insertions, confirmed), then ran the agreed
+> post-commit assertion and got **0**:
+> ```bash
+> git show HEAD:<file> | tr '\n' ' ' | tr -s ' ' | grep -c "a deliberate deletion is indistinguishable…"   # → 0
+> ```
+> The text was there. **`tr '\n' ' '` unwraps the hard wrap but leaves the `> ` blockquote
+> continuation markers**, so a phrase wrapping inside a quoted block unwraps to
+> `**a > deliberate deletion is …` — and the grep misses it. On files where corrections are written
+> as `>` blockquotes (this one, and `LANDMINES.md`), the `tr` recipe is **not sufficient**:
+> ```bash
+> git show HEAD:<file> | sed 's/^> \?//' | tr '\n' ' ' | tr -s ' ' | grep -c "<phrase>"   # → 1
+> ```
+> **This is the same failure one level up:** an absence-check that cannot distinguish "not present"
+> from "present but the probe cannot see it" — the shape this whole day kept producing. It briefly had
+> me believing my own commit had been reverted, which would have led to a re-commit and more churn on
+> a file three lanes had already spent an afternoon on. **Strip the markers, then unwrap, then grep —
+> and when an assertion contradicts a commit that git says succeeded, doubt the probe first.**
