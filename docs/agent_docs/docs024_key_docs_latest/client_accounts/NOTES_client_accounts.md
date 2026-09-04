@@ -275,8 +275,9 @@ pathspec you committed with.
 
 A council run whose seats were all down ends `status='COMPLETED'`, `error` NULL,
 `current_step='complete_invalid'` — reading as *"your submission was malformed"* when it was fine —
-and **the correlation is then SPENT**, so a `Council-Submitted:` trailer naming it reads un-reviewed
-for ever. The `__step_errors` query is now the first thing in the RUNBOOK's council section. This
+and ~~**the correlation is then SPENT**, so a `Council-Submitted:` trailer naming it reads un-reviewed
+for ever~~ — **CORRECTED same day, see the entry below: the correlation is REUSABLE and minting a new
+one is the harmful move.** The `__step_errors` query is now the first thing in the RUNBOOK's council section. This
 lane has two council rounds coming (the `EnsureSiteRecordAction` producer change; the
 `customer_access_tokens` widening), so it would have hit us cold.
 
@@ -285,3 +286,54 @@ lane has two council rounds coming (the `EnsureSiteRecordAction` producer change
 `[MEASURED 2026-09-04]` nothing enforces `sites.live_link_expires_at` — every Go reference is a write
 at handover, a follow-up eligibility predicate, or a test. The roll does not change that either way,
 but the delivery package landing should not be read as "hosting now expires".
+
+## 2026-09-04 (late, +1) — the relayed council advice was wrong, and I had already written it down
+
+The `inter thread comms` session retracted one clause of its outage notice: it had told me a council
+correlation killed by the outage is **spent** and that I should mint a new one. **It is not, and
+minting a new one is the harmful move.** The `bugfix_417_420` lane caught it; they verified it; and
+**I verified it here rather than accepting the retraction on trust**, which is the same rule that has
+now paid three times today.
+
+`[MEASURED 2026-09-04]` correlation `3e9e8ce8-fb9b-4f5b-a610-016b57427a27` carries four runs —
+`complete_revise` 11:15:47Z, **`complete_invalid` 11:29:56Z** (inside the 11:21:11–11:56:47Z outage),
+`complete_revise` 12:08:22Z, `complete_approved` 12:23:11Z. One correlation, four rounds, an
+outage-killed run in the middle, and an approval at the end.
+
+**Why it mattered that this reached me before I submitted rather than after.** This lane has two
+council rounds coming. Round one would have worked either way; **round two is where the bad advice
+fires** — a new correlation splits the trail and leaves any `Council-Submitted:` trailer already
+written pointing at a correlation that can never produce a verdict. The commit then reads
+un-reviewed for ever and **forward-only forbids the amend**. A lane is already living with that.
+
+Corrected in `RUNBOOK_client_accounts.md` with the measurement inline, and struck above.
+
+### The query, because it timed out twice first
+
+`orchestration_states` has no `id` column (first attempt errored), and an unbounded
+`collected_data->'input_data'->>'fix_correlation_id' LIKE '…%'` predicate **times out** — it is a
+jsonb path extraction across the whole table. Bound it by `created_at` first:
+
+```sql
+SELECT current_step, status, created_at
+  FROM orchestration_states
+ WHERE created_at >= '<from>' AND created_at <= '<to>'
+   AND collected_data->'input_data'->>'fix_correlation_id' LIKE '<corr-prefix>%'
+ ORDER BY created_at;
+```
+
+⚠ **And this table is a ~28-hour rolling window** — the four rows above are readable today and will
+not be tomorrow. Anyone re-deriving this correction after 2026-09-05 will find nothing and should
+read it as *retention*, not as *refutation*.
+
+### Also adopted from their §3, into the RUNBOOK's roll section
+
+- **`kubectl rollout status deployment/<name>` before probing anything** — a *different* wait from the
+  300s dispatch hole. `[MEASURED 2026-09-04 16:00:08Z]` one new chassis pod not ready, two old ones
+  still serving: a probe then returns a clean pass **about the previous binary**.
+- **A `service_binary_capabilities` row is not evidence its pod is alive** — `pod_name LIKE` returned
+  **4 rows for 2 live pods**. Match against `kubectl get pods` first. This compounds the documented
+  two-hour window in the opposite direction: that makes rows vanish, this makes dead ones linger.
+
+**Roll landed 16:01Z**, all 20 backend deployments on `v1.0.1361`, chassis stamped `06c0b18f2`.
+Nothing of ours in it (docs only). Dispatch safe.

@@ -80,8 +80,31 @@ SELECT left((collected_data->'__step_errors')::text, 2000) FROM orchestration_st
  WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
 ```
 
-**The correlation is then SPENT** — no `council_report` is written, so a `Council-Submitted:` trailer
-naming it reads un-reviewed for ever. **Resubmit and record the NEW correlation.**
+> ### ⚠⚠ CORRECTED 2026-09-04, SAME DAY — this section said the opposite and it was DANGEROUS
+>
+> It read: *"~~The correlation is then SPENT — no `council_report` is written, so a
+> `Council-Submitted:` trailer naming it reads un-reviewed for ever. Resubmit and record the NEW
+> correlation.~~"* **False.** Relayed to this lane by the `inter thread comms` session, corrected by
+> them after the `bugfix_417_420` lane caught it, and **verified independently here rather than
+> taken** — `[MEASURED 2026-09-04]` correlation `3e9e8ce8-fb9b-4f5b-a610-016b57427a27` carries
+> **four** runs:
+>
+> | 11:15:47Z | `complete_revise` |
+> |---|---|
+> | **11:29:56Z** | **`complete_invalid`** — killed inside the 11:21:11–11:56:47Z outage |
+> | 12:08:22Z | `complete_revise` |
+> | 12:23:11Z | `complete_approved` |
+>
+> **A correlation killed by an outage is REUSABLE, and reusing it is what the runbook wants.**
+
+**So: resubmit on the SAME correlation** — `RESUBMIT_CORR=<SUBMISSION_CORR>` — exactly as CLAUDE.md
+prescribes for a REVISE, so the trail accumulates and `098`'s commit↔verdict join stays exact.
+
+⚠ **Minting a NEW correlation is the harmful move, and it is unrecoverable.** It splits your rounds
+across two correlations and leaves any `Council-Submitted:` trailer you already wrote pointing at a
+correlation that can never produce a verdict — so the commit reads **un-reviewed for ever**, and
+forward-only forbids the amend that would fix it. One lane is already living with exactly that
+outcome.
 
 ## Working out what THIS lane has committed on a shared tree
 
@@ -103,3 +126,15 @@ them**, or use the pathspec you committed with.
   binary. Check against **both** refs.
 - ⚠ **Verify inert code by ANCESTRY, never by literal.** A built-but-uncalled module is dropped by
   the linker and probes ABSENT with clean controls.
+- ⚠ **WAIT FOR `kubectl rollout status deployment/<name>` BEFORE PROBING ANYTHING.** This is a
+  *different* wait from the ~300s dispatch hole: 300s protects the dispatch, this protects the
+  verification. Mid-roll, old pods are still serving — `[MEASURED 2026-09-04 16:00:08Z]` the chassis
+  had one new pod **not ready** and **two old ones still serving**, so a probe then reads the
+  previous version and returns **a clean pass about the wrong binary**. That failure looks exactly
+  like success. (Relayed by `inter thread comms`, v1.0.1361 roll.)
+- ⚠ **A `service_binary_capabilities` row is not evidence its pod is ALIVE.** The documented
+  `pod_name LIKE '<deployment>-%'` filter `[MEASURED 2026-09-04]` returned **four rows for two live
+  pods** — a deployment cycling two replicasets inside a minute. Harmless that day (all four carried
+  the same commit) and not harmless in general. **Match `pod_name` against `kubectl get pods` first.**
+  This compounds the two-hour retention window already in CLAUDE.md: that window makes rows
+  *disappear*, this makes dead ones *linger*.
