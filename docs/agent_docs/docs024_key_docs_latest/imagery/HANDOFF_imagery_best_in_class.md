@@ -1,7 +1,84 @@
 # HANDOFF — Imagery best-in-class workstream (start a new chat from here)
 
-**Last updated: 2026-07-21 (imagery-5). UPDATE THIS DOCUMENT EVERY WORKING TURN,
-alongside the running notes — it is the single entry point for a fresh session.**
+**Last updated: 2026-09-04 (imagery lane, resumed). UPDATE THIS DOCUMENT EVERY
+WORKING TURN, alongside the running notes — it is the single entry point for a fresh
+session.**
+
+## ★ START HERE (2026-09-04) — the lane is IDLE and CLEAN; nothing is blocked, nothing is half-done
+
+**Read this block, then `RUNNING_NOTES` 2026-09-04, then pick from the list at the
+bottom. The 2026-07-21 block below is SUPERSEDED — kept for the trail, not for
+instructions.** Its landing gates all passed on 2026-07-25 (027 and 011 both closed);
+its "next concrete step" is done; its `bugs_open/020` hold was lifted on 2026-07-24.
+
+**What happened while this lane was idle (2026-07-25 → 2026-09-04), by other threads:**
+
+- **2026-08-11, `bugfix_214_imagery_scope_ref`** — `WriteSitePlanAction` now
+  canonicalises `site_plan_imagery.scope_ref` at write time (`IMG-070`, live
+  `v1.0.1283`). Their note is in `RUNNING_NOTES` under that date. **One item is
+  explicitly left as this lane's call and is still OPEN:** whether to re-key, cancel
+  or leave `needs_imagery` items whose ItemKey embeds a pre-fix ref when their site
+  replans. Nothing is stuck today; the decision is owed before a site with renamed
+  pages replans.
+- **2026-08-24, `bugfix_382_empty_kind_routing`** — an absent `kind` now routes to
+  Banana and raises `MISSING_IMAGE_KIND` (`da21ae20f`, live `v1.0.1334`); migration
+  `586` gave `call_variant_gen` its `kind?` and `site_id`. **Consequence for this
+  lane's own machinery: hero VARIANTS now reach `getImageryStyleGuideForSite` for the
+  first time**, so per-kind overrides, `avoid` terms and reference anchors apply to
+  them. **[UNMEASURED] whether variant output actually changed** — nobody has looked,
+  and that is arguably the most interesting unclaimed item here.
+
+**What this session did (2026-09-04) — measurement only, no code and no live config
+changed:**
+
+The residual 382 left on this lane — *"4 steps with no `kind`, reachability UNMEASURED
+beyond 1 day"* — is **answered**. Full working in `RUNNING_NOTES` 2026-09-04 §1–2.
+
+- The four steps still exist `[MEASURED 2026-09-04]`: `pageflow-builder` and
+  `site-work-orchestrator`, each with `call_logo_generation` + `generate_hero_image`.
+  `image-build-handler`'s four all carry `kind?`.
+- **Use `assets.origin_model`, not `orchestration_states`, to ask this question.** It
+  is durable; the orchestration table is still a 1-day window. Until 2026-08-24 a
+  kind-less request went to Stability, so an SDXL row IS a footprint of this path.
+- **SDXL generation ceased 2026-08-11 and has not resumed in 24 days**, against a
+  demand control of **1,046** generated assets on **37** sites `[MEASURED 2026-09-04]`.
+  **0** of the **14** sites with an `imagery_style_guide` pin stability, so none of the
+  16 SDXL assets was sanctioned.
+- **The 382 fix has therefore never fired in production** — the traffic stopped on
+  08-11 (migration `390`), thirteen days before the fix rolled on 08-24.
+
+**Two traps this turned up, both now written down:**
+
+1. **`agent_error_log` rows EXPIRE** (resolved >14d, unresolved >30d — `database-cleanup`
+   arm 1, `sql_for_agents/465`). **`bugs_closed/011`'s live-fire proof row of
+   2026-07-24 20:45:57Z is GONE**; the table's oldest survivor is 23:30:20Z the same
+   day. The bug file, this lane's `RUNNING_NOTES` and the auto-memory all still cite
+   it. Closure sound, evidence unre-runnable. Landmine appended (footprint
+   `agent_error_log`), verifier dispatched, corr `8c5d0f5f`.
+2. **Migration `390` is applied but UNRECORDED** in `schema_migrations` — a clean hole
+   between `389` and `391`, both applied 2026-08-11. Its effect is live. A runner pass
+   would list it as pending; re-applying looks harmless (an `UPDATE` plus a post-state
+   assertion that already holds). **[UNVERIFIED]** why the row was never written.
+
+**Open items, in the order I would take them:**
+
+| # | item | state |
+|---|---|---|
+| 1 | **Did hero-variant output change after `586`?** Variants now see the style guide for the first time. Compare variants generated before/after 2026-08-24 on a site with per-kind overrides. | **[UNMEASURED]**, cheap, and it is this lane's own D14 machinery reaching new ground |
+| 2 | **214's re-key question** — `needs_imagery` ItemKeys minted from pre-fix `scope_ref`s | OPEN, explicitly this lane's call, not yet urgent |
+| 3 | **F3 remaining card surfaces.** `info-card-grid` had the widest reach — **15 pages / 7 sites as of 2026-07-19, STALE, re-census before quoting**. `featured_article` and `product-card-with-cta` were on ZERO live pages; do not start there. | needs a design call from the owner |
+| 4 | `features_open/022` (rendered-text legibility guard / OCR) and `023` (infographic figures from the evidence base) | spun out of 011, unstarted. **NOTE: an active `infographics` lane opened 2026-09-04 and owns the code-rendered-graphic route — talk to it before touching 023** |
+| 5 | The leopardess gibberish SDXL hero on `how-it-works.html` | still live; owner was offered the regeneration on 2026-07-25 and has not called it. Another lane's client site |
+
+**Ownership check before you route anything:** `scripts/who-owns.py <n>` — the two
+imagery-numbered bugs are owned elsewhere (`114` lane active 2026-09-03, `214` lane
+closed 2026-08-11). `bugs_open/384` (a landed card image never invalidates its
+listing) is imagery-adjacent and **actively owned** — leave it.
+
+---
+
+> **SUPERSEDED 2026-09-04 — the block below is the 2026-07-21 state. Its gates passed,
+> its hold was lifted, and its "next step" is done. Kept for the trail.**
 
 ## ★ START HERE (2026-07-21) — v1.0.1144 is live; the palette-truncation fix is IN IT
 

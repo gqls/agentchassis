@@ -1118,3 +1118,69 @@ generated infographic ought to come from the audited figures we hold, not from
 the model's imagination. Worth knowing: only eight sites have an audited figure
 list at all, so that one is a bigger job than it sounds, and I've written that
 number into the file so nobody starts it believing otherwise.
+
+---
+
+**2026-09-04 — I picked this lane back up after eleven quiet days, and answered the one question another thread had left on our doorstep. Two things worth your attention came out of it.**
+
+Nothing had been happening here since the 25th of July, when bugs 027 and 011 were
+closed. In the meantime two other threads changed things underneath us and wrote a
+note into our log to say so — that is the system working as intended.
+
+The question they left was this. When we ask for a picture, the request is supposed
+to say what *kind* of picture it is — a hero, a logo, and so on. That word decides
+which image generator does the work. Back in July we found that a request arriving
+with no kind at all was quietly sent to the old, weaker generator — the one that
+cannot write words — and nobody was told. In August another thread fixed that, so a
+kind-less request now goes to the good generator and writes itself down. But they
+also found **four places that still send no kind**, and they could not tell whether
+those four are actually used, because the table that would answer it only keeps one
+day of history. They handed us that.
+
+**I could answer it, because there is a better instrument than the one they had.**
+Every picture we have ever generated records which generator made it, and that record
+is never deleted. Since a kind-less request used to go to the old generator, every
+picture from the old generator is a footprint of exactly the path in question. So
+instead of asking "did this happen in the last day", I could ask "when did it last
+happen, ever".
+
+The answer is clean. The old generator made sixteen pictures between the 3rd and the
+11th of August, and **has made none since** — while in that same period we generated
+**1,046** pictures across **37** sites. So there is plenty of traffic; it simply is
+not going down that road. The four suspect places have been quiet for **24 days**.
+I also checked the one innocent explanation — that some site had deliberately asked
+for the old generator — and no site has: fourteen sites have picture-style settings,
+one names a generator, and it names the new one.
+
+**The first thing worth your attention: the fix that was built for this has never
+actually done anything.** The old generator stopped being used on the 11th of August.
+The fix that catches kind-less requests did not go live until the 24th — thirteen days
+later. What really stopped it was a small database change made on the 11th, which
+fixed the place the requests were actually coming from. So the guard we built is
+correct, it is running, and it has never once been needed. That is not a bad outcome —
+it is a guard, and a quiet guard is a working one — but nobody had noticed, and the
+bug file reads as though the fix is what solved the problem. It is not.
+
+**The second thing is a trap I want to flag, because it affects how we prove things
+generally.** When we close a bug, we often prove the fix by deliberately breaking
+something and pointing at the error the system recorded. We did exactly that for bug
+011 in July, and three separate documents still cite that error record as the proof.
+
+**That record has been deleted.** Errors are cleared out automatically after fourteen
+days if they were dealt with, thirty if they were not. So anyone who goes to check our
+proof today finds nothing there — and "nothing there" looks exactly like "this was
+never proven". The closure was sound; the evidence for it has simply expired, and the
+documents pointing at it do not say so. I have written this up as a standing warning
+so the next person hits the explanation rather than the empty result, and the wider
+lesson is the one I used above: **when you need to prove something happened, prefer a
+record that is never deleted over one that is tidied up.**
+
+Nothing here needs a decision from you. I have not changed any code or any live
+setting — this was all measurement. The four kind-less places are still there, still
+harmless, and now with a date attached rather than a shrug.
+
+One small piece of housekeeping I found and did not touch: the database change from
+the 11th of August was applied but never ticked off in the list of applied changes. It
+is the only gap in an otherwise unbroken run. Re-applying it would be harmless, but it
+will look like an outstanding job to whoever next runs that tool, so it is written up
+in the technical notes.

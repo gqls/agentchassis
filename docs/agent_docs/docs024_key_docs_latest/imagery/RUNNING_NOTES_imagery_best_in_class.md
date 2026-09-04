@@ -3296,3 +3296,138 @@ Council-Submitted: `e53f57ae-3bb1-442c-8e7b-742a1c2bb0ad`.
 > and their reachability is still UNMEASURED beyond a 1-day window. They are now harmless — an
 > absent kind gets Banana — and LOUD, so if they ever run, `MISSING_IMAGE_KIND` will say so with
 > the prompt's opening words attached.
+
+---
+
+## 2026-09-04 — lane picked up after 11 days idle; the 382 residual is now MEASURED, and three other things fell out of measuring it
+
+Lane state on arrival: last own-work commit `07f3a3966` (2026-07-25, closing 011).
+The only two commits since are other lanes writing *into* this log — 214 (08-11)
+and 382 (08-24). `scripts/who-owns.py imagery` shows the two imagery-numbered bug
+files owned elsewhere (114 lane active 09-03, 214 lane closed 08-11). Nothing was
+in flight here, so I took it.
+
+### 1. The residual 382 left on this lane's doorstep: ANSWERED
+
+382 §10c handed this lane *"`pageflow-builder` / `site-work-orchestrator` — 4 steps
+with no `kind`, reachability **UNMEASURED** beyond 1 day"*. `orchestration_states` is
+still a 1-day window (`[MEASURED 2026-09-04]` oldest row 2026-09-03 11:47Z), so that
+route is as closed as it was. But **`assets.origin_model` is durable and is the
+fingerprint of the very path in question** — until 2026-08-24 a kind-less request was
+routed to Stability, so every traversal of these steps left an SDXL row behind.
+
+**The four steps still exist, unchanged** `[MEASURED 2026-09-04]`, read from the live
+rows (note `input_mapping` is under `config`, not at the step root — my first census
+returned four blank columns because I read the wrong path):
+
+```sql
+SELECT a.type, s.key, s.value->'config'->'input_mapping' ? 'kind' AS kind,
+       s.value->'config'->'input_mapping' ? 'kind?' AS optkind
+  FROM agent_definitions a, jsonb_each(a.default_config->'workflow'->'steps') s
+ WHERE a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+   AND s.value->>'action'='call_agent'
+   AND s.value->'config'->>'agent_type' IN ('image-generator','image-build-handler');
+```
+→ `pageflow-builder.{call_logo_generation,generate_hero_image}` and
+`site-work-orchestrator.{call_logo_generation,generate_hero_image}` are f/f;
+`image-build-handler`'s four are all f/**t** (390 + 586 did their job).
+
+**The provider census `[MEASURED 2026-09-04]`, every generated asset since 2026-07-18**
+(`derived-from-hero`/`derived-from-logo` excluded — they are card derivations, not
+generations; enumerating `origin_model` rather than regexing it is what showed me that,
+after a first pass where 291 of 606 rows in one week matched neither arm of my regex):
+
+| week | SDXL | banana | total gen |
+|---|---|---|---|
+| 07-13 → 08-02 | **0** | 130 | 154 |
+| 08-03 | 10 | 64 | 92 |
+| 08-10 | 6 | 74 | 110 |
+| 08-17 | **0** | 76 | 101 |
+| 08-24 | **0** | 315 | 606 |
+| 08-31 → 09-04 | **0** | 151 | 226 |
+
+**SDXL generation ceased on 2026-08-11 and has not resumed in 24 days**, across
+**1,046** generated assets on **37** sites — a demand control an order of magnitude
+larger than the 16 SDXL assets it is being compared against.
+
+**Control that the SDXL rows were the silent fallback and not a sanctioned pin:**
+`[MEASURED 2026-09-04]` **14** sites carry a current `imagery_style_guide` spec (aspect
+`imagery_style_guide`, its own row — *not* nested under `design_intent`, which is where
+I first looked and got a false zero of 0 guides); **1** sets `provider` at all
+(idea.uk → `banana`); **0** pin stability. So none of the 16 was opted in.
+
+**Verdict: reachability is no longer UNMEASURED. The four kind-less steps have not
+traversed in 24 days under heavy demand.** That is not "unreachable" — it is a
+measured quiet period with a stated instrument, and the instrument (`origin_model`)
+is durable rather than windowed, so it can be re-run at any future date.
+
+### 2. …and the corollary nobody had noticed: the 382 fix has NEVER fired in production
+
+The SDXL stop is **2026-08-11**. `da21ae20f` — the commit that routes a kind-less
+request to Banana and raises `MISSING_IMAGE_KIND` — rolled **2026-08-24 15:39Z**,
+**thirteen days later**. The traffic it was built to catch had already stopped.
+
+What stopped it was **migration 390** (*"found 2026-08-11"*), which put `kind?` on
+`image-build-handler.call_hero_gen`/`call_logo_gen`. So the 16 SDXL assets were
+**image-build-handler's**, not these four steps'; 390 closed that source, and the
+routing fix inherited a quiet estate.
+
+This is consistent with, and sharpens, 382 §10c's own disclaimer (*"the new branch has
+not been observed executing in production, and cannot be until a caller omits `kind`
+again"*). It now has a date attached: **no caller has omitted `kind` since 2026-08-11**.
+
+⚠ **So the zero I report in §1 rests on the SDXL census, NOT on the absence of
+`MISSING_IMAGE_KIND` rows** — and it must, because that detector has no positive
+control available in-window (see §4). Two independent instruments would have been
+better; I have one durable one and one I cannot vouch for, and I am not treating the
+second as evidence.
+
+### 3. Migration 390 is APPLIED but UNRECORDED — a clean hole in `schema_migrations`
+
+Found while dating the SDXL stop. `[MEASURED 2026-09-04]` `schema_migrations` holds
+**565** rows. `385`–`389` and `391`–`395` are all present, all applied 2026-08-11.
+**`390` is absent under every spelling** (`LIKE '%390%'`, `ILIKE '%forward_kind%'`,
+`ILIKE '%legacy_image%'` → only 586 matches). Its effect *is* live, so it ran.
+
+Consequence, per CLAUDE.md's migration practice (*"`--apply` takes EVERY pending
+file"*): a runner pass today would list 390 as pending and re-apply it. **Re-application
+looks harmless** — it is an `UPDATE` followed by a `RAISE EXCEPTION` assertion
+(line 58) that the post-state is exactly 1 row with `kind?` on both branches, which
+already holds — but it is a surprise waiting for whoever next runs the runner, and the
+hole is the kind of thing that reads as "390 was never applied" to a future reader.
+**[UNVERIFIED]** why the row was never written; I did not run the runner to find out.
+
+Also worth recording because it is this lane's own file: 390 line 27 asserts
+*"(call_imagery_gen, call_variant_gen) already forward kind"*. That was false for
+`call_variant_gen` — 382 caught it on 08-24 and 586 fixed it. The claim and its
+refutation are now both in the record.
+
+### 4. The 011 closure's headline proof has EXPIRED — and this log is one of the places citing it
+
+011 was closed partly on a live-fire: an `agent_error_log` row
+`UNROUTED_IMAGE_KIND`/image-generator/**2026-07-24 20:45:57Z**, context
+`scratch_unrouted_011`. **That row no longer exists.** `[MEASURED 2026-09-04]`
+`agent_error_log`'s oldest surviving row is **2026-07-24 23:30:20Z** — two and a half
+hours *after* the cited one — and retention is **resolved > 14 days, unresolved > 30
+days** (`database-cleanup` arm 1, migration `465`). At 42 days old it was reaped.
+
+Nothing about 011's closure is wrong; the *evidence* is simply no longer re-runnable.
+Anyone re-checking it from the bug file, from this log, or from the auto-memory will
+query for that row, find nothing, and have to decide whether that means the fix was
+never proven. Landmine appended (`LANDMINES.md`), footprint `agent_error_log`.
+
+### Missteps this session, all caught before anything was published
+
+1. **A false zero from a wrong JSON path, twice.** `s.value->'input_mapping'` (should
+   be `->'config'->'input_mapping'`) returned four blank columns, and
+   `data->'imagery_style_guide'` under `design_intent` returned "0 sites have a guide"
+   when the true answer is 14. Both would have read as findings. What caught the second
+   was insisting on a control that *had* to be non-zero before believing the zero
+   beside it — the memory's own rule, and it earned its place again.
+2. **A regex census that silently dropped half its population.** `origin_model ~*
+   'banana|gemini'` matched 315 of 606 rows in one week and I nearly reported the gap
+   as unexplained. Enumerating the distinct values first showed the remainder was
+   `derived-from-hero`/`derived-from-logo` — correctly excluded, but by luck, not by
+   design. **Enumerate the values before writing the bucket predicate.**
+3. **I read `error_type` and `created_at` off `agent_error_log` from memory**; the
+   columns are `error_code` and `occurred_at`. Schema first, as CLAUDE.md says.
