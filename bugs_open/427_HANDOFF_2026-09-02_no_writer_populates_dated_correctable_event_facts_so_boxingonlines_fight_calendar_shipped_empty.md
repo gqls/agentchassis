@@ -1716,3 +1716,159 @@ filed" would have been the wrong inference.
 
 Cross-referenced both ways. Not this section's job to re-plan §23 — recorded so the plan is
 built against the fuller picture, not the one available when it was drafted.
+
+## 25. Status update, 2026-09-04 — the lane resumed; §23's three-layer plan is REPLACED, because provenance turns out to be a shared-vocabulary problem and not a missing checker
+
+Session named `427`, resuming a lane dormant since 2026-09-03 21:19 BST. Ownership checked
+before starting and **confirmed by asking, not only by measuring**: the `calendar` lane
+replied *"Nothing in flight on my side… Stand up freely"*, and `boxingonline.com` replied
+*"No collision — go ahead."* Both had touched this file today (§24, and the filing of 482)
+without the lane itself resuming — the shape `54df41b22`'s landmine is about.
+
+### 25.1 THE HEADLINE, and it supersedes §22.6: the calendar WORKS
+
+`[MEASURED 2026-09-04, by the `boxingonline.com` lane at the artefact]` the page was rebuilt
+**10:36Z** and serves **two real, dated, cited fixtures** through `event-list` (`3647c0c2`) —
+Navarrete vs Foster 2026-10-24 and Canelo vs Mbilli 2026-10-31, each carrying `fact_id`,
+`source_url`, `source_title` and the disclaimer. **Zero occurrences of "2025"** on that page.
+
+**So 427's originating symptom is FIXED.** The mechanism this bug said did not exist —
+populate, correct, render — exists and is running. §22.6's "the fabrication is off the
+deploy target" was the state on 2026-09-03; the current state is better than that and this
+file should stop describing the older one.
+
+**"Only two fights" is a SUPPLY problem, not a calendar problem.** `[MEASURED]`
+boxingonline's register holds 8 facts, 7 dated, **exactly 2 with `event_date >= today`** —
+and those two are the two on the page. The consumer is showing everything it has. Forward
+fixture research belongs to `news_feed_ingestion`, not here.
+
+### 25.2 What actually remains: provenance is computed and then discarded
+
+Verified at the source, both ends:
+
+- `projectUpcomingEvents` (`queryresolve/upcoming_events.go` ~246) builds every item with
+  `"fact_id": html.EscapeString(e.FactID)`. **The provenance IS computed.**
+- The `event-list` template renders `.date`, `.title`, `.venue`, `.broadcaster` and
+  `.source_url`, and **never mentions `.fact_id`**.
+
+`[MEASURED 2026-09-04]`, over all **3,475** `page_components`. Fourteen placements were
+rendered from fact-backed data:
+
+| component | placements | carries provenance to markup | how |
+|---|---|---|---|
+| `evidence-chart` | 10 (9 pages) | **0** | — |
+| `evidence-timeseries` | 3 (3 pages) | **3** | `data-series="{{$s.fact_id}}"` |
+| `event-list` | 1 (1 page) | **0** | — |
+
+> **This corrects a claim this lane made twice today before submitting it.** The draft said
+> provenance "is dropped". It is dropped by two families of three and **carried by the
+> third, under an attribute name nothing reads** — `[MEASURED]` exactly one active component
+> emits `data-series`, and no Go, CSS or JS anywhere in `platform/`, `internal/` or `pkg/`
+> consumes it. So the defect is a missing **shared vocabulary**, which is the 2026-07-29
+> ruling's class, not a template that forgot a field.
+
+The three also declare **three different source kinds** — `query.upcoming_events`, a direct
+`site_specs.evidence_base.*` read, and an `llm` field with `"required": ["fact_id"]`. That
+refuted this lane's first design, which keyed "fact-bearing" on the `query.*` resolver and
+would have covered **1 of 3**.
+
+### 25.3 §23.2's three layers are REPLACED, not widened
+
+§24 and `bugs_open/482` established that all three score a live fabricating tool clean. The
+`482` lane then found the sharpest version: running `DetectToolFabrication` over this lane's
+census hits, **three of five POPULATE `Signals`** — "large literal record array (~20/~24/~30
+entity objects)", against `fabLiteralRecordThreshold = 15` — and still return
+`Fabricated=false`, because the corroboration arm gates on `dataBacked`, structurally false
+at birth. **The signature is reachable and reached; the CONVICTION is unreachable.**
+
+That is the same shape as this bug's own half. **Two independent instances of "the estate
+already knows and throws it away" on one root cause.** Neither needs new detection; both
+need existing evidence to survive to a reader.
+
+**And record count is a bad AXIS, not a mis-tuned threshold** — the `482` lane simulated a
+birth arm against this lane's calibration census and reported the result against their own
+plan: at `dataset_records >= 15`, **28 hits, 3 true, 25 false — 89%**. The largest dataset in
+the corpus (73 records) is entirely legitimate; the motivating fabrication has **6**. There
+is no record-count threshold separating the populations.
+
+### 25.4 The replacement: a provenance rail. Submitted to council `68a8e2a3-aa4b-477f-83f1-69a317cd82c4`
+
+Plan: `docs/agent_docs/docs024_key_docs_latest/bugfix_427_event_render/PLAN_2026-09-04_provenance_rail.md`
+(committed `c0d245bd0`). Make provenance a positive, **structured and resolvable** signal so
+that absence is detectable whatever shape a fabrication takes:
+
+1. **One vocabulary** in `platform/orchestration/datahelpers/fact_provenance.go` —
+   `FactProvenanceAttr = "data-fact-id"`, and `FactBearingFields(schema)` as a **schema**
+   predicate (an item shape carrying `fact_id`/`*_fact_id`), so it is source-agnostic and
+   covers all three components.
+2. **All three components emit it**, on a visible element, `{{if}}`-guarded — three shared
+   library rows, blast radius 14 placements on 13 pages. `evidence-timeseries` gains
+   `data-fact-id` and **keeps** `data-series`.
+3. **A report at `RenderTemplate`** — the only spelling, where all ~13 call sites arrive.
+   **No refusal arm**: the guardian REVISE on `661bcf00` ruled that converting this seam's
+   log-only path into a hard error is new authority shipped on a census of today's
+   templates. Opt-in, unsafe default OFF, **reader in the same commit** so it cannot rot the
+   way `UnboundInstanceToken` did (which `[MEASURED]` has no reader at all).
+4. **A discovery check with a DENOMINATOR** — `facts_in_content_data` /
+   `facts_carried_to_markup` / `facts_resolving`. A zero denominator on a declaring
+   component is a FINDING, not a pass. Retracting, per RFC_010.
+5. **Arm `check_event_fixture_completeness`** — `[MEASURED]` still armed on **zero** of the
+   five discovery agents.
+
+**Why the declaration must RESOLVE and not merely assert.** `tool-vet-comparison-vetcomparison-uk`
+ships **30 invented veterinary practices with invented postcodes** on a **deployed homepage**;
+its own tool-doc header says *"Never seeds or fabricates practice records beyond the bundled
+list"*, a comment calls them a *"Bundled, verified sample"*, and a line served to the public
+invites the reader to confirm details with the practice **while citing the RCVS**. The denial
+and the act are in one file. A rail that accepted a component's own word would be satisfied by
+that file.
+
+### 25.5 ⚠ The rail's REACH, published against this lane's own interest
+
+`[MEASURED 2026-09-04]` of 335 active tools, **287 (86%) have a NULL `input_schema`** — and
+0 have an empty one. So:
+
+- **"Declares no fact-bearing field" is the DEFAULT state of a tool, not a signal.** As an
+  *exculpatory* test (declares, and the ids resolve → cheaply clean) it is sound and grows
+  with adoption. As an *inculpatory* one it is close to inert today.
+- **The rail's reach on tools is 48 of 335, dated.** On the other 287 it contributes nothing
+  and the `482` lane's content predicate carries the class alone.
+- A component that declares nothing AND emits nothing is invisible to both arms of the rail,
+  by construction. That is where the rail's evidence runs out and the fence's domain begins.
+
+**So the honest joint claim, agreed with the `482` lane: the rail makes correct provenance
+CHECKABLE; it does not make fabrication DETECTABLE.** Neither lane should tell the owner the
+pair closes the class.
+
+### 25.6 Scope, agreed live with three lanes today
+
+- **427 (this lane)** — the mechanism, the provenance rail, and Layer 1 (`event_fixture_completeness`).
+- **`bugs_open/482`** — the fabrication fence (routing all three tool-writing paths through the
+  existing gate and ratcheting membership via `tool_content_writer_coverage_test.go` /
+  `provenanceExemptWriters`, whose stated contract both lanes agreed should read *"declares
+  provenance OR is listed with a written reason"* so a rail-compliant writer does not read as
+  an exemption), plus the census and remediation. **Do not close or merge 482 into this.**
+- **`news_feed_ingestion`** — forward event research (the supply gap in §25.1).
+- **`site_delivery_and_editor` / the owner** — whether the dead `tool-fight-calendar`
+  component (`e5e8fa33`, still `is_active=false`) is rebuilt at all, now that the page works
+  via `event-list`. §22.3's option 1 has NOT been put to the owner on the record; the
+  `boxingonline.com` lane has been asked to, and this lane will not act on a 2026-09-03
+  decision that the page working has overtaken.
+
+**`ExtractAssertionText` — both lanes now agree it should NOT be filed.** §23.2 routed
+widening the claims perimeter to script bodies out as architecture-scope. If the rail lands
+and the fence consumes it, a *declared* provenance removes the need to **infer** factuality
+from text, which is the unbounded half — so that RFC becomes **duplicative rather than
+deferred**. Recorded here, at the `482` lane's request, so a future reader does not file it
+as an outstanding gap.
+
+### 25.7 This lane's own wrong calls today
+
+Five, logged in `WRONG_CALLS.md`. Two reached the peer lane building on this lane's output
+and were caught **there**: a census header describing one column as a subset of another when
+they are independent predicates (their arithmetic found it, and the false description pointed
+them at the *weaker* predicate), and a figure quoted from memory as 133 when the committed
+file said 134. A third was a `[MEASURED]` marker put on a peer's figure — the exact trap this
+file's own §14 handoff lists. Re-running it out of scruple is what surfaced the 86% in §25.5,
+which inverted advice this lane had given ten minutes earlier. Two more never reached anyone
+because the plan's own disconfirming queries caught them before submission.
