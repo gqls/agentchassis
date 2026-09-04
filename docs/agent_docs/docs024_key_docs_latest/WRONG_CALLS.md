@@ -67011,3 +67011,46 @@ still a false claim**, and it costs the next reader a real piece of evidence.
   corrected argument is **stronger**: the single entry names the exact column in its first bullet, so
   the *simplest conceivable* indexer would have surfaced it to both lanes. Fifth and sixth wrong
   claims from this lane today.
+
+## 2026-09-04 — "at least two entries cover this seam": a LINE NUMBER is not an ENTRY, and the false claim was the one that made the write-up neater
+
+**The claim.** Having cited `LANDMINES.md:19955` earlier in the day, I later ran a footprint-match
+script that printed entry *headings*, saw *"`content_components.name` AND `.function` DISAGREE ON
+336 OF 442 ACTIVE COMPONENTS"*, and concluded the corpus held **at least two** entries covering
+this seam — *"doubly covered and delivered nothing"*. I sent it to a peer lane recommending it as
+the sharpest argument in their architecture proposal, and they filed it.
+
+**It is one entry.** Line 19955 falls **inside** the entry whose heading is at line **19934** — the
+very heading my script had printed. I compared a **line number** against a **heading**, saw
+different text, and read that as two objects. One `awk 'NR<=19955 && /^### /{ln=NR}'` settles it,
+and I ran no such thing.
+
+**And the entry is stronger than my error made it look**, which is the part worth having. Its single
+footprint bullet reads `content_components.name · content_components.function ·
+page_components.component_id · page_components.slot_name` — **it names the exact column my broken
+query keyed on, in its first and only bullet.** So the retrieval bar for our case is as low as it
+can go: the simplest conceivable indexer — first bullet only, strict `table.column`, no ranking, no
+addendum parsing — would have surfaced it to both lanes. Two sessions queried
+`page_components.component_id` for an afternoon and a guard naming that column, carrying the
+remedy and both call sites, reached neither.
+
+**What caught it.** The peer lane, checking a claim **I had asked them to write down**. Not my own
+re-reading, and not theirs when I asserted it — it survived being asserted in a message, relayed,
+and filed, and was checked only when someone went to enshrine it.
+
+**The trigger worth naming, and it is theirs:** *both* false claims in that exchange — mine and
+their matching one — **were the claims that made the write-up neater.** Mine made the corpus look
+doubly protective; theirs made a finding self-illustrating. **A claim that improves the shape of
+the argument is the one to check first**, because nothing about it will jar: it is satisfying,
+it is load-bearing for the conclusion you already like, and it is usually one parse away from being
+checkable.
+
+**The cheap check.** Two forms, both one command:
+- **A citation of the form `file:NNNN` is a LINE, not an object.** Before treating it as an entry, a
+  function or a record, resolve it to its container.
+- **Before you recommend a claim to another lane for enshrining, re-derive it.** Relaying is
+  asserting (this estate already names that failure); *recommending it be written down* is
+  asserting harder, and it is the last moment at which checking is cheap.
+
+Family: a-report-is-not-a-measurement, cite-the-arm-not-the-function,
+always-give-the-path-for-any-doc-you-name, and the same-day pair above on proxies.
