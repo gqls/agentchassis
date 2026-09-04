@@ -155,3 +155,48 @@ that assumption was wrong, not the fix.
 scraped in as article text. Cleaning the markdown removes the symbols and leaves the words, so
 the news page will still read a little oddly in places. That's a different problem in how we
 capture articles, it's filed, and the team that owns it has acknowledged it.
+
+## 2026-09-04, late morning — it is live, it works, and checking it found two more things
+
+The build went out last night at 22:06. I checked the actual pages this morning rather than
+assuming, and it was worth doing twice over.
+
+**The good news, and it is properly established rather than hopeful.** The fix is running and
+doing its job. The proof is one site: dartsonline. Its stored news items still contain the
+broken markdown, its page rebuilt itself at 10:40 this morning, and the page came out **clean**.
+That combination — bad data going in, a rebuild after the new code, good page coming out — is
+the only thing that actually proves anything. Three other sites also look clean, and I am
+deliberately not counting them: their stored items had nothing wrong in the first place, so a
+clean page there tells us nothing at all. Boxingonline, the site you saw the problem on, has
+gone from five instances to **none**.
+
+**The first thing checking found.** One site, idea.uk, rebuilt itself this morning *after* the
+new code and still showed a problem. That is exactly the alarm I set up yesterday, going off as
+intended. The cause is a shape I had not covered: a chopped-off **image** rather than a
+chopped-off link. Fixed this morning.
+
+**The second thing is the one I am least comfortable about, so I want to be direct.** While
+writing the test for that, I found that one of the two halves of yesterday's change had **never
+been connected**. The half that *cleans* the pages was working — that is why your pages are
+getting better. The half that *detects* the problem, so our automated checks can spot it coming
+back, was written, documented, described to the review board as connected, and then never
+actually plugged in. So for a day our checker would have declared a bad page clean.
+
+Nothing was harmed by it — the cleaning worked throughout, which is why the pages improved
+anyway — but I told the review board something that was not true, and the board could not have
+caught it, because it reviews the plan and my plan said it was done. Nor could any of our
+existing tests: they all run through the very function the pattern was missing from, so the
+missing piece was invisible to every one of them. It is written up in full. Also fixed this
+morning.
+
+**What that means for you: we need one more build.** Both of today's fixes are written and
+committed but do nothing until the chassis is rebuilt and rolled. Until then, chopped-off images
+will still appear on the news pages and our checker stays half-blind.
+
+**And a reminder of the two things still waiting on a person, not on code.** The small database
+change that fixes the script security issue is approved and ready, and deliberately held back so
+that someone applies it and then *looks at a news page in a browser* — because none of our
+automated checks can see what a browser sees. And the ESPN-menu problem, where a site's own
+navigation gets scraped in as if it were an article summary, is filed and its owning team has
+decided not to take it yet. **The news pages will still read oddly in places until that one is
+done**, and no amount of markdown cleaning will change it.

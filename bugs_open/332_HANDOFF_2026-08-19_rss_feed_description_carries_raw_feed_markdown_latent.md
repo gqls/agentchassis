@@ -291,3 +291,51 @@ file assumed were safe. Kept here as a record of a reasonable watch pointed the 
   `innerHTML` unescaped — 14/5,863 rows carry markup, none executable; an exposure, not a
   vulnerability) and **`bugs_open/473`** (a stripped summary can still be ESPN's navigation
   menu — a clean `](http` count on that page is NOT evidence this is fixed).
+
+
+---
+
+# ADDENDUM 2026-09-04 — VERIFIED LIVE AND WORKING, plus two defects the verification found
+
+**Added by the `332` lane after the 2026-09-03 22:06:58Z chassis roll.** Lane docs and the
+cold-start doc: `docs024_key_docs_latest/bugfix_332_feed_display_markdown/HANDOFF_2026-09-04_continue_here.md`.
+
+## 1. The fix is LIVE and WORKS — proven by capability, not by commit
+
+The image tag (`v1.0.1360`) also appears in commits predating this lane, which is the same-tag
+stale-cache shape, and a 40-sha binary probe was **Terminated** — so its empty output is not
+evidence and was not read as any.
+
+What settles it is the demand control:
+
+| site | feed column (7d) | re-rendered | page |
+|---|---|---|---|
+| **dartsonline.com** | **dirty** — 2 tail-links | **10:40Z**, post-roll | **CLEAN** |
+| gaswholesalers / relojistas / webdesign | clean | post-roll | clean — **proves nothing** |
+
+Dirty column + post-roll re-render + clean page. boxingonline.ugg2.com is **5 → 0**.
+
+## 2. Two defects found by that verification — fixed in `adef5d481`, NOT YET ROLLED
+
+**(a) A truncated IMAGE survives.** `![alt](url…` falls through every rule: `mdImageStripRe`
+needs the closing paren, `mdLinkTruncatedStripRe`'s left boundary `(^|[\s(])` **rejects the
+preceding `!`** — which is exactly the image marker — and `mdFeedImageTailRe` requires no `]`.
+Found on idea.uk, re-rendered **10:49Z**, i.e. *after* the roll: that timing is what made it a
+gap rather than a stale binary. It is the §8 falsifier of the previous addendum firing as
+designed.
+
+**(b) ⚠ `MDLinkTruncatedRe` WAS NEVER WIRED into `LiteralMarkdownPatterns`.** Declared,
+exported, documented, and cited to council `803f0d81` as *"detection AND strip single-sourced"*.
+It was not. **The scan has been blind to truncated links** — this bug's own defect — since the
+change shipped, so a page serving one scanned clean. No wrong repair was dispatched (the strip
+worked throughout), but the claim to the council was false.
+
+Nothing could have caught it: every property test routes through that one function, and
+`TestStripThenScanFindsNothing` passed **vacuously** — a fixpoint holds trivially when `Scan`
+cannot see the pattern. **A round-trip property cannot detect a missing arm.** → `WRONG_CALLS`.
+
+## 3. What closes this file
+
+The roll carrying `adef5d481`, then the three-part check in §4 of the handoff (five hosts, the
+demand control, and the `rerendered_since_roll=1 AND still_dirty=1` falsifier). Nothing else.
+`bugs_open/472` and `bugs_open/473` are separate and owned elsewhere.
