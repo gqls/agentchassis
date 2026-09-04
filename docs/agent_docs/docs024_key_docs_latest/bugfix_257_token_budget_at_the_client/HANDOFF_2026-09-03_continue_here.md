@@ -2,8 +2,11 @@
 
 > ## ✅ DELIVERED 2026-09-03 (later the same day) — §5 steps 1 AND 2 are WRITTEN AND COMMITTED (`51357cf51`)
 >
-> **Do not start this work; it is done.** Read this file for the ANALYSIS, then go to
-> `bugs_open/257…md` §2026-09-03b for what actually shipped and what is still owed.
+> **Do not start this work; it is done, and it is LIVE on `v1.0.1360`.** Read this file for the
+> ANALYSIS only. **The current entry point is
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_257_token_budget_at_the_client/HANDOFF_2026-09-04_continue_here.md`**,
+> which carries the live proof, the three owner decisions, and the traps. Then
+> `bugs_open/257…md` §2026-09-03b and §ROUND 2 IS LIVE for the detail.
 >
 > **⚠ §4's census below is WRONG in three places, and §5 step 1 is therefore NARROWER than what
 > shipped.** `companies_house_llm_review_action.go` and `execute_vision_prompt_action.go` are listed
