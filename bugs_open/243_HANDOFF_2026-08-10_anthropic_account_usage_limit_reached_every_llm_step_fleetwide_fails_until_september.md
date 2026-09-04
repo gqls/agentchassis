@@ -1035,3 +1035,102 @@ this file is the class and carries the proven recovery procedure.
   (`1d60fc7b`, a `needs_diagnosis`).
 - Post-reset check: `SELECT count(*) FROM site_work_items WHERE status='failed' AND error LIKE
   '%credit balance%';` → **0**. Drop `bak_credit_burn_20260826` once nobody needs the record.
+
+---
+
+## RECURRENCE — 2026-09-04 11:20→11:56Z, ~35 min, fleet-wide (contributed by the bug sweep lane, 442)
+
+Reporting an episode and, more usefully, a **measured split of this file's own subject matter into
+two failure modes that never co-occur.**
+
+### The episode
+
+`[MEASURED 2026-09-04]` Every LLM call in the estate failed with HTTP 400
+`"Your credit balance is too low to access the Anthropic API"`. Not council-only, not one agent:
+
+| 5-min bucket | ok | credit-400 | distinct agent types |
+|---|---|---|---|
+| 11:15 | 13 | 0 | 2 |
+| 11:20 | 6 | **19** | 5 |
+| 11:25 | **0** | 9 | 2 |
+| 11:30 | **0** | 30 | 3 |
+| 11:35 | **0** | 22 | 2 |
+| 11:40 | **0** | 13 | 3 |
+| 11:45 | **0** | 14 | 2 |
+| 11:50 | **0** | 5 | 1 |
+| 11:55 | 6 | 5 | 3 |
+| 12:00 | 12 | **0** | 4 |
+
+**Zero successful LLM calls of any kind between 11:25 and 11:50.** 117 failures in the 11:00 hour.
+Last failure of any kind 11:56:47Z; recovered without intervention from this lane.
+
+### ⚠ THE SECOND-ORDER DAMAGE, which is what makes this worth reporting rather than logging
+
+**Three council rounds — three different lanes — were converted into `revise` verdicts by the
+outage**, and the verdicts are indistinguishable from real ones at the column everyone reads:
+
+| corr | time | decision | unreadable | readable |
+|---|---|---|---|---|
+| `3e9e8ce8` | 11:22:23 | revise | 6 | 5 |
+| `5de01fd3` | 11:28:44 | revise | 8 | 5 |
+| `8bf83b59` (this lane, mig 773) | 12:02:36 | revise | 6 | 3 |
+
+On ours, **the three seats that WERE readable all approved** (`guardian`, `debug_historian`,
+`architecture`) and the round contains **not one objection**. A submitter who reads
+`metadata->>'decision'` starts revising a change nobody objected to. The existing landmine
+("A council-gate run that ends `COMPLETED` at `complete_invalid`…") covers the **total** outage,
+where no verdict is produced at all — that at least leaves an absence. **This is the partial case
+and it leaves a positive artefact.** Addendum appended to `LANDMINES.md` with the discriminating
+query. It also killed a `landmine-verify-dispatch.sh` run (4 attempts, all credit-400), whose
+verdict then simply never arrives — indistinguishable from queue latency.
+
+### ⚠ THE FINDING: this file's title and its evidence are TWO different failure modes
+
+`[MEASURED 2026-09-04, all history — `llm_call_log` retains from 2026-03-25, 90,037 calls, so this
+is the whole record and not a window]`
+
+| mode | message | failures | first | last |
+|---|---|---|---|---|
+| **B** | `usage limit` (this file's title) | **15,315** | 2026-04-05 | **2026-08-31** |
+| **A** | `credit balance is too low` | **934** | 2026-04-10 | **2026-09-04** |
+| other | — | 463 | 2026-03-31 | 2026-09-04 |
+
+**They are mutually exclusive by day. Across 31 affected days, not one shows both** — every day is
+either all-B or all-A. `[INFERRED, not established]` that this is two states of one billing
+arrangement rather than two independent faults; the exclusivity is measured, the cause is not, and
+somebody with account access can settle it in a minute where I cannot (and per the estate's own
+rule I did not go looking for keys).
+
+**The load-bearing consequence: mode B STOPPED on 2026-08-31 and mode A is what has fired since.**
+
+```
+08-27  usage 142 | 08-28  usage 482 | 08-29  usage 757 | 08-30  usage 719 | 08-31  usage 288
+09-02  credit  8 | 09-04  credit 117
+```
+
+So whatever changed around **2026-09-01** — and something did — **retired mode B and left mode A
+live.** Any remediation in this file justified by "the cap resets on <date>" or aimed at usage-cap
+behaviour should be re-checked against that: a credit balance does not reset on a billing date, it
+runs out again.
+
+**Two mode-A episodes are not in this file** (`grep` for both returns 0): **2026-04-10** (78
+failures — *earlier than the 07-31 this file calls the first*) and **2026-09-02** (8). Both are
+mode A, and this file's narrative is overwhelmingly mode B, so this is a gap in coverage rather
+than an error by anyone. Full mode-A episode list: 04-10 (78) · 08-08 (20) · **08-25/26 (711, ~10 h
+— the shape to plan for)** · 09-02 (8) · 09-04 (117).
+
+### The query, so nobody has to re-derive it
+
+```sql
+SELECT created_at::date AS day,
+       count(*) FILTER (WHERE error_message LIKE '%credit balance is too low%') AS credit_balance,
+       count(*) FILTER (WHERE error_message ILIKE '%usage limit%')              AS usage_limit
+FROM llm_call_log WHERE NOT success AND provider='anthropic'
+GROUP BY 1 HAVING count(*) FILTER (WHERE error_message LIKE '%credit balance is too low%') > 0
+              OR count(*) FILTER (WHERE error_message ILIKE '%usage limit%') > 0
+ORDER BY 1;
+```
+
+⚠ **Do not collapse the two modes into one `NOT success` count.** They have different messages,
+different remedies and — on this evidence — different lifetimes, and a combined count would have
+shown a healthy-looking decline from August into September while mode A was in fact taking over.
