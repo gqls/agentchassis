@@ -527,3 +527,50 @@ explanation. But it is also **the only companion guide on this site with a diffe
 only one not serving. `[UNVERIFIED]` — two candidate causes, not one. Watch it on the next publish
 tick; if it is still 404 after a publish that postdates 17:35, latency is refuted and the role
 difference is where to look.
+
+---
+
+# UPDATE 5 — 2026-09-04 14:36Z. §0's description of the customer domain is WRONG as of today.
+
+## `boxingonline.com` does not answer anything. It does not resolve at all.
+
+§0 says it "is a parked catch-all that answers 200 for any path with a 114-byte stub" and builds the
+`site_unreachable` false-positive ruling on that. **Measured 2026-09-04 14:36Z, that is not the
+state.** The domain is registered (Dynadot, created 2023-10-05) and delegated to Cloudflare
+nameservers `ALEXIS`/`LEAH.NS.CLOUDFLARE.COM` — and **those exact nameservers return `REFUSED` for
+it**, so public resolution is `SERVFAIL`. That is a **dangling delegation**: the registrar points at
+Cloudflare, but no active zone for this domain exists in the account those nameservers serve.
+
+**Control, in the same breath** — the same two nameservers return `NOERROR` for
+`boxingonline.ugg2.com`, and `dig` returns records for `google.com`. So the empty answer is the
+domain's, not the instrument's.
+
+**The CONCLUSION in §0 still stands and the ruling does not change:** `site_unreachable` is still a
+false positive *about the site*, which serves fine at the slug. But the stated REASON is wrong, and
+the corrected reason matters more, because "a parked page answers 200" and "the domain does not
+resolve" imply completely different next actions. ⚠ **A fresh item has since fired —
+`55df8d35 site_unreachable unresolved` at 09-04 13:08**, a different id from §2's `33a900b8`. Expect
+it to keep re-firing until the zone exists; do not re-rule it each time without reading this.
+
+**Going live at the customer's domain is therefore blocked on a Cloudflare zone**, not on the build.
+This lane already owns the tool: `cf_customer_domain_zone.sh` (dry-run default, `--apply` executes),
+which is severable by design — the site keeps serving at the slug regardless. **Not run here; that
+is the delivery lane's call and the owner's, and ruling 1 (fix everything before the delivery email)
+is still in force.** `sites.email` remains empty and must stay so until `420`'s class fix rolls.
+
+## Serving state, re-measured 14:36Z — the site IS the latest build
+
+Whole site republished **12:12:50–12:13:20Z today**; **zero** page writes and **zero**
+`page_components` writes since. Nothing is waiting to publish.
+
+- Yesterday's verified fixes all survive the republish: owner's subtitle verbatim ×1, `calendar
+  below` **0**, **6 deck elements / 0 empty**, email **0**, contact links **0**, GTM ×2.
+- **`/guides/tool-fight-calendar-guide.html` now serves 200.** UPDATE 4 left two candidate causes for
+  its 404; **latency is CONFIRMED and the role-difference hypothesis is REFUTED.** No further action.
+- `/contact.html` still 404 — correct, ruling 3.
+- **`bugs_open/457` unchanged: 36 card titles, 6 distinct `/blog/` URLs** on `/articles/index.html`.
+  Still the most visible defect, still needs the code fix plus a rebuild.
+
+⚠ **The serving host is `boxingonline.ugg2.com`.** `boxingonline.com.ugg2.com` — the domain with the
+slug appended — **does not resolve**; it is an easy mis-type that returns a DNS failure looking like
+an outage.
