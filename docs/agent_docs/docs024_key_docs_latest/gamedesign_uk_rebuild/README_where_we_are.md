@@ -413,3 +413,25 @@ as a visitor would. I have written that down for whoever does this next.
 The articles are still waiting on the fix another thread finished this afternoon; it is written but
 not yet running on the live system. They will tell me when it is, and only then will I re-plan —
 doing it sooner would just have the same articles deleted again. Nothing needs a decision from you.
+
+## 2026-09-04, midday — the fix worked half way, and the other half is now traced
+
+Good news and a genuine finding, not just a delay.
+
+**The first half of yesterday's fix works.** The rebuild produced all nine pages it should,
+including the five articles, and none of them got silently deleted this time — which is exactly
+what was happening before and is now fixed.
+
+**The second half doesn't yet.** All five articles landed in the wrong folder — a leftover default
+location rather than under the articles section — so the articles hub is still empty. The thread
+that owns this traced it within the hour: the part of the system that decides page addresses
+doesn't currently pass one along at all for a freshly planned page, so the piece meant to route it
+correctly has nothing to work from and quietly falls back to the old default. Not a mistake in
+this site's setup, not something re-running would change — they've asked me not to re-plan again
+until they have an actual fix, and I've agreed.
+
+I want to be plain about the state rather than round it up: the articles are still not live. What
+changed is that the reason is now precisely known and belongs to someone actively working it,
+rather than being a mystery. I'll tell you the moment there's something to re-test.
+
+Nothing needs a decision from you.
