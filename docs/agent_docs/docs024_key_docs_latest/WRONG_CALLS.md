@@ -65592,6 +65592,75 @@ blind one, and that is true of a whole technique as much as of a single grep.
 **Cost:** it would have sent the next session down the harder path, in a handoff written to save
 them time. Corrected in place in both files the same day.
 
+---
+
+## 2026-09-04 — I offered the owner a remedy without checking the remedy runs the thing it was meant to run (`420 425` lane, `bugs_open/420`)
+
+**The claim:** having measured 37 live instances of the defect across 23 pages, I put a choice to
+the owner and one option was *"Mechanism, then rerender the 23 pages"*. **He chose it.** Only when
+I started planning the rerender did I check what a rerender actually does.
+
+`page-rerender` has **neither** `rewrite_negations` **nor** `copy_gate_annotate`, and
+`rerender_page_sections_action.go:3-9` says in its own header that it re-renders stored
+`content_data` *"WITHOUT invoking the content writer (no LLM)"*. The defective text lives in
+`content_data.name`. So a rerender would have faithfully re-rendered all 37 and reported success —
+the silent-no-op shape this estate keeps being bitten by. Only a `page-content-writer` rebuild
+regenerates those values, and that regenerates ALL the copy on the page, which is a materially
+different and more expensive thing than what I had offered.
+
+**What caught it:** nothing external. I caught it myself, one step too late — after the owner had
+already decided, so I had to go back and correct the menu I had given him. Had I not looked, we
+would have fired 23 rerenders, watched them all complete, and concluded the fix had failed.
+
+**The cheap check, and it is one query:**
+
+```sql
+SELECT default_config::text ~ 'rewrite_negations' FROM agent_definitions
+WHERE type='page-rerender' AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+**The transferable rule: an option you put in front of the owner is a claim, and it needs the same
+evidence as any other claim.** I had been careful with every measurement in that session — dated
+counts, controls, an independent census — and then wrote an option whose central verb ("rerender")
+I had never verified performs the repair. *Offering* a remedy feels like asking a question, so it
+escapes the discipline that *asserting* a fact attracts. It should not: the owner answers from the
+menu you write, so a wrong option is a wrong answer he cannot detect.
+
+**Cost:** small in the end (one correction, one re-asked question, no work done on the wrong path)
+and only because the next step happened to require reading the agent config. Had the sweep been
+someone else's to run, it would have been 23 wasted rerenders on 15 live deployed sites and a false
+"the fix does not work" conclusion about a fix that was fine.
+
+---
+
+## 2026-09-04 — I wrote a mutation-check claim in a test header without running the mutation (`420 425` lane)
+
+**The claim:** in the new header of `negation_content_test.go` I listed, as one of the checks that
+makes the file's guarantees real: *"stop threading `parent` through `walkContentSlice` →
+TestWalkerReachesNestedItems fails"*.
+
+It is false. `TestWalkerReachesNestedItems` walks `sections[0].cards[0].name` — a map inside a list
+inside a map inside a list — and every step of that path is handled by `walkContentMap`, which has
+the enclosing object in hand already. The `parent` parameter is only consulted for a string sitting
+*directly* in a list, which that fixture does not contain. Removing the threading entirely leaves
+that test passing.
+
+**What caught it:** writing the mutation list out in full and then actually running each line
+before committing. Eleven of the twelve I had written were real; this one was reasoning about which
+code path *ought* to be involved rather than a result.
+
+**The cheap check:** *a mutation check is a measurement, so run it.* The whole reason this file
+needed rewriting in the first place is that its previous header claimed
+*"drop the nonProseFieldRe test in prosey() → TestWalkerSkipsNonProse fails"* while the fixture
+values (`"orchestrator"`, `"planner"`) were single tokens the VALUE test excluded anyway — so the
+assertion could not fail and the header vouched for it regardless. **I was one commit from
+reproducing, in the same file, the exact defect I was there to fix.**
+
+**Cost:** none — caught before the commit. Fixed by making the parameter genuinely load-bearing
+(`TestIdentityAppliesToStringsInsideANamedList` covers a `name` holding a list of strings beside a
+`url`) and correcting the header to name that test instead. All 14 mutations were then run by hand
+and every one was caught by a named test.
+
 ## 2026-09-04 (c) — my detector for uncommitted migrations was wrong twice out of twice, and I had written the rule against it the night before
 
 **The claim.** *"[MEASURED 2026-09-04] 556 applied migrations, 2 applied-but-untracked — and both are
