@@ -574,3 +574,76 @@ Whole site republished **12:12:50–12:13:20Z today**; **zero** page writes and 
 ⚠ **The serving host is `boxingonline.ugg2.com`.** `boxingonline.com.ugg2.com` — the domain with the
 slug appended — **does not resolve**; it is an easy mis-type that returns a DNS failure looking like
 an outage.
+
+---
+
+# UPDATE 6 — 2026-09-04. Why the owner's complaints were never actioned, and a CORRECTION to my own claim.
+
+## The answer: the findings exist, and the loop is switched off BY DESIGN.
+
+Every defect the owner raised on 2026-09-04 was already written up as a verdict row on this site,
+days earlier, in near-identical words — and deliberately not dispatched.
+
+| owner's complaint (2026-09-04) | verdict row, filed | measured at the served bytes 2026-09-04 ~15:00Z |
+|---|---|---|
+| the "last night's result" article is process, not a story | `48c0f927` 09-01 | general essay on upsets; worked example is **Douglas/Tyson 1990**; no recent fighter, date or score |
+| the comparator "isn't populated" | `2c38eec5` 09-01 | **0 `<option>`, 0 `<select>`** |
+| the countdown "has previous fights in it" | (calendar ×4: `3acce370` `dd07d0c7` `9877c9a0` `70e4ed6c`) | only ISO date in page is **2026-09-02**, two days PAST; matchups are archetypes (Joshua/Wilder, Usyk/Fury) |
+| "latest articles section is still duplicated" | `462ac4da` 09-01 (says **four** times) | **six** times now — `bugs_open/457`, growing |
+
+**Mechanism, from the code's own spec fields** (`write_audit_findings_action.go`, `recordOnlyFinding()`):
+`filing_mode=record` (RFC_056) → `status='deferred'`, `handler_agent=''`, summary prefixed
+`[verdict, not dispatched]`, and `not_dispatchable = "…deliberate; … nothing promotes this row"`.
+Seven seats live in record mode (`brief-fidelity-auditor`, `content-quality-auditor`,
+`improvement-loop`, `offer-analyser`, `reader-experience-auditor`, `site-review-agent`,
+`visual-design-auditor`). Each row carries `spec.release_recipe`, a one-line UPDATE.
+
+`[MEASURED 2026-09-04]` **46** parked content verdicts on this site, **58** of all types;
+**3,181 across 39 sites** (the `site_delivery_and_editor` lane read **3,184** within the hour —
+the gap is GROWING, not a disagreement).
+
+## ⚠ CORRECTION to my own claim, caught by `site_delivery_and_editor`
+
+I told that lane, and implied here, that **"RFC_056 §7 phase 3 = switch the loop back on"** and that
+releasing was therefore a queued phase to defer to. **That is FALSE.** Verified in the RFC's own
+phasing table: **phase 3 IS what put the seats into record mode** — *"`filing_mode: record` on all
+five model seats' write steps"*, shipped as
+`624_acceptance_council_seats_record_only_and_seat_failures_are_rows_HOLD.sql`. The filename says
+`record_only`. **There is no later phase that releases anything.** The RFC states the exit only as
+prose: a record row is *"undispatchable by construction until a person or a deliberate migration
+releases it"* and is *"designed for a person to release"*.
+
+**Where my error came from, because it is the reusable part:** I read the *plan document's filename*
+— `PLAN_2026-08-25_switch_off_the_evolutionary_rewrites_and_switch_the_loop_back_on.md` — as if it
+named a phase. It names the whole plan's ARC, of which only the switching-off half has been built.
+**A filename is a title, not a status.** I had the phasing table in front of me and quoted it in the
+same breath.
+
+This **strengthens** the case for holding rather than weakening it: there is no plan queued behind
+the release to defer to, so releasing is a **new owner decision**.
+
+⚠ `schema_migrations` has **no row for 624** — but the effect IS live (7 seats measured directly in
+`agent_definitions`). A `_HOLD` file is applied by hand, and hand-applying and recording are two acts.
+**Verify record mode at `agent_definitions`, never at `schema_migrations`.**
+
+## The reframing that makes this bigger than this site (`site_delivery_and_editor`, verified by me)
+
+This is **not** confined to sites built before the switch. `[MEASURED 2026-09-04]` of **12** sites
+created on/after 2026-08-25, **11** carry parked verdicts. The newest, **`copyonline.co.uk`
+(created 09-03), already has 29**, the newest filed 09-04 11:09Z — hours old. The owner holds
+voucher `WD-KN3WU-9PZN4` for another full webdesign.uk run, so the next site will be audited, its
+defects recorded, and none repaired: boxingonline's end state, reached freshly.
+
+**So the question to put to the owner is not "clean up boxingonline" but "what happens to every site
+we build from here".**
+
+## If he rules to release, sequencing is the hard part, not the SQL
+
+`find_dispatchable_site` is `ORDER BY MIN(created_at) ASC LIMIT 1` on a 30-second tick — fleet-wide
+FIFO. 46 rows fired behind ~3,138 others is a **queue position, not a batch**. Cost it before firing.
+And a rewrite dispatched today would mostly reproduce the same output: `evidence_base` holds 7 real
+dated cited facts (incl. a forward fixture, Canelo v Mbilli 31 Oct) and **nothing consumes them**
+(`bugs_open/427`, title now half false). **Close the consumption gap first or pay twice.**
+
+Cross-recorded by that lane as §1.3b of
+`docs/agent_docs/docs024_key_docs_latest/site_delivery_and_editor/HANDOFF_2026-09-04_continue_here.md`.
