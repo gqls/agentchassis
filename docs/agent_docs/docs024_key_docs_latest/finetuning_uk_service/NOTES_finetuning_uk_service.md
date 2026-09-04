@@ -3798,3 +3798,11 @@ written from my own estimate, not read from the clock; `date -u` after the last 
 **11:54:43Z**. Treat them as ORDER only (11:50Z ≈ right; the rest are ~50 minutes early). The commit
 times on the corresponding commits are the true record. The rule this breaks is the one this lane keeps
 filing against others: read the instrument, do not type the number you expect.
+
+**12:00Z (clock-read) — prompts lane closes too:** verified both halves themselves; "there was never
+anything to explain — the instruction has not failed, it has not run." Their meta-lesson, worth more than
+the diagnosis: **a demand control must count opportunities that could have produced the outcome, not
+activity in general** — 111 imagery entries from seven fact-less sites cannot exercise a rule that needs
+registered facts, so the control passed while counting the wrong population. To the owner they put one
+thing: change nothing; one planner run on one of the 21 where a plan already exists; not finetuning.uk.
+The site-plan question for finetuning.uk is this lane's to put, as a decision about the site.
