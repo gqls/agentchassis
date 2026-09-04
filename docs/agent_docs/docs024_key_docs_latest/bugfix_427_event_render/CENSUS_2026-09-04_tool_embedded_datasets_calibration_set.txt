@@ -1,0 +1,285 @@
+# CALIBRATION SET — tool components embedding a dataset
+# [MEASURED 2026-09-04] over content_components WHERE component_level='tool' AND is_active (335 rows).
+# Produced by the bugs_open/427 lane for the bugs_open/482 lane's threshold simulation.
+#
+# dataset_records = count of object literals inside <script> with >=2 keys and at least one
+#   human-readable string value (>=8 chars containing a space). This is the FALSE-POSITIVE
+#   DENOMINATOR: a fabrication control must not fire on most of these.
+# entity_attr_records = the narrower subset whose keys IDENTIFY a real-world entity AND
+#   ATTRIBUTE a checkable property to it. This is the candidate-harm signal.
+#
+# NEITHER COLUMN IS A VERDICT. A high dataset_records count is usually legitimate UI
+# vocabulary (glossary terms, option labels, advice prose). Triage by reading, not by rank.
+#
+# tools embedding a dataset: 134 of 335
+# of those, with >=2 entity+attribute records: 5
+
+  ds   ea  component
+  73    0  tool-bee-foraging-calendar-apis-uk
+           keys: flowers,label,shift,stage
+  45    0  tool-garden-jobs-finder-homegarden-uk
+           keys: altnote,shednote,shedrequired,soon,text,type,urgent
+  40    0  tool-archetype-rivalry-explainer-vonc-com
+           keys: blurb,name
+  37    0  tool-archetype-clash-calculator-vonc-com
+           keys: aggression,close,consistency,crowd_appeal,depth,desc,dynamic,edge,momentum,open,peak
+  37    0  tool-archetype-clash-calculator-vonc-com-vonc-com
+           keys: aggression,close,consistency,crowd_appeal,depth,desc,dynamic,edge,momentum,open,peak
+  37    0  tool-archetype-clash-calculator-vonc-com-gamesdesign-co-uk
+           keys: aggression,close,consistency,crowd_appeal,depth,desc,dynamic,edge,momentum,open,peak
+  35    0  tool-matchmatrix-robot-hands-com
+           keys: ferrous,flag,kg,label,max,min,mm,n,name,note,text
+  35    0  tool-kleurtemperatuur-gids-lampenkap-com
+           keys: badkamer,bestfor,eetkamer,effect,hal,kantoor,keuken,koel,max,min,naam,neutraal
+  31    0  tool-text-sanitizer-webdesign-co-uk
+           keys: action,char,code,name,to
+  30   30  tool-vet-comparison-vetcomparison-uk
+           keys: https,location,name,postcode,website
+  25   24  tool-sfi26-revenue-stacker-agritec-uk
+           keys: code,display,name,per_100m_both_sides,per_100m_one_side,per_hectare,per_plot,per_pond,per_sq_metre,per_tonne,rate,unit
+  25    0  tool-fos-complaint-eligibility-checker-farmerinsurance-uk
+           keys: label,value
+  24    0  tool-glosario-search-relojistas-com
+           keys: def,term,url
+  24    0  tool-seasonal-risk-calendar-farmerinsurance-uk
+           keys: products,risks,tips
+  23    0  tool-agent-complexity-estimator-ai-agent-orchestration-com-finetuning-uk
+           keys: contribution,effort,factor,input,label,multiplier,score,tier
+  23    0  tool-agent-complexity-estimator-ai-agent-orchestration-com
+           keys: contribution,effort,factor,input,label,multiplier,score,tier
+  23    0  tool-review-council-simulator-fundamentallyai-com
+           keys: any,ends,fired,high,id,key,label,left,med,minimal,name,note
+  23    0  tool-design-role-scope-checker-gamedesign-uk
+           keys: index,label,severity,text
+  22    0  tool-brand-comparator-garden-tools-uk-dartsonline-com
+           keys: country,dartboards,field,label,positioning,pricetier,rating,softdarts,steeldarts,warranty
+  21    0  tool-brand-comparator-garden-tools-uk
+           keys: country,field,label,positioning,pricetier,rating,warranty
+  21    0  tool-name-stress-tester-idea-uk
+           keys: dimension,fail,flag,note,pass,status
+  20    0  tool-compliance-deadline-calculator-vetcomparison-uk
+           keys: article,large,name,small,type
+  19    0  tool-urgency-checker-homegarden-uk
+           keys: level,reason
+  18    0  tool-arena-interface-vonc-com
+           keys: author,credit,remix,text
+  18   20  tool-budget-kit-builder-garden-tools-uk
+           keys: activities,always,first,guide,high,investment,low,name,next,sizes,tier
+  17    0  tool-fridge-ingredient-matcher-cookly-uk
+           keys: batch,entered,ingredients,matched,name,time
+  16    0  tool-insurance-jargon-decoder-farmerinsurance-uk
+           keys: aliases,definition,example,id,related,term
+  16    0  tool-probability-curve-visualiser-gamesdesign-co-uk
+           keys: data,label,message,ok,weights,wide
+  14    0  tool-llm-cost-calculator-ai-agent-orchestration-com-leopardessconsulting-co-uk
+           keys: checked,desc,id,inputper1m,label,model,name,outputper1m,value
+  14    0  tool-llm-cost-calculator-ai-agent-orchestration-com-fundamentallyai-com
+           keys: annualcost,checked,desc,id,inputper1m,isselfhost,label,model,monthlycost,name,outputper1m,value
+  14    0  tool-llm-cost-calculator-ai-agent-orchestration-com
+           keys: annualcost,checked,desc,id,inputper1m,isselfhost,label,model,monthlycost,name,outputper1m,value
+  14    0  tool-llm-cost-calculator-ai-agent-orchestration-com-webdesign-co-uk
+           keys: annualcost,checked,desc,id,inputper1m,isselfhost,label,model,monthlycost,name,outputper1m,value
+  14    0  tool-farm-insurance-needs-checker-farmerinsurance-uk
+           keys: chemicals,diversification,employees,explanation,farmtype,link,livestockkept,machinery,name,publicaccess,tenure,vehicles
+  13    0  tool-meal-finder-quiz-cookly-uk
+           keys: dairyfree,desc,diettype,difficultylevel,glutenfree,name,proteintype,servesmax,servesmin,staples,time
+  13    0  tool-loan-type-identifier-loancash-co-uk
+           keys: arranged,goods,guarantor,href,label,name,recaplines,repay,term,text,vehicle
+  12    0  tool-ergonomic-fit-checker-garden-tools-uk
+           keys: href,name,note,text
+  11    0  tool-cpm-cpc-benchmark-comparator-advertise-co-uk-seotools-co-uk
+           keys: cpcbase,cpmbase,factor,label,note,quality
+  11    0  tool-ad-budget-calculator-advertise-co-uk-websitepromotion-co-uk
+           keys: awareness,conversions,cpchigh,cpclow,cpmhigh,cpmlow,label,max,min
+  11    0  tool-fuel-tax-duty-estimator-gaswholesalers-com
+           keys: diesel,gas,name
+  11    0  tool-asset-formatter-webdesign-co-uk
+           keys: changed,problem,reason,row,text,trimmed,type,valid
+  11    0  tool-title-tag-scorer-seotools-co-uk-copyonline-co-uk
+           keys: applicable,max,message,name,points,shown,title
+  11    0  tool-title-tag-scorer-seotools-co-uk
+           keys: applicable,max,message,name,points,shown,title
+  11    0  tool-ad-budget-calculator-advertise-co-uk
+           keys: awareness,conversions,cpchigh,cpclow,cpmhigh,cpmlow,label,max,min
+  11    0  tool-cpm-cpc-benchmark-comparator-advertise-co-uk
+           keys: cpcbase,cpmbase,factor,label,note,quality
+  11    0  tool-cpm-cpc-benchmark-comparator-advertise-co-uk-websitepromotion-co-uk
+           keys: cpcbase,cpmbase,factor,label,note,quality
+  10    0  tool-lampenkap-keuzehulp-lampenkap-com
+           keys: base,bottom,ceiling,daylight,geen,gemiddeld,glas,goal,groot,hal,hang,height
+  10    0  tool-cma-obligation-checker-vetcomparison-uk
+           keys: https,link,name,text
+   9    0  tool-idea-viability-scorecard-idea-uk
+           keys: label,name,note,questions
+   9    0  tool-setup-builder-dartsonline-com
+           keys: firm,reason,smooth,value
+   9    0  tool-ai-readiness-checker-fundamentallyai-com
+           keys: blocker,label
+   9    0  tool-process-automation-scorer-leopardessconsulting-co-uk
+           keys: factors,name,points
+   9    0  tool-build-vs-buy-analyzer-ai-agent-orchestration-com
+           keys: build,buy,high,low,name,partial
+   9    0  tool-fighter-comparator-boxingonline-com
+           keys: message,ok
+   9    0  tool-weight-class-finder-boxingonline-com
+           keys: lower,maxlb,minlb,name,slug,upper
+   9    0  tool-setup-builder-dartsonline-com-dartsonline-com
+           keys: firm,reason,smooth,value
+   9    0  tool-ai-readiness-checker-fundamentallyai-com-finetuning-uk
+           keys: blocker,label
+   9    0  tool-watch-brand-comparator-relojistas-com
+           keys: alto,bajo,garantia,key,label,medio,movimiento,name,nota,origen,precio
+   9    0  tool-redirect-chain-checker-seotools-co-uk
+           keys: detected,error,example,http,https,text,type
+   8    0  tool-lichtdoorlatendheid-vergelijker-lampenkap-com
+           keys: albedo,cone,name,transmittance,use
+   8    0  tool-funding-fit-idea-uk
+           keys: desc,name
+   8    0  tool-idea-stage-identifier-idea-uk
+           keys: guide,href,text,tool
+   8    0  tool-llm-cost-calculator-ai-agent-orchestration-com-finetuning-uk
+           keys: annual,checked,color,id,input,model,monthly,name,output,selfhost,size,width
+   8    0  tool-farm-building-rebuild-estimator-farmerinsurance-uk
+           keys: high,label,low,mult
+   8    0  tool-touch-target-webdesign-co-uk
+           keys: bottom,content,label,left,message,ok,position,right,top,value
+   8    0  tool-gtm-channel-fit-idea-uk
+           keys: community,desc,name,outreach
+   8    0  tool-scheme-vs-rp-selector-oufe-com
+           keys: addition,aspect,plan,scheme,test
+   8    1  tool-pipeline-friction-diagnostic-gamedesign-uk
+           keys: authority,desc,drift,label,loop,theatre,title
+   7    0  tool-watch-ownership-cost-estimator-relojistas-com
+           keys: intervalyears,label,message,mincost,pct,valid
+   7    0  tool-take-strength-scorer-vonc-com-oxenunity-com
+           keys: key,label,name,verdict
+   7    0  tool-take-strength-scorer-vonc-com
+           keys: key,label,name,verdict
+   7    0  tool-water-resistance-calculator-relojistas-com
+           keys: cls,min,name,text
+   7    0  tool-scheme-voting-threshold-oufe-com
+           keys: message,ok
+   7    0  tool-meta-tag-checker-seotools-co-uk
+           keys: key,label,og,twitter
+   6    0  tool-entropy-meter-webdesign-co-uk
+           keys: classname,label,name,size
+   6    0  tool-weekly-meal-budget-planner-cookly-uk
+           keys: message,valid
+   6    0  tool-batch-cooking-planner-cookly-uk
+           keys: minutes,name,portions,tip
+   6    0  tool-vpd-transpiration-estimator-agritec-uk
+           keys: label,note
+   6    0  tool-lampenkap-maatadvies-lampenkap-com
+           keys: message,name,ok,reason
+   6    0  tool-recovery-waterfall-oufe-com
+           keys: claim,name
+   6    0  tool-bee-identifier-quiz-apis-uk
+           keys: solitary,text,title
+   6    0  tool-blueprint-compiler-webdesign-co-uk-webdesign-uk
+           keys: confident,formal,plain,playful,text,title,warm
+   6    6  tool-fight-countdown-boxingonline-com
+           keys: day,month,title,utchour,utcminute,venue,year
+   6    0  tool-privacy-redactor-webdesign-co-uk
+           keys: change,in,label,out,value
+   6    0  tool-cma-transparency-checker-pet-owner-vetcomparison-uk
+           keys: directly,label,metmsg,missingmsg,name
+   6    0  tool-blueprint-compiler-webdesign-co-uk
+           keys: confident,formal,plain,playful,text,title,warm
+   6    0  tool-privacy-redactor-webdesign-co-uk-finetuning-uk
+           keys: change,in,label,out,value
+   5    0  tool-gdpr-ai-risk-assessment-finetuning-uk-fundamentallyai-com
+           keys: amber,green,red
+   5    1  tool-mvp-scope-definer-idea-uk
+           keys: bet,cut,have,key,label,maybe
+   5    0  tool-gdpr-ai-risk-assessment-finetuning-uk-leopardessconsulting-co-uk
+           keys: amber,green,red
+   5    0  tool-economy-flow-modeller-gamesdesign-co-uk
+           keys: label,value
+   5    0  tool-canonical-checker-seotools-co-uk
+           keys: http,https,referential,text,type
+   5    0  tool-keyword-intent-classifier-seotools-co-uk
+           keys: content,intent,keyword,label,regex,signal
+   5    0  tool-gdpr-ai-risk-assessment-finetuning-uk
+           keys: amber,green,red
+   5    0  tool-keyword-intent-classifier-seotools-co-uk-websitepromotion-co-uk
+           keys: content,intent,keyword,label,regex,signal
+   5    0  tool-keyword-intent-classifier-seotools-co-uk-copyonline-co-uk
+           keys: content,intent,keyword,label,regex,signal
+   5    0  tool-dartboard-zone-visualiser-dartsonline-com
+           keys: arcwidth,area,depth,message,minwidth,shapelabel,valid
+   5    0  tool-focus-ring-webdesign-co-uk
+           keys: layer,message,offset,outline,shadow,value
+   5    0  tool-economy-flow-modeller-gamesdesign-co-uk-gamedesign-uk
+           keys: label,value
+   4    0  tool-tungsten-diameter-visualiser-dartsonline-com
+           keys: desc,label
+   4    0  tool-combat-balance-comparator-gamesdesign-co-uk-gamedesign-uk
+           keys: message,valid
+   4    0  tool-combat-balance-comparator-gamesdesign-co-uk
+           keys: message,valid
+   4    0  tool-shadow-stacker-webdesign-co-uk
+           keys: msg,ok
+   3    0  tool-monitoring-scope-estimator-leopardessconsulting-co-uk
+           keys: band,label,note,secondspercheck
+   3    0  tool-model-approach-selector-fundamentallyai-com-leopardessconsulting-co-uk
+           keys: cons,label,pros
+   3    0  tool-damage-formula-designer-gamesdesign-co-uk
+           keys: def,hint,label
+   3    0  tool-complication-selector-quiz-relojistas-com
+           keys: desc,link,name,q1,q2,q3,q4,q5,q6
+   3    0  tool-dart-weight-comparator-dartsonline-com
+           keys: control,fingers,high,low,mid
+   3    0  tool-xp-curve-designer-gamesdesign-co-uk
+           keys: formula,growthdef,growthhint,growthlabel,growthstep,hint,typical
+   3    0  tool-xp-curve-designer-gamesdesign-co-uk-gamedesign-uk
+           keys: formula,growthdef,growthhint,growthlabel,growthstep,hint,typical
+   3    0  tool-overpayment-priority-loanandmortgagecalculator-co-uk
+           keys: loan,mort,name
+   3    0  tool-pricing-signal-checker-idea-uk
+           keys: enterprise,hobbyist,informal,mild,none,numbers,prosumer,real,smallbiz,urgent
+   3    0  tool-model-approach-selector-fundamentallyai-com-finetuning-uk
+           keys: cons,label,pros
+   3    0  tool-overpayment-priority-loanandmortgagecalculator-co-uk-mortgagecalculator-co-uk
+           keys: loan,mort,name
+   3    0  tool-delivery-cost-estimator-gaswholesalers-com
+           keys: message,ok
+   3    0  tool-model-approach-selector-fundamentallyai-com-ai-agent-orchestration-com
+           keys: cons,label,pros
+   3    0  tool-serp-snippet-previewer-seotools-co-uk-copyonline-co-uk
+           keys: error,https,text
+   3    0  tool-practice-price-transparency-benchmarker-vetcomparison-uk
+           keys: label,value
+   3    0  tool-model-approach-selector-fundamentallyai-com
+           keys: cons,label,pros
+   3    0  tool-damage-formula-designer-gamesdesign-co-uk-gamedesign-uk
+           keys: def,hint,label
+   3    3  tool-loot-table-balancer-gamesdesign-co-uk
+           keys: name,tier,weight
+   3    0  tool-robots-txt-tester-seotools-co-uk
+           keys: allowed,decidingline,note,warnings
+   3    0  tool-grid-generator-webdesign-co-uk
+           keys: columns,display,gap,message,ok,rows
+   3    0  tool-grid-generator-webdesign-co-uk-webdesign-uk
+           keys: columns,display,gap,message,ok,rows
+   3    0  tool-core-web-vitals-checker-seotools-co-uk
+           keys: api_error,cls,label,message,proportion,width
+   3    0  tool-serp-snippet-previewer-seotools-co-uk
+           keys: error,https,text
+   3    0  tool-performance-budget-webdesign-co-uk
+           keys: bandwidthmbps,budget,label,latency,latencyms
+   2    0  tool-checkout-calculator-dartsonline-com
+           keys: display,value
+   2    0  tool-ehp-calculator-gamesdesign-co-uk
+           keys: color,data,label
+   2    0  tool-rls-architect-webdesign-co-uk
+           keys: auth_all,definer,insert_auth_update_owner,owner,public_all
+   2    0  tool-write-noted-co-uk
+           keys: h,id,kind,media_id,w,x,y,z
+   2    0  tool-lumen-calculator-lampenkap-com
+           keys: ok,reason
+   2    0  tool-watch-service-interval-calculator-relojistas-com-garden-tools-uk
+           keys: chainsaw,diario,electricmower,frecuente,hedgetrimmer,ocasional,petrolmower,raro,rotavator,strimmer
+   2    0  tool-insight-injector-webdesign-co-uk
+           keys: bold,built,calm,direct,far,output,plain,warm
+   2    0  tool-pet-insurance-needs-checker-vetcomparison-uk
+           keys: description,key,name
