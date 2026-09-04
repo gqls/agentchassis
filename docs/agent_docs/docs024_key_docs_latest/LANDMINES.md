@@ -23189,3 +23189,54 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 - **the general shape, which is the reusable part:** a claim about **who is working on something** is not a fact about the system, it is a fact about the *world outside the repo*, and the repo has no mechanism that notices when it changes. Treat every staffing, ownership and liveness statement in a handoff as expiring within hours — not because handoffs are careless, but because the event that falsifies them (somebody coming back) leaves no trace in the file that asserted it.
 - **relations:** MEMORY [[a-handoff-outlives-the-work-it-asked-for]] · [[who-owns-is-blind-to-uncommitted-sessions]] · [[a-stale-status-line-prevents-the-thing-it-describes]] (same family: a status line making the correct action look premature) · CLAUDE.md "Before routing work AT an existing bug, check who owns it"
 - **added:** 2026-09-04, boxingonline owner-review thread — after this thread's own handoff sent the 463 lane to the wrong session
+
+## `sites.email` answers "who did we deliver this site to?" with a confident WRONG address — the real recipient is recorded nowhere durable, and the orchestration row that holds it prunes in ~25 hours
+
+- **footprint:** `sites.email` · `sites.contact_address` · `sites.handed_over_at` ·
+  `customer_access_tokens` · `orchestration_states` (the ~25h retention window) ·
+  `build_queue.direction->>'customer_email'` · `send_delivery_email_action.go`
+- **fires when:** anyone asks who a delivered site was sent to — a support question, a complaint, a
+  refund, a "did they ever get it", an audit. `sites.email` is the obvious column, it is populated,
+  and it is not the answer.
+- **why the wrong result looks exactly right, and this is the bad kind:** there is no NULL to warn
+  you. `[MEASURED 2026-09-04]` for `idea.uk`, the only site this estate has ever delivered:
+  `sites.email` = `idea.uk@contactforsales.com` — a **site mailbox**. The delivery actually went to a
+  different address entirely. Since `bugs_open/420`'s contract split, `sites.email` is the
+  **PUBLISHED** contact — what the site shows the world — and it was never the recipient. A reader
+  gets a plausible, well-formed, wrong address and no signal at all.
+- **and the right answer EXPIRES.** `delivery-email-sender` takes `customer_email` from
+  `input_data` and nowhere else, so the only system record is the orchestration's `collected_data`.
+  `orchestration_states` holds roughly **25 hours** (`[MEASURED 2026-09-04]` oldest row 2026-09-03
+  11:47Z at 13:04Z the next day). The `idea.uk` delivery ran 2026-09-03 19:30:31Z and had **7h25m
+  left** when this was written. After that the only correct record is lane documentation.
+  ⚠ `build_queue` does not save you: `[MEASURED 2026-09-04]` **zero rows** for `idea.uk`, so the
+  documented "take it from `build_queue.direction->>'customer_email'`" recipe has nothing to read for
+  a site delivered outside an order. And `customer_access_tokens` — which DOES persist, to
+  2026-10-15 here — has no recipient column among its thirteen.
+- **the check, before answering anyone about a delivery:**
+  ```sql
+  -- `handed_over_at` proves THAT and WHEN. It does not prove TO WHOM.
+  SELECT domain, handed_over_at, email AS published_contact_NOT_recipient FROM sites WHERE domain=$1;
+  -- the recipient, while it still exists:
+  SELECT collected_data->'input_data'->>'customer_email'
+    FROM orchestration_states
+   WHERE collected_data->'config'->>'agent_type'='delivery-email-sender';
+  ```
+  If the second returns nothing, the row has pruned and the answer is not in the system. **Do not
+  fall back to `sites.email`** — that is the trap, not the fallback.
+- **the known recipients, recorded here because the rows expire:** `idea.uk` (handed over
+  2026-09-03 19:30:31Z) was delivered to the owner's own address, `aaa@designconsultancy.co.uk`, in
+  an owner-authorised rehearsal. It is the only delivery in the estate's history as of 2026-09-04.
+- **⚠ the fix is NOT obviously `sites.delivered_to`, and that is why this is an entry rather than a
+  patch.** Putting a customer address on `sites` cuts across `bugs_open/420`'s contract split, which
+  exists precisely to control which address lives where, and `sites` is read by a great many things.
+  A dedicated delivery record written in the same statement that stamps `handed_over_at` keeps the
+  PII narrow and inherits the once-only guarantee for free. **That placement is an owner decision,
+  not a lane's** — raised with him 2026-09-04.
+- **relations:** `bugs_open/420` (the contract split this must not violate) · `bugs_open/477` ·
+  `CONTRIB_2026-09-04_from_the_477_lane_no_durable_record_of_who_a_site_was_delivered_to.md` in
+  `site_delivery_and_editor/` · `platform/delivery/handover.go` (`StampHandover`, the one statement
+  certain of the recipient)
+- **source:** 2026-09-04. Found by the `bugs_open/477` lane and filed into this lane as a CONTRIB;
+  the `sites.email`-gives-a-wrong-answer half was measured here on being told.
+- **added:** 2026-09-04, `site_delivery_and_editor` lane
