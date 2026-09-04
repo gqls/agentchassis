@@ -114,6 +114,35 @@ Also verified live: `jsonb_set(doc, path, NULL || jsonb_build_array(...))` retur
 **NULL for the whole document**. Any future edit to that step must guard the array
 shape before writing.
 
+## 3a. ⚠ ROLL v1.0.1361 — a LIVE behaviour change of this lane's ships in it
+
+**Cut taken at `06c0b18f2`, 2026-09-04 ~15:29–15:44Z** (relayed by the "inter thread
+comms" session; roll in progress at time of writing). **All 12 of this lane's commits
+are ancestors of the cut — verified by `git merge-base --is-ancestor`, not assumed —
+and none of its `.go` files were dirty.**
+
+**Eleven of the twelve are inert. `3b1389ca0` IS NOT.** It makes the runtime-fill
+exemption test the TEMPLATE rather than the rendered output, on BOTH twins, and the
+record branch is **armed live** by migration 504 on page-rerender. It starts acting
+when the pods come up.
+
+**What to watch, in the two directions it can diverge** — measured behaviour-identical
+on the population, but not by construction:
+
+- a **data-borne** marker (in the render, not the template) is now newly **REPORTED**.
+  Judge-safe: more `dead_url_control` items, not fewer. **A small tick-up after this
+  roll is EXPECTED and is not a regression.**
+- a **conditional** marker under `{{if}}` (in the template, not a given render) is now
+  newly **EXEMPT**. This is the one WIDENING direction; the census found no conditional
+  markers, and it is the shape to watch.
+
+**⚠ AND THE FALSE ALARM THIS WILL GENERATE, warned to the roll session so it can carry
+it:** `recomposeAncestors` **WILL probe ABSENT** from the new binary and that is
+CORRECT. It has no caller, so the linker drops it. Anyone grepping `/proc/1/exe` for
+it — with clean controls — reads "the commit did not ship" and is wrong. **Verify
+inert code by ANCESTRY against the stamp, never by literal** (CLAUDE.md now carries
+this; the `editorial_design_uplift` lane hit it on 2026-09-02 with this exact symbol).
+
 ## 4. What to do next, in order
 
 0. **The owner ruled 2026-09-04: build grain A, as a library.** §7 and §7a. Grain A
