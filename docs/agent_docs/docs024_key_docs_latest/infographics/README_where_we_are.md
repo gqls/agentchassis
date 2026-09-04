@@ -105,3 +105,51 @@ Nothing needs a decision from you today. The next cheap step is to plan one of t
 that already has registered figures and simply watch what the planner picks. I will say what I find.
 
 — the infographics lane, first entry
+
+---
+
+## 2026-09-04, later — the guides, and the good news is that most of it is not blocked
+
+You asked, through the news-editorial thread, for infographics to be considered for the guides, with
+the darts guides as the example. I have read all ten of them and assessed each one.
+
+**Two things everyone assumed were needed turn out not to be.**
+
+The first was that this needs the composition work — the project to split a long article into
+separate parts so a picture can live inside it and survive the next rewrite. That is true for a
+picture sitting *between paragraphs*. It is not true for a graphic sitting *beside* the article.
+Every darts guide is built as three pieces: a banner, one solid block of article text, and a
+call-to-action at the bottom. A table added as a fourth piece never touches the article text at all,
+so nothing can overwrite it, and none of the composition work needs to be finished first. That is
+exactly what the fine-tuning site is doing today.
+
+The second was that this needs an evidence register — the audited list of figures a site is allowed
+to quote. That is true only for charts. The three components that actually fit these guides — a
+comparison table, a checklist, a process diagram — have **no number fields at all, by design**. That
+is deliberate: on a site where a writer might invent a figure, the safest control is not to give it
+anywhere to put one. So they are exactly right for the kind of thing a darts guide is made of, which
+is structured knowledge rather than measured quantities.
+
+**What I found in the guides themselves.** The tungsten guide is the clearest case I have seen
+anywhere on the estate. Its own section headings are already the rows of a table — 80% tungsten, 90%,
+95% — and each section then says the same four things in sentences: how thick the barrel is, how well
+it lasts, who it suits, what to watch out for. That is roughly two thousand words doing the work of a
+small table. The weight-comparator guide is the same story. Across all ten guides there is **not one
+table**, on a family whose two strongest pages are explicitly comparisons.
+
+**The one genuinely blocked idea is also the best one.** The dartboard zone guide asks for a picture
+in its own words — it says a scoring chart tells you what each zone is worth but not how much smaller
+the treble ring is than the single beside it. That is a chart of relative areas and it would be
+excellent. It needs the board's geometry registered as audited facts first, and the nine facts that
+site holds are all tour calendars and news items. Not proposed, but worth knowing it is one small
+piece of data away.
+
+**What I have proposed, and to whom.** One table, on one page — the tungsten guide — added as a
+separate section, touching none of the existing words, reversible in a single step. I have put it to
+the darts traffic thread rather than doing it, because they reverted a similar-looking change on that
+same site a day ago: illustrations inside a guide had split it into seven near-identical sections and
+that worked against the search traffic they exist to win. They were right to. I think a table is the
+opposite move — it replaces repetitive prose rather than creating it — but that is my opinion against
+their traffic data, so it is their call and I have said a refusal needs no justification.
+
+Nothing needs a decision from you. If they say yes we will learn on one page whether it helps.

@@ -112,6 +112,13 @@ planner reaches for on a genuinely numeric section. This is the only measurement
 live accounts. It needs a site whose copy is not owner-approved — the selection is the work.
 **Pre-register the prediction before running it** (§6).
 
+> **PHASE 1 UPDATE 2026-09-04:** `dartsonline.com` **is** one of the 21 (current plan + 9 facts) and now
+> carries a live owner ask — but its 9 facts are **PDC tour calendars and news events, none about
+> equipment**, so it cannot serve as the *numeric-comparison* test even though it is eligible.
+> **Eligibility and suitability are different filters and the 21 was only the first.** A Phase 1 site
+> needs a current plan, non-empty facts, facts ABOUT something a section would compare, and copy that is
+> not owner-approved. Assessment: `ASSESSMENT_2026-09-04_dartsonline_guide_family.md`.
+
 **Phase 2 — the specification, if Phase 1 warrants it.** A written rule assigning *quantity /
 comparison-of-quantities / ordered-sequence-to-follow* to route B and *concept / process / scene* to
 route A, with a worked exemplar for each that demonstrates the **unique** trigger rather than the
