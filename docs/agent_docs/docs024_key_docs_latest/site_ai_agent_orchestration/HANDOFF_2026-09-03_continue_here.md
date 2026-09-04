@@ -211,6 +211,38 @@ safe *only* because they carry their own `pages.sections`. Five more sit on empt
 > has no current `site_plans` and no `site_specs` `site_plan`, and source 3 is genuinely the only one
 > restorable. **`777`'s case stands on those two slots alone** — it never rested on the five, and
 > the five must not be used to argue for it.
+>
+> **ADDED a few hours later — the argument I dropped has been replaced by a better one, and it is on
+> THIS page.** The `384` lane built the standing check my caution implied (an unsatisfiable page
+> carrying at least one NON-exempt component — the only set that can ever enter the hole). Fleet-wide
+> that is **5 slots / 3 pages / 3 sites** `[MEASURED 2026-09-04]`: four are the hole itself, and the
+> **single genuinely latent slot in the entire fleet is `blog-listing` on this very page.**
+>
+> | slot on `/blog` | state |
+> |---|---|
+> | `hero` | in the hole — branch (a), `content_data` NULL |
+> | `call-to-action` | in the hole — branch (a), `content_data` NULL |
+> | **`blog-listing`** | **LATENT — content intact, NOT exempt; joins the hole if ever lost** |
+>
+> ⚠ **The exemption is per-SECTION, not per-page.** `/blog` mixes exempt and non-exempt slots, so
+> restoring source 3 raises the escalation for the **whole page** and therefore covers the latent
+> slot too. That is `777` doing more than converting a skip, and it is the argument to make.
+>
+> ⚠ **My own caution to that lane also proved out and is worth keeping:** their "zero" was true but
+> **not structural**. Of **366** tool-level components, **310** carry an empty `input_schema` and
+> **56 do NOT** — those 56 are already live (loancalculator.co.uk alone carries a dozen) and are one
+> page-state change from eligibility. **A tool component that starts declaring fields silently
+> leaves the exemption**, and nothing announces it.
+
+> **⚠ TRAP, and I nearly published the wrong classification off it.** `blog-listing` on this page has
+> **`component_id` NULL**, so a `LEFT JOIN content_components ON cc.id = pc.component_id` returns a
+> blank row — which reads as "no component, nothing to classify". The runtime does **not** resolve it
+> that way: `resolveComponent` (`rerender_page_sections_action.go:361-393`) falls through to
+> `schemas[slot_name]`, and `loadComponentSchemas` indexes **by `name` AND by `function`**. Resolved
+> correctly, `blog-listing` is `blog-listing_pre_037` — `component_level='section'`, a 921-byte
+> `input_schema`, **not exempt**. Join on `(name = slot OR function = slot)`, never on
+> `component_id` alone. Already in `LANDMINES.md` from the `384` lane's own 14-of-14 miss; I hit it
+> from the other direction the same day.
 
 ⚠ **`roi-estimator` has ZERO components** and is `status='active'`. Different defect, not chased.
 
