@@ -593,3 +593,53 @@ seam — **the first arming is named here, with its reason, rather than left to 
 another site's fork at 14:05Z (stored bytes 16,953 → 17,238). **That map is shared with
 `plan_sections`.** The `450` lane scoped it open rather than fixing it. **Not this lane's** — but if
 any future change makes a save re-resolve a component **by name**, that is the seam it will hit.
+
+## ADDENDUM 2026-09-04 (later still) — the seal interacts with THIS LANE'S OWN action, and with its own coverage measure
+
+From `imagery`'s CONTRIB in this directory. No imagery flow depends on the clearing (their 20
+matching hero components on 8 sites all point at an ACTIVE asset with exactly one image in the
+html), so the seal is cleared from that side. Three things they found that are ours, not theirs:
+
+### 1. The seal makes `wire_page_hero_on_landing`'s value gate start working as its comment claims
+
+`wire_page_hero_on_landing.go:147-148` gates the write on both image keys being in
+`('', legacy, site-fallback)`, with the comment *"so a page-specific value is never fought"*.
+**Today `save_page_sections` destroys exactly the value that gate exists to protect** — the key
+goes absent, `COALESCE` returns `''`, the gate **passes**, and the wiring is free to overwrite a
+deliberate page-specific hero with the landed content hero. The seal restores the value, the gate
+then refuses, and the stated intent starts holding. **Correct, and it must be booked deliberately:**
+`[MEASURED 2026-09-04, imagery lane]` **20 components on 8 sites** move from wireable to
+`skipped_no_eligible_component` — advertise.co.uk, designblog.co.uk, fundamentallyai.com,
+homegarden.uk, lendzy.co.uk, leopardessconsulting.co.uk (7 of the 20), seotools.co.uk,
+websitepromotion.co.uk. **None needs wiring: all 20 already render a live image.**
+
+### 2. ⚠ The seal will MOVE this lane's own coverage measure, for a reason unrelated to wiring
+
+`wirePageHeroOnLanding`'s `n == 0` branch already folds three causes into
+`skipped_no_eligible_component`, and its comment says IMG-077's rollup census is what tells them
+apart. **After arming, a FOURTH joins: "carries a page-specific value that was CARRIED FORWARD
+rather than authored."** So if that rollup is the coverage measure, **it moves the moment
+`seal_declared_field_contract` goes on, for a reason with nothing to do with wiring quality, and
+the folded bucket cannot say which.** This is the estate's recurring *your own action silences your
+own detector* shape, and we have a clean chance to get ahead of it: **either split the return value
+before arming, or pin the pre-arm baseline.**
+
+**Baseline pinned here so it exists either way** `[MEASURED 2026-09-04, imagery lane]` — hero-family
+components by how the gate sees them **today**: empty **253** (35 sites) · legacy literal **265**
+(22) · site fallback **54** (10) · **page-specific 312** (34).
+
+### 3. ⚠ The gate's third arm is INERT ON 40% OF THE FLEET
+
+`[MEASURED 2026-09-04, imagery lane]` only **36 of 60** sites set
+`sites.content_data->>'hero_url'`. On the other **24** the site-fallback parameter collapses to
+`''`, which is already the first element of the `IN` list — so on those sites the gate is really
+*"empty or legacy"*, not *"empty, legacy, or site fallback"*. **leopardess is one of them, which is
+why all 7 of its values classify as page-specific.** Any reasoning that leans on that third arm does
+not apply to nearly half the estate.
+
+### And their caveat, which corrected this lane's headline framing
+
+Their `[INFERRED]`-not-measured flag on the html-as-proxy question was **right** and is written up as
+a correction in NOTES and `WRONG_CALLS`: the painted value is the site-wide hero on **86 of 88**, so
+it is resolver-supplied at render and says nothing about what the lost key held. **They caught it by
+labelling the limits of their OWN evidence and noticing the label applied to mine.**
