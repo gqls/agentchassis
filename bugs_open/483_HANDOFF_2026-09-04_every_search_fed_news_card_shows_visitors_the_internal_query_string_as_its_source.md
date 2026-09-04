@@ -90,3 +90,30 @@ usable publisher for every provider.
 Curl a site whose news comes from `news_search` and assert the `news-source` span contains no
 `News Search:` prefix and no bare query string, with `advertise.co.uk` (a named feed source) as
 the positive control that a real publisher still renders.
+
+---
+
+## 7. APPENDED 2026-09-04 — a uniqueness constraint that rules candidate 3 out, from the `feed lane`
+
+The `news_feed_ingestion` lane supplied a fact that changes the ordering in §4, and it is the kind
+that makes a fix look green while doing nothing:
+
+> the source name is derived from the keyword and **`idx_cs_site_name` is UNIQUE on
+> `(site_id, name)` with `ON CONFLICT DO NOTHING`.** So editing `vertical_keywords` alone changes
+> nothing for the 57 existing sources and verifies green — retuning is DELETE plus re-insert.
+
+Consequences for this bug:
+
+- **Candidate 3 ("stop putting `News Search: ` in the name") is now firmly the wrong fix**, not
+  merely the cheapest-and-worst. Changing the naming in
+  `seed_content_sources_action.go:262` cannot rename an existing source: the insert conflicts on
+  `(site_id, name)` and does nothing. It would apply only to sources seeded afterwards, so the
+  56 live ones keep their prefix while a census of the CODE reads as fixed. A rename applied
+  deliberately (UPDATE, not re-seed) would work but re-points a column other machinery keys on.
+- **Candidates 1 and 2 are unaffected and stay in that order.** Deriving the card's publisher from
+  the item's own `source_url` host (1) touches no unique key at all, and is — in the feed lane's
+  words — "what a reader actually wants". A separate `display_name` column (2) is the containable
+  version if some provider's items turn out to carry no usable host.
+
+Recorded with credit rather than merged into §4 silently, because the constraint is theirs and a
+later reader should be able to see which half of this file came from the subsystem's owner.
