@@ -148,3 +148,24 @@ FINDING, 2 blind, 3 not displayed, 22 baked-background, 5 legible) and its `doc_
 > same lesson 462 is about at every level: only looking proves it worked.
 
 A LANDMINES entry now carries the transferable half, footprinted on the check fleet's cronjobs.
+
+### MISSTEP — I proved it live and left it uncommitted, then documented it in four places
+
+At the very end, a routine `git status` over my own paths showed `check.py` and `cronjob.yaml`
+**modified**. The two fixes above had been applied to the cluster, watched working, and written up
+in `bugs_open/462` §10a, the PLAN, the NOTES, the README, the register and a LANDMINES entry — and
+**never committed**. Anyone reading HEAD would have found the version whose first run failed, with
+six documents around it describing behaviour the code did not have.
+
+**Live and committed are independent facts.** I had proved one and assumed the other, and the
+assumption was invisible precisely because the evidence for the *other* fact was so good: I had a
+succeeded Job, streaming logs and two `doc_notes` rows. None of that says anything about git.
+
+The check that caught it was the cheapest possible one — `git status` over the paths I had touched,
+run because I was writing a summary, not because I suspected anything. **Run it before you write the
+summary, not while.** Committed `c5d6b3041`, and re-applied afterwards so the cluster and HEAD agree.
+
+One figure corrected in the same pass: I had written **5m15s** as if it were *the* run time. Two runs
+give 5m15s and 4m47s. It is "about five minutes, n=2" — I stated one sample with the confidence of a
+measurement, twice, including to a peer lane, which is the WRONG_CALLS shape even though nothing
+downstream depended on it.
