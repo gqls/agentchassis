@@ -469,3 +469,53 @@ easiest to query and reporting capability is the error.** `WRONG_CALLS.md` 2026-
 `editorial_design_uplift/CONTRIB_2026-09-03_from_finetuning_owner_asks_for_more_imaginative_card_structures_on_the_homepage.md`;
 this lane's answer — `finetuning_uk_service/CONTRIB_2026-09-03_from_editorial_design_uplift_answer_on_the_homepage_cards_and_infographics.md`
 (commit `a85bcedea`).
+
+---
+
+## 8. OPEN AT HANDOFF — the carousel constraint spec (taken), and the blast radius nobody had measured
+
+The finetuning lane's card canary **passed** (2026-09-04): `case-studies-grid` is now
+`swipeable-insight-carousel` on the live homepage, five cards verbatim, other five sections
+byte-identical, CDP-proven. The owner then widened the ask to four things, verbatim: *"apply them to
+the other grids too but have them create more and different types of carousel with decorative
+(relevant) graphics and (relevant) colouring"*, *"image-card carousel can be the default but we should
+create better ones too"*, and *"I still want infographics… maybe simple ones for the cards"*.
+
+**⚠ THE MEASUREMENT THAT CHANGES WHAT GETS FILED — `features` is NOT a one-page component.**
+`[MEASURED 2026-09-04]`:
+
+| component | live `page_components` | sites |
+|---|---|---|
+| `info-card-grid` | 54 | 29 |
+| **`features`** | **41** | **12** |
+| `departments-grid` | 5 | 3 |
+| `teaser-reveal-panel` | 5 | 2 |
+| `swipeable-insight-carousel` | 2 | 2 |
+| `hero-card-carousel` | **0** | **0** |
+| `image-hover-card-grid` | **0** | **0** |
+
+So a ">3 cards becomes swipeable" rule has **two entirely different blast radii**: applied to the
+PAGE'S SLOT it changes one page; applied to the COMPONENT it changes **41 pages across 12 sites**
+whose owners have not asked for a carousel. The owner asked about his homepage. **Whoever files it
+must say which.** And "make `hero-card-carousel` the default" promotes a component with **zero live
+renders** — as does `image-hover-card-grid`, also on the alternatives list. Canary both.
+
+**WHAT THIS LANE TOOK:** the constraint specification any new carousel component must satisfy — no
+arithmetic in the funcmap (a template computing a slide offset renders NOTHING, it does not degrade);
+per-instance id collisions on a repeated carousel, where the page-grain check is recorded-but-not-armed
+by default so a collision ships quietly; **the decorative/assertive boundary**, which is the trap in
+the owner's own wording — *"decorative graphics"* is fine until one carries a word or a number, and
+SVG text is invisible to the claims gate, so a decorative card graphic with a figure in it is a
+claims-gate bypass; and palette-token colouring under WCAG non-text contrast, or the colour-fixer
+lanes will be repairing these within the week. **Owed as a document, not a dispatch.**
+
+**WHAT THIS LANE DECLINED, deliberately:** choosing what the new carousels should BE — their
+character, how many, which suits which grid. That is taste for a marketing homepage, the
+design-critique report is the right input, and this lane's PLAN scope is the editorial family. It
+stretched to the infographic question because the estate-wide imagery evidence was genuinely ours;
+stretching to this would be hand-picking with extra steps, which is the thing that lane explicitly
+said it would not do.
+
+⚠ **Unverified and flagged as such to them:** the shape of a HAND-FILED `needs_new_component` item.
+The automatic path is `plan_sections_action.go:1625–1722` (carrying `design_direction` from site
+specs); the hand-filed spec fields have not been read by this lane.
