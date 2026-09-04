@@ -93,6 +93,24 @@ WHERE pc.component_id IS NULL AND p.status='active' ORDER BY pc.created_at DESC;
 > — it over-reports by 10 out of 11, which is the difference between "a fleet-wide class" and
 > "one page", and I had written the first before running the second.
 
+> **⚠ FORWARD POINTER, added 2026-09-04 by the `bugfix_450_tool_page_shells` lane —
+> `bugs_open/479`. The narrowing above is correct and it has a cost, so read it with this
+> attached.** It is true of THIS bug (the duplication), and the bare `component_id IS NULL` count
+> it discourages is the right census for a DIFFERENT bug living in the same arm: the re-append
+> drops the stored row's `component_id` whether or not it also duplicates anything. `[MEASURED
+> 2026-09-04]` that count is now **17 rows across 7 sites** (11 here on 08-24), of which **5 are
+> tool slots serving working tools** — and **all 17 have `byte_twins_on_page = 0` and
+> `locked_same_slot = 0`**, so this file's own discriminator excludes every one of them.
+> **Three were created AFTER §7b's fix went live on 2026-08-26**, so the identity drop is a live
+> producer even though the matcher is fixed. §5c joint 5 already names the line
+> (`ComponentID:'' because the RFC_046 carryStoredIdentity opt-in is OFF`) — it was right, and it
+> was read as incidental. Fix committed 2026-09-04 (`reappendedComponentID`); the 17 existing rows
+> are NOT repaired, see 479 §6 for why the obvious repair is unsound.
+>
+> Also worth carrying: **§5c's closing `[MEASURED 2026-08-25] the armed set … is 1 row
+> fleet-wide` is the LOCKED subset** (0 today). The orphaning arm needs no lock, and Layer 2's
+> actual preload predicate selects **378 rows across 371 pages** `[MEASURED 2026-09-04]`.
+
 ## 5. Mechanism — one hypothesis REFUTED, one UNVERIFIED
 
 ### 5a. REFUTED: `bugs_closed/189` (positional slot naming)
