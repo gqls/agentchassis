@@ -63,6 +63,16 @@ of that mark reaches the accessibility contrast standard against its header, but
 and it is a gold house-and-key on cream that you *can* see. "Below the standard" is the honest
 sentence; "invisible" is not.
 
+> **CORRECTED later the same day, and it changes what can be DONE about it rather than the finding
+> itself.** I checked where that logo came from, after writing the above. **Nobody generated it —
+> a person uploaded it**, and there is no prompt recorded against it at all. So "whether that is
+> worth regenerating is your call", which is what I say further down, quietly assumes a remedy that
+> may not exist for this one: there is nothing to regenerate *from*, and remaking it would replace
+> someone's deliberate choice with a model's guess, permanently. **The honest question for this
+> logo is not "regenerate it?" but "does someone want to supply different bytes?"** The measurement
+> stands; what I implied about the fix does not. It also means the two failures are not two
+> failures of the same thing: only one of them came out of our own pipeline.
+
 Three other sites have a logo we made that their pages never show — they still print the site's name
 as text in the header. That is a different problem, and the check now names it instead of quietly
 measuring a picture nobody sees.

@@ -550,3 +550,44 @@ new direction.
 can fix it. That's the piece I've deliberately not guessed at, because the existing route sends
 contrast problems to a thing that repaints stylesheets, and no amount of restyling fixes a pale
 picture. Naming the right destination is the next decision, and it is a real one.
+
+---
+
+## Friday 4 September, later — a correction, and one of the two bad logos turns out not to be ours
+
+Earlier today I told you two logos fail the visibility check, and said of the second one —
+mortgagecalculator.co.uk — that whether it was worth regenerating was your call. **That sentence
+assumed something I had not checked, and it was wrong.**
+
+**Nobody generated that logo. A person uploaded it**, and there is no record of any instruction it
+was made from. So there is nothing to regenerate *from*: remaking it would not be repairing
+something our system produced badly, it would be throwing away a file somebody chose and replacing
+it with a model's guess — and permanently, because a regeneration overwrites the old one with no
+way back. The right question for that logo is not "should we regenerate it" but **"does someone
+want to supply different bytes?"** The measurement stands; what I implied about the fix does not.
+
+**This matters more than one site.** Of the seven logos the check can actually judge, **two were
+uploaded by a person rather than generated** — and one of them is one of the two failures. So a
+tool that automatically sent every "this logo is hard to see" finding off to be regenerated would,
+about a third of the time, be overwriting somebody's deliberate choice. The other uploaded one is
+relojistas.com, and its record says in as many words that you approved it on 29 July.
+
+I sent that to the session now working on the visibility problem before either of us built
+anything, and they had been heading for exactly that tool. It is now a stated constraint on the
+design rather than something to be discovered afterwards. **The thing that caught it was chasing a
+loose end I had noticed and not followed** — that logo had a transparency that did not fit its age,
+and the explanation turned out to be that it never went through our pipeline at all.
+
+**Also worth your knowing, from that session:** the queue we would naturally send a "someone should
+look at this" item to has **1,439 things parked in it**, the oldest from March, and it grew fourfold
+this year even while an automatic drain was closing things. So "file it for review" is not currently
+a way of telling anyone anything. That is not this lane's to fix, but it rules out the easy answer.
+
+**Where the visibility work sits now:** they own it, they have my measurements, and their reading is
+that there is nothing legitimate for an automatic fixer to do today — one of the two failures you
+have already ruled stays, and the other is the upload above. So they are proposing to run the check
+regularly and hold off building the fixer, and to put that fork to you rather than decide it. I
+think that is right.
+
+**What stays with me:** the original wordmark job. Nothing has changed there today — the one site
+that genuinely tested our fix passed, and it is still one site.
