@@ -66222,3 +66222,49 @@ then wrong.
 - **Cost.** One entry missing from the system-of-record for ~25 minutes, one restore commit, a CONTRIB
   to the owning lane asking them to verify byte-identity. The doc_notes mirror never carried the entry
   (a `## ` heading the sync does not mirror), so no agent read a ledger without it.
+
+## 2026-09-04 — "the production writer does not reason" from a column that cannot record reasoning (`copy_quality_two_stage`)
+
+- **The claim.** Written into the model-trials experiment doc twenty minutes before it was struck:
+  *"the production writer [does not use extended thinking] today — `[MEASURED]` `thinking_tokens > 0`
+  on 0 of the last 7 days' `page-content-writer` rows (0 of 6,724)"*, and from it an inference that
+  the two arms scoring zero negation tells (Fable, grok-4.6) differed from the two scoring 4–8
+  (sonnet as shipped, grok non-reasoning) by *whether the model reasons before writing*.
+- **What was true.** `claude-sonnet-5` runs adaptive thinking whenever the request OMITS `thinking`,
+  and `platform/aiservice/anthropic.go:278-300` omits it unless a `budget_tokens` option is set. So
+  the shipped NEG=8 section was written WITH reasoning. And `llm_call_log.thinking_tokens` is filled
+  from parsed thinking-block TEXT, which Sonnet 5 returns EMPTY by default (`display: "omitted"`) —
+  the column reads NULL whether or not the model thought. The tell was in the same row I quoted:
+  `output_tokens` 2,713 for ~1,100 tokens of visible JSON.
+- **What caught it.** Not a measurement — the API reference (the `claude-api` skill's thinking table),
+  loaded because four Sonnet replays 400'd on `budget_tokens`. Had they not 400'd, the claim would
+  have gone to the handoff.
+- **The cheap check that would have.** Read the vendor's parameter table before asserting what a
+  model does by default, and — the general one — when a column is the instrument, ask what WRITES it
+  before quoting a zero from it (the lane's own "a post-fix ZERO needs a DEMAND control": here the
+  demand control was one row with `display: "summarized"`, which would have shown thinking text and
+  a non-null column).
+- **Cost.** ~20 minutes; the wrong paragraph was struck in place with this correction in the doc and
+  the RUNBOOK; nothing reached a handoff or a peer.
+
+## 2026-09-04 — a watcher declared "re-fired, guard passed" on a refusal, because psql prints `UPDATE 0` even under `-t -A` and I tested for non-empty output (`portfolio_positioning`)
+
+- **The claim.** My guarded re-fire loop printed *"RE-FIRED at UPDATE0 (guard passed)"* and then
+  *"RESEARCH RUN #3: FAILED/extract_claims …"* — read naturally: the guard passed, the task fired, and
+  the new run failed on the same credit error.
+- **What was true.** Nothing fired. `psql -t -A` suppresses headers and footers but still prints the
+  command tag, so a refused `UPDATE … RETURNING` yields the string `UPDATE 0`, which `tr -d '[:space:]'`
+  turned into `UPDATE0` — non-empty, so my "a row came back" test passed. The "new" run it then
+  reported was the OLD 11:55 run, matched by a 45-minute search window instead of the fire time.
+  Two instrument errors stacked into one confident false report.
+- **Why it mattered.** Had I not re-read the raw output, the record would say the directory research
+  failed three times on the credit cap when it had failed twice — and, worse, that a re-fire under a
+  clean API window ALSO failed, which would have sent the next reader looking for a new cause.
+- **What caught it.** The word `UPDATE0` sitting where a timestamp should have been.
+- **The cheap checks that would have.** (1) Test for the **RETURNING literal** you wrote
+  (`grep -q 'FIRED:'`), never for "output is non-empty" — psql's command tag guarantees non-empty
+  output on every DML statement. (2) When a loop fires something and then looks for its effect, bound
+  the search by the **fire time it just captured**, never by "the last N minutes". Both fixed in the
+  replacement loop. Third instrument error of the session in this shape (a stripped-output scan, a
+  loose grep on pod logs, and this): **every watcher needs a control that fails when nothing happened.**
+- **Cost.** One false line in a NOTES entry, corrected the same hour; ~10 minutes.
