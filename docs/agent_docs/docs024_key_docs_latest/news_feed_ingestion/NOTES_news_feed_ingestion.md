@@ -1041,3 +1041,48 @@ scope. Logged in `WRONG_CALLS.md`.
    WHERE correlation_id='70f500ff-fb38-4fef-802a-8f25e8535367' AND kind='council_report';`
    A later commit should carry the trailer once read.
 4. **designblog.co.uk** — unchanged, still a decision not a build (HANDOFF §5).
+
+### ⚠ CORRECTION to this same session's entry above — the 746 council review DID NOT HAPPEN
+
+I wrote "746 council dispatch → `SUBMISSION_CORR = 70f500ff-…`" in the table above and left
+it reading as a success. It dispatched; it did not review. The run **finished** at 11:39Z:
+`status='COMPLETED'`, `error` **NULL**, `current_step='complete_invalid'` — three signals
+that all say "your submission was rejected as invalid". `__step_errors` says otherwise:
+
+> `council_decide` — *"no reviewer produced a readable opinion (1 abstained, **16
+> unreadable**) — a council with no opinions cannot decide"*
+
+and every one of those 16 seats carries the **same** `provider=anthropic … "Your credit
+balance is too low"` failure. So the gate reported the **billing outage** as an **invalid
+submission**. The JSON was never in doubt — `DRY_RUN=1` had passed validation *and* scope
+admission ten minutes earlier, and every `gate_*` step ran.
+
+**The correlation is spent**: it will never write a `council_report`, so `098` can never
+resolve it and no commit should carry it. Re-fire when the estate is healthy; the submission
+file needs no rework. `LANDMINES.md` entry added ("A council-gate run that ends `COMPLETED`
+at `complete_invalid`…"), because the failure is silent in all three of the places a
+submitter looks and would send the next person to rewrite a correct submission.
+
+**What caught it:** deciding to check the run rather than trust the dispatch receipt, after
+noticing the outage would hit the seats too. **The cheap check:** `__step_errors`, cast —
+`left()` has no jsonb overload, so `left((collected_data->'__step_errors')::text, 2000)`.
+
+### A misstep of my own in the same ten minutes, for the record
+
+I ran `./scripts/landmines-verify-dispatch.sh` **six minutes after measuring that every LLM
+call in the estate was failing**. The sync half worked (the `doc_notes` rows are written, so
+the new landmines are readable by seats — the part that actually mattered). The dispatch half
+fired **4** `landmine-verifier` runs into a dead fleet and **all 4 failed** on the credit
+error, including the verification for my own new entry. Cost is small and recoverable
+(`./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#<slug>'` re-arms one), but it is the
+same shape as the council finding above and I had the evidence in hand: **anything that ends
+in an LLM step is down, including the machinery that checks your work.** I followed
+CLAUDE.md's "after you append, run …" as a reflex without asking whether the estate could
+serve it. The check: before dispatching anything agentic, `SELECT max(created_at) FILTER
+(WHERE success) FROM llm_call_log WHERE provider='anthropic'` — if it is not within minutes,
+write the file and defer the dispatch.
+
+**Verifications owed once the outage clears** (all 4, not just mine — the other 3 were other
+lanes' pending entries that this run consumed the "new entry" status for):
+`kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "SELECT subject_key, created_at FROM doc_notes WHERE categories ? 'landmine-verification' ORDER BY created_at DESC LIMIT 10;"`
+then re-trigger any of the four slugs with no verdict row.

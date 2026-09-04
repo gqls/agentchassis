@@ -22834,3 +22834,45 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   same family: a seat that cannot be read is not a seat that disagreed) · `bugs_open/138` ·
   MEMORY [[a-submission-is-not-a-review]]
 - **added:** 2026-09-04, bugfix_257_token_budget_at_the_client lane
+
+### A council-gate run that ends `COMPLETED` at `complete_invalid` may mean EVERY SEAT WAS DOWN, not that your submission was invalid — and the run status, the step name and the `error` column all agree on the wrong reading
+
+- **footprint:** `council-gate`, `orchestration_states.current_step='complete_invalid'`,
+  `diagnose_council_decide`, `097_TRIGGER_council_review_v1.sh`, `098_REPORT_unreviewed_commits_v1.sh`
+- **fires when:** you submit to the council gate and go looking for the verdict.
+- **the tell — three signals that all read as "you did something wrong":** the run's
+  `status` is **`COMPLETED`**, its `error` column is **NULL**, and `current_step` is
+  literally **`complete_invalid`**. Nothing there says "infrastructure". A submitter who
+  checks the documented way — `status`, then the `diagnosis_artifacts` verdict that never
+  arrives — concludes the JSON was rejected and starts rewriting a submission that was fine.
+  `[MEASURED 2026-09-04]` corr `70f500ff-…` (migration 746) had passed `DRY_RUN=1` client
+  validation **and** scope admission minutes earlier, and every `gate_*` step ran.
+- **the check:** read **`collected_data->'__step_errors'`**, which is where the real cause
+  is. The decisive string is `diagnose_council_decide`'s own:
+  *"no reviewer produced a readable opinion (1 abstained, 16 unreadable: …) — a council with
+  no opinions cannot decide"*, with each named seat carrying the underlying failure. Cast it,
+  `left()` has no jsonb overload:
+  ```sql
+  SELECT left((collected_data->'__step_errors')::text, 2000) FROM orchestration_states
+   WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+  ```
+  **16 of 16 seats failing identically is the discriminator.** One seat down is a seat bug;
+  every seat down with the same message is the estate. On 2026-09-04 that message was
+  `provider=anthropic … "Your credit balance is too low"` — i.e. the gate faithfully reported
+  a **billing** outage as an **invalid submission**.
+- **⚠ the consequence for the trail:** the correlation is **spent**. It will never produce a
+  `council_report`, so a `Council-Submitted:` trailer naming it can never be resolved by
+  `098` and the commit reads un-reviewed for ever. **Re-fire the submission once the estate
+  is healthy and record the NEW correlation** — do not wait on the old one, and do not read
+  the absence of a verdict as latency (CLAUDE.md's "a missing row is almost always latency"
+  is about a missing *orchestration row*; here the row exists and is finished).
+- **relations:** CLAUDE.md "Council review of platform changes" · MEMORY
+  [[a-submission-is-not-a-review]] — this is the sharper case: not merely "submitted ≠
+  reviewed", but *submitted, ran, completed, and still not reviewed* ·
+  [[a-complete-work-item-is-not-a-repaired-artefact]] and CLAUDE.md's "trust the rendered
+  artefact, not the status" — same family, and here there are **three** agreeing statuses ·
+  [[orchestration-error-column-is-empty]] — the `error`-is-NULL half, already known for
+  steps, now shown for a whole run
+- **source:** 2026-09-04, `news_feed_ingestion` lane, submitting migration 746 during the
+  fleet-wide Anthropic credit outage that began 11:17:05Z.
+- **added:** 2026-09-04, news_feed_ingestion lane

@@ -247,3 +247,28 @@ fleet's wrong-calls log instead.
 
 designblog.co.uk is untouched, exactly as we left it — still a decision about how the
 page gets filled, not a build.
+
+Correction to what I wrote an hour ago, same afternoon. I told you the review request
+"went to the council" and that there was no verdict yet. The first half is true and the
+second half is misleading: the review did not just fail to finish, it cannot finish. All
+sixteen reviewers tried to run, all sixteen hit the same credit failure, and the process
+then stopped because a review panel with no opinions cannot reach a decision.
+
+What makes this worth telling you rather than quietly re-running it: the system recorded
+that outcome as **"completed"** with **no error**, at a step named **"invalid"** — three
+separate signals all pointing at "your submission was badly formed", when the submission
+was fine and the building had simply lost power. Anyone checking on it the documented way
+would have concluded they had made a mistake and started rewriting good work. I have
+written that trap up for the fleet so the next person does not lose an afternoon to it.
+
+Nothing is lost. The submission file is unchanged and correct; it needs firing again once
+the credit problem is sorted, and it will get a fresh reference number then. I have also
+made sure nothing in our records claims that review happened.
+
+One related slip of my own, same hour: I ran the routine that checks new safety notes
+about six minutes after I had measured that every AI call in the fleet was failing. The
+useful half worked — the notes are published and readable. The checking half fired four
+requests into a dead system and all four failed, including the check on my own new note.
+Recoverable in a single command each, and written down so they get re-run. The lesson is
+the obvious one I should have applied immediately: when the AI layer is down, everything
+that ends in an AI call is down too, including the machinery that checks my work.

@@ -56,11 +56,42 @@ used`** (a failed call is still a use). Memory: `the-fleet-key-is-not-on-the-def
 |---|---|
 | `691_uk_news_search_region_default.sql` | **APPLIED + VERIFIED + RECORDED.** 26/26 `.uk` `news_search` rows carry `region=uk`, 0 non-UK touched |
 | `746_advertise_news_feed_enablement.sql` | **APPLIED + VERIFIED + RECORDED.** `recommended=true`; 6 sources (1 rss WebProNews + 5 `news_search` `region=uk`); trigger predicate selects the site |
-| 746 council review | **DISPATCHED.** `SUBMISSION_CORR = 70f500ff-fb38-4fef-802a-8f25e8535367`, verdict outstanding |
+| 746 council review | **DISPATCHED, then KILLED BY THE OUTAGE — the correlation is spent and must be re-fired.** See §3a |
 
 All four preconditions were re-verified first-hand before asking, and none had drifted
 (both files absent from `schema_migrations`; 26/0 on the region census; advertise on 0
 sources with no `content_features`; 746's pinned spec `ec005136…` still current).
+
+## 3a. ⚠ The 746 council review DID NOT HAPPEN — and it does not look that way
+
+`SUBMISSION_CORR = 70f500ff-fb38-4fef-802a-8f25e8535367` was dispatched 11:29:28Z and the
+run **finished**: `status='COMPLETED'`, `error` NULL, `current_step='complete_invalid'`.
+All three signals read as "your submission was rejected as invalid". It was not.
+`collected_data->'__step_errors'` gives the real cause:
+
+> `council_decide` — *"no reviewer produced a readable opinion (1 abstained, 16 unreadable:
+> review_editquality.result, review_bug_historian.result, … review_architecture.result) — a
+> council with no opinions cannot decide"*
+
+…with each of those 16 seats carrying the **same** `provider=anthropic … "Your credit
+balance is too low"` error from §1. Every seat was down; the gate reported a **billing
+outage** as an **invalid submission**. The JSON is fine — it had passed `DRY_RUN=1`
+validation *and* scope admission minutes before.
+
+**So: the correlation is SPENT.** It will never write a `council_report`, so it can never
+be resolved by `098` and nothing should carry it as a trailer. **Re-fire once §1 clears**
+(the submission file needs no rework) and record the NEW correlation:
+
+```bash
+DRY_RUN=1 ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh \
+  docs/agent_docs/docs024_key_docs_latest/news_feed_ingestion/COUNCIL_SUBMISSION_746.json
+# then without DRY_RUN, and SAVE the printed SUBMISSION_CORR
+```
+
+Do **not** read the missing verdict as queue latency. CLAUDE.md's "a missing row is almost
+always latency" is about a missing *orchestration row*; here the row exists and is finished.
+Full entry in `LANDMINES.md` ("A council-gate run that ends `COMPLETED` at
+`complete_invalid`…").
 
 ## 3. DONE and PROVEN — the UK-region fix works at the provider
 
@@ -106,14 +137,9 @@ not, and each is a potential false negative. Full entry in `LANDMINES.md`
 2. **Tomorrow ~09:15Z**, idea.uk's backfilled sources fetch. Confirm `region='uk'` at the
    adapter **with `--tail=-1`** to close §3's narrowing. Only then may anyone write
    "691 proven at the provider".
-3. **746 verdict:**
-   ```sql
-   SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
-   WHERE correlation_id='70f500ff-fb38-4fef-802a-8f25e8535367' AND kind='council_report'
-   ORDER BY created_at;
-   ```
-   A later commit may then carry `Council-Reviewed: 70f500ff-…` — **only after reading an
-   approved verdict**, never before.
+3. **Re-fire the 746 council review** — §3a. The old correlation is spent; do not query it
+   for a verdict and do not put it on a commit. A later commit may carry
+   `Council-Reviewed: <NEW corr>` **only after reading an approved verdict**.
 4. **designblog.co.uk `/the-design-feed/`** — unchanged: a decision, not a build. HANDOFF
    2026-09-03 §5 is still the current statement, including this lane's **withdrawn**
    preference for route (1) and the third gap

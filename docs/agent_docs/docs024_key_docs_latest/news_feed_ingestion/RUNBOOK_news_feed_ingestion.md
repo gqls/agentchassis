@@ -192,7 +192,7 @@ relevant/review/rejected split), then `https://advertise.co.uk/data/news-archive
 | submission | state |
 |---|---|
 | `COUNCIL_SUBMISSION_332_truncation.json` | **DISPATCHED 2026-09-03**, `SUBMISSION_CORR = c93e71a6-80e5-4adb-9e29-d998607c8574` |
-| `COUNCIL_SUBMISSION_746.json` | **DISPATCHED 2026-09-04** on the owner's explicit authorisation, `SUBMISSION_CORR = 70f500ff-fb38-4fef-802a-8f25e8535367`. The 2026-09-03 denial below is CLEARED — it was lifted by the owner naming the action, which is the only thing that lifts one |
+| `COUNCIL_SUBMISSION_746.json` | **DISPATCHED 2026-09-04** (`70f500ff-…`) on the owner's explicit authorisation — the 2026-09-03 denial was CLEARED by him naming the action, which is the only thing that lifts one. ⚠ **The run then DIED on the fleet-wide LLM outage: 16 of 16 seats returned the credit error, `council_decide` had no opinions, and it ended `COMPLETED` at `complete_invalid`. That correlation is SPENT — RE-FIRE, do not query it for a verdict.** The submission file needs no rework |
 
 ⚠ **A denial attaches to the ACTION, and a later success on a sibling action does NOT
 lift it.** The 332 dispatch went through on the same script minutes after the 746 one was
@@ -212,9 +212,21 @@ SELECT current_step, status FROM orchestration_states
 
 ## Council submission for 746 — ✅ DISPATCHED 2026-09-04, verdict outstanding
 
-> `SUBMISSION_CORR = 70f500ff-fb38-4fef-802a-8f25e8535367`. Read the verdict with the
-> query at the end of this section before writing any `Council-Reviewed:` trailer; no
-> commit carries one yet and none should until someone has read an approved verdict.
+> ⚠ **SUPERSEDED WITHIN THE HOUR — the dispatch happened, the review did not.**
+> `70f500ff-…` ended `status='COMPLETED'`, `error` NULL, `current_step='complete_invalid'`
+> — which reads as "submission rejected as invalid" and actually means every seat was down:
+> `__step_errors` shows 16 of 16 returning `"Your credit balance is too low"`, and
+> `council_decide` refusing because "a council with no opinions cannot decide".
+> **The correlation is spent** (no `council_report` will ever be written, so `098` can never
+> resolve it). **Re-run the two commands below once LLM calls succeed and record the NEW
+> correlation.** Diagnose any future `complete_invalid` the same way — cast, `left()` has no
+> jsonb overload:
+> ```sql
+> SELECT left((collected_data->'__step_errors')::text, 2000) FROM orchestration_states
+>  WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+> ```
+> 16 identical failures is the discriminator: one seat down is a seat bug, all of them is
+> the estate. Full entry in `LANDMINES.md`.
 > ⚠ **A `Council-Submitted:` trailer belongs only on a commit whose paths are IN scope.**
 > This session put this correlation on `47d25ede5`, a shell script under `docs/` that the
 > council does not review — disclosed in NOTES and `WRONG_CALLS.md`, not amended
