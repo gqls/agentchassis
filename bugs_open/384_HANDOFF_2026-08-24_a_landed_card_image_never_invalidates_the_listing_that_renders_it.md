@@ -1614,3 +1614,69 @@ the stable claim, not the count. If you need the counts to be reproducible, pin 
 literal (`created_at > '2026-08-24'`) instead of `now() -`. I have deliberately not changed the
 script, because a rolling window is the right default for "is this still happening"; it is only
 wrong for quoting a fixed figure, which is what I did.
+
+## UPDATE 2026-09-04 08:1xZ — a fresh build (`239ab3626`, v1.0.1360) and **21 of 21 post-fix repairs across two builds**; one generic residual left, and it is a NEW single-page cause
+
+### Build state `[MEASURED 2026-09-04 08:11:24Z]`
+
+`239ab3626fc7fb9cd4b121c82480bedafe2f555c` / **v1.0.1360**, first pod 2026-09-03 22:06:39Z,
+**374 pods, one commit — a clean whole-fleet roll, no straddle.** Both `9831e9ab4` (454's fix) and
+`94f81cc60` are ancestors, so the fix survived; 905 commits in the roll. Three of them touch this
+seam's files, and one matters: **`29b40e8bc` — "450 REGRESSION FIX: the tool arm must not fire at
+`save_page_sections` — it was refusing 4× more repair than harm"**. That was the guard blocking the
+427 lane's post-fix case at the save; it is now live, so tool pages can be repaired again.
+
+### The census, now four eras `[MEASURED 2026-09-04 08:12:31Z]`
+
+| era | writes over a real deficit | repaired | left blank |
+|---|---|---|---|
+| 1. before `94f81cc60` | **130** | **130** | 0 |
+| 2. DURING 454's regression | 12 | 5 | **7** |
+| 3. post-fix, build `d0252fd4` | **15** | **15** | 0 |
+| 4. post-fix, build `239ab3626` (current) | **6** | **6** | 0 |
+
+**21 of 21 since the fix, across two builds and ~20 hours of ordinary traffic. Zero failures.**
+(Era 1 reads 130 where yesterday it read 131 and before that 132 — the rolling window, documented at
+16:4xZ. The ratio is the claim, not the count.)
+
+The designblog canary has **held for 19 hours**: 0 blank, unchanged since 12:54:43Z.
+
+### The standing residual, and the generic side is now effectively clean
+
+| policy | carded entries | still blank | with image |
+|---|---|---|---|
+| `generic` | **701** | **1** | **99.9%** |
+| `owned` | 14 | 14 | **0.0%** |
+
+### ⚠ THE ONE GENERIC BLANK IS A NEW CAUSE, NOT A LEFTOVER — and it is exactly ONE page fleet-wide
+
+leopardessconsulting.co.uk `/blog`, `blog-listing` slot, entry
+`/guides/tool-model-approach-selector-guide.html`. The card landed 2026-09-03 17:50:13; the array
+was last written 17:48:40, ninety seconds earlier. **The correct re-resolve fired and completed** —
+`derive_card_asset` filed `section_data_resolved` / `card_landed:tool-model-approach-selector-guide`
+at 17:50:14, `complete` at 18:18:56, `attempt_count 0` — **and the array never moved.**
+
+**It was SKIPPED.** The run's own record:
+
+```json
+{"skipped": true, "escalated": false, "escalation": "skipped_sectionless_page", "section_count": 1}
+```
+
+**Cause:** `pages.sections` for that page is an **empty array**, while the page carries **1 real
+`page_components` row** (the `blog-listing_pre_037` fork, `is_active`, whose schema still declares
+`articles` → `query.blog_posts`). So the re-render skips the page as sectionless and the listing can
+never be re-resolved — while `action:rebuild_blog_listing` goes on maintaining it, which is why the
+page looks fine and has 14 articles.
+
+**Bounded, and the bound is the point** `[MEASURED 08:1xZ]`: **1 page, 1 site** fleet-wide has a
+`query.*`-sourced listing component and empty `pages.sections`; **1** `skipped_sectionless_page` run
+in 24 hours. This is a single stuck row, not a class — do not raise it as one.
+
+⚠ **Two things it connects to, neither of them this lane's:**
+- **`pages.sections` is a CACHE** (`sync_pages`, `site_db_actions.go:1276`), and `bugs_open/204`'s
+  guard protects only the non-empty → empty transition — **arm 3 lets an ALREADY-empty page take any
+  proposal unconditionally**, so nothing will refill it by itself. Flagged by the `bugs_open/427`
+  lane; same class as `bugs_open/443`.
+- **The skipped run still stamped `deployed_at = 2026-09-03 18:18:54`** — a skip that advances the
+  publish timestamp is `bugs_open/315`'s shape ("`deployed_at` written without publishing"). Not
+  measured further here.
