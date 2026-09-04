@@ -10,10 +10,17 @@
 
 ## 1. State in one paragraph
 
-The **code half is DONE, LIVE and CLOSED**. The bug stays open on **three owner decisions**,
-none of which is engineering work. There is nothing to build. There is one held migration
-waiting for a ruling, and one piece of evidence still owed (the closer has never actually
-fired, because the estate has no drift for it to act on).
+The **code half is DONE, LIVE and CLOSED**. There is nothing to build. There is one held
+migration waiting for a ruling, and one piece of evidence still owed (the closer has never
+actually fired, because the estate has no drift for it to act on).
+
+> **UPDATED 2026-09-04 (later):** this read *"three owner decisions"*. **Q2 has since been
+> ANSWERED by measurement** (§5) and it collapses the rest into **ONE binary decision**: a
+> shipped, live guard (`bugs_open/266`) refuses every deploy of a `status='archived'` page,
+> and it has **already refused this exact page 3 times**. So Q1 alone cannot make the repair
+> render, and **Q3 is prior**: either un-archive the page (then Q1 becomes operative and
+> `760` applies), or leave it archived (then `760` is **moot** and the real defect is that it
+> still serves 200). There is no third branch.
 
 ## 2. What was built, and where it is
 
@@ -83,11 +90,38 @@ being about provenance and becomes load-bearing: the page is
 section list. **A corrected plan would sit in the database and never reach a visitor.**
 Without this ruling the repair does not merely lose history — it does not happen.
 
-### Q2 — Does the build path reach an ARCHIVED page at all?
+### Q2 — Does the build path reach an ARCHIVED page at all? — **ANSWERED 2026-09-04**
 
-`gripper-catalog` is `pages.status = 'archived'` and last built **2026-08-11**, while every
-*active* page on that site rebuilt on 2026-09-03. **Unknown, not assumed.** If the answer is
-no, Q1's ruling alone still leaves the repair inert and a different last step is needed.
+> **CORRECTED 2026-09-04:** this read *"Unknown, not assumed."* It is now measured, and the
+> answer is in two halves pointing opposite ways — which is why "does it reach it" was the
+> wrong shape of question. Caught by following the page to the END of its path instead of
+> the start: the sibling archived pages on this site had not rebuilt either.
+
+**Yes, the reconciler reaches it — and no, the deploy never completes.**
+
+- **It reaches it.** Nothing filters `pages.status`: `loadPlanPages` reads `site_plan_pages`
+  (no status column) and `loadRealisedPages` is `… FROM pages WHERE site_id = $1` with no
+  status predicate. `gripper-catalog` is in the current plan at `role=content, nav_order=2`.
+  So Q1's stamp withdrawal *would* flip `decideEmit` to `stale` and emit a build item.
+- **Then it is refused.** `archived_page_guard.go` (`580af7ff0`, 2026-08-12, `bugs_open/266`)
+  refuses at BOTH `git_commit` and the `update_page_status` deploy stamp, on a literal
+  `status == "archived"` test. Live in the running binary: `git merge-base --is-ancestor
+  580af7ff0 239ab3626` -> YES (control `2fae8baa4` -> NO); pods run v1.0.1360.
+- **It has already refused THIS page.** `[MEASURED 2026-09-04]` **308**
+  `ARCHIVED_PAGE_DEPLOY_REFUSED` rows all-time; **3** name `page_id
+  64fab29e-5d8a-4a50-ad1b-2f9b0721cef6` = `robot-hands.com/gripper-catalog` (joined by id,
+  last 2026-08-23). Demand control: `agent_error_log` holds 243 rows since the roll.
+
+**Consequence: Q1's ruling alone is provably insufficient**, and **Q3 is PRIOR to Q1/Q2, not
+a co-equal third.** While `status='archived'` no repair can ever deploy, so the fork is
+binary — and the guard's own refusal message already words it: *"Un-archive it deliberately
+if it should be live, or retract it (page-retraction) if its file is still served."*
+
+- **(a) Un-archive** -> guard stands down, Q1 becomes operative, `760` applies and renders.
+- **(b) Stay archived** -> `760` is **moot**; the live defect is the serving 200, fixed by
+  retraction, which the guard explicitly does NOT block (it dispatches `delete_file`).
+
+There is no third branch in which the composition is repaired and a visitor sees it.
 
 ### Q3 — Should that page be serving at all?
 

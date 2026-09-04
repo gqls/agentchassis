@@ -237,3 +237,52 @@ morning, and held.
 
 **Handoff for a fresh session:**
 `docs/agent_docs/docs024_key_docs_latest/bugfix_469_drift_closer/HANDOFF_2026-09-04_continue_here.md`
+
+---
+
+## 2026-09-04, later — question 2 is answered, and it changes the shape of the choice
+
+I said above, about the second of the three questions, "I don't know." I do now, and the
+answer matters more than I expected — it turns three separate decisions into one.
+
+**The short version: the machinery that rebuilds pages does reach this page. But when it
+gets to the last step — actually publishing the page — something deliberately stops it.**
+
+There is a safety catch, added on 12 August after a different investigation, whose whole job
+is to make sure a retired page can never be quietly republished. It sits at the exact point
+every publishing route has to pass through, and it refuses any page marked "retired". It is
+running in the live system right now, and it is not hypothetical: it has turned away **308**
+publish attempts since mid-August, and **three of those were this very page**, the last on
+23 August. I checked those three are the same page by its database id, not by its name, so
+there is no chance I'm looking at a similarly-named page on another site.
+
+So the repair we have written and rehearsed would start, run, and then be blocked one step
+from the finish. The page would still look wrong to a visitor. **The first question — may we
+withdraw the page's "already built" mark — turns out not to be enough on its own.**
+
+**What this means for you: it's now one decision, not three.** While the page stays marked
+retired, nothing we do to its content can ever reach a visitor. So:
+
+- **If the page should be live** — un-retire it. The safety catch then stands down, the
+  first question becomes the real one, and the repair we're holding can go in and actually
+  show up on the site.
+- **If the page should stay retired** — then the repair is pointless and I'd withdraw it.
+  The genuine problem is the other one: the page is marked retired and yet is still being
+  served to anyone who visits it. Taking it down properly is a different route, and the
+  safety catch deliberately doesn't block that one.
+
+There isn't a third option where we fix the page's contents and someone gets to see the fix.
+
+Worth adding: this page is already on a list of nine pages flagged back on 26 August for
+exactly this "retired but still serving" problem, and nobody has picked any of them up. So
+the second option isn't extra work invented here — it's work already queued and waiting.
+
+**One thing I got half-right and nearly stopped at.** My first check was of the rebuilding
+machinery, and it showed no reason the page would be skipped. That's true, and on its own it
+would have been a confident, useless answer — I'd have told you "yes, it reaches it", and
+the next person would have applied the repair and hit the block. What saved it was noticing
+that the neighbouring retired pages on the same site hadn't rebuilt either, which sent me
+looking further down the line instead of stopping at the first encouraging result.
+
+**Nothing has been changed on the live system.** The repair is still held, the page is still
+as it was. This is the decision I need from you.

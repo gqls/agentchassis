@@ -22480,3 +22480,65 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   rewrite of the entry above — the pattern check flagged 23 removed lines from this append-only
   ledger and was right to: they were all my own, an hour old, but one of them was this lesson.
 - **added:** 2026-09-04, `site_delivery_and_editor` lane
+
+### A composition repair to an ARCHIVED page applies cleanly, corrects the database, and can NEVER reach a visitor — the reconciler has no status filter, so the page looks reachable right up to the seam that refuses it
+
+- **footprint:** `platform/orchestration/actions/archived_page_guard.go` ·
+  `platform/orchestration/actions/reconcile_site_plan_action.go` ·
+  `platform/orchestration/actions/git_deployer_actions.go` · `ARCHIVED_PAGE_DEPLOY_REFUSED` ·
+  `pages.status` · `docs/agent_docs/sql_for_agents/` · `agent_error_log`
+- **fires when:** you plan or apply a migration that repairs one page's composition — restoring a
+  dropped section, correcting `site_plan_sections`, fixing drift — and the page happens to be
+  `pages.status='archived'`. Archived pages are **not** obviously dead on this estate: they keep
+  serving HTTP 200 (see the `status='active' AND build_status='deployed'` entry above), so the page
+  you are repairing can look completely live while you work on it.
+- **the tell — there is none, and every check you would think to run PASSES.** The migration's
+  pre-checks pass. The dry run applies and rolls back clean. `site_plan_sections` and
+  `page_components` afterwards are exactly right. Nothing errors, no count is wrong, no work item
+  fails. **Only the artefact is unchanged**, and the artefact is the one thing a migration author is
+  least likely to re-probe after a green apply.
+- **why it survives a careful reading of the build path.** The reconciler genuinely does reach the
+  page, so reading it confirms your plan: `loadPlanPages` selects from `site_plan_pages` (which has
+  no status column at all) and `loadRealisedPages` is `… FROM pages WHERE site_id = $1` with **no
+  `status` predicate**; the emit loop iterates plan page names, not `pages` rows. Withdrawing the
+  build stamp really does flip `decideEmit` from `skip_built` to `stale` and really does emit a build
+  item. **The refusal is one seam further on than the file you were reading.**
+  `archived_page_guard.go` (`580af7ff0`, 2026-08-12, `bugs_open/266`) guards **both**
+  `git_commit` (`git_deployer_actions.go:65`) and the `update_page_status` deploy stamp
+  (`v3_site_actions.go:899`) on a literal `status == "archived"` test — deliberately at the seam
+  every producer passes through, because *"archived = nothing may deploy this -> no deploy is
+  legitimate"*. It returns `Success: true` with `status: "skipped"`, so **the refusal is not a
+  failure and will not colour any status you look at.**
+- **the check:** before writing the migration, ask whether the page may deploy at all —
+  ```sql
+  SELECT name, status, build_status FROM pages WHERE id = '<page_id>';   -- status='archived' => STOP
+  ```
+  and count the refusals the estate has already recorded, which is the demand control that proves
+  the guard is live rather than assumed:
+  ```sql
+  SELECT count(*) FILTER (WHERE context->>'page_id' = '<page_id>') AS this_page, count(*) AS all_time
+  FROM agent_error_log WHERE error_code = 'ARCHIVED_PAGE_DEPLOY_REFUSED';
+  ```
+  `[MEASURED 2026-09-04]` **308** all-time (first 2026-08-14), and the page this entry was written
+  for — `robot-hands.com/gripper-catalog`, `page_id 64fab29e-5d8a-4a50-ad1b-2f9b0721cef6` — already
+  had **3**, last 2026-08-23. A page with a non-zero count has already been turned away and your
+  repair will be too.
+- **the fork, which the guard's own refusal message states:** *"Un-archive it deliberately if it
+  should be live, or retract it (page-retraction) if its file is still served."* Either un-archive
+  first (then the repair renders), or accept that the repair is **moot** and the real defect is the
+  serving artefact — **retraction is deliberately NOT blocked**, because it dispatches `delete_file`,
+  a different path from `git_commit`. There is no third branch in which the composition is repaired
+  and a visitor sees it.
+- **⚠ do not "fix" the guard to let your repair through.** It is a shipped fix for four independent
+  producers that each rebuilt and re-stamped archived pages by unrelated paths; the state it defends
+  has no legitimate exceptions, which is precisely why it sits where it does.
+- **relations:** the `status='active' AND build_status='deployed'` audit entry above (archived pages
+  serve 200 — the reason an archived page does not look archived) · `bugs_open/266` (the guard) ·
+  `bugs_open/469` §5 Q2 (the lane that paid for this) · `bugs_closed/359`
+  (`archived_page_still_serving`) · MEMORY [[a-complete-work-item-is-not-a-repaired-artefact]] —
+  same shape one rung up: a green status is not a changed page
+- **source:** 2026-09-04, `bugfix_469_drift_closer` lane, answering that bug's Q2. Found by following
+  the page to the END of its path rather than the start — reading the reconciler alone yields a
+  confident, useless *"yes, it reaches it"*. The anomaly that prompted it: the sibling archived pages
+  on the same site had not rebuilt either, while every active page had.
+- **added:** 2026-09-04, bugfix_469_drift_closer lane

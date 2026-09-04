@@ -233,8 +233,21 @@ questions, and the third would moot it:
    section list. A corrected plan would sit there and **never render**. This is where q2 stops
    being about provenance and becomes load-bearing: without the ruling the repair does not
    merely lose history, *it does not happen*.
-2. **Does the build path reach an archived page at all?** Unknown; not assumed either way.
-3. **Should the page be serving at all?** See 7.3.
+2. ~~**Does the build path reach an archived page at all?** Unknown; not assumed either way.~~
+   **ANSWERED 2026-09-04 — and it makes q1 insufficient on its own.** The reconciler *does*
+   reach it (neither `loadPlanPages` nor `loadRealisedPages` filters `pages.status`; the page
+   is in the current plan at `nav_order=2`), **but the deploy is then refused** by
+   `archived_page_guard.go` (`580af7ff0`, `bugs_open/266`), which guards `git_commit` AND the
+   `update_page_status` stamp on a literal `status == "archived"` test. Live in v1.0.1360
+   (`git merge-base --is-ancestor 580af7ff0 239ab3626` -> YES; control -> NO), and **already
+   proven against this page**: `[MEASURED 2026-09-04]` **308** `ARCHIVED_PAGE_DEPLOY_REFUSED`
+   rows all-time, **3** naming `page_id 64fab29e-5d8a-4a50-ad1b-2f9b0721cef6` (this page,
+   joined by id), last 2026-08-23.
+3. **Should the page be serving at all?** See 7.3. **This is now PRIOR to q1 and q2, not
+   third**: while the page is archived no repair can ever deploy, so the fork is binary —
+   un-archive it (q1 becomes operative, `760` applies and renders), or leave it archived
+   (`760` is **moot**; the defect is the serving 200, fixed by retraction, which the guard
+   deliberately does not block — it dispatches `delete_file`).
 
 Migration `750`'s template does **not** transfer: rename vs INSERT-with-shift; an
 already-correct page vs both stores wrong; **1** `site_plans` row vs **5**; artefact unchanged

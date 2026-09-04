@@ -473,3 +473,93 @@ happen.** Here: closing archives the row, so the census is blind by construction
 general form is the one I already had in memory and did not apply to my own sentence —
 which is the uncomfortable part, and the reason this is in `WRONG_CALLS` rather than only
 here.
+
+---
+
+## 2026-09-04 — Q2 ANSWERED: the build path reaches the page; the DEPLOY is refused by a shipped guard
+
+§5 Q2 of the handoff (and line 236 of the bug file) read **"Unknown; not assumed either
+way."** It is now measured. The answer is in two halves that point opposite ways, which is
+why "does it reach it" was the wrong shape of question.
+
+### Half 1 — the reconciler DOES reach an archived page. Nothing filters `pages.status`.
+
+`[MEASURED 2026-09-04]`, read at the source:
+
+- `loadPlanPages` (`reconcile_site_plan_action.go:640`) selects from `site_plan_pages`,
+  which has no status column at all.
+- `loadRealisedPages` (`:662`) is `SELECT name, COALESCE(build_status,''), … FROM pages
+  WHERE site_id = $1` — **no `status` predicate**.
+- The emit loop iterates **plan** page names, not `pages` rows.
+
+And `gripper-catalog` is in the current plan `7a40a0f9-a1cd-4259-8654-cc0922e942aa` as
+`role=content, nav_order=2` — a top-nav page, not a stray. So Q1's stamp withdrawal really
+would flip `decideEmit` from `skip_built` to `stale` and emit a build item. Half 1 says the
+repair starts.
+
+### Half 2 — and then the deploy is REFUSED, by a guard that is correct and live.
+
+`archived_page_guard.go` (commit `580af7ff0`, 2026-08-12, `bugs_open/266`) refuses at **two**
+seams, deliberately: `git_commit` (`git_deployer_actions.go:65`) and the `update_page_status`
+deploy stamp (`v3_site_actions.go:899`). Its predicate is a literal
+`status == "archived"` (`pageIsArchivedForGuard`, `:164`). Its header states the reasoning:
+
+> `archived` = "nothing may deploy this" -> no deploy is legitimate. A state whose
+> prohibition has no exceptions must be guarded at the seam every producer passes through.
+
+**It is in the running binary** — ancestry test, not a stamp grep (this lane's own §3 lesson):
+
+```
+git merge-base --is-ancestor 580af7ff0 239ab3626   # YES
+git merge-base --is-ancestor 2fae8baa4 239ab3626   # NO  <- control behaves
+kubectl -n ai-persona-system get deploy agent-chassis -o jsonpath=…  # v1.0.1360
+# pods agent-chassis-ffc9ddff9-{jvw92,k866t} started 2026-09-03T22:06:58Z
+```
+
+**And it is not theoretical — it has already refused THIS page.** `[MEASURED 2026-09-04]`:
+
+| | |
+|---|---|
+| `ARCHIVED_PAGE_DEPLOY_REFUSED` rows, all-time | **308** (first 2026-08-14, last 2026-09-04) |
+| naming `page_id 64fab29e-5d8a-4a50-ad1b-2f9b0721cef6` | **3** (last 2026-08-23 13:02Z) |
+| that page_id | `robot-hands.com` / `gripper-catalog`, `status='archived'` — joined, not assumed |
+| demand control (`agent_error_log` can find rows) | 57,780 all-time, **243 since the roll** |
+| fail-open window `ARCHIVED_PAGE_GUARD_UNCHECKED` | 1, on 2026-08-26 — so the guard is not silently standing down |
+
+The 3 refusals are the load-bearing evidence: they prove the page **did** reach the commit
+seam under some producer and **was** turned away there. `[INFERRED]` — that a post-Q1
+rebuild would meet the same refusal — but inferred from a path this page has already walked
+three times, against a predicate that is string equality on a column that has not changed.
+
+### What this does to the three decisions: Q3 is PRIOR, not third
+
+The handoff presents Q1/Q2/Q3 as co-equal and notes the third "can moot the other two". The
+guard makes that structural rather than a matter of preference: **while `status='archived'`,
+no repair can ever deploy, whatever Q1 rules.** So there is no branch in which we correct an
+archived page's composition and a visitor sees the result. The fork is binary, and the
+guard's own refusal message already words it:
+
+> "Un-archive it deliberately if it should be live, or retract it (page-retraction) if its
+> file is still served."
+
+- **(a) Un-archive** (`status='active'`) — guard stands down, Q1 becomes the operative
+  ruling, `760` applies and can actually render.
+- **(b) Stay archived** — `760` is **moot**. The live defect is then the serving 200, and
+  the remedy is retraction, which the guard explicitly does **not** block (it dispatches
+  `delete_file`, a different path from `git_commit` — stated in the header and checked there
+  rather than assumed).
+
+`gripper-catalog` is already one of the nine untriaged `archived_page_still_serving` items
+(`archived_page_still_serving:64fab29e-…`, filed 2026-08-26, still `detected`) — the same
+page id, so §7.3's "the same page carries both flags" is now joined by id, not by name.
+Re-probed today: `200 SERVING`, invented-URL control 404, sibling control 200.
+
+### The misstep worth recording
+
+My first instinct was to answer Q2 from the reconciler alone. Reading `loadRealisedPages`,
+finding no status filter, and stopping there would have produced a **confident and useless
+"yes, it reaches it"** — true, and it would have sent the next session to apply `760` after
+a Q1 ruling, straight into a refusal 308 rows deep in the database. **"Does the path reach
+it" is not "does the work complete".** What caught it was following the page to the *end* of
+its path rather than the start: the sibling archived pages on the same site had not rebuilt
+either, which is the anomaly that made me look downstream for a blocker.
