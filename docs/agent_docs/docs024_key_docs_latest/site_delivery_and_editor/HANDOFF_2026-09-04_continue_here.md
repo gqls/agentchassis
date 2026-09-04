@@ -137,6 +137,41 @@ made. **The decision is the owner's and it is not this lane's to take.**
 Also flagged by that lane and still open: **`5edadfbe` sits `failed` representing work that is DONE**
 (the owner's two approved copy edits, applied and verified live). It will misreport until reconciled.
 
+### 1.3c ⚠ TWO CORRECTIONS FROM THE `parked findings` LANE — one of mine was backwards, and the recipe is largely inert
+
+**1. My FIFO warning had the direction wrong, and wrong in the dangerous direction.** I told them
+releasing 3,184 rows was "3,184 queue positions at the back". **It is the front.** The release recipe
+leaves `created_at` untouched, and `find_dispatchable_site` is `ORDER BY MIN(created_at) ASC` — so
+released rows keep their **August** dates and sort **AHEAD of today's live work**, fleet-wide. My
+version made a bulk release sound self-throttling; it is the opposite. (Their other note: the
+promoter is already a throttle at 900s × `LIMIT 20` ≈ **80 rows/hour**, so the population is ~40
+hours of drip **if nobody defeats it by releasing straight to `triaged`**.)
+
+**2. The documented `spec.release_recipe` is INERT for ~89% of the rows, and fails SILENTLY.** Every
+parked row's `routed_status` is **`detected`**, not `triaged`. A `detected` row only reaches dispatch
+via `detected-item-promoter`, whose live `pre_query` carries a fifth door from migration `629`:
+
+```sql
+(COALESCE(wi.spec->>'origin','') <> 'model_opinion') AS origin_ok
+```
+
+**`write_audit_findings` — the same producer that parks these rows — stamps
+`spec.origin='model_opinion'` on them. 2,824 of 3,184 carry it.** Simulated across all five doors:
+**352 flow, 2,832 stick.** A stuck row changes status, gets a named handler, and **errors on
+nothing** — so it reads as released and is not.
+
+> **The trap for the `boxingonline` lane specifically:** running the recipe on its 46 rewrites would
+> move most of them from `deferred` to `detected`, where they would sit **looking released**. The
+> `parked findings` lane is messaging them directly.
+
+**Marked honestly, by them:** the door has never been *observed* to fire — zero `model_opinion` rows
+have ever reached `detected`, because record mode parks them first. The claim is read off live config,
+not observed, and they have filed a `090` diagnosis run rather than assert it alone.
+
+**Also from them, and it clears a hold I wrote:** the chassis roll **has landed** — both pods stamp
+`06c0b18f2`, started 16:01Z. I confirmed independently. `service_binary_capabilities` briefly listed
+the old pods because it is a **two-hour survivor window, not a history**; `kubectl get pods` settles it.
+
 ### 1.4 Captions for the instructions page — MINE, blocked on placement
 
 The owner's ten screenshots (`/home/ant/Downloads/idea_uk_netlify/`) are the right ones, and the
@@ -205,7 +240,7 @@ timescale on a payment-success page would be invented.
 | **Accounts: not yet** — delegated to me, decided | build the link, defer accounts, and **capture the Stripe customer id the first time a subscription creates one**. Full reasoning and the named trigger: `PLAN_2026-09-04_preliminary_customer_accounts…` §4b |
 | **Netlify's AI editor is an ASSET for the handoff**, not a threat | his reframe, and it is the right one — it turns *"no changes are included"* from an apology into an offer |
 | **The HITL loop defaults to the SYSTEM approving changes** | *"for the moment"* — he does not want to check every fix. **Read the scope: it is conditional.** *"The damaged pages need fixing, the good ones don't. If a good one gets rewritten at this stage (fresh build) then as long as it is still good even if different then it is still ok."* He is accepting `bugs_open/238`'s risk **because the sites are fresh**. That acceptance does not obviously survive to a customer-approved or delivered site — re-confirm rather than inherit |
-| **All parked findings get worked through**, by the new `parked findings` lane | *"I can approve each as they go if they wish."* Handed over in full this hour, with the 3,184 measurement, the RFC_056 citation correction, the FIFO sequencing warning and the `457` boxingonline ordering trap |
+| **All parked findings get worked through**, by the new `parked findings` lane | *"I can approve each as they go if they wish."* Handed over in full this hour, with the 3,184 measurement, the RFC_056 citation correction and the `457` boxingonline ordering trap. **⚠ My sequencing warning was BACKWARDS — see §1.3c** |
 | **Domain for the next run: `paper-cups.com`** | and **the build does NOT need it** — *"We can use a random word subdomain on ugg2.com like netlify does."* Nameservers pointed later, by the `dynadot` lane, *"when we need to"* |
 | **`ugg2.com` is NOT the destination** | *"I'd want it hosted in our normal place (backblaze, cloudflare) eventually rather than ugg2.com."* So the end state is the customer's own domain, Cloudflare-fronted, served from Backblaze — passed to `dynadot` because it may change which records they set |
 | **The `stripe` lane fixes `/pay/success`** | routed with the measurement and its controls. They have taken it, and found the framework CAN express it (`/pay/success/index.html`; extensionless directory URLs already resolve on that vhost), so no exception to the 2026-08-04 ruling is needed |
