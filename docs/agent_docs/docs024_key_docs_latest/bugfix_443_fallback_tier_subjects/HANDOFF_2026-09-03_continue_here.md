@@ -129,10 +129,15 @@ then failing on an unrelated `mechanism-flow` type mismatch; their page serves n
   Stage A as Stage A; owed a re-ping only if the detector shows their rebuild happened and
   they haven't reported.
 - **apis.uk**: own 641 redraft + the sibling-range pre-apply falsifier; told everything.
-- **framework_prompts_positive_voice** (took over 641 apply from apis.uk, 09-03 10:40Z): now
-  ALSO owns the §11 body-convergence fix (`## Rewrite Guidance` not subject-scoped; finetuning
-  already sent them evidence + a suggested one-line instruction, 09-03 evening). Re-verify at
-  the live writer row when they report it, same discipline as 641; nudge only after a week.
+- **framework_prompts_positive_voice**: **641 LANDED 09-03 20:27Z** (candidate A4; re-confirmed
+  live at the writer row 22:05Z — `sections_for_render` + `current_section` both present).
+  **Now blocked themselves**, on the §11 body-convergence mechanism: their own diagnosis-loop
+  run came back UNVERIFIABLE (iteration cap, wrong code path); they have n=2 circumstantial
+  evidence (both pages tested converge on brief section (2) regardless of topic) and two named
+  causation tests (cheap offline prompt replay, or a real page build with subjects+no brief) —
+  **explicitly declared they will not run either without the owner**, both cost money and one
+  writes a live page (their NOTES ~20:30Z). **443's real blocker is now: the owner authorizing
+  that test.** Re-verify at the live writer row once they report a fix; nudge only after a week.
 - **114 lane**: imagery seeding claimed (their `448671d18`), sequenced after composition;
   nothing owed either way now.
 - **copy_quality_two_stage**: owed the Stage B HTML pair (item 3 above).
