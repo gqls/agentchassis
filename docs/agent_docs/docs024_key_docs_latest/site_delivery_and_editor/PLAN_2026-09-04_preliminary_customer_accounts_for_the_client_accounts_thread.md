@@ -154,6 +154,58 @@ be signing up for.
 
 ---
 
+## 4b. DECISION 2026-09-04 — build the rental link, do NOT build accounts yet, capture one thing now
+
+The owner asked whether recurring links change the accounts answer, and delegated the decision. It
+does change it, but not in the direction of building sooner.
+
+### The measurement that settles it
+
+| | |
+|---|---|
+| every customer token expires at | **42 days** (`LiveLinkWindow = 6 * 7 * 24h`) |
+| tokens that outlive 42 days | **0** |
+| customers who can log in anywhere | **0** |
+| Stripe Customer objects in existence | **0** (one-off `mode=payment` creates none) |
+
+**So a £10/month subscription sold today would have a self-service management link that dies in six
+weeks, against a subscription that runs indefinitely.** That is the real gap, and it is arithmetic
+rather than judgement.
+
+### Why that is still NOT a reason to build accounts now
+
+Because **"reply to this email" is a correct answer at this volume, and it is what we already do.**
+A customer who wants to cancel or change a card emails us and we send them a fresh Stripe Customer
+Portal link. With one paying customer that is not a workaround, it is the right amount of machinery.
+Accounts would be building a self-service surface for a queue of one.
+
+### The one thing to capture NOW, because it is free today and expensive later
+
+**A subscription creates a Stripe Customer; a one-off charge does not.** So the first rental sale is
+the first time `provider_customer_id` is ever populated — the durable person-level identity this
+estate has never had (`stripe` lane, verified: the only real order has it empty, and the client row
+predates its own payment by eleven minutes).
+
+**Capture it when it arrives.** It costs nothing at the time, and not capturing it produces exactly
+the failure this lane hit yesterday with the delivery recipient: a live commercial relationship whose
+counterparty is recorded nowhere durable. **That is the whole of what to do now.**
+
+### The trigger, named so nobody has to re-derive this decision
+
+> **Accounts become necessary at the first cancellation or card change that arrives AFTER the
+> customer's token has expired** — about six weeks after the first rental subscription, and every one
+> after that.
+
+That is a date rather than a feeling. Until it arrives, `reply to this email` is honest, cheap and
+already built. When it arrives, the answer is Phase 1's token page **with a durable way back in**,
+not a full login.
+
+### And the design constraint that follows
+
+**Build Phase 1's token page so it can BECOME the account page** — same URL shape, same content, the
+token as its first credential and a login added beside it later. The alternative is building the
+customer-facing surface twice, and the second one is always written while somebody is waiting.
+
 ## 5. Decisions the owner owes before this can be planned properly
 
 1. **Do customers log in at all, or is a token-addressed page enough?** This is the biggest cost fork
