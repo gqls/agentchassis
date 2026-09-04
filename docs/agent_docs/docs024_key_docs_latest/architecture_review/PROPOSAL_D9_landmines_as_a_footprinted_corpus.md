@@ -488,3 +488,48 @@ fired and the behaviour did not follow, which is §6b's finding one level up.
 **Neither lane is building it**, for the reason §6a already gives: a `PreToolUse` hook is a
 harness change affecting every session on this machine, and a peer session asking is not authority.
 Recorded as a fourth datapoint for the owner's ruling.
+
+#### ⚠ 6c CORRECTED, same day, by the `ai-agent-orchestration` lane — I measured MENTIONS and argued about FOOTPRINTS, and the right measurement WEAKENS my conclusion
+
+They caught that 173/333 are counts of **lines containing the token**, while constraint 2 is about
+the difference between a mention and a footprint — so a reader could take "333" as *"333 traps on
+`page_components`"*, which overstates the corpus badly. They were right, and measuring the thing I
+was actually arguing about changes the answer.
+
+`[MEASURED 2026-09-04, parsing each `### ` entry's `- **footprint:**` bullet; 895 entries total,
+15 of which carry no footprint bullet]`:
+
+| token | lines mentioning | entries mentioning | **entries FOOTPRINTED on it** |
+|---|---|---|---|
+| `page_components` | 333 | 155 | **99** |
+| `content_components` | **175** (was 173 this morning) | 99 | **77** |
+| `orchestration_states` | 256 | 133 | **63** |
+
+**So constraint 2 is necessary and NOT sufficient, and my "footprinting is what makes §6a possible
+at all" was wrong.** Correct footprint matching on a hot table still fires **63–99 entries** — 7–11%
+of the corpus — which is precisely the wallpaper failure constraint 1 exists to prevent. Free text
+is unusable; footprints alone are *also* unusable on exactly the tables a session queries most.
+
+**What this means for whoever builds §6a: it needs a third constraint, and the proposal does not
+have one yet.** Candidates, none costed here: footprint **specificity** (fire only where the
+footprint names the table AND a column or symbol also present in the statement — this case's entry
+is footprinted `content_components.name`/`.function`, and the query named those columns); or
+ranking with a hard cap (top N by specificity, never a list); or firing on the **operation** as
+well as the table. Without one, a footprinted hook on `page_components` prints 99 entries at the
+first query and the reader stops looking, which is the outcome §6 is about.
+
+⚠ **And a note on §6a's own example figure.** It reads *"three entries touch
+`orchestration_states`"*. Measured today that is **63 footprinted / 133 mentioning**. I have not
+edited §6a — it may have been true when written, and it carries **no date**, which is exactly what
+makes it uncheckable (CLAUDE.md's rule: a count of things must carry the date it was counted). The
+argument built on it survives; the number should be re-derived before anyone quotes it, and dated
+when they do.
+
+⚠ **All figures here are FLOORS AND RISING** — `content_components` moved 173 → 175 during this
+afternoon, partly from entries this round added. That direction strengthens the argument and is the
+reason to date rather than to freeze them.
+
+**Method note, since this section is now an example of its own subject:** the mentions figure was
+`grep -c`, which is one command and answers a different question; the footprint figure needs the
+entry structure parsed. **The cheap measurement was not the measurement the claim needed**, and the
+only reason it was caught is that a peer asked what the number was a count *of*.

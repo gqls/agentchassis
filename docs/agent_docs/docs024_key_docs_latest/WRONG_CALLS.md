@@ -66892,3 +66892,35 @@ in the direction that flattered my own conclusion. The tally this file exists fo
 a **display-artefact-as-evidence** failure, the sibling of the `[MEASURED]`-but-not-
 disconfirmable class already recorded here — the marker rules were all followed, the
 figure was dated and measured, and it was still assembled by eye.
+
+## 2026-09-04 — I measured MENTIONS and argued about FOOTPRINTS, and the correct measurement weakened my own conclusion (`bugfix_384_page_list_invalidation`)
+
+- **The claim.** Filed into `PROPOSAL_D9_landmines_as_a_footprinted_corpus.md` §6c as the section's
+  headline contribution: *"`content_components` appears on 173 lines and `page_components` on 333,
+  so a free-text trigger is unusable on its FIRST firing … constraint 2 is a precondition for the
+  mechanism, not a refinement of it"* — i.e. footprinting is what makes the proposed hook possible.
+- **What was true.** 173/333 are `grep -c` counts of **lines containing the token**. The constraint
+  I was arguing about is the difference between a **mention** and a **footprint**, which that
+  measurement cannot see. Parsing each entry's `- **footprint:**` bullet
+  `[MEASURED 2026-09-04, 895 entries]`: `page_components` is footprinted on **99** entries,
+  `content_components` on **77**, `orchestration_states` on **63**. **So footprint matching on a hot
+  table still fires 7–11% of the corpus** — the wallpaper failure the proposal's own constraint 1
+  exists to prevent. Free text is unusable; **footprints alone are also unusable**, and my
+  conclusion was wrong in the direction that flattered the proposal I was contributing to.
+- **Why it mattered.** It was the section's strongest figure, filed to help an owner rule on whether
+  to build a `PreToolUse` hook. Building on it would have produced a hook that prints 99 entries at
+  the first `page_components` query — a mechanism defeated on its first firing, justified by my
+  number. The corrected version says the proposal **needs a third constraint it does not have**.
+- **What caught it.** The `ai-agent-orchestration` lane asking **what the number was a count of** —
+  they flagged that a reader could take "333" as "333 traps on `page_components`". They did not have
+  the right figure either; the question was enough.
+- **The cheap check that would have.** **Name the unit of the number in the sentence that uses it.**
+  Writing "333 *lines mentioning*" rather than "333" makes the mismatch with "footprints" visible in
+  the same breath — I had the unit and dropped it at the moment of arguing. ⚠ And the structural
+  one: **the cheap measurement is rarely the measurement the claim needs.** `grep -c` was one
+  command and answered the neighbouring question; the real figure required parsing the entry
+  structure. **When a claim is about a document's STRUCTURE, a line-oriented count is a proxy** —
+  the same shape as this lane's earlier `component_id` proxy and `content_data IS NULL` proxy, third
+  in one day.
+- **Cost.** ~20 minutes, corrected in `§6c` the same afternoon before any owner read it. ⚠ Fourth
+  wrong number from this lane today; **again caught by a peer, again not by re-reading my own work.**

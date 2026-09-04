@@ -1001,3 +1001,37 @@ Seconds. It would have replaced the whole afternoon's re-derivation and both wro
 SATISFIED. The stored map holds `section_title`/`section_subtitle` against a schema requiring
 `section_heading`/`section_intro` — it *looks* like it has a heading and an intro, so a by-eye
 spot-check of branch (b) passes on a row that fails it. Compare key SETS, never read the map.
+
+## 2026-09-04 ~14:2xZ — the peer questioned my strongest figure and it collapsed in the useful direction
+
+They asked what 173/333 were counts **of**. They are `grep -c` line counts; the argument they were
+supporting is about **footprints**. Parsed the entries properly `[MEASURED 2026-09-04, 895 entries,
+15 with no footprint bullet]`:
+
+| token | lines | entries mentioning | **entries FOOTPRINTED** |
+|---|---|---|---|
+| `page_components` | 333 | 155 | **99** |
+| `content_components` | 175 | 99 | **77** |
+| `orchestration_states` | 256 | 133 | **63** |
+
+**My D9 §6c conclusion was wrong in the flattering direction.** I had written that footprinting is
+what makes the proposed `PreToolUse` hook possible. It is not: a correctly footprint-matched hook
+still fires **63–99 entries** on a hot table, 7–11% of the corpus, which is the wallpaper failure
+the proposal's own constraint 1 exists to prevent. The corrected §6c says the mechanism needs a
+**third** constraint the proposal does not have — specificity (table AND column/symbol present in
+the statement), or ranking with a hard cap, or matching the operation too.
+
+⚠ **Also found: §6a's own example figure, *"three entries touch `orchestration_states`"*, measures
+63 footprinted / 133 mentioning today, and carries NO DATE.** I did not edit another lane's section
+— recorded it in mine with the re-derivation, per CLAUDE.md's rule that a count must carry the date
+it was counted.
+
+**Fourth wrong number of the session, and the cleanest example of the pattern:** `grep -c` was one
+command and answered the neighbouring question; the claim needed the entry structure parsed. **The
+cheap measurement is rarely the measurement the claim needs** — same shape as today's `component_id`
+proxy and `content_data IS NULL` proxy. And again a peer caught it, this time without having the
+right figure themselves: **asking what a number counts was sufficient.**
+
+**One thing I got right and want to keep:** I dated the figure `[MEASURED 2026-09-04]`, so when the
+peer re-ran it and got 175 rather than 173, the drift was visible as drift rather than as a
+contradiction. Both are floors and rising — partly from entries this very round added.
