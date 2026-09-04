@@ -1,6 +1,11 @@
-# BUG 479 — a generic "insurance" signal picks the ONLY directory kind built so far, and a farm insurance hub ships a private-medical-insurer directory
+# BUG 481 — a generic "insurance" signal picks the ONLY directory kind built so far, and a farm insurance hub ships a private-medical-insurer directory
 
 **Filed** 2026-09-04 by the `farmerinsurance_uk` lane.
+**Renumbered from 479 on the day of filing.** Another lane created its own `bugs_open/479` (the
+Layer-2 tool-orphan case) at 12:23:57Z, four minutes after this one at 12:20:07Z. This file moved
+even though it was first, because THAT 479 already carries inbound pointers from `bugs_open/385`,
+`LANDMINES.md`, the portfolio_positioning and bugfix_450 lanes, and Go commits in the v1.0.1361
+roll — every existing reference to "479" means theirs, and this one had none outside its own lane.
 **Status** OPEN. Live damage on one site; the mechanism fires on any insurance vertical that is
 not health insurance.
 **Diagnosis loop** run rather than asserted (CLAUDE.md's 2026-07-31 ruling): intake corr

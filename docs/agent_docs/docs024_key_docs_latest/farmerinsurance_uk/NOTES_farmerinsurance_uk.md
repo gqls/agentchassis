@@ -108,7 +108,7 @@ as a justification.
 Fleet census `[MEASURED 2026-09-04]`: exactly **1** site carries
 `content_features.health_insurer_directory` today — farmer. So the damage is site-local; the
 MECHANISM is not, and it fires on any insurance site that is not health insurance (pet, car,
-travel, farm). Filed as a bug (below) and put through the 090 diagnosis loop rather than
+travel, farm). Filed as `bugs_open/481` (renumbered off a same-day collision on 479) and put through the 090 diagnosis loop rather than
 asserted: intake corr `bc8d399f-da3b-4408-ad0e-985bf2f7cd7a`, RUN corr
 `c705263c-9b07-40fb-800f-6ebe7e1ce4a8` (the run correlation is the key the artifacts carry).
 
@@ -148,7 +148,7 @@ provider=anthropic on 100% of calls (claude-sonnet-5 38, claude-opus-4-6 9, clau
 so there is no second provider to fall back to. First sighting of the message anywhere in
 `orchestration_states`: **11:21:12Z**, i.e. it began today, minutes before I looked.
 
-Consequence for this lane: the 479 diagnosis must be **re-fired after the account is topped up**,
+Consequence for this lane: the 481 diagnosis must be **re-fired after the account is topped up**,
 and the failure must NOT be read as "the loop looked and found nothing". Consequence for the
 estate: every council verdict, diagnosis, landmine verification, writer and planner run started
 after 11:21Z fails the same way, and the failures look like ordinary step errors.
@@ -156,3 +156,22 @@ after 11:21Z fails the same way, and the failures look like ordinary step errors
 ⚠ When topping up, the known trap (MEMORY): **capped while billing reads 0% used ⇒ WRONG ACCOUNT**
 — the fleet key is not on the default console org; check the keys' `Last used` column to find the
 org that is actually serving these calls.
+
+### 15:50Z — the credit outage CLEARED, the fleet is rolling, and my bug number moved
+- **Credit restored.** `[MEASURED 2026-09-04 15:50Z]` `llm_call_log` for the last 90 minutes:
+  **129 calls, 129 successes, zero failures**, 14:20:27Z → 15:45:09Z. So the window was roughly
+  11:21 → 14:20Z. The 090 for the directory defect can be re-fired — but AFTER the roll settles
+  (a chassis restart silently drops a dispatch for ~300s).
+- **v1.0.1361 is rolling** (peer "inter thread comms", cut `06c0b18f2`, 14 images built
+  15:29–15:36Z). Nothing of this lane's is in it and nothing needed holding: farmer's lane is
+  docs-only so far, and the 481 fix is not written.
+- **NUMBER COLLISION, and I moved rather than stood on being first.** This lane's bug was
+  created at **12:20:07Z as 479**; another lane created its own 479 (Layer-2 tool orphans) at
+  **12:23:57Z**. Being first settled nothing useful: by mid-afternoon every inbound "479" in the
+  estate — `bugs_open/385`, `LANDMINES.md`, portfolio_positioning, bugfix_450, and Go commits in
+  this roll — meant THEIRS, and mine had no inbound references outside this lane. So this file is
+  now **`bugs_open/481`**, renamed with `git mv` (forward-only), with the collision recorded in
+  its own header. **The check that would have caught it:** claiming max+1 by *looking* is not
+  claiming it — the number is only yours once the file is committed, and two lanes looked inside
+  the same four minutes. Cheap discipline: after committing a new bug file, re-run the max query
+  and grep for your own number; if a second file appeared, move the one with no inbound pointers.
