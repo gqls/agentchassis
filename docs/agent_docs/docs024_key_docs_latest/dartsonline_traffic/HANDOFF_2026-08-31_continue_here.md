@@ -517,7 +517,50 @@ number, or "yes" about a file that never ran.
 
 **Ask the running agent instead:**
 
+> ## ✅ 2026-09-04 — THE BLOCKER IS CLEARED. The retry is actionable. And the gate below was BROKEN.
+>
+> **`641` was applied BY HAND at 2026-09-03 22:05:57Z.** `page-content-writer` is now version 2 /
+> prompt v5, and **`schema_migrations` still has no row for `640` or `641`** — exactly the case this
+> section was written to survive. Gating on the filename would still read "not applied" today.
+>
+> **The live template now interpolates the section's own subject, and lists its siblings' —
+> which addresses `bugs_open/151` (no memory of what siblings said) in the same change:**
+> ```
+> {{if .current_section.subject}}## This section
+> {{.current_section.subject}}
+> {{.current_page.title}} also covers, each in its own section:
+> {{range $s := .sections_for_render.sections_ready}}{{if and $s.subject (ne $s.subject $.current_section.subject)}}- {{$s.subject}}
+> ```
+>
+> **⚠ BUT THE QUERY I WROTE HERE WAS WRONG, AND IT RETURNED THE RIGHT ANSWER FOR THE WRONG REASON.**
+> `ILIKE '%section_subject%'` — **`_` is a single-character WILDCARD in `LIKE`/`ILIKE`.** It matched
+> the unrelated `section.subject` path. `[MEASURED 2026-09-04]` the escaped literal
+> `ILIKE '%section\_subject%'` is **false**: the string `section_subject` does not occur in that
+> config at all. The fix landed under a different name (`current_section.subject`), so a broken
+> instrument and a renamed fix cancelled out. **Right answer, wrong mechanism — the most dangerous
+> kind, because nothing about it looks partial.** This estate documents the trap
+> (`LANDMINES.md`, "`LIKE '%snake_case_key%'` silently wildcards the underscore").
+>
+> **THE CORRECTED GATE — tests the BEHAVIOUR (does the subject reach the prompt?), escapes the
+> underscore, and carries both controls so it can fail:**
+> ```sql
+> SELECT bool_or(default_config::text LIKE '%{{.current\_section.subject}}%')     AS interpolates_subject,
+>        bool_or(default_config::text LIKE '%current\_section%')                  AS control_present,
+>        bool_or(default_config::text LIKE '%current\_section.subjectNOTREAL%')   AS control_absent
+> FROM agent_definitions WHERE type='page-content-writer' AND is_active
+>   AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+> -- verified 2026-09-04: t / t / f
+> ```
+>
+> **⚠ DO NOT DISPATCH THE RETRY UNTIL THE FLEET ROLL SETTLES.** `v1.0.1361` (cut `06c0b18f2`) was
+> mid-push at 15:54Z 2026-09-04 and the chassis was still on `239ab3626`, pods 17h old — the restart
+> had not reached it. A restart **kills in-flight orchestrations**, and a dispatch within ~300s of a
+> pod restart is **silently dropped**. Wait for the chassis stamp to read `06c0b18f2`, then 300s,
+> then go. Checked and clean for this lane: none of the eight files this handoff makes claims about
+> changed in `239ab3626..06c0b18f2` (control: 393 commits, 60 Go entries in the range).
+
 ```sql
+-- SUPERSEDED — kept only to show the defect. `_` is a LIKE wildcard; this matched `section.subject`.
 SELECT type, default_config::text ILIKE '%section_subject%' AS rule_is_live
 FROM agent_definitions
 WHERE type IN ('page-content-writer','build-site-planner')
