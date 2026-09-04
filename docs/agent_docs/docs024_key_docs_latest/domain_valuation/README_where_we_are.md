@@ -222,3 +222,59 @@ through the remaining 81% of the estate is worth more than I thought.
 **Nothing here changes the rule that appraisals don't set prices.** They're an
 input to a conversation with you. What changed today is that the names that most
 need that conversation will still be flagged for it tomorrow.
+
+**2026-09-04, later — the tool was reading UK domains wrong, and finding that
+out was an accident.**
+
+Before spending the day's 300 valuations I wanted to settle something nobody had
+checked: when the tool values `healthcare.uk`, is it valuing *that domain*, or
+is it really valuing the word "healthcare" and ignoring the ending? It matters,
+because our model takes the tool's number and then knocks it down to about a
+fifth on the grounds that a .uk sells for less than a .com. If the tool had
+already done that, we were doing it twice.
+
+Fifteen valuations settled it. `ant.uk` comes back at $23,144 and `ant.com` at
+**$8.2 million**. `design.uk` $23,558, `design.com` $3.1 million. The tool knows
+exactly which ending it is looking at.
+
+**So we were discounting twice, and had been all along.** Every UK domain with
+its own valuation was being marked down about five times too far. That is what
+put `effectiveness.uk` — appraised at $3,576 — into the sell list at $350. Fixed.
+The tool's number now stands as it is for a domain valued directly, and the
+discount is applied only where we're borrowing a .com value as a stand-in.
+
+**An unexpected bonus.** Yesterday we set that UK discount to about a fifth,
+worked out from real UK sale prices we'd gathered. Today's fifteen valuations
+let me check it a completely different way — the tool's own view of .uk versus
+.com on the same word. Across the ordinary names it comes out between a ninth
+and a fifth. Two methods with nothing in common landing in the same place. That
+number is now on firmer ground than anything else in the model.
+
+**And fixing it broke something else, which is the part worth telling you.** With
+the double discount gone, `vetzy.co.uk` — an invented name, not a real word —
+jumped from $325 to $6,250. That was wrong, and the reason was the same fault
+you already know about, running backwards. When a domain has no valuation of its
+own we use the middle of its category. That category's middle had been set by
+`felines.co.uk`, `veterinary.co.uk` and `bunnies.co.uk` — three real dictionary
+words, all valued in the tens or hundreds of thousands, and all three names we
+have *refused to price* precisely because the tool can't handle them. They were
+being kept out of the sell list and still allowed to set their neighbours'
+prices. Now the middle of a category is worked out only from the ordinary names
+we would actually sell, and `vetzy.co.uk` is back to $325.
+
+That has an honest cost I want to be straight about: taking those names out
+leaves some categories with too few ordinary valuations to be reliable, so about
+400 domains now sit on a weaker footing than they appeared to yesterday. They
+were always on that footing — we just couldn't see it. About 158 more valuations
+fixes every one of them, which is half a day's allowance.
+
+**Where the day leaves us.** We went from 19% of the estate valued to 29%, and
+**every one of your premium names — the real words, the short ones, the
+four-letter .coms — now has a valuation and every one is still held back from
+automatic pricing.** That was the whole point: get the numbers, and don't let
+having them talk us into trusting them.
+
+Two you asked about, `mieleonline.com` and `webuyanycarandvan.com`, are out —
+the other thread tells me you withdrew both. For the record they since found a
+live US trademark on "We Buy Any Car" covering exactly online car buying, so
+that one was a real risk rather than a hunch.
