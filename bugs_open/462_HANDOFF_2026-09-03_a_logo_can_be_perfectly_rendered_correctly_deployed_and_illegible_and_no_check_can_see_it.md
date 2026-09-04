@@ -736,6 +736,14 @@ this bug's own theme, occurring inside the check written to fix it. I only estab
 by reading `/proc/<pid>/wchan` (`do_poll`) and its one ESTABLISHED socket on :443. Fixed with
 `python3 -u`; streaming confirmed on the next run.
 
+**Both fixes VERIFIED at the artefact, not asserted** `[MEASURED 2026-09-04 13:51:43–13:56:30Z]`. A
+second in-cluster run on the corrected script: **`succeeded: 1`** with the same **2 findings**
+present — one pod, **no retry** — and `doc_notes` holds **exactly 2 rows for 2 runs**, so the
+one-row-per-run property is intact. Logs streamed from the first line (`logo legibility sweep — …`
+visible while the job was still running), where the previous run showed nothing for five minutes.
+Same verdicts both runs: 34 assets, 2 FINDING, 2 blind, 3 not displayed, 22 baked-background, 5
+legible.
+
 **3. And a figure to correct before anyone reuses it:** the sweep takes **5m15s in-cluster**
 (13:44:42 → 13:49:57), not the ~90s a hand run takes. Same 34 assets, same verdicts, slower egress.
 `activeDeadlineSeconds` sized from a laptop timing would be cut far too fine.
