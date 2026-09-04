@@ -36,12 +36,19 @@ three-phase fix is at the council: **`74ffbb5b-609c-4949-a4ba-5142140a71d3`**.
 
 ## What to do next, in order
 
-1. **Read the council verdict before writing any Go.**
-   `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE correlation_id='74ffbb5b-609c-4949-a4ba-5142140a71d3' AND kind='council_report' ORDER BY created_at;`
-   The full report is that row's `body` (the `doc_notes` copy truncates). If APPROVED, commit
-   with `Council-Reviewed: 74ffbb5b-…`; if REVISE, resubmit with `RESUBMIT_CORR=74ffbb5b-…`
-   — **reuse the correlation, never mint a fresh one**: one correlation carried four rounds on
-   2026-09-04 (`3e9e8ce8`), and a new one splits the `098` trail.
+1. ~~Read the council verdict before writing any Go.~~ **DONE — APPROVED**, corr
+   `74ffbb5b-609c-4949-a4ba-5142140a71d3`, 15 reviewers, `unreadable` 0,
+   `gated_by_truncation` false. **But SEVEN objections are accepted and change the design, so
+   the approved plan is NOT the plan to implement** — read the adjudication in NOTES
+   (2026-09-04, "Council verdict") before writing anything. The one that matters most:
+   **my own fallback branch was a SILENT FILL** — it wrote the generic value with no work item
+   and nothing distinguishing "resolved cleanly" from "papered over", which is this bug's whole
+   history repeated one level along. Fix that before implementing, not after.
+   Also accepted: extract `carryStored`'s precedence into ONE shared helper rather than a second
+   implementation; check the two reads already on the destructive path before adding a third;
+   put the read and the destructive write in one transaction; state the seal's known narrowness
+   in the code header; and carry the phase split in `doc_plans`/`doc_notes`, not only in the
+   submission JSON.
 2. **TRACE ONE LIFECYCLE FIRST — this is the only unproven link.** Nobody has shown a single
    `page_id`'s full `page_component_history` going from an unresolved BIRTH row to the
    `save_page_sections_overwrite` that added the value. The census, the lock arithmetic and the
@@ -93,6 +100,18 @@ a stated gap, not a proof.**
 stored value **verbatim**? Control arm **752 of 753**. And **grep LANDMINES by TOKEN, never by
 sentence** — the files are hard-wrapped and a phrase grep returns a false absence (cost me a
 "not documented" reading on an entry that existed).
+
+## Blast radius, enumerated `[MEASURED 2026-09-04]` — and the consumers have been told
+
+`save_page_sections` is invoked by **three** live pipelines, one step each:
+**`page-build-handler`**, **`page-rerender`** (the fleet's highest-volume page path) and
+**`tool-recreation-handler`**. `seal_declared_field_contract` appears in **0** live
+`agent_definitions` rows against an existing surface of 21 config keys on those steps, so
+declaring it cannot retroactively arm the unknown-key detector. Per the owner's 2026-07-29 §3
+ruling the three consumers were **told, not merely counted** — broadcast requested through the
+`inter thread comms` lane, stating what changes for a consumer: nothing until armed, and once
+armed a pipeline **relying on a wholesale rebuild to CLEAR a stale `content_data` key would lose
+that clearing.** If a lane depends on that, it must be heard before the key is armed anywhere.
 
 ## Cross-lane state
 
