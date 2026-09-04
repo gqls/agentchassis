@@ -319,7 +319,21 @@ U20, U21, U24a, U24c, U24d, U25.
 - **⚠ landmine — the count moves by ADDITION while you watch:** that url-bearing population read 898 → 904 → 908 within 40 minutes. Date any figure you take, or it is stale within the hour.
 - **the second half, and it is the one a filter cannot give you:** `dropped_name` in `AcceptNegationRewrite` — the missing LOSE half of a rule that protected proper nouns only against INVENTION. **In the shared judge, not at the walker, deliberately:** a filter is bypassable by any future caller that enumerates fields itself; a rejection reason is not, and both mutating call sites (`rewrite_negations_action.go`, `judgeRegisterRewrite`) inherit it. Keyed on `protectFrom` exactly as `dropped_figure` is, so a truncation may drop the contrasted tail but never a name from the claim.
 - **sources:** `platform/orchestration/datahelpers/negation_content.go`, `negationtells.go` (+ tests); `platform/orchestration/actions/rewrite_negations_action.go` (+ tests); **`docs024_key_docs_latest/copy_gate_identity_fields/`** (the lane's standing docs — HANDOFF, RUNBOOK with every census query and its gotcha, NOTES with four missteps, README_where_we_are); `bugs_open/420` (the worked case and the census); `bugs_open/425` (the components lane, which found the two-contract collision one level along and is credited for it); `LANDMINES.md` ("A field-name exclusion list is usually answering TWO questions at once").
-- **relations:** **CQ-026** (the negation family this ships inside); `bugs_open/248` and `markup_spans.go:63-74` (the two prior estate rulings that a writer exclusion is not a detector exclusion — this is the third instance, not a new seam); `runtime_fill.go:29-38` (the one-vocabulary-two-predicates form copied here).
+- **⚠ CORRECTION 2026-09-04, same day this entry was written.** An earlier version of this entry
+  and of its LANDMINES twin named `sectionAssetKeyLike` (`section_text.go:45`) as an unmitigated
+  fourth member "whose mutating consumer DELETEs". **Refuted by reading the deciding lines.** The
+  delete path groups by `SectionIdentityKey(slot, RAW blob)`
+  (`remove_duplicate_page_sections_action.go:153`), not by normalised text; the normalised text is
+  only an 80-char eligibility gate (`:148`), so widening the shared list yields FEWER deletions and
+  cannot make two different blobs collide. The consumer whose output the list actually changes is
+  the **read-only** detector, whose verify arm groups by that text directly
+  (`check_content_duplication.go:658`) — the opposite of what was claimed.
+  **It is the estate's WORKED MITIGATION of this class, and the better thing to copy:** after a
+  near-miss that would have deleted a live vonc.com section, the fix was not tuning the shared list
+  but giving the destructive path its own identity predicate — *"IDENTITY IS THE RAW BLOB, NOT THE
+  NORMALISED PROSE — AND THAT IS DELIBERATE"* (`section_text.go:105-124`). Same shape as putting
+  `dropped_name` in the judge rather than filtering at the walker.
+- **relations:** **CQ-026** (the negation family this ships inside); `bugs_open/248` and `markup_spans.go:63-74` (the two prior estate rulings that a writer exclusion is not a detector exclusion — this is the third instance, not a new seam); `runtime_fill.go:29-38` (the one-vocabulary-two-predicates form copied here); `section_text.go` `SectionIdentityKey` (the destructive-path-gets-its-own-predicate mitigation).
 - **verify-later:** after the roll, whether `exempt_reasons.identity_name_with_url` actually appears in gate markers (it should, wherever a writer emits listing-shaped items), and whether `dropped_name` ever fires — if it never does, the guard is untested in production rather than proven unnecessary.
 
 ### CQ-027 — brief-negation-check: the daily detector for the gap the writer-seam gate deliberately leaves

@@ -22425,14 +22425,32 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   bypassable by any future caller that enumerates fields itself; a rejection reason in the shared
   acceptance function is not, and every call site inherits it for free. Same lesson as *"a comment
   is not a control on a tree this many sessions share"*.
-- **⚠ THE OTHER LIVE MEMBER, and it is the dangerous one:** `sectionAssetKeyLike`
+- **THE OTHER MEMBER — and ⚠ CORRECTED 2026-09-04, HOURS AFTER THIS ENTRY WAS FIRST WRITTEN,
+  BECAUSE THE FIRST VERSION HAD THE DIRECTION BACKWARDS.** `sectionAssetKeyLike`
   (`section_text.go:45`) is shared between a read-only duplication detector
-  (`discovery_checks/check_content_duplication.go`) and
-  `remove_duplicate_page_sections_action.go`, which executes
-  `DELETE FROM page_components …`. Widening that list makes more sections look identical — a false
-  finding for the detector, **a deleted live section for the repair**. Not yet split. Its own file
-  records a near-miss (vonc.com's `lobby-grid`), fixed by adding a second independent predicate
-  rather than by tuning the list — which is the mitigation to copy.
+  (`discovery_checks/check_content_duplication.go:502,:658`) and
+  `remove_duplicate_page_sections_action.go:132`, which executes
+  `DELETE FROM page_components …` at `:297`.
+  ~~Widening that list makes more sections look identical — a false finding for the detector, a
+  deleted live section for the repair. Not yet split.~~ **REFUTED at the code.** The DELETE does
+  **not** key on the normalised text: `:153` groups by `SectionIdentityKey(s.Slot, s.Raw)` — slot
+  plus the **RAW blob**. Normalised text is used there only as an 80-character eligibility gate
+  (`:148`), so widening the list SHRINKS that text, drops sections below the gate, and produces
+  **FEWER** deletions. It cannot make two different raw blobs collide, so it cannot cause a wrong
+  deletion at all. The direction fails safe.
+  **What the list DOES change is the read-only half** — the detector's verify arm groups by
+  normalised text directly (`counts[text]++`, `:658`), so a widening over-groups and over-reports
+  there. That is the opposite consumer from the one I first named.
+- **So this member is the estate's WORKED MITIGATION, not an open hole — and that is the more
+  useful thing to copy.** `section_text.go:105-124` records the near-miss in full: on
+  vonc.com/index two DIFFERENT components carried the byte-identical site-wide boilerplate blob,
+  their normalised text was equal, and the pre-2026-07-31 rule **would have deleted the live
+  `lobby-grid` row**. The header states the resolution as a rule — *"IDENTITY IS THE RAW BLOB, NOT
+  THE NORMALISED PROSE — AND THAT IS DELIBERATE … NormaliseSectionText is the right ruler for the
+  similarity SCREEN … It is the wrong ruler for a DELETE"*. **The fix was NOT tuning the shared
+  list; it was giving the destructive path its own independent identity predicate.** When you find
+  a dual-purpose list, that is the shape of the answer — and it is the same shape as putting
+  `dropped_name` in the judge rather than filtering at the walker.
 - **the estate-specific instance, so you do not re-derive it:** in `content_data`, `name` is an
   **identity** where the item has a `url` sibling and **display copy** where it does not.
   `[MEASURED 2026-09-03]` over all 1,729 `name`-bearing objects at any depth: 908 with a non-empty
@@ -22619,3 +22637,43 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   fleet-wide. Found by re-running the census the handoff quoted rather than carrying its number
   forward — which is the whole of the method here.
 - **added:** 2026-09-04, bugfix_450_tool_page_shells lane
+
+### `kubectl logs -l <selector>` silently applies `--tail=10` PER POD, and `--since` does not lift it — so a proof command reads a truncated tail and says nothing about it
+
+- **footprint:** `kubectl logs -l`, `kubectl logs --selector`, any RUNBOOK line of the shape
+  `kubectl -n ai-persona-system logs -l app=<service> --since=<window> | grep …`
+- **fires when:** proving a behaviour at a service's logs — a deploy stamp, a field on an
+  outbound request, an error census. Exactly the "ask the service what it is running"
+  and "read the fix at the adapter" recipes this estate uses everywhere.
+- **the tell:** there isn't one, and that is the entry. `--since=25m` reads as the whole
+  window; the output is well-formed and plausible. **`-l` defaults `--tail` to 10 per pod;
+  a bare pod name defaults to unlimited.** `[MEASURED 2026-09-04]` on a **single**-pod
+  deployment, `logs -l app=web-search-adapter --since=30m` returned **2** matching lines and
+  `logs <that exact pod> --since=20m` returned **12** — same pod, same window, same grep. So
+  this is NOT the "one pod of N" trap; it fires with N=1, and counting pods will not reveal it.
+- **⚠ why it is worse than under-reporting:** a tail keeps the NEWEST lines, so what survives
+  is whatever ran last — routinely another lane's traffic. In the measured case the 10 lines
+  dropped were the five `region='uk'` searches being verified, and the 2 that survived were an
+  unrelated site's `region=""`, i.e. **the truncation preserved precisely the evidence that
+  reads as "your fix does not work"**. A false negative dressed as a clean measurement.
+- **the check:** pass **`--tail=-1`** whenever you use `-l` (or address the pod directly).
+  Prove the command before trusting its answer, on any service:
+  ```bash
+  P=$(kubectl -n ai-persona-system get pods -l app=<svc> -o name | head -1)
+  echo "selector: $(kubectl -n ai-persona-system logs -l app=<svc> --since=30m 2>/dev/null | wc -l)"
+  echo "tail=-1 : $(kubectl -n ai-persona-system logs -l app=<svc> --tail=-1 --since=30m 2>/dev/null | wc -l)"
+  echo "pod     : $(kubectl -n ai-persona-system logs $P --since=30m 2>/dev/null | wc -l)"
+  ```
+  Three different numbers from one window is the whole finding; if they agree, the service is
+  just quiet and you have lost nothing by asking.
+- **relations:** CLAUDE.md "Ask the service what it is running" and the `build provenance`
+  recipe (same command shape — a stamp absent under `-l` may be truncated, not unstamped, on
+  top of the existing "it is a STARTUP line, so it scrolls" caveat) · MEMORY
+  [[logs-deploy-reads-one-pod-of-n]] — **a second, independent trap on the same command**:
+  that one is about *which* pods are read, this one about *how much of each*, and fixing one
+  does not fix the other · [[a-post-fix-zero-needs-a-demand-control]] — same family, a clean
+  zero from a blind instrument
+- **source:** 2026-09-04, `news_feed_ingestion` lane, proving the UK-region fix at
+  `web-search-adapter` after migrations 691/746. The lane's own RUNBOOK carried the
+  `-l … --since=30m` form; it has been corrected there too.
+- **added:** 2026-09-04, news_feed_ingestion lane

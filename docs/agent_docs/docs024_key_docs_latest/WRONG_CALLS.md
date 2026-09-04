@@ -65661,6 +65661,61 @@ reproducing, in the same file, the exact defect I was there to fix.**
 `url`) and correcting the header to name that test instead. All 14 mutations were then run by hand
 and every one was caught by a named test.
 
+---
+
+## 2026-09-04 — I wrote a subagent's finding into three permanent records without reading the deciding lines, and it was backwards (`420 425` lane)
+
+**The claim,** written into `LANDMINES.md`, concept-register **CQ-037** and its index row, and
+`bugs_open/420`, all within an hour: *"`sectionAssetKeyLike` (`section_text.go:45`) is a fourth
+member of this dual-purpose class and the highest-consequence one — shared between a read-only
+duplication detector and `remove_duplicate_page_sections_action.go:297`, which executes a `DELETE`.
+Widening that list makes more sections look identical — a false finding for the detector, **a
+deleted live section for the repair**."*
+
+**It is backwards.** The DELETE does not key on the normalised text at all. `:153` groups by
+`SectionIdentityKey(s.Slot, s.Raw)` — slot plus the **RAW blob**. Normalised text appears in that
+function once, at `:148`, as an 80-character eligibility gate. So widening the shared list makes
+that text *shorter*, drops sections *below* the gate, and produces **FEWER** deletions; it cannot
+make two different raw blobs collide, so it cannot cause a wrong deletion at all. The consumer whose
+output the list genuinely moves is the **read-only** detector, whose verify arm groups by that text
+directly (`check_content_duplication.go:658`) — **the opposite consumer from the one I named.**
+
+Worse, the file is the estate's *worked mitigation* of the very class I was writing up.
+`section_text.go:105-124` records the vonc.com near-miss and states the rule in capitals:
+*"IDENTITY IS THE RAW BLOB, NOT THE NORMALISED PROSE — AND THAT IS DELIBERATE … the wrong ruler for
+a DELETE."* I cited that same header as the mitigation "to copy" **in the same bullet** where I
+called the file an open hole. Both cannot be true, and I did not notice.
+
+**How it happened, which is the transferable part.** An Explore subagent reported it accurately —
+its own words were that the vonc.com deletion was *"prevented by adding slot+component equality
+(`SectionIdentityKey`), not by tuning the list"*. I compressed "has a dangerous shape and was fixed
+by an independent predicate" into "is dangerous", kept the alarming half, and dropped the half that
+made it safe. **A subagent report is another document, not a measurement** — and the failure mode
+is not that it lied to me; it is that I summarised it in the direction that made my own finding look
+bigger.
+
+**What caught it:** having told the owner it was worth filing as its own bug, I went to verify
+before filing — because filing would have asserted it a fourth time. Two `grep`s and a `sed` of the
+deciding function. Nothing external caught it; nothing would have, because all three records agreed
+with each other.
+
+**The cheap check:** *before writing a claim about what a mutating path does, read the line that
+decides.* For a delete that is the grouping key, not the loader:
+`grep -n "SectionIdentityKey\|DELETE FROM" <file>`, then read those two lines. I had the file open
+to quote its header and did not scroll forty lines down to the code the header describes.
+
+**And the specific rule this earns:** **a claim sourced from a subagent gets the same evidence bar
+as a claim I would otherwise mark `[INFERRED]` — because in my own writing it arrives already
+phrased as a finding.** Every other durable figure in this session was measured, dated and
+controlled; this one travelled from a summary into three permanent records unchecked, and the
+markers rule did nothing to stop it because the sentence *looked* like a result.
+
+**Cost:** three records carried a false, alarming claim for about ninety minutes, and I had also
+relayed it to the components lane as something they might want to pick up. Corrected in place in
+all four places with the refutation and the file:line, plus a follow-up to that lane. Had it stood,
+the next reader would have been sent to "fix" a path that is already correct, and would most likely
+have done it by tuning the shared list — the one change the file's own header warns against.
+
 ## 2026-09-04 (c) — my detector for uncommitted migrations was wrong twice out of twice, and I had written the rule against it the night before
 
 **The claim.** *"[MEASURED 2026-09-04] 556 applied migrations, 2 applied-but-untracked — and both are
@@ -65799,3 +65854,35 @@ and a cost of "four lanes recorded the breakage and none dispatched it" that nob
   without anyone reading the code. **Fixed forward:** the probe now calls the production fetch, so the
   next author cannot be misled the same way, and every site of the claim is corrected in place rather
   than edited away.
+
+## 2026-09-04 — I put a `Council-Submitted:` trailer on a commit the council does not review, by copying it from the work I had just finished
+
+- **The claim.** Commit `47d25ede5` (news_feed_ingestion — a domain-generic feed dispatch
+  shell script under `docs/agent_docs/…/news_feed_ingestion/scripts/`) carries
+  `Council-Submitted: 70f500ff-fb38-4fef-802a-8f25e8535367`. That correlation is migration
+  **746**'s submission. The script was in no submission, and a shell file under `docs/` is
+  **not in council scope at all** — `scripts/council-scope.sh` admits `platform/`,
+  `internal/`, `pkg/`, `cmd/config-key-audit/`, `scripts/pattern-check.py` and appliable
+  migrations, and nothing else.
+- **What caught it.** Re-reading my own commit immediately after making it. Nothing
+  mechanical would have: the trailer is free-text, the `commit-msg` nudge only fires on the
+  *absence* of a trailer for an in-scope commit, and `098` resolves the correlation at report
+  time — so the failure mode is silent and deferred. Left alone it would have **credited an
+  unreviewed file to 746's verdict**, which is the coverage report's dishonesty surface. That
+  the trailer "asserts nothing" is true of its *verdict* claim and not of its *submission*
+  claim: `Council-Submitted:` does assert that this change was submitted, and it was not.
+- **Why I did it.** Pure carry-over. I had spent the preceding twenty minutes on 691/746,
+  where the trailer was correct and load-bearing, and wrote the next commit message in the
+  same motion. I never asked whether *this* commit was in scope — I asked whether *I* had a
+  correlation, which is a question about me rather than about the change.
+- **The cheap check that would have.** One command, and it is the same one the trigger runs
+  for free: `bash scripts/council-scope.sh <the paths on your commit>` — or simply reading the
+  scope list before writing a scope trailer. General form: **a trailer is a claim about the
+  COMMIT, so validate it against the commit's paths, not against your recent memory.** Same
+  family as [[a-submission-is-not-a-review]], one step earlier: that entry is about a
+  submission being read as a verdict, this is about a submission being claimed for a change
+  that was never in one.
+- **Cost.** Small and bounded, because forward-only means it is disclosed rather than erased:
+  one commit carrying a false-in-kind trailer, corrected in the lane NOTES, in the following
+  commit message, and here. No amend (forbidden), and `098` will bucket it as a commit whose
+  named correlation does not cover it if anyone joins the two.

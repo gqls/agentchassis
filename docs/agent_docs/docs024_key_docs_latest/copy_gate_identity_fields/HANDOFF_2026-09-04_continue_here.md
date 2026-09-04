@@ -99,9 +99,16 @@ stand in for an exclusion.
   "WITHOUT invoking the content writer (no LLM)". The defect lives in `content_data.name`. Only a
   `page-content-writer` rebuild regenerates it. **I offered a rerender as an option before checking
   this and the owner chose it** — see `WRONG_CALLS.md` 2026-09-04.
-- **`sectionAssetKeyLike` is NOT fixed here** and it is the dangerous member of this class:
-  `section_text.go:45`, shared between a read-only duplication detector and
-  `remove_duplicate_page_sections_action.go:297`, which executes a `DELETE`. Worth its own bug file.
+- ~~**`sectionAssetKeyLike` is NOT fixed here** and it is the dangerous member of this class…~~
+  **⚠ CORRECTED 2026-09-04 — REFUTED at the code, do NOT go and "fix" it.** That delete groups by
+  `SectionIdentityKey(slot, RAW blob)` (`remove_duplicate_page_sections_action.go:153`), not by the
+  normalised text; the text is only an 80-char eligibility gate (`:148`), so widening the shared
+  list yields FEWER deletions and cannot make two raw blobs collide. The consumer it actually moves
+  is the READ-ONLY detector (`check_content_duplication.go:658`). **It is the estate's worked
+  MITIGATION of this class, not an open hole** — the destructive path was given its own identity
+  predicate after a near-miss (`section_text.go:105-124`), which is the shape to copy, and tuning
+  that shared list is the one change its header warns against. I asserted the original from a
+  subagent report without reading the deciding lines; see `WRONG_CALLS.md` 2026-09-04.
 
 ## WHAT TO EXPECT IN THE INSTRUMENTS AFTER THE ROLL
 

@@ -233,9 +233,28 @@ WHERE type='page-rerender' AND is_active AND COALESCE(is_snapshot,false)=false A
 
 ### Still open, recorded rather than closed by assumption
 
-- **`sectionAssetKeyLike`** (`section_text.go:45`) is a FOURTH member of this dual-purpose class
+- ~~**`sectionAssetKeyLike`** (`section_text.go:45`) is a FOURTH member of this dual-purpose class
   and the highest-consequence one: shared between a read-only duplication detector and
-  `remove_duplicate_page_sections_action.go:297`, which executes a `DELETE`. Not touched here.
+  `remove_duplicate_page_sections_action.go:297`, which executes a `DELETE`. Not touched here.~~
+  > **⚠ CORRECTED 2026-09-04, hours after this section was written and after the claim had already
+  > been copied into `LANDMINES.md` and CQ-037. I asserted it from a subagent's report without
+  > reading the deciding lines; reading them refutes it.** The DELETE does not key on the
+  > normalised text at all — `remove_duplicate_page_sections_action.go:153` groups by
+  > `SectionIdentityKey(s.Slot, s.Raw)`, i.e. slot plus the **RAW blob**. The normalised text is
+  > only an 80-character eligibility gate (`:148`), so widening the shared list makes that text
+  > shorter, drops sections below the gate, and yields **FEWER** deletions — it cannot make two
+  > different raw blobs collide, so it cannot cause a wrong deletion. The consumer whose output the
+  > list actually moves is the **read-only** detector, whose verify arm groups by that text
+  > directly (`check_content_duplication.go:658`). The opposite consumer from the one I named.
+  >
+  > **And it is the more useful example the other way up:** this is the estate's WORKED MITIGATION
+  > of exactly this class. `section_text.go:105-124` records the near-miss — two different vonc.com
+  > components sharing a byte-identical boilerplate blob, which the old rule would have collapsed
+  > into one group and **deleted a live section for** — and states the resolution as a rule:
+  > *"IDENTITY IS THE RAW BLOB, NOT THE NORMALISED PROSE — AND THAT IS DELIBERATE … the wrong ruler
+  > for a DELETE"*. **The fix was not tuning the shared list; it was giving the destructive path
+  > its own independent identity predicate** — the same shape as putting `dropped_name` in the
+  > judge rather than filtering at the walker. Recorded in `WRONG_CALLS.md`.
 - `ScanContentDataForNegation` never calls `NegationExempt` while the repair does, so annotation
   and repair already disagree in the other direction.
 - Mirrored listing items carry 58 `meta_description` + 4 `excerpt` gate hits the annotation

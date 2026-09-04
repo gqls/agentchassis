@@ -117,6 +117,38 @@ headline edit prominent rather than folded away again.
 editor was invisible to the only reader who mattered, and "it is in the commit" would have been a
 worse answer than fixing the plan.
 
+### 6. I wrote a subagent's finding into three permanent records without reading the deciding lines, and it was backwards
+
+Claimed, in `LANDMINES.md`, CQ-037 + its index row, and `bugs_open/420`, all within an hour:
+*"`sectionAssetKeyLike` is the highest-consequence member of this class — widening it means a
+deleted live section for the repair."*
+
+**Backwards.** `remove_duplicate_page_sections_action.go:153` groups by
+`SectionIdentityKey(s.Slot, s.Raw)` — the **RAW blob**. Normalised text appears once, at `:148`, as
+an 80-char eligibility gate, so widening the shared list yields **FEWER** deletions and cannot make
+two raw blobs collide. The consumer the list actually moves is the **read-only** detector
+(`check_content_duplication.go:658`).
+
+And the file is the estate's *worked mitigation* of the class I was writing up —
+`section_text.go:105-124` states it in capitals: *"IDENTITY IS THE RAW BLOB, NOT THE NORMALISED
+PROSE — AND THAT IS DELIBERATE."* **I cited that header as "the mitigation to copy" in the same
+bullet where I called the file an open hole.** Both cannot be true and I did not notice.
+
+**How.** The Explore subagent reported it accurately — its words were that the vonc.com deletion was
+*"prevented by adding slot+component equality, not by tuning the list"*. I compressed "dangerous
+shape, already fixed" into "dangerous", kept the alarming half, dropped the half that made it safe.
+
+**What caught it:** going to verify before filing it as a bug, because filing would have asserted it
+a fourth time. Two greps and one `sed` of the deciding function. Nothing external would have caught
+it — all three records agreed with each other.
+
+**The rule this earns, and it is not the one I already knew:** every durable figure in this session
+was measured, dated and controlled, and the `[INFERRED]`/`[UNMEASURED]` marker discipline did
+nothing here — because a sentence relayed from a subagent **arrives already phrased as a finding**.
+So: *a claim sourced from a subagent gets the same evidence bar as one I would otherwise mark
+`[INFERRED]`.* Corrected in four places plus a follow-up to the components lane, who I had told it
+might be worth their picking up.
+
 ## DECISIONS AND THEIR REASONS
 
 - **The guard went in the JUDGE, not the walker.** A filter at the enumeration point is bypassable
