@@ -98,3 +98,43 @@ kubectl -n ai-persona-system get cronjob component-render-check \
 kubectl -n ai-persona-system create job --from=cronjob/component-render-check \
   crc-manual-$(date +%Y%m%d-%H%M%S)      # then read the POD's terminated exitCode
 ```
+
+## After a roll: prove it at the ROW, and read the row twice
+
+The image tag is not evidence. The evidence is the **shape** of the row the job writes itself —
+`REGRESSION`/`unbaselined` vocabulary exists only in the new binary:
+
+```sql
+SELECT created_at::date, left(split_part(body, E'\n', 1), 300)
+FROM doc_notes WHERE source='component_render_check' ORDER BY created_at DESC LIMIT 3;
+```
+
+⚠ **To count the DETAIL lines, select the row in its own CTE first.** A set-returning function in
+the target list expands *before* `LIMIT`, so the obvious form returns one LINE of one body and
+reads as `0`:
+
+```sql
+-- WRONG: returns one line, so every count reads 0
+SELECT count(*) FILTER (WHERE l LIKE 'REGRESSION%')
+FROM (SELECT unnest(string_to_array(body,E'\n')) AS l FROM doc_notes
+      WHERE source='component_render_check' ORDER BY created_at DESC LIMIT 1) x;
+
+-- RIGHT, and print the denominator so a wrong zero is obvious
+WITH row1 AS (SELECT body FROM doc_notes WHERE source='component_render_check'
+              ORDER BY created_at DESC LIMIT 1),
+     lines AS (SELECT unnest(string_to_array(body, E'\n')) AS l FROM row1)
+SELECT count(*) AS total_lines,
+       count(*) FILTER (WHERE l LIKE 'REGRESSION %') AS regressions,
+       count(*) FILTER (WHERE l LIKE 'unbaselined %') AS unbaselined,
+       count(*) FILTER (WHERE l LIKE 'fixed %') AS fixed
+FROM lines;   -- 2026-09-04: 536 | 18 | 460 | 56
+```
+
+**Read the whole row, not just the first line.** The tests pin the CLASSIFIER; the report is a
+string assembled in `main()` and nothing covers its shape. That is how the clone-suppression count
+came to be appended onto the legacy-warning line instead of the summary line — invisible to the
+series query above, caught only by reading the live body after the v1.0.1360 roll.
+
+**A control that can come out otherwise:** compare the active-component count and the regression
+count across two days. Growth with a flat regression count is the fix working (490→504 with 18 on
+2026-09-04). Growth with a rising regression count would mean the scoping had failed.

@@ -65377,3 +65377,32 @@ against a test that replaced a seven-day wait — the owner's idea, and a good o
   by number — one command, and it prints the real name. `??` on a bug-numbered file means "someone
   renamed it", not "you forgot to commit".
 - **Cost.** One duplicate commit, one removal commit, ten minutes.
+
+- **2026-09-04 — bugfix_361 lane — I nearly reported a defect in my own just-shipped fix, on the
+  strength of a query whose `LIMIT` applied in the wrong place.** Verifying at the artefact after
+  the v1.0.1360 roll, I checked whether the daily row lists its findings by name:
+  `SELECT count(*) FILTER (WHERE l LIKE 'REGRESSION%') FROM (SELECT unnest(string_to_array(body,
+  E'\n')) AS l FROM doc_notes WHERE … ORDER BY created_at DESC LIMIT 1) x` → **`0 | 0`**.
+  Read straight, that says the fix shipped without its detail lines. **The truth is 18 / 460 / 56
+  across 536 lines** — correct, complete, exactly as designed.
+  ⚠ **The bug is that a set-returning function in the target list expands BEFORE `LIMIT`**, so
+  `LIMIT 1` returned one *line of one body*, not one row. Wrapping the row selection in its own CTE
+  and unnesting outside it gives the real answer. Same shape as the three-valued-logic entry the
+  day before: **a malformed query returning a small plausible number, with no error.**
+  ⚠ **And the direction is what makes it worth logging.** A zero here accused *my own change*, on
+  the morning it went live — the moment I was most primed to believe a defect report and least
+  likely to audit the instrument that produced it. I had already drafted the finding before
+  re-checking. **A result that confirms your own fear deserves the same instrument audit as one
+  that flatters you**, and I only re-ran because 0 was too clean given the row was 536 lines long.
+  **The cheap check:** when a count comes back 0 or suspiciously round, print the denominator in
+  the same query (`count(*) AS total_lines` alongside the filters). 536 next to 0 is obviously
+  wrong; 0 alone is a finding.
+  ⚠ **Postscript — reading that row DID find a real defect, a different one:** the
+  clone-suppression count had landed on the legacy-warning line rather than the summary line, so
+  the daily series query could not see it. **No test caught it because the tests pin the classifier
+  and this is report assembly.** So the honest lesson is not "my instrument was wrong, all was
+  well" — it is that the live artefact was worth reading twice, and the correct reading of it was
+  more useful than the incorrect one.
+  Tally: **set-returning-function-expands-before-LIMIT** ×1,
+  **a-zero-accusing-my-own-fix-audited-last-not-first** ×1,
+  **malformed-query-returns-a-plausible-number-with-no-error** ×2 (2026-09-03, 2026-09-04).

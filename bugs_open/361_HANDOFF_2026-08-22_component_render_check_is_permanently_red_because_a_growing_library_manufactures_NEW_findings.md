@@ -311,3 +311,52 @@ empty, which no visual check would ever surface.
 **This does not change the fix or the exit code.** It changes the disposition: these are not decay
 to be repaired but recent edits to be either gated or banked, and whoever banks them should know
 they are banking the output of a still-running edit process, not a settled state.
+
+---
+
+## 2026-09-04 — ✅ THE FIX IS LIVE ON v1.0.1360 AND PROVEN AT THE ARTEFACT. Bug stays OPEN — see the close criteria
+
+Verified at the artefact, not at the tag. The CronJob image reads back `v1.0.1360` by jsonpath and
+the committed overlay agrees, but **the decisive evidence is the shape of the row the job wrote by
+itself at 06:55Z**, because that could only have come from the new binary:
+
+| day | first line of the `doc_notes` row |
+|---|---|
+| **09-04** | `… 459 of 504 active components …, **18 REGRESSION, 460 unbaselined across 62 new component(s)**, 56 fixed, 0 UNCOVERED` |
+| 09-03 | `… 425 of 490 active components …, **478 NEW**, 60 fixed, 0 UNCOVERED` |
+
+**The discontinuity is the proof.** No tag, no git ancestry, no `strings` — the vocabulary
+`REGRESSION`/`unbaselined` exists only in the new code.
+
+**And the ratchet is demonstrably doing its job:** the library grew **490 → 504** active components
+overnight and the regression count stayed at **18**. Under the old ratchet those 14 new components
+would have manufactured more "NEW" findings; today the growth landed in `unbaselined`, which is
+exactly the behaviour this fix exists to produce. **That is a control that could have come out
+otherwise** — a growing library with a flat regression count is the disconfirmable form.
+
+Body verified too `[MEASURED 2026-09-04]`: **536 lines — 18 `REGRESSION`, 460 `unbaselined`, 56
+`fixed`** — so the debt is listed by name every day, not merely counted. The **LEGACY BASELINE
+warning is live** and reads verbatim as written, so the blind spot announces itself daily.
+
+### One defect of mine, found by reading the live row, fixed forward
+
+The row read `"…close that blind spot., 3 inherited from an identical template (…)"` — the
+clone-suppression count had landed on the **legacy-warning line** instead of the summary line,
+because I inserted the warning (which begins `\n`) between the summary and the `inherited` append.
+The daily series query reads `split_part(body, E'\n', 1)`, so that count — which exists precisely
+so a filter cannot hide its own effect (owner ruling 2026-08-05) — was invisible to the only query
+anyone runs. Reordered, with the reason written into the code. **No test covered it because the
+tests pin the classifier, not the report assembly; the check that works is reading the live row
+after a roll, now in the lane RUNBOOK.**
+
+### Why this bug STILL STAYS OPEN
+
+The bar is fixed AND live, and the *defect* is both. But this file's own close criteria are not met:
+
+1. ✅ the fleet release — **done, v1.0.1360**
+2. ✅ the daily row gaining `REGRESSION`/`unbaselined` — **done, proven above**
+3. ❌ **the 18 dispositioned** — untouched, owner decision (gate or bank)
+4. ❌ **`lastSuccessfulTime` moving** — still `2026-08-09T06:55:21Z`, and it cannot move until (3)
+
+So the job is still red, correctly, for 18 real findings in 5 components. **Do not close this file
+on the strength of the fix being live**; criterion 3 is a debt decision and criterion 4 follows it.
