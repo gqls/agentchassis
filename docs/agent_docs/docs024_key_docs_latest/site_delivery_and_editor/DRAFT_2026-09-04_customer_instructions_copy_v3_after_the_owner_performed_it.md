@@ -103,9 +103,39 @@ Source: `/home/ant/Downloads/idea_uk_netlify/`.
 
 ---
 
+## ✅ OWNER RULINGS 2026-09-04 (afternoon) — two of the open questions are now closed
+
+**The page is GENERIC and lives on `webdesign.uk`, built by the framework.** Proposed by the `475`
+lane and ruled by the owner. It is not a hand-built page on the links host, so no exception to the
+2026-08-04 "every site goes through the framework" ruling is needed — and `webdesign.uk` is already a
+framework site with a working `/guides/` section (verified: 18 pages, 6 guides, one serving 200 with
+an invented-path 404 as control).
+
+**What that changes in this document: §5 comes OFF the page.** A generic page cannot carry
+`{{domain_paragraph}}`. The per-customer content the owner's "all three" ruling asks for still exists
+— it moves to **the email and the README**, both of which already know the customer's domain.
+
+That is the rot rule pointing the right way rather than an exception to it: **a customer's own domain
+is the one thing in this whole document that never goes out of date**, so it belongs in the durable
+artefacts, and the page keeps the content that rots (host signup flows, prices, screenshots). It also
+removes the objection to a public page — a generic page cannot name a customer's domain at a
+guessable address.
+
+A further constraint that makes public non-negotiable rather than merely preferable, found by the
+`475` lane: **the `477` follow-up sender refuses any placeholder it cannot fill.** A per-delivery
+token with a lifetime would either be uncarriable by a scheduled email or start refusing the day it
+expired.
+
+**The interim wording: LEAVE IT.** The owner has ruled that the still-false "The ZIP comes with
+instructions" line stays until the page exists, rather than shipping a stop-gap. Recorded as his
+decision with the risk stated: if the next build reaches delivery first, that line goes out again.
+⚠ Mitigating fact that makes this sounder than it reads — **the next build is his own trial run**
+(voucher `WD-KN3WU-9PZN4`), so the recipient of that line would be him, not a stranger.
+
 ## Still open
 
-1. **Where the page is served, and whether it is public or token-addressed.** Unchanged from v2.
+1. ~~**Where the page is served, and whether it is public or token-addressed.**~~ **CLOSED above** —
+   generic, public, framework-built on `webdesign.uk`.
 2. **`{{live_until_date}}`** — unchanged; three candidate dates that disagree.
 3. **Whether we recommend Netlify at all**, now that the real cost is an account, a password fight,
    an email wait and a privacy step that silently fails open-to-nobody. The alternative is not another
