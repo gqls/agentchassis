@@ -1,10 +1,20 @@
 # HANDOFF — bugfix_424_logo_transparency, continue here
 
-Updated 2026-09-03 ~15:35 BST — **the incident this lane exists to close is now closed.** Every
-site caught by it has a genuine, verified-at-the-bytes fix. What's left is small, non-urgent
-cleanup, not more remediation. Read this file first; for history read `NOTES_logo_transparency.md`
-(full chronology, every correction, every cross-lane exchange) and the bug file's own tail (a peer
-lane's evidence tables, verbatim).
+**This lane is CLOSED. `bugs_open/424` is now `bugs_closed/424`.** Nothing below requires action —
+this file exists so a fresh session can confirm that quickly rather than rediscover it.
+
+Updated 2026-09-03 ~15:35 BST, re-verified 2026-09-04 ~11:18 UTC — **the incident this lane exists
+to close is closed.** Every site caught by it has a genuine, verified-at-the-bytes fix. What's left
+is small, non-urgent cleanup tracked in OTHER bugs, not more remediation here. Read this file
+first; for history read `NOTES_logo_transparency.md` (full chronology, every correction, every
+cross-lane exchange) and the bug file's own tail (a peer lane's evidence tables, verbatim).
+
+**2026-09-04 re-verification, fresh build (`v1.0.1360`, pods 13h old at check time), not assumed
+from the day before**: build-provenance log line on `image-generator-adapter` reads
+`239ab3626fc7fb9cd4b121c82480bedafe2f555c`; `git merge-base --is-ancestor` confirms all three fix
+commits (`6440ec968`, `b2322a203`, `fcbe6071c`) are still aboard, with a negative control (current
+session `HEAD`, correctly NOT an ancestor of an older build) proving the check discriminates. No
+regression. Nothing further to do.
 
 ## One-paragraph state
 
