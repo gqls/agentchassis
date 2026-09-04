@@ -350,3 +350,68 @@ work — and the test was sharpened rather than the survival read as proof.
 
 **This bug should NOT be closed yet** — the fix is committed but inert until the next
 chassis roll, and the estate's bar is fixed AND live.
+
+---
+
+## 8. 2026-09-04 — the closer is LIVE. §5.2 is CLOSED; §5.1 and §5.3 are not.
+
+### 8.1 Proven at the artefact, with a control
+
+The fleet rolled to chassis **`239ab3626`** (v1.0.1360), pods up **2026-09-03 22:06Z**.
+
+```
+git merge-base --is-ancestor fc9cad600 239ab3626   → YES   (the closer is in the binary)
+git merge-base --is-ancestor 2cca1b085 239ab3626   → YES   (the council follow-ups)
+git merge-base --is-ancestor 5f676db58 239ab3626   → YES
+git merge-base --is-ancestor 152f47b65 239ab3626   → YES
+CONTROL: is-ancestor 29d611750 239ab3626           → NO    (today's 11:55 commit — correctly absent)
+```
+
+> ⚠ **A `grep` for your own commit sha in `/proc/1/exe` is the WRONG instrument and I ran it
+> first.** The binary carries **one** stamp — the commit it was BUILT from — not a list of
+> ancestors. So `fc9cad600` reads **absent** in a binary that fully contains it, and that
+> absence looks exactly like "not shipped". The stamp probe is for reading *which* commit
+> built it; the ancestry test is what answers "did my fix ship". Both are in CLAUDE.md and I
+> used them in the wrong order.
+
+### 8.2 Live, error-free — and NOT yet exercised. The distinction matters.
+
+`[MEASURED 2026-09-04]`, ~14 hours after the roll:
+
+| | count | reading |
+|---|---|---|
+| new `section_source_drift` items since the roll | **0** | no fresh drift |
+| `section_composition_lost` receipts | **0** | nothing resolved lossily |
+| rows carrying `result->'resolution_evidence'` | **0** | no retraction has run |
+| `DISCOVERY_CHECK_ERROR` naming this check | **0** | the new queries have not failed |
+
+**Demand controls, because four zeros with no control are indistinguishable from a check
+that never ran:**
+
+- the owning agent **did** run — `completeness-discovery-agent` filed items across **9
+  distinct hourly windows** since the roll;
+- drift **is** genuinely absent — 398 tier-1 comparisons, all agree;
+- the error query **can** find rows — **97** `DISCOVERY_CHECK_ERROR` all-time, **5 since the
+  roll** (other checks: `archived_page_still_serving` correctly BLINDED by its own controls,
+  `structure_floor`), and **none of them this check**.
+
+**So the closer is deployed, running, and has never fired.** That is the correct behaviour on
+an estate with no drift — and it is *not* the same as proven. **The first live retraction is
+still owed as evidence**, and the disconfirming signal to watch for is a new
+`section_source_drift` row followed by either a clean retraction or a
+`section_composition_lost` receipt.
+
+### 8.3 §5.2 — CLOSED
+
+> **§5.2 "The detector needs a closer" is CLOSED as of 2026-09-04.** Fixed
+> (`fc9cad600`), council-APPROVED (`009fabca`, round 1), and LIVE on `239ab3626` — the
+> estate's bar of *fixed AND live* is met. Its residual is exercise, not correctness, and
+> that is tracked in §8.2 rather than as an open bug.
+
+### 8.4 What keeps this bug OPEN
+
+- **§5.1's EXECUTION** — `760_..._HOLD.sql`, re-verified against live state on 2026-09-04
+  (pre-checks pass, dry-run rolls back clean, damage unchanged, page still `archived`).
+  Blocked on an owner ruling, not on work.
+- **§5.3** — `RFC_064`, still `Status: OPEN`, the `427` lane's.
+- **`RFC_066`** — new, filed at the council architecture seat's request; still `Status: OPEN`.
