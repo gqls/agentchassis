@@ -7,11 +7,12 @@ DB access: `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U c
 
 ---
 
-## 1. The two-route census — ALWAYS RUN BOTH ARMS
+## 1. The census — THREE ARMS, and §7 is the one you will forget
 
-⚠ **Running only arm A returns `1` and reads as "the estate has no infographics". It is one of two
-routes and it is the minority one by 45×.** Four sessions have made this exact measurement and
-stopped there.
+⚠ **Running only arm A returns `1` and reads as "the estate has no infographics". It is one of
+THREE routes and it is the smallest by 45×.** Four sessions made exactly that measurement and
+stopped. **Then this lane wrote a two-arm runbook and was blind to route C for a day** — arm B
+counts `page_components` rows and route C creates none. **Run §7 too, every time.**
 
 ```sql
 -- ROUTE A: the diffusion picture
@@ -121,7 +122,10 @@ Re-run at every phase boundary; every ownership check is lagging.
 ## 6. Lane-local conventions
 
 - **Route A** = diffusion `site_plan_imagery.kind='infographic'`. **Route B** = code-rendered
-  component. Always say which. A bare "infographic" in this lane's docs means route A only.
+  component (a mounted section). **Route C** = structure written into the prose by a
+  `content_direction` rule (§7). Always say which. A bare "infographic" means route A only.
+- **The fork that decides which** (PLAN §1): *made of the page's own words → a RULE re-derives it;
+  an ASSET → something must own its persistence.*
 - Any count carries the date it was counted (`**N** as of <date>`), per the owner ruling.
 - This lane **specifies**; peers **build**. See PLAN §4 for the "will not do" list.
 
