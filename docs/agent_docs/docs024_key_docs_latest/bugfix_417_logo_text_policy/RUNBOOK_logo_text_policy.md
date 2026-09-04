@@ -314,6 +314,23 @@ WHERE s.domain='<domain>' AND sc.slot_name='header';
 Transparency and legibility are different questions and only the first is instrumented. This is the
 instrument for the second.
 
+> **2026-09-04: THERE IS NOW A SCRIPT, and it should be your first move.** The hand recipe below
+> still works and is the right cross-check, but it measures ONE artefact against an operand you
+> typed, and getting that operand wrong is the mistake this section exists to prevent.
+> ```bash
+> ./scripts/audit-logo-legibility.py                 # every site with a logo asset
+> ./scripts/audit-logo-legibility.py --site <domain> # one
+> ./scripts/audit-logo-legibility.py --self-test     # prove the arms fire, offline, no cluster
+> ./scripts/audit-logo-legibility.py --json out.json # one record per site, for a filer
+> ```
+> It reads each site's OWN header colour, fetches the image the SERVED PAGE references, runs the
+> 404/`</html>`/byte-count/magic-byte controls per site, and prints BLIND, NOT-DISPLAYED and
+> baked-background rows rather than passing them. Exit 0 only when every logo was measured and
+> legible. **`--self-test` needs no cluster and no network** — use it to check the check.
+> ⚠ Its verdict covers ALPHA-BACKED marks only (7 of 34 as of 2026-09-04). A logo with a
+> background baked in is 4.5's class, not this one's: the header is not its backdrop.
+
+
 **Step 1 — get the backdrop, and confirm it at the USAGE, not the declaration.** The whole ratio
 rests on this one number, and a CSS custom property that is defined and never applied reads
 identically in source.
@@ -338,6 +355,16 @@ print(f'median={cs[len(cs)//2]:.2f} darkest5%={cs[int(len(cs)*0.95)]:.2f} max={c
 ```
 **Read `max`, not `median`.** A median below 3:1 only says the mark is mostly pale; `max` below 3:1
 says *no part of it* clears the floor, which is the decisive figure. websitepromotion: max **2.55:1**.
+
+> **⚠ CORRECTED 2026-09-04 — "read max, not median" is necessary and NOT sufficient, and the
+> artefact that refutes it is the same site's next logo.** That advice was written against the
+> PRE-regeneration mark (max 2.55:1) and a max-only rule catches it. The POST-regeneration mark
+> reaches **max 20.75:1** and is *less* visible: the high reading comes from a magenta despill
+> fringe of a few hundred pixels while **86% of the mark is white on a white header**. So a
+> max-only rule PASSES the very artefact `bugs_open/462` was filed about.
+> **What you need is both**: `max` (does anything clear the floor at all?) AND the FRACTION of the
+> mark's ink that clears it. `audit-logo-legibility.py` runs the two as separate arms and names
+> which one fired, precisely so this correction cannot be lost again.
 seotools, same pipeline same day: max **7.64:1** — always measure a second artefact, because one
 reading alone is indistinguishable from "this is just how the pipeline works".
 
