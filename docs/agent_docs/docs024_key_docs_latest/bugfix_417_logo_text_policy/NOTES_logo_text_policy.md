@@ -506,3 +506,67 @@ contain** (three on the 417 licence census, one here). The difference is that th
 disconfirming result was cheap to imagine — the RFC *says* there are four and I found three, and a
 shortfall against a known prior is the one shape that forces you to look. Recorded in RFC_058 §5.4
 as a trap for whoever re-runs it, because the next person will not have that prior.
+
+---
+
+## 2026-09-04 — 462's sweep built, calibrated against the live estate, and run
+
+Picked up the 09-03b handoff's item 1: ship §7a's option (b) now for the "how widespread" answer.
+Result: `scripts/audit-logo-legibility.py`, committed, plus §8 of `bugs_open/462`.
+
+**Headline, and it is not the finding count.** 34 active logo assets; **2 findings**
+(`websitepromotion` — the motivating case — and `mortgagecalculator`, new); **5 measured legible**;
+**22 not judgeable because a background is baked into the image**; 3 that the served page never
+loads; 2 blind. So the judgeable population is **7**, and "how widespread is 462" cannot yet be
+answered for most of the estate. That is a more useful answer than a count would have been.
+
+### Calibration — done from the population, not invented
+
+The alpha population's `legible ink fraction` lands at **0.0, 6.7 | 26.4, 29.3, 50.0, 75.5, 88.1
+percent** and the floor went in the gap at 15%. Anchors: websitepromotion must fail (462 §7 says a
+detector that misses it is not working), seotools and designblog must pass (462 §4). n=7, so this is
+calibrated, not proven — written next to the constant so the next reader does not mistake it for a
+derived value.
+
+**Two arms, because one is not enough and the counter-example is the same site.** Arm A is
+`max < 3:1` — the RUNBOOK's own "read max, not median". Arm B is the fraction of ink clearing the
+floor. The post-regeneration websitepromotion mark **defeats arm A** (max 20.75:1, from a magenta
+despill fringe, while 86% of it is white on white). Corrected the RUNBOOK where that advice lives.
+
+### My own missteps today — all three were "a measurement of the wrong artefact"
+
+1. **Trusted `assets.url`.** `fundamentallyai.com`'s row holds a presigned B2 link minted
+   2026-08-10 with `X-Amz-Expires=604800`; it 401s. The page serves `/assets/images/logo.png` fine.
+   My first sweep filed it BLIND — a site with a working logo, recorded as unmeasurable.
+2. **Took the first `<header>` in the document.** Three sites open with
+   `<header class="info-card-grid__header">` — a *content* heading. The site chrome is further down.
+   The first sweep therefore found no logo, fell back to `assets.url`, and printed confident
+   statistics about an image those pages never load. Two of the three render `class="logo-text"`:
+   they have a logo asset and a **text** header.
+3. **Read a CDN flake as an unmeasurable logo.** Two hosts that had answered 200 minutes earlier
+   returned a 404 and a connection error inside one sweep — three requests per site is enough to
+   trip one. Added retries; the BLIND count dropped from 4 to 2.
+
+**What caught all three was the same thing: opening the artefact.** Not one of them was visible in
+the numbers — every one produced a plausible-looking row. (1) and (2) were caught by asking "is this
+the file the visitor loads?", (3) by the count moving between two runs minutes apart.
+
+**And a fourth, caught before it shipped:** my first cut was ready to take a verdict on all 29
+fetched logos. Compositing farmerinsurance and apis onto their headers and *looking* showed a
+perfectly legible mark inside a baked box — the statistic was measuring the box, not the mark.
+Judging that population would have produced ~20 false findings on the estate's most-visited sites.
+
+### A correction to 462's own control figure
+
+§1/§4 record seotools' darkest pixel as **7.64:1** in a column headed *"vs the white header"*.
+seotools' header is **`#faf8f3`**. Against the real operand: **6.98:1** (median 1.90). The control
+still passes and nothing downstream changes — but §4's own instruction *"do not generalise that to
+other sites"* was not applied to §4's own control. Recorded as 462 §8c.
+
+### What the sweep does NOT do, stated so nobody infers otherwise
+
+It **reports**; it files nothing. Routing is still 462 §7a's open question and it is the blocker:
+`css-patch-agent` repaints a class and cannot fix a pale PNG. The `--json` output is shaped for
+whoever builds the filer. And the **baked-background population has no verdict at all** — nothing in
+the estate measures whether such a mark reads against its own box, and there is no known-bad
+artefact to calibrate one against. That is a named blind spot now, not a silent one.
