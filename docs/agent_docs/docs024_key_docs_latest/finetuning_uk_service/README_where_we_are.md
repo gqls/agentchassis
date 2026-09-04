@@ -1644,3 +1644,57 @@ whether you want the pictures back, which means the image-card carousel that no 
 > Full evidence: `docs024_key_docs_latest/infographics/` (PLAN §2–§3) and the CONTRIB filed in this
 > directory the same day. Nothing here contradicts this lane's own work on the homepage, and no word
 > of the entry above has been altered.
+
+**2026-09-04, the three things you asked me to present.**
+
+**Why finetuning.uk has no site plan.** Because it is older than the mechanism. The site row was created
+on 22 February; the first site plan anywhere in the estate was written on 12 May, by the build planner.
+Of the six sites that predate that date, only two have ever gained a plan: robot-hands.com, which was
+put through the planner in May, and leopardessconsulting.co.uk, which got one in July through an
+operator rebuild. Nothing backfills a plan for a site that was never planned. finetuning.uk has been
+extended page by page instead, each page from its own brief, which is why it works and why it holds no
+plan. Two routes exist to give it one, and both are a decision rather than a fix: put the site through
+the planner, or an operator rebuild. Both would compose the site as a whole and would touch pages whose
+copy you have approved, so I would want to show you exactly what each would regenerate first. Nothing
+you have asked for today needs it: the graphics you want come from a different mechanism, below.
+
+**Decision 5, presented properly. The examples catalogue.** I had asked you to react to a whole design
+document, which was not a fair thing to put in front of you. Here is the actual decision, in four parts.
+A catalogue entry is one page per hosted model, and it holds: who owns it (us, or a submitter), the case
+in plain words, before-and-after pairs we generate ourselves from a fixed set of prompts, the model file
+itself, a "try it" chat against that model, a price per hour, and the terms the owner agreed to. The
+four things only you can settle: **first**, are third-party submissions something we build this year, or
+do we shape the data now and build ours-only first? **Second**, an account system: nothing on the estate
+has one, and the moment somebody other than us owns an entry, or books an hour, we need one. Is that in
+scope? **Third**, who writes the terms for hosting somebody else's model, since that is legal text about
+licences, liability and takedown, and I would not draft it for you. **Fourth**, what worries you more,
+people abusing the free demo, or people gaming their own before-and-after to look better than they are?
+The controls differ and I would rather build the one you actually care about. My recommendation is
+ours-only first, no accounts, four or five real examples, and the submission flow only when a real third
+party asks.
+
+**Decision 6, the pricing at £1.50 plus six times cost.** Using the vendor's invoiced rates and a dollar
+at about 79 pence:
+
+| GPU | real cost/hr | six times cost | your price/hr | a two-hour session | margin/hr |
+|---|---|---|---|---|---|
+| small (a6000) | £0.28 | £1.65 | **£3.15** | £6.31 | £2.88 |
+| big (a100xl) | £0.86 | £5.15 | **£6.65** | £13.29 | £5.79 |
+
+For comparison, the five-times-cost shape you first mentioned gave £1.38 and £4.29, with no fixed fee.
+Two things worth knowing. The fixed £1.50 is what makes the cheap option stay cheap in percentage terms
+while still paying for the booking machinery, and it is also what stops a ten-minute session costing us
+more than it earns. And the small GPU's real cost is lower than it looks, because billing is per minute:
+a measured two-hour window including warm-up cost 75 cents, not two lots of 35. If you would rather the
+£1.50 were per booking than per hour, the two-hour session becomes £5.04 instead of £6.54.
+
+**Decision 7, the playground page text.** The framework writes the words, not me, so what I can show you
+is the brief it works from, section by section. Today the page is six sections of booking copy with the
+chat box inserted second. The merged version I propose puts the tool at the centre: a short hero that
+says this is a model you can talk to now; **the chat box, immediately**, with what it is and what to try,
+which is already live and which you have seen; a three-steps section with the diagram you have just
+asked for; then what the booked hour is for, when you can book it and what to have ready, which is the
+existing copy condensed from three sections into one; the questions people ask; and how to book. That is
+seven sections rather than six, and it demotes the booking material rather than deleting it. Nothing in
+the current text is wrong; it simply reads as a page about booking with a demo attached, and you asked
+for the reverse. Say yes and I will write the full brief for you to read before it runs.
