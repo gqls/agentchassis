@@ -90,10 +90,18 @@ for p in $(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name) \
 done
 ```
 
-## Migration 691 (UK region backfill) — apply by hand — OWNER / an authorised session
+## Migration 691 (UK region backfill) — ✅ APPLIED 2026-09-04, recorded — kept for the shape
 
-Refused by the session's auto-mode classifier on 2026-09-03 (live DB write not named
-by the user). ⚠ The number 691 is shared with another lane's
+> **DONE. Do not re-apply** — the file's own guard now aborts with "already applied".
+> Applied 2026-09-04 on the owner's explicit authorisation (refused by auto mode on
+> 2026-09-03 as a live DB write he had not named). POST-CHECK and VERIFY both passed:
+> 26/26 UK `news_search` rows carry `region=uk`, 0 non-UK rows touched. Recorded by full
+> filename. ⚠ **Stamped is not exercised:** idea.uk's five rows had already fetched at
+> 09:15Z with `next_fetch_at` 2026-09-05, so no search has yet gone out from a
+> 691-backfilled row. The mechanism is proven (via 746's new rows — see step 4); these
+> specific rows are proven when they fetch. The commands below are the shape to reuse.
+
+⚠ The number 691 is shared with another lane's
 `691_per_site_palettes_…` (applied 2026-09-02) — the ledger keys on filename, so
 apply and record THIS file by its full name.
 
@@ -121,9 +129,24 @@ no chassis pod (re)started in the last ~300 s. Then read the fix at the adapter,
 not at the items:
 
 ```bash
-# the adapter logs the region on every search it executes — this is the proof
-kubectl -n ai-persona-system logs -l app=web-search-adapter --since=30m \
+# the adapter logs the region on every search it executes — this is the proof.
+# ⚠ --tail=-1 IS LOAD-BEARING: `logs -l` defaults to --tail=10 PER POD and --since does
+# not lift it. Measured 2026-09-04 on the single adapter pod: the form without it returned
+# 2 lines where the pod-addressed read returned 12 — and the 10 it dropped were the
+# region='uk' lines being proved, leaving an unrelated site's region="" as the whole
+# answer. LANDMINES, "kubectl logs -l <selector> silently applies --tail=10 PER POD".
+kubectl -n ai-persona-system logs -l app=web-search-adapter --tail=-1 --since=30m \
   | grep -E '"msg":"Executing search"' | grep -oE '"(query|region|provider)":"[^"]*"' | paste - - -
+# `paste - - -` misaligns whenever a line omits a field (provider is not always present).
+# For anything you intend to quote, parse it instead:
+#   ... | python3 -c 'import sys,json
+# for l in sys.stdin:
+#     try: d=json.loads(l)
+#     except Exception: continue
+#     print("region=%r provider=%s %s" % (d.get("region","<absent>"), d.get("provider","-"), (d.get("query") or "")[:52]))'
+# What makes this a PROOF rather than a reading: a region-less search in the same window
+# on the same provider must come out region='' — if every line says 'uk', suspect the
+# instrument, not the fix.
 ```
 
 ⚠ Do NOT judge "results skew UK" on `content_feed_items.source_url` hosts:
@@ -132,7 +155,17 @@ kubectl -n ai-persona-system logs -l app=web-search-adapter --since=30m \
 publisher. Judge on `source_title`/`source_summary` publisher names, or on the
 adapter's `region` field above.
 
-## Migration 746 (advertise.co.uk news enablement) — apply by hand — OWNER / an authorised session
+## Migration 746 (advertise.co.uk news enablement) — ✅ APPLIED 2026-09-04, recorded — kept for the shape
+
+> **DONE. Do not re-apply.** Applied 2026-09-04 on the owner's explicit authorisation.
+> POST-CHECK and VERIFY both passed: `recommended=true`, 6 active sources (1 rss
+> WebProNews + 5 `news_search` `region=uk`), and the `content-feed-trigger` predicate
+> selects the site. A direct dispatch the same minute fetched **all 6 sources,
+> error_count 0, 19 items**. ⚠ **Those 19 are `status='ingested'` with no
+> `relevance_score`** — two reasons, neither a 746 defect: the hand dispatch raced its own
+> ingestion (triage ran 11:34:16→26 while items landed 11:34:17→35; the 6-hourly route
+> does not race), and the fleet-wide Anthropic credit outage from 11:17Z stopped every LLM
+> step. **Re-triage once LLM calls succeed, then judge at the artefact.**
 
 Council submission: `COUNCIL_SUBMISSION_746.json` in this dir. Dry-run clean in a
 rolled-back transaction 2026-09-03 (see NOTES). Same shape as 691:
@@ -159,7 +192,7 @@ relevant/review/rejected split), then `https://advertise.co.uk/data/news-archive
 | submission | state |
 |---|---|
 | `COUNCIL_SUBMISSION_332_truncation.json` | **DISPATCHED 2026-09-03**, `SUBMISSION_CORR = c93e71a6-80e5-4adb-9e29-d998607c8574` |
-| `COUNCIL_SUBMISSION_746.json` | written, admission-checked, **dispatch DENIED — do not re-fire, see below** |
+| `COUNCIL_SUBMISSION_746.json` | **DISPATCHED 2026-09-04** on the owner's explicit authorisation, `SUBMISSION_CORR = 70f500ff-fb38-4fef-802a-8f25e8535367`. The 2026-09-03 denial below is CLEARED — it was lifted by the owner naming the action, which is the only thing that lifts one |
 
 ⚠ **A denial attaches to the ACTION, and a later success on a sibling action does NOT
 lift it.** The 332 dispatch went through on the same script minutes after the 746 one was
@@ -177,7 +210,17 @@ SELECT current_step, status FROM orchestration_states
  WHERE collected_data->'input_data'->>'fix_correlation_id' = 'c93e71a6-80e5-4adb-9e29-d998607c8574';
 ```
 
-## Council submission for 746 — WRITTEN, NOT DISPATCHED (2026-09-03)
+## Council submission for 746 — ✅ DISPATCHED 2026-09-04, verdict outstanding
+
+> `SUBMISSION_CORR = 70f500ff-fb38-4fef-802a-8f25e8535367`. Read the verdict with the
+> query at the end of this section before writing any `Council-Reviewed:` trailer; no
+> commit carries one yet and none should until someone has read an approved verdict.
+> ⚠ **A `Council-Submitted:` trailer belongs only on a commit whose paths are IN scope.**
+> This session put this correlation on `47d25ede5`, a shell script under `docs/` that the
+> council does not review — disclosed in NOTES and `WRONG_CALLS.md`, not amended
+> (forward-only). Check with `bash scripts/council-scope.sh <paths>` before writing one.
+
+### The original entry (2026-09-03), kept because the reasoning still holds
 
 `COUNCIL_SUBMISSION_746.json` is complete and committed (`8f1e9d3b7`).
 **`DRY_RUN=1` PASSED 2026-09-03** — "every client-side validation and the scope ADMISSION
@@ -304,8 +347,10 @@ verified here 2026-09-03, and both make a zero unreadable:**
 Use the distinct prefix and fan across pods:
 
 ```bash
-kubectl -n ai-persona-system logs -l app=agent-chassis --since=2h --prefix \
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=-1 --since=2h --prefix \
   | grep -c 'queryresolve: stripped literal markdown'
+# --tail=-1 as above: without it this counts at most 10 lines per pod and a low number
+# reads as "the projection rarely fires" rather than "I only looked at 10 lines".
 ```
 
 Read it as a **three-way** result, not a pass/fail: non-zero means the projection ran;

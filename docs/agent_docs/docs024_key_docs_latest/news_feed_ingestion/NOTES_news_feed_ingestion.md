@@ -924,3 +924,120 @@ re-scoped it 2026-09-03 (keep `section-index`, fill via child pages; a source al
 cannot fill that shape). Coordination with `portfolio_positioning` and the 444
 session is owed before any code; see the README entry for what this lane will
 propose.
+
+---
+
+## 2026-09-04 — the three blocked actions were authorised and all three are DONE; the UK-region fix is PROVEN at the provider; and a fleet-wide LLM outage started mid-session
+
+Picked the lane up cold from `HANDOFF_2026-09-03_continue_here.md`. Re-verified all four
+preconditions first-hand before asking for anything — nothing had drifted overnight:
+`691_uk_news_search_region_default.sql` and `746_advertise_news_feed_enablement.sql` both
+absent from `schema_migrations`; **26** `.uk` `news_search` sources with **0** carrying
+`region` (exactly 691's guard expectation); advertise.co.uk on **0** sources with no
+`content_features`; 746's pinned classification spec still `ec005136…` and current (so the
+"the classifier re-ran" abort would not fire); `DRY_RUN=1` on the 746 submission still
+passing validation and scope admission. The owner then authorised all three by name.
+
+### What ran
+
+| action | result |
+|---|---|
+| 746 council dispatch | **`SUBMISSION_CORR = 70f500ff-fb38-4fef-802a-8f25e8535367`** |
+| 691 apply | POST-CHECK PASSED: 26 UK rows carry `region=uk`, 0 non-UK touched. VERIFY 26/26. Recorded by full filename |
+| 746 apply | POST-CHECK PASSED: `recommended=true`, 6 sources (1 rss + 5 `news_search` `region=uk`), trigger predicate selects the site. VERIFY passed. Recorded |
+| idea.uk dispatch | corr `56f88b35-7070-4c9c-97e8-c0c494a32914` — **FAILED** at `score_relevance`, cause external (below) |
+| advertise.co.uk dispatch | corr `ce6b8a4b-71e2-44fd-b742-237a4962cbcd` — COMPLETED, **all 6 sources fetched, error_count 0, 19 items** |
+
+### The UK-region fix is PROVEN live — and the proof carried its own negative control
+
+`[MEASURED 2026-09-04 11:34Z]` at `web-search-adapter`, the five advertise `news_search`
+sources went to Firecrawl as `region='uk'`; in the **same window, same pod, same provider**,
+another site's region-less search went as `region=''`. That is the disconfirming result the
+measurement needed: the field discriminates, it is not a constant. This retires the
+handoff's §2 "what is NOT yet proven" — with one honest narrowing recorded below.
+
+> **The proof came from 746's NEW sources, not from 691's BACKFILLED ones.** idea.uk's five
+> sources are stamped `region=uk` in the DB (691 verified 26/26), but they had already been
+> fetched at 09:15Z and `next_fetch_at` is 2026-09-05 09:15Z, so the orchestrator correctly
+> skipped them and **no idea.uk search fired**. Same key, same code path, so the mechanism is
+> proven; but 691's own rows have not yet been exercised through a live search. They will be
+> tomorrow ~09:15Z. Do not write "691 proven at the provider" until then — write what happened.
+
+### ⚠ LANDMINE — `kubectl logs -l <selector>` silently defaults to `--tail=10`, and this lane's own RUNBOOK proof command was subject to it
+
+The RUNBOOK's region-proof command was `kubectl logs -l app=web-search-adapter --since=30m`.
+On **one** pod it reported **2** matching lines; `kubectl logs <that same pod> --since=20m`
+reported **12**. Same pod, same window — the difference is entirely `-l`, which applies a
+default `--tail=10` **per pod** that `--since` does not lift. The two lines that survived
+were another site's query showing `region=""`, i.e. **the truncation preserved exactly the
+evidence that would have read as "the fix does not work"**. The `--tail=-1` re-read showed
+all five `region='uk'` lines. Nothing about the output says it was truncated.
+**Always pass `--tail=-1` with `-l`.** Appended to `LANDMINES.md`. Note this is a second,
+independent trap on the same command as the existing "`logs deploy/X` reads one pod of N"
+memory entry: that one is about *which* pods are read, this one about *how much* of each.
+
+### `COMPLETED` again did not mean the work happened — twice, for two different reasons
+
+- advertise's `feed-triage` ran 11:34:16→11:34:26 while its items were still landing
+  (11:34:17→11:34:35). It completed having scored nothing: all **19** items sit
+  `status='ingested'`, `relevance_score` NULL. That is a **race in the direct-dispatch
+  path**, not a 746 defect — the 6-hourly `content-feed-refresh` route does not have it.
+  The items are fetched and waiting; they need a triage pass they have not yet had.
+- The orchestrator row read `COMPLETED` throughout. CLAUDE.md's "trust the rendered
+  artefact, not the status" caught both; the status alone would have shipped a false win.
+
+### ⚠ FLEET-WIDE, NOT THIS LANE — every Anthropic LLM call has failed since 11:17:05Z
+
+idea.uk's `score_relevance` failure is **not** a feed defect:
+
+```
+AI endpoint unavailable: provider=anthropic model=claude-sonnet-4-6
+API request failed with status 400: {"type":"invalid_request_error",
+"message":"Your credit balance is too low to access the Anthropic API.
+Please go to Plans & Billing to upgrade or purchase credits."}
+```
+
+`[MEASURED 2026-09-04 11:37Z]` first occurrence **11:17:05Z**; **9 distinct
+`owner_agent_type`s** hit (landmine-verifier, generic, diagnose-agent,
+diagnose-orchestrator, directory-researcher, feed-triage, build-briefing-agent,
+tool-improver, content-feed-orchestrator) — the estate, not a lane. `llm_call_log`:
+**0–1 failures per hour** for the preceding 12 hours, then **70 failed / 14 ok** after
+11:17, and the **last successful Anthropic call of any kind was 11:20:49Z**. Ongoing at
+time of writing. Escalated to the owner immediately; it is a billing action only he can take.
+
+**This is NOT the 2026-08-23 incident, and the difference matters when acting on it.**
+That one said *"You have reached your specified API usage limits"* — a monthly **cap**.
+This says *"credit balance is too low … purchase credits"* — prepaid **credits exhausted**.
+Different lever. **What does carry over is the trap**: there are at least two Anthropic
+orgs and the console the owner lands on by default is not the fleet's, so credits bought
+on the wrong org change nothing. The decisive check is **API keys → `Last used`** (a failed
+call is still a use, so the live key cannot read "30+ days ago"). Memory:
+`the-fleet-key-is-not-on-the-default-console-org`.
+
+### A slip of my own, disclosed rather than left to be found
+
+My commit `47d25ede5` (the generic dispatch script) carries
+`Council-Submitted: 70f500ff-…`. **That trailer does not belong on it** — the correlation
+is 746's, the script is a shell file under `docs/` and is therefore **not in council scope
+at all** (`scripts/council-scope.sh`: `platform/`, `internal/`, `pkg/`,
+`cmd/config-key-audit/`, `scripts/pattern-check.py`, migrations). Left uncorrected it would
+have let `098` credit an unreviewed file to 746's verdict at report time. Forward-only
+forbids an amend, so it is recorded here and in the next commit message instead. The cheap
+check I skipped: **read the scope file before writing a scope trailer** — I copied the
+trailer from the migration work I had just done without asking whether *this* commit was in
+scope. Logged in `WRONG_CALLS.md`.
+
+### Resume here
+
+1. **Blocked on the outage:** re-triage advertise's 19 ingested items once LLM calls
+   succeed again (`SELECT count(*) FROM content_feed_items cfi JOIN sites s ON s.id=cfi.site_id
+   WHERE s.domain='advertise.co.uk' AND cfi.status='ingested'`), then judge at the artefact —
+   `_VERIFY.sql`'s split, then `https://advertise.co.uk/data/news-archive.json` (404 before).
+   ⚠ **Not** at the served `/news/index.html`: it fills client-side, so `curl | grep` reads 0
+   for ever (HANDOFF §4's correction).
+2. **Tomorrow ~09:15Z:** idea.uk's backfilled sources fetch; confirm `region='uk'` at the
+   adapter to close the 691 narrowing above. Use `--tail=-1`.
+3. **746 council verdict:** `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+   WHERE correlation_id='70f500ff-fb38-4fef-802a-8f25e8535367' AND kind='council_report';`
+   A later commit should carry the trailer once read.
+4. **designblog.co.uk** — unchanged, still a decision not a build (HANDOFF §5).

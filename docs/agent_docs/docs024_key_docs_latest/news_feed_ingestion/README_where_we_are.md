@@ -183,3 +183,67 @@ designblog.co.uk I have deliberately not touched. You re-scoped it yesterday
 news source on its own would not fill it; I need to agree the mechanism with
 the positioning lane and the 444 session first, and I will write that proposal
 to them rather than build anything solo.
+
+---
+
+2026-09-04. You gave the word on the three things that were waiting for you, and all
+three are done.
+
+The two database changes are applied and checked. The first one stamped "this is a UK
+site" onto the twenty-six existing news searches belonging to your .uk sites — twenty-six
+out of twenty-six, nothing else touched. The second one turned news on for
+advertise.co.uk: the flag in its classification, your WebProNews feed, and five UK
+searches anchored on the ASA, the CAP Code, IAB UK, the AA/WARC spend report and general
+UK advertising industry news. The review request went to the council; there is no verdict
+yet, and I will not write one down until I have read it.
+
+Then I ran the pipeline for real, and the UK fix works. All five of advertise's searches
+went out to the search provider marked as British. I can be confident that means something
+rather than just looking right, because in the very same minute another site's search —
+one with no region set — went out marked as nothing at all. So the setting is genuinely
+being read and genuinely changes what is sent, rather than everything being labelled
+"uk" regardless. That was the one thing yesterday's session could not prove.
+
+One honest narrowing: the proof came from advertise's brand-new searches, not from the
+twenty-six I stamped this morning. Those five idea.uk searches had already run at 10:15
+our time, so the system correctly left them alone until tomorrow morning. They carry the
+same setting and go down the same path, so I have no real doubt — but I have not watched
+them do it, and I would rather say so than round it up.
+
+advertise.co.uk has pulled in its first nineteen articles, from all six sources, with no
+errors. They are not scored yet, and there are two reasons. A small one: I dispatched the
+run by hand, and the scoring pass started a few seconds before the last articles had
+finished arriving, so it had nothing to look at. That does not happen on the normal
+six-hourly schedule. And a much bigger one, which is not about this lane at all.
+
+**Every AI call across the whole fleet has been failing since 12:17 this afternoon, and
+still is.** The error is blunt: "Your credit balance is too low to access the Anthropic
+API." Nine different kinds of agent have hit it — this is the estate, not one corner of
+it. Before this afternoon we were seeing none of these; since then, seventy failures,
+and nothing has succeeded since 12:20. Everything that needs an AI step is stopped:
+scoring news, diagnosing bugs, the review council, the improvement loops.
+
+This is a billing thing only you can fix, and there is one trap worth repeating from
+August. This is **not** the same failure as then — August was a monthly limit being hit,
+this is prepaid credit running out, so it is a different button. But the thing that cost
+us hours in August still applies: there is more than one Anthropic account, and the one
+the console opens by default is not the one the fleet uses. Buying credit on the wrong
+account changes nothing and looks identical. The quickest way to tell them apart is the
+"Last used" column on the API keys page — the fleet's key cannot read "30+ days ago",
+because even a failed call counts as a use.
+
+Nothing here is lost or broken by the outage. The articles are safely stored and will be
+scored on the first pass after calls start working again.
+
+I also made one mistake and would rather tell you than let it sit. I wrote a small script
+today to dispatch a feed run for any site, so that turning on the next site does not mean
+copying the same file again. On its commit I attached a reference to the council review —
+copied out of habit from the migration work I had just finished — but that review is for
+the database change, not for the script, and a shell script in the documentation folder
+is not something the council reviews at all. Left alone, the coverage report would later
+have recorded that script as reviewed when nobody had looked at it. I cannot amend the
+commit (we never rewrite history here), so it is written down in the notes and in the
+fleet's wrong-calls log instead.
+
+designblog.co.uk is untouched, exactly as we left it — still a decision about how the
+page gets filled, not a build.
