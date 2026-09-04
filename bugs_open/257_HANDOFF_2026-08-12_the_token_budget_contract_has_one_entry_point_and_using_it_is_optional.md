@@ -944,3 +944,57 @@ Decisions 1 (reading pending), 2 (ruled, documented) and 4 (shipped) are answere
 **The bar for closing is "fixed AND live"**: the ladder is committed and inert until the next chassis
 roll, the migration is applied and live. So this stays OPEN until a chassis image containing `d88afbf84`
 is live and migration `770` has been applied against it.
+
+---
+
+## §2026-09-04b — DECISION 1 ANSWERED: round 2 is live, proven FIRST-HAND, with a control
+
+The induced check the owner granted has **fired on both probes**, and the reading is unambiguous.
+
+| probe | armed | configured | probe value | post-arm calls | sent |
+|---|---|---|---|---|---|
+| `page-content-writer` `…rewrite_negations` | 10:57:51Z | 16000 | **15999** | **50**, across 6 loop iterations | **all 15999** |
+| `offer-analyser` `repair_ordering_register` | 11:38:21Z | 2000 | **1999** | **2** | **all 1999** |
+
+**The control is what makes it a measurement.** Same step, same day, before the arm:
+**182 calls, every one at 16000.** After: 50 calls, every one at 15999. Nothing else changed.
+
+Both probes put a number where **only round-2 code looks** — `llmOptionsFromConfig` reads the step's
+own config before the merged `ai_service` block, and the code this replaced read `aiServiceConfig`
+only, falling back to a hardcoded literal. The deployed binary read the step level. **Round 2 is
+live on `v1.0.1360`, first-hand.**
+
+The `offer-analyser` probe is the one that closes an old hole. **2000 was BOTH its configured value
+and the old Go literal** (§2c), so no query over `llm_call_log` could ever separate a honoured config
+from a dropped one at that call site. 1999 breaks the tie, and it read 1999.
+
+⚠ **BOTH PROBES ARE REVERTED** (verified twice: the config no longer carries the key, and
+`scripts/audit-budget-placement.sh` no longer reports the two `ambiguous` findings they created —
+an independent instrument confirming the disarm). `ai_service.max_tokens` is untouched at 16000 and
+2000.
+
+**What this replaces:** the §ROUND 2 IS LIVE section's ancestry argument — true, and second-hand
+(another lane's binary probe plus one `git` command). This is the first-hand version, and the two
+agree. The ancestry paragraph stands as written; it is not retracted, it is now corroborated.
+
+### And a latent 400 in the same contract, reported by a peer and guarded (commit `22ba668dd`)
+
+`anthropic.go` emits `thinking:{type:enabled,budget_tokens:N}` on the presence of a positive
+`budget_tokens`, and round 3 wired that key to the full six-level ladder. Anthropic replaced the
+fixed budget with adaptive thinking: that shape is a **400 on the Claude 5 family and Opus 4.7/4.8**.
+
+⚠ **NOT a blanket rule, which changed the fix.** Three live answers:
+`claude-sonnet-5` + `claude-opus-4-8` **reject** (88 of 176 model declarations, 22 agents);
+`claude-sonnet-4-6` + `claude-opus-4-6` deprecated but **functional** (53 / 36);
+`claude-haiku-4-5` and older **require** it (32 / 24). A guard that just stopped sending the key
+would break the only models where it works.
+
+**Live exposure is ZERO** — two independent encodings (`jsonb_path_exists(…'strict $.**.budget_tokens')`
+and a recursive walk) both return 0 across 208 active and all 225 rows. The four string matches are a
+reviewer seat's footprint keyword list. *A substring census reads as three live agents and means none.*
+
+Shipped as `aiservice.AcceptsThinkingBudget` (beside the alias table, one place to maintain, unknown
+models permissive) + a build-time parity test + a `thinking_unsupported` arm in
+`--budget-placement`. **Zero behaviour change; the reader is untouched.** Whether the client should
+refuse, drop-with-warning, or keep returning the 400 is left open — dropping silently would be this
+bug's own defect class. Council `47ea9498-f150-4556-94e7-c24ce943e7e0`.
