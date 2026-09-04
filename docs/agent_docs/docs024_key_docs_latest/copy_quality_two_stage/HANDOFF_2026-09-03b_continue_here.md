@@ -113,7 +113,21 @@ is the most dangerous carrier for an invented cause.
    **588 of 2,945 (20%)** and they asked that provisional tiers not drive a floor (D2 makes a
    wrong price INVISIBLE — it shows only in which offers never arrive). **He can unblock it by
    naming floors himself**; he gave webdesign.uk as potentially seven figures.
-5. `plain_words` boundary case; banned-WORDS repair arm; spec-fed class; xAI top-up; word to the
+5. ✅ **xAI top-up DONE by the owner 2026-09-03 ~15:00Z** — `[MEASURED 2026-09-04 11:30Z]` the news
+   arm's first delivering run is `2026-09-03 15:06:22Z`, 45 items over 10 runs since, zero 403s.
+   **The Grok trial arm it blocked has RUN (2026-09-04):** `grok-4.6` scores **NEG 0 twice** against
+   the shipped sonnet section's **8**, keeps the facts, and writes LONGER — the first arm to pass
+   both the count and the read (Fable passed the count and density-failed his ear; Gemini reached
+   zero by evasion with invention). Arm 5 refuted the "it is the reasoning" story within sonnet
+   (off 9/6, production dose 9/7, shipped 8 — one band), so **the lever is the model prior**, and
+   there is no sonnet setting that fixes it. ⚠ `effort:"max"` returns NO TEXT (whole budget on
+   thinking) — a battery scores that as a perfect zero; assert `stop_reason` and word count first.
+   **What the owner is owed: a READ, not a decision on our number** — the verbatim outputs are in
+   `AUDIT_prompts/TRIAL_OUTPUTS_2026-09-04_grok_arms_verbatim.md`, with cost (~$0.10–0.14/section)
+   and latency (4–5 min vs sonnet's 38s) in `EXPERIMENT_2026-08-31_model_trials.md`. `bugs_open/418`
+   stays OPEN on its structural half. Method + both traps: `RUNBOOK_two_stage_copy.md` (new — this
+   lane had none until today).
+   `plain_words` boundary case; banned-WORDS repair arm; spec-fed class; word to the
    offer lane on Decision D — all unchanged from the morning file.
 
 ## The about-page / Sedo seam (this lane owns the block's copy; sedo/valuation own the lists)

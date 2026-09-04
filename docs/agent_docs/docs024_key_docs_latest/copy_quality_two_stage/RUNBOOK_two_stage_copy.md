@@ -103,6 +103,13 @@ printf '{"Replace":{"%s/cmd/zz_scratch_negscore/main.go":"%s/goscore/main.go"}}'
 go run -overlay $S/overlay.json ./cmd/zz_scratch_negscore $S/sonnet_response.txt $S/out1.json $S/out2.json
 ```
 
+**`cmd/zz_scratch_negscore/` DOES NOT EXIST and must not be created** — that is the point of the
+overlay, and the pre-commit pattern check flags the name (correctly) as a proposed new capability.
+The package is materialised only inside `go run`'s build, so nothing untracked is left in a tree
+that other sessions run `git add -A` on. The real detector already exists twice over
+(`datahelpers` for the library, `cmd/brief-negation-check` for the scheduled fleet check); this is
+neither — it is a throwaway main that calls the library on FILES, which neither of those does.
+
 Gotchas: score the BASELINE in the same run as the arms — a NEG figure quoted from a doc was made
 by whatever the scanner was on that date (LANDMINE: two rates over one corpus). Store every arm's
 output verbatim (`AUDIT_prompts/TRIAL_OUTPUTS_<date>_*.md`); the 08-31 Fable/Gemini outputs were
