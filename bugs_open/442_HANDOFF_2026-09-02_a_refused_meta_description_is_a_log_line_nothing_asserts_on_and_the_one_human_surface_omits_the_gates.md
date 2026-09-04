@@ -677,3 +677,153 @@ right that the sharper question is not item-key helpers but whether the four oth
 callers need the same treatment. ⚠ **Its wording asserts they "already refuse saves silently",
 which is precisely what 464 says is UNKNOWN** — they are unread, not established. That bug is the
 work; this entry does not inherit the seat's assumption.
+
+---
+
+## 11. CONTRIB 2026-09-04 (same lane) — the mechanism survived a second roll, and §3's zero was read wrong
+
+Four things, in descending order of how much they change what the next reader should do.
+
+### 11a. Still live after `v1.0.1360` — and this needed checking, it was not a formality
+
+`[MEASURED 2026-09-04 11:17Z]` The pods rolled to **`v1.0.1360`** at 22:06Z on 09-03, *after* the
+`v1.0.1359` that §10i verified. §10h is the standing reason not to assume a later tag carries an
+earlier tag's code, so it was re-probed at the binary, on **both** pods, with both controls:
+
+```
+agent-chassis-ffc9ddff9-jvw92 / -k866t   (image v1.0.1360)
+  PRESENT meta_description_refused
+  PRESENT meta-description-repair
+  PRESENT candidate_looks_internal      <- positive control
+  absent  ZZZ_cannot_exist_9f3a         <- negative control
+```
+
+And the agent row is unchanged: `is_active = t`, `declares_overwrite = f`. **§4.1's owner ruling
+still holds on the live row** — that check is worth repeating on every roll, because the thing it
+guards against is a one-line config edit, not a code change.
+
+### 11b. ⚠ CORRECTION to §9e and to the lane handoff's §3 — "no page can be refused" is a DRAINED QUEUE, not absent demand
+
+§9e measured zero eligible-and-blank pages and concluded the silent paths were "latent today". The
+lane handoff turned that into the stronger sentence **"no page can be refused and no item can
+exist"**. The zero is real and I reproduced it (`0` again today). **The conclusion drawn from it is
+wrong**, and it is wrong in the direction that tells the next session not to expect the acceptance
+evidence.
+
+The zero is measured *at rest*, after the hourly drainer has run. Read at the deciding arm
+(`cmd/scheduler/main.go`, the `dynamicData == nil` branch): when a task's `pre_query` finds nothing
+the scheduler stamps `last_triggered_at`/`last_completed_at` and `continue`s — **no message, no
+orchestration, but the stamp still advances**. So an empty tick is invisible in
+`orchestration_states` and visible only as the stamp.
+
+And `meta-description-backfill`'s `pre_query` **is** §3's demand-control query, verbatim, grouped
+by site with `LIMIT 1`. So the two are the same instrument read at different moments.
+
+`[MEASURED 2026-09-04, `orchestration_states`, whole retention window 09-03 10:21Z → 09-04 11:24Z ≈ 25 h]`
+
+| | |
+|---|---|
+| backfiller dispatches in the window | **4** (all reached `complete`; none `complete_nothing_to_do`) |
+| pages offered to the gated action | **5** (1, 1, 1, 2) |
+| pages written | **5** |
+| pages **refused** | **0** |
+| eligible pages at rest, now | **0** |
+| schedule | `interval_seconds = 3600`, `enabled = t`, last stamp 10:56Z — an **empty** tick (no 09-04 10:56 orchestration exists, and demand was 0) |
+
+The five are five **distinct** pages on four domains (loanzy.uk, remortgagecalculator.uk ×2,
+leopardessconsulting.co.uk, mortgagecalculator.co.uk), all now carrying 78–111 char descriptions.
+All five were **created weeks earlier** (08-02 … 08-18), so these are pages that became *re-eligible*,
+not new pages. `[INFERRED, not checked]` what made them eligible — crossing the `>200` visible-text
+gate on a re-render, or a description being cleared. Worth one query by whoever cares; it decides
+whether arrivals continue.
+
+**So the correct statement is: the gated action is exercised roughly five times a day and passes
+every time. The refusal branch is untaken, not unreachable.** The first `meta_description_refused`
+row will arrive on its own; nothing needs to be forced, and no one should read §3 as "this cannot
+be tested". This is the **same shape as §9b's misstep** — a zero with two sufficient causes
+(nothing eligible / nothing refused) attributed to the one that stops you looking — one section
+along, in a file that already carries the warning.
+
+### 11c. §9d's offered-vs-written measurement, redone with a stated denominator
+
+§9d could not say whether the writer silently drops pages. Redone across every surviving run:
+
+| run | offered | written | dropped |
+|---|---|---|---|
+| 09-04 06:43 | 1 | 1 | 0 |
+| 09-04 04:36 | 1 | 1 | 0 |
+| 09-03 17:05 | 1 | 1 | 0 |
+| 09-03 14:03 | 2 | 2 | 0 |
+
+**0 of 5 pages dropped, 0 of 4 runs.** The power statement from §9d is unchanged and must travel
+with the figure: 0 of 5 rules out nothing below roughly a 45% omission rate, and four of the five
+were single-page runs, where "omit that page entirely" has least occasion to fire. **This is not
+evidence the writer never omits.** It is a second clean sample with its window and denominator
+written down, so a third can be compared against it.
+
+### 11d. ⚠ NEW — a loop's output field ALSO appears UN-SUFFIXED, holding the LAST iteration, and §9a's completion message points an operator straight at it
+
+The message this lane shipped tells the operator: *"Read each save_result"*. There is a trap in
+that instruction that I put there and did not see.
+
+`[MEASURED 2026-09-04]` A loop sub-workflow's `output_field` lands in `collected_data` **twice**:
+as the per-iteration series `save_result_0`, `save_result_1`, … **and as a bare `save_result`
+holding the last iteration's value.** On the 09-03 14:03 two-page run:
+
+```
+save_result_0 -> page 2bcf3e28…  updated true   (102 chars)
+save_result_1 -> page 34d8d807…  updated true   (105 chars)
+save_result   -> page 34d8d807…  updated true   ==  save_result_1
+```
+
+**It is not this workflow's quirk.** On `page-content-writer`, over the 20 most recent loop runs,
+bare `copy_gate` equalled `copy_gate_<max N>` — the genuine last iteration — **20 times out of 20**,
+and never the first. (An earlier cut of that query compared against a hard-coded `_4` and reported
+two mismatches; those were runs of 3 and 4 sections, i.e. my comparand was wrong, not the rule.)
+
+**And it is not uniform, which is what makes it a trap rather than a convention:** in that *same*
+loop, `section_output` has **no** bare form at all. So neither the presence nor the absence of a
+bare key tells you anything, and a reader cannot learn the rule from one example.
+
+Why it matters here: a multi-page run where page 0 is **refused** and page 1 is **written** leaves
+`collected_data->'save_result'` reading `{"updated": true}`. An operator who follows the message to
+the obvious key sees a clean run. 1 of the 4 runs in the window was multi-page, so this is not
+hypothetical arithmetic. The refusal is **not lost** — §10b's work item is filed regardless, which
+is precisely the property that makes the fix worth having — but the human-facing surface, the one
+this whole bug is about, still under-reports.
+
+**Scope of the claim, stated honestly:**
+- `[MEASURED]` the bare key exists and equals the last iteration — two agents, 24 runs.
+- `[MEASURED]` **no live step outside the loop reads the bare form on `page-content-writer`** (zero
+  steps whose config matches `\m(copy_gate|generated_content)\M`), so no realised *config* damage
+  was found there. The exposure measured here is to a **human or a query**, not to the workflow.
+- `[UNTRACED]` **which code writes the bare key.** `loop_expansion_handler.makeIterationOutputField`
+  rewrites each injected step's `OutputField` to `{field}_{N}`, so the injected steps are *not* the
+  writer of the bare key. I did not find what is. **Nobody should assert a mechanism for this
+  without tracing it** — and note it sits close to, but is not the same as, `bugs_closed/287`'s
+  landmine, which describes an un-suffixed reference finding **nothing**. Here the un-suffixed key
+  is *present and plausible*, which is the worse failure.
+
+**Candidate, not shipped:** amend §9a's `result_message` to name the series
+(`save_result_0`, `save_result_1`, … — the bare `save_result` is only the LAST page). One migration,
+DB-config, live immediately, council-scope. Deliberately left for a decision rather than appended to
+an already-approved message at the end of a session.
+
+### 11e. Adjacent — HEAD's `actions` package is RED, and both failures are the `bugs_open/440` lane's
+
+`[VERIFIED 2026-09-04, `scripts/verify-head-builds.sh --test ./platform/orchestration/actions/...`,
+HEAD `541193665`]` The **build** half is green; two tests fail, both tripped by `83407cd37`
+("440 phase 3 BUILT and HELD"):
+
+- `TestTemplateExecutorsAreDeclared` — undeclared template executor `renderFailWorkItemMessage`.
+- `TestFindingCodeScanEveryWriteIsRegistered` — error code `FAIL_WORK_ITEM_MESSAGE_TEMPLATE_FALLBACK`
+  written by the package, absent from `finding_code_registry.json` and from `_scan_baseline`.
+
+The `theme_kits` lane flagged the **first** on 09-03 and correctly told readers not to patch another
+lane's guard. **The second appears unreported** — worth saying, because both come from one commit and
+a lane that fixes only the one it was told about will still be red. Both guards are doing exactly
+what they were built to do; the fix is a declaration, and it is the 440 author's to make.
+
+**This lane's own tests are green at HEAD:** all 10 of
+`TestSavePageMetaDescription_*` / `TestMetaDescriptionRefusal*` pass when run by name against
+`541193665`. Do not read the package FAIL as this lane's.
