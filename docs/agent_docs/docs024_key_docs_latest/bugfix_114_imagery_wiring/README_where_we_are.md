@@ -253,3 +253,74 @@ whose images are all generated and paid for and simply not shown. Their note say
 change that used to be unsafe is now safe, thanks to that same migration. That is real
 work with a spend decision attached, and I've not started it; flagging it so it doesn't
 get lost between the two lanes.
+
+---
+
+**2026-09-04 — the bug turned out to be a different, bigger thing, and the fix I was expected
+to ship would not have worked.**
+
+I picked this up expecting to finish it. The plan I inherited said one thing was left: switch
+on a mechanism that was already built and waiting. I have not switched it on, and I think that
+is the right call. Here is why, in order.
+
+First, the housekeeping. Three other threads were working on pictures today, so before touching
+anything I asked them who owned what. The one called "imagery" said it was a different job and
+listed exactly which files it was in, so I knew we would not collide. The finetuning thread —
+the one that brought you the missing hero image on the case studies page — handed this over
+properly: *"Take it. My CONTRIB was a handover, not a claim."*
+
+**The important thing they told me is about your own words.** You said *"let's use the hero
+images somehow, we don't need a stop gap though."* You were answering a straight choice between
+patching four pages by hand and switching on the built mechanism. You said no to the patch and
+asked for the result. **You have never been shown the mechanism itself, or the review that says
+it is flawed.** So I have treated your instruction as "get the pictures onto the pages" and left
+myself free to pick how — which turned out to matter, because the built mechanism has a problem.
+
+**What I found instead.** Every picture slot on every page carries a written instruction from
+the component that owns it, and it always says the same thing: *find the right image, and if you
+cannot find it, use this specific stand-in.* There is no third option. What I found is **123
+picture slots, across 32 of your sites, where neither happened** — no image and no stand-in, just
+nothing. The instruction was ignored. Of those, 86 are showing the site's one generic header
+photo instead, which means **every "about us" and "contact" page across thirty-odd sites is
+currently showing the same picture**. The other 37 show nothing at all.
+
+**Why it keeps coming back, which is the part I care most about.** There is a step in the page
+build that clears a page's contents and writes them again from scratch. If the incoming batch
+does not happen to mention the picture, the picture is simply dropped — and the finished HTML
+still has it, because that was assembled a moment earlier. So the page looks right and the
+record behind it is wrong, and the next rebuild makes the page match the wrong record. This is
+exactly why the repair we did on 26 August faded: it fixed nine pages, and eight days later only
+three were still fixed. Another thread measured that decay before I arrived; I can now say what
+caused it. **It means any hand-repair has a shelf life, and so does the mechanism I was going to
+switch on** — which is precisely what its reviewers objected to, and they were right.
+
+**What I have proposed instead**, and it is with the review council now. Rather than adding
+another thing that writes pictures onto pages, make the page-writing step obey the instruction
+that is already written down: if the incoming batch has no picture, keep the one the page already
+had, and if there was none, use the stand-in the component asks for. The neat part is that this
+needs no cleverness at all — the stand-in is written in plain text in the component's own
+settings, so honouring it is a matter of reading, not working anything out. It ships switched
+off, and switching it off again is a one-line change with no rebuild.
+
+**Two things I want to be straight with you about.**
+
+One: this stops the rot and guarantees *a* picture. It does **not** guarantee each page gets
+*its own* picture. Only 18 of the 123 actually have their own image sitting ready; for the other
+105, the generic one genuinely is the right answer according to their own settings. Getting the
+right picture onto those 18 is a separate, smaller job.
+
+Two: my fix does not cover everything. The admin screens, two command-line tools, and about 25
+of our database scripts also write to this same place, and nothing I can write in the application
+will constrain a database script. Since our hand-repairs *are* database scripts, the very thing
+that caused the decay sits outside my fix's reach. The only place that would catch everything is
+the database table itself, and that is a big enough change that it belongs in a proper written
+proposal rather than smuggled in with a bug fix. I have said so in the submission rather than
+letting a good-looking result imply more than it does.
+
+**And a confession, because it belongs here.** I got four measurements wrong this afternoon
+before I got one right — including publishing a count to three other threads before I had
+checked it properly (it was 123, I told them 121). Every one was the same mistake in a different
+coat: a test that could not have told me I was wrong. The one that finally worked, I checked
+against a case I already knew the answer to before I trusted it. All four are written up. I
+mention it because the finding underneath is now load-bearing for a fleet-wide change, and you
+should know it survived four bad attempts rather than arriving clean.
