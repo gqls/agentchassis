@@ -24046,3 +24046,33 @@ WHERE p.status='active'
   **STRIPE_WEBHOOK_SECRET**, 10 keys total. **The terraform-047 fix is proven again on a
   real release with the consumer genuinely restarted** — which is the evidence the 2026-08-26
   incident never had.
+
+### A decision keyed on a ROW COUNT changes branch when you clean rows up — so a deletion can ARM a write that was refusing, and the clean-up looks like the safest step in the plan
+
+- **footprint:** `rebuild_blog_listing_action.go` · `decideBlogListingWrite` · `page_components`
+- **what fires it:** deleting, archiving or soft-removing rows on a page that some action counts
+  before deciding what to do. You are removing damage; nobody expects removal to *enable* a write.
+- **the worked case (`bugs_open/457`, 2026-09-04).** boxingonline `/articles/index.html` held **7**
+  rows in one slot. The listing rebuild counts them: `>1` → refuse ("too many to guess between"),
+  `==1` → **update it**. The outstanding remediation for that very bug was *delete six of the seven*.
+  Six rows are the damage; the seventh is the page's own prose block. Deleting the six moves the
+  count 7 → 1 and moves the branch **refuse → overwrite**, so the clean-up would have destroyed the
+  prose it was meant to leave alone. The refusal that made the bug look contained was an artefact of
+  the damage being *large*.
+- **the check, before any row deletion:** find what branches on the count, and ask which arm the
+  NEW count lands in — not whether the new count is smaller.
+  `grep -rn "Occupants\|count(\*)\|COUNT(\*)" <the action that touches this table>`, then read the
+  *decision*, not the query. Deleting to `0` and deleting to `1` frequently take different arms, and
+  `1` is the one that usually means "unambiguous, go ahead".
+- **the second half, and it is why this is a landmine and not a bug note:** the guard for it may be
+  committed and still absent from the cluster. A Go fix is inert until the image rolls, so
+  "roll first, delete second" is the order — and **`git merge-base --is-ancestor <fix> <live stamp>`
+  answers `false` both for "your commit missed the cut" and for "it shipped, the pods have not
+  restarted"**. Indistinguishable at the query. Date the cut against your own commit time
+  (`git log -1 <cut sha>`) to tell them apart; this lane told two peer lanes the wrong roll on
+  exactly that ambiguity, and one had already relayed it to the owner.
+- **relations:** `bugs_open/457` (the case, with the six row identities) · `016b` §9.101 (the
+  general pattern: an authority gate on one write verb is not a gate) · fix `828b22c7c`, council
+  `28bd3fd3` APPROVED · the predecessor round `f895616d7` / `13273c8c`, which introduced the count
+  test and placed it above the authority test
+- **added:** 2026-09-04, bugfix_451_457_433_unowned_queue lane

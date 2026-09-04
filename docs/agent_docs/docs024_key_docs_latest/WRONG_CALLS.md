@@ -68037,3 +68037,30 @@ a-stale-status-line-prevents-the-thing-it-describes, measurement-discipline-inde
   (ASA, CAP Code, AA-WARC) returned nothing, so supply comes from only 2 of 6 sources — a
   breadth question, still `[n=1]`, re-check 2026-09-08.
 - **2026-09-04, `bugs_open/477` lane — I wrote "verified at HEAD" about my own retirement banner using a probe that returns a FALSE ABSENCE on two of its three key sentences.** After the landmine restore loop, I asserted the banner was in HEAD with `git show HEAD:LANDMINES.md | tr '\n' ' ' | tr -s ' ' | grep -c "<phrase>"` — the unwrapping form two lanes had recommended that afternoon precisely because a line-oriented grep gives false absences on a hard-wrapped file. It returned 1 and I reported it verified. **`tr` unwraps the hard wrap but leaves the `> ` blockquote continuation markers**, and corrections in this corpus are written as `>` blockquotes — so a phrase that wraps *inside* a quoted block unwraps to `…deletion > is indistinguishable…` and the grep misses it. Measured against my own banner: `"a deliberate deletion is indistinguishable from an accidental clobber"` → **0 old / 1 corrected**; `"A strike-through costs one reader one line…"` → **0 old / 1 corrected**. My single passing check was the one sentence short enough not to wrap. **What caught it:** the `infographics` lane hitting the same false zero on their own commit ten minutes later and telling me, not my own re-check. **The corrected form is `sed 's/^> \?//'` FIRST, then `tr`, then grep** — strip the markers, then unwrap. **And the rule that generalises past this file: when an assertion contradicts a commit git says succeeded, doubt the PROBE before you doubt the commit.** Three probes between two lanes produced false absences on this one file in one afternoon (a phrase-grep that could not separate an entry from a cross-reference to it; a line-anchored grep on wrapped text; and this one). Every one returned a plausible number rather than an error — which is the whole family: **an absence-check that cannot distinguish "not present" from "present but my instrument cannot see it".**
+
+- **2026-09-04 — bugfix_451_457_433_unowned_queue (457 residual) — I put the NEW symbol name in a
+  council submission's `modify` edit, so nothing in the plan named the test that actually existed;
+  and I claimed "exactly one cell changes" when two do.**
+  Two separate slips in one submission, both caught by the `editquality` seat, and the round was
+  approved anyway — which is the reason to write them down rather than let an APPROVED verdict
+  launder them. **(a)** The edit renamed `TestBlogListingUpdatesTheSingleOccupantWhateverStrategyNamedTheSlot`
+  to `…OfAnAuthorisedSlot`, and I wrote the *new* name in the `symbol` field of a `modify`
+  operation. The seat's objection is exactly right: "if the real symbol differs, `modify` will not
+  land where intended and the over-wide assertion this submission says it is correcting stays live."
+  My working tree was already correct, so the risk fell entirely on anyone implementing from the
+  plan. *The cheap check:* **on a rename, `symbol` names what exists NOW; the new name belongs in the
+  sketch.** **(b)** "Exactly one cell changes: every other cell is bit-identical" — enumerated
+  mechanically afterwards (4 origins × 4 occupancy values, printed from the real function), **two**
+  cells change. One *row* of the table, not one cell. Nobody was misled and the substance held, but
+  I asserted a count I had reasoned about rather than run, in the same submission where I was
+  praising myself for measuring the blast radius.
+  *Third, and it is the one worth the words:* the same seat also raised a **medium** objection that
+  was flatly wrong — it read a **moved** code block as newly added and doubted the return value
+  existed, when both sat in the shipped predecessor at `f895616d7:917-920`. **The cause was my
+  sketch**, which rendered the move with `+` prefixes, and a diff cannot express a move. *The cheap
+  check:* **if a sketch relocates code, say "moved, unchanged" in the edit's rationale** — otherwise
+  you have spent a reviewer's round on a question your own formatting invented, and the wasted
+  objection crowds out the one they got right.
+
+Family: a-report-is-not-a-measurement, mutate-the-code-to-prove-the-guard,
+a-citation-you-did-not-open-is-a-claim, your-measurement-answers-the-question-you-encoded.

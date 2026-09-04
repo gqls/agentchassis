@@ -6979,6 +6979,54 @@ first-hand substitute the 2026-07-31 ruling allows — quote the step JSON and t
 never been published — is the 2026-09-03 LANDMINES entry from the same lane. Same column, same wrong
 inference, one made by a person and one by a gate.
 
+### 9.101 — An authority gate placed on ONE write verb is not a gate; and the CLEAN-UP is what arms the other verb (2026-09-04, `bugs_open/457`)
+
+**Symptom you will not have.** None. Both halves look fixed, the tests are green, and the council
+approved the round that shipped it.
+
+**The shape.** A resolver returns a target plus *how it got there* — found, declared, guessed,
+defaulted — and the writer refuses to act on a guess. That is the right design and `bugs_open/457`
+shipped it. But the gate was written into the branch that CREATES and not the branch that UPDATES,
+because the function tested "how many rows are here?" before it tested "may I write here at all?":
+
+```go
+if slot.Occupants == 1 { return opUpdate, "" }   // ← no origin test; the gate never runs
+switch slot.Origin { case slotOriginPlanListing: return opInsert, "" ; default: return opRefuse… }
+```
+
+So a guessed target with one occupant was *overwritten*. **The unauthorised write survived the
+fix; only its verb changed** — and the surviving verb is the destructive one. The append added a
+row nobody asked for; the update destroys a row somebody did.
+
+**The tell, and it is cheaper than re-deriving the logic.** Lay the decision table out and look for
+an asymmetry in the SAFETY direction: here a guessed target refused when the slot was **empty** and
+wrote when it was **occupied**. When a table refuses the harmless case and permits the damaging one,
+the gate is in the wrong place. You do not need to understand the domain to see that.
+
+**The second half, which is the part nobody predicts: the REMEDIATION arms it.** The decision keyed
+on a *count*. The motivating page held 7 rows, so it hit the "too many to guess between" arm and
+refused — which is why nothing had been overwritten and why the bug looked contained. The
+outstanding clean-up for that same bug was *delete six of the seven rows*. Deleting them moves the
+count to 1 and moves the branch from **refuse** to **write**. The fix for the bug is what would have
+fired the residual.
+
+**The check, whenever you are about to delete, archive or soft-remove rows:** find what BRANCHES on
+the count of those rows, and ask which arm the new count lands in.
+`grep -rn "Occupants\|count(\*)" <the action>` then read the decision, not the query. A clean-up is
+normally reasoned about as *removing* behaviour; a count-gated writer makes it *add* behaviour.
+
+**And a Go change is inert until the image rolls, so the ordering is load-bearing.** "Roll first,
+delete second" is only meaningful if you check WHICH roll: `git merge-base --is-ancestor <your fix>
+<the live stamp>`. ⚠ That command answers **false** both for "your commit missed the cut" and for
+"your commit shipped but the pods have not restarted", and the two are indistinguishable at the
+query — this lane told two peer lanes the wrong roll on exactly that ambiguity. Date the cut
+(`git log -1 <cut sha>`) against your own commit time to tell them apart.
+
+**Relations.** `bugs_open/457` · the fix `828b22c7c` and the round it corrects, `f895616d7` ·
+`WRONG_CALLS.md` 2026-09-04 (the constraint that migration 316 had already refused) ·
+§"Order fix candidates by what closes the door" — an origin/authority tag is the door-closer here,
+but only if every write verb passes through it.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs

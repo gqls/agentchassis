@@ -599,3 +599,41 @@ So the gap is genuinely unowned.
 > that files this class into `filing_mode='record'` with no handler adds a 3,185th parked finding.
 > The item is not "emit a work item" — it is "emit a work item **that has a route**". Ship it
 > without one and the refusal becomes invisible in a second place rather than the first.
+
+### COUNCIL VERDICT on `828b22c7c` — **APPROVED, round 1** (correlation `28bd3fd3`, 2026-09-04)
+
+`approved with 1 advisory objection — none high-severity`. 7 seats abstained, 8 approved,
+`editquality` objected (advisory). The commit carries `Council-Submitted:`, so `098` credits it
+automatically; **no amend, per forward-only.** Both substantive objections adjudicated below rather
+than accepted or dismissed wholesale.
+
+**`editquality` obj 1 (medium) — REFUTED at the code, and my sketch is why it was raised.** The seat
+read the `slotOriginExistingRow → opRefuseUnknown` branch as *new*, "never mentioned in the
+diagnosis", and doubted `opRefuseUnknown` was a handled return. It is not new: it is at
+**`f895616d7:917-920`**, verbatim, comment and all — I *moved* it into the switch, I did not add it,
+and the caller has handled it since the same commit (`:236`, `if op != opUpdate && op != opInsert`).
+The objection is a misread of a diff, and the diff was mine: I rendered a moved block with `+`
+prefixes in the sketch, which is indistinguishable from an addition. **A sketch that moves code must
+say so in words; `+`/`-` cannot express a move.**
+
+**`editquality` obj 2 (medium) — CORRECT, and a real defect in the submission.** I put the **new**
+symbol name (`TestBlogListingUpdatesTheSingleOccupantOfAnAuthorisedSlot`) in the `symbol` field of a
+`modify` edit, so nothing in the submission let a reviewer find the pre-existing over-wide test
+(`…WhateverStrategyNamedTheSlot`). The code was already right — the risk was entirely to anyone
+implementing *from the plan*. **On a rename, `symbol` names what exists now, not what you are
+about to call it.** → `WRONG_CALLS.md`.
+
+**`guardian` (low, the counted advisory) and `bug_historian` both press the same point**, and it is
+the open item above: the refusal is legible only in an Error log, which `guardian` calls "a real
+operational blind spot, not just documentation debt", and `bug_historian` warns that "an unfiled
+known gap has a documented tendency on this platform to persist indefinitely once the loud symptom
+is patched." Recorded here rather than deferred silently. **The routing constraint found this same
+day is the reason it is still not built** — see correction 3 above: filing it into
+`filing_mode='record'` with an empty handler adds a 3,185th parked finding, which satisfies the
+objection's letter and not its intent.
+
+**A correction of my own, from checking the seat's claim.** My submission and commit message say
+"exactly one cell changes". Enumerated mechanically (all 4 origins × occupancy 0/1/2/7):
+**two cells change** — `plan_fallback_guess`/1 and `default`/1, both `opUpdate` → `opRefuseNoSlotAuthority`.
+It is one *row* of the decision table, not one cell. Every other cell is bit-identical, so the claim's
+substance holds and its arithmetic did not.

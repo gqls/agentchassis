@@ -160,3 +160,35 @@ growth sits inside the interval and had already ended. §"TWO PRODUCERS WEAR ONE
 file was written after the first three lanes did this, and did not prevent the fourth — **a section
 warning about a misreading is only read by someone who already suspects.** The durable check is
 `max(created_at)`, which answers "is it still growing" in one query and cannot be read backwards.
+
+## 2026-09-04 — council APPROVED round 1, and two of my own slips inside an approved round
+
+`28bd3fd3` → **APPROVED**, 1 counted advisory, none high-severity. `editquality` raised two mediums;
+one is wrong and one is right, and I checked rather than accepting either.
+
+- **Wrong:** it read `slotOriginExistingRow → opRefuseUnknown` as a new branch. It is at
+  `f895616d7:917-920` verbatim — I moved it. **My sketch caused it:** I rendered a moved block with
+  `+` prefixes and a diff cannot express a move. A reviewer round was spent on a question my
+  formatting invented, and that crowds out the objection they got right.
+- **Right:** I wrote the *new* test name in the `symbol` field of a `modify` edit, so the submission
+  never named the test that existed. Harmless here because my tree was already correct; not harmless
+  to anyone implementing from the plan.
+- **And checking the first one caught a third, mine:** "exactly one cell changes" is **two** cells
+  (`plan_fallback_guess`/1 and `default`/1). One *row*, not one cell. I enumerated the table
+  mechanically to answer the seat and found my own arithmetic wrong — in the same submission where I
+  was pointing at my blast-radius measurement as evidence of rigour. **Running the enumeration took
+  90 seconds and I had reasoned about it instead.** All three → `WRONG_CALLS.md`.
+
+**The seats' shared point, which stands.** `guardian` (the counted advisory) and `bug_historian`
+both press the discovery check: a refusal legible only in an Error log is "a real operational blind
+spot, not just documentation debt", and an unfiled known gap "has a documented tendency on this
+platform to persist indefinitely once the loud symptom is patched". They are right, and it is still
+not built — because `site_delivery_and_editor` measured **3,184** findings already parked with
+`filing_mode='record'` and an empty handler. Filing into that satisfies the objection's letter and
+not its intent. Recorded in the bug file as a routing constraint on the item, not as a reason to
+drop it.
+
+**What is owed next, in order:** (1) the discovery check *with a route*; (2) writer honesty at the
+2 of 7 `page_components` writers that swallow an INSERT failure, which is the prerequisite for
+(3) the `(page_id, slot_name, position)` invariant that migration 316 refused while (2) is untrue.
+Concurrency falls out of (3) and is not worth its own advisory lock.
