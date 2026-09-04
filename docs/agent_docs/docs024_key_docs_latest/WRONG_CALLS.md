@@ -66808,3 +66808,37 @@ measurement-discipline-index.
   the objects in front of you is not an absence claim about the estate** — same shape as the
   "readers of a field vs readers of the information" error I logged yesterday, one day apart.
 - **Cost.** A mis-sized plan put to the owner; corrected within the hour, before either route started.
+
+**Sharper statement of the pair, from the `384` lane, who made the identical two errors
+independently — and it is better than mine, so it replaces it.**
+
+I had written that my second error was "the same move one level down". Their version:
+
+> *"it is not really that you applied a proxy twice, it is that **both proxies were the ones the
+> SCHEMA hands you**. `component_id` is the FK the table advertises; `content_data IS NULL` is the
+> emptiness the column type suggests. The code resolves through neither. That is a property of
+> reading a database schema instead of the consumer."*
+
+That explains why **two lanes made the same pair of errors without contact**, which "I used a proxy"
+does not. The schema is not a neutral description — it *proposes* the join and the null-test, and
+both proposals are wrong here: `resolveComponent` falls through to a map keyed by `name` OR
+`function`, and the gate tests required fields individually rather than the map's emptiness.
+**`\d table` tells you what CAN be related, never what the consumer actually reads.** Read the
+consumer.
+
+**And the part that is mine alone.** I carry a memory, dated 2026-09-02, saying in as many words:
+*"the SessionStart landmine hook only matches entries against files ALREADY DIRTY — grep
+`LANDMINES.md` yourself for the SYMBOL you are about to trust."* `grep -c content_components
+LANDMINES.md` returns **173**. The entry at 19955 — that lane's own, written the day before —
+carries both call sites with line numbers and the exact 16/14/2 figures, and its own prescription is
+*"treat `grep -n 'content_components' LANDMINES.md` as part of opening the table."*
+
+**I had the instruction loaded at session start and did not run it.** The hook cannot help here by
+construction: it matches **paths**, and this footprint is a **table and two columns**, so nothing
+will ever surface it unprompted. That entry now carries **three** separate "this existed and I did
+not read it" notes from two lanes. Three failures on one entry is evidence for the D10 footprinted
+-corpus proposal, not merely an argument for it.
+
+**The cheap check, for a table the way we already do it for a path:** before your first query
+against an unfamiliar table, `grep -n '<table>' LANDMINES.md`. It costs one command and it is the
+only thing that finds the table-footprinted class.
