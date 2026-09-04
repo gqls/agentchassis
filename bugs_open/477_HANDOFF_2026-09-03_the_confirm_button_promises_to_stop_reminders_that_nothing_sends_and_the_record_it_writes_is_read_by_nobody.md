@@ -160,9 +160,15 @@ due", which is what this failure would have looked like for ever.
 
 **The obvious fallback fails too, and that was measured rather than assumed.** The delivery run does
 record the address it used (`orchestration_states.collected_data->'input_data'->>'customer_email'` =
-the address idea.uk went to) — but the **oldest row in that whole table is under 24 hours old**
-(6,662 rows, oldest 2026-09-03 11:47Z; `stale-orchestration-reaper` runs every 180s). A follow-up
-due in seven days would look for it six days after it was reaped.
+the address idea.uk went to) — but that table is a QUEUE, not a history: `sql_for_agents/466` deletes
+terminal rows whose `updated_at` is more than **24 hours** old. A follow-up due days later looks for
+a reaped row.
+
+> **CORRECTED 2026-09-04, same day.** This paragraph first said *"the oldest row in that whole table
+> is under 24 hours old"*, from `now() - min(created_at)`. **That figure does not measure retention**
+> — it reports the oldest SURVIVOR's birthday while the policy keys on `updated_at`, so a
+> recently-touched old row keeps it pinned. `[MEASURED 14:29Z]` oldest survivor 1d02:41 by birthday,
+> updated 22:24 ago. Read the DELETE, not the table.
 
 > **THE REAL GAP: the estate has no durable record of who a delivered site was delivered to.**
 > `build_queue` holds it only for order-originated sites; `orchestration_states` holds it for about a
@@ -237,10 +243,16 @@ control which address lives where.
 - **Proven against real Postgres, rolled back, with a demand control**: a won claim stamps and
   records; a LOST claim records nothing; **the same INSERT ungated DOES fire**, so that zero is the
   claim gate's doing and not a broken insert; a second claim neither stamps nor records.
-- **⚠ The backfill expired the same day and was caught with hours to spare.** The only
-  machine-readable copy of that address was the delivery run's `orchestration_states` row, and that
-  table retained **1 day 02:11** when measured at 13:59Z. Applied 14:50Z, captured **1 of 1**.
-  Tomorrow it would have been a human typing it out of a document.
+- **⚠ The backfill expired the same day and was caught with 4h40m to spare.** The only
+  machine-readable copy of that address was the delivery run's `orchestration_states` row, which is
+  reaped 24 hours after its `updated_at` (2026-09-03 19:30:40Z) — so the true deadline was
+  **2026-09-04 19:30:40Z**. Applied 14:50Z, captured **1 of 1**. Tomorrow it would have been a human
+  typing it out of a document.
+  > **CORRECTED same day: I first reported "about seven hours" of margin, from
+  > `now() - min(created_at)` over the whole table.** That is the wrong column — it reports the oldest
+  > SURVIVOR's birthday while the policy keys on `updated_at`, so it over-stated the margin by about
+  > 90 minutes. The real figure at that moment was 5h31m. Ask the ROW, never the table:
+  > `SELECT updated_at + interval '24 hours' - now() AS time_left FROM orchestration_states WHERE …`.
 - **⚠ ORDERING is the one way this breaks production**: without the table, every delivery fails at
   the claim. `778` was applied before the code could ship. Council round `62a99103` was submitted
   before applying; the seats therefore audit a migration that went live mid-round, which is stated

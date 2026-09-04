@@ -74,9 +74,15 @@ SELECT count(*) FILTER (WHERE NOT EXISTS (
 population whatever. `775`'s verify prints this on every apply.
 
 > **Do NOT "fix" it with `orchestration_states`.** It does hold the address a delivery used, and it
-> passes every test you write this afternoon. `SELECT min(created_at) FROM orchestration_states` was
-> **2026-09-03 11:47Z** on 2026-09-04 — under 24 hours of history, so a follow-up due days later
-> reads a reaped row.
+> passes every test you write this afternoon. But it is a QUEUE: `sql_for_agents/466` deletes
+> `WHERE status IN ('COMPLETED','FAILED') AND updated_at < now() - INTERVAL '24 hours'`, so anything
+> due days later reads a reaped row.
+>
+> ⚠ **And do not size that with `min(created_at)` — it is the wrong column, and it over-states the
+> margin.** `now() - min(created_at)` reports the oldest SURVIVOR's birthday while the policy keys on
+> `updated_at` (measured 1d02:41, on a survivor last updated 22:24 ago). **Ask the row you care
+> about:** `SELECT updated_at + interval '24 hours' - now() AS time_left FROM orchestration_states
+> WHERE <predicate>;`
 
 > ⚠ **AND THE COLUMN A READER REACHES FOR IS POPULATED AND WRONG, WHICH IS WORSE THAN EMPTY.**
 > `[MEASURED 2026-09-04]` idea.uk carries `sites.email = 'idea.uk@contactforsales.com'` — a site

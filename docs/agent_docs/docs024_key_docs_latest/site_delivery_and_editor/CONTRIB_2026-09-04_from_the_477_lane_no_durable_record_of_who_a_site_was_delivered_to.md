@@ -1,5 +1,18 @@
 # CONTRIB 2026-09-04, from the `bugs_open/477` lane — there is no durable record of who a delivered site was delivered to, and the fix belongs in your `Claim`
 
+> **✅ RESOLVED THE SAME DAY — read this box before the body.** The owner ruled (relayed by this
+> lane): a **dedicated `site_deliveries` table**, NOT the `sites.delivered_to` column §"The fix I
+> think is right" proposes below, and for the reason that section itself flags. Built, applied and
+> council-approved by the 477 lane: migration `778` + the recipient written inside `StampHandover`'s
+> claim (`698b144fa`, round `62a99103` approved, architecture seat `point_fix`). idea.uk's address
+> was backfilled from the run log with 4h40m to spare.
+>
+> **The body is left as written rather than rewritten**, because the reasoning is what the owner
+> ruled on and a document edited to match its own outcome teaches nothing. Read §"The fix I think is
+> right" as *the proposal that was accepted with its storage location changed* — the placement (in
+> the claim statement) was taken, the location (`sites`) was not, on exactly the PII ground the
+> section's own ⚠ raises.
+
 Routed here rather than fixed by me, because the change is one statement inside
 `platform/delivery/prepare.go`, which is your surface and which I have deliberately stayed out of all
 day. Everything below is measured; nothing needs taking on trust.
@@ -19,10 +32,16 @@ hand, so it never passed through the order pipeline that writes `build_queue`.
 **The fallback that looks obvious fails on a schedule, and I measured it rather than assuming.**
 `orchestration_states` really does hold the address the delivery used
 (`collected_data->'input_data'->>'customer_email'` = `aaa@designconsultancy.co.uk` on the idea.uk
-run). But `SELECT min(created_at), count(*) FROM orchestration_states` = **2026-09-03 11:47:55Z,
-6,662 rows** — **under 24 hours of history**, with `stale-orchestration-reaper` running every 180s. A
-follow-up due in seven days would look for that row six days after it was reaped. It would pass every
-test written the same afternoon.
+run). But that table is a QUEUE, not a history: `sql_for_agents/466` deletes terminal rows whose
+`updated_at` is over **24 hours** old, so a follow-up due days later reads a reaped row. It would
+pass every test written the same afternoon.
+
+> **CORRECTED 2026-09-04, and the correction matters more than the number.** I first wrote this as
+> *"`SELECT min(created_at)` … under 24 hours of history"*. **`now() - min(created_at)` does not
+> measure retention** — it reports the oldest SURVIVOR's birthday, and the policy keys on
+> `updated_at`. That is why two lanes read it as "~25 hours", then "1d02:39", then "elastic": all
+> three were the wrong instrument. For one row's survival, ask that row:
+> `SELECT updated_at + interval '24 hours' - now() AS time_left FROM orchestration_states WHERE …`.
 
 ## Why you would not have seen it, and why I nearly didn't
 

@@ -118,10 +118,11 @@ permitted recipient source, `sites.email` being explicitly forbidden.
 > post-fix zero, it was a **pre-launch** zero, and it needed the control just as much.
 
 **And the fallback fails too — measured, not assumed.** `orchestration_states` records the address
-the delivery actually used (`input_data.customer_email` = the address idea.uk went to). But
-`SELECT min(created_at), count(*) FROM orchestration_states` = **2026-09-03 11:47:55Z, 6,662 rows** —
-under 24 hours of history, with `stale-orchestration-reaper` running every 180s. A follow-up due in
-seven days would look for that row six days after it was reaped. I nearly wrote a COALESCE onto it.
+the delivery actually used (`input_data.customer_email` = the address idea.uk went to). But that table is a QUEUE, not a
+history: `sql_for_agents/466` deletes terminal rows whose `updated_at` is over **24 hours** old, so a
+follow-up due days later reads a reaped row. I nearly wrote a COALESCE onto it.
+*(This paragraph originally sized that with `SELECT min(created_at)`. See the correction below — that
+is the wrong column and it over-states the margin.)*
 
 **So the real gap: the estate has no durable record of who a delivered site was delivered to.**
 Routed to the `site_delivery_and_editor` lane, since the fix belongs in the statement that stamps
@@ -219,10 +220,26 @@ another lane's commit and shipped by their build. That is not hypothetical; my `
 > alternative was a dirty tree holding a change that breaks deliveries if anyone commits it, and that
 > is worse. Submitted before applying, which is the part of the rule that protects the review.
 
-**2. `[MEASURED 2026-09-04 13:59Z]` the backfill had about SEVEN HOURS left.** The only
-machine-readable copy of the address was the delivery run's `orchestration_states` row, and that
-table retained **1 day 02:11**. Applied 14:50Z; captured **1 of 1 recoverable**. Tomorrow it would
-have been a human typing an address out of a document and hoping the document was right.
+**2. The backfill had 5h31m left — NOT the ~7 hours I first read.** Applied 14:50Z with 4h40m to
+spare; captured **1 of 1 recoverable**. Tomorrow it would have been a human typing an address out of
+a document and hoping the document was right.
+
+> **CORRECTED 2026-09-04 — I measured the wrong thing, and a peer lane re-measuring is what exposed
+> it.** I sized the margin as `now() - min(created_at)` over the whole table (1d02:11 → "about seven
+> hours"). **That does not measure retention.** It reports the oldest SURVIVOR's birthday, while the
+> policy keys on a different column entirely: `sql_for_agents/466` deletes `WHERE status IN
+> ('COMPLETED','FAILED') AND updated_at < now() - INTERVAL '24 hours'`. A recently-touched old row
+> keeps `min(created_at)` pinned — `[MEASURED 14:29Z]` the oldest survivor was 1d02:41 by birthday
+> and had been **updated 22:24 ago**, comfortably inside the window.
+> **The true deadline was that row's `updated_at` (19:30:40Z) + 24h = 2026-09-04 19:30:40Z.** Both
+> lanes had been quoting ~20:56Z, which is 1h26m too generous.
+> **The right question is never table-wide** — ask the row:
+> `SELECT updated_at + interval '24 hours' - now() AS time_left FROM orchestration_states WHERE …`.
+> The peer read the drift between two of these readings as *"retention is elastic"*. It is not
+> elastic; it is a flat 24 hours from a column neither of us had read. **Both of us mis-measured the
+> same way and neither reading would ever have come out right**, which is what makes it an instrument
+> error rather than a stale figure. Corrected in both landmine entries, the `778` header, the bug
+> file, the CONTRIB and the RUNBOOK.
 
 ### What was proven, and the control that makes it mean something
 

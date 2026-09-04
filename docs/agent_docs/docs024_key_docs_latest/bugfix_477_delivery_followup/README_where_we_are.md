@@ -93,8 +93,8 @@ The rule in our own documentation is that a customer's address comes from the or
 is right, and for a site that came through an order it works. But idea.uk — the only site we have
 ever delivered — was our own rehearsal, sent to your address typed in by hand, so there is no order
 and there is no recorded address. The one other place it exists is the log of the delivery run
-itself, and I checked how long those are kept: **under twenty-four hours.** A follow-up due in a week
-would be looking for it six days after it was thrown away.
+itself, and those are thrown away a day after the run finishes. A follow-up due days later would be
+looking for something already gone.
 
 I only found this because I ran the query with the calendar deliberately relaxed, so that it *had* to
 return idea.uk, and it returned nothing. Without that, the follow-up would have sat there switched
@@ -118,3 +118,28 @@ yours. The first time it is switched on for real, **you get the email**. Better 
 this was dead for about forty minutes this morning — the account had run out of credit. It has been
 topped up and everything is running again. It matters only because a dead review looks exactly like a
 finished one unless you go and look, so I have written down how to tell the difference.
+
+
+---
+
+**2026-09-04, later — a correction to my own arithmetic, and it is the useful kind.**
+
+Yesterday's delivery record is now saved permanently, and I said earlier I had caught it with about
+seven hours to spare. That was wrong: the real margin was about five and a half hours. I still caught
+it comfortably — it was saved with four and three quarter hours left — but I want to correct the
+number because of *why* it was wrong.
+
+I had asked the system "how far back does this log go?" and got an answer of about twenty-six hours.
+The honest answer is that the log does not work that way at all. Records are thrown away twenty-four
+hours after they were last *touched*, not after they were created — and one old record that had been
+touched recently was making the whole log look older than it keeps. I was reading a number that
+sounded like an answer to my question and was actually an answer to a different one.
+
+The colleague working on delivery hit the same thing from the other side, got a slightly different
+figure, and concluded the log's memory was simply variable. It is not variable. We had both measured
+the wrong thing, in the same way, and neither of our readings could ever have come out right.
+
+Nothing about the outcome changes — the address is saved and the deadline is long past. I have
+corrected it in the six places the wrong figure had reached, including two of the warning notes the
+whole fleet reads, because a number that sounds plausible and is measured wrongly is exactly the kind
+that gets copied forward.

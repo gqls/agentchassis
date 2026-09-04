@@ -23240,7 +23240,12 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 - **the trap:** `651`'s header states the rule plainly and correctly — take the address from `build_queue.direction->>'customer_email'`, **never** `sites.email` (corrected 2026-08-31, `bugs_open/420`: since the contract split, `sites.email` is the PUBLISHED contact only). Following that rule to the letter produces a query that is *right* and returns *nothing*, because a site delivered by hand — a rehearsal, a favour, anything not raised as an order — never gets a `build_queue` row at all. `[MEASURED 2026-09-04]` `build_queue` rows for idea.uk, the estate's only handed-over site: **ZERO**.
 - **why it is a landmine and not a bug you would notice:** a `JOIN LATERAL … ON true` over a subquery that returns no row drops the site silently, and a scheduled selector that returns zero candidates looks **exactly** like one with nothing due. There is no error, no NULL, no red row — just a mechanism that appears healthy and never fires.
 - **the check, and it is the whole lesson: RUN YOUR SELECTOR WITH A DEMAND CONTROL.** Re-run it with the one predicate that is *supposed* to be excluding everything relaxed (here, `interval '7 days'` → `interval '0 days'`) and assert it now returns the row you know exists. If it still returns nothing, your zero was never about that predicate. This is the only reason the gap was found; every other signal was green.
-- **⚠ the obvious fallback is worse, because it works TODAY and expires:** `orchestration_states` really does record the address a delivery used, so a `COALESCE` onto it passes every test you write this afternoon. `[MEASURED 2026-09-04]` the **oldest row in that entire table is under 24 hours old** (6,662 rows, oldest 2026-09-03 11:47Z; `stale-orchestration-reaper` runs every 180s). Anything due more than a day later reads a reaped row. Check `SELECT min(created_at) FROM <table>` before treating any table as a record rather than a queue.
+- **⚠ the obvious fallback is worse, because it works TODAY and expires:** `orchestration_states` really does record the address a delivery used, so a `COALESCE` onto it passes every test you write this afternoon — and then reads a reaped row when the thing you scheduled actually comes due. It is a QUEUE, not a record.
+  > **⚠ CORRECTED 2026-09-04, SAME DAY, AND THE CORRECTION IS THE USEFUL PART.** This entry first said *"the oldest row in that entire table is under 24 hours old … check `SELECT min(created_at)`"*. **Both halves were wrong, and the second one is why the first was.**
+  > **`now() - min(created_at)` DOES NOT MEASURE RETENTION.** It reports the oldest SURVIVOR's birthday, and the policy does not key on birthdays. Read the actual predicate (`sql_for_agents/466`, the maintenance CTE): `DELETE FROM orchestration_states WHERE status IN ('COMPLETED','FAILED') AND **updated_at** < now() - INTERVAL '24 hours'`. So a row that was touched recently survives no matter how old it is — `[MEASURED 2026-09-04 14:29Z]` the oldest survivor was **1 day 02:41** by `created_at` and had been **updated 22:24 ago**, comfortably inside the window. The instrument said "26 hours of history" while the policy said 24 hours from a different column.
+  > **What that cost, in the one case it was used on:** I read ~7 hours of margin for the idea.uk backfill at 13:59Z; the true figure was **5h31m** (`updated_at` 2026-09-03 19:30:40Z + 24h = **19:30:40Z**, not the ~21:00Z two lanes were quoting). The work landed at 14:50Z either way, but the margin was over-stated by a third and nobody would have known.
+  > **The check that is actually right, and it is not a table-level figure at all:** ask about the ROW you care about — `SELECT status, updated_at, updated_at + interval '24 hours' AS reaped_after, (updated_at + interval '24 hours') - now() AS time_left FROM orchestration_states WHERE <your predicate>;`. A table-wide "retention" number is the wrong shape for a question about one row's survival, and it is the shape that reads plausible.
+  > This generalises past this table: **before quoting any retention, read the DELETE and check which column it keys on.** A neighbouring entry in this file quotes a "~26-hour window" for the same table from the same instrument.
 - **the real state:** the estate has **no durable record of who a delivered site was delivered to**. The fix is to stamp the recipient in the same statement that stamps `handed_over_at` (`platform/delivery/prepare.go`); until it exists, any post-delivery contact reaches order-originated sites only. `775`'s verify reports the gap on every apply so it cannot go quiet.
 - **relations:** `bugs_open/477` §4 · register `EMAIL-003` (open review question 2) · MEMORY [[a-post-fix-zero-needs-a-demand-control]] (the same control, one step earlier — this zero was *pre*-launch, and needed it just as much) · [[a-closer-census-cannot-see-what-it-succeeded-at]] (a rolling window read as a record)
 - **added:** 2026-09-04, bugs_open/477 lane
@@ -23318,6 +23323,18 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 >
 > ⚠ **Retention is elastic, not a constant.** This entry said "~25 hours" from one measurement; a
 > second reading gave **1 day 02:39**. Treat it as "about a day, and do not plan around the tail".
+>
+> ⚠⚠ **AND IT IS NOT ELASTIC EITHER — CORRECTED 2026-09-04 by the 477 lane, who put the wrong figure
+> here in the first place.** Both readings came from `now() - min(created_at)`, and **that is not a
+> retention measurement**: it reports the oldest SURVIVOR's birthday while the policy keys on a
+> different column. The real predicate is in `sql_for_agents/466`: `DELETE … WHERE status IN
+> ('COMPLETED','FAILED') AND **updated_at** < now() - INTERVAL '24 hours'`. A flat 24 hours, from
+> `updated_at`. It looked elastic because a recently-touched old row keeps `min(created_at)` pinned —
+> `[MEASURED 14:29Z]` the oldest survivor was 1d02:41 by birthday and had been updated 22:24 ago.
+> **For a question about one row surviving, ask that row:**
+> `SELECT updated_at + interval '24 hours' - now() AS time_left FROM orchestration_states WHERE …`.
+> The idea.uk delivery row's true deadline was **2026-09-04 19:30:40Z**, not the ~20:56Z we both
+> quoted.
 
 - **the known recipients, recorded here because the rows expire:** `idea.uk` (handed over
   2026-09-03 19:30:31Z) was delivered to the owner's own address, `aaa@designconsultancy.co.uk`, in

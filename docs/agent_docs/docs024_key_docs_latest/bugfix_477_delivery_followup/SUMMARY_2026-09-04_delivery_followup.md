@@ -1,5 +1,12 @@
 # SUMMARY 2026-09-04 — the confirm button, and the follow-up email that did not exist
 
+> **SUPERSEDED the same day by `SUMMARY_2026-09-04b_delivery_followup.md`.** Kept unedited, because
+> the series is the record and what we believed at this point is the thing a later reader cannot
+> rederive. Two of its statements went out of date within hours: the blocker it describes as open
+> ("the follow-up cannot email anybody") is closed, and the interval it lists as the owner's to decide
+> has been decided. One sentence WAS corrected in place — the delivery log's retention — because it
+> was factually wrong rather than merely overtaken; see the b summary for what was wrong with it.
+
 ## What we are trying to do
 
 Make one sentence on a customer-facing page true. When we deliver a website, the customer gets a link
@@ -52,8 +59,8 @@ The follow-up cannot email anybody, and finding out why is the most useful thing
 **We have no durable record of who any site was delivered to.** The rule — correctly — is that a
 customer's address comes from the order they placed. The one site we have ever delivered was our own
 rehearsal, sent to an address typed in by hand, so there is no order and no address. The only other
-copy of it lives in the delivery run's own log, and those are kept for under twenty-four hours; a
-follow-up due in a week would be looking for it six days after it was discarded.
+copy of it lives in the delivery run's own log, and those are discarded a day after the run finishes;
+a follow-up due days later would be looking for something already gone.
 
 That was found by running the selector with the calendar deliberately relaxed so it *had* to return
 the one site we know about. It returned nothing. Without that check, the follow-up would have run

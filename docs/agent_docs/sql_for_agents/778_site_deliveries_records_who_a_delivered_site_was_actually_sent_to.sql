@@ -15,13 +15,21 @@
 -- correct by its own definition, and never the customer.)
 --
 -- ⚠ THE BACKFILL EXPIRES TODAY. The only machine-readable copy of that address is
--- the delivery run's own row in `orchestration_states`, and that table is a
--- ROLLING WINDOW, not a history: `[MEASURED 2026-09-04 13:59Z]` its oldest row was
--- 1 day 02:11 old, and the idea.uk delivery row (2026-09-03 19:30:31Z) had roughly
--- SEVEN HOURS left. After that the only record anywhere is prose in bugs_open/477
--- and this file's header. Applying this migration today captures it from the
--- system's own record; applying it tomorrow captures nothing and the row has to be
--- typed in by a human trusting a document.
+-- the delivery run's own row in `orchestration_states`, and that table is a QUEUE,
+-- not a history. The retention policy is in `sql_for_agents/466`:
+--   DELETE ... WHERE status IN ('COMPLETED','FAILED') AND updated_at < now() - '24 hours'
+-- The idea.uk delivery row has `updated_at = 2026-09-03 19:30:40Z`, so it is reaped
+-- after **2026-09-04 19:30:40Z**. Applied at 14:50Z with 4h40m to spare. Applied
+-- tomorrow it captures NOTHING and the address has to be typed in by a human
+-- trusting a document.
+--
+-- > ⚠ CORRECTED before this file was applied. An earlier draft of this header said
+-- > "its oldest row was 1 day 02:11 old … roughly SEVEN HOURS left", measured with
+-- > `now() - min(created_at)`. **That does not measure retention** — it reports the
+-- > oldest SURVIVOR's birthday, while the policy keys on `updated_at`. The true
+-- > margin at that moment was 5h31m, not ~7h. For a question about one row
+-- > surviving, ask that row:
+-- >   SELECT updated_at + interval '24 hours' - now() FROM orchestration_states WHERE ...
 --
 -- WHY A TABLE AND NOT `sites.delivered_to` — owner ruling, relayed 2026-09-04 by
 -- the site_delivery_and_editor lane: a dedicated record, written in the same
