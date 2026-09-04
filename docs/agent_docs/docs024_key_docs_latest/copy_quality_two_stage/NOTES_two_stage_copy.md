@@ -4662,11 +4662,32 @@ the scoring side rather than the persistence side.
 **Latent defect found on the way, not this lane's to fix and not filed as a bug yet:**
 `platform/aiservice/anthropic.go:278-300` still sends `thinking: {type:"enabled", budget_tokens:N}`
 when a step config sets `budget_tokens`. Anthropic **400s** that shape on 4.7+ models, so any live
-config that sets it would take the whole call down. `[MEASURED 2026-09-04]` the three live rows whose
-config mentions the key are `council-gate`, `council-gate-036scratch`, `fix-proposer` — a MENTION
+config that sets it would take the whole call down. ~~`[MEASURED 2026-09-04]` the three live rows whose
+config mentions the key are `council-gate`, `council-gate-036scratch`, `fix-proposer`~~ — a MENTION
 census, not a settings census (the landmine about `::text ILIKE` applies to me here), so whether any
-of them actually reaches the Anthropic client with it set is unverified. `bugs_open/257` owns the
-token-budget contract; raised to that lane rather than filed here.
+of them actually reaches the Anthropic client with it set is unverified.
+
+> **RESOLVED 2026-09-04, and the mention/setting gap is the whole story.** The `420 425` lane ran the
+> settings census rather than relaying my flag, and I then re-ran it wider. `[MEASURED 2026-09-04]`
+> using `jsonb_path_exists(default_config,'strict $.**.budget_tokens')` — a real key at any depth,
+> not a substring — **ZERO rows set it: not the 208 active agents, not any of the 225 rows in the
+> table including snapshots and deleted ones.** Four rows mention the string; three are undeleted and
+> one of those (`council-gate-036scratch`) is INACTIVE, so my "three live rows" was wrong twice over
+> — wrong about live, and wrong about set. **What the mentions actually are:** a footprint keyword
+> list belonging to the tooling-provenance reviewer seat, verbatim
+> `"max_tokens","llm_call_log","anthropic","ollama","generatetext","stop_reason","budget_tokens",…`.
+> The rows that made the census look alarming are **the reviewer that exists to notice this class,
+> listing the word it watches for.** `ai_actions.go:417-419` carries a comment dated today saying the
+> same independently.
+> **So the honest statement, and it is a cheaper ask than mine would have been:** the risk is
+> **LATENT, not live.** The arm fires only when the first operator declares `budget_tokens`, and on
+> Sonnet 5 or Opus 5 that first declaration 400s every call for that agent. The guard belongs at the
+> moment of DECLARATION; there is nothing deployed to clean up. Relayed to the `bugs_open/257` lane
+> in those terms, with both queries.
+> **The lesson is one I had half-learned the same morning:** I marked the claim unverified, which was
+> right, and still put a number in it that a reader would act on. A substring census over config text
+> answers "who says this word", and a keyword list is exactly the shape that says a word without
+> meaning it. `jsonb_path_exists` was one query away.
 
 **What the owner is owed now:** the verbatim outputs to read (his ear, not our scanner, is the
 instrument that matters for register), the cost/latency table, and the choice. Nothing about the
