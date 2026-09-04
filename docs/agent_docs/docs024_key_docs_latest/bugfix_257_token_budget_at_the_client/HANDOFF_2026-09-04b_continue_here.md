@@ -126,7 +126,13 @@ discriminating.**
 **Round 1 came back REVISE and no seat objected to the change.** `decided_by` read
 `"unreadable reviewer(s): …"` — **8 of 12 seats returned unparseable output, 4 abstained**, leaving four
 readable verdicts of which **two were APPROVE** (constitution, mission). Round 2 was resubmitted on the
-same trail at 11:34Z with every readable objection answered. ⚠ **As of ~14:40Z its report had NOT
+same trail at 11:34Z with every readable objection answered. ⚠ **CAUSE FOUND — it did not stall, it DIED.** A fleet-wide Anthropic credit outage returned HTTP 400
+"credit balance is too low" from **11:21:11 to 11:56:49Z**, killing **146** calls of which **92 were
+council-gate** (measured here; flagged by the `inter thread comms` lane). Round 2 was dispatched at
+**11:34:20Z — inside that window.** CLAUDE.md's standing rule *"a missing orchestration row is latency,
+not a dropped dispatch — do not retry"* is exactly the WRONG read for this case, and it has been
+resubmitted. ⚠ Keep the two 400s distinct while reading today's error rows: a rejected manual thinking
+budget and an empty credit balance are both HTTP 400. Earlier note, now superseded: **as of ~14:40Z its report had NOT
 landed** — the seats ran (46 `council-gate` calls after dispatch) but no `council_report` row exists,
 and no council report has been written fleet-wide since 11:28Z. Treat round 2 as PENDING or possibly
 STALLED; re-run the query below before assuming either.
@@ -144,7 +150,28 @@ no amend. If it revised again: the objections are in the same row.
 [MEASURED 2026-09-04] a round decided by unreadable seats is **3 of 225** councils over 7 days. It is
 `bugs_open/138`'s territory and is written up in `LANDMINES.md`.
 
-### 4c. After the next chassis roll — the two steps that close this bug
+### 4c. ~~After the next chassis roll — the two steps that close this bug~~ ✅ BOTH DONE
+
+> **RESOLVED 2026-09-04 16:0xZ.** The roll landed as `v1.0.1361`. The pod states
+> `git_commit: 06c0b18f233bc600918ef481d32b40f29535f78f`; `d88afbf84`, `f18704b9c` and `22ba668dd` are
+> all ancestors, and `34fae21e4` (committed after the cut) is absent, so the control passes and the
+> probe discriminates. ⚠ **Ancestry was the only honest instrument** — `AcceptsThinkingBudget` has no
+> caller inside the chassis binary, so it is linker-dropped and a literal probe would have said ABSENT
+> with clean controls.
+>
+> **Migration `770_HOLD` applied by hand.** `--record-only` refuses a sidecar, so `bugs_open/257`
+> §2026-09-04c is the record, not `schema_migrations`.
+>
+> **End state:** five declaration shapes are three, all canonical; zero bare-spelling declarations in
+> the fleet. `audit-budget-placement.sh` reports `non_canonical` none, `ambiguous` none,
+> `thinking_unsupported` none. The one finding left is `provocation-generator-manual.gate`, unconfigured
+> since before this lane and now visible for the first time — `bugs_open/205`'s shape, not this bug's.
+>
+> **`bugs_open/257` MEETS ITS BAR (fixed AND live) and can be moved to `/bugs_closed/`.** Not moved
+> here only because two council rounds are in flight on this code (§4b) — the gate cannot block a
+> close, but a REVISE landing on a closed file is the messier direction. Read those verdicts, then move it.
+
+#### The original steps, kept for the method
 
 1. **Prove the ladder shipped**, per service, not per fleet:
    ```bash

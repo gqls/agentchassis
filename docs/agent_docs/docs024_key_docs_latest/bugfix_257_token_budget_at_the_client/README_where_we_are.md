@@ -523,3 +523,39 @@ exactly the bug we have spent this whole week fixing, so it should not be decide
 One loose end: the review council's second pass has not come back. Its reviewers ran, but no verdict was
 written, and no verdict has been written anywhere in the system since. I have marked it as pending or
 possibly stuck rather than waiting on it, so the next session re-checks rather than assumes.
+
+---
+
+**2026-09-04 (end of day) — it is live, and the job is done.**
+
+The fleet was rebuilt this afternoon and the new pods carry this work. I checked that at the binary
+rather than trusting the version number: the service states which commit it was built from, and all
+three of my commits are inside it. I also checked that something I committed *after* the cut is
+**not** in it — without that, "yes it's there" is a claim you can't distinguish from a probe that says
+yes to everything.
+
+That mattered more than usual here. One piece of what I added has no caller inside that program — only
+the reporting tool uses it — so the compiler strips it out entirely. Searching the running binary for
+it would have come back empty and looked like proof it hadn't shipped.
+
+With the new code live I applied the last held database change, the three settings on the HTML builder
+that had to wait. So the whole thing is finished at both ends. Where this morning there were five
+different places a limit could be written, and the program read two of them in the wrong order, there
+are now three places and **every single one is the proper one**. Not one limit anywhere in the fleet is
+still written in the untidy spot.
+
+The report I built to watch this is quiet on all three of the things it looks for. The one thing it
+still flags was already broken before I started: a step that names a model and sets no limit at all, so
+it runs on the smallest default we have. That is an old, separate bug — and it has never been visible
+before, which is the whole reason for building the report.
+
+This bug now meets our bar for closing: fixed, and live. I have not moved it to the closed folder
+myself, for one reason. Two review rounds are still out on this code — one of them because a
+**billing outage this morning** killed it outright. For thirty-five minutes the model provider
+rejected everything with "credit balance is too low"; 146 calls died, 92 of them review rounds, and
+mine was dispatched squarely inside that window. Our standing rule says a missing result means it is
+queued, not lost, and do not resend — for this failure that rule is exactly backwards, so I resent it.
+Whoever reads those two verdicts should move the file.
+
+One thing worth saying plainly: I did not find that outage. Another session did, measured it, and told
+me. I would have gone on treating my missing verdict as slow rather than dead.
