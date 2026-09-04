@@ -1,4 +1,52 @@
 # HANDOFF — theme kits lane, 2026-09-03 (session "theme kits")
+## re-verified 2026-09-04 11:14Z — READ §0 FIRST, one status below has flipped
+
+> ## 0. WHAT CHANGED OVERNIGHT, verified 2026-09-04 11:14Z
+>
+> **THE ROUND-4 GUARD IS NOW LIVE.** This file said "COMMITTED AND NOT LIVE" and that is
+> now false. A roll happened overnight (`agent-chassis-ffc9ddff9-*`, a different
+> ReplicaSet from the `85c4984f77-*` pods this file was written against, ~13 h old at
+> re-check). Probed with both controls:
+>
+> | needle | result |
+> |---|---|
+> | **`classifierDesignIntentState`** (the round-4 guard) | **PRESENT** |
+> | `apply_theme_kit` (positive control — Phase 1) | PRESENT |
+> | `zzz_not_a_real_symbol_zzz` (negative control) | absent — *the probe discriminates* |
+>
+> **Everything else re-verified and UNCHANGED:** `to_regclass` returns both tables; **4**
+> kits and **14** archetypes seeded; **adoption is still 0**; and **0** rows carry the new
+> `design_intent_supersede_risk` field, which is exactly consistent with adoption 0 —
+> nothing has applied a kit, so the guard has never had occasion to fire.
+>
+> **The lesson is the file's own, paid back within a day.** §7 told the next session to
+> roll and re-probe. Doing that as the FIRST action changed the answer to the question the
+> rest of this document is written around. **Re-run §1's four checks before believing any
+> status here** — this file has now been stale in both directions inside 48 hours.
+
+## IF YOU ARE PICKING THIS UP COLD — do these, in this order
+
+1. **Re-run §1's four checks.** They are four INDEPENDENT facts and none implies
+   another; this file has been stale in both directions inside 48 hours. Commands and
+   their traps: `RUNBOOK_theme_kits.md` §1.
+2. **Read §2 before planning anything.** Three of a kit's four dimensions cannot change
+   how a site looks. That is measured, not argued, and it is why there is no obvious
+   Phase 2.
+3. **Do NOT adopt a kit onto any site.** The council's architecture seat made this a
+   precondition, not a note — §4. Adoption is 0 and should stay 0 until an owner decision
+   lands.
+4. **The three owner decisions in §7 are the real blockers.** They are written for the
+   owner in plain prose in `README_where_we_are.md`. Nothing in this lane needs building
+   until one of them is answered.
+5. **If you are about to touch `content_components`, run
+   `grep -n 'content_components' LANDMINES.md` first.** §6 explains why: this lane wrote
+   that landmine and then walked into it twice the next day.
+
+**There is no urgent work here.** Nothing is broken, nothing is running, no site is
+affected. The lane is finished until a decision arrives — if you came here looking for a
+task, §7 is the honest answer and it is mostly "ask the owner".
+
+---
 
 **Supersedes `HANDOFF_2026-09-02_continue_here.md`.** That file is still accurate about
 what was BUILT and is the fuller account of the eight pre-apply defects and the owner's
@@ -12,16 +60,20 @@ source for corrections C1–C10.
 
 ---
 
-## 1. STATE — three independent facts, all verified today
+## 1. STATE — four independent facts, none implying another (re-verified 2026-09-04)
 
 | fact | value | how |
 |---|---|---|
 | binary | **LIVE**, `agent-chassis` `v1.0.1355` | `/proc/1/exe` capability probe, positive AND negative control |
 | schema | **APPLIED** 2026-09-02, migrations 689 + 691 | `to_regclass` both tables; 4 kits, 14 fleet archetypes |
 | adoption | **0** | `SELECT count(*) FROM site_specs WHERE aspect='theme_kit_adoption' AND is_current` |
+| round-4 guard | **LIVE** as of 2026-09-04 (was committed-not-live when this file was written) | `/proc/1/exe` probe for `classifierDesignIntentState`, both controls — see §0 |
 
 **Nothing has adopted a kit.** Every kit-conditional branch is live, reachable, and has
-never run. **Cite this lane as "built and reachable", never as "working".**
+never run. **Cite this lane as "built and reachable", never as "working".** The four facts
+are independent: the binary can carry code whose tables are absent (it degrades silently
+by design), the tables can exist with nothing using them, and the guard shipped a day
+after the rest. **Check all four.**
 
 The RUNBOOK has the commands and the traps for all three. The one worth repeating here:
 `psql` through `kubectl exec` takes 1–3 minutes on this cluster, so put SQL in a file, pipe
@@ -58,7 +110,7 @@ the live fleet before it is seeded. Adoption is 0, so reseeding is free.
 
 ---
 
-## 3. ⚠ THE DEFECT TO FIX FIRST — a kit applied before classification loses palette AND typography, silently
+## 3. THE DEFECT THE COUNCIL FOUND — a kit applied before classification loses palette AND typography. The REPORTING half is fixed and live; the ordering half is `bugs_open/438`'s, not this lane's
 
 **Found by the council gate, round 2. Not by me.** Recorded with three costed remedies as
 **`bugs_open/438` §6d** (a CONTRIB — 438 §6a-bis already owns the mechanism) and documented
@@ -94,13 +146,12 @@ action's result. Three-state string, never a bool, so a read failure cannot be r
 "no risk". Proven by two mutations, both red with the right message, restored green,
 evidence in the test header; the predicate discriminates 38 of 39 live sites.
 
-⚠ **THE GUARD IS COMMITTED AND NOT LIVE.** `[VERIFIED 2026-09-03 at the pod, both
-controls]` `classifierDesignIntentState` and `at_risk_no_classifier_write_yet` are
-**absent** from the running `agent-chassis` binary, while `apply_theme_kit` is PRESENT
-(positive control) and a nonsense needle is absent (negative control). Pods are 174
-minutes old, started before the commit. **It rides the next roll.** The council's
-`debug_historian` seat asked for this check and was right to: I had recorded the guard as
-"inert because adoption is 0", which was true and hid a second, stronger reason.
+> ~~⚠ **THE GUARD IS COMMITTED AND NOT LIVE.**~~ **SUPERSEDED 2026-09-04 — it is LIVE
+> now, see §0.** Kept because the *method* is the point: the council's `debug_historian`
+> seat asked for a pod probe and was right to. I had recorded the guard as "inert because
+> adoption is 0", which was true and hid a second, stronger reason — it was not in the
+> image either. **On 2026-09-03 the probe said absent; on 2026-09-04, after a roll, it
+> says PRESENT.** Two reasons for inertness, and only one of them has cleared.
 
 **It REPORTS, it does not REFUSE, and that is the judgement most open to challenge.**
 Layout survives on a different aspect and is the only dimension a kit moves, so refusing
@@ -111,11 +162,14 @@ classifier still supersedes and the kit's typography is still lost on the fresh 
 guard only makes the loss visible instead of silent. The other two candidates are
 architecture-scope (make the classifier respect `locked`, which changes its write authority
 over a shared aspect) or build on 438's own defect (write `mission.preferred_typography`,
-which survives that path only by accident). **The guard is inert today: adoption is 0.**
+which survives that path only by accident).
+**The guard is LIVE but has never fired: adoption is 0, and `[VERIFIED 2026-09-04]` zero
+`theme_kit_adoption` rows carry the `design_intent_supersede_risk` field.** So it is
+reachable and unexercised — the same distinction this lane insists on everywhere else.
 
 ---
 
-## 4. Council gate — a resubmit is IN FLIGHT, do not claim approval
+## 4. Council gate — APPROVED at round 4, after three revises that each found something real
 
 **Trail correlation `bed139b2-f512-436a-9ba8-ff2fbfade8ef`** (use this — it is the key the
 artefacts are written under).
@@ -147,10 +201,14 @@ Phase 2, and this lane agrees with both:**
 delivers.** That is the council reaching §2's conclusion independently and turning it into
 a precondition.
 
-Every commit carries `Council-Submitted:`, which asserts nothing and is credited
-automatically if the correlation approves. **Do NOT write `Council-Reviewed:` until you
-have read an approved verdict** — 098 buckets that as MISMATCH. Resolve with the queries in
-the RUNBOOK §4.
+⚠ **READING A VERDICT ON A RESUBMITTED CORRELATION IS A TRAP, and another lane landmined
+it the same day** (`a7352e2ca`). A resubmit reuses the correlation, so the query the
+trigger itself prints — `… ORDER BY created_at DESC LIMIT 1` — can hand you the OLD
+verdict, and it reads as your revision being rejected. **COUNT THE ROWS INSTEAD:**
+`SELECT count(*) … AND kind='council_report'` must equal the number of rounds you have
+submitted, so 3 rows after a fourth submission means round 4 has not landed. That is how
+the four verdicts above were read; do not use `LIMIT 1` on this table across a
+resubmission. `grep -n 'RESUBMITTED council round' LANDMINES.md`.
 
 ⚠ **`scripts/verify-head-builds.sh --test` is RED at HEAD, and NOT for this lane.**
 `[VERIFIED 2026-09-03]` two failures, both other lanes', both proven not ours (each
@@ -184,14 +242,41 @@ first one is asking its author a question only they can answer.
 | `e28df777a` | LANDMINES: fourth sighting of the name/function trap, and the retraction direction it did not cover |
 | `c03280b20` | 438 §6d CONTRIB + `apply_theme_kit`'s header (it documented `fill_gaps` as the default when the shipped default is `start`) |
 | `4b1b075bf`, `e8f08cc80`, `08286e12d` | NOTES, register and the owner-facing account of §3 |
+| `efb9a490b`, `b19637c2f` | this handoff, and the 09-02 one marked superseded at the top |
+| `d33a21300` | NOTES: the backtick trap ate a word from a commit message; `gofmt -l` cannot fail when chained with `&&` |
+| **`b18091066`** | **the round-4 guard + its mutation-proven test** — the remedy the council gated on twice |
+| `c0545a3f0` | 438 §6d-bis: candidate 3 is BUILT, superseding §6d's "not fixed, deliberately" |
+| `49a8732dc`, `11117a9a3`, `c92e0a396`, `512d5b60a` | handoff/NOTES/register carrying round 3 + the guard, and the RED-at-HEAD attribution |
+| **`d1e51dd38`** | **APPROVED recorded, three of the approval's objections answered, the false "one writer" claim corrected** — first commit legitimately carrying `Council-Reviewed:` |
+
+⚠ **One of this lane's writes is NOT in a commit of its own.** The `WRONG_CALLS.md` entry
+about the false "one writer" claim was **swept into another session's commit
+(`32c776765`, the 449 lane's)** before mine ran — the shared-tree hazard CLAUDE.md
+describes. **Nothing was lost**; the entry is in HEAD, just under someone else's message.
+Do not go looking for it under a theme-kits commit.
 
 ---
 
 ## 6. ⚠ CALIBRATION — read this before trusting anything I wrote
 
-**Five errors today, and every one was a right conclusion resting on a wrong reason.** The
-full list is in `NOTES_theme_kits.md` and `WRONG_CALLS.md`. The two that should change how
-you work:
+**Seven errors in one session. FOUR were durable claims, and every one of the four was a
+right conclusion resting on a wrong reason.** Stated as a list rather than a running count,
+because I revised the count three times while writing and that is itself the tell:
+
+| # | the claim | what it actually was |
+|---|---|---|
+| 1 | `header-theme-chrome` "does not exist in any state" | **a retraction of a TRUE claim** — I filtered `function` and concluded about `name` |
+| 2 | `contact-hero` "has ZERO rows" | one row, `name='contact-hero'`, `function='hero-contact'` — found by a round-2 **reviewer** |
+| 3 | "3 chrome-eligible rows" | right for **pins**, wrong as a general claim — there are two predicates differing by one clause |
+| 4 | "the ONE writer of `sites.style_collection_id`" | **two** writers — found by the council's `prior_art_librarian`, which predicted the error class from my own record |
+
+Plus three mechanical misreads where my *check* was broken rather than my claim: a backtick
+in a `-m "…"` executed and ate a word from a commit message; `gofmt -l` chained with `&&`
+reads as a permanent failure because it exits 0 either way; and
+`verify-head-builds.sh agent-chassis` reported "HEAD does NOT build" when the real fault
+was my passing a service name where it wants a Go package path.
+
+The two that should change how you work:
 
 1. **I retracted a TRUE claim by querying the wrong column.** `content_components` has
    **both** `name` and `function`, holding near-identical vocabularies by design. I ran
@@ -243,8 +328,12 @@ documented.** Three earlier errors that day came from asserting a mechanism from
   deferred its fix. Three of the approval's own objections were answered on the spot (pod
   verification, the false "one writer" precedent, the unevidenced `locked` claim); the
   rest are in `NOTES_theme_kits.md`.
-- **Roll the binary** so the round-4 guard is actually live, then re-probe the pod for
-  `classifierDesignIntentState`. Until then the guard exists only in git.
+- ~~**Roll the binary** so the round-4 guard is actually live, then re-probe the pod~~
+  **DONE — a roll landed overnight and the re-probe confirms the guard is LIVE
+  (2026-09-04, both controls). See §0.** What is still owed on it is a *behavioural*
+  observation: adoption is 0, so the guard has never fired and `[VERIFIED 2026-09-04]` no
+  `theme_kit_adoption` row carries `design_intent_supersede_risk`. **The first kit ever
+  applied is the test** — check that field on the resulting adoption row.
 - ~~**The §3 remedy**, as its own council round.~~ **DONE** — built as `b18091066` and
   carried in round 4. What remains is 438's, not this lane's: the ordering itself.
 - **A ping to `portfolio_positioning` and `vetcomparison`** with the chrome experiment's

@@ -526,3 +526,43 @@ guard detects and does not prevent, *"a recorded user decision with no enforceme
 decorative"*; and `constitution` also objects to my rationale's tone — all-caps headers and
 "dramatized process narrative" where plain engineering prose was called for. That last one
 is fair and I would write it flatter next time.
+
+---
+
+## 2026-09-04 — the round-4 guard went LIVE overnight, and the check that proved it is the one the handoff prescribed
+
+First action of the next session, exactly as `HANDOFF_2026-09-03` §7 asked: roll, then
+re-probe. The roll had already happened, and **the probe flipped the answer**.
+
+```
+pod agent-chassis-ffc9ddff9-jvw92   Running   13h      (was 85c4984f77-* — a different ReplicaSet)
+  classifierDesignIntentState   PRESENT      <-- was ABSENT on 2026-09-03
+  apply_theme_kit               PRESENT      <-- positive control, Phase 1
+  zzz_not_a_real_symbol_zzz     absent       <-- negative control, the probe discriminates
+```
+
+**So the guard is live.** Everything else re-verified and unchanged: `to_regclass` returns
+both tables, 4 kits and 14 archetypes seeded, **adoption still 0**, and **0** adoption rows
+carry `design_intent_supersede_risk` — consistent with adoption 0, since nothing has
+applied a kit and the guard has therefore never had occasion to fire.
+
+**The distinction that survives:** the guard is now LIVE AND UNEXERCISED, not inert. Two
+reasons for inertness existed on 09-03 (not in the image, and nothing adopting); one has
+cleared. **The first kit ever applied is the test** — read
+`design_intent_supersede_risk` on the resulting `theme_kit_adoption` row.
+
+**Worth recording as method, not just state.** On 2026-09-03 this lane wrote "THE GUARD IS
+COMMITTED AND NOT LIVE" with a dated pod probe and both controls. It was true when written
+and false within hours. **A `[VERIFIED]` marker with a date and controls is still a
+snapshot** — it makes the claim checkable, not durable. The handoff now carries the
+correction visibly rather than a silent overwrite, and its §0 says the file has been stale
+in *both* directions inside 48 hours.
+
+**A landmine from another lane that lands on this one's work** (`a7352e2ca`, written the
+same day): a resubmitted council round **shares its correlation with the round before it**,
+so the verdict query the trigger itself prints — `ORDER BY created_at DESC LIMIT 1` — can
+hand back the OLD verdict and read as your revision being rejected. This lane happened to
+read its four verdicts correctly by **counting rows** (`reports=3` → `reports=4`) rather
+than taking the latest, but that was not deliberate rigour so much as wanting the whole
+trail. **The rule is now in the handoff §4: count the rows against rounds submitted; never
+`LIMIT 1` across a resubmission.**
