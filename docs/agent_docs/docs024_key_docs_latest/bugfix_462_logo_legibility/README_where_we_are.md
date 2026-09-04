@@ -65,3 +65,19 @@ as *declared*, which is a snapshot. Our colours do get rewritten without anyone 
 that passes today can quietly stay "passed" against a palette that no longer exists. The version
 that stays correct measures the colour from the page as it actually renders. It is still unbuilt,
 and it is still the destination.
+
+**Later the same day — the scheduled check is built, and it is switched off.**
+
+It is done and committed: a daily job at 08:15, which will look at every logo and write a short
+report every time, *including on the days it finds nothing*. That last part is deliberate — if it
+only spoke up when something was wrong, we could never tell the difference between "all fine" and
+"the job quietly stopped weeks ago", and that confusion is this whole bug in miniature.
+
+I proved the pieces rather than assuming them: I ran the check inside the exact container image it
+will run in, and it passed all six of its own tests there, including on the two saved copies of the
+websitepromotion logo.
+
+**I have not switched it on.** Turning it on is one command, and it is the same thing as choosing
+option (A), which is your call rather than mine. So it sits there, committed and doing nothing, and
+I have said so in five places — a check that is built but not running, while looking to a reader as
+though it is running, is a mistake this estate has made before and always notices too late.
