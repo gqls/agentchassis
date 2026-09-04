@@ -22877,66 +22877,73 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   fleet-wide Anthropic credit outage that began 11:17:05Z.
 - **added:** 2026-09-04, news_feed_ingestion lane
 
----
+### A logo check that finds no logo in the `<header>` falls through to `assets.url` — and then measures a picture the page never loads
 
-## Measuring a site's logo: `assets.url` and the first `<header>` both point at the wrong picture, and a wrong picture measures perfectly
-
-**footprint:** `assets.url` · `assets` (`purpose='logo'`) · any check that fetches a site asset from the DB row · `scripts/audit-logo-legibility.py` · `docs024_key_docs_latest/site_delivery_and_editor/sweep_site_defects.sh` (§4.5 arm) · `<header>` parsing of a served page
-
-You are about to check something about a site's logo — is it transparent, is it legible,
-does it carry lettering, what format is it really. You do the disciplined thing: fetch the
-**served bytes** with a 404 invented-path control, assert the byte count, read the magic
-bytes. **Every one of those controls passes on the wrong file, and none of them can tell
-you it is the wrong file.** Two independent ways to arrive there, both measured
-2026-09-04 while building the `bugs_open/462` sweep:
-
-- **`assets.url` can hold a long-expired presigned link.** `fundamentallyai.com`'s row holds
-  a B2/S3 URL minted 2026-08-10 with `X-Amz-Expires=604800` — seven days, so it has 401'd
-  since 08-17. Meanwhile the site's own page references `/assets/images/logo.png`, which is
-  **200 and 157,165 bytes**. Trusting the row produced a BLIND row for a site whose logo is
-  fine. It is the only one of 34 whose `url` is not a site-relative path, so a spot check on
-  any other site tells you the column is trustworthy.
-- **The first `<header>` in the document is often NOT the site chrome.** Three of 34 sites —
-  `cookly.uk`, `webdesign.co.uk`, `ai-agent-orchestration.com` — open with
-  `<header class="info-card-grid__header">`, a *content* heading, long before the site
-  header. A "first `<header>` block" scan finds no logo there, falls through to whatever
-  fallback you wrote, and reports confident statistics about an image those pages never load.
-
-**the check:** measure the URL the **served markup** points at, and make the fallback
-LOUD. In practice:
-```bash
-# the site header, not the first <header>: prefer a class-matched block, then a 'logo' <img>
-python3 - <<'PY'
-import re,urllib.request
-h=urllib.request.urlopen("https://<domain>/index.html").read().decode("utf-8","replace")
-blocks=re.findall(r"<header\b[^>]*>.{0,6000}?</header>", h, re.I|re.S)
-site=[b for b in blocks if re.search(r'class=["\'][^"\']*(site-header|-header\b)', b, re.I)]
-for b in [x for x in site if "logo" in x.lower()] + blocks:
-    for t in re.findall(r"<img\b[^>]*>", b):
-        if "logo" in t.lower(): print("PAGE REFERENCES:", re.search(r'src=["\']([^"\']+)', t).group(1)); raise SystemExit
-print("NO LOGO IMAGE IN THE SERVED HEADER — do NOT fall back to assets.url and measure it anyway")
-PY
-```
-Then compare with the row: `SELECT url FROM assets WHERE site_id=… AND purpose='logo' AND status='active';`
-**A disagreement is information, not noise** — it is either a stale row or a header that
-never shows the logo, and both are findings someone owns.
-
-⚠ **"No logo image in the markup" is a THIRD state, and it is the one that quietly becomes
-a false measurement.** Two of those three sites render `class="logo-text"`: they hold an
-active logo asset **and a text header** (417's RUNBOOK, *"a site has a logo asset but the
-header still shows TEXT"*). Any tool that silently falls back to `assets.url` there is
-measuring an image no visitor has ever seen — and it will look like a perfectly ordinary
-row of numbers among 33 real ones.
-
-- **relations:** `bugs_open/462` §8d (both cases, with the byte counts) · 417 RUNBOOK
-  "Fetch a generated asset's BYTES" (the controls that all pass on the wrong file) and
-  "A site has a logo asset but the header still shows TEXT" · MEMORY
-  [[a-parked-domain-200s-every-path]] — same family, one layer along: there the *host*
+- **footprint:** `<header>` parsing of a served page · `assets` (`purpose='logo'`) ·
+  `scripts/audit-logo-legibility.py` ·
+  `docs024_key_docs_latest/site_delivery_and_editor/sweep_site_defects.sh` (§4.5 arm) ·
+  any check that fetches a site's logo to say something about it
+- **fires when:** you check anything about a site's logo — transparency, legibility,
+  lettering, real format — by fetching the served bytes and reading pixels
+- **the tell: there isn't one, and that is the entry.** You do the disciplined things —
+  served URL, 404 invented-path control, byte count asserted, magic bytes read — and
+  **every one of those controls passes on the wrong file.** The output is an ordinary row
+  of plausible numbers sitting among the real ones
+- **the first `<header>` in the document is often NOT the site chrome.** `[MEASURED
+  2026-09-04]` 3 of 34 live sites open with `<header class="info-card-grid__header">` — a
+  *content* heading — long before the site header: `cookly.uk`, `webdesign.co.uk`,
+  `ai-agent-orchestration.com`. A "first `<header>` block" scan finds no logo there and
+  falls through to whatever fallback you wrote
+- **⚠ and the fallback is the trap, because "no logo in the markup" is a THIRD STATE.**
+  Two of those three render `class="logo-text"`: they hold an **active logo asset AND a
+  text header** (417's RUNBOOK, *"a site has a logo asset but the header still shows
+  TEXT"*). Falling back to `assets.url` there measures an image **no visitor has ever
+  seen** — and reports it as a finding or a pass about that site
+- **the check:** resolve the logo from the *served markup*, prefer a class-matched header
+  block, and make the no-logo case LOUD rather than a fallback:
+  ```bash
+  python3 - <<'PY'
+  import re,urllib.request
+  h=urllib.request.urlopen("https://<domain>/index.html").read().decode("utf-8","replace")
+  blocks=re.findall(r"<header\b[^>]*>.{0,6000}?</header>", h, re.I|re.S)
+  site=[b for b in blocks if re.search(r'class=["\'][^"\']*(site-header|-header\b)', b, re.I)]
+  for b in [x for x in site if "logo" in x.lower()] + blocks:
+      for t in re.findall(r"<img\b[^>]*>", b):
+          if "logo" in t.lower():
+              print("PAGE REFERENCES:", re.search(r'src=["\']([^"\']+)', t).group(1)); raise SystemExit
+  print("NO LOGO IMAGE IN THE SERVED HEADER - do NOT fall back to assets.url and measure it anyway")
+  PY
+  ```
+  Then compare with `SELECT url FROM assets WHERE site_id=… AND purpose='logo' AND
+  status='active';`. **A disagreement is information** — either a stale row or a header
+  that never shows the logo, and both are findings someone owns
+- **the sibling trap is already recorded, and I did not grep for it before writing this:**
+  `assets.url` is a presigned S3 URL with a 7-day expiry — see that entry above, whose
+  "fires when" already names *"writing a check that fetches an asset to confirm it
+  exists"*. `[MEASURED 2026-09-04]` **1 of 34** active logo rows still holds a presigned
+  URL (`fundamentallyai.com`, minted 2026-08-10, 401 since 08-17) while its page serves
+  `/assets/images/logo.png` at 200 / 157,165 B — so a spot check on almost any other site
+  tells you the column is trustworthy, which is the reason to read that entry rather than
+  sample
+- **relations:** `bugs_open/462` §8d (both cases with byte counts) · the `assets.url`
+  presigned-expiry entry above (the half of this I duplicated) · 417 RUNBOOK "Fetch a
+  generated asset's BYTES" (the controls that all pass on the wrong file) and "A site has
+  a logo asset but the header still shows TEXT" · MEMORY
+  [[a-parked-domain-200s-every-path]] — same family one layer along: there the *host*
   answers everything, here the *fetch* succeeds on the wrong object ·
-  [[seed-sql-is-history-live-row-is-fact]] — and this is the next step again, because here
-  the live ROW is also history and the served PAGE is the fact ·
-  [[live-and-committed-are-independent-facts]]
+  [[seed-sql-is-history-live-row-is-fact]] — one step further again, because here the live
+  ROW is history and the served PAGE is the fact
 - **source:** 2026-09-04, `bugfix_417_logo_text_policy` lane, building `bugs_open/462`'s
   legibility sweep. Both defects shipped in its first run and were caught by opening the
-  artefact, not by any number.
+  artefact, not by any number
 - **added:** 2026-09-04, bugfix_417_logo_text_policy lane
+
+### ADDENDUM to "A web_search query of 200 characters or more is FOUND and then silently discarded" (2026-09-04, portfolio_positioning): the SCHEDULED directory tasks are a second footprint, and one was over the cap while the rest sit just under it
+
+- **footprint:** `scheduled_tasks.input_data.research_query` for every `*-directory-discovery` task (`directory-researcher`'s `search_web` step uses `query_from: input_data.research_query`) · `cmd/scheduler` (which fires them weekly, so a failure recurs weekly and reads as "the directory just has no entries yet")
+- **fires when:** you write a directory research query the way the brief asks — specific, with exclusions — and it passes 200 characters. Nothing at write time checks the length; the task row saves; the scheduler fires; the run fails in seconds at `search_web` with the misdirecting error; `last_completed_at` is stamped anyway; and the next attempt is a week away. The directory stays empty, the plan gate correctly holds the listing page, and the site's converting page (which points at the directory) is deferred with it — three symptoms away from a length check.
+- **measured 2026-09-04 12:1xZ:** `copywriter-directory-discovery` **444** chars (failed twice, 09-03 15:50Z and 09-04 11:45Z, identically); every kind that has ever written entries is UNDER the cap — and not by much: savings-provider **184**, mortgage-lender **183**, health-insurer **171**, model **137**. Two of those are one adjective away from the same silent failure.
+- **the check:** `SELECT name, length(input_data->>'research_query') FROM scheduled_tasks WHERE name ILIKE '%directory-discovery%' AND length(input_data->>'research_query') >= 190;` — before and after writing any such task, and as a standing sweep. The fix is to shorten the question (the cap is in Go; do not hardcode a `query` literal into the shared agent, per the parent entry). Copyonline's was cut to 165 chars with the "organisations, not individuals" intent kept.
+- **the wrong turn worth keeping:** this lane spent an hour on three theories — a renamed config key, a chassis-roll skew, the scheduler mis-delivering `input_data` — and refuted each against evidence, before reading the sixty lines that raise the error. The parent entry's TITLE is the error text. `grep -n "search query not found" LANDMINES.md` was the whole diagnosis.
+- **relations:** the parent entry above · `bugs_open/478` (why the missing directory also costs copyonline its lead-route page) · MEMORY [[grep-landmines-for-your-symbols]]
+- **added:** 2026-09-04, portfolio_positioning lane

@@ -66140,3 +66140,27 @@ then wrong.
 - **Cost.** None shipped: no migration was cut, no component proposed for build, and every account
   reached the owner marked as a candidate. The cost was the owner's attention across four explanations
   of a non-problem, and that is the part worth not repeating.
+
+## 2026-09-04 — an hour on three refuted theories for an error whose exact text is the TITLE of a LANDMINES entry (`portfolio_positioning`)
+
+- **The claims, in order.** copyonline's directory research failed at `search_web` with *"search query not
+  found — check 'query', 'topic', or 'query_field' config"*. I proposed: (1) the researcher's step used a
+  config key (`query_from`) the action does not read — refuted: the action reads it at priority 3, and
+  the step config is byte-identical to a July snapshot that produced entries; (2) a chassis-roll skew
+  between config and binary — refuted: the key has been understood since January and is in both
+  images; (3) the scheduler no longer delivers `input_data` where the first step looks — refuted: the
+  persisted run carries `input_data.research_query` in full.
+- **What was true.** The value IS found, then discarded by a sanity filter ending `len(queryStr) < 200`
+  meant to reject LLM refusal messages. My query was 444 characters because the brief asked for
+  specificity. LANDMINES already carries this as an entry whose heading is the error text, with the
+  length check and the fix (shorten the question).
+- **Why it mattered.** Not the hour — the shape. Each theory was plausible, each was refuted properly
+  with evidence, and each refutation felt like progress while the answer sat one grep away. Refuting
+  wrong theories well is not the same as looking where the corpus already pointed.
+- **What caught it.** Reading the function that raises the error, which I should have done first; the
+  landmine grep, which I should have done before that.
+- **The cheap check that would have.** `grep -n "<the error text>" LANDMINES.md` before the first theory
+  — my own memory index says "grep LANDMINES for the SYMBOL you are about to trust", and an error string
+  is the most greppable symbol there is. Second: read the function that emits the error before reasoning
+  about anything upstream of it.
+- **Cost.** ~1 hour; the directory research was delayed by the same hour; nothing wrong shipped.
