@@ -58,8 +58,8 @@ kubectl -n ai-persona-system exec postgres-clients-0 -- psql -U clients_user -d 
 > 2026-09-04, it carries 0 instances of all three errors anyway). That lane was consulted first and
 > confirmed nothing mid-flight.
 >
-> **STATE AT HANDOFF: `/about.html` released as the canary and NOT YET CLAIMED; the other 8 still
-> `triaged`.** This is queue latency, diagnosed not assumed — see §4.4.
+> **STATE AT HANDOFF (2026-09-04 15:50): THE CANARY RAN AND FAILED AT ITS PURPOSE. The other 8 are
+> HELD at `triaged` — do not release them until §2a is answered.**
 
 The register pass found three live errors, recorded as four `corrects_site_citation` entries.
 
@@ -78,6 +78,48 @@ The register pass found three live errors, recorded as four `corrects_site_citat
 loancash on 2026-09-03.
 
 ---
+
+### 2a. ⚠ THE CANARY COMPLETED, DEPLOYED SUCCESSFULLY, AND DID NOT FIX THE ERROR
+
+`/about.html` ran at 12:18: item `complete`, `deploy_result.success: true`, page redeployed
+(`commit_sha 2d81b78f`). **The served page still says "36 service categories".**
+
+**THE MECHANISM, read at the code rather than inferred.** `load_current_section_content_action.go:181`
+— `readySections, _ := planMap["sections_ready"].([]interface{})`. The repair only ever sees sections
+the **planner** put in `sections_ready`. `/about.html` has four components; the error lives in
+**`differentiators`**, last touched **2026-07-18**, which was not in that set. So:
+
+- the target string was never shown to the writer, and nothing reported that;
+- the other three sections (`faq`, `about-content`, `hero-about`) were rewritten as **collateral**;
+- the page was redeployed, the item completed, and every status said success.
+
+**`spec.mode='edit_live'` is necessary and NOT sufficient.** It stops the writer fabricating from
+nothing; it does not make the writer *see* a component outside the plan. A distinct failure from
+739's, and the acceptance test caught it only because it checks the SERVED BYTES.
+
+**Content check: NO LOSS.** Page-scope sentence diff, pre-image from `page_component_history`'s
+`op='delete'` rows: 71 sentences before, 71 after, **0 true orphans**.
+
+> ⚠ **A flaw in the orphan test itself, found here — it produced TWO false alarms before it produced
+> the truth.** (1) Run per COMPONENT, a sentence that MOVES between components reads as orphaned.
+> (2) Run at page scope it still flagged *"Claiming a listing is free."* — a registered fact — which
+> is present in both pre and post, TWICE. A heading was inserted before it (*"Claiming or removing a
+> listing"*), and a naive `(?<=[.!?])\s+` splitter merges a heading into the following sentence,
+> halving the similarity score. **A short sentence that gains a preceding heading reads as orphaned.**
+> So: run it at PAGE scope, and grep any reported orphan as a literal before believing it.
+
+**BEFORE RELEASING THE OTHER 8, ANSWER THIS:** their errors live in `article-body`,
+`generic-text-block`, `faq` and `features` — main body slots, far likelier to be in `sections_ready`
+than a stale `differentiators`, but *likelier* is not *verified*. Either confirm the slot is in the
+page's `sections_ready`, or release ONE and check the bytes again. The mapping is measured:
+```sql
+SELECT p.url, pc.slot_name, pc.updated_at::date
+  FROM page_components pc JOIN pages p ON p.id=pc.page_id
+ WHERE p.site_id='72b9e3a6-872f-4528-a6d6-7f205ea60f4d'
+   AND (pc.rendered_html LIKE '%36 service categor%' OR pc.rendered_html LIKE '%November 2024%'
+        OR pc.rendered_html LIKE '%£21%') ORDER BY 1;
+```
+**And `/about.html` needs a NEW item naming its `differentiators` slot** — the filed one is spent.
 
 ## 3. THE REPAIR RECIPE THAT WORKS — dearly bought, use it verbatim
 
@@ -327,7 +369,10 @@ masked only incidentally by the next check.
 
 ## 8. OPEN, IN THE ORDER I WOULD TAKE THEM
 
-1. **⚠ RELEASE THE REMAINING 8 COPY REPAIRS — the canary must be verified at the bytes FIRST.**
+1. **⚠ THE 8 COPY REPAIRS ARE HELD, AND §2a SAYS WHY — the canary completed and did NOT fix its
+   error.** Do not simply release them. Confirm each page's error-bearing slot is in that page's
+   `sections_ready`, or release ONE and re-check the served bytes. `/about.html` additionally needs a
+   NEW item naming its `differentiators` slot.**
    `/about.html` is `approved` and queued (§4.4); the other 8 are `triaged`. When the canary completes:
    ```bash
    curl -s https://vetcomparison.uk/about.html | grep -c '36 service categories'   # must become 0
@@ -340,15 +385,19 @@ masked only incidentally by the next check.
    ⚠ **AND THE 48-HOUR REAPER IS RUNNING ON ALL NINE** — filed 2026-09-04 11:32, so unreleased items
    flip to `unresolved` (which reads as *processed*) around **2026-09-06 11:32**. Do not let them
    silently expire.
-2. **READ TWO COUNCIL ROUNDS IN FLIGHT.** `5d54f835` (resubmitted 11:09, answering 761's REVISE with
-   the §6b census) and `9ac46a72` (the fcaquotecheck fix). Bound the first by time — `RESUBMIT_CORR`
-   reuses the correlation, so `ORDER BY created_at DESC LIMIT 1` returns round 1 (§4.2).
+2. **`5d54f835` (761 + the writer census) came back APPROVED at 2026-09-04 11:16** — round 2, seven
+   minutes after resubmission. Nothing owed. ⚠ **`9ac46a72` (the fcaquotecheck fix) HAS NO VERDICT and
+   was in flight when the v1.0.1361 roll restarted every pod at ~15:44 — assume it was killed and
+   RESUBMIT.** The code shipped regardless (see 4).
 3. **`742` STILL OWES A RESUBMIT** — `RESUBMIT_CORR=0d730d51-a923-4b44-a58f-ab8c898d7e22`. Unchanged
    from `-03c` §0b(ii); its REVISE landed 2026-09-03 14:47 and one objection (the liveness predicate)
    was already fixed by migration 744.
-4. **THE fcaquotecheck FIX IS INERT UNTIL A ROLL.** It is Go (`9d2af8e7f`). Until the next fleet build
-   the OLD blind probe is what a register author runs — so if anyone builds a register before then,
-   tell them to check `curl -sI <url> | grep -i content-type` by hand.
+4. **THE fcaquotecheck FIX SHIPPED in v1.0.1361.** `git merge-base --is-ancestor 9d2af8e7f 06c0b18f2`
+   passes, so it is in the cut (roll 15:29–15:44 UTC, another session's). Verify at the artefact
+   rather than the tag once pods settle:
+   `SELECT pod_name, git_commit, started_at FROM service_binary_capabilities WHERE kind='build' AND pod_name LIKE 'agent-chassis-%' ORDER BY started_at DESC;`
+   then `git merge-base --is-ancestor 9d2af8e7f <that stamp>`. ⚠ That table is a TWO-HOUR window, not
+   a history (CLAUDE.md, rewritten 2026-09-04) — it answers what is running NOW.
 5. **WATCH THE ABSENCE CHECK'S SECOND TICK** (§4.3) — first live evidence its dedup arm works. Expect
    `missing_total=11, already_open=11, filed_new=0`.
 6. **THE PRODUCER-SIDE GAP, larger than this lane: nothing enforces `spec.mode` on `content_rewrite`.**
