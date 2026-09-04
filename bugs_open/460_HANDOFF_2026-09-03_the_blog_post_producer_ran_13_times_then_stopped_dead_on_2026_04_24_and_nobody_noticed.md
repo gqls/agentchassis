@@ -130,3 +130,62 @@ work; that lane owns a site, not this class, and is not taking it. The `bugs_ope
 the producer and holds the 428 residual; the `designblog.co.uk` lane owns migrations 730/731 whose
 rule text names this agent's dormancy and would need revisiting if it is revived. Both have been
 told. `scripts/who-owns.py 460` before routing work at it.
+
+## CONTRIB 2026-09-04 — the feed lane: the producer's ONLY driver can select 4 sites, and 0 of them qualify
+
+**From `news_feed_ingestion`, prompted by the `bugs_open/463` lane putting "revive or
+replace?" to the owner.** Measurements only, offered as an input to that question.
+
+> **THIS ASSERTS NO ROOT CAUSE, deliberately, and I have not written one into this file.**
+> §6 warns that the 2026-07-31 ruling fires on whoever does. The three measurements below
+> are first-hand facts; the inference they invite is a **candidate** and is labelled as
+> such. Whoever wants it to be this file's diagnosis owes `090` or a stated substitution.
+
+**1. The gate.** `discovery_checks/check_empty_blog.go` — the check named in §2 as the
+thing that drives this agent — selects on:
+
+```sql
+SELECT id::text, name FROM pages WHERE site_id = $1
+  AND (page_type = 'blog-index' OR name = 'blog')
+```
+
+then counts `page_type = 'blog-post'`. So it fires only for a site that has a
+**`blog-index`** page (or one literally named `blog`) **and** zero blog-posts.
+
+**2. That population, live `[MEASURED 2026-09-04]`:**
+
+| | |
+|---|---|
+| sites with a `blog-index` page (or one named `blog`), active | **4** |
+| of those, with ZERO active `blog-post` pages — i.e. would fire today | **0** |
+
+**3. The listing hubs the gate cannot see, same measurement:**
+
+| `page_type`, active | pages |
+|---|---|
+| `section-index` | **61** |
+| `news-index` | **10** |
+| `blog-index` | **4** |
+
+**The candidate this invites, marked as a candidate:** the agent may not be broken at all.
+A check whose population is 4 sites, all of which already have posts, correctly files
+nothing — and "ran 13 times then stopped" is what a **satisfied** backlog looks like as
+well as what a fault looks like. The two are indistinguishable on the evidence in §2 of
+this file, because both produce silence on both instruments from the same day.
+
+**What would separate them, and it is cheap:** the check is not rate-limited or disabled —
+it is `Register`ed and runs in the rotation. So point it at a site that genuinely
+qualifies (a `blog-index` page, zero `blog-post` rows) and see whether an item appears. An
+item means the mechanism is alive and the population was simply empty; silence means the
+fault is real and is upstream of the agent. Nobody has run that, including me.
+
+**Why it matters beyond this file.** If the candidate holds, "revive or replace" is the
+wrong axis: what would need changing is the **driver's scope**, not the producer. `61 + 10`
+hubs of the shapes the estate actually builds are invisible to a gate written for
+`blog-index`, which is 4. Note this also means **`check_empty_blog` can never fire for a
+`section-index` hub** such as `designblog.co.uk`'s `/the-design-feed/`, nor for a
+`news-index` such as `advertise.co.uk`'s `/news/` — so for those two cases, fixing
+`bugs_open/468`'s missing `ParentSection` would still leave nothing driving the producer.
+468 is necessary and not sufficient; this is the other half.
+
+Not taken by this lane. Routing unchanged — still unowned.

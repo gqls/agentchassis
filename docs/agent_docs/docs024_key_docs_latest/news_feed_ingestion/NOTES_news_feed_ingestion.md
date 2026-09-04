@@ -1086,3 +1086,54 @@ write the file and defer the dispatch.
 lanes' pending entries that this run consumed the "new entry" status for):
 `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "SELECT subject_key, created_at FROM doc_notes WHERE categories ? 'landmine-verification' ORDER BY created_at DESC LIMIT 10;"`
 then re-trigger any of the four slugs with no verdict row.
+
+## 2026-09-04 — the 463 lane asks for a view on the directory vocabulary; the useful answer was a measurement neither of us had
+
+The owner has widened `bugs_open/468` into a look at the whole page-directory vocabulary
+("the chosen directory paths are a constant cause of bugs"), and the 463 lane asked two
+questions before anything is proposed. Verified their census before answering.
+
+**Census reconciled exactly, and the difference is a predicate not drift.** My first run
+gave **56 / 45 / 37** against their 58 / 47 / 39. Dropping `status='active'` reproduces
+**58 / 47 / 39** byte for byte. So their census counts non-active pages; 2 directories and
+2 of the single-page directories exist only on non-active rows. Told them, because "close
+but not equal" between two lanes is the shape that turns into a phantom disagreement.
+
+**The finding that answers their question 1** `[MEASURED 2026-09-04]`. Question was
+"revive or replace `blog-content-planner`?". I think the axis is wrong, and the evidence is
+its driver's gate. `discovery_checks/check_empty_blog.go` selects
+`page_type='blog-index' OR name='blog'`, then counts `blog-post`. Live:
+
+| | |
+|---|---|
+| sites with a blog hub | **4** |
+| of those, zero posts — would fire today | **0** |
+| `section-index` hubs the gate CANNOT see | **61** |
+| `news-index` hubs it cannot see | **10** |
+
+So the producer may be **correctly idle** rather than broken: a check whose population is
+4 sites, all already served, files nothing — and "ran 13 times then stopped" is what a
+satisfied backlog looks like as well as what a fault looks like. **Indistinguishable on
+460's own evidence**, because both produce silence on both instruments from the same day.
+The separator is cheap and nobody has run it: point the check at a site that genuinely
+qualifies and see whether an item appears.
+
+**Deliberately did NOT write this into 460 as its cause.** That file asserts none on
+purpose and warns that the 2026-07-31 ruling fires on whoever writes one. Contributed the
+measurements with the inference explicitly labelled a candidate.
+
+**Two consequences for this lane:**
+1. `check_empty_blog` can never fire for a `section-index` (designblog's
+   `/the-design-feed/`) or a `news-index` (advertise's `/news/`). So **468 is necessary
+   and not sufficient** for either — fixing `ParentSection` still leaves nothing driving
+   the producer. That removes the urgency argument for patching 468 ahead of the RFC,
+   which is exactly what the 463 lane was guarding against.
+2. **A guard against my own case being read out of the census:** `/the-design-feed/` shows
+   up in the 39-single-page tail, "indistinguishable from a typo at the data layer". It is
+   single-page *because it has no children*, which is the bug. Told them not to read it as
+   evidence the directory is junk.
+
+**Misstep, caught before it became a claim:** my first grep for `check_empty_blog` piped
+through a filter narrow enough to return nothing, and I nearly reported "the check no
+longer exists" — which would have been a confident, false structural finding. `ls` the
+directory before concluding a file is gone.
