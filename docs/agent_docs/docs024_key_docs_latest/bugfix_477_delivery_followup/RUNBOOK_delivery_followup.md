@@ -41,7 +41,22 @@ git merge-base --is-ancestor 0949244e8 <the git_commit above>   # exit 0 = safe 
 > now*. If you are dating something older than two hours it will silently answer with today's
 > survivors — corroborate with `kubectl -n ai-persona-system get rs -l app=agent-chassis --sort-by=.metadata.creationTimestamp`.
 
-> **`[2026-09-04 ~15:40Z]` The v1.0.1361 roll's cut (`06c0b18f2`) CONTAINS `0949244e8`** — verified
+> **✅ `[VERIFIED 2026-09-04 ~17:2xZ]` CONDITION 3 IS NOW SATISFIED.** The roll landed at 16:01Z and
+> both RUNNING chassis pods — matched against `kubectl get pods -l app=agent-chassis`, which is the
+> step that matters — are `agent-chassis-6f699988d5-{kzklg,s4gg9}`, each stamped
+> `06c0b18f233bc600918ef481d32b40f29535f78f`. `git merge-base --is-ancestor 0949244e8 06c0b18f2`
+> exits 0, so the binary serving traffic knows `{{instructions_link}}`.
+> **Two traps avoided in getting that answer, both flagged by the inter-thread-comms lane:**
+> `service_binary_capabilities` returned **six** rows for **two** live pods (three replicasets inside
+> two minutes), so an unmatched query answers about dead pods; and at 16:00:08 the deployment had one
+> new pod not-ready alongside two old ones still serving, when a probe would have read the wrong
+> binary and looked like a clean pass.
+> **⚠ The vocabulary CONVERSION (`76e3a892b`) is NOT in this binary** — it postdates the cut and rides
+> the next roll. That is harmless for applying `775`: the running action resolves
+> `{{instructions_link}}` through its pre-substitution, and the converted one resolves it through
+> `delivery.Vocabulary`. Both fill it. Do not read "the conversion has not rolled" as a blocker.
+>
+> **Superseded, kept for the record:** `[~15:40Z]` The v1.0.1361 cut (`06c0b18f2`) CONTAINS `0949244e8` — verified
 > by `git merge-base --is-ancestor`, along with `76ec663d3`, `f89dfa31d`, `698b144fa` and
 > `b92beae38`. So once that image is actually running, condition 3 becomes **satisfiable**.
 > **It is not satisfied by the cut containing the commit** — at the time of writing the chassis pods
