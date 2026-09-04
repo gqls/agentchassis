@@ -637,3 +637,26 @@ three days — when that has lapsed it stays quiet, and quiet does NOT mean "lev
 written announcement is the one that never depends on it. September stands at about $605.
 I'm about to prove the whole chain live the same way I did this morning — a short, deliberate
 dip to the first level, one throwaway review submission, and back.
+
+2026-09-04 midday — something you need to know, and a correction to what the system was
+telling people for half an hour. **Your Anthropic account ran out of prepaid credit at 11:21
+UTC** and every AI call in the fleet failed for 36 minutes ("credit balance is too low") until
+it recovered at 11:57 — the fifth blackout of this kind, and the first since the governor
+went live. The governor sat at $647 of $2,000 and said nothing, and it was right to: it meters
+what you have SPENT against your budget, and has no way to see what is LEFT in the account.
+The $3,000 console cap you raised is a different number from the prepaid balance; it was the
+balance that ran dry. You will know within two minutes next time: a detector now writes a
+loud note the moment the API starts refusing for credit, and every new session opens with it
+until it clears.
+
+The half-hour of confusion: another session found six council reviews had died, read a line
+my gate had left in each run saying "WITHHELD at shed level 0", and reported — reasonably —
+that the governor was blocking every review. I switched the gate off on that report within
+twenty minutes, then found the truth in the runs' own trail: the gate had admitted every one
+of them; the reviews died because every reviewer's AI call was refused. The misleading line
+was my mistake (the gate wrote its "withheld" text whether or not it withheld) and is fixed.
+The gate was switched back on at 12:14. Council reviews are running again; the six affected
+sessions were told to resubmit.
+
+The end-to-end rehearsal of the council hold is still owed; I am holding it until those
+resubmissions have gone through, because it would hold back exactly those.

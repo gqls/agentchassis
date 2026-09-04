@@ -2083,3 +2083,51 @@ The announced chassis roll landed **22:06:29Z**: the release rewrote **213 agent
 - **754's round submitted 07:5xZ, corr `b93ca905`** — the canary: its run must show
   `collected_data ? 'governor'` = t, `admitted = true`, and NO `__step_error` on
   `gate_spend_governor`. Watcher armed. The induced-L1 proof follows a clean canary.
+
+### 2026-09-04 11:21–12:17Z — INCIDENT: the account's credit balance ran out (fifth blackout, 36 min); a peer read my gate's unconditional "WITHHELD" text and reported the gate; I disarmed on the report, found the trail, found the 400s, fixed the text, re-armed, and built the detector the governor could never be
+
+**Timeline** `[all MEASURED 2026-09-04]`:
+- **11:21:12Z** first HTTP 400 `"Your credit balance is too low to access the Anthropic API"`
+  (tool-improver); **11:56:48Z** last; **11:58:13Z** first success. Fleet-wide: council-gate
+  91/107 calls failed, landmine-verifier 19/29, tool-improver, directory-researcher,
+  build-briefing, feed-triage, diagnose-agent. Governor at the time: **level 0, $647 of $2,000
+  (32%)** — it meters spend against the BUDGET and has no view of the account BALANCE. It could
+  not have seen this coming and did not.
+- Six council runs 11:21–11:47Z ended at **`complete_invalid`** — `diagnose_council_decide: no
+  reviewer produced a readable opinion (N abstained, 9–16 unreadable)`. The council's own
+  "decide step errored" terminal.
+- **~12:0xZ** the `420 425` lane reported: *"your spend governor is withholding every submission
+  estate-wide since 11:21Z, and its own admission check says they should be admitted"* — six
+  runs, `shed=0 admitted=true WITHHELD`. Credible, specific, six lanes. **12:07:26Z I DISARMED
+  the gate** (start_step → load_schema_hint, steps kept, snapshot first, incident note).
+- **12:0x–12:1xZ the trail:** every council run today (11) has the gate's output with top-level
+  `admitted: true`; the 11:21:58 run's `processing_history` reads `gate_spend_governor >
+  route_spend_governor > load_schema_hint > persist_submission > select_panel > review_* … >
+  council_decide > complete_invalid`. **The gate admitted every run.** My own 07:48 canary went
+  through it to `complete_approved`. Then `llm_call_log`: the 400s.
+- **What the peer had read:** `collected_data.governor.body = "spend-governor: council-gate run
+  … WITHHELD at shed level 0 …"` beside `admitted: true`. **My defect**: the gate's SQL composed
+  the withheld text UNCONDITIONALLY and stored it on every run. A decision and a contradicting
+  narrative in one blob; the peer believed the narrative and built a case explaining the
+  contradiction. So did I, for ten minutes. **755** (applied 12:14:09Z): body NULL when
+  admitted; remedy text no longer says "re-trigger when the level drops" at level 0.
+- **12:14:23Z RE-ARMED** (start_step → gate_spend_governor); daily VERIFY green.
+- **756** (applied 12:16:45Z): `account-wall-detector`, 120 s — one loud note within two
+  minutes of the first credit-balance refusal, one when it clears; the banner now leads with an
+  uncleared wall. Proven on synthetic rows, corpus untouched, two mutations caught.
+
+**The three states for an author waiting on a council run** (the peer's point, corrected):
+no orchestration row = queue latency (wait) · `complete_withheld` = withheld by the governor
+(the level, not the API) · `complete_invalid` = the council itself could not decide — read
+`__step_error` (today: the API). The 097 runbook's find-your-run query shows which.
+
+**Wrong calls, both filed in WRONG_CALLS:** (1) the unconditional body — a narrative stored
+beside the decision it contradicts; (2) I disarmed on the peer's MECHANISM before reading the
+trail — the ACTION was right (a true report of dead reviews, a reversible switch), the CAUSE I
+accepted was wrong, and the next reader should not see the disarm as evidence the gate failed.
+The peer's own line, kept: **"a figure both candidate causes predict is not evidence between
+them"** — their onset timeline was dated, specific, reproducible, and equally predicted by a
+withhold and by an outage.
+
+**Owed and HELD:** the induced-L1 end-to-end proof. Not while six lanes re-trigger reviews on
+the recovered API — inducing L1 now would withhold exactly those. Run it after the wave.

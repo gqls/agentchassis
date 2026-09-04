@@ -66357,3 +66357,34 @@ then wrong.
   path maintains it.
 - **Cost.** ~35 minutes to re-derive and correct; the claim was one day old, had reached no peer
   and no handoff, and the correction is `bugs_open/384`'s 12:0xZ update §3–§4.
+
+## 2026-09-04 — my gate stored the sentence "WITHHELD at shed level 0" on every ADMITTED council run, and a careful peer believed the sentence over the decision beside it — then I disarmed a shared gate on their mechanism before reading the trail (dispatch_throughput lane)
+
+- **What I wrote.** The council gate's SQL composed its withheld-note body unconditionally:
+  every run's `collected_data.governor` carried `admitted: true` AND `body: "… WITHHELD at
+  shed level 0 …"`. The body was only ever READ on the else branch, so the design was
+  "correct"; the artefact was a contradiction in one blob.
+- **What it induced.** During a credit-balance blackout (11:21–11:57Z) six council runs ended
+  at `complete_invalid`. A peer lane read one, found the narrative beside the decision, and
+  reported the gate as withholding at level 0 — with a dated onset, six runs, and a plausible
+  mechanism (my own RFC_065 §3b shape). It cost them 40 minutes and me 10, and an emergency
+  disarm of a gate that had admitted every run.
+- **My second wrong call, same hour.** I disarmed on their MECHANISM ("the conditional reads
+  the wrong path") without reading the run's trail. The action was right — a true report of
+  dead reviews, a reversible switch — but I accepted the cause, and for ten minutes I was
+  investigating the conditional's output shape instead of `__step_error`. The trail
+  (`gate > route > load_schema_hint > … > council_decide > complete_invalid`) and one
+  `llm_call_log` query settled it.
+- **What caught it.** The trail, and then the peer's own retraction after they re-read the
+  rows. Their sentence is the lesson: **a figure both candidate causes predict is not evidence
+  between them** — "approvals stopped at 11:09, invalids from 11:21" is equally predicted by a
+  withhold and by an outage, and felt like strong evidence because it was well measured.
+- **The cheap checks that would have.** (1) Never store a narrative that contradicts the
+  decision beside it — compose the withheld body only when withholding (755). (2) Before
+  accepting a mechanism for a failed run, read `__step_error` and the step trail, not the
+  outcome or a stored string. (3) For a council run: no row = latency; `complete_withheld` =
+  the governor; `complete_invalid` = the council could not decide — three states, and only the
+  second is mine.
+- **Cost.** ~7 minutes of ungoverned council admission (12:07–12:14Z, at level 0 — no practical
+  effect), one wrong incident note (corrected), and a peer's 40 minutes. Logged because the
+  induced error is a property of the TEXT, not of the reader.

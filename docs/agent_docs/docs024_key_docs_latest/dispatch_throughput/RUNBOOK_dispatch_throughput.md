@@ -643,3 +643,17 @@ wait
 # control: the same text with 'FOR UPDATE' removed from the UPDATE's sub-select writes NO note. Then DELETE the synthetic '2 -> ' note by id.
 ```
 ⚠ SQL bodies with backticks or `$` go through a FILE (`psql -f`), never a double-quoted `-c "…"` — the shell executes the backticks (it ate two words of a decision note on 2026-09-03).
+
+### THE THREE STATES of a council run, and the account wall (added 2026-09-04 after the 11:21Z incident)
+```sql
+SELECT status, current_step, left(collected_data->>'__step_error',200) step_error
+FROM orchestration_states WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+-- no row               = queue latency — wait (do not retry)
+-- complete_withheld    = withheld by the spend governor (the LEVEL) — re-trigger when the level drops
+-- complete_invalid     = the council could not decide — read step_error; today it was the API
+-- The account wall signature (the governor CANNOT see this — it meters spend, not balance):
+SELECT count(*), min(created_at), max(created_at) FROM llm_call_log
+ WHERE created_at > now()-interval '1 hour' AND NOT success AND error_message ILIKE '%credit balance is too low%';
+-- 756's notes: SELECT created_at, categories, left(body,160) FROM doc_notes WHERE categories ? 'account-wall' OR categories ? 'account-wall-cleared' ORDER BY created_at DESC LIMIT 5;
+```
+⚠ `collected_data.governor.body` on runs before 755 (applied 2026-09-04 12:14Z) says "WITHHELD" on ADMITTED runs too — it was composed unconditionally. Read `admitted` and the trail, never that string.

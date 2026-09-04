@@ -244,3 +244,11 @@ roll — resubmit from `scratchpad/council_753.json` if its row stops progressin
   now re-reads the pod list after its 300 s wait (it had probed transient mid-rollout pods).
 - **Order from here:** canary b93ca905 clean (gate OUTPUT, no gate error) → `induced_l1.sh` → close 459
   on the real `level-change` note → docs → 754's verdict.
+
+## UPDATE 2026-09-04 ~12:2xZ — INCIDENT handled: credit-balance blackout 11:21–11:57Z, gate wrongly suspected, disarmed 12:07, re-armed 12:14; 755 + 756 applied
+- Read NOTES 11:21–12:17Z entry first. **The gate was innocent**; the "WITHHELD" string on admitted
+  runs was mine (755 fixes). **756 = account-wall detector**, live; banner leads with it.
+- **HELD, still owed:** the induced-L1 proof — after the re-trigger wave (an hour or so). It
+  closes bug 459 on the first real `level-change` note.
+- Round for 755+756 to submit (`scratchpad/council_755_756.json`). 754's round b93ca905: APPROVED
+  (its run went through the gate at 07:48 — the fixed gate's canary, clean).
