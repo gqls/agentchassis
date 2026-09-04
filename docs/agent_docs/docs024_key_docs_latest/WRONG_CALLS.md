@@ -65916,3 +65916,27 @@ and a cost of "four lanes recorded the breakage and none dispatched it" that nob
   `bugs_open/442` §11d and the NOTES. Had the hedged version shipped, the landmine it supports
   would have read "usually the last iteration", and *usually* is exactly the word that stops the
   next reader from checking.
+
+## 2026-09-04 — a census of component NAMES cannot see that placement does not branch on kind (framework_prompts_positive_voice)
+
+- **The claim.** Asked why the fleet plans zero infographics although the planner prompt has asked for
+  them since migration 718, I filed: *"0 of 505 active components are named or categorised `infographic`
+  … if nothing in the menu can display one, the planner is obeying the prompt correctly."* Marked
+  `[HYPOTHESIS, NOT CONFIRMED]`, and sent to another lane, which relayed it toward the owner as the
+  reason to **build a component**.
+- **What was actually true.** `plan_sections_action.go:563` places section imagery with one query whose
+  filter is `spi.kind IN ('illustration','icon','infographic')`. All three resolve through the same path
+  to the same slots; nothing in placement branches on kind. An infographic goes exactly where an
+  illustration goes, and illustrations are planned freely. There is no capability gate.
+- **What caught it.** `grep -rn infographic --include=*.go platform/ internal/`, one command, run after
+  filing because the peer was about to act on the claim.
+- **The cheap check that would have.** **A census over the OBJECTS cannot answer a question about the
+  CODE PATH.** I counted components by name and category — a measurement that is perfectly accurate and
+  structurally incapable of returning "kind is irrelevant here", because the code that ignores kind
+  appears in no component row. General form: **when the hypothesis is "X cannot happen because nothing
+  supports it", the disconfirming evidence lives in the consumer, not the inventory — read the consumer
+  first.** Same family as [[a-client-side-absence-is-not-an-absence]]: an absence measured on one side
+  of a seam says nothing about the other.
+- **Cost.** None reached the owner or a build: the correction went out about twenty minutes after the
+  claim, and the peer had relayed but not acted. The marker did its job — writing
+  `[HYPOTHESIS, NOT CONFIRMED]` is what made testing it the obvious next move rather than an optional one.
