@@ -152,6 +152,35 @@ catch-all; (b) the approve button's *visibility* condition (`isCheckpoint`) is n
 condition (`editedReviewData != null`), so it renders for items it cannot submit. The strongest fix for
 (a) derives the options from the data, so a new pipeline cannot go missing by omission.
 
+### 1.5b ⚠ CORRECTED — payment→build IS automatic, and I told the owner otherwise
+
+I read `billing.Service.HandleWebhook`, found it only marks the order paid and logs, and reported
+that paying does not start a build. **Wrong.** The webhook does not dispatch; a poller does the join,
+which is the better design because it survives a lost webhook.
+
+| mechanism | `[MEASURED 2026-09-04 ~16:2xZ]` |
+|---|---|
+| `order-intake-collect` → `order-intake-collector` | every **900s**, `enabled`, last triggered 16:03:46Z, **80 COMPLETED** runs |
+| `build-pipeline-trigger` | every **30s**, `enabled`, last completed 16:15:30Z, **503 COMPLETED** runs |
+
+**The join is the order reference, not the brief** (owner ruling 2026-08-26, *"the brief will
+change"*): the chat mints `BR-XXXXXX` when it stores the brief, the customer quotes it at payment,
+and it lands in `billing_orders.external_reference`. The one real order carries `BR-9AUZ59`.
+
+**Two documented paths that do NOT produce a build**, and any copy about payment must survive both:
+a paid brief **naming no domain** → `needs_human_review` (*"inventing a domain here would put a name
+nobody chose on a paid order"*); a domain **past `queued`** → `needs_human_review` (*"a paid customer
+swallowed by a unique constraint is this product's worst failure"*).
+
+**And delivery is still gated on a human approval** — `delivery-review-filer` files a checkpoint,
+a person approves, then the zip and the email. So there is no SLA to quote to a customer, and any
+timescale on a payment-success page would be invented.
+
+> **The lesson, which is the day's fourth of this shape:** I read ONE function and generalised from
+> it. `HandleWebhook` not dispatching is true; "payment does not start a build" is false. **A
+> mechanism's absence at one site is not its absence** — the seam was one table and one
+> `scheduled_tasks` row away, and I never looked.
+
 ### 1.6 Still owed to other lanes / the owner
 
 - **`bugs_open/420` §C, carry it WITH the next delivery ask:** *"what CONSENT STATE may a classifier
@@ -175,6 +204,11 @@ condition (`editedReviewData != null`), so it renders for items it cannot submit
 | **Build the £10/month domain-rental link** | a reversal of the earlier position, and the trigger for §1.3 |
 | **Accounts: not yet** — delegated to me, decided | build the link, defer accounts, and **capture the Stripe customer id the first time a subscription creates one**. Full reasoning and the named trigger: `PLAN_2026-09-04_preliminary_customer_accounts…` §4b |
 | **Netlify's AI editor is an ASSET for the handoff**, not a threat | his reframe, and it is the right one — it turns *"no changes are included"* from an apology into an offer |
+| **The HITL loop defaults to the SYSTEM approving changes** | *"for the moment"* — he does not want to check every fix. **Read the scope: it is conditional.** *"The damaged pages need fixing, the good ones don't. If a good one gets rewritten at this stage (fresh build) then as long as it is still good even if different then it is still ok."* He is accepting `bugs_open/238`'s risk **because the sites are fresh**. That acceptance does not obviously survive to a customer-approved or delivered site — re-confirm rather than inherit |
+| **All parked findings get worked through**, by the new `parked findings` lane | *"I can approve each as they go if they wish."* Handed over in full this hour, with the 3,184 measurement, the RFC_056 citation correction, the FIFO sequencing warning and the `457` boxingonline ordering trap |
+| **Domain for the next run: `paper-cups.com`** | and **the build does NOT need it** — *"We can use a random word subdomain on ugg2.com like netlify does."* Nameservers pointed later, by the `dynadot` lane, *"when we need to"* |
+| **`ugg2.com` is NOT the destination** | *"I'd want it hosted in our normal place (backblaze, cloudflare) eventually rather than ugg2.com."* So the end state is the customer's own domain, Cloudflare-fronted, served from Backblaze — passed to `dynadot` because it may change which records they set |
+| **The `stripe` lane fixes `/pay/success`** | routed with the measurement and its controls. They have taken it, and found the framework CAN express it (`/pay/success/index.html`; extensionless directory URLs already resolve on that vhost), so no exception to the 2026-08-04 ruling is needed |
 
 ---
 

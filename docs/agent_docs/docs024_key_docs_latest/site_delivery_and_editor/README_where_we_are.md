@@ -1164,3 +1164,38 @@ delivery record who it was sent to — and the table went in yesterday while the
 not. So right now a delivery would stamp itself as done and record nobody, which is exactly the hole that
 change exists to close. Your roll closes it. I will check it properly once it lands rather than assume,
 and I will check the chassis itself rather than the version number, because those have disagreed before.
+
+### 2026-09-04, early evening — I was wrong about the payment, and your instructions are placed
+
+**First, a correction, because it changes what you think you have to build.** I told you that paying
+does not start a build. That was wrong. I had read the piece of code that Stripe calls when a payment
+lands, found it only records the payment, and stopped there.
+
+The payment and the build *are* linked, and have been. It works by a poller rather than by Stripe
+telling us directly — which is actually the better design, because if the message from Stripe ever
+went missing the poller would still catch up. One job looks every fifteen minutes for briefs whose
+payment has arrived and releases them; another runs every thirty seconds and starts the build. Both
+have been running all day.
+
+**The thing that ties a payment to a brief is the reference code** — the `BR-` code the chat gives
+you when it stores your brief. You quote it when you pay, and that is how the two halves find each
+other. So for your run: commit the brief first, then pay quoting the code. The build starts on its
+own within about a quarter of an hour.
+
+**One honest limit worth knowing.** After the build, delivery still waits for a person to press
+approve. That is deliberate and I am not proposing to change it — but it means there is no honest
+answer to "how long will this take", and I have told the stripe lane not to put a number on the
+payment page for that reason.
+
+**Your instructions are placed.** The parked findings have gone to the new thread with your ruling,
+including the part I did not want lost — that you are accepting a good page might get rewritten
+*because the sites are fresh*, and that this is not the same as accepting it on a site a customer has
+already signed off. The stripe lane has taken the payment page and found the framework can build it
+properly, so no hand-built exception is needed. And dynadot know paper-cups.com is coming, that
+nothing is needed today, and that Backblaze and Cloudflare are where this should end up rather than
+ugg2.
+
+**One thing I have asked dynadot to check rather than assume:** whether we actually own
+paper-cups.com. You named it in the same breath as saying you would pick one, which reads to me as a
+choice rather than something you had looked up — and it is better to find out now than when we come
+to point it.
