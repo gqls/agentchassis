@@ -42,9 +42,12 @@ thepasturedeggcompany.uk
 copyonline.co.uk
 
 # 2026-09-03 — permanent never-sell, by name (owner, via the sedo lane).
-# wpx.uk is his own email domain; leopardessconsulting.co.uk is a paying
-# client's site under owner ruling D4 and is excluded even from "list all live
-# sites". See OWNER_STATED_PRICES.md.
+# wpx.uk is his own email domain. leopardessconsulting.co.uk is excluded even
+# from "list all live sites" — and note the reason was CORRECTED later on
+# 2026-09-03: it is NOT a paying client's site, it is the owner's OWN
+# consultancy (verified at the live site and confirmed by him). He then ruled
+# "we can work as if leopardess is a paying client if that helps", so D4's
+# client-grade care stands BY RULING, not by fact. See OWNER_STATED_PRICES.md.
 2v.uk
 wpx.uk
 leopardessconsulting.co.uk
