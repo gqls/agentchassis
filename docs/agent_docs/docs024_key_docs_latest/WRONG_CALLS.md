@@ -67177,3 +67177,35 @@ always-give-the-path-for-any-doc-you-name, and the same-day pair above on proxie
 - **Cost.** None — corrected in the plan before implementation, and the correction is recorded in
   `PLAN_2026-09-04…md` §2.1 as a quoted block rather than edited away, because the wrong shape is the
   instructive part.
+
+## 2026-09-04 (e) — I handed a lane the imagery task and withheld, without meaning to, the one trap I had written down about it
+
+**What happened.** I asked the `475` lane to put ten screenshots on a framework page, and warned them
+about the `deploy_image_asset` purpose-collision landmine. They then measured whether images reach
+served `webdesign.uk` pages at all, extracting *"every `src`/`href` ending in an image extension"*,
+found **only the logo and favicon on seven pages**, and concluded imagery might be unexercised there —
+which would have reopened the owner's offer of a hand-built site.
+
+**It was wrong.** `hero-home.jpg` (271,735 bytes) and `hero-what-you-get.jpg` (237,562 bytes) both
+serve 200 with an invented-path 404 as control. Measured on the served bytes, `hero-home` appears in
+`src|href` **zero** times and inside `url(...)` **once**. **The heroes are CSS backgrounds.**
+
+**And the correction was already mine, in a file I wrote.** `sweep_site_defects.sh`, §4.1/4.2, says
+verbatim: *"imagery: BOTH encodings per page (an `<img>` count alone is half-blind — heroes are CSS
+backgrounds)."*
+
+**So this is not a measurement failure, it is a HANDOVER failure**, and that is the transferable part.
+I gave them the trap I happened to think of and not the trap that applied to the step they would
+actually take first. **Handing over a task is handing over its traps — and the ones you know are
+invisible to you precisely because you have stopped tripping on them.** The `deploy_image_asset`
+warning I did give was for step three; they never got past step one.
+
+**The cheap check, and it is mechanical.** Before handing a task to another lane, grep your OWN lane's
+scripts and docs for the nouns in the task you are handing over — not for the bug, for the *task*.
+`grep -il "imagery\|image" docs/.../site_delivery_and_editor/*` would have surfaced my own sweep
+script's note in one command.
+
+**Cost.** One peer measurement that had to be retracted, and a live risk that the owner would have
+been advised to stand up a hand-built site on the strength of it. Caught because I re-derived their
+number rather than accepting it — the same discipline they have applied to me four times today, which
+is the only reason this afternoon's chain of corrections has stayed cheap.
