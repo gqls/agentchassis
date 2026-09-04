@@ -1,0 +1,46 @@
+{
+ "section_eyebrow": "Case Studies",
+ "section_title": "Real problems, systems that keep running",
+ "cards": [
+  {
+   "label": "Automation",
+   "headline": "Cutting the quote turnaround bottleneck",
+   "body": "A logistics operator was losing bids because quotes took days to prepare. We built an automation pipeline that reads incoming requests and drafts a quote for review. Turnaround times dropped substantially, and the sales team stopped losing deals to slower competitors.",
+   "link_url": "/case-studies.html",
+   "link_label": "Read case study",
+   "attribution": "A logistics operator losing bids to slow quoting"
+  },
+  {
+   "label": "Knowledge Base",
+   "headline": "Answering the same client question, automatically",
+   "body": "A professional services firm had staff answering the same procedural questions by email, day after day. We built a retrieval system (RAG) over their internal documents, so a request now finds an answer immediately. The team spends less time chasing information and more on client work.",
+   "link_url": "/case-studies.html",
+   "link_label": "Read case study",
+   "attribution": "A professional services firm managing dispersed documentation"
+  },
+  {
+   "label": "Model Training",
+   "headline": "Training a model that speaks the client's language",
+   "body": "A financial services team needed a model that understood their own filings. We trained a specialised model on their documents using LoRA, a technique that adapts an existing model efficiently. The model answers the way their own analysts would, and it belongs to them.",
+   "link_url": "/case-studies.html",
+   "link_label": "Read case study",
+   "attribution": "A financial services team reviewing regulatory filings"
+  },
+  {
+   "label": "Data Pipelines",
+   "headline": "Turning company registry filings into structured data",
+   "body": "A market research firm needed structured data pulled from thousands of company filings, updated regularly. We built a data pipeline that collects and organises this information automatically from public registries. What used to take a research team days now runs unattended overnight.",
+   "link_url": "/case-studies.html",
+   "link_label": "Read case study",
+   "attribution": "A market research firm tracking company filings"
+  },
+  {
+   "label": "Agent Systems",
+   "headline": "Coordinating maintenance requests across multiple sites",
+   "body": "A facilities management contractor was juggling maintenance requests across many sites with no shared view. We built a network of AI agents that triage, route, and track each request, with human review built into key steps. Little falls through the cracks between sites now.",
+   "link_url": "/case-studies.html",
+   "link_label": "Read case study",
+   "attribution": "A facilities contractor covering multiple sites"
+  }
+ ]
+}
