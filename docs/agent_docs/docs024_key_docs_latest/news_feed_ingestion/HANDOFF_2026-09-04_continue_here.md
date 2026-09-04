@@ -94,7 +94,7 @@ re-fire, §5.1's advertise re-triage, and the four landmine verifications in NOT
 |---|---|
 | `691_uk_news_search_region_default.sql` | **APPLIED + VERIFIED + RECORDED.** 26/26 `.uk` `news_search` rows carry `region=uk`, 0 non-UK touched |
 | `746_advertise_news_feed_enablement.sql` | **APPLIED + VERIFIED + RECORDED.** `recommended=true`; 6 sources (1 rss WebProNews + 5 `news_search` `region=uk`); trigger predicate selects the site |
-| 746 council review | **DISPATCHED, then KILLED BY THE OUTAGE — re-fire with `RESUBMIT_CORR=<the same correlation>`, NOT a new one.** See §3a |
+| 746 council review | **APPROVED 16:21:44Z**, corr `2c349dd2-0bb8-48fd-abae-6bb0ccb0f620` — clean round (`unreadable: 0`, 16 reviewers). See §3a for the outage-killed first attempt |
 
 All four preconditions were re-verified first-hand before asking, and none had drifted
 (both files absent from `schema_migrations`; 26/0 on the region census; advertise on 0
@@ -172,8 +172,30 @@ not, and each is a potential false negative. Full entry in `LANDMINES.md`
 
 ## 5. RESUME HERE
 
-1. **Unblocked (§1 resolved); wait for the roll (§1a), then do this first.**
-   advertise.co.uk fetched **19 items, all `status='ingested'`, none scored.** Two causes, neither a 746 defect: the hand dispatch raced its own ingestion
+1. ~~**Unblocked; wait for the roll, then do this first.** advertise.co.uk fetched 19 items,
+   all `status='ingested'`, none scored.~~ **DONE 2026-09-04 16:2xZ — triage ran and the
+   result settles the owner's UK question:**
+
+   | source | relevant | review | rejected | unscored |
+   |---|---|---|---|---|
+   | News Search: UK advertising industry news | **3** | — | — | — |
+   | News Search: IAB UK digital advertising spend | **1** | — | — | — |
+   | WebProNews (rss) | **0** | 3 | **8** | 4 |
+
+   **4 of 4 UK-search items are `relevant`; WebProNews produced zero.** The spec-based
+   scoring rejects American tech on a UK advertising site exactly as designed.
+   ⚠ **Do not repeat this session's error of judging the page from RAW INGESTION COUNTS** —
+   pre-scoring the ratio is 15:4 *in WebProNews's favour* and means nothing, because filtering
+   is the pipeline's whole purpose. `relevance_score IS NULL` means the question is unanswered,
+   not that the answer is zero. Still open: **3 of the 5 UK searches returned nothing**
+   (ASA, CAP Code, AA-WARC), so supply comes from 2 of 6 sources — `[n=1]`, re-check
+   2026-09-08, and it is a BREADTH question, not a swamping one.
+   Remaining verification, unchanged: `746_..._VERIFY.sql`'s split, then
+   `https://advertise.co.uk/data/news-archive.json` (404 before).
+   ⚠ **Never at the served `/news/index.html`** — it fills client-side, so `curl | grep`
+   reads 0 for ever regardless (the live DOM via `browser-runner-adapter` is the instrument).
+   ⚠ **And never judge STORED cleanliness at any served surface** — 332's display projection
+   has been live since 2026-09-03 22:07Z, so the JSON is cleaned at read time; read the column. Two causes, neither a 746 defect: the hand dispatch raced its own ingestion
    (triage 11:34:16→26 while items landed 11:34:17→35 — the 6-hourly route does not race),
    and the outage stopped `score_relevance`. **Once LLM calls succeed**, re-dispatch
    `scripts/dispatch_content_feed_orchestrator.sh advertise.co.uk` (in this dir; it is
