@@ -90,9 +90,29 @@ Query (all three `declaredPageSections` sources reproduced) is in the RUNBOOK.
 So 08:1xZ's "1 page, 1 site" bound **survives on a better predicate** — good news, and the reason
 to keep the wider query rather than the narrow one. **Do not raise it as a class.**
 
-⚠ **A separate population this lane did NOT measure: 64 slots / 60 pages / 8 sites are refused but
-WOULD escalate.** Whether those `needs_page` items drain is `bugs_open/187`/`389` territory. Do not
-quote my 4 as the cost of the render gate.
+⚠ **A separate population this lane did NOT measure: 73 slots / 66 pages are refused but WOULD
+escalate.** Whether those `needs_page` items drain is `bugs_open/187`/`389` territory. Do not quote
+my 4 as the cost of the render gate.
+
+> **⚠ CORRECTED 12:3xZ, after the `ai-agent-orchestration` lane re-ran my query.** Three changes,
+> all in the bug file's 12:3xZ update.
+> 1. **My predicate expressed only ONE of the gate's two branches.** It refuses on (a)
+>    `len(s.contentData) == 0`, schema-independent, AND (b) a required `source:"llm"` field empty;
+>    I wrote only (b). **The hole's membership survives at 4** — empty content_data also leaves
+>    every required field absent, so those slots matched (b) by accident — but the split is
+>    **3 branch (a) / 1 branch (b)**, and only leopardess is (b). Branch (a) means the writer
+>    authors the WHOLE slot; different repair. **The escalatable figure was 64/60 and is 73/66**
+>    (struck above).
+> 2. **The "latent" population is ZERO, not the large number both of us expected.** Keying on
+>    *unsatisfiable alone* (fallback already gone, held out only by intact content) returns
+>    **121 pages / 29 sites** — and **120 of them carry a self-contained tool component that the
+>    loop SKIPS before either branch**, so they can never be refused; the 121st has no components.
+>    **Ask whether a population is ELIGIBLE for the mechanism before publishing it as at-risk** —
+>    measuring both conjuncts is what produced the 121.
+> 3. **`input_schema.fields` is an OBJECT, not an array** — `jsonb_path_query_array($.fields[*] ...)`
+>    returns a clean empty result that reads as "declares no required fields". Use `jsonb_each`.
+>
+> **The RUNBOOK query is corrected**; the version first published there undercounts branch (a).
 
 ## 5. What 384 still owes — 09-03b's §6 list, restated with today's status
 

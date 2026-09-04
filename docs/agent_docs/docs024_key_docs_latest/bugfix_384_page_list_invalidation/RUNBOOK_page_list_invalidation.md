@@ -482,3 +482,79 @@ PY
 Then require the count to agree with the stored row —
 `SELECT jsonb_array_length(content_data->'articles') FROM page_components WHERE …` — so the served
 page and the database have to corroborate each other. Keep `src=""` as a SECOND assertion only.
+
+### ⚠ CORRECTED 2026-09-04 12:3xZ — the hole query above UNDERCOUNTS; use this one
+
+The `refused` CTE above expresses only the gate's **second** branch. The gate refuses **two** ways
+(`rerender_page_sections_action.go:427-431`) and applies an exemption before either:
+
+- **exemption** — `isSelfContainedSection`: `component_level='tool'` AND **empty `input_schema`** →
+  `continue`, never tested. **A section that is never tested can never be refused.**
+- **(a)** `len(s.contentData) == 0` → *"no stored content_data"*. **Schema-independent** — the
+  version above cannot see it.
+- **(b)** a schema-`required` `source:"llm"` field empty or absent.
+
+Replace the `req`/`refused` CTEs with:
+
+```sql
+selfc AS MATERIALIZED (        -- the exemption; join it or you will count tool shells
+  SELECT cc.id FROM content_components cc
+   WHERE COALESCE(cc.component_level,'section')='tool'
+     AND COALESCE(cc.input_schema,'{}'::jsonb) = '{}'::jsonb),
+req AS MATERIALIZED (
+  SELECT cc.id AS component_id, f.key AS field FROM content_components cc
+    CROSS JOIN LATERAL jsonb_each(COALESCE(cc.input_schema->'fields','{}'::jsonb)) f
+   WHERE f.value->>'source'='llm' AND (f.value->>'required')::boolean IS TRUE),
+refused AS MATERIALIZED (
+  SELECT pc.page_id, pc.slot_name,
+         CASE WHEN COALESCE(pc.content_data,'{}'::jsonb) = '{}'::jsonb
+              THEN 'a: no stored content_data' ELSE 'b: missing required llm field' END AS branch
+    FROM page_components pc
+   WHERE pc.build_status <> 'removed'
+     AND NOT EXISTS (SELECT 1 FROM selfc sc WHERE sc.id = pc.component_id)
+     AND ( COALESCE(pc.content_data,'{}'::jsonb) = '{}'::jsonb
+        OR EXISTS (SELECT 1 FROM req r WHERE r.component_id = pc.component_id
+                     AND COALESCE(pc.content_data->>r.field,'') = '') ))
+```
+
+`[MEASURED 2026-09-04 12:2xZ]` hole **4 slots** (3 branch a / 1 branch b) / 3 pages / 3 sites —
+membership unchanged, because empty `content_data` also leaves every required field absent, so the
+old predicate caught them by accident. **Refused-but-escalatable is 73 slots / 66 pages, not the
+64/60 first published.** Keep the `branch` column: (a) means the writer authors the WHOLE slot,
+(b) means it tops up one field — different repairs.
+
+⚠ **`input_schema.fields` is an OBJECT keyed by field name, not an array.**
+`jsonb_path_query_array($.fields[*] ? (@.required == true))` returns a **clean empty result**,
+which reads as *"declares no required fields"* rather than *"wrong shape"*. Use `jsonb_each`.
+(Found by the `ai-agent-orchestration` lane, 2026-09-04.)
+
+⚠ **Before publishing any "latent / at-risk" population, ask whether it is ELIGIBLE for the
+mechanism.** Keying on *unsatisfiable alone* — the pages whose fallback is already gone, held out
+of the hole only by intact content — returns **121 pages / 29 sites**, and the true latent exposure
+is **ZERO**: 120 of them carry a single self-contained tool component (exempt, never tested) and
+the 121st carries no components. Add `LEFT JOIN selfc` and split on it before quoting the number.
+
+### The standing watch (added 2026-09-04 12:4xZ) — the only one of the three figures worth tracking
+
+Append to the corrected CTEs above. It counts **unsatisfiable pages carrying a NON-EXEMPT
+component** — the set that can ever enter the hole:
+
+```sql
+SELECT ps.domain, ps.url, pcx.slot_name,
+       CASE WHEN r.page_id IS NULL THEN 'LATENT (content intact — joins the hole if lost)'
+            ELSE 'already in the hole: ' || r.branch END AS state
+  FROM pages_scored ps
+  JOIN page_components pcx ON pcx.page_id = ps.page_id AND pcx.build_status <> 'removed'
+  LEFT JOIN selfc sc ON sc.id = pcx.component_id
+  LEFT JOIN refused r ON r.page_id = pcx.page_id AND r.slot_name = pcx.slot_name
+ WHERE ps.unsatisfiable AND sc.id IS NULL ORDER BY 4,1,3;
+```
+
+`[MEASURED 2026-09-04 12:4xZ]` **5 slots / 3 pages / 3 sites — 4 in the hole, 1 latent**
+(ai-agent-orchestration.com `/blog.html` `blog-listing`).
+
+⚠ **Do NOT track "tool components with a non-empty schema" as the early warning.** It sounds like
+the right proxy and it is already **56 of 366** — mounted on live pages, harmless, and it will
+never trend to zero. Eligibility is the INTERSECTION with an unsatisfiable page; either side alone
+is uninformative. ⚠ And the exemption is **per-section**, so a page mixing an exempt tool slot with
+a non-exempt one still qualifies through the second — join `page_components`, never `pages`.

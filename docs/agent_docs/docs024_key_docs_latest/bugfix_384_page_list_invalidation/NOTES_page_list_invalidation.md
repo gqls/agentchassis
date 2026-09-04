@@ -828,3 +828,60 @@ template. Now a landmine.
 **The blank clears on leopardess's next `rerender-pages` run, with no intervention.** If that run
 lands and the entry is still blank, §4 is wrong and it becomes the sharpest case this lane has had.
 Check is in the bug file §7. Grade it against the card date, not the clock.
+
+## 2026-09-04 ~12:2x–12:3xZ — the `ai-agent-orchestration` lane checked my work and found a gap; the follow-up measurement then refuted BOTH of us
+
+I messaged them because 2 of the 4 slots in the §6 hole are on their site. They verified every
+element first-hand and came back with two refinements and a site-level fact. Worth recording in
+full, because the second measurement is the interesting one.
+
+**Their refinement, and it is a defect in my predicate.** The gate refuses **two** ways: (a)
+`len(s.contentData) == 0`, schema-independent; (b) a required `source:"llm"` field empty. **My
+`refused` CTE only expressed (b)**, so a slot with empty `content_data` whose component declares no
+required llm field was invisible to it. On their page `content_data` is NULL outright, so it trips
+(a) and `missingRequiredLLMFields` is never reached — my prose ("missing required llm fields") was
+wrong for 3 of the 4 slots.
+
+**Re-measured `[MEASURED 12:2xZ]`: the hole is STILL 4 slots / 3 pages / 3 sites** — and right *by
+luck*, because empty `content_data` also leaves every required field absent, so those slots
+satisfied (b) incidentally. **But "refused but would escalate" was 64/60 and is actually 73/66.**
+Two of my three published numbers survived; one did not.
+
+### The measurement that refuted the peer — and me
+
+Their suggestion was sharp: the hole needs *no content* **and** *no fallback*; keying on the
+conjunction only finds pages where both have happened, so key on **unsatisfiable alone** to find
+where this lands next. They expected "much larger than 4". **So did I** — that is the point worth
+recording, because I ran it expecting to confirm.
+
+`[MEASURED 12:2xZ]` unsatisfiable with content intact: **121 pages / 29 sites**. I was one paste
+from putting that in the bug file as latent exposure.
+
+**It is ZERO.** All 120 that carry a component carry a **self-contained tool**
+(`component_level='tool'` + empty `input_schema`), which the loop skips with `continue` **before
+either branch**. Never tested ⇒ never refused ⇒ can never reach the escalation. The 121st has no
+components.
+
+**The check that caught it is not the one I would have named in advance.** I had already "measured
+both conjuncts" — that is the standard move and it is what produced 121. The question that mattered
+was one level further back: **is the population I just counted even ELIGIBLE for the mechanism?**
+121 was a true count of pages with no fallback and not a count of pages that could ever need one.
+An exemption at the top of a loop deletes a population from a risk without appearing in any
+predicate you would naturally write about that risk.
+
+Same result at their level: of their five named at-risk pages, four are exempt and the fifth has no
+`page_components` row. All five already carry **empty `content_data`** — so not "one content loss
+away"; the loss has happened and the exemption is what makes it correct. Told them, and said their
+migration `777` still stands on their two genuinely-holed slots but should not be argued on the five.
+
+**Their trap, which I escaped by habit rather than by knowing:** `input_schema.fields` is an
+**object keyed by field name**, not an array, so
+`jsonb_path_query_array($.fields[*] ? (@.required == true))` returns a **clean empty result** that
+reads as "declares no required fields". My queries use `jsonb_each` throughout — but I did not know
+why that mattered until they said so. **An empty result from a path expression is a claim about
+your PATH before it is a claim about the data.**
+
+**Meta.** Two rounds today, both times the correction came from someone re-running the check rather
+than reading my report — the 09-03 sessions' lesson holding again. Note the direction of this one:
+I sent a finding, they found a gap in it, and the repair to that gap then refuted *their* follow-up
+hypothesis. Neither of us could have got here alone, and neither of us was the one who was right.

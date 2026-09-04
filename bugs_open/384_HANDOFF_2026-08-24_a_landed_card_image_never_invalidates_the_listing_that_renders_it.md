@@ -1822,3 +1822,116 @@ articles, 13 images). The refuting observation was available at each level and d
 I also checked the two other `page-rerender` runs on that page (17:23:22, 17:59:19) that show
 **no** sectionless skip — they carry `render_page`/`deploy_page` and **no** `rerender_sections`
 step, i.e. full-page renders, not section re-resolves, so they neither confirm nor refute §3.
+
+## UPDATE 2026-09-04 12:3xZ — the hole RE-MEASURED after the `ai-agent-orchestration` lane checked my work: membership holds at 4, my PROSE was wrong for 3 of them, and the "latent population" is **ZERO**
+
+Prompted by that lane verifying §6 first-hand on their own page rather than taking my report. They
+found a gap in my predicate and proposed a second measurement; both are recorded here because the
+second one came out the OPPOSITE way to the one we both expected.
+
+### 1. My `refused` predicate was blind to the gate's FIRST branch
+
+`rerender_page_sections_action.go:427-431` refuses a section **two** ways:
+**(a)** `len(s.contentData) == 0` — *"no stored content_data"*, **schema-independent**; and
+**(b)** a schema-`required` `source:"llm"` field that is empty. My §6 query only expressed (b), so
+**any slot with empty `content_data` whose component declares no required llm field was invisible
+to it.** Re-measured with both branches, plus the `isSelfContainedSection` exemption
+(`component_level='tool'` AND empty `input_schema`) that the loop applies before either
+`[MEASURED 2026-09-04 12:2xZ]`:
+
+| bucket | branch | slots | pages | sites |
+|---|---|---|---|---|
+| **THE HOLE** (refused **and** escalation suppressed) | (a) no stored content_data | **3** | 2 | 2 |
+| **THE HOLE** | (b) missing required llm field | **1** | 1 | 1 |
+| refused but **would escalate** | (a) | 17 | 10 | 7 |
+| refused but **would escalate** | (b) | 56 | 56 | 5 |
+
+**The hole's MEMBERSHIP is unchanged at 4 slots / 3 pages / 3 sites** — the earlier number was
+right, and right *by luck*: empty `content_data` also leaves every required llm field absent, so
+those slots satisfied predicate (b) incidentally. **But my prose was wrong for 3 of the 4**, and it
+matters: branch (a) means the writer must author the **whole slot**, branch (b) means it tops up a
+missing field. Only leopardess `blog-listing` — this lane's own — is the (b) case.
+
+⚠ **The "would escalate" figure I published at 12:0xZ (64 slots / 60 pages) was an UNDERCOUNT: it
+is 73 / 66.** Anyone quoting the 64 should take this one.
+
+### 2. ⚠ "Key on UNSATISFIABLE alone to get the latent population" — a good instinct that returned ZERO
+
+Their argument: the hole needs *missing content* **and** *no fallback*; keying on the conjunction
+finds only pages where both have already happened, while keying on **unsatisfiable alone** finds
+the pages where the fallback is already gone and only intact content is holding them out. They
+expected that number to be "much larger than 4". So did I.
+
+`[MEASURED 12:2xZ]` unsatisfiable with content still intact: **121 pages across 29 sites** — and I
+was one paste from writing that down as the latent exposure.
+
+**It is zero.** Of the 121, **120 carry exactly one component and in every single case that
+component is a SELF-CONTAINED TOOL**, which the loop skips with `continue` **before** it evaluates
+either branch. A section that is never tested can never be refused, so it can never reach the
+escalation, so it can never enter the hole. The 121st page carries no components at all.
+
+**This is the conjunction lesson pointing the other way from usual:** the check that saved the
+figure was not "measure both conjuncts" — I had done that — it was asking **whether the population
+I had just counted is even ELIGIBLE for the mechanism**. 121 was a true count of pages with no
+fallback; it was not a count of pages that could ever need one.
+
+Same finding at the level the peer cares about: of the five pages they named as next in line, four
+are `component_level='tool'` with an empty `input_schema` (exempt) and the fifth has no
+`page_components` row at all. All five already carry **empty `content_data`** — so they are not
+"one content loss away", the loss has happened, and the exemption is exactly what makes that
+correct rather than damaging. Told them, and flagged that their migration's case should rest on
+their two genuinely-holed slots and not on the five.
+
+### 3. Their trap, worth carrying — `input_schema.fields` is an OBJECT, not an array
+
+`jsonb_path_query_array($.fields[*] ? (@.required == true && @.source == "llm"))` returns a **clean
+empty result** against this shape, which reads as *"this component declares no required llm
+fields"* rather than *"you addressed it as an array"*. `jsonb_each(input_schema->'fields')` is the
+form that works, and it is what this lane's queries already use — so we escaped it by habit, not by
+knowing. **An empty result from a path expression is a claim about your PATH first.**
+
+### 4. What did NOT change
+
+Nothing about §1–§5 of the 12:0xZ update: the census (22/22), the residual (1 generic / 14 owned),
+the retraction of the sectionless cause, the artefact verification, or the prediction in §7. This
+update touches only the §6 scoping table and adds the latent-population negative.
+
+### 5. ADDENDUM 12:4xZ — the peer pushed back on MY zero, and they were right to: it is true today and NOT structural
+
+Their caution, verbatim in substance: *"all 120 carry a self-contained tool"* rests on
+`component_level='tool'` **plus an empty `input_schema`**, and `isSelfContainedSection` returns
+false the moment a schema is non-empty — so a tool component that starts declaring fields silently
+leaves the exemption with nothing announcing it. They proposed counting tool-level components with
+a non-empty schema as the early warning, expecting ~0.
+
+**It is not ~0 — it is 56** `[MEASURED 2026-09-04 12:4xZ]`. Of **366** tool-level components, **310**
+have an empty schema (exempt) and **56 do not**, and those 56 are mounted on live pages today. So
+the leak set they were guarding against already exists and is large; my zero survives only because
+none of those 56 currently sits on an *unsatisfiable* page with missing content.
+
+**So the standing check has to be the INTERSECTION, not either side of it** — an unsatisfiable page
+carrying at least one NON-EXEMPT component. That is the set that can ever enter the hole:
+
+| | pages | sites | non-exempt slots |
+|---|---|---|---|
+| unsatisfiable **and** carrying a non-exempt component | **3** | **3** | **5** |
+
+Four of those five slots are the hole itself. **So the genuinely latent population is exactly ONE
+slot**, and it is on the peer's page:
+
+| domain | url | slot | state |
+|---|---|---|---|
+| ai-agent-orchestration.com | `/blog.html` | `call-to-action` | in the hole — branch (a) |
+| ai-agent-orchestration.com | `/blog.html` | `hero` | in the hole — branch (a) |
+| gaswholesalers.com | `/tools/tool-gas-unit-converter.html` | `tool-gas-unit-converter` | in the hole — branch (a) |
+| leopardessconsulting.co.uk | `/blog.html` | `blog-listing` | in the hole — branch (b) |
+| **ai-agent-orchestration.com** | **`/blog.html`** | **`blog-listing`** | **LATENT — content intact; joins the hole if lost** |
+
+**This is the number to watch, and it is monotone-meaningful in a way both of my earlier ones were
+not**: 121 counted pages that could never qualify, and 0 hid the fact that eligibility is a moving
+target. Query in the RUNBOOK ("the standing watch").
+
+⚠ **Note what happened to the SHAPE of this claim across three measurements today:** 121 (true,
+irrelevant) → 0 (true, brittle) → **5 slots of which 1 is latent** (true, and it names the rows).
+The first was refuted by asking whether the population was eligible; the second by a peer asking
+what makes eligibility hold. **Neither correction came from re-reading my own query.**
