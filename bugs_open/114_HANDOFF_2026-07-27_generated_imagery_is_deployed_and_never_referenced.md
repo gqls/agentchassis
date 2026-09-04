@@ -1295,3 +1295,103 @@ the served artefact as a matter of course — it closed ten stale `image_url_404
 2026-09-03 after probing every URL with an invented-URL control. If you want a witness for
 `wire_hero_on_landing` when it is armed, say so and the before/after is one command here. Nothing is
 asked of you on a timetable.
+
+## RESUMPTION 2026-09-04 (bugfix_114_imagery_wiring lane) — this bug is an `on_missing` CONTRACT VIOLATION, and cause (b) in this file's own §"three components guess a filename" was the closest earlier reading
+
+**Handover:** the `finetuning` lane confirmed in terms (*"Take it. My CONTRIB was a handover,
+not a claim"*); the `imagery` lane disclaimed 114 and enumerated its footprint as doc-only.
+Full evidence, the producer census and four instrument failures:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_114_imagery_wiring/NOTES_imagery_wiring.md`
+(2026-09-04) and the same directory's `PLAN` addendum. Council submission
+`74ffbb5b-609c-4949-a4ba-5142140a71d3`.
+
+> ⚠ **DO NOT ARM MIGRATION 710.** The owner's 2026-09-04 words (*"let's use the hero images
+> somehow, we don't need a stop gap though"*) answered a binary — hand-wire four pages, or arm
+> the built mechanism — and he **has never seen 710, the council REVISE (corr `bd78490d`), or
+> the key name** `[SOURCED from the finetuning lane, not from the owner]`. He ruled on the
+> OUTCOME. 710 stays HELD on a live objection; a roll is exactly when someone mistakes a held
+> migration whose carrying image has shipped for one that is overdue.
+
+### The finding `[MEASURED 2026-09-04, null-safe]`
+
+Every field a component declares with `source: site_assets.*` and `type: image`/`image_url`
+declares **`on_missing: use_fallback` with a non-null `fallback`** — **all 874** deployed rows,
+no policy mix. That contract is **total**: resolve the source, or write the fallback. **"The
+field holds no value" is not a permitted third outcome**, and `plan_sections_action.go`'s
+`handleMissingField` implements the policy correctly — so a row in that state **did not pass
+through it**.
+
+**123 rows violate it, across 32 sites:** content 68 (24 sites) · tool 51 (13) · blog-index 2 ·
+section-index 2. By component, all on `background_image`: `hero-tool` 52 · `about-hero` 37 ·
+`contact-hero` 19 · `services-hero` 5 · `hero` 4 · `case-studies-hero` 4 · `use-cases-hero` 2.
+
+At the artefact (instrument validated on the control first — 752 of 753 rows holding a value
+contain it verbatim in `rendered_html`): **86 paint the SITE-WIDE brand hero or the legacy
+literal** (`hero-home.jpg` / `hero.jpg`) and **37 paint nothing**. On the 86, `rendered_html`
+and `content_data` **disagree** — the HTML holds what the row lost.
+
+### The producer, and why every repair to this bug has decayed
+
+`save_page_sections_action.go:938` DELETEs every agent-writable row for the page and re-INSERTs
+from the payload (~1130). It **rebuilds** rather than merges, so a key the payload omits is
+destroyed, while the `rendered_html` written in the same INSERT was assembled moments earlier
+from data that had it. `AgentWritableSQLFor` gates purely on the LOCK, with no component-type
+exclusion — **122 of the 123 rows are inside that DELETE's predicate** (the 1 exception is
+admin-locked; the admin API locks on edit). Corroborated independently: `page_component_history`
+rows tagged **`source = 'save_page_sections_overwrite'`** fire ~0.1s before the row's
+`updated_at`.
+
+**So migration 664's repair had a shelf life by construction:** `jsonb_set` added `hero_url`, and
+the next whole-page save reinserted a row that never had the key — **9 of 9 → 3 of 9 in eight
+days**, measured by the `editorial_design_uplift` lane and now explained. **A migration cannot
+fix this class, and neither can a sixth `content_data` writer.**
+
+### Corrections to THIS FILE's earlier readings, dated
+
+- **§(b) "three components guess a filename instead of degrading" was the closest earlier
+  reading and is now superseded rather than refuted.** The components do not guess: they declare
+  a fallback correctly. The *guess* survives only where a producer wrote a composed path — e.g.
+  `leopardessconsulting.co.uk`'s hero rows hold `hero-<page>.jpg`, which **serves 200** and is a
+  real planner asset. What actually happens on the 123 is worse and quieter: the declared field
+  is never written at all.
+- **`unwired` (IMG-077) conflates two shapes and cannot see the second.** Its `referenced` test
+  asks only whether the page renders *the content-hero path*, never whether it renders *some*
+  hero. `leopardessconsulting.co.uk`'s 2 `unwired` pages already serve their planner hero at 200
+  and hold a **redundant second** `content_hero_*` asset — a duplicate-generation finding, not a
+  delivery one. **Do not read every `unwired` count as pages showing nothing.**
+- **`page_component_history.application_name` does NOT name the writer** — it is NULL on these
+  rows; the tag is in `source`. This file's lineage carried the wrong column and I repeated it in
+  a `090` symptom before checking.
+- **The `unwired` population is 18 pages / 8 sites, and 12 of those pages are `page_type='tool'`
+  while 14 of 18 have no page-scope hero plan row** — so the route-1 `site_plan_imagery` upsert
+  the REVISE preferred is structurally unable to reach most of it.
+
+### Scope, stated so a green result cannot imply more than it does
+
+The proposed Phase 1 guarantees **an** image and stops the decay. It does **not** put each page's
+**own** content hero in the slot: only **18 of the 123** have a `content_hero_<page>` asset, so
+for the other **105 the generic fallback IS the correct declared outcome**. Delivering the right
+image to those 18 is the resolver's job (`ensureAssets` routes 1/2/3) and remains this bug's
+narrower second half.
+
+**And Phase 1 does not close the class.** ~10 wholesale writers exist, three outside
+`platform/orchestration/actions/` (`internal/core-manager/admin/page_admin_handlers.go:343`,
+`cmd/webdesignport/import.go`, `cmd/content-data-recover/sql.go`), **plus ~25 SQL migrations
+under `sql_for_agents/`** — and no application-layer guard constrains a `psql` session. **A
+hand-repair IS a migration**, so the writer behind the measured decay sits outside Phase 1 by
+construction. Only a table-level default catches it, and that is architecture-scope: routed to
+`architecture_review/` as an RFC, deliberately **not** smuggled into this bug (the
+`bugs_closed/124` precedent). Census contributed by `editorial_design_uplift`, **classified by
+SQL form, not by traced call path — a stated gap.**
+
+### Not yet proven, and it is the implementing session's first task
+
+Nobody has traced **one** `page_id`'s full `page_component_history` from an unresolved BIRTH row
+to the `save_page_sections_overwrite` that added the value. The census, the lock arithmetic and
+the `source` tag make the mechanism the strong candidate; that single lifecycle would make it
+proven. The `090` run (`f540f292`) hit its iteration cap and returned **UNVERIFIABLE** — and its
+stated contradiction is a **sampling artefact**: it sampled *"deployed tool pages"* (111 rows, 60
+populated) rather than the violating population, and its own named example
+(`copyonline.co.uk/tool-insight-injector`) is populated and was never in the population. **My
+defect, not the loop's — a symptom naming a state must name the PREDICATE that selects it, or the
+sampler picks the common case.**
