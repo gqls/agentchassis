@@ -66759,3 +66759,32 @@ measurement-discipline-index.
 - **⚠ The sharp half, and it is the transferable one: MARKING IS NOT MEASURING.** I labelled the claim unverified, which was correct, and the *number* travelled anyway. **A marker makes uncertainty visible and does nothing to make a figure safe** — a reader acts on the figure. The marker earns its space only when it stops you publishing the number, or sends you to the query that settles it. (Same failure the peer lane had the same morning with an `[INFERRED]` marker on a subagent's claim, where the caveat survived into three permanent records and so did the number.)
 - **What it would have cost.** Not the error, the ASK. "Three live rows set this" sends someone hunting deployed config for a setting that does not exist; "zero set it, the arm fires on the first operator to declare one" is a guard at the point of declaration. Only the second is actionable, and the wrong one was already on its way to the `bugs_open/257` lane.
 - **Cost.** ~10 minutes; corrected in NOTES before the relay went out, so the 257 lane received only the accurate version. LANDMINES entry at `#a-jsonb-path-query-checks-over-agent-definitions-returns-another-actions-vocabulary-too` generalised rather than forked.
+
+## 2026-09-04 — "there is no kind-generic researcher" widened to "no general-purpose researcher", and the owner caught it (`portfolio_positioning`)
+
+- **The claim.** After finding that `directory-researcher`'s prompt extracts AI models only and
+  `finance-directory-researcher`'s extracts UK financial providers only, I told the owner *"There is no
+  kind-generic researcher"* and wrote the same into NOTES, the handoff and a costed plan.
+- **What was true.** [MEASURED 2026-09-04 ~13:3xZ] **Eleven** active agents are named `*research*` and
+  **ten** run `web_search`. Two are subject-generic: **`evidence-researcher`** (7 steps — the SAME chain
+  `search_web → prepare_urls → scrape_pages → extract_claims → verify_and_register` — whose prompt is
+  *"extracting ATOMIC, CITABLE claims for an evidence register. Research question:
+  {{.input_data.research_query}}"*, 1,681 chars, no vertical or domain anywhere in it) and
+  **`research-agent`** (9 steps, *"Synthesize research findings about: {{.extracted.topic}}"*, storing
+  via `insert_research_result`). General-purpose research is a solved, live capability.
+- **What is actually kind-specific — and it is one leg, not the researcher.** Exactly **three** agents
+  call `verify_and_register_directory_claims`: `directory-researcher`, `finance-directory-researcher`,
+  `adoption-researcher`. Their prompts must emit `entity_kind` plus a closed field vocabulary, so THOSE
+  prompts name their kinds. The correct sentence is: *there is no general-purpose **directory**
+  researcher, because directory registration needs a per-kind extraction prompt.*
+- **Why it mattered.** The wrong sentence sized the work as "a new agent per kind, forever" and framed
+  a plan for the owner on that basis. He challenged it directly — *"We need research for almost every
+  site. If we need a dedicated researcher for each one then we should make a research agent creator"* —
+  and the challenge was right: the generic chain already exists, and what a new kind needs is a prompt.
+- **The cheap check that would have.** Before any "there is no X" about agents, enumerate:
+  `SELECT type FROM agent_definitions WHERE is_active AND NOT is_snapshot AND deleted_at IS NULL AND type ILIKE '%<X>%'`
+  and the action-level version (`jsonb_path_query($.**.steps)` for the action that defines the
+  capability). I had queried only the two agents I was already looking at. **An absence claim scoped to
+  the objects in front of you is not an absence claim about the estate** — same shape as the
+  "readers of a field vs readers of the information" error I logged yesterday, one day apart.
+- **Cost.** A mis-sized plan put to the owner; corrected within the hour, before either route started.
