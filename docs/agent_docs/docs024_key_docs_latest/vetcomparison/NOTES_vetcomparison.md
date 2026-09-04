@@ -2319,3 +2319,22 @@ wording needs one correction before you reuse it: **"additions only, nothing rew
 A restoration that splices a clause into an existing sentence necessarily rewords it. The measure that
 works is **orphaned** sentences — a removed sentence with no close survivor — which was 0 on all three
 pages while "removed" was 5 on one of them.
+
+## 2026-09-04 — 090 verdict on the false-complete class: UNVERIFIABLE (wrong question, not wrong premise)
+
+The diagnosis run (corr 6553f198) returned **UNVERIFIABLE — "stopped: scope-not-narrowing"**, with
+a best-effort trail and no fix. Reading per the standing rule (an UNVERIFIABLE says WRONG
+QUESTION): my symptom told the loop to "read tool-generator's process_item loop" — which is
+**agent-definition WORKFLOW CONFIG, not a Go symbol** — so the scope walker wandered
+(gripper PII scrub, tool-acceptance checks) and never reached the deciding arm. The ARTEFACT
+EVIDENCE IS UNTOUCHED by this verdict: three add_tool items complete with zero
+pages/components, one with completed_steps=0 + stored retry_payload, two with input-spec echoes,
+no failure rows anywhere. **If anyone re-files, the symptom must be CODE-anchored**: "which code
+path sets site_work_items.status='complete' when the handler orchestration completed 0 steps or
+returned no reply subtree — read complete_work_item_verification.go, the call_agent await/
+completion path, and the mark-complete arm of the dispatch machinery" (the trail's own NextScope
+already lists complete_work_item_verification.go:workItemVerifyRow and
+retry_payload.go:ReplayRequest — start there). Not re-filed by this lane today: the class is
+platform-wide, the evidence is recorded in three places (here, the tool-rebuilds lane, the dead
+rows), and the tool-rebuilds seat called it "real but unowned" — a deliberate hand-off, not a
+drop. Lane queue: 0 open items; everything shipped this week remains live and verified.
