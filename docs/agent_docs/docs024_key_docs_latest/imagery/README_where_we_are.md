@@ -1146,7 +1146,7 @@ happen, ever".
 
 The answer is clean. The old generator made sixteen pictures between the 3rd and the
 11th of August, and **has made none since** — while in that same period we generated
-**1,025** pictures across **39** sites. So there is plenty of traffic; it simply is
+**1,046** pictures across **37** sites. So there is plenty of traffic; it simply is
 not going down that road. The four suspect places have been quiet for **24 days**.
 I also checked the one innocent explanation — that some site had deliberately asked
 for the old generator — and no site has: fourteen sites have picture-style settings,
@@ -1193,3 +1193,12 @@ in the technical notes.
 > pictures with none from the old generator says exactly what the wrong figure said. I am
 > flagging it because the error made my own argument look stronger than it was, and that
 > is the kind most worth putting on the record.
+
+> **(Restored 2026-09-04.)** The paragraph above still reads 1,046 across 37 on purpose.
+> I had corrected it in place, and the pre-commit pattern check caught that as a line
+> removed from this log — which is right: **this file is append-only, and a correction
+> belongs below, never as an edit to what is already written.** The rule exists because a
+> session overwrote one of these logs on 2026-07-19 after mistaking it for a stray file,
+> and the rule does not soften just because the words being edited were my own from an
+> hour earlier. So the wrong figure stands where it was written, and the correction
+> immediately above it is the operative one: **1,025 pictures across 39 sites.**
