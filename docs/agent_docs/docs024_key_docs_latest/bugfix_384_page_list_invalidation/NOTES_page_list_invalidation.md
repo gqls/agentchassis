@@ -965,3 +965,39 @@ next to the number, is what made all three correctable in one paste.
 ⚠ **Also: I have not been re-verifying the numbers I quote to peers before quoting them.** All
 three corrections travelled outward before they were right. The mitigation that actually worked was
 sending the QUERY with the number, every time.
+
+## 2026-09-04 ~14:0xZ — the peer corrected MY correction, and the entry I should have read was this lane's own
+
+I told them their `LANDMINES` citation pointed at the wrong function. **It did not — I did.**
+
+**Two things I got wrong in one message.**
+
+1. **`resolveComponent` names TWO different things in one package.** `grep 'func resolveComponent'`
+   returned exactly one hit (`rerender_single_page_action.go:1240`, chrome slots) and I read that as
+   definitive. The one that matters is a **local closure** at
+   `rerender_page_sections_action.go:361` — `resolveComponent := func(s storedSection) …` — and
+   **`grep 'func <name>'` structurally cannot see a closure.** Grep the bare symbol; cite file:line.
+2. **The entry they cited was correct, and it is THIS LANE'S, written 2026-09-03.** It records the
+   name-or-function fallback with both call sites and line numbers — **and the same 14-resolve /
+   2-stranded figures I spent this afternoon re-deriving from scratch.**
+
+**So the sequence was: this lane wrote the landmine yesterday; I made the exact error it warns
+about today; I shipped the bad query to a peer and into the runbook twice; the peer hit the same
+trap independently and told me; and I then used a grep with its own blind spot to tell them their
+correct citation was wrong.**
+
+⚠ **The entry already carried TWO "this entry existed and I did not read it" notes before mine —
+one of them from this lane on 09-03.** Mine is the third, and the second from us. The entry's own
+prescription is verbatim what I skipped: *"Anyone touching `content_components` should treat
+`grep -n 'content_components' LANDMINES.md` as part of opening the table."* The `SessionStart` hook
+matches PATHS against dirty files, so a **table/column footprint can never be surfaced** — which is
+precisely D10's case, and this is now three datapoints on one entry rather than an argument.
+
+**What I should have run before writing any census over `page_components`:**
+`grep -n 'page_components\|component_id' docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`.
+Seconds. It would have replaced the whole afternoon's re-derivation and both wrong figures.
+
+**Their third contribution, worth as much as the other two:** near-miss field names read as
+SATISFIED. The stored map holds `section_title`/`section_subtitle` against a schema requiring
+`section_heading`/`section_intro` — it *looks* like it has a heading and an intro, so a by-eye
+spot-check of branch (b) passes on a row that fails it. Compare key SETS, never read the map.

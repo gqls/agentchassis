@@ -640,3 +640,28 @@ lane's point, and their own slot is the worked example): a page can become unsat
 superseded, a `sections` array emptied — with **nothing about the component changing**, and a
 component can leave the tool exemption by gaining a schema with nothing about the page changing.
 Both sides move independently, so neither count is a proxy for the intersection.
+
+### ⚠ Spot-checking branch (b) BY EYE — near-miss field names read as satisfied
+
+Raised by the `ai-agent-orchestration` lane, 2026-09-04, from the live case. `blog-listing_pre_037`
+requires **`section_heading`** and **`section_intro`**; the stored map on both affected pages holds
+**`section_title`** and **`section_subtitle`**. Reading that map, it *has* a heading and an intro —
+it looks complete, and a by-eye check passes on a row the gate refuses.
+
+**Compare the schema's required keys to the map's keys as SETS, never by reading the map:**
+
+```sql
+SELECT f.key AS required_llm_field, COALESCE(pc.content_data->>f.key,'(ABSENT)') AS stored
+  FROM page_components pc
+  JOIN content_components cc ON cc.id = pc.component_id   -- or the name/function fallback above
+  CROSS JOIN LATERAL jsonb_each(COALESCE(cc.input_schema->'fields','{}'::jsonb)) f
+ WHERE pc.page_id = $1 AND pc.slot_name = $2 AND pc.build_status <> 'removed'
+   AND f.value->>'source'='llm' AND (f.value->>'required')::boolean IS TRUE;
+```
+
+⚠ **And `resolveComponent` NAMES TWO DIFFERENT THINGS in this package** — a package-level func in
+`rerender_single_page_action.go:1240` (chrome slots) and the **closure** at
+`rerender_page_sections_action.go:361` that does the name-or-function fallback. `grep 'func
+resolveComponent'` finds only the first, because a closure is `name := func(…)`. **Grep the bare
+symbol and cite file:line.** I used the `func` form to tell a peer their citation was wrong; it was
+not. Full trap in `LANDMINES.md` under the `content_components.name`/`.function` entry.

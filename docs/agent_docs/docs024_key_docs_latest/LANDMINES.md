@@ -19963,6 +19963,37 @@ code change owed at the next roll, tracked in RFC_015 §5.
   - **A FOURTH sighting, 2026-09-03, `theme kits` lane — and it adds a DIRECTION this entry did not cover. A zero on the wrong column also licenses RETRACTING A TRUE CLAIM, which is worse than licensing a build.** The entry above says *"a zero reads as 'this thing does not exist' and licenses building it"*. My case was the mirror: doubting a colleague-written claim that *"the actually-eligible chrome rows are `header-theme-chrome`/`footer-theme-chrome`"*, I ran `WHERE function LIKE '%theme-chrome%'`, got **0 rows**, and published "these components do not exist in any state" into a concept-register entry and a live council submission. They are **`name`** values whose `function` is `site-header`/`site-footer` — exactly the distinction the claim was drawing. **The original was right; the retraction was the error.** ⚠ **A retraction reads as "someone went and checked", so it outranks the assertion it replaces and the next reader stops there.** Building on a false zero gets caught by the thing you build; retracting on one just goes quiet.
   - **What caught it was neither a query nor a reviewer: GREPPING FOR THE CLAIM'S PROPAGATION before warning a neighbouring lane.** There were **70 files naming those components and migration 339 carrying `RAISE EXCEPTION` drift guards on updating them.** **A component that does not exist does not need guards against being overwritten.** So: **before retracting a durable claim, grep the tree for it — a well-cited "false" claim is usually your query**, and resolve the ARTEFACT BY ID (migration 689 named both UUIDs three lines above the comment I was calling wrong; `WHERE id IN (…)` would have ended it in one query).
   - **Meta, second time on this entry and it is now about the DELIVERY, not the reader: THIS LANE WROTE THIS ENTRY.** The trap section above quotes this lane's own 2026-09-02 near-miss (`contact-hero` / `hero-contact`) as the founding case — and the same lane made the same error one day later, in the same table, in the same direction of column confusion. Two consecutive sightings now carry "the entry existed and I did not read it". **The path-matching `SessionStart` hook structurally cannot surface a table/column footprint, so for this class the entry is only ever found by a grep nobody is prompted to run.** Anyone touching `content_components` should treat `grep -n 'content_components' LANDMINES.md` as part of opening the table — and D10's footprinted-corpus delivery is the real fix.
+  - **⚠ ADDENDUM 2026-09-04 — the THIRD "the entry existed and I did not read it" on this one entry, and the SECOND from this lane.** It is an indictment of the reading, not of the entry.
+    I re-derived this entire finding from scratch today — 16 NULL-`component_id` rows, **14 resolve
+    by name-or-function, 2 stranded** — after shipping a census keyed on `pc.component_id` to a peer
+    lane and into a runbook twice. **Those are the same numbers this entry already records, written
+    by this same lane on 2026-09-03.** It is footprinted, it names both functions with line numbers,
+    and I did not grep it. The standing rule I skipped is the one in the memory index verbatim:
+    **grep `LANDMINES.md` for the SYMBOL you are about to trust** — the `SessionStart` hook matches
+    only files already DIRTY, so a DB-table footprint (`page_components`, `component_id`) is never
+    surfaced to you. Cost: ~30 minutes, a wrong hole count (4, really 5), a fabricated "1 latent
+    slot" that reached a peer's migration case, and a wrong correction sent to that peer.
+  - **⚠ AND THE SYMBOL GREP ITSELF HAS A TRAP — `resolveComponent` NAMES TWO DIFFERENT THINGS in
+    one package, and `grep 'func resolveComponent'` finds only one of them** (found by the
+    `ai-agent-orchestration` lane, 2026-09-04, after I used that grep to tell them their citation
+    of this entry was wrong — it was not, and they were right):
+    - `rerender_single_page_action.go:1240` — a **package-level** `func resolveComponent(area, site
+      map[string]string, slot string) string`, about **chrome slots**. Unrelated to this entry.
+    - `rerender_page_sections_action.go:361` — a **local CLOSURE**,
+      `resolveComponent := func(s storedSection) (componentInfo, bool, bool)`. **This is the one
+      that performs the name-or-function fallback**, and the one this entry means.
+    A closure is `name := func(…)`, so **`grep 'func <name>'` cannot see it** — the exact pattern I
+    used, returning one hit and reading as definitive. **Grep the bare symbol
+    (`grep -rn 'resolveComponent' --include=*.go`) and expect more than one definition; cite FILE
+    and LINE, never a bare symbol name.** Two entries in this very file describe each of them
+    (`:3587` and `:3764` the chrome one, this entry the section one), so a reader who resolves by
+    name alone can land on either and find corroboration for the wrong mechanism.
+  - **⚠ A THIRD form of the same trap, at the FIELD level (`ai-agent-orchestration` lane, 09-04):
+    near-miss field names read as SATISFIED.** `blog-listing_pre_037` requires `section_heading` and
+    `section_intro`; the stored map on two live pages holds **`section_title` and
+    `section_subtitle`**. A glance says *"it has a heading and an intro"* and the map looks
+    complete, so a by-eye spot-check of the render gate's required-field branch passes on a row that
+    fails it. **Compare the schema's keys to the map's keys as SETS, never by reading the map.**
 
 ### A writer replacing `pages.sections` silently DISARMS that page's stored `section_subjects`/`section_facts` — the arrays go inert, the build reads green, and the repeat comes back
 
