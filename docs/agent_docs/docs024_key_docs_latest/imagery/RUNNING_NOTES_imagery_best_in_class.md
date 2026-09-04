@@ -3431,3 +3431,15 @@ never proven. Landmine appended (`LANDMINES.md`), footprint `agent_error_log`.
    design. **Enumerate the values before writing the bucket predicate.**
 3. **I read `error_type` and `created_at` off `agent_error_log` from memory**; the
    columns are `error_code` and `occurred_at`. Schema first, as CLAUDE.md says.
+
+> **Provenance footnote, same session (2026-09-04).** The `agent_error_log`-retention
+> landmine described in §4 above is **committed under another lane's message**:
+> `d2e1763d8` ("the finetuning lane caught a defect in MY recommendation…", the
+> `infographics` lane, 14:34). Between my append and my commit, three other sessions
+> committed `LANDMINES.md`, and mine rode along as a same-file passenger — the exact
+> class CLAUDE.md documents, running in the direction that catches *you* rather than
+> the one you guard against. Nothing was lost and forward-only holds, so this is a
+> note, not a repair. Recorded because `git log` on that entry names a lane that did
+> not write it, and the ledger's own convention is that the `added:` line is the
+> authority on authorship, not the commit. Entry verified present at HEAD; doc_notes
+> synced; verifier corr `8c5d0f5f`.
