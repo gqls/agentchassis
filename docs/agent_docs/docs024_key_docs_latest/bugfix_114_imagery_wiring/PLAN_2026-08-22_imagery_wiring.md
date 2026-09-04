@@ -643,3 +643,58 @@ Their `[INFERRED]`-not-measured flag on the html-as-proxy question was **right**
 a correction in NOTES and `WRONG_CALLS`: the painted value is the site-wide hero on **86 of 88**, so
 it is resolver-supplied at render and says nothing about what the lost key held. **They caught it by
 labelling the limits of their OWN evidence and noticing the label applied to mine.**
+
+## ADDENDUM 2026-09-04 (final) — three corrections to the constraints above, and one practice refinement that extends an owner ruling
+
+### 1. "Six live carriers" is RETRACTED by its own lane — the number is THREE
+
+The `450` lane withdrew it outright and asks that it be quoted without the caveat I attached. They
+re-derived four ways: **three** active non-snapshot `agent_definitions` rows carry a step whose
+`action` is `save_page_sections`, one each — and **six does not reconcile under ANY predicate**
+(dropping `is_active`, `is_snapshot`, `deleted_at`, or all three still returns 3), nor on the Go
+side, which has one entry point and one `registry.go` entry. Three lanes now agree on three. **So
+my "composition paths versus step invocations" guess in the previous addendum was wrong and is
+withdrawn** — it was not two numbers about different things.
+
+**Where it came from is the part worth keeping:** they lifted it from a doc comment on the file they
+were changing — `adopt_fragment_section.go:54`, *"with SIX live carriers as of 2026-08-23"* — and
+passed it on as current, inside a message whose whole purpose was care about a shared seam.
+
+### 2. ⚠ THE PRACTICE REFINEMENT, and I think it is new rather than an instance of a rule we have
+
+The owner's **2026-08-22 ruling** says a count of things must carry the date it was counted.
+**That comment DID carry its date, and the date did not save anyone.**
+
+> **A date makes staleness DETECTABLE; only a PREDICATE makes a census RE-RUNNABLE.**
+
+Because the comment named no query, nobody can now determine whether **six was wrong when written**
+or whether **three carriers have since gone** — both are permanently unknowable. **That is strictly
+worse than a bare wrong number, because it looks rigorous.** The `--since` half of the owner's rule
+tells you *to* re-run the census; it cannot tell you *what* to re-run.
+
+**So: write the QUERY next to the number, not just the day.** This lane's three survived contact
+because it was given with its predicate attached (*"three active non-snapshot `agent_definitions`
+rows carrying a step whose `action` is `save_page_sections`"*); the doc comment's six did not,
+because it was given with only a date. **Raised with the owner rather than acted on unilaterally —
+it narrows nothing and adds one clause to an existing ruling, but it is his rule to extend.**
+
+### 3. ⚠ Precision on the first arming's SIGNAL SHAPE — it is not a "refusal"
+
+Corrected by the `450` lane against their own earlier framing. `page-rerender` does **not** refuse.
+Its content pre-check **ESCALATES the page to the writer and returns WITHOUT rendering** when a
+section has no stored `content_data`. **So a bad interaction surfaces as an escalation plus a
+skipped render — not an error, and not a refusal in the sense one would watch for.** Still the right
+first arming for the reason given, but **that is the signal to instrument**, and watching for an
+error would see nothing.
+
+### 4. Why the consumer notice worked — recorded verbatim, because it is the argument for the practice
+
+> *"The consumer does not have to guess what the producer will get wrong, only to describe its own
+> constraints accurately and let the producer collide with them. A census returns names; a
+> description returns constraints, and only constraints can be violated."*
+
+They **decline the credit** for catching the placement defect, on the ground that they could not have
+known my sketch read the row after the guard — there is no Go yet — and all they did was state where
+the guard sits and why. **That is a better argument than taking the credit would have been**, and it
+is the reason the owner's 2026-07-29 §3 ruling (tell your consumers, do not merely count them) earned
+its place: the notice's value was not in the names it collected but in the constraints it provoked.
