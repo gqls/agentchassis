@@ -193,10 +193,23 @@ then a full round trip: apply 741 → run its `_VERIFY` companion → apply the 
 to the original → discard. Every assertion the migration makes about itself passed, and the
 rollback restored the pre-flip state byte-exact (step count 13 → 10, gate condition identical).
 
-**Why it is not applied:** owner ruling D2 — the 404 lane co-signs the gate migration. That lane
+~~**Why it is not applied:** owner ruling D2 — the 404 lane co-signs the gate migration. That lane
 has been dormant since 2026-08-26 and the CONTRIB asking for the co-sign (2026-09-02) is
-unanswered. Owner decision 2026-09-03: build it all, stop before applying. The release condition
+unanswered.~~ Owner decision 2026-09-03: build it all, stop before applying. The release condition
 is the co-sign and nothing else.
+
+> **⚠ SUPERSEDED 2026-09-04 — THE CO-SIGN IS GIVEN, and the "dormant" premise was false** (the
+> 440 lane retracted it themselves on 2026-09-03; that lane's r4 verdict had been APPROVED and
+> unread since 2026-09-02 16:33Z, and is now read and recorded — `bugs_open/404` is CLOSED).
+> **The co-sign carries ONE condition:** 741's applier checklist step (c) declares
+> `check_routing_key_known` as a `FragmentMatch` only, which is BLIND TO ADDITION for exactly the
+> reason step (b) exists — mutation-proved with both controls (a value REMOVED live → 1 finding,
+> so the guard is armed; a sixth value APPENDED live → **0 findings, silent**). Add a paired
+> `CountEqual` on that clause, `ExpectCount` derived from `CheckRoutingKnownConditionClause()`
+> (**7**, not 5 — it carries `== null` and `== ''` too) and the co-sign stands with no further
+> round. Written up in
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_440_unknown_routing_key/CONTRIB_2026-09-04_from_the_404_lane_cosign_GIVEN_with_one_condition.md`
+> and repeated in both `_HOLD` migration headers, where an applier will actually read it.
 
 ### What closing this bug will need (unchanged in shape, now concrete)
 

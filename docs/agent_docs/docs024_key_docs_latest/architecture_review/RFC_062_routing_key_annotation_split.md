@@ -1,6 +1,6 @@
 # RFC_062 — split `spec.reason` into routing key + annotation, then refuse a routing key nobody understands
 
-**Status: DESIGN RULED BY THE OWNER 2026-09-03 — open questions closed, see §Rulings. Phases 1a, 1b and 2 are SHIPPED AND LIVE. Phase 3 is BUILT, PROVEN BY EXECUTION, and HELD at migration `741_..._HOLD.sql` pending the 404 lane's co-sign (D2) — see §Phase 3 as built** · raised by `bugs_open/440` (spun out of 410's candidate 1, owner
+**Status: DESIGN RULED BY THE OWNER 2026-09-03 — open questions closed, see §Rulings. Phases 1a, 1b and 2 are SHIPPED AND LIVE. Phase 3 is BUILT, PROVEN BY EXECUTION, and ~~HELD at migration `741_..._HOLD.sql` pending the 404 lane's co-sign (D2)~~ — **the D2 CO-SIGN WAS GIVEN 2026-09-04, with one condition: 741's applier step (c) must gain a paired `CountEqual` (a `FragmentMatch` there is blind to ADDITION, mutation-proved), `ExpectCount` derived from `CheckRoutingKnownConditionClause()` = 7. Add it and 741/742 are releasable.** See §Phase 3 as built and `bugfix_440_unknown_routing_key/CONTRIB_2026-09-04_from_the_404_lane_cosign_GIVEN_with_one_condition.md`** · raised by `bugs_open/440` (spun out of 410's candidate 1, owner
 decision 2026-09-02) · owning lane `docs024_key_docs_latest/bugfix_440_unknown_routing_key/` ·
 prior art: `bugs_open/404` (whose livespec header names this split as "the real repair" and
 defers it here), owner rulings 2026-08-02 §2 (opt-in shape) and 2026-07-29 §1 (the RFC trigger).
@@ -99,6 +99,16 @@ mechanism that reaches a door Go cannot see).
   established and declaration-audited. Rejected for now; revisit if vocabulary churn accelerates.
 
 ## Phase 3 as built — 2026-09-03, held at the co-sign
+
+> **⚠ UPDATE 2026-09-04 — NO LONGER HELD.** The `bugs_open/404` lane read its own outstanding r4
+> verdict (APPROVED, 2026-09-02 16:33:30Z) and **gave the D2 co-sign**, subject to one added
+> Declaration: the applier checklist's step (c) declares `check_routing_key_known` as a
+> `FragmentMatch` only, and that is blind to a sixth routing value being APPENDED live — the same
+> asymmetry step (b) exists to close, one clause along. Mutation-proved with both controls
+> (removal → 1 finding; addition → 0). Remedy: a paired `CountEqual`, `ExpectCount` derived from
+> `CheckRoutingKnownConditionClause()` — **7**, because the clause also carries `== null` and
+> `== ''`. `bugs_open/404` is now CLOSED; this RFC's residual is entirely 440's.
+
 
 The flip is written, executed against the live database inside a transaction and rolled back
 (twice, then a full apply → VERIFY → ROLLBACK → compare round trip). It ships as

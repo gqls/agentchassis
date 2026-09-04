@@ -57,7 +57,20 @@ forever). Split + refusal = RFC_062; evidence = `bugs_open/440_HANDOFF_2026-09-0
    narrowing; (c) leave it, with `_VERIFY` section C counting it. All three re-phase or accept a
    gap in a RULED RFC, which is why it did not get decided by a session. **Do not action this
    without the owner.**
-2. **Get the 404 co-sign (D2/D7)** — the only release condition on 741 and 742.
+2. ~~**Get the 404 co-sign (D2/D7)**~~ — **DONE 2026-09-04: THE CO-SIGN IS GIVEN, with ONE
+   condition, by the 404 lane itself.** Read
+   `CONTRIB_2026-09-04_from_the_404_lane_cosign_GIVEN_with_one_condition.md` in this directory
+   BEFORE applying anything. In short: (a) and (b) in 741's applier checklist are confirmed by
+   execution and agreed; **step (c) as enumerated is blind to ADDITION for exactly the reason (b)
+   is** — a `FragmentMatch` on `CheckRoutingKnownConditionClause()` stays green when a sixth
+   routing value is appended live (mutation-proved, with a loss control showing the guard is
+   armed). **The condition is one extra paired `CountEqual` Declaration on
+   `check_routing_key_known`, `ExpectCount` derived from the renderer (it is 7, not 5 — the clause
+   carries `== null` and `== ''` too).** Add it and the co-sign stands; no further round with the
+   404 lane. Their r4 verdict is also now read and recorded (`approved`, 3 advisory objections,
+   none high), and `bugs_open/404` moved to `bugs_closed/` the same day. Original text below.
+
+   ~~The only release condition on 741 and 742.~~
    Lane: `docs024_key_docs_latest/bugfix_404_rerender_reason_vocabulary/` (NOTES + README only; it
    does not keep the standing five, so there is no HANDOFF to read — their NOTES tail is the state).
    > **⚠ CORRECTED 2026-09-03 (night): earlier revisions of this file, RFC_062, both migration

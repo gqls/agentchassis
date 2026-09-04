@@ -95,6 +95,38 @@
 --     (e) BUMP LiveAuditOnlyDeclarations for whichever of the above no Go test reads,
 --         and check MaxDeclarations (24) still holds.
 --
+--
+-- ══ 404 LANE CO-SIGN (OWNER RULING D2) — GIVEN 2026-09-04, WITH ONE CONDITION ══
+-- Signed by the bugs_open/404 lane itself (their r4 verdict is now read: APPROVED,
+-- 2026-09-02 16:33:30Z, artifact e1abb1bc, 3 advisory objections none high; 404 has
+-- been moved to bugs_closed/). Applier checklist steps (a) and (b) below were
+-- re-derived BY EXECUTION and are confirmed and agreed.
+--
+-- ⚠ THE CONDITION, AND IT IS A DEFECT IN STEP (c) BELOW: a FragmentMatch on
+-- CheckRoutingKnownConditionClause() is BLIND TO ADDITION for exactly the reason (b)
+-- is. Mutation-proved 2026-09-04 with both controls: live == declared -> 0 findings;
+-- literal_markdown REMOVED live -> 1 finding (so the guard IS armed); a sixth value
+-- appended live -> 0 findings, SILENT. So (c) as written would re-create bugs_open/404
+-- inside the change built to fix it, one clause along.
+--
+-- REQUIRED BEFORE APPLY: add a PAIRED CountEqual Declaration on
+-- check_routing_key_known, needle 'input_data.spec.routing_reason ==', with
+--   ExpectCount: strings.Count(CheckRoutingKnownConditionClause(), "input_data.spec.routing_reason ==")
+-- ⚠ That is SEVEN, not five — the clause carries `== null` and `== ''` as well as the
+-- five vocabulary values, and both are load-bearing (see the `== null` note above).
+-- Derive it from the renderer; do NOT write len(RerenderSectionReasons), and do not
+-- write a bare 7. Same mutated input then reports "live count is 8, declared 7".
+--
+-- Also for the applier, neither a condition: (d) will NOT match if you paste 742's own
+-- text — Postgres normalises IN (...) to = ANY (ARRAY[...::text]), verified 2026-09-04
+-- against the live doc_plans twin, so declare against pg_get_constraintdef's output.
+-- (e) has room: 16 Declarations in the tree today against MaxDeclarations 24; (b), (c),
+-- this added count and (d) take it to 20.
+--
+-- Full reasoning, evidence and the state of the 404 half at the artefact:
+--   docs/agent_docs/docs024_key_docs_latest/bugfix_440_unknown_routing_key/
+--     CONTRIB_2026-09-04_from_the_404_lane_cosign_GIVEN_with_one_condition.md
+-- ═══════════════════════════════════════════════════════════════════════════════
 -- Companions: 741_..._HOLD_ROLLBACK.sql (restores the pre-flip gate; it does NOT touch
 -- the constraint — that is 742's own rollback) and 741_..._HOLD_VERIFY.sql, which covers
 -- BOTH migrations: the flip's shape, 742's validate-safety census, and the drain.
