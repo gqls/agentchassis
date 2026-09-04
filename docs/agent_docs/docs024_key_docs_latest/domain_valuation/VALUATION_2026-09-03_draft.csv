@@ -33,7 +33,7 @@ adversecreditmortgage.co.uk,nominet,financial,mortgages,co.uk,21,2028-12,,,,,,,,
 adversecreditmortgage.uk,nominet,financial,mortgages,uk,21,2028-12,,,,,,,,,10000,min_offer,2500,,,,2526,portfolio-median,very-low,0.21,uk x0.21,531,D,,KEEP:network-financial,,
 adversemortgage.uk,nominet,financial,mortgages,uk,15,2028-11,,,,,,,,,,,2000,,,,2526,portfolio-median,very-low,0.21,uk x0.21,531,D,,KEEP:network-financial,,
 advertdesign.co.uk,nominet,web-digital,design,co.uk,12,2028-10,,,,,,,,,10000,min_offer,1500,,,,3255,subcategory-median,medium,0.85,co.uk x0.85,2767,C,1400,tbd,,7.1
-advertise.co.uk,nominet,web-digital,marketing,co.uk,9,2029-08,,146663,2026-09-04,proxy,advertise.com,,,,800000,min_offer,,,live-site,,146663,proxy-via-advertise.com,medium,0.85,co.uk x0.85,124664,A,,PREMIUM-REVIEW:single-word,,
+advertise.co.uk,nominet,web-digital,marketing,co.uk,9,2029-08,,146663,2026-09-04,proxy,advertise.com,,,,800000,min_offer,,,live-site,,146663,proxy-via-advertise.com,not-estimable,0.85,co.uk x0.85,124664,A,,PREMIUM-REVIEW:single-word,,
 advertisementdesign.co.uk,nominet,web-digital,marketing,co.uk,19,2028-10,,,,,,,,,10000,min_offer,1500,,,,1482,subcategory-median,medium,0.85,co.uk x0.85,1260,C,650,tbd,,15.4
 advertisementdesign.uk,nominet,web-digital,marketing,uk,19,2028-10,,,,,,,,,10000,min_offer,1500,,,,1482,subcategory-median,medium,0.21,uk x0.21,311,E,200,tbd,,50.0
 advertisingagencies.co.uk,nominet,web-digital,marketing,co.uk,19,2027-01,,,,,,,,,10000,min_offer,,,,,1482,subcategory-median,medium,0.85,co.uk x0.85,1260,C,650,tbd,,15.4
@@ -141,7 +141,7 @@ animalcleaner.com,dynadot,home-garden,services,com,13,2026-11-10,afternic,1711,2
 ankeren.com,porkbun,foreign-language,dutch,com,7,2027-12-13,other,4413,2026-09-04,direct,,,,,,,,,,,4413,own-appraisal,high,0.75,thin-demand category -25%; direct appraisal in own TLD (no TLD factor),3310,C,1700,tbd,,
 anne-marie.co.uk,nominet,names-places,personal,co.uk,10,2028-03,,,,,,,,,,,,,,,3946,category-median,low,0.48,hyphen -25%; thin-demand category -25%; co.uk x0.85,1886,C,950,tbd,,
 annualreports.uk,nominet,business-services,accounting,uk,13,2028-10,,,,,,,,,,,,,,,1306,subcategory-median,medium,0.21,uk x0.21,274,E,200,tbd,,
-ant.co.uk,nominet,brandable-short,3-char,co.uk,3,2034-02,,8208882,2026-09-04,proxy,ant.com,,,,,,,,,,8208882,proxy-via-ant.com,medium,0.85,co.uk x0.85,6977550,A,,PREMIUM-REVIEW:single-word,,
+ant.co.uk,nominet,brandable-short,3-char,co.uk,3,2034-02,,8208882,2026-09-04,proxy,ant.com,,,,,,,,,,8208882,proxy-via-ant.com,not-estimable,0.85,co.uk x0.85,6977550,A,,PREMIUM-REVIEW:single-word,,
 ant.uk,nominet,brandable-short,3-char,uk,3,2034-02,,23144,2026-09-04,direct,,,,,,,,,,,23144,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),23144,A,,PREMIUM-REVIEW:single-word,,
 anthonyappleby.com,porkbun,names-places,personal,com,14,2027-08-08,afternic,,,,,,,,,,,,owner-withdrawn,,3946,category-median,low,0.75,thin-demand category -25%,2959,C,,KEEP:owner-withdrawn,,
 antiquesdealers.co.uk,nominet,consumer-products,retail,co.uk,15,2028-06,,,,,,,,,,,,,,,3568,subcategory-median,medium,0.85,co.uk x0.85,3033,C,1550,tbd,,
@@ -220,7 +220,7 @@ babyplaymats.co.uk,nominet,consumer-products,kids-baby,co.uk,12,2028-11,,,,,,,,,
 babyplaymats.uk,nominet,consumer-products,kids-baby,uk,12,2028-11,,,,,,,,,,,,,,,3122,category-median,low,0.21,uk x0.21,656,D,300,tbd,,
 backgarden.uk,nominet,home-garden,garden,uk,10,2028-10,,,,,,,,,,,1000,,,,1644,subcategory-median,medium,0.21,uk x0.21,345,E,200,tbd,,
 backingtracks.uk,nominet,music,general,uk,13,2028-10,,,,,,,,,,,,,,,3689,category-median,low,0.21,uk x0.21,775,D,350,tbd,,
-bacteriology.co.uk,nominet,health-medical,general,co.uk,12,2028-10,,4327,2026-09-04,proxy,bacteriology.com,,,,50000,min_offer,,,,,4327,proxy-via-bacteriology.com,medium,0.85,co.uk x0.85,3678,B,,PREMIUM-REVIEW:single-word,,
+bacteriology.co.uk,nominet,health-medical,general,co.uk,12,2028-10,,4327,2026-09-04,proxy,bacteriology.com,,,,50000,min_offer,,,,,4327,proxy-via-bacteriology.com,not-estimable,0.85,co.uk x0.85,3678,B,,PREMIUM-REVIEW:single-word,,
 bacteriology.uk,nominet,health-medical,general,uk,12,2028-10,,709,2026-09-04,direct,,,,,10000,min_offer,,,,,709,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),709,D,,PREMIUM-REVIEW:single-word,,
 badminton-racket.com,spaceship,sports-leisure,general,com,16,2027-08-04,afternic,,,,,,,,,,,,,,2270,subcategory-median,medium,0.75,hyphen -25%,1702,C,900,tbd,,
 badrumsmatta.com,porkbun,home-garden,furnishings,com,12,2027-06-12,afternic,5262,2026-09-03,direct,,,,,10000,min_offer,,,,,5262,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),5262,B,3000,tbd,,3.3
@@ -231,7 +231,7 @@ bagdesigns.uk,nominet,web-digital,design,uk,10,2027-10,,,,,,,,,10000,min_offer,1
 bakkertjes.com,porkbun,food-drink,general,com,10,2027-07-02,afternic,,,,,,,,20000,min_offer,,,,,1900,subcategory-median,medium,1.00,,1900,C,950,tbd,,21.1
 balustradewire.com,spaceship,home-garden,building-trades,com,14,2027-06-18,afternic,2001,2026-09-03,direct,,,,,,,,,,,2001,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2001,C,1050,tbd,,
 bancaras.com,dynadot,financial,banking-savings,com,8,2026-11-01,afternic,5375,2026-09-02,direct,,,,,10000,min_offer,,,,,5375,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),5375,B,,KEEP:network-financial,,
-banker.co.uk,nominet,financial,banking-savings,co.uk,6,2034-02,,1000655,2026-09-04,proxy,banker.com,,,,200000,min_offer,,,,,1000655,proxy-via-banker.com,medium,0.85,co.uk x0.85,850557,A,,PREMIUM-REVIEW:single-word,,
+banker.co.uk,nominet,financial,banking-savings,co.uk,6,2034-02,,1000655,2026-09-04,proxy,banker.com,,,,200000,min_offer,,,,,1000655,proxy-via-banker.com,not-estimable,0.85,co.uk x0.85,850557,A,,PREMIUM-REVIEW:single-word,,
 banker.uk,nominet,financial,banking-savings,uk,6,2034-04,,16123,2026-09-04,direct,,,,,120000,min_offer,,,,,16123,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),16123,A,,PREMIUM-REVIEW:single-word,,
 bankingequipment.co.uk,nominet,financial,banking-savings,co.uk,16,2028-05,,,,,,,,,,,1998,,,,2526,portfolio-median,very-low,0.85,co.uk x0.85,2148,C,,KEEP:network-financial,,
 bankingequipment.uk,nominet,financial,banking-savings,uk,16,2028-05,,,,,,,,,,,1998,,,,2526,portfolio-median,very-low,0.21,uk x0.21,531,D,,KEEP:network-financial,,
@@ -329,7 +329,7 @@ boilerpart.com,porkbun,home-garden,heating-plumbing,com,10,2027-04-12,afternic,1
 book-air-taxi.com,porkbun,aviation,charter,com,13,2026-11-05,afternic,,,,,,,,10000,min_offer,,,,,2526,portfolio-median,very-low,0.55,2 hyphens -45%,1390,C,700,tbd,,14.3
 booking-office.com,dynadot,travel,general,com,14,2027-03-14,atom,,,,,,,,,,,,,,995,subcategory-median,medium,0.75,hyphen -25%,746,D,350,tbd,,
 boreholesubmersibles.com,dynadot,industrial-equipment,machinery,com,20,2027-02-19,afternic,519,2026-09-02,direct,,,,,10000,min_offer,,,,,519,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),519,D,250,tbd,,40.0
-borrowing.co.uk,nominet,financial,loans,co.uk,9,2028-11,,45074,2026-09-04,proxy,borrowing.com,,,,,,,,,,45074,proxy-via-borrowing.com,medium,0.85,co.uk x0.85,38313,A,,PREMIUM-REVIEW:single-word,,
+borrowing.co.uk,nominet,financial,loans,co.uk,9,2028-11,,45074,2026-09-04,proxy,borrowing.com,,,,,,,,,,45074,proxy-via-borrowing.com,not-estimable,0.85,co.uk x0.85,38313,A,,PREMIUM-REVIEW:single-word,,
 botdesign.co.uk,nominet,web-digital,design,co.uk,9,2028-10,,,,,,,,,50000,min_offer,1500,,,,3255,subcategory-median,medium,0.85,co.uk x0.85,2767,C,1400,tbd,,35.7
 botdesign.uk,nominet,web-digital,design,uk,9,2028-10,,,,,,,,,10000,min_offer,1500,,,,3255,subcategory-median,medium,0.21,uk x0.21,684,D,325,tbd,,30.8
 botmaintenance.co.uk,nominet,home-garden,services,co.uk,14,2028-03,,,,,,,,,,,,,,,997,subcategory-median,medium,0.85,co.uk x0.85,847,D,400,tbd,,
@@ -358,10 +358,10 @@ brochuresdesign.com,dynadot,web-digital,design,com,15,2026-11-19,afternic,3255,2
 bruisen.com,porkbun,foreign-language,dutch,com,7,2027-12-18,other,13297,2026-09-04,direct,,,,,,,,,,,13297,own-appraisal,high,0.75,thin-demand category -25%; direct appraisal in own TLD (no TLD factor),9973,B,5500,tbd,,
 bug-finding.com,porkbun,ai-tech,software,com,11,2027-06-11,other,,,,,,,,,,,,,,1808,category-median,low,0.75,hyphen -25%,1356,C,700,tbd,,
 buildingsocietyrates.co.uk,nominet,home-garden,building-trades,co.uk,20,2028-09,,,,,,,,,50000,min_offer,,,,,2223,subcategory-median,medium,0.85,co.uk x0.85,1890,C,950,tbd,,52.6
-bulbous.co.uk,nominet,generic-word,general,co.uk,7,2028-09,,9479,2026-09-04,proxy,bulbous.com,,,,10000,min_offer,,,,,9479,proxy-via-bulbous.com,medium,0.85,co.uk x0.85,8057,B,,PREMIUM-REVIEW:single-word,,
+bulbous.co.uk,nominet,generic-word,general,co.uk,7,2028-09,,9479,2026-09-04,proxy,bulbous.com,,,,10000,min_offer,,,,,9479,proxy-via-bulbous.com,not-estimable,0.85,co.uk x0.85,8057,B,,PREMIUM-REVIEW:single-word,,
 bulkdiamonds.com,dynadot,consumer-products,jewellery-watches,com,12,2027-01-04,afternic,729,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,,,,,729,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),729,D,350,tbd,34.3,
 bulldozerlease.com,porkbun,industrial-equipment,construction-plant,com,14,2027-09-21,afternic,,,,,,,,10000,min_offer,2613,,,,2066,category-median,low,1.00,,2066,C,1050,tbd,,9.5
-bunnies.co.uk,nominet,pets-vet,general,co.uk,7,2028-11,,40714,2026-09-04,proxy,bunnies.com,,,,,,,,,,40714,proxy-via-bunnies.com,medium,0.85,co.uk x0.85,34607,A,,PREMIUM-REVIEW:single-word,,
+bunnies.co.uk,nominet,pets-vet,general,co.uk,7,2028-11,,40714,2026-09-04,proxy,bunnies.com,,,,,,,,,,40714,proxy-via-bunnies.com,not-estimable,0.85,co.uk x0.85,34607,A,,PREMIUM-REVIEW:single-word,,
 business-audits.com,spaceship,business-services,audits,com,15,2027-06-10,afternic,4503,2026-09-04,direct,,,,,,,2495,,,,4503,own-appraisal,high,0.75,hyphen -25%; direct appraisal in own TLD (no TLD factor),3377,C,1700,tbd,,
 business-laptops.com,spaceship,business-services,general,com,16,2027-08-04,afternic,,,,,,,,,,,,,,1135,subcategory-median,medium,0.75,hyphen -25%,851,D,400,tbd,,
 business-lenders.co.uk,nominet,financial,loans,co.uk,16,2028-11,,,,,,,,,10000,min_offer,,,,,2526,portfolio-median,very-low,0.64,hyphen -25%; co.uk x0.85,1611,C,,KEEP:network-financial,,
@@ -409,7 +409,7 @@ calculation.uk,nominet,generic-word,general,uk,11,2028-10,,6689,2026-09-04,direc
 calculatormortgages.com,dynadot,tools-comparison,general,com,19,2026-12-01,afternic,3264,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,1649,,,,3264,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),3264,C,1650,tbd,7.7,
 calculatorsformortgage.com,dynadot,tools-comparison,general,com,22,2026-12-01,afternic,335,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,1649,,,,335,own-appraisal,high,0.80,very long -20%; direct appraisal in own TLD (no TLD factor),268,E,200,tbd,93.3,
 calendarsplanners.com,dynadot,consumer-products,office-stationery,com,17,2026-11-02,afternic,2455,2026-09-02,direct,,,,,10000,min_offer,,,,,2455,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2455,C,1250,tbd,,8.0
-calipers.co.uk,nominet,industrial-equipment,test-measurement,co.uk,8,2027-02,,23057,2026-09-04,proxy,calipers.com,,,,,,,,,,23057,proxy-via-calipers.com,medium,0.85,co.uk x0.85,19598,A,,PREMIUM-REVIEW:single-word,,
+calipers.co.uk,nominet,industrial-equipment,test-measurement,co.uk,8,2027-02,,23057,2026-09-04,proxy,calipers.com,,,,,,,,,,23057,proxy-via-calipers.com,not-estimable,0.85,co.uk x0.85,19598,A,,PREMIUM-REVIEW:single-word,,
 camperbeds.co.uk,nominet,automotive,leisure-vehicles,co.uk,10,2028-10,,,,,,,,,,,,,,,2314,subcategory-median,medium,0.85,co.uk x0.85,1967,C,1000,tbd,,
 camperhuur.com,porkbun,automotive,leisure-vehicles,com,10,2027-09-05,afternic,,,,,,,,,,,,,,2314,subcategory-median,medium,1.00,,2314,C,1200,tbd,,
 campervan-hire.com,spaceship,business-services,jobs-hire,com,14,2026-12-20,atom,,,,,,,,,,2000,,,,3028,subcategory-median,medium,0.75,hyphen -25%,2271,C,1150,tbd,,
@@ -446,12 +446,12 @@ carremaps.com,dynadot,misc,general,com,9,2027-07-22,atom,5264,2026-09-02,direct,
 carsafes.co.uk,nominet,automotive,parts-accessories,co.uk,8,2028-09,,,,,,,,,50000,min_offer,,,,,1608,category-median,low,0.85,co.uk x0.85,1367,C,700,tbd,,71.4
 carsafes.uk,nominet,automotive,parts-accessories,uk,8,2028-09,,,,,,,,,10000,min_offer,,,,,1608,category-median,low,0.21,uk x0.21,338,E,200,tbd,,50.0
 carsforchildren.com,dynadot,consumer-products,kids-baby,com,15,2027-02-19,afternic,4147,2026-09-02,direct,,dynadot,2508.00,2026-09-03,,,,,,,4147,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),4147,B,2500,tbd,0.6,
-cartoon.co.uk,nominet,generic-word,general,co.uk,7,2027-06,,869911,2026-09-04,proxy,cartoon.com,,,,,,,,,,869911,proxy-via-cartoon.com,medium,0.85,co.uk x0.85,739424,A,,OWNER-FIGURE:acquisition-cost,,
+cartoon.co.uk,nominet,generic-word,general,co.uk,7,2027-06,,869911,2026-09-04,proxy,cartoon.com,,,,,,,,,,869911,proxy-via-cartoon.com,not-estimable,0.85,co.uk x0.85,739424,A,,OWNER-FIGURE:acquisition-cost,,
 carvanlease.co.uk,nominet,automotive,leasing,co.uk,11,2027-07,,,,,,,,,,,2613,,,,1608,category-median,low,0.85,co.uk x0.85,1367,C,700,tbd,,
 cassavaroot.com,dynadot,food-drink,general,com,11,2026-12-02,afternic,1178,2026-09-02,direct,,,,,12000,min_offer,,,,,1178,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1178,D,550,tbd,,21.8
 casualshirt.uk,nominet,consumer-products,clothing-fashion,uk,11,2028-11,,,,,,,,,,,,,,,3512,subcategory-median,medium,0.21,uk x0.21,738,D,350,tbd,,
 casualshirts.uk,nominet,consumer-products,clothing-fashion,uk,12,2028-11,,,,,,,,,,,,,,,3512,subcategory-median,medium,0.21,uk x0.21,738,D,350,tbd,,
-catalogues.co.uk,nominet,consumer-products,retail,co.uk,10,2028-07,,35664,2026-09-04,proxy,catalogues.com,,,,10000,min_offer,,,,,35664,proxy-via-catalogues.com,medium,0.85,co.uk x0.85,30314,A,,PREMIUM-REVIEW:single-word,,
+catalogues.co.uk,nominet,consumer-products,retail,co.uk,10,2028-07,,35664,2026-09-04,proxy,catalogues.com,,,,10000,min_offer,,,,,35664,proxy-via-catalogues.com,not-estimable,0.85,co.uk x0.85,30314,A,,PREMIUM-REVIEW:single-word,,
 cataloguevideo.co.uk,nominet,web-digital,video,co.uk,14,2028-09,,,,,,,,,10000,min_offer,,,,,3179,subcategory-median,medium,0.85,co.uk x0.85,2702,C,1400,tbd,,7.1
 cataloguevideos.co.uk,nominet,web-digital,video,co.uk,15,2028-09,,,,,,,,,10000,min_offer,,,,,3179,subcategory-median,medium,0.85,co.uk x0.85,2702,C,1400,tbd,,7.1
 catered.uk,nominet,food-drink,general,uk,7,2034-01,,3309,2026-09-04,direct,,,,,,,,,,,3309,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),3309,C,,PREMIUM-REVIEW:single-word,,
@@ -583,7 +583,7 @@ conciergist.com,dynadot,business-services,general,com,11,2026-12-03,afternic,206
 concrete-homes.com,porkbun,property,general,com,14,2027-08-14,afternic,,,,,,,,12000,min_offer,,,,,1504,subcategory-median,medium,0.75,hyphen -25%,1128,D,550,tbd,,21.8
 condommachines.com,dynadot,industrial-equipment,general,com,14,2027-08-27,afternic,586,2026-09-02,direct,,,,,10000,min_offer,,,,,586,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),586,D,275,tbd,,36.4
 conference-microphones.com,spaceship,consumer-products,electronics,com,22,2027-08-04,afternic,,,,,,,,,,,,,,3013,subcategory-median,medium,0.60,hyphen -25%; very long -20%,1808,C,950,tbd,,
-conferences.co.uk,nominet,events-exhibitions,general,co.uk,11,2029-08,,61577,2026-09-04,proxy,conferences.com,,,,10000,min_offer,,,,,61577,proxy-via-conferences.com,medium,0.85,co.uk x0.85,52340,A,,PREMIUM-REVIEW:single-word,,
+conferences.co.uk,nominet,events-exhibitions,general,co.uk,11,2029-08,,61577,2026-09-04,proxy,conferences.com,,,,10000,min_offer,,,,,61577,proxy-via-conferences.com,not-estimable,0.85,co.uk x0.85,52340,A,,PREMIUM-REVIEW:single-word,,
 conjurar.com,dynadot,foreign-language,spanish,com,8,2027-08-20,afternic,3952,2026-09-02,direct,,,,,10000,min_offer,,,,,3952,own-appraisal,high,0.75,thin-demand category -25%; direct appraisal in own TLD (no TLD factor),2964,C,1500,tbd,,6.7
 connect-travel.com,porkbun,travel,general,com,14,2028-04-18,afternic,,,,,afternic,4999,2026-09-03,,buy_now,1000,,,,995,subcategory-median,medium,0.75,hyphen -25%,746,D,350,tbd,6.7,
 conservatorydesign.uk,nominet,web-digital,design,uk,18,2027-10,,,,,,,,,10000,min_offer,1500,,,,3255,subcategory-median,medium,0.21,uk x0.21,684,D,325,tbd,,30.8
@@ -688,7 +688,7 @@ datingevenings.co.uk,nominet,dating,general,co.uk,14,2028-02,,,,,,,,,10000,min_o
 day-design.com,porkbun,web-digital,design,com,10,2028-02-17,afternic,,,,,afternic,4999,2026-09-03,,buy_now,1500,,,,3255,subcategory-median,medium,0.75,hyphen -25%,2441,C,1250,tbd,2.0,
 debtconsolidating.co.uk,nominet,financial,credit-debt,co.uk,17,2028-11,,,,,,,,,,,,,,,2526,portfolio-median,very-low,0.85,co.uk x0.85,2148,C,,KEEP:network-financial,,
 debtsconsolidation.com,dynadot,financial,credit-debt,com,18,2027-09-04,afternic,4847,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,,,,,4847,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),4847,B,,KEEP:network-financial,5.2,
-debugger.co.uk,nominet,ai-tech,software,co.uk,8,2028-07,,38419,2026-09-04,proxy,debugger.com,,,,,,,,,,38419,proxy-via-debugger.com,medium,0.85,co.uk x0.85,32656,A,,PREMIUM-REVIEW:single-word,,
+debugger.co.uk,nominet,ai-tech,software,co.uk,8,2028-07,,38419,2026-09-04,proxy,debugger.com,,,,,,,,,,38419,proxy-via-debugger.com,not-estimable,0.85,co.uk x0.85,32656,A,,PREMIUM-REVIEW:single-word,,
 debugging-with-ai.com,porkbun,ai-tech,ai,com,17,2027-06-24,other,,,,,,,,,,,,,,1808,subcategory-median,medium,0.55,2 hyphens -45%,995,D,450,tbd,,
 debuggingwithai.com,porkbun,ai-tech,ai,com,15,2027-06-24,other,,,,,,,,,,,,,,1808,subcategory-median,medium,1.00,,1808,C,950,tbd,,
 decerca.com,spaceship,foreign-language,spanish,com,7,2027-07-27,atom,,,,,,,,,,,,,,3342,subcategory-median,medium,0.75,thin-demand category -25%,2506,C,1300,tbd,,
@@ -712,7 +712,7 @@ dentalequipmentlease.com,porkbun,health-medical,general,com,20,2027-09-21,aftern
 dentalwhitening.uk,nominet,health-medical,general,uk,15,2028-10,,,,,,,,,,,,,,,598,subcategory-median,medium,0.21,uk x0.21,126,E,200,tbd,,
 depositprotectionscheme.com,dynadot,property,lettings,com,23,2026-10-31,afternic,376,2026-09-02,direct,,afternic,20000,2026-09-03,,buy_now,,,,,376,own-appraisal,high,0.80,very long -20%; direct appraisal in own TLD (no TLD factor),301,E,200,tbd,66.5,
 design-templates.co.uk,nominet,web-digital,design,co.uk,16,2028-11,,,,,,,,,,,1500,,,,3255,subcategory-median,medium,0.64,hyphen -25%; co.uk x0.85,2075,C,1050,tbd,,
-design.co.uk,nominet,web-digital,design,co.uk,6,2029-08,,3121760,2026-09-04,proxy,design.com,,,,,,1500,,,,3121760,proxy-via-design.com,medium,0.85,co.uk x0.85,2653496,A,,PREMIUM-REVIEW:single-word,,
+design.co.uk,nominet,web-digital,design,co.uk,6,2029-08,,3121760,2026-09-04,proxy,design.com,,,,,,1500,,,,3121760,proxy-via-design.com,not-estimable,0.85,co.uk x0.85,2653496,A,,PREMIUM-REVIEW:single-word,,
 design.uk,nominet,web-digital,design,uk,6,2028-10,,23558,2026-09-04,direct,,,,,,,1500,,,,23558,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),23558,A,,PREMIUM-REVIEW:single-word,,
 designblog.co.uk,nominet,web-digital,design,co.uk,10,2028-07,,,,,,,,,,,1500,,live-site,,3255,subcategory-median,medium,0.85,co.uk x0.85,2767,C,,KEEP:live-site,,
 designblog.uk,nominet,web-digital,design,uk,10,2028-11,,,,,,,,,,,1500,,,,3255,subcategory-median,medium,0.21,uk x0.21,684,D,325,tbd,,
@@ -735,7 +735,7 @@ designmail.uk,nominet,web-digital,design,uk,10,2028-11,,,,,,,,,,,1500,,,,3255,su
 designprocess.uk,nominet,web-digital,design,uk,13,2027-10,,,,,,,,,10000,min_offer,1500,,,,3255,subcategory-median,medium,0.21,uk x0.21,684,D,325,tbd,,30.8
 designprofessionals.co.uk,nominet,web-digital,design,co.uk,19,2028-04,,,,,,,,,50000,min_offer,1500,,,,3255,subcategory-median,medium,0.85,co.uk x0.85,2767,C,1400,tbd,,35.7
 designprofessionals.uk,nominet,web-digital,design,uk,19,2028-09,,,,,,,,,10000,min_offer,1500,,,,3255,subcategory-median,medium,0.21,uk x0.21,684,D,325,tbd,,30.8
-designs.co.uk,nominet,web-digital,design,co.uk,7,2034-02,,1388581,2026-09-04,proxy,designs.com,,,,200000,min_offer,1500,,,,1388581,proxy-via-designs.com,medium,0.85,co.uk x0.85,1180294,A,,PREMIUM-REVIEW:single-word,,
+designs.co.uk,nominet,web-digital,design,co.uk,7,2034-02,,1388581,2026-09-04,proxy,designs.com,,,,200000,min_offer,1500,,,,1388581,proxy-via-designs.com,not-estimable,0.85,co.uk x0.85,1180294,A,,PREMIUM-REVIEW:single-word,,
 designs.uk,nominet,web-digital,design,uk,7,2028-06,,16542,2026-09-04,direct,,,,,100000,min_offer,1500,,,,16542,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),16542,A,,PREMIUM-REVIEW:single-word,,
 designsites.uk,nominet,web-digital,design,uk,11,2027-01,,,,,,,,,,,1500,,,,3255,subcategory-median,medium,0.21,uk x0.21,684,D,325,tbd,,
 designtemplates.co.uk,nominet,web-digital,design,co.uk,15,2028-04,,,,,,,,,50000,min_offer,1500,,,,3255,subcategory-median,medium,0.85,co.uk x0.85,2767,C,1400,tbd,,35.7
@@ -774,11 +774,11 @@ discountfurniture.uk,nominet,home-garden,furnishings,uk,17,2028-05,,,,,,,,,,,,,,
 discountmailing.com,dynadot,consumer-products,retail,com,15,2026-10-30,afternic,4014,2026-09-02,direct,,,,,10000,min_offer,,,,,4014,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),4014,B,2250,tbd,,4.4
 discover-bugs.com,porkbun,ai-tech,software,com,13,2027-06-11,other,,,,,,,,,,,,,,1808,category-median,low,0.75,hyphen -25%,1356,C,700,tbd,,
 discoverbugs.com,porkbun,ai-tech,software,com,12,2027-06-11,other,,,,,,,,,,,,,,1808,category-median,low,1.00,,1808,C,950,tbd,,
-disguises.co.uk,nominet,consumer-products,gifts,co.uk,9,2028-12,,16808,2026-09-04,proxy,disguises.com,,,,,,,,,,16808,proxy-via-disguises.com,medium,0.85,co.uk x0.85,14287,A,,PREMIUM-REVIEW:single-word,,
-dishcloths.co.uk,nominet,consumer-products,household,co.uk,10,2028-10,,401,2026-09-04,proxy,dishcloths.com,,,,,,,,,,401,proxy-via-dishcloths.com,medium,0.85,co.uk x0.85,341,E,,PREMIUM-REVIEW:single-word,,
+disguises.co.uk,nominet,consumer-products,gifts,co.uk,9,2028-12,,16808,2026-09-04,proxy,disguises.com,,,,,,,,,,16808,proxy-via-disguises.com,not-estimable,0.85,co.uk x0.85,14287,A,,PREMIUM-REVIEW:single-word,,
+dishcloths.co.uk,nominet,consumer-products,household,co.uk,10,2028-10,,401,2026-09-04,proxy,dishcloths.com,,,,,,,,,,401,proxy-via-dishcloths.com,not-estimable,0.85,co.uk x0.85,341,E,,PREMIUM-REVIEW:single-word,,
 distinguida.com,dynadot,foreign-language,spanish,com,11,2026-11-22,afternic,1098,2026-09-02,direct,,afternic,4999,2026-09-03,,buy_now,,,,,1098,own-appraisal,high,0.75,thin-demand category -25%; direct appraisal in own TLD (no TLD factor),824,D,375,tbd,6.1,
-dividends.co.uk,nominet,financial,investing,co.uk,9,2029-08,,91904,2026-09-04,proxy,dividends.com,,,,50000,min_offer,,,,,91904,proxy-via-dividends.com,medium,0.85,co.uk x0.85,78118,A,,PREMIUM-REVIEW:single-word,,
-divots.co.uk,nominet,sports-leisure,golf,co.uk,6,2027-01,,52302,2026-09-04,proxy,divots.com,,,,,,,,,,52302,proxy-via-divots.com,medium,0.85,co.uk x0.85,44457,A,,PREMIUM-REVIEW:single-word,,
+dividends.co.uk,nominet,financial,investing,co.uk,9,2029-08,,91904,2026-09-04,proxy,dividends.com,,,,50000,min_offer,,,,,91904,proxy-via-dividends.com,not-estimable,0.85,co.uk x0.85,78118,A,,PREMIUM-REVIEW:single-word,,
+divots.co.uk,nominet,sports-leisure,golf,co.uk,6,2027-01,,52302,2026-09-04,proxy,divots.com,,,,,,,,,,52302,proxy-via-divots.com,not-estimable,0.85,co.uk x0.85,44457,A,,PREMIUM-REVIEW:single-word,,
 diycentre.co.uk,nominet,home-garden,tools-diy,co.uk,9,2028-10,,,,,,,,,,,,,,,2001,category-median,low,0.85,co.uk x0.85,1701,C,900,tbd,,
 dmns.co.uk,nominet,brandable-short,4-char,co.uk,4,2028-11,,,,,,,,,,,,,,,4140,category-median,low,0.85,co.uk x0.85,3519,B,1950,tbd,,
 dmns.uk,nominet,brandable-short,4-char,uk,4,2028-11,,,,,,,,,30000,min_offer,,,,,4140,category-median,low,0.21,uk x0.21,869,D,400,tbd,,75.0
@@ -819,8 +819,8 @@ dsgnr.uk,nominet,web-digital,design,uk,5,2028-11,,,,,,,,,,,,,,,3255,subcategory-
 dubaiplacement.com,dynadot,business-services,jobs-hire,com,14,2027-01-20,afternic,2562,2026-09-02,direct,,,,,,,,,,,2562,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2562,C,1300,tbd,,
 dubaiwebsitedeveloper.com,dynadot,web-digital,web,com,21,2026-12-16,afternic,1306,2026-09-02,direct,,afternic,4999,2026-09-03,,buy_now,1935,,,,1306,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1306,C,700,tbd,3.8,
 dumptruckinsurancedeals.com,dynadot,financial,insurance,com,23,2026-10-15,afternic,1465,2026-09-02,direct,,,,,10000,min_offer,2800,,,,1465,own-appraisal,high,0.80,very long -20%; direct appraisal in own TLD (no TLD factor),1172,D,,KEEP:network-financial,,
-duplexes.co.uk,nominet,property,general,co.uk,8,2027-01,,21402,2026-09-04,proxy,duplexes.com,,,,,,,,,,21402,proxy-via-duplexes.com,medium,0.85,co.uk x0.85,18192,A,,PREMIUM-REVIEW:single-word,,
-duplicates.co.uk,nominet,generic-word,general,co.uk,10,2028-11,,20442,2026-09-04,proxy,duplicates.com,,,,,,,,,,20442,proxy-via-duplicates.com,medium,0.85,co.uk x0.85,17376,A,,PREMIUM-REVIEW:single-word,,
+duplexes.co.uk,nominet,property,general,co.uk,8,2027-01,,21402,2026-09-04,proxy,duplexes.com,,,,,,,,,,21402,proxy-via-duplexes.com,not-estimable,0.85,co.uk x0.85,18192,A,,PREMIUM-REVIEW:single-word,,
+duplicates.co.uk,nominet,generic-word,general,co.uk,10,2028-11,,20442,2026-09-04,proxy,duplicates.com,,,,,,,,,,20442,proxy-via-duplicates.com,not-estimable,0.85,co.uk x0.85,17376,A,,PREMIUM-REVIEW:single-word,,
 duurzaamenergie.com,porkbun,energy-utilities,renewables,com,15,2027-10-04,other,,,,,,,,,,,,,,1223,category-median,low,1.00,,1223,C,650,tbd,,
 dynamic-balancing.com,spaceship,industrial-equipment,test-measurement,com,17,2027-04-24,atom,,,,,,,,,,,,,,2066,category-median,low,0.75,hyphen -25%,1549,C,800,tbd,,
 dyspeptic.com,dynadot,generic-word,general,com,9,2026-11-14,afternic,2402,2026-09-02,direct,,,,,10000,min_offer,,,,,2402,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2402,C,,PREMIUM-REVIEW:single-word,,
@@ -842,7 +842,7 @@ editorialista.com,porkbun,foreign-language,spanish,com,13,2027-10-05,other,,,,,,
 editorialplacement.uk,nominet,web-digital,marketing,uk,18,2027-10,,,,,,,,,,,,,,,1482,subcategory-median,medium,0.21,uk x0.21,311,E,200,tbd,,
 eetz.com,porkbun,brandable-short,4-char,com,4,2026-10-24,afternic,3792,2026-09-04,direct,,afternic,180000,2026-09-03,,buy_now,,,,,3792,own-appraisal,high,1.20,short .com +20%; direct appraisal in own TLD (no TLD factor),4550,B,,PREMIUM-REVIEW:4-letter-com,39.6,
 effectiveness.uk,dynadot,generic-word,general,uk,13,2027-06-14,afternic,3576,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,,,,,3576,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),3576,B,,PREMIUM-REVIEW:single-word,7.0,
-egret.co.uk,nominet,generic-word,general,co.uk,5,2028-11,,233034,2026-09-04,proxy,egret.com,,,,,,,,,,233034,proxy-via-egret.com,medium,0.85,co.uk x0.85,198079,A,,PREMIUM-REVIEW:single-word,,
+egret.co.uk,nominet,generic-word,general,co.uk,5,2028-11,,233034,2026-09-04,proxy,egret.com,,,,,,,,,,233034,proxy-via-egret.com,not-estimable,0.85,co.uk x0.85,198079,A,,PREMIUM-REVIEW:single-word,,
 ehrung.com,porkbun,foreign-language,german,com,6,2027-10-05,afternic,5738,2026-09-04,direct,,,,,10000,min_offer,,,,,5738,own-appraisal,high,0.90,short .com +20%; thin-demand category -25%; direct appraisal in own TLD (no TLD factor),5164,B,3000,tbd,,3.3
 ejerleder.com,porkbun,business-services,general,com,9,2027-12-30,none,,,,,,,,,,,,,,1135,subcategory-median,medium,1.00,,1135,D,550,tbd,,
 ekcema.com,dynadot,health-medical,general,com,6,2026-10-27,afternic,318,2026-09-02,direct,,,,,10000,min_offer,,,,,318,own-appraisal,high,1.20,short .com +20%; direct appraisal in own TLD (no TLD factor),382,E,200,tbd,,50.0
@@ -912,7 +912,7 @@ external-door.com,porkbun,home-garden,windows-doors,com,13,2028-03-13,afternic,8
 externalcladding.co.uk,nominet,home-garden,building-trades,co.uk,16,2028-09,,,,,,,,,,,,,,,2223,subcategory-median,medium,0.85,co.uk x0.85,1890,C,950,tbd,,
 extraboxes.com,dynadot,packaging-print,packaging,com,10,2026-12-14,afternic,4960,2026-09-02,direct,,afternic,4999,2026-09-03,,buy_now,,,,,4960,own-appraisal,high,0.75,thin-demand category -25%; direct appraisal in own TLD (no TLD factor),3720,B,2250,tbd,1.3,
 eyelinerbrushes.com,dynadot,beauty-personal-care,cosmetics,com,15,2026-10-26,afternic,891,2026-09-02,direct,,,,,10000,min_offer,,,,,891,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),891,D,425,tbd,,23.5
-eyesight.org.uk,nominet,health-medical,general,org.uk,8,2028-04,,50050,2026-09-04,proxy,eyesight.com,,,,50000,min_offer,,,,,50050,proxy-via-eyesight.com,medium,0.20,org.uk x0.2,10010,A,,PREMIUM-REVIEW:single-word,,
+eyesight.org.uk,nominet,health-medical,general,org.uk,8,2028-04,,50050,2026-09-04,proxy,eyesight.com,,,,50000,min_offer,,,,,50050,proxy-via-eyesight.com,not-estimable,0.20,org.uk x0.2,10010,A,,PREMIUM-REVIEW:single-word,,
 facaderemediation.com,porkbun,home-garden,building-trades,com,17,2027-06-20,afternic,415,2026-09-03,direct,,afternic,4999,2026-09-03,,buy_now,,,,,415,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),415,E,200,tbd,12.0,
 facepack.co.uk,nominet,beauty-personal-care,skincare,co.uk,8,2028-11,,,,,,,,,,,,,,,2907,category-median,low,0.85,co.uk x0.85,2471,C,1250,tbd,,
 fahrausweis.com,porkbun,foreign-language,german,com,11,2027-11-26,other,5450,2026-09-04,direct,,,,,,,,,,,5450,own-appraisal,high,0.75,thin-demand category -25%; direct appraisal in own TLD (no TLD factor),4088,B,2250,tbd,,
@@ -933,9 +933,9 @@ fashionphotography.uk,nominet,web-digital,photography,uk,18,2027-01,,2105,2026-0
 fastbridging.com,porkbun,financial,loans,com,12,2027-08-14,afternic,890,2026-09-03,direct,,afternic,4999,2026-09-03,,buy_now,,,,,890,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),890,D,,KEEP:network-financial,5.6,
 fatherchristmas.uk,nominet,consumer-products,gifts,uk,15,2028-09,,,,,,,,,10000,min_offer,,,,,4375,subcategory-median,medium,0.21,uk x0.21,919,D,425,tbd,,23.5
 fatz.uk,nominet,brandable-short,4-char,uk,4,2028-07,,,,,,,,,10000,min_offer,,,,,4140,category-median,low,0.21,uk x0.21,869,D,400,tbd,,25.0
-fees.co.uk,nominet,brandable-short,4-char,co.uk,4,2028-09,,523888,2026-09-04,proxy,fees.com,,,,50000,min_offer,,,,,523888,proxy-via-fees.com,medium,0.85,co.uk x0.85,445305,A,,PREMIUM-REVIEW:single-word,,
+fees.co.uk,nominet,brandable-short,4-char,co.uk,4,2028-09,,523888,2026-09-04,proxy,fees.com,,,,50000,min_offer,,,,,523888,proxy-via-fees.com,not-estimable,0.85,co.uk x0.85,445305,A,,PREMIUM-REVIEW:single-word,,
 feinstes.com,porkbun,foreign-language,german,com,8,2027-08-17,afternic,1302,2026-09-04,direct,,afternic,30000,2026-09-03,,buy_now,,,,,1302,own-appraisal,high,0.75,thin-demand category -25%; direct appraisal in own TLD (no TLD factor),976,D,450,tbd,30.7,
-felines.co.uk,nominet,pets-vet,general,co.uk,7,2027-11,,169614,2026-09-04,proxy,felines.com,,,,,,,,,,169614,proxy-via-felines.com,medium,0.85,co.uk x0.85,144172,A,,PREMIUM-REVIEW:single-word,,
+felines.co.uk,nominet,pets-vet,general,co.uk,7,2027-11,,169614,2026-09-04,proxy,felines.com,,,,,,,,,,169614,proxy-via-felines.com,not-estimable,0.85,co.uk x0.85,144172,A,,PREMIUM-REVIEW:single-word,,
 felines.uk,nominet,pets-vet,general,uk,7,2027-11,,11112,2026-09-04,direct,,,,,,,,,,,11112,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),11112,A,,PREMIUM-REVIEW:single-word,,
 fencing-wire.com,spaceship,home-garden,garden,com,12,2027-06-18,afternic,2698,2026-09-03,direct,,,,,,,,,,,2698,own-appraisal,high,0.75,hyphen -25%; direct appraisal in own TLD (no TLD factor),2024,C,1050,tbd,,
 fertilizerdispensers.com,dynadot,agriculture-farming,equipment,com,20,2026-11-28,afternic,2183,2026-09-02,direct,,,,,12000,min_offer,,,,,2183,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2183,C,1100,tbd,,10.9
@@ -943,7 +943,7 @@ festivepresents.co.uk,nominet,consumer-products,gifts,co.uk,15,2027-01,,,,,,,,,1
 festivepresents.com,porkbun,consumer-products,gifts,com,15,2026-12-22,afternic,,,,,,,,10000,min_offer,,,,,4375,subcategory-median,medium,1.00,,4375,B,2500,tbd,,4.0
 filletingknives.com,dynadot,consumer-products,kitchenware,com,15,2027-07-25,atom,2508,2026-09-02,direct,,,,,,,,,,,2508,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2508,C,1300,tbd,,
 finance-analyst.com,dynadot,financial,general,com,15,2027-07-03,afternic,1420,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,2297,,,,1420,own-appraisal,high,0.75,hyphen -25%; direct appraisal in own TLD (no TLD factor),1065,D,,KEEP:network-financial,23.5,
-finance.org.uk,nominet,financial,general,org.uk,7,2028-09,,148150,2026-09-04,proxy,finance.com,,,,50000,min_offer,2297,,,,148150,proxy-via-finance.com,medium,0.20,org.uk x0.2,29630,A,,PREMIUM-REVIEW:single-word,,
+finance.org.uk,nominet,financial,general,org.uk,7,2028-09,,148150,2026-09-04,proxy,finance.com,,,,50000,min_offer,2297,,,,148150,proxy-via-finance.com,not-estimable,0.20,org.uk x0.2,29630,A,,PREMIUM-REVIEW:single-word,,
 financeforcompanies.co.uk,nominet,business-services,general,co.uk,19,2027-10,,,,,,,,,10000,min_offer,2297,,,,1135,subcategory-median,medium,0.85,co.uk x0.85,965,D,450,tbd,,22.2
 financeradio.com,porkbun,financial,general,com,12,2027-06-16,afternic,2601,2026-09-03,direct,,,,,10000,min_offer,2297,,,,2601,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2601,C,,KEEP:network-financial,,
 financerepairs.com,dynadot,financial,general,com,14,2026-12-16,afternic,2439,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,2297,,,,2439,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2439,C,,KEEP:network-financial,10.3,
@@ -1025,7 +1025,7 @@ foundationalmodels.com,porkbun,ai-tech,ai,com,18,2027-06-11,afternic,,,,,afterni
 fourwheeldrive.co.uk,nominet,automotive,general,co.uk,14,2028-05,,,,,,,,,,,,,,,916,subcategory-median,medium,0.85,co.uk x0.85,779,D,375,tbd,,
 free-credit-report-check.com,dynadot,financial,credit-debt,com,24,2026-11-26,afternic,193,2026-09-02,direct,,afternic,25000,2026-09-03,,buy_now,5000,,,,193,own-appraisal,high,0.44,3 hyphens -45%; very long -20%; direct appraisal in own TLD (no TLD factor),85,E,,KEEP:network-financial,294.4,
 free-credit-reports.co.uk,nominet,financial,credit-debt,co.uk,19,2028-11,,,,,,,,,,,5000,,,,2526,portfolio-median,very-low,0.47,2 hyphens -45%; co.uk x0.85,1181,D,,KEEP:network-financial,,
-free.me.uk,nominet,brandable-short,4-char,me.uk,4,2028-04,,487785,2026-09-04,proxy,free.com,,,,50000,min_offer,,,,,487785,proxy-via-free.com,medium,0.12,me.uk x0.12,58534,A,,OWNER-FIGURE:owner-floor,,
+free.me.uk,nominet,brandable-short,4-char,me.uk,4,2028-04,,487785,2026-09-04,proxy,free.com,,,,50000,min_offer,,,,,487785,proxy-via-free.com,not-estimable,0.12,me.uk x0.12,58534,A,,OWNER-FIGURE:owner-floor,,
 free.uk,nominet,brandable-short,4-char,uk,4,2030-10,,67926,2026-09-04,direct,,,,,,,,,,,67926,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),67926,A,,PREMIUM-REVIEW:single-word,,
 freelanceseoexpert.co.uk,nominet,web-digital,marketing,co.uk,18,2027-08,,,,,,,,,,,,,,,1482,subcategory-median,medium,0.85,co.uk x0.85,1260,C,650,tbd,,
 freelanceuxdesigner.com,porkbun,web-digital,design,com,19,2027-08-10,afternic,,,,,afternic,4999,2026-09-03,,buy_now,1500,,,,3255,subcategory-median,medium,1.00,,3255,C,1650,tbd,1.5,
@@ -1066,7 +1066,7 @@ gardenheating.uk,nominet,home-garden,heating-plumbing,uk,13,2028-11,,,,,,,,,,,10
 gardening-supplies.co.uk,nominet,home-garden,garden,co.uk,18,2028-03,,,,,,,,,50000,min_offer,1000,,,,1644,subcategory-median,medium,0.64,hyphen -25%; co.uk x0.85,1048,D,475,tbd,,105.3
 gardening-tools.net,porkbun,home-garden,garden,net,15,2027-03-02,afternic,197,2026-09-03,direct,,,,,30000,min_offer,1000,,,,197,own-appraisal,high,0.75,hyphen -25%; direct appraisal in own TLD (no TLD factor),148,E,200,tbd,,150.0
 gardeningequipment.uk,nominet,home-garden,garden,uk,18,2028-10,,,,,,,,,50000,min_offer,1998,,,,1644,subcategory-median,medium,0.21,uk x0.21,345,E,200,tbd,,250.0
-gardens.co.uk,nominet,home-garden,garden,co.uk,7,2029-08,,1211962,2026-09-04,proxy,gardens.com,,,,,,1000,,,,1211962,proxy-via-gardens.com,medium,0.85,co.uk x0.85,1030168,A,,PREMIUM-REVIEW:single-word,,
+gardens.co.uk,nominet,home-garden,garden,co.uk,7,2029-08,,1211962,2026-09-04,proxy,gardens.com,,,,,,1000,,,,1211962,proxy-via-gardens.com,not-estimable,0.85,co.uk x0.85,1030168,A,,PREMIUM-REVIEW:single-word,,
 gardens.uk,nominet,home-garden,garden,uk,7,2028-08,,14658,2026-09-04,direct,,,,,,,1000,,,,14658,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),14658,A,,PREMIUM-REVIEW:single-word,,
 gardentools.co.uk,nominet,home-garden,garden,co.uk,11,2028-07,,,,,,,,,50000,min_offer,1000,,,,1644,subcategory-median,medium,0.85,co.uk x0.85,1397,C,700,tbd,,71.4
 gardentools.uk,nominet,home-garden,garden,uk,11,2028-06,,,,,,,,,,,1000,,,,1644,subcategory-median,medium,0.21,uk x0.21,345,E,200,tbd,,
@@ -1118,7 +1118,7 @@ glassofficepartitioning.com,spaceship,home-garden,windows-doors,com,23,2027-05-1
 glassporches.uk,nominet,home-garden,windows-doors,uk,12,2028-09,,,,,,,,,10000,min_offer,,,,,2607,subcategory-median,medium,0.21,uk x0.21,547,D,250,tbd,,40.0
 glazingfilms.com,porkbun,home-garden,windows-doors,com,12,2027-08-31,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,2607,subcategory-median,medium,1.00,,2607,C,1350,tbd,1.9,
 glijbanen.com,porkbun,consumer-products,kids-baby,com,9,2027-10-02,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3122,category-median,low,1.00,,3122,C,1600,tbd,1.6,
-glop.co.uk,nominet,brandable-short,4-char,co.uk,4,2027-10,,32339,2026-09-04,proxy,glop.com,,,,50000,min_offer,,,,,32339,proxy-via-glop.com,medium,0.85,co.uk x0.85,27488,A,,PREMIUM-REVIEW:single-word,,
+glop.co.uk,nominet,brandable-short,4-char,co.uk,4,2027-10,,32339,2026-09-04,proxy,glop.com,,,,50000,min_offer,,,,,32339,proxy-via-glop.com,not-estimable,0.85,co.uk x0.85,27488,A,,PREMIUM-REVIEW:single-word,,
 gluestore.com,dynadot,consumer-products,retail,com,9,2027-01-10,afternic,9639,2026-09-02,direct,,,,,12000,min_offer,,,,,9639,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),9639,B,5500,tbd,,2.2
 goldbrocade.com,dynadot,consumer-products,clothing-fashion,com,11,2027-01-25,afternic,5944,2026-09-02,direct,,,,,10000,min_offer,,,,,5944,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),5944,B,3500,tbd,,2.9
 goldmines.co.uk,nominet,financial,investing,co.uk,9,2027-01,,,,,,,,,50000,min_offer,,,,,2526,portfolio-median,very-low,0.85,co.uk x0.85,2148,C,,KEEP:network-financial,,
@@ -1153,7 +1153,7 @@ grit-spreaders.com,porkbun,industrial-equipment,groundcare,com,14,2026-12-18,aft
 ground-mesh.com,porkbun,home-garden,driveways-ground,com,11,2026-12-09,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,2223,subcategory-median,medium,0.75,hyphen -25%,1667,C,850,tbd,3.0,
 ground-protection-mats.com,porkbun,home-garden,furnishings,com,22,2026-12-09,afternic,,,,,afternic,25000,2026-09-03,,buy_now,,,,,3656,subcategory-median,medium,0.44,2 hyphens -45%; very long -20%,1609,C,850,tbd,15.5,
 growth-orbit.com,spaceship,business-services,general,com,12,2027-01-27,atom,,,,,,,,,,,,,,1135,subcategory-median,medium,0.75,hyphen -25%,851,D,400,tbd,,
-guaranteed.co.uk,nominet,generic-word,general,co.uk,10,2028-10,,61978,2026-09-04,proxy,guaranteed.com,,,,10000,min_offer,,,,,61978,proxy-via-guaranteed.com,medium,0.85,co.uk x0.85,52681,A,,PREMIUM-REVIEW:single-word,,
+guaranteed.co.uk,nominet,generic-word,general,co.uk,10,2028-10,,61978,2026-09-04,proxy,guaranteed.com,,,,10000,min_offer,,,,,61978,proxy-via-guaranteed.com,not-estimable,0.85,co.uk x0.85,52681,A,,PREMIUM-REVIEW:single-word,,
 guilhon.com,porkbun,names-places,personal,com,7,2027-08-14,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3946,category-median,low,0.75,thin-demand category -25%,2959,C,1500,tbd,1.7,
 guitalele.co.uk,nominet,music,instruments,co.uk,9,2028-11,,,,,,,,,,,,,,,3689,subcategory-median,medium,0.85,co.uk x0.85,3136,C,1600,tbd,,
 guitar-string.com,spaceship,music,instruments,com,13,2027-08-04,afternic,298,2026-09-04,direct,,,,,,,,,,,298,own-appraisal,high,0.75,hyphen -25%; direct appraisal in own TLD (no TLD factor),224,E,200,tbd,,
@@ -1162,7 +1162,7 @@ guyropes.com,porkbun,sports-leisure,outdoors,com,8,2027-06-17,afternic,,,,,after
 gym-bags.com,spaceship,sports-leisure,general,com,8,2027-08-04,afternic,,,,,,,,,,,,,,2270,subcategory-median,medium,0.75,hyphen -25%,1702,C,900,tbd,,
 gymproteins.com,dynadot,health-medical,supplements,com,11,2027-03-01,afternic,726,2026-09-02,direct,,,,,10000,min_offer,,,,,726,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),726,D,350,tbd,,28.6
 gynasyke.com,dynadot,health-medical,general,com,8,2027-07-26,afternic,25,2026-09-02,direct,,,,,10000,min_offer,,,,,25,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),25,E,200,tbd,,50.0
-hacks.co.uk,nominet,generic-word,general,co.uk,5,2028-03,,51788,2026-09-04,proxy,hacks.com,,,,50000,min_offer,,,,,51788,proxy-via-hacks.com,medium,0.85,co.uk x0.85,44020,A,,PREMIUM-REVIEW:single-word,,
+hacks.co.uk,nominet,generic-word,general,co.uk,5,2028-03,,51788,2026-09-04,proxy,hacks.com,,,,50000,min_offer,,,,,51788,proxy-via-hacks.com,not-estimable,0.85,co.uk x0.85,44020,A,,PREMIUM-REVIEW:single-word,,
 hair-supplies-online.com,porkbun,beauty-personal-care,hair,com,20,2027-08-10,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,2907,category-median,low,0.55,2 hyphens -45%,1599,C,800,tbd,3.1,
 hair-supplies.com,porkbun,beauty-personal-care,hair,com,13,2027-08-10,afternic,,,,,afternic,25000,2026-09-03,,buy_now,,,,,2907,category-median,low,0.75,hyphen -25%,2180,C,1100,tbd,11.5,
 hairdriers.com,dynadot,beauty-personal-care,hair,com,10,2027-03-01,afternic,6319,2026-09-02,direct,,,,,,,,,,,6319,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),6319,B,3500,tbd,,
@@ -1176,7 +1176,7 @@ handtackers.uk,nominet,home-garden,tools-diy,uk,11,2028-09,,,,,,,,,10000,min_off
 handwritingreader.com,porkbun,ai-tech,ai,com,17,2027-07-25,other,,,,,,,,,,,,,,1808,subcategory-median,medium,1.00,,1808,C,950,tbd,,
 hanging-baskets.com,spaceship,home-garden,garden,com,15,2027-09-03,other,,,,,,,,,,,,,,1644,subcategory-median,medium,0.75,hyphen -25%,1233,C,650,tbd,,
 harnessing-ai.com,porkbun,ai-tech,ai,com,13,2027-08-07,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,1808,subcategory-median,medium,0.75,hyphen -25%,1356,C,700,tbd,3.7,
-hatcheries.co.uk,nominet,agriculture-farming,farming,co.uk,10,2028-06,,16397,2026-09-04,proxy,hatcheries.com,,,,,,,,,,16397,proxy-via-hatcheries.com,medium,0.85,co.uk x0.85,13937,A,,PREMIUM-REVIEW:single-word,,
+hatcheries.co.uk,nominet,agriculture-farming,farming,co.uk,10,2028-06,,16397,2026-09-04,proxy,hatcheries.com,,,,,,,,,,16397,proxy-via-hatcheries.com,not-estimable,0.85,co.uk x0.85,13937,A,,PREMIUM-REVIEW:single-word,,
 hcare.co.uk,nominet,health-medical,care,co.uk,5,2028-03,,,,,,,,,100000,min_offer,,,,,598,category-median,low,0.85,co.uk x0.85,508,D,250,tbd,,400.0
 hcare.uk,nominet,health-medical,care,uk,5,2028-09,,,,,,,,,10000,min_offer,,,,,598,category-median,low,0.21,uk x0.21,126,E,200,tbd,,50.0
 hdg8.com,porkbun,brandable-short,4-char,com,4,2027-01-07,afternic,,,,,,,,50000,min_offer,,,,,4140,category-median,low,0.96,short .com +20%; digits -20%,3974,B,2250,tbd,,22.2
@@ -1225,7 +1225,7 @@ heavydutyparkingmats.com,porkbun,home-garden,driveways-ground,com,20,2026-12-09,
 heavydutyturfmesh.com,porkbun,home-garden,driveways-ground,com,17,2026-12-09,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,2223,subcategory-median,medium,1.00,,2223,C,1150,tbd,2.2,
 hedge-cutters.com,porkbun,home-garden,garden,com,13,2027-09-22,afternic,,,,,afternic,25000,2026-09-03,,buy_now,,,,,1644,subcategory-median,medium,0.75,hyphen -25%,1233,C,650,tbd,20.3,
 heli.uk,nominet,brandable-short,4-char,uk,4,2028-12,,,,,,,,,,,,,,,4140,category-median,low,0.21,uk x0.21,869,D,400,tbd,,
-hell.co.uk,nominet,brandable-short,4-char,co.uk,4,2028-12,,276933,2026-09-04,proxy,hell.com,,,,,,,,,,276933,proxy-via-hell.com,medium,0.85,co.uk x0.85,235393,A,,PREMIUM-REVIEW:single-word,,
+hell.co.uk,nominet,brandable-short,4-char,co.uk,4,2028-12,,276933,2026-09-04,proxy,hell.com,,,,,,,,,,276933,proxy-via-hell.com,not-estimable,0.85,co.uk x0.85,235393,A,,PREMIUM-REVIEW:single-word,,
 helperbean.co.uk,nominet,ai-tech,ai,co.uk,10,2028-05,,,,,,,,,,,,,,,1808,subcategory-median,medium,0.85,co.uk x0.85,1537,C,800,tbd,,
 helperbean.com,porkbun,ai-tech,ai,com,10,2027-05-12,afternic,,,,,afternic,25000,2026-09-03,,buy_now,,,,,1808,subcategory-median,medium,1.00,,1808,C,950,tbd,13.8,
 helperbean.uk,nominet,ai-tech,ai,uk,10,2028-05,,,,,,,,,,,,,,,1808,subcategory-median,medium,0.21,uk x0.21,380,E,200,tbd,,
@@ -1320,12 +1320,12 @@ ijsklontjes.com,porkbun,foreign-language,dutch,com,11,2027-08-10,afternic,401,20
 ileeds.co.uk,nominet,names-places,geographic,co.uk,6,2028-02,,,,,,,,,10000,min_offer,,,,,3946,subcategory-median,medium,0.64,thin-demand category -25%; co.uk x0.85,2515,C,1300,tbd,,7.7
 illustratedmaps.co.uk,nominet,web-digital,design,co.uk,15,2028-05,,,,,,,,,,,,,,,3255,subcategory-median,medium,0.85,co.uk x0.85,2767,C,1400,tbd,,
 illustrateurs.com,porkbun,web-digital,design,com,13,2027-08-29,afternic,,,,,afternic,25000,2026-09-03,,buy_now,,,,,3255,subcategory-median,medium,1.00,,3255,C,1650,tbd,7.7,
-illustrating.co.uk,nominet,web-digital,design,co.uk,12,2029-10,,17175,2026-09-04,proxy,illustrating.com,,,,,,,,,,17175,proxy-via-illustrating.com,medium,0.85,co.uk x0.85,14599,A,,PREMIUM-REVIEW:single-word,,
+illustrating.co.uk,nominet,web-digital,design,co.uk,12,2029-10,,17175,2026-09-04,proxy,illustrating.com,,,,,,,,,,17175,proxy-via-illustrating.com,not-estimable,0.85,co.uk x0.85,14599,A,,PREMIUM-REVIEW:single-word,,
 imagedirectory.co.uk,nominet,web-digital,photography,co.uk,14,2027-10,,,,,,,,,10000,min_offer,,,,,6721,subcategory-median,medium,0.85,co.uk x0.85,5713,B,3250,tbd,,3.1
 imagedirectory.uk,nominet,web-digital,photography,uk,14,2027-10,,154,2026-09-04,direct,,,,,10000,min_offer,,,,,154,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),154,E,200,tbd,,50.0
 impedes.com,dynadot,generic-word,general,com,7,2026-11-24,afternic,4688,2026-09-02,direct,,afternic,4999,2026-09-03,,buy_now,,,,,4688,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),4688,B,,PREMIUM-REVIEW:single-word,1.1,
 impishly.com,porkbun,generic-word,general,com,8,2027-06-13,afternic,8386,2026-09-04,direct,,afternic,4999,2026-09-03,,buy_now,,,,,8386,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),8386,B,,PREMIUM-REVIEW:single-word,0.6,
-implications.co.uk,nominet,generic-word,general,co.uk,12,2028-12,,26995,2026-09-04,proxy,implications.com,,,,10000,min_offer,,,,,26995,proxy-via-implications.com,medium,0.85,co.uk x0.85,22946,A,,PREMIUM-REVIEW:single-word,,
+implications.co.uk,nominet,generic-word,general,co.uk,12,2028-12,,26995,2026-09-04,proxy,implications.com,,,,10000,min_offer,,,,,26995,proxy-via-implications.com,not-estimable,0.85,co.uk x0.85,22946,A,,PREMIUM-REVIEW:single-word,,
 impostered.com,dynadot,brandable-short,pronounceable,com,10,2026-11-12,afternic,7999,2026-09-02,direct,,,,,10000,min_offer,,,,,7999,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),7999,B,4500,tbd,,2.2
 imprinted-concrete.com,spaceship,home-garden,driveways-ground,com,18,2027-08-26,atom,,,,,,,,,,,,,,2223,subcategory-median,medium,0.75,hyphen -25%,1667,C,850,tbd,,
 in-hand.com,dynadot,generic-word,general,com,7,2026-11-05,atom,,,,,,,,,,,,,,5030,subcategory-median,medium,0.75,hyphen -25%,3772,B,2250,tbd,,
@@ -1401,7 +1401,7 @@ intocc.com,spaceship,brandable-short,pronounceable,com,6,2027-08-14,afternic,,,,
 intumescentcoatings.co.uk,nominet,industrial-equipment,materials,co.uk,19,2028-05,,,,,,,,,,,,,,,1568,subcategory-median,medium,0.85,co.uk x0.85,1333,C,700,tbd,,
 investeren-vastgoed.com,porkbun,financial,investing,com,19,2027-08-10,afternic,804,2026-09-03,direct,,afternic,4999,2026-09-03,,buy_now,3500,,,,804,own-appraisal,high,0.75,hyphen -25%; direct appraisal in own TLD (no TLD factor),603,D,,KEEP:network-financial,8.3,
 investerenvastgoed.com,porkbun,financial,investing,com,18,2027-08-10,afternic,777,2026-09-03,direct,,afternic,4999,2026-09-03,,buy_now,3500,,,,777,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),777,D,,KEEP:network-financial,6.4,
-investment.me.uk,nominet,financial,investing,me.uk,10,2028-11,,242516,2026-09-04,proxy,investment.com,,,,,,3500,,,,242516,proxy-via-investment.com,medium,0.12,me.uk x0.12,29102,A,,PREMIUM-REVIEW:single-word,,
+investment.me.uk,nominet,financial,investing,me.uk,10,2028-11,,242516,2026-09-04,proxy,investment.com,,,,,,3500,,,,242516,proxy-via-investment.com,not-estimable,0.12,me.uk x0.12,29102,A,,PREMIUM-REVIEW:single-word,,
 investmentloan.uk,nominet,financial,investing,uk,14,2028-09,,,,,,,,,10000,min_offer,2500,,,,2526,portfolio-median,very-low,0.21,uk x0.21,531,D,,KEEP:network-financial,,
 investmentloans.uk,nominet,financial,investing,uk,15,2028-09,,,,,,,,,10000,min_offer,2500,,,,2526,portfolio-median,very-low,0.21,uk x0.21,531,D,,KEEP:network-financial,,
 investmentsapp.co.uk,nominet,financial,investing,co.uk,14,2028-10,,,,,,,,,10000,min_offer,3500,,,,2526,portfolio-median,very-low,0.85,co.uk x0.85,2148,C,,KEEP:network-financial,,
@@ -1489,8 +1489,8 @@ ladiesbeautytips.com,dynadot,beauty-personal-care,cosmetics,com,16,2026-12-03,af
 ladieswatches.me.uk,nominet,consumer-products,jewellery-watches,me.uk,13,2028-10,,,,,,,,,,,,,,,962,subcategory-median,medium,0.12,me.uk x0.12,115,E,200,tbd,,
 lakelodges.co.uk,nominet,travel,accommodation,co.uk,10,2028-06,,,,,,,,,,,,,,,1114,category-median,low,0.85,co.uk x0.85,947,D,450,tbd,,
 lakeviewlodges.co.uk,nominet,travel,accommodation,co.uk,14,2028-06,,,,,,,,,,,,,,,1114,category-median,low,0.85,co.uk x0.85,947,D,450,tbd,,
-lambing.co.uk,nominet,agriculture-farming,farming,co.uk,7,2027-01,,2808,2026-09-04,proxy,lambing.com,,,,10000,min_offer,,,,,2808,proxy-via-lambing.com,medium,0.85,co.uk x0.85,2387,C,,PREMIUM-REVIEW:single-word,,
-lameness.co.uk,nominet,pets-vet,general,co.uk,8,2028-11,,12255,2026-09-04,proxy,lameness.com,,,,,,,,,,12255,proxy-via-lameness.com,medium,0.85,co.uk x0.85,10417,A,,PREMIUM-REVIEW:single-word,,
+lambing.co.uk,nominet,agriculture-farming,farming,co.uk,7,2027-01,,2808,2026-09-04,proxy,lambing.com,,,,10000,min_offer,,,,,2808,proxy-via-lambing.com,not-estimable,0.85,co.uk x0.85,2387,C,,PREMIUM-REVIEW:single-word,,
+lameness.co.uk,nominet,pets-vet,general,co.uk,8,2028-11,,12255,2026-09-04,proxy,lameness.com,,,,,,,,,,12255,proxy-via-lameness.com,not-estimable,0.85,co.uk x0.85,10417,A,,PREMIUM-REVIEW:single-word,,
 lameness.uk,nominet,pets-vet,general,uk,8,2028-11,,2457,2026-09-04,direct,,,,,,,,,,,2457,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2457,C,,PREMIUM-REVIEW:single-word,,
 laminationfilm.co.uk,nominet,packaging-print,print-services,co.uk,14,2028-09,,,,,,,,,,,,,,,2159,subcategory-median,medium,0.64,thin-demand category -25%; co.uk x0.85,1376,C,700,tbd,,
 laminazo.com,dynadot,foreign-language,spanish,com,8,2027-07-10,afternic,3342,2026-09-02,direct,,afternic,4999,2026-09-03,,buy_now,,,,,3342,own-appraisal,high,0.75,thin-demand category -25%; direct appraisal in own TLD (no TLD factor),2506,C,1300,tbd,2.0,
@@ -1609,7 +1609,7 @@ lowloadervans.com,porkbun,automotive,commercial-vehicles,com,13,2027-09-18,other
 lowrepayments.co.uk,nominet,financial,loans,co.uk,13,2028-11,,,,,,,,,,,,,,,2526,portfolio-median,very-low,0.85,co.uk x0.85,2148,C,,KEEP:network-financial,,
 luchow.com,porkbun,names-places,geographic,com,6,2027-08-27,afternic,5695,2026-09-04,direct,,afternic,4999,2026-09-03,,buy_now,,,,,5695,own-appraisal,high,0.90,short .com +20%; thin-demand category -25%; direct appraisal in own TLD (no TLD factor),5125,B,3000,tbd,1.0,
 luchthaventaxi.com,porkbun,transport-parking,taxi,com,14,2027-09-08,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,1544,category-median,low,1.00,,1544,C,800,tbd,3.2,
-luggage.org.uk,nominet,travel,accessories,org.uk,7,2028-11,,355969,2026-09-04,proxy,luggage.com,,,,,,,,,,355969,proxy-via-luggage.com,medium,0.20,org.uk x0.2,71194,A,,PREMIUM-REVIEW:single-word,,
+luggage.org.uk,nominet,travel,accessories,org.uk,7,2028-11,,355969,2026-09-04,proxy,luggage.com,,,,,,,,,,355969,proxy-via-luggage.com,not-estimable,0.20,org.uk x0.2,71194,A,,PREMIUM-REVIEW:single-word,,
 lutonparking.co.uk,nominet,transport-parking,parking,co.uk,12,2028-07,,,,,,,,,20000,min_offer,888,,,,1544,category-median,low,0.85,co.uk x0.85,1312,C,700,tbd,,28.6
 luxury-lodges-with-hot-tubs.com,porkbun,travel,accommodation,com,27,2027-08-10,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,1114,category-median,low,0.44,4 hyphens -45%; very long -20%,490,E,200,tbd,10.2,
 luxurycaravanhire.com,dynadot,travel,accommodation,com,17,2027-11-23,atom,1114,2026-09-02,direct,,,,,,,2000,,,,1114,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1114,D,550,tbd,,
@@ -1628,7 +1628,7 @@ lvrcalculator.com,dynadot,tools-comparison,general,com,13,2026-09-23,afternic,28
 lyf.uk,nominet,brandable-short,3-char,uk,3,2029-10,,2464,2026-09-04,direct,,,,,,,,,,,2464,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2464,C,,PREMIUM-REVIEW:short-name,,
 m-se.com,porkbun,brandable-short,4-char,com,4,2027-06-08,afternic,,,,,,,,12000,min_offer,,,,,4140,category-median,low,0.75,hyphen -25%,3105,C,1600,tbd,,7.5
 machinerycovers.com,dynadot,industrial-equipment,general,com,15,2027-07-24,afternic,1842,2026-09-02,direct,,,,,10000,min_offer,,,,,1842,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1842,C,950,tbd,,10.5
-madonnas.co.uk,nominet,names-places,personal,co.uk,8,2028-11,,21842,2026-09-04,proxy,madonnas.com,,,,,,,,,,21842,proxy-via-madonnas.com,medium,0.64,thin-demand category -25%; co.uk x0.85,13924,A,,PREMIUM-REVIEW:single-word,,
+madonnas.co.uk,nominet,names-places,personal,co.uk,8,2028-11,,21842,2026-09-04,proxy,madonnas.com,,,,,,,,,,21842,proxy-via-madonnas.com,not-estimable,0.64,thin-demand category -25%; co.uk x0.85,13924,A,,PREMIUM-REVIEW:single-word,,
 mailinglist.co.uk,nominet,web-digital,marketing,co.uk,11,2028-11,,,,,,,,,,,,,,,1482,subcategory-median,medium,0.85,co.uk x0.85,1260,C,650,tbd,,
 mailinglists.co.uk,nominet,web-digital,marketing,co.uk,12,2029-11,,,,,,,,,,,,,,,1482,subcategory-median,medium,0.85,co.uk x0.85,1260,C,650,tbd,,
 mailix.uk,nominet,brandable-short,pronounceable,uk,6,2028-09,,,,,,,,,10000,min_offer,,,,,4146,subcategory-median,medium,0.21,uk x0.21,871,D,400,tbd,,25.0
@@ -1643,7 +1643,7 @@ makeupdesigners.co.uk,nominet,web-digital,design,co.uk,15,2027-10,,,,,,,,,10000,
 makeupdesigners.uk,nominet,web-digital,design,uk,15,2028-10,,,,,,,,,10000,min_offer,1500,,,,3255,subcategory-median,medium,0.21,uk x0.21,684,D,325,tbd,,30.8
 makeupdesigns.uk,nominet,web-digital,design,uk,13,2028-10,,,,,,,,,10000,min_offer,1500,,,,3255,subcategory-median,medium,0.21,uk x0.21,684,D,325,tbd,,30.8
 malagahomerentals.com,dynadot,property,rentals,com,17,2026-12-15,afternic,325,2026-09-02,direct,,,,,12000,min_offer,,,,,325,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),325,E,200,tbd,,60.0
-mallets.co.uk,nominet,home-garden,tools-diy,co.uk,7,2028-04,,22360,2026-09-04,proxy,mallets.com,,,,,,,,,,22360,proxy-via-mallets.com,medium,0.85,co.uk x0.85,19006,A,,PREMIUM-REVIEW:single-word,,
+mallets.co.uk,nominet,home-garden,tools-diy,co.uk,7,2028-04,,22360,2026-09-04,proxy,mallets.com,,,,,,,,,,22360,proxy-via-mallets.com,not-estimable,0.85,co.uk x0.85,19006,A,,PREMIUM-REVIEW:single-word,,
 managed-print.com,porkbun,packaging-print,print-services,com,13,2028-04-17,afternic,1126,2026-09-04,direct,,afternic,4999,2026-09-03,,buy_now,,,,,1126,own-appraisal,high,0.56,hyphen -25%; thin-demand category -25%; direct appraisal in own TLD (no TLD factor),633,D,300,tbd,7.9,
 managed-wifi.com,spaceship,ai-tech,software,com,12,2027-05-17,atom,,,,,,,,,,,,,,1808,category-median,low,0.75,hyphen -25%,1356,C,700,tbd,,
 managementemail.co.uk,nominet,ai-tech,software,co.uk,15,2028-05,,,,,,,,,,,,,live-site,,1808,category-median,low,0.85,co.uk x0.85,1537,C,,KEEP:live-site,,
@@ -1679,7 +1679,7 @@ medicalinsurancequotation.co.uk,nominet,financial,insurance,co.uk,25,2027-10,,,,
 medicalinsurancequotation.uk,nominet,financial,insurance,uk,25,2027-10,,,,,,,,,,,2800,,,,2526,portfolio-median,very-low,0.17,very long -20%; uk x0.21,424,E,,KEEP:network-financial,,
 medicam.co.uk,nominet,health-medical,equipment,co.uk,7,2028-10,,,,,,,,,,,,,,,530,subcategory-median,medium,0.85,co.uk x0.85,450,E,200,tbd,,
 medicam.uk,nominet,health-medical,equipment,uk,7,2028-10,,,,,,,,,10000,min_offer,,,,,530,subcategory-median,medium,0.21,uk x0.21,111,E,200,tbd,,50.0
-medication.me.uk,nominet,health-medical,general,me.uk,10,2028-03,,83649,2026-09-04,proxy,medication.com,,,,,,,,,,83649,proxy-via-medication.com,medium,0.12,me.uk x0.12,10038,A,,PREMIUM-REVIEW:single-word,,
+medication.me.uk,nominet,health-medical,general,me.uk,10,2028-03,,83649,2026-09-04,proxy,medication.com,,,,,,,,,,83649,proxy-via-medication.com,not-estimable,0.12,me.uk x0.12,10038,A,,PREMIUM-REVIEW:single-word,,
 mediccover.com,dynadot,financial,insurance,com,10,2026-12-13,afternic,10968,2026-09-02,direct,,,,,12000,min_offer,,,,,10968,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),10968,A,,KEEP:network-financial,,
 meetfemales.co.uk,nominet,dating,general,co.uk,11,2027-02,,,,,,,,,10000,min_offer,,,,,2526,portfolio-median,very-low,0.85,co.uk x0.85,2148,C,1100,tbd,,9.1
 meinroboten.com,dynadot,ai-tech,robotics,com,11,2027-05-07,other,7457,2026-09-02,direct,,,,,,,7500,,,,7457,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),7457,B,4250,tbd,,
@@ -1735,7 +1735,7 @@ mobileui.uk,nominet,web-digital,design,uk,8,2028-11,,,,,,,,,,,,,,,3255,subcatego
 mobileux.co.uk,nominet,web-digital,design,co.uk,8,2028-11,,,,,,,,,,,,,,,3255,subcategory-median,medium,0.85,co.uk x0.85,2767,C,1400,tbd,,
 mobileux.uk,nominet,web-digital,design,uk,8,2028-11,,,,,,,,,,,,,,,3255,subcategory-median,medium,0.21,uk x0.21,684,D,325,tbd,,
 mobilewindscreenreplacement.com,dynadot,automotive,services,com,27,2027-04-01,atom,266,2026-09-02,direct,,,,,,,,,,,266,own-appraisal,high,0.80,very long -20%; direct appraisal in own TLD (no TLD factor),213,E,200,tbd,,
-moderated.co.uk,nominet,generic-word,general,co.uk,9,2028-11,,16765,2026-09-04,proxy,moderated.com,,,,,,,,,,16765,proxy-via-moderated.com,medium,0.85,co.uk x0.85,14250,A,,PREMIUM-REVIEW:single-word,,
+moderated.co.uk,nominet,generic-word,general,co.uk,9,2028-11,,16765,2026-09-04,proxy,moderated.com,,,,,,,,,,16765,proxy-via-moderated.com,not-estimable,0.85,co.uk x0.85,14250,A,,PREMIUM-REVIEW:single-word,,
 modernlandscapedesigners.com,dynadot,home-garden,garden,com,24,2027-07-01,afternic,1474,2026-09-02,direct,,,,,12000,min_offer,1500,,,,1474,own-appraisal,high,0.80,very long -20%; direct appraisal in own TLD (no TLD factor),1179,D,550,tbd,,21.8
 modular-group.com,dynadot,home-garden,building-trades,com,13,2027-01-12,atom,,,,,,,,,,,,,,2223,subcategory-median,medium,0.75,hyphen -25%,1667,C,850,tbd,,
 modularaiagents.com,dynadot,ai-tech,ai,com,15,2027-01-15,afternic,1225,2026-09-02,direct,,,,,,,2699,,,,1225,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1225,C,650,tbd,,
@@ -1806,7 +1806,7 @@ nattlampa.com,porkbun,home-garden,furnishings,com,9,2027-06-12,afternic,,,,,afte
 naturalistic.uk,nominet,generic-word,general,uk,12,2028-04,,2711,2026-09-04,direct,,,,,10000,min_offer,,,,,2711,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2711,C,,PREMIUM-REVIEW:single-word,,
 naturalrefrigerants.co.uk,nominet,industrial-equipment,general,co.uk,19,2028-06,,,,,,,,,,,,,,,2066,subcategory-median,medium,0.85,co.uk x0.85,1756,C,900,tbd,,
 negociado.com,porkbun,foreign-language,spanish,com,9,2027-09-28,afternic,,,,,,,,12000,min_offer,,,,,3342,subcategory-median,medium,0.75,thin-demand category -25%,2506,C,1300,tbd,,9.2
-negotiations.co.uk,nominet,business-services,general,co.uk,12,2028-03,,258466,2026-09-04,proxy,negotiations.com,,,,,,,,,,258466,proxy-via-negotiations.com,medium,0.85,co.uk x0.85,219696,A,,PREMIUM-REVIEW:single-word,,
+negotiations.co.uk,nominet,business-services,general,co.uk,12,2028-03,,258466,2026-09-04,proxy,negotiations.com,,,,,,,,,,258466,proxy-via-negotiations.com,not-estimable,0.85,co.uk x0.85,219696,A,,PREMIUM-REVIEW:single-word,,
 netfares.co.uk,nominet,travel,general,co.uk,8,2028-05,,,,,,,,,50000,min_offer,,,,,995,subcategory-median,medium,0.85,co.uk x0.85,846,D,400,tbd,,125.0
 netproperty.co.uk,nominet,property,general,co.uk,11,2028-04,,,,,,,,,25000,min_offer,,,,,1504,subcategory-median,medium,0.85,co.uk x0.85,1279,C,650,tbd,,38.5
 networkarchitecture.uk,nominet,ai-tech,software,uk,19,2028-10,,,,,,,,,10000,min_offer,,,,,1808,category-median,low,0.21,uk x0.21,380,E,200,tbd,,50.0
@@ -1817,7 +1817,7 @@ nftagency.uk,nominet,web-digital,marketing,uk,9,2028-03,,,,,,,,,,,,,,,1482,subca
 nice-trading.com,spaceship,business-services,general,com,12,2027-01-10,atom,,,,,,,,,,,,,,1135,subcategory-median,medium,0.75,hyphen -25%,851,D,400,tbd,,
 noble-marketing.com,spaceship,web-digital,marketing,com,15,2027-06-02,atom,,,,,,,,,,,,,,1482,subcategory-median,medium,0.75,hyphen -25%,1112,D,550,tbd,,
 nojob.co.uk,nominet,business-services,jobs-hire,co.uk,5,2028-12,,,,,,,,,,,,,,,3028,subcategory-median,medium,0.85,co.uk x0.85,2574,C,1300,tbd,,
-noted.co.uk,nominet,generic-word,general,co.uk,5,2027-01,,89507,2026-09-04,proxy,noted.com,,,,50000,min_offer,,,live-site,,89507,proxy-via-noted.com,medium,0.85,co.uk x0.85,76081,A,,PREMIUM-REVIEW:single-word,,
+noted.co.uk,nominet,generic-word,general,co.uk,5,2027-01,,89507,2026-09-04,proxy,noted.com,,,,50000,min_offer,,,live-site,,89507,proxy-via-noted.com,not-estimable,0.85,co.uk x0.85,76081,A,,PREMIUM-REVIEW:single-word,,
 notizias.com,dynadot,foreign-language,italian,com,8,2026-09-19,afternic,4749,2026-09-02,direct,,,,,10000,min_offer,,,,,4749,own-appraisal,high,0.75,thin-demand category -25%; direct appraisal in own TLD (no TLD factor),3562,B,2000,tbd,,5.0
 notuleren.com,porkbun,business-services,general,com,9,2027-06-13,afternic,,,,,afternic,30000,2026-09-03,,buy_now,,,,,1135,subcategory-median,medium,1.00,,1135,D,550,tbd,26.4,
 oakframedhouses.com,spaceship,property,general,com,15,2026-09-21,atom,,,,,,,,,,,,,,1504,subcategory-median,medium,1.00,,1504,C,800,tbd,,
@@ -1952,7 +1952,7 @@ pavingrepair.com,dynadot,home-garden,building-trades,com,12,2026-11-30,afternic,
 paymentscalculator.co.uk,nominet,tools-comparison,general,co.uk,18,2028-10,,,,,,,,,10000,min_offer,1649,,,,2480,subcategory-median,medium,0.85,co.uk x0.85,2108,C,1100,tbd,,9.1
 pcgaming.uk,nominet,sports-leisure,gaming,uk,8,2028-06,,,,,,,,,,,,,,,1980,category-median,low,0.21,uk x0.21,416,E,200,tbd,,
 pelletburners.co.uk,nominet,home-garden,heating-plumbing,co.uk,13,2027-01,,,,,,,,,10000,min_offer,,,,,3149,subcategory-median,medium,0.85,co.uk x0.85,2677,C,1350,tbd,,7.4
-pendant.co.uk,nominet,consumer-products,jewellery-watches,co.uk,7,2028-05,,240749,2026-09-04,proxy,pendant.com,,,,,,,,,,240749,proxy-via-pendant.com,medium,0.85,co.uk x0.85,204637,A,,PREMIUM-REVIEW:single-word,,
+pendant.co.uk,nominet,consumer-products,jewellery-watches,co.uk,7,2028-05,,240749,2026-09-04,proxy,pendant.com,,,,,,,,,,240749,proxy-via-pendant.com,not-estimable,0.85,co.uk x0.85,204637,A,,PREMIUM-REVIEW:single-word,,
 pendant.uk,nominet,consumer-products,jewellery-watches,uk,7,2028-07,,6612,2026-09-04,direct,,,,,10000,min_offer,,,,,6612,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),6612,B,,PREMIUM-REVIEW:single-word,,
 pendulumsliptesting.co.uk,nominet,industrial-equipment,test-measurement,co.uk,19,2028-02,,,,,,,,,,,,,,,2066,category-median,low,0.85,co.uk x0.85,1756,C,900,tbd,,
 penetrationtesting.uk,nominet,ai-tech,software,uk,18,2028-09,,,,,,,,,,,,,,,1808,category-median,low,0.21,uk x0.21,380,E,200,tbd,,
@@ -1978,7 +1978,7 @@ personaliseddolls.co.uk,nominet,consumer-products,gifts,co.uk,17,2028-10,,,,,,,,
 personaliseddolls.com,porkbun,consumer-products,kids-baby,com,17,2027-10-08,afternic,,,,,,,,30000,min_offer,,,,,3122,category-median,low,1.00,,3122,C,1600,tbd,,18.8
 personaliseddolls.uk,nominet,consumer-products,gifts,uk,17,2028-10,,,,,,,,,10000,min_offer,,,,,4375,subcategory-median,medium,0.21,uk x0.21,919,D,425,tbd,,23.5
 personaliser.uk,nominet,ai-tech,software,uk,12,2028-10,,,,,,,,,50000,min_offer,,,,,1808,category-median,low,0.21,uk x0.21,380,E,200,tbd,,250.0
-personalising.co.uk,nominet,consumer-products,gifts,co.uk,13,2028-11,,3266,2026-09-04,proxy,personalising.com,,,,,,,,,,3266,proxy-via-personalising.com,medium,0.85,co.uk x0.85,2776,C,,PREMIUM-REVIEW:single-word,,
+personalising.co.uk,nominet,consumer-products,gifts,co.uk,13,2028-11,,3266,2026-09-04,proxy,personalising.com,,,,,,,,,,3266,proxy-via-personalising.com,not-estimable,0.85,co.uk x0.85,2776,C,,PREMIUM-REVIEW:single-word,,
 personalising.uk,nominet,consumer-products,gifts,uk,13,2028-11,,811,2026-09-04,direct,,,,,,,,,,,811,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),811,D,,PREMIUM-REVIEW:single-word,,
 personalizer.co.uk,nominet,ai-tech,software,co.uk,12,2028-10,,,,,,,,,10000,min_offer,,,,,1808,category-median,low,0.85,co.uk x0.85,1537,C,800,tbd,,12.5
 personalizer.uk,nominet,ai-tech,software,uk,12,2027-10,,,,,,,,,10000,min_offer,,,,,1808,category-median,low,0.21,uk x0.21,380,E,200,tbd,,50.0
@@ -2071,7 +2071,7 @@ powertoolhire.com,dynadot,home-garden,tools-diy,com,13,2026-11-27,atom,169,2026-
 pozdrowienia.com,porkbun,foreign-language,polish,com,12,2027-05-20,afternic,,,,,,,,12000,min_offer,,,,,4182,category-median,low,0.75,thin-demand category -25%,3136,C,1600,tbd,,7.5
 precast-concrete.co.uk,nominet,industrial-equipment,materials,co.uk,16,2028-09,,,,,,,,,,,,,,,1568,subcategory-median,medium,0.64,hyphen -25%; co.uk x0.85,1000,D,450,tbd,,
 preciousmetalsrecovery.com,dynadot,industrial-equipment,general,com,22,2026-12-31,atom,,,,,dynadot,1235.00,2026-09-03,,,,,,,2066,subcategory-median,medium,0.80,very long -20%,1652,C,850,tbd,0.7,
-predate.co.uk,nominet,generic-word,general,co.uk,7,2027-01,,113373,2026-09-04,proxy,predate.com,,,,10000,min_offer,,,,,113373,proxy-via-predate.com,medium,0.85,co.uk x0.85,96367,A,,PREMIUM-REVIEW:single-word,,
+predate.co.uk,nominet,generic-word,general,co.uk,7,2027-01,,113373,2026-09-04,proxy,predate.com,,,,10000,min_offer,,,,,113373,proxy-via-predate.com,not-estimable,0.85,co.uk x0.85,96367,A,,PREMIUM-REVIEW:single-word,,
 prefabricatedbuildings.co.uk,nominet,home-garden,building-trades,co.uk,22,2027-02,,,,,,,,,,,,,,,2223,subcategory-median,medium,0.68,very long -20%; co.uk x0.85,1512,C,800,tbd,,
 premium-teas.com,porkbun,food-drink,general,com,12,2026-11-25,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,1900,subcategory-median,medium,0.75,hyphen -25%,1425,C,750,tbd,3.5,
 preordertickets.com,dynadot,sports-leisure,tickets,com,15,2026-11-15,afternic,1118,2026-09-03,direct,,,,,,,,,,,1118,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1118,D,550,tbd,,
@@ -2152,7 +2152,7 @@ propertyincornwall.uk,nominet,property,general,uk,18,2028-10,,,,,,,,,30000,min_o
 protectiveequipment.uk,nominet,industrial-equipment,safety,uk,19,2028-09,,,,,,,,,10000,min_offer,2995,,,,2066,category-median,low,0.21,uk x0.21,434,E,200,tbd,,50.0
 protecty.co.uk,NOT-OWNED-expired,brandable-short,pronounceable,co.uk,8,,,,,,,,,,30000,min_offer,,,,,4146,subcategory-median,medium,0.85,co.uk x0.85,3524,B,,NOT-OWNED-expired,,
 protectyourbike.com,dynadot,sports-leisure,cycling,com,15,2026-10-29,afternic,2089,2026-09-03,direct,,,,,10000,min_offer,,,,,2089,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2089,C,1050,tbd,,9.5
-proverb.co.uk,nominet,generic-word,general,co.uk,7,2027-05,,35700,2026-09-04,proxy,proverb.com,,,,10000,min_offer,,,,,35700,proxy-via-proverb.com,medium,0.85,co.uk x0.85,30345,A,,PREMIUM-REVIEW:single-word,,
+proverb.co.uk,nominet,generic-word,general,co.uk,7,2027-05,,35700,2026-09-04,proxy,proverb.com,,,,10000,min_offer,,,,,35700,proxy-via-proverb.com,not-estimable,0.85,co.uk x0.85,30345,A,,PREMIUM-REVIEW:single-word,,
 proverb.uk,nominet,generic-word,general,uk,7,2027-03,,5887,2026-09-04,direct,,,,,10000,min_offer,,,,,5887,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),5887,B,,PREMIUM-REVIEW:single-word,,
 pruningbot.com,dynadot,ai-tech,robotics,com,10,2026-10-28,afternic,1272,2026-09-03,direct,,,,,10000,min_offer,,,,,1272,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1272,C,650,tbd,,15.4
 psychiatric.uk,nominet,health-medical,general,uk,11,2028-09,,6335,2026-09-04,direct,,,,,50000,min_offer,,,,,6335,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),6335,B,,PREMIUM-REVIEW:single-word,,
@@ -2161,7 +2161,7 @@ purchasefootballticket.com,porkbun,sports-leisure,tickets,com,22,2027-08-10,afte
 pure-north.com,porkbun,misc,general,com,10,2027-06-28,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,2526,portfolio-median,very-low,0.56,hyphen -25%; thin-demand category -25%,1421,C,750,tbd,3.5,
 push-group.com,porkbun,business-services,general,com,10,2028-06-02,afternic,,,,,,,,12000,min_offer,,,,,1135,subcategory-median,medium,0.75,hyphen -25%,851,D,400,tbd,,30.0
 puzzlegenerators.com,dynadot,ai-tech,software,com,16,2026-11-10,cloudflare,873,2026-09-03,direct,,,,,20000,min_offer,,,live-site,,873,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),873,D,,KEEP:live-site,,
-puzzles.org.uk,nominet,sports-leisure,gaming,org.uk,7,2028-05,,296216,2026-09-04,proxy,puzzles.com,,,,10000,min_offer,,,,,296216,proxy-via-puzzles.com,medium,0.20,org.uk x0.2,59243,A,,PREMIUM-REVIEW:single-word,,
+puzzles.org.uk,nominet,sports-leisure,gaming,org.uk,7,2028-05,,296216,2026-09-04,proxy,puzzles.com,,,,10000,min_offer,,,,,296216,proxy-via-puzzles.com,not-estimable,0.20,org.uk x0.2,59243,A,,PREMIUM-REVIEW:single-word,,
 pvc-windows.com,dynadot,home-garden,windows-doors,com,11,2027-06-30,afternic,1236,2026-09-03,direct,,,,,10000,min_offer,1984,,,,1236,own-appraisal,high,0.75,hyphen -25%; direct appraisal in own TLD (no TLD factor),927,D,425,tbd,,23.5
 pwas.uk,nominet,brandable-short,4-char,uk,4,2028-10,,,,,,,,,10000,min_offer,,,,,4140,category-median,low,0.21,uk x0.21,869,D,400,tbd,,25.0
 qlp.us,NOT-OWNED-elsewhere,brandable-short,3-char,us,3,,,3615,2026-09-04,direct,,,,,50000,min_offer,,,,,3615,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),3615,B,,NOT-OWNED-elsewhere,,
@@ -2192,7 +2192,7 @@ railjourneys.co.uk,nominet,travel,general,co.uk,12,2028-10,,,,,,,,,,,,,,,995,sub
 rainforests.co.uk,nominet,education,nature,co.uk,11,2028-12,,,,,,,,,50000,min_offer,,,,,4237,category-median,low,0.85,co.uk x0.85,3601,B,2000,tbd,,25.0
 rampljus.com,porkbun,foreign-language,swedish,com,8,2027-08-16,afternic,,,,,,,,12000,min_offer,,,,,4182,category-median,low,0.75,thin-demand category -25%,3136,C,1600,tbd,,7.5
 range-cooker.com,spaceship,consumer-products,appliances,com,12,2027-07-16,afternic,,,,,,,,,,,,,,1348,subcategory-median,medium,0.75,hyphen -25%,1011,D,475,tbd,,
-rants.co.uk,nominet,generic-word,general,co.uk,5,2028-12,,29359,2026-09-04,proxy,rants.com,,,,,,,,,,29359,proxy-via-rants.com,medium,0.85,co.uk x0.85,24955,A,,PREMIUM-REVIEW:single-word,,
+rants.co.uk,nominet,generic-word,general,co.uk,5,2028-12,,29359,2026-09-04,proxy,rants.com,,,,,,,,,,29359,proxy-via-rants.com,not-estimable,0.85,co.uk x0.85,24955,A,,PREMIUM-REVIEW:single-word,,
 rapid-site.com,porkbun,web-digital,web,com,10,2026-12-05,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,2657,category-median,low,0.75,hyphen -25%,1993,C,1000,tbd,2.5,
 ratecomparison.co.uk,nominet,tools-comparison,general,co.uk,14,2028-10,,,,,,,,,10000,min_offer,,,,,2480,subcategory-median,medium,0.85,co.uk x0.85,2108,C,1100,tbd,,9.1
 rateforecast.co.uk,nominet,financial,general,co.uk,12,2028-04,,,,,,,,,,,,,,,2526,portfolio-median,very-low,0.85,co.uk x0.85,2148,C,,KEEP:network-financial,,
@@ -2209,7 +2209,7 @@ reclaimed-bricks.co.uk,nominet,industrial-equipment,materials,co.uk,16,2028-12,,
 reclinerseat.com,dynadot,home-garden,furnishings,com,12,2026-11-04,afternic,5004,2026-09-03,direct,,,,,10000,min_offer,,,,,5004,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),5004,B,3000,tbd,,3.3
 recordingglasses.com,dynadot,home-garden,windows-doors,com,16,2027-01-13,afternic,1656,2026-09-03,direct,,,,,,,,,,,1656,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1656,C,850,tbd,,
 recycledgold.co.uk,nominet,consumer-products,jewellery-watches,co.uk,12,2028-10,,,,,,,,,,,,,,,962,subcategory-median,medium,0.85,co.uk x0.85,818,D,375,tbd,,
-redesign.co.uk,nominet,web-digital,design,co.uk,8,2028-06,,76762,2026-09-04,proxy,redesign.com,,,,120000,min_offer,1500,,,,76762,proxy-via-redesign.com,medium,0.85,co.uk x0.85,65248,A,,PREMIUM-REVIEW:single-word,,
+redesign.co.uk,nominet,web-digital,design,co.uk,8,2028-06,,76762,2026-09-04,proxy,redesign.com,,,,120000,min_offer,1500,,,,76762,proxy-via-redesign.com,not-estimable,0.85,co.uk x0.85,65248,A,,PREMIUM-REVIEW:single-word,,
 redesign.uk,nominet,web-digital,design,uk,8,2028-03,,9638,2026-09-04,direct,,,,,100000,min_offer,1500,,,,9638,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),9638,B,,PREMIUM-REVIEW:single-word,,
 redesigning.uk,nominet,web-digital,design,uk,11,2028-06,,2782,2026-09-04,direct,,,,,50000,min_offer,1500,,,,2782,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2782,C,,PREMIUM-REVIEW:single-word,,
 redundancypayment.com,porkbun,legal,employment,com,17,2027-06-17,afternic,,,,,,,,10000,min_offer,,,,,2526,portfolio-median,very-low,1.00,,2526,C,1300,tbd,,7.7
@@ -2219,10 +2219,10 @@ refrigerated-van.co.uk,nominet,automotive,general,co.uk,16,2031-10,,,,,,,,,,,,,,
 refrigeratedleasing.com,dynadot,automotive,leasing,com,19,2026-12-16,afternic,2087,2026-09-03,direct,,afternic,4999,2026-09-03,,buy_now,1737,,,,2087,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2087,C,1050,tbd,2.4,
 refueller.com,dynadot,transport-parking,refuelling,com,9,2027-08-28,afternic,24381,2026-09-03,direct,,,,,10000,min_offer,,,,,24381,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),24381,A,15000,tbd,,0.7
 refuellers.com,dynadot,transport-parking,refuelling,com,10,2026-10-20,afternic,24511,2026-09-03,direct,,,,,10000,min_offer,,,,,24511,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),24511,A,15000,tbd,,0.7
-refurnished.co.uk,nominet,home-garden,furnishings,co.uk,11,2028-11,,16707,2026-09-04,proxy,refurnished.com,,,,,,,,,,16707,proxy-via-refurnished.com,medium,0.85,co.uk x0.85,14201,A,,PREMIUM-REVIEW:single-word,,
+refurnished.co.uk,nominet,home-garden,furnishings,co.uk,11,2028-11,,16707,2026-09-04,proxy,refurnished.com,,,,,,,,,,16707,proxy-via-refurnished.com,not-estimable,0.85,co.uk x0.85,14201,A,,PREMIUM-REVIEW:single-word,,
 regelmatig.com,porkbun,foreign-language,dutch,com,10,2027-08-24,afternic,5394,2026-09-04,direct,,afternic,4999,2026-09-03,,buy_now,,,,,5394,own-appraisal,high,0.75,thin-demand category -25%; direct appraisal in own TLD (no TLD factor),4046,B,2250,tbd,1.2,
 registrants.uk,nominet,web-digital,web,uk,11,2028-03,,3273,2026-09-04,direct,,,,,10000,min_offer,,,,,3273,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),3273,C,,PREMIUM-REVIEW:single-word,,
-rein.co.uk,nominet,brandable-short,4-char,co.uk,4,2027-04,,190455,2026-09-04,proxy,rein.com,,,,10000,min_offer,,,,,190455,proxy-via-rein.com,medium,0.85,co.uk x0.85,161887,A,,PREMIUM-REVIEW:single-word,,
+rein.co.uk,nominet,brandable-short,4-char,co.uk,4,2027-04,,190455,2026-09-04,proxy,rein.com,,,,10000,min_offer,,,,,190455,proxy-via-rein.com,not-estimable,0.85,co.uk x0.85,161887,A,,PREMIUM-REVIEW:single-word,,
 rein.uk,nominet,brandable-short,4-char,uk,4,2028-09,,9304,2026-09-04,direct,,,,,10000,min_offer,,,,,9304,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),9304,B,,PREMIUM-REVIEW:single-word,,
 reinclusion.com,dynadot,generic-word,general,com,11,2027-01-05,afternic,5030,2026-09-03,direct,,,,,10000,min_offer,,,,,5030,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),5030,B,3000,tbd,,3.3
 reisvilla.com,porkbun,travel,general,com,9,2027-07-23,afternic,,,,,afternic,4999,2026-09-03,,buy_now,5000,,,,995,subcategory-median,medium,1.00,,995,D,450,tbd,5.0,
@@ -2247,12 +2247,12 @@ replicaself.com,porkbun,ai-tech,ai,com,11,2027-05-05,afternic,,,,,afternic,25000
 replicayou.com,porkbun,ai-tech,ai,com,10,2027-05-05,afternic,,,,,,,,12000,min_offer,,,,,1808,subcategory-median,medium,1.00,,1808,C,950,tbd,,12.6
 replyemail.co.uk,nominet,ai-tech,software,co.uk,10,2028-08,,,,,,,,,10000,min_offer,,,,,1808,category-median,low,0.85,co.uk x0.85,1537,C,800,tbd,,12.5
 replyemail.uk,nominet,ai-tech,software,uk,10,2028-08,,,,,,,,,10000,min_offer,,,,,1808,category-median,low,0.21,uk x0.21,380,E,200,tbd,,50.0
-repossessing.co.uk,nominet,financial,credit-debt,co.uk,12,2028-03,,7717,2026-09-04,proxy,repossessing.com,,,,10000,min_offer,,,,,7717,proxy-via-repossessing.com,medium,0.85,co.uk x0.85,6559,B,,PREMIUM-REVIEW:single-word,,
+repossessing.co.uk,nominet,financial,credit-debt,co.uk,12,2028-03,,7717,2026-09-04,proxy,repossessing.com,,,,10000,min_offer,,,,,7717,proxy-via-repossessing.com,not-estimable,0.85,co.uk x0.85,6559,B,,PREMIUM-REVIEW:single-word,,
 repurpose.co.uk,nominet,generic-word,general,co.uk,9,2028-11,,,,,,,,,,,,,,,5030,subcategory-median,medium,0.85,co.uk x0.85,4276,B,2500,tbd,,
 reputationmanagement.uk,nominet,web-digital,marketing,uk,20,2027-02,,,,,,,,,,,,,,,1482,subcategory-median,medium,0.21,uk x0.21,311,E,200,tbd,,
 requisite.uk,nominet,generic-word,general,uk,9,2028-04,,6910,2026-09-04,direct,,,,,10000,min_offer,,,,,6910,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),6910,B,,PREMIUM-REVIEW:single-word,,
-reread.co.uk,nominet,generic-word,general,co.uk,6,2027-01,,28415,2026-09-04,proxy,reread.com,,,,10000,min_offer,,,,,28415,proxy-via-reread.com,medium,0.85,co.uk x0.85,24153,A,,PREMIUM-REVIEW:single-word,,
-reselling.co.uk,nominet,consumer-products,retail,co.uk,9,2028-11,,39172,2026-09-04,proxy,reselling.com,,,,,,,,,,39172,proxy-via-reselling.com,medium,0.85,co.uk x0.85,33296,A,,PREMIUM-REVIEW:single-word,,
+reread.co.uk,nominet,generic-word,general,co.uk,6,2027-01,,28415,2026-09-04,proxy,reread.com,,,,10000,min_offer,,,,,28415,proxy-via-reread.com,not-estimable,0.85,co.uk x0.85,24153,A,,PREMIUM-REVIEW:single-word,,
+reselling.co.uk,nominet,consumer-products,retail,co.uk,9,2028-11,,39172,2026-09-04,proxy,reselling.com,,,,,,,,,,39172,proxy-via-reselling.com,not-estimable,0.85,co.uk x0.85,33296,A,,PREMIUM-REVIEW:single-word,,
 reserveringen.com,dynadot,travel,general,com,13,2026-10-06,afternic,1030,2026-09-03,direct,,,,,10000,min_offer,,,,,1030,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1030,D,475,tbd,,21.1
 residentialdamage.com,porkbun,property,general,com,17,2027-05-24,afternic,,,,,,,,10000,min_offer,,,,,1504,subcategory-median,medium,1.00,,1504,C,800,tbd,,12.5
 residentialhousing.co.uk,nominet,property,general,co.uk,18,2028-05,,,,,,,,,,,,,,,1504,subcategory-median,medium,0.85,co.uk x0.85,1279,C,650,tbd,,
@@ -2349,7 +2349,7 @@ scaffoldingforhire.co.uk,nominet,home-garden,building-trades,co.uk,18,2028-06,,,
 scaffoldingforhire.com,porkbun,home-garden,building-trades,com,18,2027-06-17,afternic,,,,,afternic,25000,2026-09-03,,buy_now,1800,,,,2223,subcategory-median,medium,1.00,,2223,C,1150,tbd,11.2,
 scaffoldinginsurance.com,dynadot,home-garden,building-trades,com,20,2027-07-07,afternic,715,2026-09-03,direct,,afternic,25000,2026-09-03,,buy_now,2750,,,,715,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),715,D,325,tbd,35.0,
 scaffoldingsupplier.co.uk,nominet,home-garden,building-trades,co.uk,19,2028-04,,,,,,,,,,,850,,,,2223,subcategory-median,medium,0.85,co.uk x0.85,1890,C,950,tbd,,
-scales.co.uk,nominet,consumer-products,appliances,co.uk,6,2028-04,,463432,2026-09-04,proxy,scales.com,,,,10000,min_offer,,,,,463432,proxy-via-scales.com,medium,0.85,co.uk x0.85,393917,A,,PREMIUM-REVIEW:single-word,,
+scales.co.uk,nominet,consumer-products,appliances,co.uk,6,2028-04,,463432,2026-09-04,proxy,scales.com,,,,10000,min_offer,,,,,463432,proxy-via-scales.com,not-estimable,0.85,co.uk x0.85,393917,A,,OWNER-FIGURE:acquisition-cost,,
 schoolingloan.com,dynadot,education,general,com,13,2027-09-13,afternic,2951,2026-09-03,direct,,,,,10000,min_offer,1805,,,,2951,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2951,C,1500,tbd,,6.7
 scooterreviews.uk,nominet,tools-comparison,general,uk,14,2028-10,,,,,,,,,,,,,,,2480,subcategory-median,medium,0.21,uk x0.21,521,D,250,tbd,,
 scrappy-site.com,porkbun,web-digital,web,com,12,2027-08-14,other,,,,,,,,,,,,,,2657,category-median,low,0.75,hyphen -25%,1993,C,1000,tbd,,
@@ -2368,7 +2368,7 @@ scrappywebsites.uk,nominet,web-digital,web,uk,15,2028-08,,,,,,,,,,,1935,,,,2657,
 scrapvans.co.uk,nominet,automotive,commercial-vehicles,co.uk,9,2028-06,,,,,,,,,,,,,,,1608,category-median,low,0.85,co.uk x0.85,1367,C,700,tbd,,
 screen-hire.co.uk,nominet,business-services,jobs-hire,co.uk,11,2028-05,,,,,,,,,,,2000,,,,3028,subcategory-median,medium,0.64,hyphen -25%; co.uk x0.85,1930,C,1000,tbd,,
 screenpads.com,dynadot,consumer-products,electronics,com,10,2027-01-08,afternic,3658,2026-09-03,direct,,afternic,4999,2026-09-03,,buy_now,,,,,3658,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),3658,B,2250,tbd,1.4,
-screenwriters.co.uk,nominet,web-digital,content,co.uk,13,2028-09,,11348,2026-09-04,proxy,screenwriters.com,,,,,,,,,,11348,proxy-via-screenwriters.com,medium,0.85,co.uk x0.85,9646,B,,PREMIUM-REVIEW:single-word,,
+screenwriters.co.uk,nominet,web-digital,content,co.uk,13,2028-09,,11348,2026-09-04,proxy,screenwriters.com,,,,,,,,,,11348,proxy-via-screenwriters.com,not-estimable,0.85,co.uk x0.85,9646,B,,PREMIUM-REVIEW:single-word,,
 searchagency.uk,nominet,web-digital,marketing,uk,12,2028-09,,,,,,,,,50000,min_offer,,,,,1482,subcategory-median,medium,0.21,uk x0.21,311,E,200,tbd,,250.0
 seaweed-health.com,porkbun,health-medical,general,com,14,2027-08-14,other,,,,,,,,,,2000,,,,598,subcategory-median,medium,0.75,hyphen -25%,448,E,200,tbd,,
 secondhandmotorhomes.com,dynadot,property,general,com,20,2027-06-03,atom,2532,2026-09-03,direct,,,,,,,,,,,2532,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2532,C,1300,tbd,,
@@ -2379,8 +2379,8 @@ secretpresents.com,porkbun,consumer-products,gifts,com,14,2027-01-31,afternic,,,
 secured-loan-calculator.com,porkbun,financial,loans,com,23,2027-01-10,cloudflare,288,2026-09-03,direct,,,,,,,1718,,live-site,,288,own-appraisal,high,0.44,2 hyphens -45%; very long -20%; direct appraisal in own TLD (no TLD factor),127,E,,KEEP:network-financial,,
 securevehiclestorage.com,porkbun,automotive,general,com,20,2027-11-11,afternic,,,,,,,,,,,,,,916,subcategory-median,medium,1.00,,916,D,425,tbd,,
 securitycameras.co.uk,nominet,consumer-products,electronics,co.uk,15,2028-09,,,,,,,,,10000,min_offer,,,,,3013,subcategory-median,medium,0.85,co.uk x0.85,2561,C,1300,tbd,,7.7
-sedative.co.uk,nominet,health-medical,general,co.uk,8,2027-01,,5737,2026-09-04,proxy,sedative.com,,,,,,,,,,5737,proxy-via-sedative.com,medium,0.85,co.uk x0.85,4876,B,,PREMIUM-REVIEW:single-word,,
-seduce.co.uk,nominet,dating,general,co.uk,6,2028-04,,339836,2026-09-04,proxy,seduce.com,,,,10000,min_offer,,,,,339836,proxy-via-seduce.com,medium,0.85,co.uk x0.85,288861,A,,PREMIUM-REVIEW:single-word,,
+sedative.co.uk,nominet,health-medical,general,co.uk,8,2027-01,,5737,2026-09-04,proxy,sedative.com,,,,,,,,,,5737,proxy-via-sedative.com,not-estimable,0.85,co.uk x0.85,4876,B,,PREMIUM-REVIEW:single-word,,
+seduce.co.uk,nominet,dating,general,co.uk,6,2028-04,,339836,2026-09-04,proxy,seduce.com,,,,10000,min_offer,,,,,339836,proxy-via-seduce.com,not-estimable,0.85,co.uk x0.85,288861,A,,PREMIUM-REVIEW:single-word,,
 seed-sheets.com,porkbun,home-garden,garden,com,11,2026-11-19,afternic,,,,,afternic,25000,2026-09-03,,buy_now,,,,,1644,subcategory-median,medium,0.75,hyphen -25%,1233,C,650,tbd,20.3,
 segmentation.uk,nominet,web-digital,marketing,uk,12,2027-01,,4883,2026-09-04,direct,,,,,,,,,,,4883,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),4883,B,,PREMIUM-REVIEW:single-word,,
 selectionneur.com,porkbun,sports-leisure,general,com,13,2027-12-11,other,,,,,,,,,,,,,,2270,subcategory-median,medium,1.00,,2270,C,1150,tbd,,
@@ -2401,7 +2401,7 @@ shareticker.co.uk,nominet,financial,investing,co.uk,11,2028-12,,,,,,,,,50000,min
 sharetips.uk,nominet,financial,investing,uk,9,2028-08,,,,,,,,,10000,min_offer,,,,,2526,portfolio-median,very-low,0.21,uk x0.21,531,D,,KEEP:network-financial,,
 sheetmaterial.co.uk,nominet,industrial-equipment,materials,co.uk,13,2028-03,,,,,,,,,,,,,,,1568,subcategory-median,medium,0.85,co.uk x0.85,1333,C,700,tbd,,
 sheetmaterial.com,porkbun,industrial-equipment,materials,com,13,2027-09-25,afternic,,,,,afternic,25000,2026-09-03,,buy_now,,,,,1568,subcategory-median,medium,1.00,,1568,C,800,tbd,15.9,
-shekels.co.uk,nominet,financial,general,co.uk,7,2027-01,,28327,2026-09-04,proxy,shekels.com,,,,10000,min_offer,,,,,28327,proxy-via-shekels.com,medium,0.85,co.uk x0.85,24078,A,,PREMIUM-REVIEW:single-word,,
+shekels.co.uk,nominet,financial,general,co.uk,7,2027-01,,28327,2026-09-04,proxy,shekels.com,,,,10000,min_offer,,,,,28327,proxy-via-shekels.com,not-estimable,0.85,co.uk x0.85,24078,A,,PREMIUM-REVIEW:single-word,,
 shellfish-farming.com,porkbun,agriculture-farming,farming,com,17,2027-03-14,other,,,,,,,,,,1299,,,,3535,category-median,low,0.75,hyphen -25%,2651,C,1350,tbd,,
 shippingcontainerstorage.co.uk,nominet,industrial-equipment,storage-handling,co.uk,24,2028-12,,,,,,,,,,,,,,,2066,category-median,low,0.68,very long -20%; co.uk x0.85,1405,C,750,tbd,,
 shippingstorage.com,dynadot,transport-parking,logistics,com,15,2026-10-29,afternic,2404,2026-09-03,direct,,afternic,4999,2026-09-03,,buy_now,,,,,2404,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2404,C,1250,tbd,2.1,
@@ -2441,7 +2441,7 @@ sleepingsensor.com,dynadot,health-medical,equipment,com,14,2026-11-26,afternic,4
 slevio.com,porkbun,brandable-short,pronounceable,com,6,2027-05-13,afternic,,,,,,,,10000,min_offer,,,,,4146,subcategory-median,medium,1.20,short .com +20%,4975,B,2750,tbd,,3.6
 sliding-door.co.uk,nominet,home-garden,windows-doors,co.uk,12,2027-03,,,,,,,,,,,,,,,2607,subcategory-median,medium,0.64,hyphen -25%; co.uk x0.85,1662,C,850,tbd,,
 slidingfoldingdoor.com,porkbun,home-garden,windows-doors,com,18,2028-03-11,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,2607,subcategory-median,medium,1.00,,2607,C,1350,tbd,1.9,
-slim.org.uk,nominet,brandable-short,4-char,org.uk,4,2028-12,,113878,2026-09-04,proxy,slim.com,,,,,,,,,,113878,proxy-via-slim.com,medium,0.20,org.uk x0.2,22776,A,,PREMIUM-REVIEW:single-word,,
+slim.org.uk,nominet,brandable-short,4-char,org.uk,4,2028-12,,113878,2026-09-04,proxy,slim.com,,,,,,,,,,113878,proxy-via-slim.com,not-estimable,0.20,org.uk x0.2,22776,A,,PREMIUM-REVIEW:single-word,,
 slym.co.uk,nominet,brandable-short,4-char,co.uk,4,2028-11,,,,,,,,,,,,,,,4140,category-median,low,0.85,co.uk x0.85,3519,B,1950,tbd,,
 slym.uk,nominet,brandable-short,4-char,uk,4,2028-11,,,,,,,,,,,,,,,4140,category-median,low,0.21,uk x0.21,869,D,400,tbd,,
 smallbusinesshealthinsurance.uk,nominet,financial,insurance,uk,28,2028-11,,,,,,,,,,,2499,,,,2526,portfolio-median,very-low,0.17,very long -20%; uk x0.21,424,E,,KEEP:network-financial,,
@@ -2559,9 +2559,9 @@ studioflats.uk,nominet,property,rentals,uk,11,2028-12,,,,,,,,,,,,,,,4178,subcate
 sublimationprinting.co.uk,nominet,packaging-print,print-services,co.uk,19,2028-11,,,,,,,,,,,,,,,2159,subcategory-median,medium,0.64,thin-demand category -25%; co.uk x0.85,1376,C,700,tbd,,
 sultry.uk,nominet,generic-word,general,uk,6,2028-08,,1246,2026-09-04,direct,,,,,10000,min_offer,,,,,1246,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1246,C,,PREMIUM-REVIEW:single-word,,
 summarisation.com,porkbun,ai-tech,ai,com,13,2028-03-06,none,,,,,,,,,,,,,,1808,subcategory-median,medium,1.00,,1808,C,950,tbd,,
-summarising.co.uk,nominet,web-digital,content,co.uk,11,2028-03,,8959,2026-09-04,proxy,summarising.com,,,,50000,min_offer,,,,,8959,proxy-via-summarising.com,medium,0.85,co.uk x0.85,7615,B,,PREMIUM-REVIEW:single-word,,
+summarising.co.uk,nominet,web-digital,content,co.uk,11,2028-03,,8959,2026-09-04,proxy,summarising.com,,,,50000,min_offer,,,,,8959,proxy-via-summarising.com,not-estimable,0.85,co.uk x0.85,7615,B,,PREMIUM-REVIEW:single-word,,
 summerhousesforsale.co.uk,nominet,property,general,co.uk,19,2028-11,,,,,,,,,,,,,,,1504,subcategory-median,medium,0.85,co.uk x0.85,1279,C,650,tbd,,
-sunshine.org.uk,nominet,generic-word,general,org.uk,8,2028-03,,193995,2026-09-04,proxy,sunshine.com,,,,50000,min_offer,,,,,193995,proxy-via-sunshine.com,medium,0.20,org.uk x0.2,38799,A,,PREMIUM-REVIEW:single-word,,
+sunshine.org.uk,nominet,generic-word,general,org.uk,8,2028-03,,193995,2026-09-04,proxy,sunshine.com,,,,50000,min_offer,,,,,193995,proxy-via-sunshine.com,not-estimable,0.20,org.uk x0.2,38799,A,,PREMIUM-REVIEW:single-word,,
 superbowlonline.com,dynadot,sports-leisure,general,com,15,2027-01-19,afternic,1934,2026-09-03,direct,,,,,,,,,,,1934,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1934,C,1000,tbd,,
 supercardealers.co.uk,nominet,automotive,general,co.uk,15,2028-01,,,,,,,,,,,,,,,916,subcategory-median,medium,0.85,co.uk x0.85,779,D,375,tbd,,
 supercardealership.com,spaceship,automotive,general,com,18,2027-01-31,atom,,,,,,,,,,,,,,916,subcategory-median,medium,1.00,,916,D,425,tbd,,
@@ -2587,7 +2587,7 @@ syntheticteakdecking.co.uk,nominet,marine,equipment,co.uk,20,2028-04,,,,,,,,,,,,
 tabletcomputers.co.uk,nominet,consumer-products,electronics,co.uk,15,2027-06,,,,,,,,,10000,min_offer,,,,,3013,subcategory-median,medium,0.85,co.uk x0.85,2561,C,1300,tbd,,7.7
 tail-lift.co.uk,nominet,automotive,commercial-vehicles,co.uk,9,2028-05,,,,,,,,,,,,,,,1608,category-median,low,0.64,hyphen -25%; co.uk x0.85,1025,D,475,tbd,,
 tail-lift.com,porkbun,automotive,commercial-vehicles,com,9,2028-05-29,afternic,,,,,afternic,25000,2026-09-03,,buy_now,,,,,1608,category-median,low,0.75,hyphen -25%,1206,C,650,tbd,20.7,
-tailcoat.co.uk,nominet,consumer-products,clothing-fashion,co.uk,8,2028-11,,21366,2026-09-04,proxy,tailcoat.com,,,,,,,,,,21366,proxy-via-tailcoat.com,medium,0.85,co.uk x0.85,18161,A,,PREMIUM-REVIEW:single-word,,
+tailcoat.co.uk,nominet,consumer-products,clothing-fashion,co.uk,8,2028-11,,21366,2026-09-04,proxy,tailcoat.com,,,,,,,,,,21366,proxy-via-tailcoat.com,not-estimable,0.85,co.uk x0.85,18161,A,,PREMIUM-REVIEW:single-word,,
 tailoreddoors.com,spaceship,home-garden,windows-doors,com,13,2027-04-16,atom,,,,,,,,,,,,,,2607,subcategory-median,medium,1.00,,2607,C,1350,tbd,,
 taiwanmortgage.com,dynadot,financial,mortgages,com,14,2027-01-13,afternic,2661,2026-09-03,direct,,,,,10000,min_offer,2000,,,,2661,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2661,C,,KEEP:network-financial,,
 takeoutloan.com,dynadot,financial,loans,com,11,2027-01-14,afternic,3286,2026-09-03,direct,,,,,,,1805,,,,3286,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),3286,C,,KEEP:network-financial,,
@@ -2632,7 +2632,7 @@ tethered.uk,nominet,generic-word,general,uk,8,2028-08,,18789,2026-09-04,direct,,
 textile-testing.co.uk,nominet,industrial-equipment,test-measurement,co.uk,15,2028-06,,,,,,,,,,,,,,,2066,category-median,low,0.64,hyphen -25%; co.uk x0.85,1317,C,700,tbd,,
 textiletesting.co.uk,nominet,industrial-equipment,test-measurement,co.uk,14,2028-06,,,,,,,,,,,,,,,2066,category-median,low,0.85,co.uk x0.85,1756,C,900,tbd,,
 thailandstocks.com,dynadot,financial,investing,com,14,2026-12-03,afternic,3063,2026-09-03,direct,,afternic,4999,2026-09-03,,buy_now,,,,,3063,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),3063,C,,KEEP:network-financial,1.6,
-thankless.co.uk,nominet,generic-word,general,co.uk,9,2027-01,,23553,2026-09-04,proxy,thankless.com,,,,50000,min_offer,,,,,23553,proxy-via-thankless.com,medium,0.85,co.uk x0.85,20020,A,,PREMIUM-REVIEW:single-word,,
+thankless.co.uk,nominet,generic-word,general,co.uk,9,2027-01,,23553,2026-09-04,proxy,thankless.com,,,,50000,min_offer,,,,,23553,proxy-via-thankless.com,not-estimable,0.85,co.uk x0.85,20020,A,,PREMIUM-REVIEW:single-word,,
 the-modern-developer.com,porkbun,ai-tech,software,com,20,2027-08-08,other,,,,,,,,,,,,,,1808,category-median,low,0.55,2 hyphens -45%,995,D,450,tbd,,
 thecentralbanker.com,dynadot,financial,banking-savings,com,16,2026-10-12,afternic,1963,2026-09-03,direct,,,,,10000,min_offer,,,,,1963,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1963,C,,KEEP:network-financial,,
 thecurrencyrate.com,dynadot,financial,foreign-exchange,com,15,2027-01-14,afternic,2582,2026-09-03,direct,,,,,,,,,,,2582,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2582,C,,KEEP:network-financial,,
@@ -2721,7 +2721,7 @@ unroasted-coffee-beans.com,porkbun,food-drink,general,com,22,2027-09-11,afternic
 unroasted-coffee.com,porkbun,food-drink,general,com,16,2027-09-11,afternic,,,,,afternic,4999,2026-09-03,,buy_now,1288,,,,1900,subcategory-median,medium,0.75,hyphen -25%,1425,C,750,tbd,3.5,
 unsecuredlender.com,dynadot,financial,loans,com,15,2027-01-06,afternic,2898,2026-09-03,direct,,,,,10000,min_offer,,,,,2898,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),2898,C,,KEEP:network-financial,,
 unsecuredpersonalloans.co.uk,nominet,financial,loans,co.uk,22,2028-05,,,,,,,,,,,1805,,,,2526,portfolio-median,very-low,0.68,very long -20%; co.uk x0.85,1718,C,,KEEP:network-financial,,
-uprights.co.uk,nominet,generic-word,general,co.uk,8,2027-10,,22141,2026-09-04,proxy,uprights.com,,,,,,,,,,22141,proxy-via-uprights.com,medium,0.85,co.uk x0.85,18820,A,,PREMIUM-REVIEW:single-word,,
+uprights.co.uk,nominet,generic-word,general,co.uk,8,2027-10,,22141,2026-09-04,proxy,uprights.com,,,,,,,,,,22141,proxy-via-uprights.com,not-estimable,0.85,co.uk x0.85,18820,A,,PREMIUM-REVIEW:single-word,,
 uprights.uk,nominet,generic-word,general,uk,8,2027-10,,3528,2026-09-04,direct,,,,,,,,,,,3528,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),3528,B,,PREMIUM-REVIEW:single-word,,
 uqia.com,dynadot,brandable-short,4-char,com,4,2026-11-12,afternic,7856,2026-09-03,direct,,,,,10000,min_offer,,,,,7856,own-appraisal,high,1.20,short .com +20%; direct appraisal in own TLD (no TLD factor),9427,B,,PREMIUM-REVIEW:4-letter-com,,
 urgestalt.com,porkbun,foreign-language,german,com,9,2027-08-13,afternic,3418,2026-09-04,direct,,afternic,4999,2026-09-03,,buy_now,,,,,3418,own-appraisal,high,0.75,thin-demand category -25%; direct appraisal in own TLD (no TLD factor),2564,C,1300,tbd,2.0,
@@ -2799,7 +2799,7 @@ vetclinics.uk,nominet,health-medical,general,uk,10,2028-09,,,,,,,,,10000,min_off
 vetcollege.org,porkbun,pets-vet,general,org,10,2026-11-02,afternic,,,,,,,,30000,min_offer,,,,,825,subcategory-median,medium,0.55,org x0.55,454,E,200,tbd,,150.0
 vetcolleges.org,porkbun,pets-vet,general,org,11,2026-11-02,afternic,,,,,,,,30000,min_offer,,,,,825,subcategory-median,medium,0.55,org x0.55,454,E,200,tbd,,150.0
 vetcomparison.uk,porkbun,tools-comparison,general,uk,13,2027-01-25,cloudflare,,,,,,,,,,,,live-site,,2480,subcategory-median,medium,0.21,uk x0.21,521,D,,KEEP:live-site,,
-veterinary.co.uk,nominet,pets-vet,general,co.uk,10,2027-02,,48517,2026-09-04,proxy,veterinary.com,,,,,,,,,,48517,proxy-via-veterinary.com,medium,0.85,co.uk x0.85,41239,A,,PREMIUM-REVIEW:single-word,,
+veterinary.co.uk,nominet,pets-vet,general,co.uk,10,2027-02,,48517,2026-09-04,proxy,veterinary.com,,,,,,,,,,48517,proxy-via-veterinary.com,not-estimable,0.85,co.uk x0.85,41239,A,,PREMIUM-REVIEW:single-word,,
 veterinary.uk,nominet,pets-vet,general,uk,10,2028-06,,8001,2026-09-04,direct,,,,,,,,,,,8001,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),8001,B,,PREMIUM-REVIEW:single-word,,
 veterinaryassistant.co.uk,nominet,pets-vet,general,co.uk,19,2028-09,,,,,,,,,10000,min_offer,,,,,825,subcategory-median,medium,0.85,co.uk x0.85,701,D,325,tbd,,30.8
 veterinaryassistant.uk,nominet,pets-vet,general,uk,19,2028-09,,,,,,,,,10000,min_offer,,,,,825,subcategory-median,medium,0.21,uk x0.21,173,E,200,tbd,,50.0
@@ -2848,16 +2848,16 @@ vinyl-floors.com,porkbun,home-garden,building-trades,com,12,2027-06-30,afternic,
 vinylstrips.com,dynadot,industrial-equipment,materials,com,11,2027-01-04,afternic,1568,2026-09-03,direct,,afternic,4999,2026-09-03,,buy_now,,,,,1568,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1568,C,800,tbd,3.2,
 violin-bow.com,spaceship,music,instruments,com,10,2027-08-04,afternic,6382,2026-09-04,direct,,,,,10000,min_offer,,,,,6382,own-appraisal,high,0.75,hyphen -25%; direct appraisal in own TLD (no TLD factor),4786,B,2750,tbd,,3.6
 violoncelliste.com,porkbun,music,instruments,com,14,2027-10-20,other,713,2026-09-04,direct,,,,,,,,,,,713,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),713,D,325,tbd,,
-virology.co.uk,nominet,health-medical,general,co.uk,8,2028-10,,26589,2026-09-04,proxy,virology.com,,,,100000,min_offer,,,,,26589,proxy-via-virology.com,medium,0.85,co.uk x0.85,22601,A,,PREMIUM-REVIEW:single-word,,
+virology.co.uk,nominet,health-medical,general,co.uk,8,2028-10,,26589,2026-09-04,proxy,virology.com,,,,100000,min_offer,,,,,26589,proxy-via-virology.com,not-estimable,0.85,co.uk x0.85,22601,A,,PREMIUM-REVIEW:single-word,,
 virtualtryon.uk,nominet,ai-tech,ai,uk,12,2027-10,,,,,,,,,10000,min_offer,,,,,1808,subcategory-median,medium,0.21,uk x0.21,380,E,200,tbd,,50.0
 vision-creative.com,dynadot,web-digital,design,com,15,2027-03-13,atom,,,,,,,,,,,,,,3255,subcategory-median,medium,0.75,hyphen -25%,2441,C,1250,tbd,,
 vision-development.com,dynadot,property,general,com,18,2027-02-10,atom,,,,,,,,,,,,,,1504,subcategory-median,medium,0.75,hyphen -25%,1128,D,550,tbd,,
-visitors.co.uk,nominet,generic-word,general,co.uk,8,2028-02,,42596,2026-09-04,proxy,visitors.com,,,,50000,min_offer,,,,,42596,proxy-via-visitors.com,medium,0.85,co.uk x0.85,36207,A,,PREMIUM-REVIEW:single-word,,
+visitors.co.uk,nominet,generic-word,general,co.uk,8,2028-02,,42596,2026-09-04,proxy,visitors.com,,,,50000,min_offer,,,,,42596,proxy-via-visitors.com,not-estimable,0.85,co.uk x0.85,36207,A,,PREMIUM-REVIEW:single-word,,
 viuty.shop,dynadot,brandable-short,pronounceable,shop,5,2027-06-19,afternic,95,2026-09-03,direct,,afternic,4999,2026-09-03,,buy_now,,,,,95,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),95,E,200,tbd,52.6,
 vivirmoderno.com,porkbun,foreign-language,spanish,com,12,2027-06-22,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3342,subcategory-median,medium,0.75,thin-demand category -25%,2506,C,1300,tbd,2.0,
 voicecontrol.io,porkbun,ai-tech,ai,io,12,2027-06-03,afternic,1309,2026-09-04,direct,,afternic,4999,2026-09-03,,buy_now,,,,,1309,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),1309,C,700,tbd,3.8,
 vonc.com,dynadot,brandable-short,4-char,com,4,2027-07-06,cloudflare,3002,2026-09-03,direct,,,,,,,,,live-site,,3002,own-appraisal,high,1.20,short .com +20%; direct appraisal in own TLD (no TLD factor),3602,B,,PREMIUM-REVIEW:4-letter-com,,
-voters.co.uk,nominet,generic-word,general,co.uk,6,2028-09,,39530,2026-09-04,proxy,voters.com,,,,10000,min_offer,,,,,39530,proxy-via-voters.com,medium,0.85,co.uk x0.85,33600,A,,PREMIUM-REVIEW:single-word,,
+voters.co.uk,nominet,generic-word,general,co.uk,6,2028-09,,39530,2026-09-04,proxy,voters.com,,,,10000,min_offer,,,,,39530,proxy-via-voters.com,not-estimable,0.85,co.uk x0.85,33600,A,,PREMIUM-REVIEW:single-word,,
 voucherscodes.com,porkbun,consumer-products,retail,com,13,2027-07-23,afternic,,,,,afternic,4999,2026-09-03,,buy_now,,,,,3568,subcategory-median,medium,1.00,,3568,B,2000,tbd,1.4,
 vouchersstore.com,dynadot,consumer-products,retail,com,13,2027-08-21,afternic,4149,2026-09-03,direct,,,,,10000,min_offer,,,,,4149,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),4149,B,2500,tbd,,4.0
 vulcate.com,dynadot,brandable-short,pronounceable,com,7,2026-11-26,afternic,5043,2026-09-03,direct,,afternic,4999,2026-09-03,,buy_now,,,,,5043,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),5043,B,3000,tbd,1.0,
@@ -2953,7 +2953,7 @@ whichjob.co.uk,nominet,business-services,jobs-hire,co.uk,8,2028-03,,,,,,,,,10000
 whichlaptops.com,dynadot,tools-comparison,general,com,12,2026-10-12,afternic,9771,2026-09-03,direct,,,,,10000,min_offer,,,,,9771,own-appraisal,high,1.00,direct appraisal in own TLD (no TLD factor),9771,B,5500,tbd,,1.8
 whichloan.co.uk,nominet,financial,loans,co.uk,9,2029-09,,,,,,,,,10000,min_offer,1805,,,,2526,portfolio-median,very-low,0.85,co.uk x0.85,2148,C,,KEEP:network-financial,,
 whichshare.co.uk,nominet,financial,investing,co.uk,10,2028-09,,,,,,,,,10000,min_offer,,,,,2526,portfolio-median,very-low,0.85,co.uk x0.85,2148,C,,KEEP:network-financial,,
-whisks.co.uk,nominet,consumer-products,kitchenware,co.uk,6,2028-11,,211696,2026-09-04,proxy,whisks.com,,,,,,,,,,211696,proxy-via-whisks.com,medium,0.85,co.uk x0.85,179942,A,,PREMIUM-REVIEW:single-word,,
+whisks.co.uk,nominet,consumer-products,kitchenware,co.uk,6,2028-11,,211696,2026-09-04,proxy,whisks.com,,,,,,,,,,211696,proxy-via-whisks.com,not-estimable,0.85,co.uk x0.85,179942,A,,PREMIUM-REVIEW:single-word,,
 whiskysales.co.uk,nominet,food-drink,general,co.uk,11,2027-01,,,,,,,,,,,,,,,1900,subcategory-median,medium,0.85,co.uk x0.85,1615,C,850,tbd,,
 wholesalesnacks.co.uk,nominet,food-drink,general,co.uk,15,2027-07,,,,,,,,,,,,,,,1900,subcategory-median,medium,0.85,co.uk x0.85,1615,C,850,tbd,,
 wholesalewine.co.uk,nominet,food-drink,wine,co.uk,13,2028-02,,,,,,,,,,,,,,,3480,category-median,low,0.85,co.uk x0.85,2958,C,1500,tbd,,

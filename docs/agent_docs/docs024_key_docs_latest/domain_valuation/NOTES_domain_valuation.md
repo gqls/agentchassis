@@ -626,3 +626,62 @@ always be in the third bucket, so **re-read them by hand when you touch
 Already earned its keep once today: the resume-race entry was overtaken within
 hours (the dynadot lane fixed it at source, `88e63b477`) and I had to notice and
 mark it history myself. Nothing would have told me.
+
+## 2026-09-04 (evening) — the owner gives one figure and it REVERSES the lane's central finding
+
+**`scales.co.uk` cost him £3,500.** He said it in one line. It is the seventh
+owner figure and the first that points the other way, and it invalidates the
+direction this lane has asserted since 09-03.
+
+| | model | reality |
+|---|---|---|
+| `scales.co.uk` | **$393,917** | **£3,500 paid** (~$4,445) — **~89× OVER** |
+| `cartoon.co.uk` | **$739,424** | **£5,000+ paid** — **~187× OVER** |
+
+Both are single dictionary words on a `.co.uk`, both anchored on a **proxy**
+appraisal of the `.com` twin (`scales.com` $463,432; `cartoon.com`) with the
+0.85 `.co.uk` multiplier applied. That multiplier assumes near-parity between a
+`.com` and its `.co.uk`. For an ordinary compound that is roughly defensible.
+**For a single dictionary word it is nonsense** — the `.com` is a
+category-defining asset and the `.co.uk` is not.
+
+⚠ **`cartoon.co.uk` is the sharpest part, because it MOVED.** `HANDOFF` §4's
+table has carried it since 09-03 as an example of the model **under**-valuing by
+~2× ($2,934 vs £5,000+ paid). Today's proxy appraisal made the same domain read
+**$739,424** — the very same row in the very same table now demonstrates the
+opposite failure, and nothing about the table's appearance changed. **A worked
+example is only true as of the data behind it, and this one silently inverted
+inside 24 hours.**
+
+**Today's TLD probe had already measured this from the other side and I did not
+join it up.** The probe found the appraiser's own `.uk`/`.com` ratio **collapses
+for single words** — `ant` 0.003, `design` 0.008 — against 0.115–0.185 for
+ordinary names. I recorded that as "the multiplier's failure mode is confined to
+names the model already refuses to price" and treated it as contained. It was
+not contained: those names still carry a **stated value**, and 72 of them were
+**74% of the estate's headline figure**. The probe result and the proxy route
+are the same fact seen twice, and it took the owner's £3,500 to make me look.
+
+**What changed in the model.** No new multiplier — the lane's own rule is
+*refusal, not a better multiplier*, and we have no evidence base for a premium
+`.co.uk` factor. A single-word name anchored only on a proxy is now
+`confidence='not-estimable'`: it keeps the raw proxy figure on the row for
+reference and is **excluded from the portfolio total**.
+
+**Estate value: $23,739,231 → $6,143,030 over 2,957 rows**, with 72 rows
+excluded whose raw figures sum to $17,596,201. **74% of the headline was 72
+domains the model cannot value at all.** Checked before correcting: that
+inflated total had **not** reached any owner-facing document — the SUMMARY and
+README quote no portfolio figure. It was in the pipeline's stdout only.
+
+**No price was ever at risk**, and that part of the machinery worked exactly as
+designed: all 72 are held by `PREMIUM-REVIEW:single-word`, so not one carried a
+keen price. The guard did its job while the *value* beside it was nonsense —
+worth noticing as a shape. **A held row is not an unread row.** Anyone totalling
+this file, or reading a held name's value to brief the owner, would have been
+badly misled.
+
+**The standing request is now evidenced twice over.** §4 says one real figure is
+worth more than 300 machine appraisals. Today: 299 machine appraisals moved
+coverage 10 points; **one number from the owner reversed the sign of the lane's
+central finding** and took 74% off the estate's stated value.

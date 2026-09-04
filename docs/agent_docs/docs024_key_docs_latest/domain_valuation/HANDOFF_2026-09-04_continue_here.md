@@ -39,7 +39,10 @@ All categorised into 32 categories / ~170 sub-categories, **zero uncategorised**
 premium queues rebuild to zero rows.
 
 Anchor confidence across the 2,429 sellable rows: high 551 · medium 1,392 ·
-low 438 · very-low 48. **158 calls close all 99 under-covered blocks and
+low 438 · very-low 48. Estate value **$6,143,030 over 2,957 rows** — ⚠ **72 rows
+are NOT-ESTIMABLE and excluded** (single-word `.co.uk` valued only via their
+`.com` twin; their raw figures sum to $17,596,201 and are not a valuation).
+**Before 2026-09-04 those 72 names were 74% of a $23.7m headline.** **158 calls close all 99 under-covered blocks and
 re-anchor 555 domains** — one part-window, and the highest-leverage work left.
 
 ⚠ **The estate grew 78 domains in one day (2026-09-03).** Re-pull every registrar
@@ -75,10 +78,24 @@ never by loss.
 
 ## 4. THE central finding — read before touching any number
 
-**The model systematically under-values the estate's best names, and it is one
-cause, not many.** Where a domain has no appraisal of its own it anchors on its
-category median — and a premium name is by definition the one that deviates most
-from a median. Six measured cases:
+**The model CANNOT PRICE the estate's best names, and it is one cause, not many.**
+Where a domain has no appraisal of its own it anchors on its category median —
+and a premium name is by definition the one that deviates most from a median.
+
+> **CORRECTED 2026-09-04 — this section used to say "systematically UNDER-values"
+> and the direction was wrong, not just imprecise.** Once the proxy appraisals
+> landed, the same class started coming out **catastrophically HIGH**:
+> `cartoon.co.uk`, listed below as ~2× under, is now **~187× OVER** the £5,000+
+> he paid, and the owner's `scales.co.uk` figure (£3,500, given 09-04) is **~89×
+> OVER**. Both are single dictionary words anchored on a `.com` proxy.
+> **The error is not a direction, it is a VARIANCE** — the instrument has no
+> idea what these names are worth, and "under-values" was a description of the
+> only sample we had. Do not reason from the direction; reason from the class.
+> This matters because "it under-values" invites a multiplier, and a multiplier
+> is exactly what cannot work here.
+
+Measured cases (the first four are the ORIGINAL under-valuation set, still
+correct as of the dates given; the last two are the reversal):
 
 | name | model | reality | ratio |
 |---|---|---|---|
@@ -86,7 +103,8 @@ from a median. Six measured cases:
 | `free.uk` | $215 | sibling `free.co.uk` sold **~£160,000** | — |
 | `holidaytime.com` | $995 | **$12,000 realised** | 12× |
 | `relojistas.com` | $1,490 | **$12,000** owner floor | 8× |
-| `cartoon.co.uk` | $2,934 | **£5,000+ paid** | ~2× |
+| `cartoon.co.uk` | ~~$2,934~~ **now $739,424** | **£5,000+ paid** | ~~~2× under~~ **~187× OVER** |
+| `scales.co.uk` | **$393,917** | **£3,500 paid** (owner, 09-04) | **~89× OVER** |
 | `2w.uk`/`4l.uk`/`5s.uk` | $200 | realised `.uk` shorts **£2,500–£5,200** | ~15× |
 
 > **NARROWED 2026-09-04 — it is the FALLBACK that cannot see a premium name,

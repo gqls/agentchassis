@@ -278,3 +278,48 @@ Two you asked about, `mieleonline.com` and `webuyanycarandvan.com`, are out —
 the other thread tells me you withdrew both. For the record they since found a
 live US trademark on "We Buy Any Car" covering exactly online car buying, so
 that one was a real risk rather than a hunch.
+
+**2026-09-04, evening — you said one number and it turned the day's conclusion
+around.**
+
+`scales.co.uk` cost you £3,500. The model had it at **$393,917**.
+
+That is the first time one of your figures has caught the model being too
+*high*. Every previous one caught it being too low, and I'd written the whole
+thing up this afternoon on that basis — that the tool undervalues your best
+names. That framing was wrong, and your one line is what showed it.
+
+Here is what was happening. For a `.co.uk` the tool won't give a valuation at
+all, so we look up the `.com` instead and knock 15% off. For an ordinary
+made-up name that's a reasonable stand-in. For a real dictionary word it is
+nonsense, because the `.com` of a real word is a landmark asset and the `.co.uk`
+of the same word is an ordinary domain. `scales.com` is valued at $463,432, so
+`scales.co.uk` was being carried at $393,917 — against the £3,500 you actually
+paid.
+
+**And it had already caught `cartoon.co.uk`, which is the part that bothers me
+most.** That one has been sitting in my notes since yesterday as the example of
+the tool being too *cheap* — it said $2,934 against the £5,000+ you paid. After
+today's valuations came in, the same domain now reads **$739,424**. The same
+example in the same table, quietly turned upside down overnight, with nothing to
+show it had moved.
+
+**The upshot: 72 of your domains were being carried this way, and they made up
+74% of the estate's total value.** I have stopped the model producing a figure
+for them at all rather than inventing a better discount — we have no real
+evidence for what a one-word `.co.uk` is worth, and guessing is what got us
+here. The estate's stated value goes from about $23.7m to **$6.1m**, with those
+72 names listed separately as "cannot value".
+
+Two things worth saying plainly. **First, no price was ever at risk** — all 72
+were already held back from automatic pricing by the guards, so none of them
+ever carried an asking figure. The protection worked; it was the *value* written
+next to it that was wrong. **Second, that $23.7m never reached you** — I checked
+before changing it. It only ever appeared in the tool's own output.
+
+**And the standing request now has a number on it.** Today I spent the full
+daily allowance — 299 machine valuations — and moved coverage ten points. Your
+one sentence about `scales.co.uk` reversed the direction of the central finding
+and took three quarters off the estate's stated value. That is the ratio I keep
+asking about. Anything you can remember paying — even roughly, even "that one
+was an auction" — is worth more than another day of the machine.

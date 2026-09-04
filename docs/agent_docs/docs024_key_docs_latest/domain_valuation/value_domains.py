@@ -291,6 +291,23 @@ def main():
             # as a direct measurement.
             anchor, src, conf = appr[d], f'proxy-via-{r.get("appraisal_proxy_domain","?")}', 'medium'
             apply_tld = True
+            if is_single_word(d):
+                # ⚠ NOT ESTIMABLE (2026-09-04). The proxy route imports a .com
+                # valuation and the .co.uk multiplier (0.85) assumes near
+                # parity. That holds well enough for an ordinary compound, and
+                # is CATASTROPHIC for a single dictionary word, where the .com
+                # is a category-defining asset and the .co.uk is not.
+                # TWO owner figures, both far below what this produced:
+                #   scales.co.uk   model $393,917 vs £3,500 PAID   (~89x high)
+                #   cartoon.co.uk  model $739,424 vs £5,000+ PAID  (~187x high)
+                # and today's TLD probe measured the same collapse from the
+                # other side: for single words the appraiser's own .uk/.com
+                # ratio is 0.003-0.035, against the 0.21 that ordinary names
+                # justify. We have NO evidence base for a premium .co.uk
+                # multiplier, so this model does not invent one -- the row
+                # keeps the raw proxy figure for reference and is excluded
+                # from the portfolio total. Refusal, not a better multiplier.
+                conf = 'not-estimable'
         elif d in appr:
             # ⚠ NO TLD MULTIPLIER HERE, and that is the fix of 2026-09-04.
             # Dynappraisal is TLD-AWARE: it prices the actual domain in its
@@ -354,11 +371,21 @@ def main():
     cc = collections.Counter(r['confidence'] for r in out)
     print('tiers:', dict(sorted(tc.items())))
     print('confidence:', dict(cc))
-    tot_val = sum(float(r['value_usd']) for r in out)
+    # ⚠ The portfolio total EXCLUDES not-estimable rows. Before 2026-09-04 it
+    # included them and 74% of the headline figure ($17.6m of $23.7m) came from
+    # 72 single-word .co.uk names valued off their .com twin -- a number two
+    # owner figures show is ~90-190x too high.
+    est = [r for r in out if r['confidence'] != 'not-estimable']
+    nonest = [r for r in out if r['confidence'] == 'not-estimable']
+    tot_val = sum(float(r['value_usd']) for r in est)
     sellable = [r for r in out if r['keen_price_usd']]
     tot_keen = sum(float(r['keen_price_usd']) for r in sellable)
     held = len(out) - len(sellable)
-    print(f'portfolio value (USD): {tot_val:,.0f}')
+    print(f'portfolio value (USD): {tot_val:,.0f}  [{len(est)} rows]')
+    if nonest:
+        print(f'  + {len(nonest)} NOT-ESTIMABLE rows excluded (single-word .co.uk '
+              f'valued only via their .com twin); their raw proxy figures sum to '
+              f'{sum(float(r["value_usd"]) for r in nonest):,.0f} and are not a valuation')
     print(f'{len(sellable)} sellable; if all sold keen: {tot_keen:,.0f} '
           f'({held} held back: live-site or owner-withdrawn)')
     print('\nby category (value desc):')
