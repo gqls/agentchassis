@@ -3443,3 +3443,36 @@ never proven. Landmine appended (`LANDMINES.md`), footprint `agent_error_log`.
 > not write it, and the ledger's own convention is that the `added:` line is the
 > authority on authorship, not the commit. Entry verified present at HEAD; doc_notes
 > synced; verifier corr `8c5d0f5f`.
+
+> **CORRECTED 2026-09-04, same session, before anyone acted on it — my own demand-control
+> figure was wrong in §1 and §2 above, and in the commit message `9029482ec` which
+> forward-only forbids me amending.**
+>
+> I published **"1,046 generated assets across 37 sites"**. The exact figure is
+> **1,025 generated assets across 39 sites** `[MEASURED 2026-09-04]`:
+> ```sql
+> SELECT count(*), count(DISTINCT site_id)
+>   FROM assets WHERE origin_type='generated'
+>    AND created_at > (SELECT max(created_at) FROM assets WHERE origin_model ~* 'stab|sdxl');
+> ```
+> **Two errors, one cause — I built the figure by summing the DISPLAY table instead of
+> re-deriving it with the claim's own predicate.** (1) I added whole weekly buckets,
+> including the `08-10` bucket, which *contains* the last SDXL asset — so ~110 assets
+> generated **before** the stop were counted as being after it. (2) The site count `37`
+> came from a different query bounded at the **08-24 roll**, not the **08-11 stop**; I
+> carried it across without noticing the windows differed.
+>
+> **The conclusion is unchanged and if anything strengthened** — 1,025 generations on 39
+> sites with zero SDXL is the same overwhelming demand control, over a *correctly* dated
+> window. But the number was wrong in five places, and it was wrong in the direction that
+> flatters the argument, which is the direction to distrust in your own writing.
+>
+> **What caught it:** re-deriving the figure to answer a *different* question — whether my
+> population matched the one `bugs_closed/382` §10d's own standing check uses
+> (`origin_type='generated'`; it does, 1,290 of 1,293 rows since 07-18). I would not have
+> caught it by re-reading, because the arithmetic on the table I had written was correct.
+> **The cheap check, and it is the one I skipped: a headline figure gets re-derived by a
+> query carrying the claim's own predicate — never summed off a table built to display
+> something else.** A bucket boundary is not a rounding error; it silently reassigns
+> everything on the wrong side of the event you are dating.
+> Logged in `WRONG_CALLS.md`.

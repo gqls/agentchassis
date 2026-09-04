@@ -66842,3 +66842,53 @@ not read it" notes from two lanes. Three failures on one entry is evidence for t
 **The cheap check, for a table the way we already do it for a path:** before your first query
 against an unfamiliar table, `grep -n '<table>' LANDMINES.md`. It costs one command and it is the
 only thing that finds the table-footprinted class.
+
+---
+
+## 2026-09-04 — `imagery` lane: I summed a display table instead of re-deriving the figure, and a weekly bucket straddled the very date I was dating
+
+**The claim.** Answering `bugs_closed/382`'s residual, I published a demand control:
+*"SDXL generation ceased 2026-08-11 and has not resumed in 24 days, against **1,046**
+generated assets on **37** sites."* It went into the lane's `RUNNING_NOTES`, `HANDOFF`,
+owner-facing `README_where_we_are`, the auto-memory, and commit message `9029482ec`.
+
+**It was wrong.** The figures are **1,025** assets on **39** sites.
+
+**Two errors, one cause.** I built the number by adding up the weekly table I had just
+written for display, rather than re-deriving it with the claim's own predicate.
+
+1. I summed whole weekly buckets **including the `08-10` bucket, which CONTAINS the last
+   SDXL asset** — so roughly a hundred assets generated *before* the stop were counted as
+   evidence of quiet *after* it.
+2. The site count `37` came from an earlier query bounded at the **08-24 roll**, not the
+   **08-11 stop**. I carried it into a sentence about a different window without noticing
+   the windows differed.
+
+**What caught it.** Not re-reading — the arithmetic on the table I had written was
+correct, so re-reading would have confirmed it for ever. It fell out of asking a
+*different* question: whether my population matched the one `382` §10d's own standing
+check uses (`origin_type='generated'` — it does, 1,290 of 1,293 rows since 07-18). The
+exact query I wrote to check the population happened to also produce the exact count, and
+it disagreed with me.
+
+**The cheap check I skipped, and it is one line.** A headline figure gets **re-derived by
+a query carrying the claim's own predicate** — never summed off a table built to display
+something else:
+
+```sql
+SELECT count(*), count(DISTINCT site_id) FROM assets
+ WHERE origin_type='generated'
+   AND created_at > (SELECT max(created_at) FROM assets WHERE origin_model ~* 'stab|sdxl');
+```
+
+Note the shape: the predicate **names the event** (`max(created_at)` of the thing that
+stopped) instead of hard-coding a date I typed. That is what makes it impossible to put
+the boundary in the wrong place.
+
+**Why it is worth a row rather than a silent fix.** A bucket boundary is not a rounding
+error — it **silently reassigns everything on the wrong side of the event you are
+dating**, which is precisely the quantity a before/after argument rests on. And it erred
+in the direction that flattered my own conclusion. The tally this file exists for: this is
+a **display-artefact-as-evidence** failure, the sibling of the `[MEASURED]`-but-not-
+disconfirmable class already recorded here — the marker rules were all followed, the
+figure was dated and measured, and it was still assembled by eye.

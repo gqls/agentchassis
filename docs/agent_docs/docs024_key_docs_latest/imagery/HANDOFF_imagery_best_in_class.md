@@ -41,7 +41,11 @@ beyond 1 day"* — is **answered**. Full working in `RUNNING_NOTES` 2026-09-04 �
   is durable; the orchestration table is still a 1-day window. Until 2026-08-24 a
   kind-less request went to Stability, so an SDXL row IS a footprint of this path.
 - **SDXL generation ceased 2026-08-11 and has not resumed in 24 days**, against a
-  demand control of **1,046** generated assets on **37** sites `[MEASURED 2026-09-04]`.
+  demand control of **1,025** generated assets on **39** sites `[MEASURED 2026-09-04]`
+  (~~1,046 on 37~~ — **CORRECTED same day**: I summed weekly display buckets including
+  the one containing the last SDXL row, and took the site count from a window bounded at
+  the 08-24 roll not the 08-11 stop. Conclusion unchanged; correction block at the end of
+  `RUNNING_NOTES`, and `WRONG_CALLS.md`).
   **0** of the **14** sites with an `imagery_style_guide` pin stability, so none of the
   16 SDXL assets was sanctioned.
 - **The 382 fix has therefore never fired in production** — the traffic stopped on

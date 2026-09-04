@@ -1146,7 +1146,7 @@ happen, ever".
 
 The answer is clean. The old generator made sixteen pictures between the 3rd and the
 11th of August, and **has made none since** — while in that same period we generated
-**1,046** pictures across **37** sites. So there is plenty of traffic; it simply is
+**1,025** pictures across **39** sites. So there is plenty of traffic; it simply is
 not going down that road. The four suspect places have been quiet for **24 days**.
 I also checked the one innocent explanation — that some site had deliberately asked
 for the old generator — and no site has: fourteen sites have picture-style settings,
@@ -1184,3 +1184,12 @@ the 11th of August was applied but never ticked off in the list of applied chang
 is the only gap in an otherwise unbroken run. Re-applying it would be harmless, but it
 will look like an outstanding job to whoever next runs that tool, so it is written up
 in the technical notes.
+
+> **Correction, same day, before this travels anywhere.** I first wrote 1,046 pictures
+> across 37 sites; the right figures are **1,025 across 39**. I had added up a weekly
+> table by eye instead of asking the database the exact question, and one of those weeks
+> straddled the date I was measuring from — so about a hundred pictures made *before* the
+> cut-off were counted as being after it. Nothing about the conclusion changes: a thousand
+> pictures with none from the old generator says exactly what the wrong figure said. I am
+> flagging it because the error made my own argument look stronger than it was, and that
+> is the kind most worth putting on the record.
