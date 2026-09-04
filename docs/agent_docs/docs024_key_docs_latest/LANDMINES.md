@@ -23021,3 +23021,55 @@ row of numbers among 33 real ones.
   legibility sweep. Both defects shipped in its first run and were caught by opening the
   artefact, not by any number.
 - **added:** 2026-09-04, bugfix_417_logo_text_policy lane
+
+### "Did this site's logo regenerate?" — `assets.updated_at` says yes for rows whose image has not changed since August. The STORAGE KEY's date is the discriminator
+
+- **footprint:** `assets.updated_at` (`purpose='logo'`, and any generated asset) ·
+  `assets.storage_path` · `assets.file_size` · `bugs_open/417` fence census ·
+  `bugs_open/462` · any "has X regenerated since the fix shipped?" question
+- **fires when:** you are waiting for an artefact to be remade — after a prompt fix, a
+  guard fix, a policy change — and you check whether it has happened by looking at when
+  the row was last touched. This is the natural query and it is wrong
+- **the tell: none, and the false positives arrive in a believable cluster.**
+  `[MEASURED 2026-09-04 11:50Z]` **8 of 34** active logo rows had `updated_at` inside the
+  previous 20 hours — six of them since midnight, arriving one an hour or so, exactly the
+  drip a rolling regeneration would produce. **Not one was a regeneration.** Every
+  `storage_path` still carried its ORIGINAL date prefix: `leopardessconsulting` 20260710,
+  `loanzy` 20260818, `mortgagecalculator` 20260814, `cv1`/`homegarden` 20260825
+- **why the key is decisive:** a regeneration UPSERTs the asset row and **mints a fresh
+  storage key** under today's date (`bugs_open/462` §6 — which is also why there is no
+  rollback). So the key's date prefix is the artefact's real birthday, and `updated_at` is
+  the row's. Any writer that touches the row for another reason moves the second and not
+  the first — **[INFERRED, not proven]** the likely mover here is the `mime_type` writer
+  (`bugs_open/433`, `afcf3ebdb`, which writes it from the bytes at publish time): 6 of
+  those 8 rows now carry `mime_type` and most rows fleet-wide still do not
+- **the check:**
+  ```sql
+  SELECT s.domain,
+         substring(a.storage_path from '/([0-9]{8})/') AS key_date,  -- the ARTEFACT's date
+         to_char(a.updated_at,'YYYY-MM-DD HH24:MI')    AS row_touched
+  FROM assets a JOIN sites s ON s.id = a.site_id
+  WHERE a.status='active' AND a.purpose='logo' ORDER BY 2 DESC;
+  ```
+  `key_date` older than the fix you are waiting on ⇒ **it has not regenerated**, whatever
+  `updated_at` says. Confirm at the artefact if it matters: fetch the served bytes and
+  compare md5 with a copy you already hold
+- **⚠ `assets.file_size` is not a substitute and disagrees with the served file.**
+  `mortgagecalculator.co.uk` records **12,325**; the file its page serves is **70,156**
+  bytes `[MEASURED 2026-09-04]`. Most logo rows leave the column NULL, so it cannot even
+  be used as a weak signal
+- **what it would have cost me:** two of those eight (`loanzy`, `cv1`) are on `bugs_open/417`'s
+  list of 13 sites whose prompt still carries a wordmark licence — the exact population the
+  lane is waiting on for adjudication evidence. Reading `updated_at` would have turned the
+  fence's sample from **n=1 into a claimed n=3**, on two artefacts made weeks before the
+  override shipped, and the fence decision rests on that number
+- **relations:** `bugs_open/462` §6 (the fresh-key-on-regeneration mechanism, and why the
+  old bytes are unrecoverable) · `bugs_open/417` §3 (the fence census this would have
+  corrupted) · `bugs_open/433` (the mime_type writer, the likely bump) · MEMORY
+  [[a-periodic-write-to-an-open-work-item-makes-it-unreapable]] — the same column, the
+  same lesson from the other side: a write for an unrelated reason moves `updated_at`, and
+  something downstream is keying on it · [[seed-sql-is-history-live-row-is-fact]]
+- **source:** 2026-09-04, `bugfix_417_logo_text_policy` lane, checking whether any of the
+  13 licence-carrying sites had regenerated overnight. The answer looked like "yes, five of
+  them" and was "none of them"
+- **added:** 2026-09-04, bugfix_417_logo_text_policy lane
