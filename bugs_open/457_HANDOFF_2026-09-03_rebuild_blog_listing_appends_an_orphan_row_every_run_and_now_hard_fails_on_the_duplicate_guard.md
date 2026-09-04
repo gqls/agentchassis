@@ -637,3 +637,60 @@ objection's letter and not its intent.
 **two cells change** — `plan_fallback_guess`/1 and `default`/1, both `opUpdate` → `opRefuseNoSlotAuthority`.
 It is one *row* of the decision table, not one cell. Every other cell is bit-identical, so the claim's
 substance holds and its arithmetic did not.
+
+### THE ARMING MECHANISM, NAMED PRECISELY — and it is not only the manual deletion (2026-09-04, from the `parked_findings_release` lane)
+
+The `parked_findings_release` lane asked, before releasing any of the 3,184 parked verdicts, whether
+the ordering trap above was real and what exactly trips it. Answering it properly turned "hold
+boxingonline" into four row ids, and found a second, non-manual route into the armed state.
+
+**The roll of 16:01Z does NOT carry the fix.** `[MEASURED 2026-09-04 ~17:5xZ]` all four
+`agent-chassis` pods stamp `06c0b18f2`, started 16:01:07–16:02:05Z; `828b22c7c` was committed
+**16:08:21Z** and `merge-base --is-ancestor` is **false**. Missed the cut by six minutes.
+
+**Arming and firing are separable, and only firing needs `rerender-pages`:**
+
+- **ARM** — anything causing a section save on page `6bb3b9a6`. `save_page_sections_action.go:938`
+  DELETEs **all agent-writable rows for the page**, then re-inserts one row per entry in
+  `pages.sections`. `[MEASURED 2026-09-04]` **all six orphans are unlocked** (`locked_at IS NULL`,
+  6 of 6), so a section save deletes them; `sections` is three entries, so `generic-text-block`
+  occupancy lands on exactly **1** — the armed value.
+- **FIRE** — a later `rerender-pages` run, since `rebuild_blog_listing` is a step of that workflow.
+
+So **a page build on that page clears the visible damage and arms the destructive write in one
+action, and it looks like it worked.** The manual deletion in fix candidate 4 is only one road in.
+
+**The four parked rows on that page** (the other 54 boxingonline rows are on other pages or
+site-level and are irrelevant to this trap):
+
+| id | item_type | what it says |
+|---|---|---|
+| `330a9b8d` | needs_content_page | weekly curated viewing guide |
+| `0a1e2667` | content_rewrite | "Magazine grid — editorial card grid for articles" |
+| `88fe2793` | needs_content_page | "editorial card grid for articles" |
+| **`462ac4da`** | **content_rewrite** | **"The articles index repeats 'Latest Articles' as a heading four separate times…"** |
+
+**`462ac4da` is a parked verdict describing THIS BUG'S OWN DAMAGE.** Releasing it dispatches a page
+rebuild at the exact page that arms the overwrite. It is the single most dangerous row in that
+lane's backlog and the one most likely to be released first, because it reads as an obvious,
+well-evidenced, self-contained fix.
+
+⚠ **The "four rows" figure is a LOWER BOUND, not a clearance.** It comes from a `page_id` filter, and
+the site-level parked rows (13 `needs_content_planning`, 5 `capability_gap`, 3 `needs_design_review`,
+1 `responsive_fix`, 1 `dark_section_audit`) carry no `page_id` — so whether a site-level handler
+reaches this page is **`[UNVERIFIED]`** here and belongs to whoever owns those handlers.
+
+⚠ **`[UNVERIFIED]` whether `page-build-handler` actually routes `needs_content_page` /
+`content_rewrite` into `save_page_sections`.** The DELETE-then-reinsert mechanism is read from that
+action; the handler's workflow path is not. If those item types never reach a section save, the four
+rows are harmless and the hold is over-cautious.
+
+**And the same shape appears one level up.** That lane reports the documented release recipe is
+currently inert for most rows because `detected-item-promoter`'s door 5 (migration `629`) refuses
+`spec.origin='model_opinion'`. All four rows carry `routed_status='detected'`. **So their fix to
+door 5 is itself a trigger for this trap** — the remediation arms it, again, and the inertness must
+not be treated as the mitigation. Told them so; they had already said as much themselves.
+
+**The ordering that closes all of it:** roll the chassis carrying `828b22c7c`, *then* release. After
+that roll a guessed slot refuses whatever the occupancy, so the trap stops depending on a count
+staying above 1.
