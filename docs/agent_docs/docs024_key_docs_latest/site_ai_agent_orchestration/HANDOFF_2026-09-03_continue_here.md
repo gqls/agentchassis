@@ -182,11 +182,35 @@ fields on those slots, not top one up.
 ⚠ **The site-level fact, which is worse than the page-level one:** this site has **zero current
 `site_plans` rows** and no `site_specs` `aspect='site_plan'`. So `declaredPageSections`' two plan
 lookups and `pageInCurrentPlan` return nothing for **every page here**. 39 of 45 active pages are
-safe *only* because they carry their own `pages.sections`. **Five more sit on empty `sections`
-today** — `ai-readiness-quiz`, `roi-estimator`, `tool-ai-agent-roi-estimator`,
-`tool-build-vs-buy-analyzer`, `tool-llm-cost-calculator` — and are one content loss away from the
-same hole. (Two of those five are the very pages §5.5 says cannot be measured. Possibly unrelated;
-**not** investigated.)
+safe *only* because they carry their own `pages.sections`. Five more sit on empty `sections` today
+— `ai-readiness-quiz`, `roi-estimator`, `tool-ai-agent-roi-estimator`,
+`tool-build-vs-buy-analyzer`, `tool-llm-cost-calculator`. (Two of those five are the very pages
+§5.5 says cannot be measured. Possibly unrelated; **not** investigated.)
+
+> **⚠ CORRECTED 2026-09-04, hours later — I wrote that those five were "one content loss away from
+> the same hole". THEY ARE NOT, and the latent population is ZERO.** The `384` lane checked the
+> claim I had handed them and pushed back; verified here against the code and the rows.
+>
+> `rerender_page_sections_action.go:421` calls `isSelfContainedSection` and `continue`s **before**
+> either gate branch. A component with `component_level='tool'` and an empty `input_schema` is
+> therefore **never tested**, so it can never be refused, so it can never enter this hole. All four
+> tool pages above qualify `[MEASURED 2026-09-04]`; `roi-estimator` has **no `page_components` row
+> at all**, so the loop never runs for it either.
+>
+> Sharper still: their `content_data` is **already empty**. The loss has *happened* — and the
+> exemption is what makes that correct rather than damaging, because a tool renders from its
+> template and legitimately stores no content. The thing I read as fragility is the design working.
+>
+> **What I got wrong, in one line:** I counted pages matching the *precondition* (empty `sections`)
+> and asserted they were near the defect **without checking whether the code path could reach
+> them**. It could not, and the exemption was one function above the branch I had already read.
+> **A "one X away" claim is a claim about a PATH, not about a shared symptom** — it needs the
+> reachability shown, not the precondition counted. Logged in `WRONG_CALLS.md`.
+>
+> **What this does NOT change:** `/blog`'s two slots are genuinely in the hole, this site genuinely
+> has no current `site_plans` and no `site_specs` `site_plan`, and source 3 is genuinely the only one
+> restorable. **`777`'s case stands on those two slots alone** — it never rested on the five, and
+> the five must not be used to argue for it.
 
 ⚠ **`roi-estimator` has ZERO components** and is `status='active'`. Different defect, not chased.
 

@@ -66424,3 +66424,50 @@ then wrong.
   carries a parenthesis like "(kind model)", it is a scope, not a tag.
 - **Cost.** One false sentence in the owner's brief for ~23 hours; three wasted research runs; the
   directory and lead route still waiting — on a decision now, not on a mystery.
+
+---
+
+## 2026-09-04 — "five more pages are one content loss away": I counted a PRECONDITION and called it a PATH
+
+**The claim.** Investigating a page that could neither re-render nor escalate, I found five more
+pages on the same site sharing the precondition (`pages.sections` = `[]`, so no escalation fallback)
+and wrote — in the lane handoff, in a migration's commit message, in a note to a peer lane, and in a
+report to the owner — that they were *"one content loss away from the identical hole"*. I also told
+the peer their fleet number would be *"much larger than 4"* if they keyed on it.
+
+**Why it was wrong.** Those five can **never** enter that hole.
+`rerender_page_sections_action.go:421` calls `isSelfContainedSection` and `continue`s **before**
+either branch of the gate. A component with `component_level='tool'` and an empty `input_schema` is
+never tested, so it can never be refused. All four tool pages qualify; the fifth has **no
+`page_components` row at all**, so the loop never runs. The peer re-ran my own suggestion across the
+fleet: unsatisfiable-with-content-intact is **121 pages / 29 sites**, and **every one of the 120
+carrying a component carries a self-contained tool**. **Latent population: zero.**
+
+**And the inversion I missed.** Their `content_data` is *already* empty — the "loss" I was
+predicting has happened. The exemption is what makes that correct: a tool renders from its template
+and legitimately stores no content. **I read a working design as latent fragility.**
+
+**What caught it.** The peer lane, checking a claim I had handed *them*. Not my own re-reading — and
+I had already read the function immediately below the one that disproved it, in the same file, in
+the same session. I read `reason := ""` at line 428 and never looked up.
+
+**The cheap check that would have.** Read the loop from its `for`, not from the branch you care
+about. `sed -n '405,432p'` — the twenty lines above the gate contain an eighteen-line comment
+explaining precisely why tool sections are exempt and naming the bug that put it there.
+
+**The transferable rule, which is the point:** **"one X away from the defect" is a claim about a
+PATH, not about a shared symptom.** Matching the precondition is necessary and nowhere near
+sufficient — the code has to be able to *reach* those rows. Before writing "these are next", show
+the reachability: name the branch that would fire, and check nothing upstream `continue`s past it.
+A census of rows matching a condition answers "how many look like this", which is a different
+question that happens to share a shape.
+
+**Cost, and why it is worth a row rather than a quiet edit.** It reached four places including an
+owner-facing report and a live-change justification. It made a migration look better supported than
+it is — `777`'s case rests on two slots and never rested on the five, but "and five more are next"
+is exactly the kind of clause that gets an approval over the line. **A wrong claim that argues for a
+correct action is harder to catch than one that argues against it**, because nothing downstream
+jars.
+
+Family: cite-the-arm-not-the-function, editing-one-file-is-not-knowing-the-package,
+a-report-is-not-a-measurement, measurement-discipline-index.
