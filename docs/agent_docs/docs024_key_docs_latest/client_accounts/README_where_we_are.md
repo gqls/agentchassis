@@ -185,3 +185,80 @@ wearing different clothes.
 The useful part is that this makes the two threads' worry go away entirely. They were asking how our
 two record-creating paths could be kept in step. The answer is that there is only one: theirs. Ours
 reads the decision rather than making its own.
+
+---
+
+## 2026-09-04, late — a duplicate cluster, and the reason for one turns out to be different from the reason we had
+
+You asked me to think about three things before anything is designed. The write-up is
+`OPTIONS_2026-09-04_external_clients_where_their_sites_live_and_who_may_touch_them.md`. Here is what
+I would say out loud.
+
+**Your first point is already true, and further than I think you realised.** A customer's site is not
+just files at Cloudflare and Backblaze — it is a row in our own directory, with its pages, its
+sections and its facts, and the framework keeps writing to it. So we *are* already maintaining and
+growing their sites.
+
+**The trouble is we cannot do it selectively.** I counted: sixty jobs run on a schedule, thirteen of
+them go looking through the site list, and **not one of them can tell a customer's site from one of
+ours.** So every one of those jobs, and every change anybody ships this afternoon, currently reaches
+a paying customer's live website — and there is no way to say "not that one", because we have never
+recorded whose is whose.
+
+**That is a much better reason to separate customers than the ones we had.** The old arguments were
+about hosting cost and about abuse. This one is about not experimenting on people who paid.
+
+**Your second point pulls against your first, and it is worth saying so.** You want their details in
+our directory so we can look after them; you also want them on their own cluster. A separate cluster
+with its own database means there is no longer *one* directory. There are three honest ways round
+that, and they are different products — share the database and only move the work (which is the
+thing you are rejecting, and I think rightly), or split completely and keep a summary here for
+billing, or split completely and **run the looking-after over there too**. The last is what a real
+multi-tenant product looks like, and it is the most work, because their cluster stops being a copy
+and becomes a second operation.
+
+**On the duplicate cluster versus the job spawner: you are right, and the reason is sharper than
+"cleaner".** The spawner only moves where the work runs. A bad change still writes to the same
+database and still reaches the same customer sites. It moves the electricity, not the risk.
+
+**But nobody has ever written down what a second cluster actually costs, so I measured it.** In the
+last thirty days this estate applied **460 database migrations** — about fifteen a day — and in the
+last seven days took **2,956 commits**. A second cluster either keeps up with that, which means doing
+everything twice for ever, or it falls behind quietly and customers run older software than we do
+with nothing to tell them. That is the real price, and it is not the servers.
+
+**Which leads to the one idea in here that I do not think we have had before.** Make the second
+cluster **a release channel rather than a customer pen.** Our own sites stay where the experiments
+happen; customer sites live on an instance that only ever takes *released* versions. The thing
+customers need protecting from is not sharing a cluster with us — it is sharing one with this
+afternoon's change. Done that way, keeping in step stops being a burden and becomes the point: the
+lag is the product. The honest gap is that we have no notion of "released" today; releases are
+whole-fleet and nothing is pinned.
+
+**On your third point — agencies, handovers, giving a client access — the good news is that most of
+it is already free** under the shape you approved this afternoon. If a customer is a *person* and the
+four identities are *jobs that person holds on a site*, then an agency ordering for its client, an
+agency handing over, and an agency giving its client access alongside itself are all just rows. An
+agency logs in and sees twenty sites; each of their clients sees one.
+
+**Two things are not free and are worth deciding early because they are cheap now.**
+
+The first is that **being allowed to see something is not the same as being one of the four
+identities**, and we have not thought about it at all. My strong recommendation: **access should
+follow from the job, never be granted on its own.** Otherwise ending an agency's involvement means
+remembering to remove their access too, in a second place — and in two years' time somebody who
+handed a site over will still have a working login.
+
+The second is that **whoever paid must never be edited.** When an agency hands over, it is tempting
+to move the order to the new owner. That would falsify who paid, and it breaks refunds and disputes.
+The handover changes who *runs* the site; the payment is a fact about the past.
+
+**And one question for you, jointly with the payments thread:** if an agency is paying £10 a month
+for a domain and then hands the site to their client, who pays after that? Inherit, restart, or the
+agency keeps paying? Those are three different products and none of them is obviously right.
+
+**What I would do:** none of the cluster decisions today — you parked the architecture review until
+after the first working site and nothing here argues for un-parking it. But the two figures above and
+the release-channel idea were not on the table when you parked it, so they belong in it when it
+happens. Meanwhile the one thing that is unblocked, and that every single option above needs, is
+still the same small step: record whose site is whose.
