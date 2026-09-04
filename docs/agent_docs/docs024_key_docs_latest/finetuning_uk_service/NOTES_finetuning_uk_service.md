@@ -3981,3 +3981,32 @@ now registered), the £99 fine-tune (one-off, today arranged by conversation), a
 takes it — the examples catalogue, which is the piece needing accounts and possibly payouts. Their
 useful fact: the live surface (`internal/auth-service/billing`, PAY-009) is **one-off `mode=payment`
 only, no recurring path anywhere**, which is fine because nothing this lane needs is recurring.
+
+## 2026-09-04 (14:57Z) — hero wiring HANDED OVER to the 114 lane, and one of their hypotheses refuted here
+
+A `bugs_open/114` session asked whether this lane was taking the `wire_hero_on_landing` work or handing
+it over. **Handed over, confirmed**: their ownership list (`wire_page_hero_on_landing.go`,
+`flag_page_image_rebuild_action.go`, `plan_sections_action.go`'s hero resolution, migration
+`710_arm_wire_hero_on_landing_HOLD.sql`, the `bugfix_114_imagery_wiring` dir) is theirs; this lane
+touches none of it, and will not change finetuning.uk's hero components or their `content_data` while
+they work.
+**Correction I owed them on the owner's ruling:** he ruled on the OUTCOME, not the mechanism. He was
+answering a binary I put to him (hand-wire four pages, or arm the built mechanism) and said *"let's use
+the hero images somehow, we don't need a stop gap though"*. **He has never seen migration 710, the
+council REVISE (`bd78490d`), or the mechanism's name.** So no ruling attaches to arming 710 as it
+stands — important, because their REVISE says the shipped design is clobbered by the resolver's
+fresh-merge on exactly the cohort that needs it, i.e. arming it could deliver nothing and look like it
+worked. Told them to ship the design the reviewers point at.
+**Their route-2 hypothesis REFUTED `[MEASURED 14:57Z]`** — "maybe the resolver fires and the component
+never asks for the value". On all four unwired pages (use-cases, case-studies, approach, contact) the
+hero component (`use-cases-hero`, `case-studies-hero`, `about-hero`, `contact-hero`; all
+`render_mode=template`, 1.7–2.0 KB) reads: template can show an image **TRUE**, names a hero image
+variable **TRUE**, `input_schema` has an image field **TRUE**, `site_assets` referenced **TRUE** — and
+`page_components.content_data` has an image key **FALSE** on all four. Control: the pricing page's hero
+on the same site, which does display an image, has it **TRUE**. **The component asks; the value is not
+there.** The failure is upstream, in resolution or persistence. Caveats given with the numbers: the
+site_assets check is a text match, not a trace of the resolver being called, and the content_data check
+is a case-insensitive substring that would also catch an `image_alt` with no url — offered to re-run
+their exact predicate.
+Acceptance boundary restated and accepted: finetuning.uk is a **diagnostic witness only**, excluded as
+acceptance evidence in either direction (412 §11: 664 changed the JOIN, 649 changed the SCHEMA).
