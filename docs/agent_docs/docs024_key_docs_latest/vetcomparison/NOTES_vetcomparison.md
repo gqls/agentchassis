@@ -2364,3 +2364,11 @@ landmine minted from MY attribution episode: **route a migration by its council 
 never by the lane-shaped word in its filename — every commit on this tree is cqls, so the
 authorship field is dead and a path word reads like data; it usually names the SUBJECT.** Thread
 closed; thanks relayed both ways.
+**Orphan-thread postscript:** the 414 lane independently corroborated the retraction (full sweep:
+556 rows vs 1,364 files, exactly one miss = 521, the renumber duplicate) — run because a claim
+credited to them as a prediction "shouldn't rest on my own say-so any more than on theirs".
+Three refinements relayed to the check's author: rename-first-record-second (the prevention half);
+521's residual is provenance-not-correctness (fix = a note on the row, never a delete —
+forward-only); and the strongest argument for routing by council correlation: both instrumented
+failure modes are renumber-adjacent, and the correlation is the one identifier a renumber cannot
+break. Thread genuinely closed.
