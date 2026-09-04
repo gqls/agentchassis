@@ -211,10 +211,77 @@ func TestSendDeliveryEmailRefusesAnEmptyLinkBeforeStamping(t *testing.T) {
 	}
 }
 
-// A SURVIVING placeholder (a typo the closed vocabulary cannot fill) refuses
-// the send. The claim HAS happened by then; the error must say so and name the
-// recovery.
-func TestSendDeliveryEmailRefusesASurvivingPlaceholder(t *testing.T) {
+// A typo the vocabulary cannot fill refuses the send BEFORE the claim.
+//
+// ⚠ THIS TEST ASSERTED THE OPPOSITE UNTIL 2026-09-04, AND THE CHANGE IS THE
+// POINT (bugs_open/475; council c8ed56d2). It used to expect the POST-fill
+// "{{" scan to catch `{{zip_lnik}}` — which meant a one-character typo in an
+// operator-editable template BURNED THE HANDOVER STAMP before anyone found
+// out, recoverable only by the operator re-mint recipe. delivery.Fill.Check now
+// refuses any token the vocabulary does not know, pre-claim, so the same typo
+// costs nothing.
+//
+// The old contract is not merely re-worded here, it is superseded: the
+// assertions below are strictly stronger (nothing stamped, database untouched).
+// The post-fill scan still exists and still has a reachable case of its own —
+// see TestSendDeliveryEmailStillScansForASurvivingBraceAfterFilling.
+func TestSendDeliveryEmailRefusesAnUnknownPlaceholderBeforeStamping(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	rec := withSender(t, &recordingSender{}, nil)
+	// NO claim expectations: the typo must be caught before any database call.
+
+	siteID := uuid.New()
+	cfg := baseEmailConfig()
+	cfg["body_template"] = "Files: {{zip_lnik}}" // one transposed character
+
+	_, err = SendDeliveryEmailAction(context.Background(), ActionParams{
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &types.ExecutionContext{},
+		StepConfig:       models.Step{Config: cfg},
+		CollectedData:    emailCollected(siteID),
+	})
+	if err == nil || !strings.Contains(err.Error(), "{{zip_lnik}}") {
+		t.Fatalf("expected the unknown-token refusal naming the typo, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "Nothing was stamped") {
+		t.Errorf("the refusal must say the stamp did NOT happen: %v", err)
+	}
+	if err2 := mock.ExpectationsWereMet(); err2 != nil {
+		t.Errorf("the database was touched before the template was validated: %v", err2)
+	}
+	if len(rec.sent) != 0 {
+		t.Fatalf("a broken template was EMAILED: %+v", rec.sent)
+	}
+}
+
+// This sender declares every token in the shared vocabulary.
+//
+// THIS IS THE ASSERTION THE WHOLE bugs_open/475 CHANGE EXISTS FOR. Adding a
+// token to delivery.Vocabulary without teaching this sender turns it red here,
+// in CI, instead of shipping a blank to a paying customer — which is what the
+// previous arrangement (a hand-kept guard slice in each sender, kept in step by
+// a comment) could not do. Council c8ed56d2.
+func TestDeliveryEmailFillCoversTheVocabulary(t *testing.T) {
+	fill := deliveryEmailFill(baseEmailConfig(), "https://example.co.uk", "https://presign")
+	for _, problem := range fill.CoverageErrors() {
+		t.Errorf("the delivery sender %s", problem)
+	}
+}
+
+// The post-fill "{{" scan still has a reachable case of its own, so it is not
+// redundant now that Check refuses unknown tokens pre-claim.
+//
+// Check's unknown-token scan looks for a COMPLETE {{...}}; an unterminated "{{"
+// is not a token and it passes. Apply then substitutes nothing, and the
+// post-fill scan is the thing that stops a customer being emailed a stray
+// brace. The claim HAS happened by then — which is exactly why the pre-claim
+// checks were widened, and exactly why this last one is kept.
+func TestSendDeliveryEmailStillScansForASurvivingBraceAfterFilling(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatal(err)
@@ -226,7 +293,7 @@ func TestSendDeliveryEmailRefusesASurvivingPlaceholder(t *testing.T) {
 	expectHappyClaim(mock, siteID)
 
 	cfg := baseEmailConfig()
-	cfg["body_template"] = "Files: {{zip_lnik}}" // the typo case: an unknown placeholder survives filling
+	cfg["body_template"] = "Your site: {{live_site}} and a stray {{ brace"
 
 	_, err = SendDeliveryEmailAction(context.Background(), ActionParams{
 		DB:               db,
@@ -236,13 +303,12 @@ func TestSendDeliveryEmailRefusesASurvivingPlaceholder(t *testing.T) {
 		CollectedData:    emailCollected(siteID),
 	})
 	if err == nil || !strings.Contains(err.Error(), "still contains") {
-		t.Fatalf("expected the surviving-placeholder refusal, got %v", err)
+		t.Fatalf("expected the surviving-brace refusal, got %v", err)
 	}
 	if !strings.Contains(err.Error(), "handover is now stamped") {
-		t.Errorf("the refusal does not warn that the stamp already happened: %v", err)
+		t.Errorf("this one IS post-claim and must say so: %v", err)
 	}
 	if len(rec.sent) != 0 {
 		t.Fatalf("a broken template was EMAILED: %+v", rec.sent)
 	}
 }
-

@@ -115,22 +115,30 @@ func SendDeliveryEmailAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("delivery email sender unavailable (check DELIVERY_SMTP_* env + secret): %w", err)
 	}
 
-	// TEMPLATE-VS-LINKS, ALSO BEFORE THE STAMP. Every optional link's
-	// availability is knowable from config alone, so a template that names a
-	// link this dispatch cannot produce is refused before anything irreversible
-	// happens. Without this, {{zip_link}} with no presign would be REPLACED BY
-	// AN EMPTY STRING — a customer email reading "Your files: " with nothing
-	// after it, which no post-fill scan can see because the fill succeeded.
+	// TEMPLATE-VS-VOCABULARY, ALL OF IT BEFORE THE STAMP.
+	//
+	// This was a hand-written slice of four placeholders, mirrored by a SECOND
+	// hand-written slice in send_followup_email_action.go, with a comment
+	// asking the next author to keep them in step. It is now DERIVED from
+	// delivery.Vocabulary — one declaration, from which both the fill and the
+	// refusal are taken, so a token cannot exist in the filler while being
+	// absent from the guard (bugs_open/475; council c8ed56d2).
+	//
+	// The failure it exists to prevent is unchanged and worth restating: a
+	// named token with no value is replaced by an EMPTY STRING, so the customer
+	// reads "Your files: " with nothing after it — and no post-fill scan can
+	// see that, because the fill SUCCEEDED. Hence pre-stamp.
+	//
+	// It now also refuses a token the vocabulary does not know at all. The
+	// template is CONFIG (live the moment a migration applies) while the
+	// vocabulary is compiled in, so a template migrated ahead of its image used
+	// to survive the fill and trip the post-fill scan below — which runs AFTER
+	// delivery.Claim has stamped. See LANDMINES.md, "A `body_template` is
+	// CONFIG and goes live on apply".
 	zipPresign := inputs.Get("zip_presigned_url")
-	for _, l := range []struct{ placeholder, value, source string }{
-		{"{{zip_link}}", zipPresign, "zip_presigned_url"},
-		{"{{domain_rent_link}}", stringOr(config, "domain_rent_url"), "domain_rent_url config"},
-		{"{{domain_buy_link}}", stringOr(config, "domain_buy_url"), "domain_buy_url config"},
-		{"{{stripe_portal_link}}", stringOr(config, "stripe_portal_url"), "stripe_portal_url config"},
-	} {
-		if strings.Contains(bodyTemplate, l.placeholder) && l.value == "" {
-			return nil, fmt.Errorf("body_template names %s but %s is empty: the email would carry a blank where a link should be. Nothing was stamped — fix the template or supply the link and re-dispatch", l.placeholder, l.source)
-		}
+	fill := deliveryEmailFill(config, inputs.Get("live_site_url"), zipPresign)
+	if err := fill.Check(bodyTemplate); err != nil {
+		return nil, fmt.Errorf("delivery email refused before claim: %w", err)
 	}
 
 	linkCfg := delivery.LinkConfig{
@@ -159,12 +167,30 @@ func SendDeliveryEmailAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("delivery claim refused: %w", err)
 	}
 
-	body := fillTemplate(bodyTemplate, prepared)
+	// The claim has now produced the tokens that could not exist before it.
+	// Apply refuses if the claim did not in fact supply one, so the FromClaim
+	// exemption in Check cannot become a blank in a customer's letter.
+	filled, err := fill.Claimed(map[delivery.Token]string{
+		delivery.TokenConfirmLink: prepared.Links.ConfirmTransfer,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("delivery email fill failed after claim (the handover IS stamped; recovery = the operator re-mint recipe in the 651 seed header): %w", err)
+	}
+	body, err := filled.Apply(bodyTemplate)
+	if err != nil {
+		return nil, fmt.Errorf("delivery email fill failed after claim (the handover IS stamped; recovery = the operator re-mint recipe in the 651 seed header): %w", err)
+	}
 	// A surviving placeholder means the template names a link this claim did
 	// not produce (e.g. {{zip_link}} with no presign supplied). Refusing beats
 	// emailing a customer literal mustache — but note the handover IS stamped
 	// by now: the operator re-mints deliberately after fixing the config, and
 	// the error says so rather than leaving them to find out at the next Claim.
+	//
+	// ⚠ KEEP THIS EVEN THOUGH Check NOW REFUSES UNKNOWN TOKENS PRE-CLAIM. The
+	// two catch different things: Check asks "does the vocabulary KNOW this
+	// token", this asks "did Apply actually SUBSTITUTE it". A declared token
+	// that passes Check and still survives the fill is invisible to coverage by
+	// construction, and it is the one that puts literal mustache in an inbox.
 	if i := strings.Index(body, "{{"); i >= 0 {
 		end := i + 40
 		if end > len(body) {
@@ -191,27 +217,62 @@ func SendDeliveryEmailAction(ctx context.Context, params ActionParams) (interfac
 	}, nil
 }
 
-// fillTemplate substitutes the closed placeholder vocabulary. Closed on
-// purpose: a template author cannot invent a placeholder this code silently
-// leaves standing — the {{ scan above catches both typos and inventions.
+// deliveryEmailFill is this sender's declaration over delivery.Vocabulary.
 //
-// ⚠ THIS VOCABULARY HAS A SECOND CALLER, AND ADDING TO IT SILENTLY BREAKS THAT
-// CALLER'S GUARD. send_followup_email_action.go (bugs_open/477) reuses this
-// function and carries its OWN pre-claim list mirroring the placeholders below,
-// so it can refuse a template naming a link it cannot produce. That list is not
-// derived from this one — it is a hand-kept copy.
+// Extracted rather than built inline so a test can assert it COVERS the
+// vocabulary (delivery.AssertCoversVocabulary). That assertion is the mechanism
+// this whole change exists for: it is what turns a vocabulary addition red for
+// a sender nobody remembered to teach. Inline, the helper would have had no
+// caller and the coverage guarantee would have been decorative.
+func deliveryEmailFill(config map[string]interface{}, liveSiteURL, zipPresign string) delivery.Fill {
+	return delivery.Fill{
+		// Produced by the claim, so unknowable when Check runs. Fill.Apply
+		// refuses if the claim did not in fact supply it, which is what stops
+		// this exemption becoming a blank in a customer's letter.
+		delivery.TokenConfirmLink: {FromClaim: true},
+
+		delivery.TokenLiveSite: {Value: liveSiteURL, Source: "live_site_url input"},
+		// The same constant Claim uses (prepare.go sets AdvertisedWindowDays
+		// from it), so reading it here is not a second source of truth.
+		delivery.TokenDays: {Value: fmt.Sprintf("%d", delivery.AdvertisedLiveWindowDays)},
+
+		delivery.TokenZipLink: {Value: zipPresign, Source: "zip_presigned_url"},
+		// Config KEY is instructions_url; the PLACEHOLDER is
+		// {{instructions_link}}. That mismatch is the estate's convention, not
+		// a slip — see delivery.Vocabulary.
+		delivery.TokenInstructions: {Value: stringOr(config, "instructions_url"), Source: "instructions_url config"},
+		delivery.TokenDomainRent:   {Value: stringOr(config, "domain_rent_url"), Source: "domain_rent_url config"},
+		delivery.TokenDomainBuy:    {Value: stringOr(config, "domain_buy_url"), Source: "domain_buy_url config"},
+		delivery.TokenStripePortal: {Value: stringOr(config, "stripe_portal_url"), Source: "stripe_portal_url config"},
+	}
+}
+
+// fillTemplate substitutes the closed placeholder vocabulary.
 //
-// So: ADD A PLACEHOLDER HERE AND YOU MUST ADD IT THERE. Otherwise the new
-// placeholder reaches a FOLLOW-UP email as an empty string — a customer reading
-// "The instructions are here: " with nothing after it — and it is silent,
-// because the fill succeeded and the post-fill `{{` scan finds nothing. That is
-// precisely the failure the guard in this file exists to prevent, arriving
-// through the door you did not change.
+// ⚠ DEPRECATED, AND STILL LIVE FOR EXACTLY ONE CALLER. THIS ACTION NO LONGER
+// USES IT — the vocabulary and its guard are now single-sourced in
+// platform/delivery/vocabulary.go (delivery.Vocabulary / Fill.Check /
+// Fill.Apply), so the token set and the "must be producible" rule are one
+// declaration instead of a replacer here plus a hand-kept mirror elsewhere.
+// bugs_open/475; council c8ed56d2, approved round 2.
 //
-// This cross-reference is here rather than only in the follow-up file because a
-// comment in the OTHER file protects nobody reading this one — three council
-// seats made that point about a different duplicate on 2026-09-04 and they were
-// right.
+// The remaining caller is send_followup_email_action.go (bugs_open/477), which
+// converts on ITS OWN LANE'S COMMIT — deliberately not in the same change that
+// created the shared type. The council's gating objection on round 1 was
+// precisely that this lane was editing that lane's active file, and adoption is
+// per-caller by design (see vocabulary.go's header on ActionInputSpec).
+//
+// SO, UNTIL THAT CONVERSION LANDS:
+//   - DO NOT add a placeholder here. Add it to delivery.Vocabulary. This
+//     function is frozen.
+//   - The follow-up sender's own hand-kept pre-claim list still mirrors THIS
+//     list, not the Vocabulary, so a token added to the Vocabulary does not
+//     reach it. Its guard is unaffected either way, because it does not consume
+//     the Vocabulary yet — it keeps working exactly as it did.
+//   - The trap the 477 lane filed in LANDMINES.md about these two lists is
+//     STILL LIVE for that caller and must not be deleted until it converts.
+//
+// Delete this function when the follow-up sender adopts delivery.Fill.
 func fillTemplate(tpl string, p delivery.Prepared) string {
 	r := strings.NewReplacer(
 		"{{live_site}}", p.Links.LiveSite,
