@@ -67110,3 +67110,70 @@ always-give-the-path-for-any-doc-you-name, and the same-day pair above on proxie
 - **Family:** the LANDMINES entry on register STATUS lines outliving their truth (a status is a
   snapshot; council seats read it as ground truth). This is the sibling case: **not a status that has
   gone stale, but a mechanism that was never exercised — which no status field can express.**
+
+## 2026-09-04 — I stated a real risk at the WRONG SEVERITY, unmarked, in a paragraph of measured facts (bug 475 mechanism lane)
+
+- **The claim.** In `bugfix_475_delivery_email_instructions/PLAN_2026-09-04…md` §1 I wrote that a
+  pending build reaching delivery would send the email's false instructions promise "to a second
+  **customer**", and argued from that the bug file's own *"acceptable only as an immediate stop-gap
+  if a delivery were imminent, and one is not"* premise had **expired** — therefore an interim copy
+  migration was now justified. I asked the `site_delivery_and_editor` lane to press the owner for a
+  wording choice on that basis.
+- **What was actually true.** **The next build is the owner's own trial run.** The voucher
+  (`WD-KN3WU-9PZN4`) had been minted *for him*. The recipient of that sentence would have been the
+  owner, not a stranger. The owner ruled **"leave it"** — no stop-gap — with the risk stated to him
+  plainly.
+- **What I actually had, versus what I wrote.** I had one fact from a peer lane: *a voucher has been
+  minted for another site to go through webdesign.uk*. Everything else — that its recipient would be
+  a paying stranger, that this made an imminent delivery — was **inference**. I never asked who the
+  voucher was for. One question would have settled it, and the peer volunteered the answer unprompted
+  the moment the owner ruled.
+- **Why it was invisible in my own document, which is the transferable part.** The claim sat in a
+  paragraph whose other sentences were `[MEASURED 2026-09-04 14:40Z]` and carried live query output.
+  **I used the estate's markers correctly everywhere else in that document, and that is precisely
+  what camouflaged the one unmarked claim** — a reader (me, re-reading) calibrates on the marked
+  sentences and extends the credit to their neighbours. An unmarked inference among unmarked prose is
+  visible; an unmarked inference among *marked* facts is not. The marker rule protects the claims that
+  carry markers; it does nothing for the sentence sitting next to them, and it makes that sentence
+  read *better* than it would have in a document with no markers at all.
+- **What caught it.** Not me, and not any check I ran: the peer lane put the argument to the owner,
+  and his ruling came back with the fact attached. My own reasoning was internally consistent and
+  would have stayed uncorrected — I had already written it into a plan, a NOTES file and two
+  cross-session messages.
+- **The cheap check.** **For any claim about WHO is affected, name the person or say you do not know
+  it.** "A second customer" is a claim about the world outside the repo; "another delivery" is a claim
+  about the system. I had evidence for the second and wrote the first. Concretely: when a severity
+  argument turns on an identity — *a customer*, *a stranger*, *a paying user* — that identity is a
+  fact to ask for, not to supply. It costs one message to a lane that already knows.
+- **Cost.** None realised, and the ruling was **better for the work than what I asked for**: with no
+  interim migration, there is now no competing change queued against the `body_template` jsonb path,
+  so the later placeholder migration has a clear run. My stop-gap would have been a third migration
+  against one field inside two days, on a path three lanes were live on.
+- **Family:** the estate's `[INFERRED]`/`[UNMEASURED]` marker rule, from the failure side — this is
+  the case where **following the marker convention thoroughly made the one unmarked claim harder to
+  see, not easier.** Sibling of MEMORY [[a-justification-in-an-evidence-column-reads-as-evidence]]:
+  there, a "why it was expected" cell read as evidence; here, proximity to evidence did the same work.
+
+## 2026-09-04 — I nearly named a type after six of its seven members (bug 475 mechanism lane)
+
+- **The claim.** Designing the shared placeholder table for the two customer letters, my first sketch
+  was shaped **"placeholder → link"**: every entry a customer-facing URL, resolved the same way.
+- **What was actually true.** The seven tokens have **three** provenances — from `Prepared.Links`
+  (produced by the claim), from step **config** (known pre-claim, which is *why* the guard can run
+  before anything irreversible), and **neither**: `{{days}}` is `AdvertisedWindowDays`, a compile-time
+  constant that is **not a link at all**, and whose value is deliberately **30** while the system
+  actually serves **42**.
+- **What caught it.** The `bugs_open/477` lane, unprompted, in a cross-session message — **before a
+  line of code was written.** Not a test, not a review, not a second look of mine.
+- **Why no test of mine would have caught it.** A link-shaped table either forces `{{days}}` in or
+  quietly omits it. **Omission is the dangerous branch**, and my tests would all have passed: they
+  would have covered the six link-shaped tokens I had modelled. The one entry whose correct value is
+  *deliberately not the obvious one* is exactly the entry a link-shaped design drops.
+- **The cheap check.** **Before naming a type, enumerate its members and ask of each one "where does
+  this value come from?"** I read six, saw a pattern, and named the type after the pattern. **A type
+  name is a hypothesis about its members** — the same shape as MEMORY
+  [[a-subagent-report-is-another-doc]]'s "a key SHAPE is a hypothesis about provenance", and as the
+  `sites.publish_target` landmine's "a column name is a hypothesis about content".
+- **Cost.** None — corrected in the plan before implementation, and the correction is recorded in
+  `PLAN_2026-09-04…md` §2.1 as a quoted block rather than edited away, because the wrong shape is the
+  instructive part.
