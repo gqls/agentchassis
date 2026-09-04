@@ -66200,3 +66200,25 @@ then wrong.
   session's commit (`bdb846972`) between my writing it and my committing it — a working example of
   CLAUDE.md's "your uncommitted work is not safe", and the reason the rewrite is described here
   rather than being findable under my own commit message.
+
+## 2026-09-04 — a pathspec commit on a shared ledger REMOVED another lane's entry, because the working-tree file was behind HEAD when I appended (`portfolio_positioning`)
+
+- **What I did.** `cat >>` two entries onto `LANDMINES.md`, then `git commit <that file>`. The commit
+  (`bdb846972`) recorded 66 additions and **59 deletions** — the deletions being the 462 sweep lane's
+  entry, committed to HEAD earlier that day. My working-tree copy of the file lacked it at the moment I
+  appended, so the commit faithfully recorded a file without it.
+- **What was true.** Nothing I typed removed anything. The pathspec rule protects other sessions' files
+  from riding along; it cannot protect a SHARED file from being committed in whatever state the tree
+  holds it, and "behind HEAD" is a state the tree can be in (an editor buffer, a `checkout -- <file>`,
+  a sync tool rewriting it — I did not establish which). Restored byte-for-byte from `bdb846972~1` in
+  `d48756a77`; heading count at HEAD back to 1; `landmines-sync.py --check` in sync.
+- **What caught it.** The pre-commit pattern check (`shared-ledger-not-appended`: *"58 line(s) removed
+  from LANDMINES.md, a fleet-wide append-only ledger"*). Advisory, printed FIRST — which is why a
+  `| grep '^\['` on the commit output hides it; I saw it only because the hook's advisory is re-injected.
+- **The cheap check that would have.** Before committing ANY fleet-wide append-only file, run
+  `git diff --numstat <file>` and require the deletion count to be **0**. A non-zero second number on
+  a ledger you only appended to means the tree is behind HEAD, and the fix is to re-append onto HEAD's
+  content, not to commit. The same number is what the hook computes after the fact.
+- **Cost.** One entry missing from the system-of-record for ~25 minutes, one restore commit, a CONTRIB
+  to the owning lane asking them to verify byte-identity. The doc_notes mirror never carried the entry
+  (a `## ` heading the sync does not mirror), so no agent read a ledger without it.
