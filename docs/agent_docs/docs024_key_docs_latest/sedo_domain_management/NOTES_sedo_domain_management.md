@@ -978,3 +978,39 @@ present in draft9 (1 row) before acting. New dedicated file,
 reason convention. Draft10 = 2,943 − 1 = **2,942**. Verified: 2,943
 `<row` = header + 2,942; zero rolex-submariners hits; whole-file diff
 against draft9 shows exactly the one row removed, nothing else changed.
+
+## 2026-09-04 (later) — mieleonline.com + webuyanycarandvan.com withdrawn; consolidated into one trademark-risk file; both factual questions answered and verified
+
+The two domains flagged by domain_valuation alongside rolex-submariners.com
+(never yet put to the owner — see handoff) — owner said remove both
+directly, no further question needed.
+
+**Owner also asked two factual questions, answered via web search rather
+than from memory** (both confirmed, sources kept):
+- **Does "miele" mean honey in any language?** Yes — Italian. Confirmed
+  via Cambridge Dictionary, Collins, WordHippo (all independently agree).
+  Doesn't reduce the trademark risk (Miele the appliance brand is the
+  globally dominant sense and UDRP cares about likely confusion with the
+  famous mark, not alternate meanings elsewhere), but it's a real,
+  verified fact, not a guess.
+- **Is "We Buy Any Car" trademarked in the US too?** Yes — USPTO
+  registration **6011054** (filed 2019-01-30, registered 2020-03-17,
+  classes 035/036/042, covering online vehicle resale/brokerage — the
+  exact category `webuyanycarandvan.com` would compete in), plus an
+  earlier 2013 registration (4402030). This RAISES the risk assessment,
+  not lowers it — a US federal registration in the directly relevant
+  goods/services class is a strong trademark position.
+
+**Consolidated the exclusion files**: `EXCLUDED_owner_rolex-submariners_2026-09-04.txt`
+(1 domain) retired — its reason ("trademark risk") is identical to these
+two, so folding all three into one `EXCLUDED_owner_trademark_risk_2026-09-04.txt`
+file is MORE consistent with the one-file-per-REASON convention than
+keeping a domain-named file that happened to have only one entry.
+Removed the old file with `git rm`, careful this time to name BOTH the
+old and new paths in the same commit (the exact mistake the git-mv
+landmine filed earlier today describes — a pathspec commit naming only
+the new path leaves the old one duplicated forever).
+
+**Draft11 = 2,942 − 2 = 2,940**. Verified: 2,941 `<row` = header + 2,940;
+both domains confirmed absent by direct grep; whole-file diff against
+draft10 shows exactly those two rows removed, nothing else changed.

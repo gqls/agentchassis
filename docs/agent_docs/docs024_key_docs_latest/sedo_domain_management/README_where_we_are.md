@@ -359,3 +359,25 @@ Done — it's out of the sheet entirely.
 
 **Current sheet**: `outbound/SEDO_IMPORT_2026-09-04_draft10.xlsx` —
 **2,942 domains**.
+
+## 2026-09-04 (later) — mieleonline.com and webuyanycarandvan.com out too, and your two questions
+
+Both removed.
+
+On your questions — checked properly rather than answering from memory:
+
+**Does mieleonline mean "honey online" in any language?** Yes — miele is
+the Italian word for honey. Doesn't really change the trademark
+concern though, since Miele the appliance company is by far the more
+recognisable meaning worldwide, and that's what a complaint would turn
+on.
+
+**Is "We Buy Any Car" trademarked in the US too?** Yes, and more
+firmly than I expected — registered with the US trademark office in
+2020 (plus an earlier one from 2013), specifically covering online
+car sales and brokerage, which is exactly what webuyanycarandvan.com
+would compete in. If anything that makes it the stronger case for
+staying off the list, not a weaker one.
+
+**Current sheet**: `outbound/SEDO_IMPORT_2026-09-04_draft11.xlsx` —
+**2,940 domains**.

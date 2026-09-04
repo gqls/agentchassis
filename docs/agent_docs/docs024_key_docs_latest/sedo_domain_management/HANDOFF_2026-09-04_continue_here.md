@@ -9,14 +9,14 @@ pick up work).
 
 ## Where things stand (2026-09-04)
 
-**Current sheet**: `outbound/SEDO_IMPORT_2026-09-04_draft10.xlsx` —
-**2,942 domains**. Owner has NOT confirmed he's uploaded it yet as of
+**Current sheet**: `outbound/SEDO_IMPORT_2026-09-04_draft11.xlsx` —
+**2,940 domains**. Owner has NOT confirmed he's uploaded it yet as of
 this handoff. Every row is `MAKE_OFFER` / for-sale / **blank price and
 blank minimum** — this is deliberate, not a placeholder (see "Floor
 policy" below), and it is enforced: the generator hard-refuses to write
 a BUY_NOW or priced row without an explicit owner-only flag (RUNBOOK
 §8). Verified zero priced rows in every draft built so far (1 through
-10).
+11).
 
 **What's excluded and why** — six reason-files, unioned at build time,
 each named by reason (never merge two reasons into one file — see
@@ -28,7 +28,7 @@ RUNBOOK §7):
 | `EXCLUDED_owner_wykefarm_pasturedegg_2026-09-03.txt` | 8 | Wyke Farm + pastured-egg brand family |
 | `EXCLUDED_owner_copyonline_2026-09-03.txt` | 1 | copyonline.co.uk — personal-use keeper |
 | `EXCLUDED_owner_leopardessconsulting_2026-09-03.txt` | 1 | owner's own consultancy site — he's opted to treat it with the same protection as a real client relationship (D4-level), by his own explicit choice, not because a third party is involved (full three-part correction story in NOTES if you need it — the short version above is all that matters going forward) |
-| `EXCLUDED_owner_rolex-submariners_2026-09-04.txt` | 1 | rolex-submariners.com, likely trademark exposure |
+| `EXCLUDED_owner_trademark_risk_2026-09-04.txt` | 3 | rolex-submariners.com, mieleonline.com, webuyanycarandvan.com — all owner-confirmed withdrawals. Verified: "We Buy Any Car" carries a real US trademark (USPTO 6011054, 2020, covering online vehicle resale — the exact category), which if anything strengthens rather than weakens the case for keeping it off; "miele" is genuinely the Italian word for honey but that doesn't reduce the risk, Miele-the-appliance-brand is the dominant global sense |
 
 **The old `EXCLUDED_live_2026-09-03.txt`** (the original 50-domain
 "protect every live/deployed site" fence) is **retired, not deleted** —
@@ -80,17 +80,6 @@ next**:
   real pricing ever happens.
 
 ## OPEN — needs the owner's word, not yet asked to conclusion
-
-**Two more possible trademark-risk domains, currently still in the
-sheet**: `mieleonline.com` (Miele, live German appliance manufacturer)
-and `webuyanycarandvan.com` (reads as a brand extension of
-webuyanycar.com, a major UK company — the sharper UDRP risk of the two).
-Flagged by the domain_valuation lane the same way rolex-submariners.com
-was flagged before its withdrawal — that flag was right, this one is
-unverified. **Put both to the owner by name before the next upload**;
-do not assume the omission (he named rolex specifically but not these
-two) was deliberate — ask, per the pattern used for every other
-edge case this session.
 
 **Four person-name domains never got an answer**: `ianstirling.com`,
 `kapoor.uk`, `keeler.uk`, `anne-marie.co.uk` — flagged early on as
