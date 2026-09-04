@@ -7,7 +7,7 @@
 older file stays for the trail; **its §5c contains an instruction that the code refutes — see
 §4 here before you act on any of it.**
 
-> **UPDATED 2026-09-04 15:5xZ.** The diagnosis this file was waiting on has landed and it is
+> **UPDATED 2026-09-04 16:00Z.** The diagnosis this file was waiting on has landed and it is
 > **UNVERIFIABLE, not CONFIRMED** — §4 now says so plainly and says what that does and does not
 > license. The loop also named a symbol I had never opened, **`findOrSpawnAgent`**, which would
 > have refuted the whole section had it been reachable; it is **dead code** and that is now the
@@ -159,7 +159,7 @@ means **my predicted failure has no production precedent in six weeks**, so wiri
 `call_agent` would be exercising a path this estate has never run. Neither reading licenses
 skipping the fix.
 
-### The options, once the verdict lands
+### The options — the verdict has landed and does not choose between them
 
 1. **`spawn_agent` + `call_agent`**, the `site-review-agent` pattern. Honest cost: the
    handshake's ~50% failure. Mitigation worth designing rather than assuming: the audit is
@@ -222,7 +222,7 @@ Target the **group agent** directly; that is what avoids the spawn→call handsh
 
 ## 6. Per-roll verification (unchanged, still cheap, still do it)
 
-**Re-run 2026-09-04 15:5xZ, against `v1.0.1360` (chassis pods up 2026-09-03 22:06/22:07Z, both
+**Re-run 2026-09-04 15:55Z, against `v1.0.1360` (chassis pods up 2026-09-03 22:06/22:07Z, both
 stamped `239ab3626`). Every 694 marker intact** — allow-list gone, non-greedy strip,
 `ORDER BY pc.position`, all four dimensions, `filing_mode` still `record`. The seat's
 `updated_at` moved again (now 2026-09-03 22:05:57), as it does at roughly every roll, with **no
