@@ -116,6 +116,32 @@ func verifyCitationLiveForRule(ctx context.Context, cit *datahelpers.Citation, r
 	}
 }
 
+// FetchCitationDocumentForProbe is the EXPORTED seam that lets the write-time
+// probe (cmd/fcaquotecheck) verify a candidate citation through the SAME fetch
+// the nightly refresher uses, rather than a lookalike of it.
+//
+// WHY THIS EXISTS, and it is a defect this closes rather than a convenience.
+// RUNBOOK_lendzy §8g's rule is "never validate a citation host with an
+// instrument other than the one that will re-check it daily", and §8's step 4
+// describes cmd/fcaquotecheck as calling "the production fetch + extraction".
+// It called the production EXTRACTION only: it did its own bare http.Get and
+// ran VisibleTextFromHTML over whatever bytes came back, with none of the gates
+// below. On a PDF that returns `false` for the real quote AND for the absent
+// control, which reads to an author exactly like a mistyped quote — measured
+// 2026-09-03 against the CMA draft Order (HTTP 200, 392,144 bytes, 296,699
+// chars of extracted noise, every probe false). A 414-lane author then inferred
+// a PRODUCTION drift danger from that blind probe and wrote it into a landmine,
+// a migration header and four documents. Production was never at risk: the
+// content-type gate below refuses non-text and routes it to fetch_error, which
+// refreshCitationFact reports as `error` and explicitly never as drift.
+//
+// So the probe now shares this function. A mirror that drifts from production
+// is the failure this package's own comments warn about twice; the fix is one
+// export, not a second implementation.
+func FetchCitationDocumentForProbe(ctx context.Context, url string) (string, error) {
+	return fetchCitationDocument(ctx, url)
+}
+
 // fetchCitationDocument GETs a cited URL and returns its visible text.
 func fetchCitationDocument(ctx context.Context, url string) (string, error) {
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
