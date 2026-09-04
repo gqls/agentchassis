@@ -16,11 +16,18 @@ this lane is waiting on anything.**
 > still reads "not applied" — the case the landmine was written for.
 > ⚠ **THE GATE QUERY BOTH LANES CIRCULATED WAS BROKEN — use §2a's, not `section_subject`.**
 >
-> **2. The supply half is working too, and it is not 640.** `[MEASURED 2026-09-04]` plan rows
+> **2. The supply half landed too — under `762`, not 640.** `[MEASURED 2026-09-04]` plan rows
 > carrying a subject: **0% on 08-31 → 5.1% on 09-02 → 62.1% on 09-03 → 84.5% today** (125 of 148).
-> ⚠ **`build-site-planner` still does NOT mention `section_subject`** (640 did not land), so
-> whatever is writing them is not that prompt — do not credit 640, and do not assume the planner
-> will write one for a page you care about. Check the row.
+> ⚠ **CORRECTED — this bullet said the planner carried no subject rule and that was WRONG.**
+> `762_build_site_planner_rule17_subjects_become_opening_lines.sql` applied **2026-09-03 19:22:35Z**
+> and **IS in `schema_migrations`**; the live planner does carry a subject rule. **640 is both
+> unapplied AND superseded** — its own idempotence anchor (`may also carry a "subject"`, exact
+> substring) returns `f`. I had inferred "no rule" from the absence of a name I guessed.
+> ⚠ **THE LEDGER FAILED IN OPPOSITE DIRECTIONS ON THE TWO HALVES OF ONE FIX** — 641 applied by
+> hand with **no** row; 640 **correctly** recorded as unapplied while its content shipped under a
+> higher number. **So "unrecorded" is only one of the two failure modes: a file can be truthfully
+> absent from the ledger and live anyway.** A lane checking `schema_migrations` for 640 gets a true
+> answer and the wrong conclusion. Found by `dartsonline_traffic` chasing my own question back.
 >
 > **3. `grip-styles` is still REVERTED and that has not changed** — 3 plan sections, 0 section-scope
 > imagery rows, 3 `page_components`. **The five illustrations are still `active` assets**, so the
@@ -261,12 +268,19 @@ where a component **repeats**, which is exactly the shape that failed before.
 **The discriminating case** `[MEASURED 2026-09-04]`, run `be79d5a2` (copyonline.co.uk):
 **6 sections, only 2 distinct component names — 4 repeats — all 6 carrying a subject.**
 
-- **6 sections → 6 distinct prompt hashes.** The pre-fix shape collapsed 11 sections onto three.
+- ~~**6 sections → 6 distinct prompt hashes.**~~ ⚠ **WITHDRAWN AS EVIDENCE 2026-09-04 — and this
+  retires the acceptance test both lanes agreed yesterday.** The template's sibling list is
+  `{{range}}…{{if ne $s.subject $.current_section.subject}}`, i.e. **each prompt enumerates every
+  sibling subject EXCEPT its own** — so every prompt differs from every other **structurally, even
+  if the `## This section` block were empty**. Distinctness is guaranteed by the design and cannot
+  fail. It is still true that the pre-fix shape collapsed 11 sections onto three prompts; it is no
+  longer a test. Caught by `dartsonline_traffic`.
 - ⚠ **A naive "does this subject appear in this prompt" test returns 6/6 for EVERY subject** — the
   prompt carries the whole page outline, so all six subjects appear in all six prompts. **That test
   cannot fail and is not evidence.**
-- **The discriminating form:** each prompt carries a `## This section` block, and its content must
-  be *that* section's own subject. **6 of 6 MATCH**, index for index, against the plan.
+- - **THE ONLY DISCRIMINATING FORM, and it is the whole test now:** each prompt carries a
+  `## This section` block, and its content must be *that* section's own subject. **6 of 6 MATCH**,
+  index for index, against the plan. **Grade a retry on this, per prompt — not on hash counts.**
 - Controls: `ZZNOTREAL` absent from all 6; the plan subjects present.
 
 **So the writer now receives a per-section brief.** The supply half is live too — **84.5%** of plan

@@ -1302,3 +1302,63 @@ planner's own vocabulary and from `schema_migrations` — but not by that query.
   either way, including on failure.**
 - **This lane owes nothing and should not fire anything at their page.** The pre-registered
   re-render prediction is live again the moment any page carries several section-scope figures.
+
+### 24. Two corrections from the peer chasing my own question back — and the acceptance test we agreed is RETIRED
+
+I asked `dartsonline_traffic` whether their "640 did not land" rested on a borrowed control. It
+rested on something weaker — **the absence of a name they had guessed** — and chasing it found that
+the planner half had shipped after all.
+
+**Correction 1: the supply half IS live, under `762`, and my handoff said the opposite.**
+`[MEASURED 2026-09-04, verified here with `position()` — exact substring, no wildcards, after the
+`_`-wildcard lesson]`:
+
+| half | file | applied | in `schema_migrations`? |
+|---|---|---|---|
+| planner emits subjects | **`762_build_site_planner_rule17_subjects_become_opening_lines.sql`** | 2026-09-03 **19:22:35Z** | **yes** |
+| writer receives subjects | **641** (`_HOLD`) | by hand **22:05:57Z** | **no** |
+
+640 is **both unapplied and superseded**: its own idempotence anchor `may also carry a "subject"`
+returns `f`, and the live planner does carry a subject rule. I had written *"build-site-planner
+still does NOT mention `section_subject`, so whatever is writing them is not that prompt"* — wrong,
+and reached the same way as yesterday's wildcard error: **inferring absence from a name I chose.**
+
+⚠ **THE LEDGER FAILED IN OPPOSITE DIRECTIONS ON THE TWO HALVES OF ONE FIX.** 641: applied, no row.
+640: correctly recorded as unapplied, content live under a higher number. **So "unrecorded" is only
+one of two failure modes — a file can be truthfully absent from `schema_migrations` and live
+anyway.** That is a sharper argument for the artefact gate than the one we put in `LANDMINES.md`
+yesterday, which only covered the unrecorded case.
+
+**Correction 2, and it retires the test both lanes agreed: PROMPT DISTINCTNESS IS NOT EVIDENCE.**
+The template's sibling block is
+`{{range $s := …}}{{if and $s.subject (ne $s.subject $.current_section.subject)}}- {{$s.subject}}`
+— **each prompt lists every sibling subject except its own**, so every prompt differs from every
+other **structurally, even if the `## This section` block were empty**. Our agreed criterion
+("N sections → N distinct prompt hashes") **cannot fail post-641** and must not be quoted as a pass.
+§5a's bullet is struck through rather than deleted. **The only discriminating read is the
+`## This section` block, per prompt, against that section's own plan subject** — which is what the
+6-of-6 result actually rests on, so the conclusion survives and one of its two supports does not.
+
+⚠ **That makes three tests in two days that could not fail** — "does this subject appear in this
+prompt" (6/6 by design), "are the prompts distinct" (guaranteed by the sibling list), and
+yesterday's `ILIKE '%section_subject%'` (a wildcard matching a different path). **All three returned
+the verdict I expected.**
+
+#### 24a. One thing I am NOT passing on as fact, because the live row does not say it
+
+762's filename and header say *"subjects become OPENING LINES"* and *"641 block now prints
+`{{.current_section.subject}}` VERBATIM as the section's opening line, so the planner's subjects
+become copy"*. The peer flagged, reasonably, that their nine hand-written grip subjects are **briefs,
+not opening lines**, and might therefore be recited verbatim in the retry.
+
+**Read at the live row rather than the header** `[MEASURED 2026-09-04]`: the writer's block is
+`## This section` + the subject + the sibling list, and **there is no instruction anywhere in it to
+reproduce the subject verbatim, as an opening line or otherwise.** The phrase "opening line" does
+not appear in the planner config either. So the subject is presented to the writer **as a brief**,
+and verbatim recitation is a *model behaviour to watch for*, **not a prescribed one**.
+
+**Practical consequence for the retry:** do not rewrite nine subjects pre-emptively on the strength
+of a migration header. Run it, and if the prose opens by reciting the subject, *that* is the finding
+— with the live template as evidence that the prompt did not ask for it. **A migration's header
+states intent; the `agent_definitions` row states behaviour.** Third time this lane has been bitten
+by the header/row gap (the re-render reason list, the `Subject` doc comment, now this).
