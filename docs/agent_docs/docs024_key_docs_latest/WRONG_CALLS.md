@@ -67586,3 +67586,53 @@ your-measurement-answers-the-question-you-encoded, a-shared-tree-commit-can-brea
 
 Family: prior-art-search-goes-stale, a-citation-you-did-not-open-is-a-claim,
 order-fix-candidates-by-what-closes-the-door, a-report-is-not-a-measurement.
+
+## 2026-09-04 — I filed the "deployed+active pairing hides a mid-rebuild page" landmine, then quoted a number built on that exact pairing as my own migration's blast radius, one hour later (vigilant designer / offer-benefit analyser lane)
+
+**The claim.** Migration `740`'s header, as the load-bearing justification for why no backfill is
+needed and as the blast-radius figure the owner's "switch the switches" ruling was taken against:
+
+> `[MEASURED 2026-09-03 12:41:06Z]` of the 40 live instances: 1 carries `carousel: true`, 0 carry
+> `false`, **39 do not carry the key at all**.
+
+**What is actually true.** `[MEASURED 2026-09-04 16:11:36Z]` **51** instances will flip, not 39.
+Decomposed:
+
+| set | instances | with the key |
+|---|---|---|
+| served (`build_status='deployed' AND status='active'`) | 44 | 1 |
+| + active but NOT deployed (mid-rebuild) | +8 | 0 |
+| **= active, any build_status** | **52** | **1** |
+| + not active (archived etc.) | +3 | 0 |
+| = all rows | 55 | 1 |
+
+**And only +4 of the movement is growth.** On the identical filter the served count went 40 → 44 in
+~28 hours. **The other +8 were always there and my census could not see them** — pages that are
+`active` but `needs_rebuild`, which the pairing excludes. The default lands at plan/render time, and
+a `needs_rebuild` page *will* be rebuilt by definition, so those 8 belong in the blast radius.
+
+**What caught it.** The `boxingonline.com` lane, flagging the header as stale against a live count of
+55. ⚠ **Their number was also wrong** — 55 is unfiltered and includes 3 archived rows — so the
+correct figure came only from decomposing both. Neither of us had it.
+
+**The cheap check that would have.** Run the census under both filters and diff them, once, when the
+number is going to be quoted as a blast radius. Three extra lines.
+
+**Why this row is worse than an ordinary stale count, and why I am filing it against myself rather
+than logging it as a peer catch.** **I wrote the landmine for this exact trap ONE HOUR EARLIER**, on
+this same table, after it cost me a confident zero on `boxingonline.com/index` — *"a zero from the
+pairing is a SUSPECT, not an answer … `status='active'` alone is the filter for what a page is MADE
+OF"*. Then I left the number that trap had produced standing as my own migration's headline figure,
+in a file I had edited four times that day, and did not connect the two. **Writing the general rule
+did nothing to make me re-audit the specific number I had already published under it.** That is the
+part worth carrying: a landmine protects the next person who reads it *before* acting; it does
+nothing for the claims you made *before* you wrote it. **When you file a measurement trap, grep your
+own recent output for the shape you just described.**
+
+**The consequence was real, not theoretical.** The owner ruled "switch the switches" against 39. The
+honest figure is 51 — 31% more. He is entitled to know the number moved, and equally entitled to the
+accurate story about WHY: it grew by 4, and I had been measuring the wrong set for the other 8.
+"Grew 38%" would have been a second false claim laid over the first.
+
+Family: measurement-discipline-index, a-closer-census-cannot-see-what-it-succeeded-at,
+prior-art-search-goes-stale, a-report-is-not-a-measurement.
