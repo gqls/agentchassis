@@ -1068,3 +1068,58 @@ does not do: the instructions in the zip, opening the site by double-click, and 
 found by a person reading the words and asking whether they were true. Nothing automatic found any of
 them, and nothing automatic could have — we have no check anywhere that compares a promise to what
 the code actually does. I think that is the real finding of the whole rehearsal.
+
+---
+
+## 2026-09-04 — you ran the instructions and they were wrong in the way that matters
+
+Thank you for actually doing it. That is the only test that was ever going to work, and it found
+something I would never have reasoned my way to.
+
+**Your site was private and it looked public to you.** Netlify now makes new sites private by
+default. You opened your own address, saw your site, and it rendered — because you were signed in.
+Only the private window showed the truth: "This site is private." You had already passed a screen
+saying it was private, chosen public, and been returned to a page still marked private. It took a
+separate "Make public" button.
+
+My instructions did not mention privacy at all. So a customer would have followed them, checked their
+own address, seen their site, and told their friends about a page nobody but them could open.
+
+It is the same shape as three other things this week: **a check that passes for the person doing it
+and fails for everyone else.** The instructions now make opening it in a private window a numbered
+step rather than a suggestion, and I have written the general rule down where the next person will
+hit it — if the thing you are checking has a login, check it as the person who has the least access,
+never as yourself.
+
+**The rest of what I told you was also wrong.** I said no account was needed to try it; it demands
+one on the drop. I said about a minute; you took about forty, most of it waiting on a confirmation
+email, plus an invisible security check and a rejected good password. All corrected from your account
+rather than from my guess, and the old version is kept alongside so the difference is on record.
+
+**Your two observations are better than my corrections.** The AI editor changes the story: we no
+longer have to say "no changes are included" as if it were bad news, because their host has an editor
+built in. And the domain panel takes a custom domain behind one button, which is what finally makes
+the £59.99 buy-out worth buying — their domain, their hosting, no monthly anything, permanently.
+
+Your screenshots go on the page. The one that earns its place most is the signed-out "This site is
+private" wall, because it is the thing a customer will otherwise never see.
+
+**On setting up accounts for people.** I have written it up properly as four options
+(`OPTIONS_2026-09-04_…`). The short version:
+
+We cannot make the account for them — Netlify verifies to their inbox, and if we use an address we
+control then the account is ours and we are holding their keys. That sits badly with "the files are
+yours".
+
+We could host it on our own Netlify team and invite them, but that just makes us the host again with
+an extra company in the middle, and no money changes hands.
+
+**The real option is the one you already do.** We host it now, for six weeks — and we tell them
+thirty days on purpose, which is written down in the code as a deliberate margin. The thirty-day cut
+is a decision, not a limit. Charging for hosting past it removes the whole awkward part, and the
+engineering is small because the machinery already runs. What it costs is a promise to keep the
+lights on and someone to answer when they do not. That is your call and not mine.
+
+Meanwhile the follow-up email is set to **three days** as you asked, and I have passed that to the
+session building it, with your forty-minute experience attached — because at three days a customer
+who has not confirmed may not be dawdling, they may be stuck in a signup fight.
