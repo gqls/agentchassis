@@ -399,9 +399,19 @@ source document and the entry points at it.
   what `webPath()` resolves and what pages must reference. If you fetch
   `assets.url` for inspection, do it immediately and do not record the result as
   the asset's address
+- **⚠ the POPULATION has changed and that makes this entry HARDER to notice, not easier**
+  `[MEASURED 2026-09-04, bugfix_417_logo_text_policy lane]`: of **34** active
+  `purpose='logo'` rows fleet-wide, **1** still holds a presigned URL —
+  `fundamentallyai.com`, minted 2026-08-10, 401 since 08-17, while its own page serves
+  `/assets/images/logo.png` at 200 / 157,165 B. The other 33 are site-relative paths.
+  So the 2026-07 reading ("half the rows on the site I looked at") is not what you will
+  find today: **a spot check on almost any site now tells you the column is trustworthy**,
+  and one row in thirty-four is exactly the density that survives sampling and bites a
+  fleet sweep. Read this entry rather than sample.
 - **source:** `queryresolve.go:292` comment ("Never `assets.url`"); confirmed while
   inspecting dartsonline's 33 assets 2026-07-29
-- **added:** 2026-07-30, dartsonline_traffic lane
+- **added:** 2026-07-30, dartsonline_traffic lane; population update 2026-09-04,
+  bugfix_417_logo_text_policy lane
 
 ### A mutation that never happened is indistinguishable from a guard that works
 
