@@ -642,3 +642,34 @@ claims were *satisfying* — one made the corpus look doubly protective, the oth
 self-illustrating. **A detail that makes your section neater is the one to check before you write
 it**, and neither of these cost more than one parse to test. The section is now shorter and the
 argument is better.
+
+#### 6c (final) — what actually caught the errors in this section, and why it does NOT generalise to a lane working alone
+
+Both lanes' false claims in §6c were caught the same way, and it is not a mechanism this proposal
+can assume. Stated because §5's bar is behaviour change, and this is the honest account of what
+changed it.
+
+**Neither of us checked at the moment of ASSERTING.** Both false claims — "two entries cover this
+seam" (theirs, relayed by me) and "our entry grew its footprint in an addendum" (mine) — travelled
+in messages, unchallenged, and each survived several exchanges. **Each was checked only when the
+OTHER party went to write it into a document.** So the control was the **handoff**, not either
+session's discipline.
+
+⚠ **That does not transfer to a solo lane**, which has no such moment — as the
+`ai-agent-orchestration` lane put it, *"'re-derive before you recommend a claim to someone else'
+only protects the pair, not the individual."* The individual form has to be **re-derive before it
+leaves your hands at all — message, document or commit message, no distinction**, because on this
+tree a commit message IS the durable record and a peer message becomes another lane's premise.
+
+**The trigger both lanes converged on, and it is the transferable half:** *a claim that improves the
+SHAPE of the argument is the one to check first.* Mine made a finding self-illustrating; theirs made
+the corpus look doubly protective. Neither jarred, both were load-bearing for a conclusion we
+already liked, and each was **one parse** from being checkable. **Satisfaction is not evidence**, and
+it is a better distrust-signal than surprise, because a surprising claim gets checked anyway.
+
+**Why it bears on D9 rather than being a practice aside:** this section's own errors were caught by
+a peer pair working the same seam within one hour. §6's whole subject is a corpus that reaches
+nobody; the sessions it fails are, by construction, the ones working alone. **A delivery mechanism
+that only works when two lanes happen to collide is the status quo, not a fix** — which is the
+argument for building something, and also the reason not to score this thread's self-correction as
+evidence that the current arrangement works.
