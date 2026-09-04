@@ -1240,3 +1240,65 @@ from the true one — the last of which I had been warned about *in this session
 never announces itself: I was not investigating a bullet, I was checking a diff. The transferable
 half is the entry's own advice and it generalises past git — **when a check's clean result is what
 you are hoping for, gate it on a count first.**
+
+### 23. 2026-09-04 — THE BLOCKER CLEARED, and the gate I used to prove it was broken
+
+**641 landed by hand at 2026-09-03 22:05:57Z** — `page-content-writer` version 2, prompt v5.
+`schema_migrations` carries **no row** for 640 or 641, so a filename gate still reads "not applied"
+today: exactly the case the migration-number landmine was written for, now with a live instance.
+
+**The acceptance test both lanes agreed PASSES**, on the population that can actually fail it.
+`[MEASURED 2026-09-04]` run `be79d5a2` (copyonline.co.uk): **6 sections, 2 distinct component
+names — 4 repeats — 6 distinct prompt hashes**, and each prompt's `## This section` block carries
+**its own** plan subject, **6 of 6 index for index**, controls both ways.
+
+⚠ **My first two readings of it were both non-discriminating and I nearly published the second.**
+(a) *N sections → N distinct prompts* is guaranteed on a page whose components all differ, so it
+proves nothing outside the repeat population. (b) *does this subject appear in this prompt* returns
+**6/6 for every subject**, because — as the peer lane established by reading the template — the
+prompt **enumerates the siblings' subjects by design**, addressing `bugs_open/151` in the same
+change. A test that returns the same answer for every input cannot fail. **The `## This section`
+block alone is the discriminating read.**
+
+#### 23a. ⚠ AND THE GATE QUERY I PUBLISHED FLEET-WIDE WAS BROKEN — `_` IS A WILDCARD
+
+I gated on `default_config::text ILIKE '%section_subject%'` and read `t` as "the rule is live".
+**`_` matches any single character in `LIKE`/`ILIKE`**, so it matched the unrelated path
+`section.subject`. `[MEASURED 2026-09-04]` the escaped literal `LIKE '%section\_subject%'` is
+**FALSE** — that string is nowhere in the config — while the capability *is* live, under
+`current_section.subject`.
+
+**A broken instrument and a renamed fix cancelled out.** Right verdict, wrong mechanism, and nothing
+about it looked partial. It reached `LANDMINES.md` as the fleet-wide worked example for *"ask the
+running agent for the capability"*, so the blast radius was every lane.
+
+**Caught by `dartsonline_traffic` re-testing the gate they had originally passed to me** — not by
+me, and not by the three separate times I re-ran it. **Fifth instance of the family in two days, and
+the first where the error was in a query I had published for others to copy.**
+
+⚠ **The sharpest part: the right answer was already in my own output.** I had separately enumerated
+`current_section.*` with `regexp_matches` and read `current_section.subject` off the list — while
+continuing to assert `section_subject` two paragraphs later. **Two instruments in one session
+disagreed on the name and I did not notice, because both returned the verdict I expected.**
+
+**Corrected everywhere it was published**: `LANDMINES.md` (worked example + the two rules), HANDOFF
+**§2a** (the gate, the broken version, and why), `WRONG_CALLS.md`. **The two rules:** escape every
+`_` in a `LIKE` pattern, and **prefer testing the interpolation the template performs over a key
+name you expect it to contain**.
+
+⚠ **Second-order, and I had read it as evidence:** the same query against `build-site-planner`
+returns `f` for the capability **and** `f` for `control_present`, because that agent has no
+`current_section` at all. **A control borrowed from a different agent cannot fire, so its `f` is
+inapplicable rather than informative.** "640 did not land" is still true — established from the
+planner's own vocabulary and from `schema_migrations` — but not by that query.
+
+#### 23b. State of play, and it is the peer's move
+
+- **grip-styles**: still reverted (3 plan sections, 0 imagery rows), **five illustrations still
+  `active`** — a retry is a seed plus a rebuild.
+- **`dartsonline_traffic` is NOT dispatching yet, correctly**: the `v1.0.1361` roll was mid-push,
+  chassis still on `239ab3626` at 15:54Z, and a dispatch within ~300s of a pod restart is silently
+  dropped. They will fire once the stamp reads `06c0b18f2` + 300s **and report the prompt hashes
+  either way, including on failure.**
+- **This lane owes nothing and should not fire anything at their page.** The pre-registered
+  re-render prediction is live again the moment any page carries several section-scope figures.

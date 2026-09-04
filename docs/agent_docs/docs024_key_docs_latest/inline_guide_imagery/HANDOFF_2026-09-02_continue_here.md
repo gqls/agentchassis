@@ -11,7 +11,10 @@ this lane is waiting on anything.**
 > `current_section.subject` (**14** `current_section.*` paths where yesterday there were 13 and
 > `subject` was not among them). `[MEASURED 2026-09-04]` **The acceptance test this lane and
 > `dartsonline_traffic` agreed on PASSES on the discriminating population** — §5a has the numbers.
-> **The writer defect that made grip-styles' words wrong is fixed.**
+> **The writer defect that made grip-styles' words wrong is fixed.** Applied **by hand at
+> 2026-09-03 22:05:57Z**; `schema_migrations` carries **no row** for 640 or 641, so a filename gate
+> still reads "not applied" — the case the landmine was written for.
+> ⚠ **THE GATE QUERY BOTH LANES CIRCULATED WAS BROKEN — use §2a's, not `section_subject`.**
 >
 > **2. The supply half is working too, and it is not 640.** `[MEASURED 2026-09-04]` plan rows
 > carrying a subject: **0% on 08-31 → 5.1% on 09-02 → 62.1% on 09-03 → 84.5% today** (125 of 148).
@@ -61,7 +64,7 @@ roll that carried 641**.
 > **What the roll does NOT touch, and this is the load-bearing part: the writer fix is DB config,
 > not code.** 641 lives in the `agent_definitions` row for `page-content-writer`; a chassis roll
 > replaces binaries and leaves it alone. **§5's result survives the roll** — re-confirm with the
-> artefact query there (`section_subject`, with both controls), not by re-reading this file.
+> artefact query in **§2a** (with both controls), not by re-reading this file.
 >
 > **And IMG-075's code rides it:** `[MEASURED 2026-09-04]` all four commits (`cb698ee58`,
 > `844eb3023`, `38178d549`, `4084481d7`) are ancestors of `06c0b18f2` by
@@ -117,6 +120,54 @@ in LLM prompt text the chassis logs. Already a LANDMINE.
 ⚠ **A capability probe cannot see code nothing CALLS** — the linker drops it, so a genuinely inert
 symbol probes absent on a build that contains the commit. Not a risk for these four. For an inert
 symbol verify by ANCESTRY (`git merge-base --is-ancestor <commit> <the stamp>`).
+
+---
+
+## 2a. THE GATE: is the per-section subject live? (and the broken version to stop using)
+
+```sql
+SELECT bool_or(default_config::text LIKE '%current\_section.subject%') AS capability_live,
+       bool_or(default_config::text LIKE '%current\_section%')          AS control_present,
+       bool_or(default_config::text LIKE '%current\_section.subjectNOTREAL%') AS control_absent
+FROM agent_definitions WHERE type='page-content-writer' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+`[MEASURED 2026-09-04]` → `t / t / f`. **That is the gate for the grip-styles retry and for any
+claim that the writer defect is fixed.**
+
+⚠ **THE VERSION THIS LANE PUBLISHED YESTERDAY WAS BROKEN, AND IT RETURNED THE RIGHT ANSWER ANYWAY.**
+It was `default_config::text ILIKE '%section_subject%'`. **`_` is a single-character WILDCARD in
+`LIKE`/`ILIKE`**, so it matched the unrelated path `section.subject`. `[MEASURED 2026-09-04]` the
+escaped literal `LIKE '%section\_subject%'` is **FALSE** — that string is not in the config at all
+— while the capability *is* live, under a different name. **A broken instrument and a renamed fix
+cancelled out: right verdict, wrong mechanism, and nothing about it looked partial.** Caught by
+`dartsonline_traffic` re-testing the gate they had published to me. Corrected in `LANDMINES.md` too,
+where it was the fleet-wide worked example for "ask the running agent for the capability".
+
+**Two rules out of it:** escape every `_` in a `LIKE` pattern, and **prefer testing the
+interpolation the template actually performs over a key name you expect it to contain.**
+
+⚠ **And a control can be inapplicable rather than informative.** The same query run against
+`build-site-planner` returns `f` for the capability *and* `f` for `control_present` — that agent has
+no `current_section` at all, so its control cannot fire and the `f` is uninformative rather than
+evidence. **640-did-not-land is still true**, but establish it from the planner's own vocabulary,
+not from a control borrowed from a different agent.
+
+**What the live template actually does** (read at the row, 2026-09-04) — it interpolates the
+section's own subject *and* enumerates the siblings':
+
+```
+{{if .current_section.subject}}## This section
+{{.current_section.subject}}
+{{.current_page.title}} also covers, each in its own section:
+{{range $s := .sections_for_render.sections_ready}}{{if and $s.subject (ne $s.subject $.current_section.subject)}}- {{$s.subject}}
+```
+
+So it also addresses **`bugs_open/151`** — the writer having no memory of what sibling sections
+said — in the same change. ⚠ **This is why §5a's naive test could not fail:** every sibling subject
+appears in every prompt *by design*, so "does this subject appear in this prompt" is `6/6` for all
+six. The discriminating read is the `## This section` block alone.
 
 ---
 
@@ -221,9 +272,11 @@ where a component **repeats**, which is exactly the shape that failed before.
 **So the writer now receives a per-section brief.** The supply half is live too — **84.5%** of plan
 rows created today carry a subject (125 of 148), against **0%** on 08-31.
 
-⚠ **Do not credit 640 for that.** `build-site-planner` still does **not** mention `section_subject`
+⚠ **Do not credit 640 for that.** `build-site-planner` carries no per-section-subject rule
 `[MEASURED 2026-09-04]`, so the subjects are arriving from somewhere else (443's Stage A columns are
 the likely route). **Check the plan row for the page you care about rather than assuming.**
+⚠ **But do not establish that from the writer's gate** — see §2a: run against the planner, that
+query's own control cannot fire, so its `f` is uninformative rather than evidence.
 
 ⚠ **The served outcome of that run is not readable** — copyonline.co.uk's recorded page URL
 (`/checklists.html`, read from `pages.url`, not composed) returns 404, and so does an invented
