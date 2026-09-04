@@ -325,3 +325,93 @@ who would act on it.** `[UNMEASURED]` whether that is a pattern or a coincidence
 claiming it. It bears on PLAN Phase 3: a detector for "this section should be a diagram" is worth
 building only if its findings reach somebody, and neither instance today did so by its own route.
 Flagged for `experience_loop` when Phase 3 is specified, since detector reach is their domain.
+
+## §11 — 2026-09-04: there is a THIRD route, it self-regenerates, and my own census was blind to it
+
+Lead handed over by `news_editorial_features`: *"13 of the 16 fleet-wide tables are on
+gamesdesign.co.uk (13 of its 13 bodies)... it may be a working precedent rather than an outlier."*
+**They were right, and it is the best lead this lane has been given.**
+
+`[MEASURED 2026-09-04]` verified exactly: gamesdesign.co.uk **13 of 13** article bodies carry a
+`<table>` (100%); the other three on the fleet are one each on agritec, copyonline, vetcomparison —
+**3 across the other 368 bodies (0.8%)**.
+
+### The mechanism: a per-site spec field, not a pipeline
+
+Not the writer agent, not the page type. The site's own `content_direction` spec carries explicit
+structural writing rules, read first-hand:
+
+> *"When presenting worked examples involving probabilities, use a table with Attack #, percentage
+> chance, and outcome columns — **never describe a sequence of steps purely in prose when a table
+> would make it scannable.**"*
+
+plus a `list_usage` field partitioning the whole decision: *"Bulleted lists are used for summary
+checklists… **Tables are used for worked examples with sequential numerical data.** Prose is preferred
+within the body of an argument — lists appear only when the items are genuinely parallel and
+scannable."*
+
+**That is this lane's selection rule, already implemented, on one site, by whoever wrote that spec.**
+
+### ROUTE C, and the durability property that inverts the standing argument
+
+| | route A | route B | **route C** |
+|---|---|---|---|
+| artefact | diffusion JPEG | code-rendered component | **structured markup in the prose blob** |
+| driven by | `site_plan_imagery` row | planner picks the component | **`content_direction` spec rule** |
+| needs | imagery pipeline | a component | **nothing — a spec field** |
+| fleet | 1 | 46 / 17 sites | **13 tables on 1 site; 319 `<ul>` fleet-wide** |
+| audited | claims gate blind inside `<svg>` | per-component (chart resolves; table does not) | **writer free text, no component-level guard at all** |
+
+> **⚠ THE FINDING THAT MATTERS MOST: route C's artefact is NOT durable, and it does not need to be —
+> because the RULE is, and the rule re-derives the artefact.** A figure spliced into `article-body`
+> dies at the next wholesale rewrite; that premise underwrites `inline_guide_imagery`'s entire
+> durability programme and `features_open/035`'s composition work. **A table produced by a
+> `content_direction` rule survives the rewrite by being written again**, because the instruction is
+> still in the spec the rewrite reads. Durability by regeneration rather than by preservation.
+
+### ⚠ Necessary and NOT sufficient — held at n=2
+
+`[MEASURED 2026-09-04]` of 40 sites with a `content_direction`, **2** instruct tables:
+
+| site | instructs | bodies | with table |
+|---|---|---|---|
+| gamesdesign.co.uk | yes | 13 | **13** |
+| vetcomparison.uk | yes | 8 | **1** |
+
+**I will not explain that gap on a sample of two.** Hypothesis, offered as one: gamesdesign's trigger
+(probability, sequential calculation) is *what every article on that site is about*, while
+vetcomparison's is narrow (*"comparative obligations… deadlines by group size"*) and carries an
+explicit brake (*"do not use tables for information that reads naturally as prose"*). So the
+discriminator may be **how often the site's subject matter meets the trigger**, not the wording.
+
+**The disconfirming observation is unmade and I am naming it rather than assuming past it:** I cannot
+distinguish *"the instruction failed on 7 articles"* from *"the trigger correctly did not fire on 7
+articles"*. That needs someone to read vetcomparison's seven tableless bodies and judge whether any
+should have carried a table. **Not done.**
+
+### Two corrections to my own work in this section
+
+1. **"8 of 40 sites have `list_usage`" is a KEY-SHAPE count and it undercounts.** vetcomparison
+   expresses the same guidance as prose with no such key. So 8 is *sites-with-that-key*, not
+   *sites-with-that-guidance*, and the capability count is higher and `[UNMEASURED]`. Exactly the
+   documented trap where a key-shaped predicate makes an absence and a blind spot identical.
+2. **My route-B census cannot see route C at all.** It counts `page_components` rows; route C
+   produces none, being markup inside a `content` blob. **So this lane's own census was blind to
+   route C in precisely the way the route-A censuses were blind to route B** — two levels of the same
+   error, mine included. I escaped it only because a peer handed me a number from a different table.
+   ⚠ **The landmine filed this morning ("two answers") therefore understates the problem: there are
+   three, and no single table holds them.**
+
+### What this changes
+
+- The dartsonline proposal (`ASSESSMENT` §6) now has a **route C alternative**: instead of mounting a
+  `comparison-table` component, add a structural rule to that site's `content_direction` and let the
+  next rewrite produce the table itself. Cheaper, self-regenerating, and it needs no sibling section —
+  **but unaudited, and invisible to every component-level check.** Not yet offered to
+  `dartsonline_traffic`; the mounted-component proposal stands as filed.
+- **Route C is the cheapest lever in the estate for the owner's original ask** and it is a spec edit,
+  not a build. `[UNMEASURED]` whether it generalises past one site — that is the next thing to test
+  and it is testable on one site for the cost of one spec field.
+- Asked `news_editorial_features` one question: whether **webdesign.co.uk** (48 of 48 bodies with a
+  `<ul>`, **zero** tables, and the estate's shop window) carries any structural rule at all. A
+  deliberate house style and a spec that never got one want opposite responses.
