@@ -23551,6 +23551,14 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   banner fails in both directions**: the grepper never reads it, and the cold reader reads only it.
   Neither is a substitute for correcting the line where the stale claim actually sits — which is why
   the check above says strike it IN PLACE rather than "add a note at the top".
+- **⚠ USE BOTH — and this is measured on the worked case, not reasoned.** The line above can be
+  misread as "a banner is useless"; it is not, it is insufficient alone, and so is a strike-through
+  alone. The `bugs_open/462` fix that prompted this entry (`d8122a71d`) used **a state box at the top
+  naming the current section AND strike-throughs at §7a and §8e where the stale claims sat**. Drop
+  the strike-throughs and anyone landing on §8e **from a search** still reads *"routing is the
+  blocker"* as current — a search lands you in the body, never at the banner. Drop the banner and the
+  cold reader who starts at the top has no map of which sections are history. **The two failure modes
+  have disjoint readers, so the mitigations do not substitute for each other.**
 - **relations:** MEMORY [[a-stale-status-line-prevents-the-thing-it-describes]] (a detector sat off
   for 9 days after its blocker cleared — the same shape with a bigger bill) ·
   [[a-handoff-outlives-the-work-it-asked-for]] · [[a-closed-blocker-keeps-being-obeyed]] ·
