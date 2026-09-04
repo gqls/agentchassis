@@ -172,6 +172,15 @@ making the helper ignore the active flag.
   this submission landed 47 seconds later. **RESUBMIT once credits are restored** and record the
   new correlation here; `098` can never credit the current one. Do NOT rewrite the submission to
   make it smaller — it passed admission and all 17 seats dispatched.
+- **RESUBMITTED 2026-09-04 16:07Z, unchanged: `Council-Submitted: 2ef3a34b-284b-46ce-82f4-160fbfb73f54`**
+  (run correlation `4cb20d04`, orch `39eb7518`). Held until after the v1.0.1361 roll rather than
+  fired on credit restoration alone, because **a roll kills an in-flight council** — dispatching
+  into the roll window would have lost a second run to something outside the submission again.
+- **LIVE, and proven rather than inferred.** Both `agent-chassis` pods (started 16:01:26Z /
+  16:01:53Z) state `build provenance git_commit 06c0b18f233bc600918ef481d32b40f29535f78f`, and
+  `git merge-base --is-ancestor 2fae8baa4 06c0b18f2` is true. **Verified by ancestry, NOT by
+  probing for a literal:** this change adds no reachable string, and unreachable code is dropped
+  by the linker, so a binary probe would read ABSENT with perfectly clean controls.
 - `verify-head-builds.sh --with` (4 files) → `OK — HEAD b9cdfd5d1 builds`.
 - ⚠ Two package tests fail at HEAD **before this change** and are the 440 lane's, not this one's:
   `TestFindingCodeScanEveryWriteIsRegistered` and `TestTemplateExecutorsAreDeclared`, both about
