@@ -197,7 +197,12 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    dispatch: pods older than 300 s (`kubectl get pods -l app=agent-chassis`), and read the site's
    `page_rerender` queue (the 20:17Z fan-out) for an item the roll interrupted. Nothing of this lane's
    rides the roll.
-0d. **HOMEPAGE CARD CANARY — the next session's FIRST item, on the owner's nod** (critique in
+0d. **HOMEPAGE CARD CANARY — OWNER SAID GO (23:45 BST: "case studies can be swipeable. For any number
+   greater than 3") — fire AFTER the announced chassis roll settles (pods ≥300 s).** The served slot
+   renders FIVE cards (5 images, 5 links to /case-studies.html; content_data card1–card5), not the
+   critic's four. His RULE (>3 cards → swipeable) also names `features` (6, "solid") and
+   `departments-grid` (5): canary first, then ask him before touching those two. Infographics are
+   FLEET-WIDE by his decision (prompts lane CONTRIB); no hand rows on this page. Original plan text: (critique in
    `DESIGN_CRITIQUE_2026-09-03_finetuning_uk.md`; mechanism in NOTES 22:05Z). Slot `case-studies-grid`
    (four cards → 3+1 orphan) → `swipeable-insight-carousel` (agent-rendered; contract `cards,
    section_title, section_eyebrow`). Steps: snapshot the slot's `content_data` + rendered_html; write a
