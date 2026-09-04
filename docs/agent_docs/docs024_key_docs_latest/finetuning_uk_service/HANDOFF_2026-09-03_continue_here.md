@@ -212,6 +212,13 @@ RUNBOOK. ⚠ The owner's own `tail` of `/opt/island/.env` echoed `GRIPPER_SMTP_P
    six case studies (content decision), no swap. Do NOT touch `features` (solid) or `differentiators`
    (the site's strongest device; the uplift lane's infographic sits with it). Site-wide monotony and the
    hero image reused on five pages are composition/imagery questions, not this lane's card swap.
+0f. **Infographics on the homepage are BLOCKED on a structural fact, not on the prompt (12:40Z 09-04):**
+   `site_plan_imagery` hangs off `site_plans`, and finetuning.uk has 0 plan rows (plan-less build) — the
+   site cannot hold section imagery at all. Fleet-wide: 21 sites could (plan + facts), 0 of them planned
+   imagery since 718; the 7 that did could not — the mechanism is UNTESTED, not broken; no prompt edit is
+   indicated. The experiment moves to a capable site (uplift/prompts lanes). **Owner question, when the
+   time comes:** a site plan for finetuning.uk (what it would regenerate, what it would protect).
+   Tonight's chain of confident wrong causes is in NOTES 11:50Z–12:40Z and WRONG_CALLS 09-04.
 0e. **Imagery (uplift lane's half, owner's yes needed):** 35 of 38 heroes are `hero.jpg`; IMG-077 items
    `6db67bde` (4 pages `unwired`: use-cases, case-studies, approach, contact — **do NOT hand-wire**: the
    mechanism `wirePageHeroOnLanding` is BUILT and in v1.0.1359 behind opt-in `wire_hero_on_landing`,

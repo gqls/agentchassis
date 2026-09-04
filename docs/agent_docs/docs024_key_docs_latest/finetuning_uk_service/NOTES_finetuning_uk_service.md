@@ -3765,3 +3765,20 @@ lane owns:** finetuning.uk has NO `site_plans` rows (built plan-less; 09-02 hand
 plans imagery is a planner run this site has never had, and the copy on the homepage is owner-approved
 — the experiment needs the narrowest dispatch that plans imagery for one page without regenerating
 words, identified BEFORE it runs, and the owner's word. Not before the card canary lands.
+
+**12:40Z — the infographic question SETTLES as "untested, not broken", and this site cannot hold the
+experiment.** Uplift lane `[MEASURED 2026-09-04]`: `site_plan_imagery` is written by
+`write_site_plan_action.go:710` inside the site-plan write, keyed to a `site_plans` row (whether that step
+dispatches alone is UNCHECKED). finetuning.uk has **0** `site_plans` rows (control apis.uk 1) — so this
+site **cannot hold section imagery at all**, and "one build to watch" would mean creating a site plan for
+a plan-less site with owner-approved copy on the page. An infographic needs a current plan AND ≥1
+registered fact: 35 sites have a plan, 25 have facts, **21 have both; of those 21, ZERO planned imagery
+since 718; of the 7 that did, ZERO were capable — disjoint sets.** So A is untested, B describes the
+whole sample, 718 has never been exercised where it could answer, no prompt edit is indicated by any of
+tonight's evidence, and the owner's fleet-wide decision has no evidence either way beyond "1 infographic
+in all history". The experiment moves to one of the 21 capable sites (theirs to name; a query, not a
+dispatch), or waits for one to plan naturally. **For this lane:** the two homepage graphics (features
+concept diagram; £99 vs ~$5,000 beside the orange-border device) are blocked on finetuning.uk HAVING a
+site plan — a structural consequence of the plan-less build (09-02 handoff), to be put to the owner as
+its own question (a site plan for an existing site whose copy he approves = a design/build decision,
+not a tweak), not tonight.
