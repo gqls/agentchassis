@@ -6038,3 +6038,20 @@ agent `vet-practice-verifier`, orchestrator `vet-pipeline-orchestrator` **disabl
   `content_features` opt-in; **and the two plan pages re-typed** to `query.copywriter_directory`
   (a replan). Lower cost; three worked precedents.
 Nothing fired unattended. The lead route stays held with the directory until one is built.
+
+### (kkk) 2026-09-04 13:23Z (DB) — the build is running clean; ledger-rule correction
+
+**copyonline `[MEASURED]`:** `needs_page` 15 complete / 16 triaged / 1 claimed · `needs_imagery` 2/20 ·
+`needs_content_page` 15 complete · **24 of 44 pages carry components and are deployed** · **zero**
+failures in 30 min · anthropic 50 ok / 0 credit errors in 20 min. Brief at rev 6 (12:14:13Z, 5 rows).
+Directory task remains disabled pending the owner's route choice (NOTES (jjj)).
+
+**Ledger rule corrected before it did harm.** My commit `f2be9beda` showed 42 added / **6 removed** on
+WRONG_CALLS. Applying my own hour-old rule ("deletions must be 0 → restore"), I began preparing a
+restore — and the six lines turned out to be the `bugs_open/463` lane's OWN superseded paragraph,
+replaced in the shared file by a longer, more accurate one that my commit carried forward as additions.
+**Restoring would have resurrected an accounting its author had corrected, inside the corrections
+ledger.** The rule now reads: a non-zero deletion count means STOP AND CLASSIFY — loss (absent from the
+new version → restore) versus the author's own in-place revision (superseded by adjacent added text →
+leave it), proven by grepping the replacement phrase in the additions and the old phrase at HEAD. Both
+checks run here. Full entry in WRONG_CALLS 2026-09-04.

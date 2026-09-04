@@ -13,8 +13,10 @@ plan follows the brief: `index` (AI-first hero), `ai-commercial-copy`, `writing-
 `editing-ai-copy`, the four brief tools (`tool-headline-scorer`, `tool-readability-checker`,
 `tool-cta-tester`, `tool-length-counter`), glossary, ASA/CAP guide, copy-length tables, checklists,
 house-view, Copy Clinic (index + 3), every how-to guide, `choose-and-brief-a-copywriter`, `about`,
-`contact`, and the two surviving library tools kept. In flight: `needs_page:triaged ×30`,
-`needs_imagery:triaged ×20` — the pipeline's normal work; do not prod.
+`contact`, and the two surviving library tools kept. **Building steadily as of 13:23Z:** `needs_page` 15 complete / 16 triaged / 1 claimed,
+`needs_imagery` 2 complete / 20 triaged, `needs_content_page` 15 complete; **24 of 44 pages now carry
+components and are deployed**; zero failures in the preceding 30 minutes and the API clean (50 calls,
+0 credit errors). The pipeline's normal work — do not prod.
 
 **Migration 764 is FULLY PROVEN**: classifier half 21:25Z 09-03 (NOTES (ccc)); planner half at the
 11:09:25Z `plan_site` render — its `## Mission` block carries the brief object (`"audience": {"primary"…`).
