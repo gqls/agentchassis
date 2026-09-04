@@ -414,3 +414,85 @@ would "fix".
 **identical $149** by this model, because both inherit the same subcategory
 median. If the severance of appraisal from pricing is ever questioned, that one
 pair answers it without argument.
+
+## 2026-09-04 — the appraisal window disarms the premium guards; a queue nine hours out of date
+
+**Window claimed and announced** in the dynadot lane's channel first, per the
+runbook; they confirmed zero Dynappraisal calls today and stayed off the
+endpoint for the duration. Their offer to burn the 12 untested-TLD probes was
+declined so that one writer owns the resume file.
+
+**MISSTEP, mine, first thing: I started the walker TWICE against one output
+file.** A shell retry re-ran my launch line and two copies of
+`dynadot-appraise-all.sh` ran concurrently for a few seconds. The walker resumes
+by `grep -q "^$domain," <out>` immediately before each API call, so two writers
+race inside that window: both miss, both call, both append. No duplicate rows
+survived (checked: `cut -d, -f1 … | sort | uniq -d` is empty) so the cost was a
+handful of double-spent calls, not corrupt data — but on a 300/day quota shared
+by three lanes that is the kind of loss whose only symptom is an early 429 that
+reads as somebody else's collision. Then, clearing it up, `pkill -f
+dynadot-appraise-all.sh` matched **my own command line** and killed the shell
+running it (exit 144). Both are now closed off: `run_appraisal_window.sh` takes
+an exclusive `flock` and refuses a second window, and process checks here use a
+self-match-proof pattern (`pgrep -af "dynadot-apprais[e]-all"`).
+
+**⚠ THE QUEUES WERE NINE HOURS OLDER THAN THE RULINGS THEY WERE BUILT UNDER.**
+Before spending anything I checked the queue the handoff sends you to first, and
+it was wrong in three ways at once:
+- it led with **95 financial rows**, and the owner ruled financial a
+  whole-category network KEEP at ~19:00 on 09-03 — the queue was built at 10:06.
+  Financial is never sold, so a third of today's window would have bought
+  nothing that can affect a price.
+- it contained **all 23 owner-withdrawn domains** (the Appleby names, the
+  wyke/pastured-egg group, `wpx.uk`, `rolex-submariners.com`).
+- it predated the estate growing by 78, so the new names were absent.
+The handoff has said "rebuild the queues after each window" since 09-03 and
+there was **no script to do it**, so it meant rebuilding by hand, so it did not
+happen. Now `build_appraisal_queues.py` — deterministic, reads `sale_status`
+straight off the valuation rather than re-implementing the premium/keep rules.
+**Third time this lane has been bitten by a rule that lives only in prose**
+(quote-as-a-pair, the owner figures, and now this).
+
+**Ordering changed on measured leverage, not on category rank.** `value_domains.py`
+anchors a domain on its sub-category median once that block has ≥3 appraisals,
+and falls back to the category median (low confidence) or the portfolio median
+(very low) below that. So the first three calls in a block re-anchor every
+domain in it and the fourth changes almost nothing. `[MEASURED 2026-09-04]`
+**182 calls bring all 107 under-covered sellable blocks to that threshold, and
+they re-anchor 694 domains.** The bulk queue is now ordered by that deficit,
+biggest block first.
+
+**⚠⚠ THE CENTRAL FINDING OF THE DAY: running the premium queue — the thing the
+handoff tells you to do FIRST — DISARMS the premium guards.** The two biggest
+holds were written as `is_single_word(d) and not r['dynappraisal']` and
+`sld_length <= 3 and not r['dynappraisal']`. The premium queues exist to
+appraise exactly those names, so covering them strips the hold and drops them
+into the algorithmic tail. `[MEASURED]` **150 of the 180 premium holds carried
+that conditional**, and **61 had already flipped part-way through the first
+window** — including `healthcare.uk`, the £40,000 name that is §4's whole case.
+
+It was **already happening before today, silently, on four names**, which is the
+part that could have come out otherwise and did not: 145 single dictionary words
+in the estate, 137 held, and `dyspeptic.com`, `impedes.com`, `spermatozoa.com`
+and `effectiveness.uk` sitting in the sellable tail with keen prices **because
+they had an appraisal**. `effectiveness.uk` is the clean specimen — a one-word
+.uk appraised at $3,576, priced to move at **$350**.
+
+The premise behind the conditional (an appraisal makes a premium name safe to
+price) is refuted by this same window's data. WITH a direct appraisal:
+`healthcare.uk` $18,193 × 0.21 = $3,820 → keen ≈ **$1,925** against **£40,000
+paid**; `free.uk` $67,926 × 0.21 = $14,264 → keen ≈ **$8,600** against the
+**~£160,000** its sibling `free.co.uk` realised. Both land near **4%** of a
+known real figure. An appraisal moves this class from unpriceable to
+*confidently* wrong. **Both guards are now unconditional**, matching the
+4-letter-.com rule, which the owner's own ruling had already made unconditional
+for exactly this reason.
+
+**A correction to §4 of the handoff, in the lane's favour.** §4 says "the model
+systematically under-values the estate's best names". Today's evidence narrows
+that: it is the **category-median FALLBACK** that cannot see a premium name, not
+the appraiser. Asked directly, Dynappraisal put `healthcare.uk` at **$18,193**
+against the $149 the median gave it — within ~2.8× of the £40,000 paid rather
+than ~340× out. That is an argument for coverage, not against the appraiser, and
+it does not soften the refusal to auto-price: 2.8× low is still far too low to
+put in a price field, and the ×0.21 TLD step then takes it to 4%.

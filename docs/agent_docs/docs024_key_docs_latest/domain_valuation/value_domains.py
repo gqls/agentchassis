@@ -210,7 +210,22 @@ def main():
         elif d in OWNER_FIGURES:
             f = OWNER_FIGURES[d]
             keen_out, sell = '', 'OWNER-FIGURE:' + f['kind']
-        elif is_single_word(d) and not r['dynappraisal']:
+        elif is_single_word(d):
+            # ⚠ NOT conditional on lacking an appraisal -- that condition was
+            # here until 2026-09-04 and it made the guard DISARM ITSELF.
+            # The premium queues exist to appraise exactly these names, so the
+            # act of covering them stripped the hold and dropped them into the
+            # algorithmic tail: measured that day, 61 of the 150 conditional
+            # holds had already flipped part-way through one window.
+            # The premise (an appraisal makes a premium name safe to price)
+            # is refuted by the same window's data. WITH a direct appraisal:
+            #   healthcare.uk  $18,193 x 0.21 (.uk) = $3,820 -> keen ~$1,925,
+            #                  against the £40,000 (~$50,800) the owner PAID;
+            #   free.uk        $67,926 x 0.21       = $14,264 -> keen ~$8,600,
+            #                  against ~£160,000 (~$203,000) realised by its
+            #                  sibling free.co.uk.
+            # Both land near 4% of a known real figure, so an appraisal moves
+            # this class from unpriceable to confidently wrong. Held either way.
             keen_out, sell = '', 'PREMIUM-REVIEW:single-word'
         elif (r['tld'] == 'com' and int(r['sld_length']) == 4
               and d.split('.')[0].isalpha()
@@ -222,11 +237,13 @@ def main():
             # too low. Held out whether or not an appraisal exists, because the
             # appraiser is measurably low on this class too.
             keen_out, sell = '', 'PREMIUM-REVIEW:4-letter-com'
-        elif int(r['sld_length']) <= 3 and not r['dynappraisal']:
+        elif int(r['sld_length']) <= 3:
             # Short names are a SCARCITY class the model cannot see: it was
             # pricing 2w.uk / 4l.uk / 5s.uk at the $200 floor, against realised
             # .uk sales of tp.uk £5,200, fpp.uk £3,500, va.uk £3,300, egg.uk
-            # £2,000 (COMPARABLES §1.3c). Held out like the dictionary words.
+            # £2,000 (COMPARABLES §1.3c). Held out like the dictionary words --
+            # and, since 2026-09-04, held whether or not an appraisal exists,
+            # for the reason given on the single-word branch above.
             keen_out, sell = '', 'PREMIUM-REVIEW:short-name'
         elif r['category'] in NETWORK_KEEP:
             keen_out, sell = '', 'KEEP:network-' + r['category']

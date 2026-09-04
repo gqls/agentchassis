@@ -163,3 +163,62 @@ anything you bought at auction. **This is the one thing I need from you before
 any tail price goes anywhere** — even a partial answer would bound it: which
 ones you paid real money for, or just "anything from an auction", or a rough
 year. Nothing will be priced until that comes back.
+
+---
+
+**2026-09-04 — the safety net had a hole in it, and running today's job was
+what would have torn it open.**
+
+Today's job was the appraisal window: 300 valuations a day is all the account
+allows, and we're 19% of the way through the estate. The handoff said do the
+premium names first — the single dictionary words, the very short ones, the
+four-letter .coms. Those are your best names and the ones the tool has been
+worst at.
+
+Before spending anything I checked the list of what to appraise, and it was out
+of date in a way that mattered. It was built at ten in the morning on the 3rd.
+You ruled at around seven that evening that all the financial domains are kept
+together as an advertising network. The list still had 95 financial names at the
+top — so a third of today's allowance would have gone on valuing things that are
+never going to be sold. It also still contained all 23 of the domains you've
+withdrawn, including the family names. I rebuilt it, and I wrote a script to
+rebuild it, because "remember to rebuild the list" had been written down since
+yesterday and hadn't happened — there was nothing to run.
+
+**Then the real problem.** We have four guards that hold your best names out of
+the automatic pricing — a name is held back if it's a single dictionary word, if
+it's three characters or shorter, if it's a four-letter .com, or if you've ever
+given me a real figure for it. Two of those guards were written as "hold this
+name back *if we don't have an appraisal for it*."
+
+Today's job was to go and get appraisals for exactly those names. So the act of
+doing the work would have quietly switched the guards off. Not all at once, and
+nothing would have looked wrong: the names would simply have stopped being
+flagged and started carrying automatic prices. By the time I caught it, 61 of
+them had already flipped — `healthcare.uk` among them, the £40,000 name that is
+the entire reason the guards exist.
+
+It was already happening, before today, on four names. `effectiveness.uk` is the
+clearest: an ordinary English word, appraised at $3,576, sitting in the sell
+list at **$350**. Nobody would have spotted that by reading the list.
+
+**The fix is that the guards no longer care whether we have an appraisal.** And
+today's numbers say that's right, because having one doesn't help. Asked
+directly, the tool values `healthcare.uk` at $18,193 — against the £40,000 you
+paid, so about $2,000 once it's discounted for being a .uk and priced to move.
+`free.uk` it puts at $67,926, which becomes about $8,600 — against the roughly
+£160,000 its sibling `free.co.uk` sold for. Both land at about **4%** of a real
+number we actually know. An appraisal doesn't make these names safe to price; it
+makes them *confidently* wrong, which is worse.
+
+**One thing in the tool's favour, though.** I've been saying the appraiser can't
+see your best names. Today refines that: it's the *fallback* that can't. When a
+name has no appraisal of its own, the model borrows the middle of its category,
+and that's where `healthcare.uk` got its $149 — the same figure it gave
+`healthcarecareers.uk`. Asked about `healthcare.uk` directly, it says $18,193.
+Still too low to use, but that's 2.8 times under rather than 340. So getting
+through the remaining 81% of the estate is worth more than I thought.
+
+**Nothing here changes the rule that appraisals don't set prices.** They're an
+input to a conversation with you. What changed today is that the names that most
+need that conversation will still be flagged for it tomorrow.
