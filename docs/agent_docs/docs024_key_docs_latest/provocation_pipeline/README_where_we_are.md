@@ -1417,3 +1417,36 @@ single one-line change to the database and I can run it as soon as I am allowed 
 
 What is left is a watch, not a task: Thursday is the first day the site turns over with
 nobody watching. I will check the page actually changes.
+
+## 2026-09-04 — it published on its own, twice, and I checked it properly
+
+The thing we were waiting to see has happened. On Thursday and again on Friday the site put
+up a new piece with nobody watching. I checked it the way I said I would — by looking at
+which piece is actually on the page, not at a timestamp, because the timestamp was the
+thing that misled me on Tuesday.
+
+Friday's page is showing "Umbrellas are not worth carrying". Thursday's, "A messy desk means
+you are getting things done", has moved into the archive exactly as it should — it is in one
+place or the other, never both, and nothing had to remember to move it.
+
+**One thing you should know, because it changes what "reviewed" means here.** You read eight
+pieces on Tuesday and approved them. The machine wrote six more on Wednesday. It will keep
+doing that: it tops the shelf back up to about two weeks whenever it runs low, so the pile
+of writing nobody has read rebuilds itself on its own. Your review was of a set, and the set
+does not stay the same.
+
+The six new ones are further out — the first of them appears on **13 September** — so there
+is no rush, but it is worth deciding how you want to handle this rather than me putting a
+new batch in front of you every few days. Options as I see them: you read them in batches
+when you feel like it and I pull anything you dislike; or we only ask you when the machine
+writes something the automatic checks find borderline; or we accept that it publishes
+unread and you retire anything you object to after the fact. I would suggest the first for
+now, since the buffer gives you a day and the runway gives you nine.
+
+**On the fleet update that ran this afternoon.** Another session rebuilt and restarted
+everything. I checked the one thing that could have hurt us: whether the rebuild was taken
+from a point before our change, which would have quietly put the old permission rule back.
+It was not — our change is included. That check mattered more than it sounds, because the
+permission rule looks for an approval mark in the database, and I still have not been able
+to write those marks. Old rule plus missing marks would have stopped the site rotating with
+no error message anywhere. It is fine, but it was worth looking rather than assuming.

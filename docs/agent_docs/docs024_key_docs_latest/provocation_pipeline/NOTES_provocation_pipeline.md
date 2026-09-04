@@ -2777,3 +2777,79 @@ handoff:** `grep -rn 'human_approved' --include=*.go platform/ internal/ pkg/ cm
 **zero** in any `_test.go`. So the missing stamp cannot delay or block a publish — its only
 cost is that the honest "has anyone read this" column under-reports, which is a
 documentation failure, not a pipeline one.
+
+### 2026-09-04 — THE UNATTENDED TURNOVER IS PROVEN, at the artefact, twice
+
+`[MEASURED 2026-09-04 15:47Z]` The watch owed by the 09-02 entries is discharged. **Read the
+SLUG, never the timestamp** — that was the whole point of the previous entry, and the slug
+is what settles it:
+
+```
+today.date     : 4 Sep
+today.slug     : umbrellas-are-not-worth-carrying          <- the 2026-09-04 row
+archive newest : 3 Sep | a-messy-desk-means-you-are-getting-things-done   <- the 09-03 row
+generated_at   : 2026-09-04T05:31:52Z                      <- MOVED, because content moved
+archive count  : 22
+```
+
+Two unattended publications (09-03, 09-04), no human in either loop. This also confirms
+`selectForDate`'s archive rule empirically rather than by reading it: **09-03 is in the
+archive and 09-04 is today, and neither is in both** — an entry is archived exactly when a
+later one takes over, with nothing having to remember to move it.
+
+**And `generated_at` moved**, which retires the last of the 09-02 confusion: it was frozen
+at 22 Aug because the content was frozen, exactly as `checkAgainstServed` intends. It is a
+*content-changed* stamp, not a *job-ran* stamp. Both readings are now observed.
+
+Schedules survived two days unattended: feed-refresh last completed `09-04 11:35:10`,
+shelf-refill fired `09-04 04:40`, date-assign `09-03 16:37` (24h interval, next due ~16:37
+today — **not** overdue at the time of measurement).
+
+### ⚠ The generator kept writing, and the owner's review does not cover it
+
+`[MEASURED 2026-09-04]` **Six more rows were written on 2026-09-03**, after the owner read
+and approved the eight of 09-02:
+
+```
+09-13 A gift card is not a gift            09-14 The snooze button makes mornings worse
+09-15 Free samples make you buy things…    09-16 Doodling means you are paying attention
+(undated) New Year's resolutions do more harm than good
+(undated) Group chats make you lonelier, not closer
+```
+
+Runway is now **13 days dated (09-04 → 09-16) plus 2 undated**, from 8 dated on 09-02.
+
+**This is the recurring shape of this lane and it should be named as such: a one-off human
+review does not stay done.** The owner's 09-02 approval covered a *set*, and the demand-
+driven refill regenerates that set to 14 days of inventory whenever it drops — so an
+unreviewed backlog rebuilds itself continuously, by design, and the "nobody has read the
+prose" gap **re-opens on its own** every time the shelf is topped up. The first row served
+that the owner has not seen is now **2026-09-13**.
+
+⚠ **The 09-02 stamp is STILL unwritten** (blocked, see previous entry), so `human_approved_at`
+now under-reports **fourteen** rows, of which the owner has read eight. **The column cannot
+currently distinguish "read" from "unread" in either direction** — do not use it to decide
+what to show the owner until the owed `UPDATE` runs; use the 09-02/09-03 `created_at` split
+recorded here.
+
+### The 2026-09-04 fleet roll — checked, and this lane needed no hold
+
+A peer session rolled `v1.0.1361` from cut `06c0b18f2` while this was being written. The
+one question that mattered for this lane was whether the roll would **revert** the
+provocation change and silently re-arm the permission predicate:
+
+```
+git merge-base --is-ancestor 326370d6c 06c0b18f2   -> ancestor: the fix RIDES the roll
+```
+
+Worth stating why that check was not optional. Had the cut predated `326370d6c`, the
+restored binary would require `human_approved_at IS NOT NULL` — and **every one of the 14
+queued rows has that column NULL**, because the stamping write is still blocked. The site
+would have stopped rotating with no error anywhere: an empty result from a predicate, not a
+failure. **A rollback plus an unwritten record is a compound failure that neither half
+predicts on its own.**
+
+In-flight risk from the restart is self-healing here and needed no action: the feed
+publishes 6-hourly, the refill is demand-driven and `ON CONFLICT DO NOTHING` on
+`(domain, slug)`, dating is daily — a killed run costs one interval, and 09-04's content
+was already published at 05:31Z before the roll began.
