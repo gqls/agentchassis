@@ -130,6 +130,14 @@ SELECT spp.name, spp.role, spp.url, spp.parent_section
   literal. The corpus had the answer; the file every session loads unasked did not, and the
   SessionStart hook only surfaces landmines for files already dirty in the tree. Raised with the
   owner as a proposed CLAUDE.md edit; not made unilaterally.
+  > **CORRECTED 2026-09-04 — DONE, the owner approved it and the edit is committed (`6a27fc59a`).**
+  > `CLAUDE.md` now leads with the `service_binary_capabilities` query (verified against the live
+  > table before it was written in), says to filter by `pod_name` not `service`, carries the
+  > two-hour `RetentionWindow` caveat with the ReplicaSet list as the un-pruned corroboration,
+  > demotes the log line and the binary probe to fallbacks, and adds the 440 lane's inert-code
+  > rule (verify by ANCESTRY, never by literal). **So do not re-raise this, and do not read the
+  > paragraph above as describing the file you have loaded** — it describes the file as it stood
+  > before that commit.
 - Full prospective entry: `LANDMINES.md`, "Comparing pages by their FIRST PATH SEGMENT…".
 
 ## 6. Everything committed
