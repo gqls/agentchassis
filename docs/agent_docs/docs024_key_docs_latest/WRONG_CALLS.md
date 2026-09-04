@@ -66598,3 +66598,61 @@ what stopped it reaching me.
 - **Cost.** None — caught before the restore. Logged because a check that fires correctly and is then
   applied mechanically is more dangerous than no check: the first version of this rule had a
   false-positive mode whose remedy was to undo someone else's correction.
+
+## 2026-09-04 — I blamed the HTTP client for a fleet-wide credit outage, because that client hides the body that named it (`copy_quality_two_stage`)
+
+- **The claim.** Written into a fresh RUNBOOK as a `[MEASURED]` warning: *"For Anthropic, do NOT use
+  wget at all — six of six BusyBox `wget --post-file` calls returned 400 while xAI returned 200"*,
+  with an `[INFERRED]` mechanism (BusyBox adding its own `Content-Type` alongside the `--header` one).
+  I then built a Go poster, got 200 on every call, and read that as confirmation.
+- **What was true.** All six 400s fell inside **11:21–11:57Z**, when the Anthropic account ran out of
+  credit and every LLM call on the fleet 400'd — the council was dead in the same window and six
+  lanes' submissions died `complete_invalid` (`dispatch_throughput` has the incident). The Go
+  poster's first call went out at ~12:00Z, **three minutes after the outage ended**. The tool
+  difference and the outage window were perfectly confounded, and I had built the confound myself by
+  switching tools at the moment of failure.
+- **What caught it.** A peer lane's unrelated message mentioning the outage window. Nothing in my own
+  evidence would have — my "control" (the Go poster) was run after the window, so it could only ever
+  agree with me.
+- **The cheap check that would have.** Re-run the FAILING call with the ORIGINAL tool after the
+  suspected window — one command, and it is what refuted it. Generally: **when you change tools to
+  get past a failure and the new tool works, you have not identified a cause, you have changed two
+  things at once.** Re-test the old tool before writing the finding down.
+- **The second-order trap, worth more than the first.** BusyBox `wget` DISCARDS 4xx bodies, so the
+  outage's own error text — which says *credit* — was the one thing invisible; **the tool that hid
+  the evidence got blamed for the failure it hid.** A client that swallows error bodies does not just
+  cost you a diagnosis, it nominates itself as the suspect.
+- **Cost.** ~15 minutes and a wrong `[MEASURED]` warning in a RUNBOOK for ~70 minutes; struck in
+  place with the control that refuted it. Nothing reached a peer or a handoff.
+
+## 2026-09-04 — I wrote a landmine about a check that cannot fail, and populated it with a regex that could not match (`bugfix_384_page_list_invalidation`)
+
+- **The claim.** Added to `LANDMINES.md`, and quoted in `bugs_open/384`, the lane's NOTES, the
+  owner's `README_where_we_are`, the 09-04 handoff and two peer lanes: *"of 15 components whose
+  `html_template` renders `.image`, **8 guard it with `{{if .image}}`** and 7 do not. So the
+  population is **MIXED** — the `src=""` check is correct on 7 templates and silently blind on 8."*
+- **What was true.** `[RE-MEASURED 2026-09-04 13:2xZ]` of the **14** templates that bind an image
+  into an `<img src="{{…}}">`, **14 are guarded and ZERO are unguarded.** The population is not
+  mixed and the check can never fire for a missing listing image anywhere on this estate. My regex
+  `\{\{ ?if \.image ?\}\}` required `}}` to follow `.image` immediately and allowed at most one
+  space, so it missed `{{if .image_url}}`, `{{if $card.image}}` and `{{if $item.image_url}}` — and
+  inside a `{{range}}` the `$item`/`$card` form is the COMMON case for listing components, i.e. the
+  exact population the entry is about. The "15th" was a JS blob mentioning `data.imagesBy`, never
+  an image binding, so the denominator was wrong too.
+- **Why it mattered.** A wrong number in `LANDMINES.md` is the fleet's prospective ledger, read by
+  people with no symptom and no suspicion — and this one **understated** the trap, which is the
+  dangerous direction: "blind on 8 of 15" invites "so check whether MY template is one of the 7",
+  and the answer is that there are no 7. It had already reached two peer lanes.
+- **What caught it.** The `landmine-verifier` returning **NEEDS_HUMAN_REVIEW** — not a refutation,
+  a stated inability: *"NOT ANSWERABLE from this index (only .go files indexed, no template
+  content) … Template-level verification required."* **I treated "I cannot see this" as an
+  instruction to go and measure rather than as noise, and that is the only reason it was caught.**
+- **The cheap check that would have.** When a claim is about TEMPLATE TEXT, the guard is written
+  by humans in several dialects — **allow a variable in the pattern** (`[\$a-zA-Z_.]*\.image`,
+  not `\.image`) and **anchor the population on the binding you mean** (`<img[^>]*src="\{\{`), not
+  on a bare field mention. Then name the disconfirming result: if "unguarded" comes back 0, the
+  MIXED framing dies — which is what happened. ⚠ **And the general one, because this is the shape:
+  an entry warning that a check cannot fail is exactly the place to ask whether your OWN pattern
+  can fail.** Third instance in one session of *your measurement answers the question you encoded*.
+- **Cost.** ~25 minutes; corrected in place in `LANDMINES.md` (title + the bullet, 6 lines, all
+  mine), appended in the four lane docs, and re-sent to both peers.

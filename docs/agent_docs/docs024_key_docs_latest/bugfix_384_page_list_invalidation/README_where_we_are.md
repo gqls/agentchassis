@@ -559,3 +559,32 @@ pictures, and require them to match — where the next person will hit it.
 **Where that leaves things.** The mechanism is working. The generic side of the estate is at 701
 carded entries with 1 blank, and that 1 is a timing miss that should heal itself. The customer-owned
 pages I told you about yesterday are unchanged and still belong to the other piece of work.
+
+---
+
+**2026-09-04, later.** A correction to something I told you an hour ago, and it goes the wrong way.
+
+I said that when a picture is missing, roughly **half** our page designs leave the image out
+entirely rather than leaving an empty one — so about half could fail my usual test silently. I went
+back and counted properly, because an automated checker flagged that it could not verify my figure
+(it only reads our Go code, and these designs live in the database).
+
+It is not half. It is **all of them** — every one of the fourteen designs that puts a picture in a
+list hides the image cleanly when there is none. So the test I had been using could never have
+caught a missing picture on any page, ever. My original count came from a search pattern that was
+too narrow and missed several spellings of the same thing.
+
+Worth saying plainly, because it is the uncomfortable part: **I wrote a warning about a check that
+cannot fail, and the number inside the warning came from a search that could not match.** The same
+mistake, one level up, in the same sitting.
+
+I have corrected it everywhere it went — our own notes, the fleet-wide warnings file, and the two
+other teams I had quoted it to.
+
+**One thing I looked into and deliberately left alone.** The checker that flagged me also pointed
+at our own automated page checker, which uses exactly the test I had just called blind. I read it
+before assuming it was broken: it says on its very first line that it looks for *empty* elements,
+and a cleanly hidden picture is not an empty element. So it is doing what it says it does. The gap
+is real — the more damaging failure has no automated cover — but it is a missing capability, not a
+fault, and filing it as a fault would have been wrong. I have written it down where the next person
+will see it instead.

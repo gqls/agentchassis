@@ -132,11 +132,21 @@ my 4 as the cost of the render gate.
    Already a landmine since 2026-07-30 and I did not grep for it: exit **1**, 81 perfect rows, the
    last one cut off with the error text spliced on. Bucketing it would have read "everything
    pre-regression, everything repaired". **Aggregate server-side** — recipe in the RUNBOOK.
-2. **⚠ `grep -c 'src=""'` CANNOT FAIL on half our templates** — a blank image behind `{{if .image}}`
-   renders **no element at all**. `[MEASURED 2026-09-04]` **8 of 15** components that render
-   `.image` guard it. This lane used *"N `<img src>` and zero `src=\"\"`"* as its 09-03 proof; the
-   second half was vacuous. **Count `<article>` blocks against `<img>` tags** and cross-check
-   against `jsonb_array_length(content_data->'articles')`. Now a landmine; recipe in the RUNBOOK.
+2. **⚠ `grep -c 'src=""'` CAN NEVER FIRE — on ANY template on this estate.** A blank image behind
+   `{{if .image}}` renders **no element at all**. `[RE-MEASURED 2026-09-04 13:2xZ]` of the **14**
+   templates binding an image into an `<img src>`, **14 are guarded; ZERO unguarded.** This lane
+   used *"N `<img src>` and zero `src=\"\"`"* as its 09-03 proof; the second half was vacuous.
+   **Count `<article>` blocks against `<img>` tags** and cross-check against
+   `jsonb_array_length(content_data->'articles')`. Landmine + recipe in the RUNBOOK.
+   > **⚠ CORRECTED 13:2xZ — I first published "8 of 15, so the population is MIXED".** Wrong twice:
+   > not mixed, and the trap is universal. My regex required `}}` immediately after `.image` and
+   > missed `{{if .image_url}}` / `{{if $card.image}}` / `{{if $item.image_url}}`; the "15th" was a
+   > JS blob, not an image binding. **A landmine about a check that cannot fail, populated by a
+   > pattern that could not match.** Bug file 13:2xZ update.
+   > **No automated cover, by design:** `cmd/component-render-check/rendercheck.go` is *"the
+   > OUTPUT-level empty-element check"* — a finding is an empty-element shape whose count
+   > INCREASES when a field is removed, and a guarded field's removal makes the element VANISH.
+   > Correct scoping, not a defect — **not filed**. Do not read it as cover.
 
 ## 7. Where the knowledge lives
 

@@ -1935,3 +1935,54 @@ target. Query in the RUNBOOK ("the standing watch").
 irrelevant) → 0 (true, brittle) → **5 slots of which 1 is latent** (true, and it names the rows).
 The first was refuted by asking whether the population was eligible; the second by a peer asking
 what makes eligibility hold. **Neither correction came from re-reading my own query.**
+
+## UPDATE 2026-09-04 13:2xZ — ⚠ MY OWN LANDMINE CARRIED A WRONG NUMBER, and correcting it makes the trap WORSE, not smaller
+
+The landmine-verifier came back **NEEDS_HUMAN_REVIEW** on the entry I added at 12:0xZ — correctly,
+and for a reason worth knowing: **its index holds only `.go` files**, and the claim was about
+`content_components.html_template`, which lives in the database. *"Template-level verification
+required."* Not a refutation — a stated inability, which is the right verdict and the useful one.
+(It also notes its index is commit `de1b9a58` of 2026-09-03 09:51Z, *"the last pushed tip, not the
+present tree"*.) So I re-measured the claim myself, and it was wrong.
+
+| | published 12:0xZ | **true, 13:2xZ** |
+|---|---|---|
+| templates that bind an image into `<img src>` | "15 render `.image`" | **14** |
+| of those, **guarded** (`{{if …image…}}`) | **8** | **14** |
+| **unguarded** (where `src=""` could fire) | 7 | **ZERO** |
+
+**So `src=""` cannot fire for a missing listing image anywhere on this estate.** My "the population
+is MIXED — right on 7 templates, blind on 8" was wrong twice over: it is not mixed, and there is no
+page on which that check could ever have worked.
+
+**Where the 8 came from:** my regex was `\{\{ ?if \.image ?\}\}`, which requires `}}` to follow
+`.image` immediately and at most one space. It missed `{{if .image_url}}`, `{{if $card.image}}` and
+`{{if $item.image_url}}` — all guards, whatever variable they test. The correct forms are
+`'\{\{-? *if +[\$a-zA-Z_.]*\.image'` for the guard and `'<img[^>]*src="\{\{[^"]*\.image'` for the
+population (a bare `.image` mention also catches a JS blob referencing `data.imagesBy`, which is
+not an image binding at all — that was the 15th).
+
+⚠ **The shape of this error is the entry's own subject, one level up: a landmine warning that a
+check cannot fail carried a figure produced by a pattern that could not match.** I wrote the
+warning and then made its mistake in the same breath.
+
+### And the follow-on the verifier's evidence handed me: there is no automated cover for this
+
+Chasing its `broken_img` citation: `cmd/component-render-check/rendercheck.go:393` is
+`<img[^>]*\ssrc=""` — the fleet's own detector uses the predicate I had just called blind. Reading
+it, this is **correct scoping, not a defect**, and the file says so in its first line: it is *"the
+OUTPUT-level **empty-element** check"*, and a finding is an empty-element shape whose count
+**INCREASES** when a field is removed (`rendercheck.go:856-864`). A guarded field's removal makes
+the element **vanish**, so no shape count rises and **no finding is emitted**.
+
+**So the class the corpus already calls the worse one — invisible rather than ugly
+(`LANDMINES.md`, the `finetuning.uk` five-card entry: *"worse, because it is invisible … since
+those fields sit behind `{{if}}` guards"*) — has no detector at all.** I have NOT filed that as a
+bug: the tool is doing what it says, and a fabricated defect against a correctly-scoped detector is
+worse than the gap. It is recorded in the landmine so nobody reads a clean
+`component-render-check` as cover. **If anyone picks it up, the shape to look for is a differential
+on element COUNT, not on empty-element shapes.**
+
+**Corrected everywhere it reached:** this file, `LANDMINES.md` (in place, visibly),
+`RUNBOOK`/`NOTES`/`README_where_we_are`, the 09-04 handoff, the memory sub-index, and both peer
+lanes I had quoted it to.

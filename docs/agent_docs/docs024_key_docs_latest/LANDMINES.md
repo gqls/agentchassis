@@ -23056,7 +23056,7 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   them" and was "none of them"
 - **added:** 2026-09-04, bugfix_417_logo_text_policy lane
 
-### A missing listing image renders **NO `<img>` at all** on 8 of 15 templates — so a `src=""` census scores the broken page CLEAN
+### A missing listing image renders **NO `<img>` at all** on **14 of 14** templates — so a `src=""` census can NEVER fire, and scores the broken page CLEAN
 - **footprint:** any served-page verification of a card/listing image repair; `grep -c 'src=""'`,
   `grep 'src=\"\"'`; `content_components.html_template`; `bugs_open/384`'s repair proofs;
   `page_components.content_data->'articles'`/`items` `image` fields
@@ -23069,17 +23069,34 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   Worked case 2026-09-04: leopardessconsulting.co.uk `/blog.html` served **14 `<article>` blocks,
   13 with an `<img>`, one with none at all** and **zero `src=""`** — the blank entry rendered no
   element whatsoever, because `blog-listing_pre_037` writes its image behind `{{if .image}}`
-- **why it is not just that one template:** `[MEASURED 2026-09-04]` of **15** components whose
-  `html_template` renders `.image`, **8 guard it with `{{if .image}}`** and 7 do not. So the
-  population is **MIXED** — the `src=""` check is correct on 7 templates and silently blind on 8,
-  and which one you got depends on the component the page happens to mount. A verifier that
-  passes on one page and is quoted for another is the failure this produces
+- **why it is EVERY template, not just that one** — ⚠ **CORRECTED 2026-09-04 13:2xZ, and the first
+  version of this line understated the trap.** It said *"of 15 components that render `.image`,
+  **8** guard it and 7 do not, so the population is MIXED"*. **It is not mixed.**
+  `[RE-MEASURED 2026-09-04 13:2xZ]` of the **14** templates that bind an image into an
+  `<img src="{{…}}">`, **14 guard it behind an `if` — ZERO are unguarded.** So `src=""` cannot fire
+  for a missing listing image **anywhere on this estate**: it is not "right on 7 templates and
+  blind on 8", it is blind everywhere, and there is no page on which it could ever have worked.
+  **My 8 came from a regex (`\{\{ ?if \.image ?\}\}`) that required `}}` to follow `.image`
+  immediately** and so missed `{{if .image_url}}`, `{{if $card.image}}` and `{{if $item.image_url}}`
+  — a guard is a guard whichever variable it tests. ⚠ **Note the shape: an entry warning that a
+  check cannot fail carried a number produced by a pattern that could not match. Same error, one
+  level up.** Count with `'\{\{-? *if +[\$a-zA-Z_.]*\.image'` and anchor the population on
+  `<img[^>]*src="\{\{[^"]*\.image'`, not on a bare `.image` mention (which also catches a JS
+  blob referencing `data.imagesBy`)
 - **the check:** count the **containers against the images** — `<article>`/card blocks vs `<img>`
   tags — and require them to be equal, or extract each card's `href` and assert an `<img>` inside
   that same block. Then cross-check the count against the stored array
   (`jsonb_array_length(content_data->'articles')`) so the served page and the row have to agree.
   `src=""` may stay as a second assertion; it must never be the only one. And when the numbers
   disagree, the missing one is identified by the block's `href`, not by position
+- **no automated cover for this, by design:** the fleet's only output-level check,
+  `cmd/component-render-check/rendercheck.go`, is *"the OUTPUT-level **empty-element** check"* in
+  its own first line — a finding is an empty-element shape (`broken_img` is literally
+  `<img[^>]*\ssrc=""`) whose count **INCREASES** when a field is removed. A guarded field's
+  removal makes the element **vanish**, so no shape count rises and **no finding is emitted**.
+  That is correct scoping, not a defect — but it means the failure mode the entry below calls the
+  *worse* one (invisible rather than ugly) has no detector at all. Do not read a clean
+  `component-render-check` as cover for it
 - **relations:** `LANDMINES.md` *"a content REGENERATION drops every non-llm key…"* (the entry at
   the `finetuning.uk` five-card case) states the same physics from the other side — a gated field
   fails more quietly than an ungated one — but fires when you REGENERATE, not when you VERIFY;

@@ -893,3 +893,38 @@ were swept into `d6077796a` (another lane's healthcare.uk correction) between my
 are in HEAD. **But neither is findable by its commit message**, so search these ledgers by content
 (`git log -S'<phrase>' -- <file>`), never by subject. Two instances in two days on the fleet's two
 append-only ledgers is a rate worth knowing when D10 is decided.
+
+## 2026-09-04 ~13:2xZ — the landmine verifier said NEEDS_HUMAN_REVIEW, I re-measured, and my own number was wrong
+
+**The verdict was right and its reason is the useful part.** `landmine-verifier` on my new entry:
+the `src=""` pattern and `page_components.content_data` are confirmed in indexed `.go`, but the
+central claim — 8 of 15 templates guard `.image` — is **NOT ANSWERABLE** from its index, because
+**it indexes only `.go` files** and templates live in `content_components.html_template`. It also
+prints that its index is commit `de1b9a58` (2026-09-03 09:51Z), *"the last pushed tip, not the
+present tree"*. **A verifier that says "I cannot see this" is doing its job**; I treated it as a
+prompt to check rather than as noise, which is the only reason the error was caught.
+
+**Re-measured: 14 of 14, not 8 of 15.** Every template that binds an image into an `<img src>`
+guards it. Zero unguarded. My regex `\{\{ ?if \.image ?\}\}` required `}}` immediately after
+`.image`, so it missed `{{if .image_url}}`, `{{if $card.image}}`, `{{if $item.image_url}}`. And the
+"15th" was `tool-legacy-rescue-noted-co-uk`, a JS blob mentioning `data.imagesBy` — not an image
+binding, so it never belonged in the denominator.
+
+**The correction makes the trap worse, not smaller:** `src=""` cannot fire for a missing listing
+image *anywhere*, so the "MIXED population, right on 7 and blind on 8" framing I leaned on was
+wrong in both halves. There is no page on which that check could ever have worked.
+
+⚠ **And the error is the entry's own subject one level up — I wrote a landmine about a check that
+cannot fail, and populated it with a pattern that could not match.** Third instance today of *your
+measurement answers the question you ENCODED*: the disposition attribution, the one-of-two-branches
+predicate, and now this.
+
+**Follow-on, and I deliberately did NOT file it as a bug.** The verifier's own evidence pointed at
+`cmd/component-render-check/rendercheck.go:393` — the fleet's detector uses `<img[^>]*\ssrc=""`.
+Reading the file: its first line calls it *"the OUTPUT-level **empty-element** check"*, and a
+finding is an empty-element shape whose count INCREASES when a field is removed. A guarded field's
+removal makes the element vanish, so nothing increases and nothing is reported. **That is correct
+scoping, stated up front — not a defect**, and filing against it would be a fabricated finding
+(`WRONG_CALLS` has a recent entry about exactly that failure). But it does mean the class the
+corpus calls *worse because invisible* has no automated cover, which is now in the landmine's
+`no automated cover` bullet. Anyone picking it up wants a differential on element COUNT.

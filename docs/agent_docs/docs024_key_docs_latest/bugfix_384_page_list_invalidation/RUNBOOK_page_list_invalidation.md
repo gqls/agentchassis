@@ -558,3 +558,34 @@ the right proxy and it is already **56 of 366** — mounted on live pages, harml
 never trend to zero. Eligibility is the INTERSECTION with an unsatisfiable page; either side alone
 is uninformative. ⚠ And the exemption is **per-section**, so a page mixing an exempt tool slot with
 a non-exempt one still qualifies through the second — join `page_components`, never `pages`.
+
+### ⚠ CORRECTED 2026-09-04 13:2xZ — the guarded-template figure, and the right patterns
+
+The "Verifying a card-image repair" section above first said *"8 of the 15 components that render
+`.image` guard it"*. **Wrong. `[RE-MEASURED 13:2xZ]` it is 14 of 14 — ZERO unguarded**, so
+`grep -c 'src=""'` can **never** fire for a missing listing image on this estate.
+
+```sql
+-- population: templates that actually BIND an image into an <img src> (a bare
+-- '.image' match also catches a JS blob referencing data.imagesBy — not a binding)
+WITH t AS (SELECT name, html_template AS h FROM content_components
+            WHERE html_template ~ '<img[^>]*src="\{\{[^"]*\.image')
+SELECT count(*) AS binds_image,
+       count(*) FILTER (WHERE h ~ '\{\{-? *if +[\$a-zA-Z_.]*\.image') AS guarded,
+       count(*) FILTER (WHERE h !~ '\{\{-? *if +[\$a-zA-Z_.]*\.image') AS unguarded
+  FROM t;   -- 14 / 14 / 0
+```
+
+⚠ **The guard pattern must allow a VARIABLE, not just dot.** My first cut,
+`\{\{ ?if \.image ?\}\}`, required `}}` immediately after `.image` and at most one space — it
+missed `{{if .image_url}}`, `{{if $card.image}}` and `{{if $item.image_url}}`. **A guard is a guard
+whichever variable it tests**, and inside a `{{range}}` it will be `$item`/`$card`, which is the
+common case for exactly the listing components this lane cares about.
+
+⚠ **`component-render-check` does not cover this and is not meant to.**
+`cmd/component-render-check/rendercheck.go` is *"the OUTPUT-level empty-element check"* (its own
+first line); `broken_img` is `<img[^>]*\ssrc=""` and a finding is an empty-element shape whose
+count **INCREASES** when a field is removed. A guarded field's removal makes the element vanish, so
+nothing increases and nothing is reported. Correct scoping — **do not read a clean run as cover**,
+and do not file it as a defect. A detector for the vanishing case wants a differential on element
+COUNT.
