@@ -222,3 +222,37 @@ exactly `{needs_human_review, unresolved}`. So:
 
 Check to run in a few days rather than assume: the 62 should have become `complete` /
 `auto:revalidated`; if they have not, the drain is not reaching this site and that is a finding.
+
+### 16:1xZ — ⚠ SECOND CORRECTION: the outage was 36 minutes, not 3 hours, and the roll has landed
+
+> **CORRECTED 2026-09-04: "the window was roughly 11:21 → 14:20Z" is WRONG. The credit outage
+> ran 11:21:12 → 11:56:48Z — about 36 minutes.** I checked recovery with a
+> `now() - interval '90 minutes'` query, got 129 calls / 129 successes / earliest **14:20:27Z**,
+> and wrote that earliest timestamp down as the moment the outage ended. It was the left edge of
+> my own sampling window. The "inter thread comms" session contradicted it; I verified rather
+> than adopting, and they are right — `[MEASURED 2026-09-04 16:1xZ]` credit failures number
+> **117 rows, 11:21:12 → 11:56:48Z**, and the gap I had never queried (11:56:48 → 14:20:27)
+> holds **416 successes and exactly one failure**, that one a `stop_reason=max_tokens`
+> truncation at 13:31:31, not credit. All three non-credit failures today are truncations
+> (08:42 tool-generator, 10:32 build-site-planner, 13:31 tool-generator).
+>
+> **The check, which is the general form of it:** an interval query can tell you a thing IS
+> over; it can NEVER tell you when it ended. For the end, query the gap between the last failure
+> and your window's start, and require the successes in that gap to be non-zero.
+>
+> Cost: the owner and at least one peer lane were told a 3-hour outage. Anyone writing off a run
+> that failed "during the outage" at, say, 12:30 would have been writing off a run that actually
+> succeeded — the opposite mistake to the one I was warning them about.
+
+**Roll landed.** All 20 backend deployments on v1.0.1361, chassis pods ready 16:01:26Z /
+16:01:53Z stamped `06c0b18f2`, `rollout status` clean at 16:02:15Z, settle window closed ~16:07Z
+(peer measurement, and their caveat is worth keeping: at 16:00:08 one new pod was not ready while
+two old ones still served, so a probe then reads the OLD binary and its clean pass is about the
+wrong thing — wait for `rollout status`, and match `service_binary_capabilities` rows against
+`kubectl get pods`, since four rows can exist for two live pods).
+
+**The 090 for 481 has been re-fired** post-settle — RUN corr `cdcb2981-36ce-4d02-8d37-6ab302aede12` (the first attempt, run corr `c705263c`, is the outage casualty; intake for this one is a fresh row). Also recorded from the same peer, because it
+bears on this lane's future council submissions: **a killed correlation is REUSABLE** — one
+correlation carried four council runs across the outage (revise 11:15, complete_invalid 11:29,
+revise 12:08, approved 12:23). Use `RESUBMIT_CORR=<corr>`; minting a fresh one splits the trail
+and leaves a `Council-Submitted:` trailer pointing at a correlation that never produces a verdict.

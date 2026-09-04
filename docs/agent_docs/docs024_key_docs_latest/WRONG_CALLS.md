@@ -67524,3 +67524,17 @@ Tally: substring-probe-over-matched; key-shape-probe-under-matched.
 
 Family: mutate-the-code-to-prove-the-guard, a-quiet-test-passes-when-the-rule-is-gone,
 your-measurement-answers-the-question-you-encoded, a-shared-tree-commit-can-break-head.
+
+- **2026-09-04 — farmerinsurance_uk lane — "the credit outage ran 11:21 → ~14:20Z" (it ended 11:56:48Z, 4× over-stated).**
+  Reported an API-credit outage correctly at 11:25Z, then checked recovery hours later with a
+  `now() - interval '90 minutes'` query: 129 calls, 129 successes, **earliest 14:20:27Z** — and
+  wrote 14:20 as the end of the outage in the lane NOTES, the owner-facing README and a message
+  to the owner. **14:20:27 was the left edge of my own sampling window, not an event.** The
+  "inter thread comms" session pushed back; I verified their claim rather than adopting it, and
+  they were right: credit failures run 11:21:12 → 11:56:48 (117 rows), and the 11:57–14:20 gap
+  I had never queried holds **416 successes** plus one unrelated `stop_reason=max_tokens`
+  truncation. *The cheap check:* **an interval query can show a thing IS over; it can never show
+  WHEN it ended.** For the end, query the gap between the last failure and your window's start
+  and require successes in it. *Cost:* two lanes and the owner were told a 3-hour outage where a
+  36-minute one happened — and a run that actually succeeded at 12:30 would have been written
+  off as a casualty.

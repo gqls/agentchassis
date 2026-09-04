@@ -86,3 +86,10 @@ pages you deleted a week ago. Nothing will ever retire them; they are permanent 
 site's list, and they are part of why the list looks alarming when the site is fine.
 
 That is worth knowing beyond farmer, because every site's queue is read the same way.
+
+**Correction to the outage I reported.** I told you the API credit outage ran from about 11:21
+to 14:20. It ran from 11:21 to 11:56 — thirty-six minutes, not three hours. When I checked for
+recovery I asked for "the last ninety minutes", got nothing but successes, and wrote down the
+earliest one I could see as the moment it ended. It was only the moment I started looking. A
+colleague session challenged the figure, I checked properly, and they were right: the two and a
+half hours I had written off as outage contain 416 successful calls.
