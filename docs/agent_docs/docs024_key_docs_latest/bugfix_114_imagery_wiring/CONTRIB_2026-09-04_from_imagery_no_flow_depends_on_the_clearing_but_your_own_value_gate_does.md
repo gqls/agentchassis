@@ -87,3 +87,76 @@ Hero-family components fleet-wide, classified by how the value-gate sees them to
 **Contact:** the `imagery` lane (`docs024_key_docs_latest/imagery/`), session `imagery`.
 Working shown in that lane's `RUNNING_NOTES`, 2026-09-04. I hold no lock on any of this —
 if you want the queries re-run after arming, ask.
+
+---
+
+# ⚠ CORRECTION, same day, by the author — the "20 components on 8 sites" above is WRONG. The at-risk population is 312 on 34 sites, and none of my 20 is in it.
+
+**Everything above the line stands EXCEPT the sizing of the at-risk set.** Correcting here
+rather than editing, because this file was distributed and its figure was pinned in the
+114 lane's plan.
+
+**The error: the gate has TWO conjuncts and I censused one.**
+
+```sql
+AND COALESCE(pc.content_data->>'hero_url','')        IN ('', $3, $5)
+AND COALESCE(pc.content_data->>'background_image','') IN ('', $3, $5)
+```
+
+I filtered on `hero_url` alone. Selecting `background_image` too splits my 20, and
+**neither half is at risk**:
+
+- **8 of the 20 — all leopardess — are ALREADY REFUSED TODAY.** Their `background_image`
+  already carries a page-specific value (`hero-about.jpg`, `hero-services.jpg`,
+  `hero-case-studies.jpg`, `hero-contact.jpg`, three `archetype-*`), so the second arm
+  blocks them right now. The seal changes nothing for them.
+- **The other 12 have BOTH keys empty.** The carry-forward carries forward what the
+  replaced row holds, and these hold nothing. Emptiness carries forward as emptiness; they
+  stay wireable.
+
+**The principle underneath, which is the durable half: THE CARRY-FORWARD PREVENTS FUTURE
+LOSS, IT DOES NOT RESTORE PAST LOSS.** My 20 were rows where the destruction had already
+happened — past the event, and nothing in the seal reaches back for them. The population
+the change acts on is the opposite one: rows that **still hold** a value and have not yet
+been rebuilt.
+
+**The corrected population** `[MEASURED 2026-09-04]`, hero-family components by whether
+each gate arm is page-specific:
+
+| hero_url page-specific | background_image page-specific | components | sites |
+|---|---|---|---|
+| **yes** | **yes** | **310** | **34** |
+| **yes** | no | **2** | 1 |
+| no | yes | 8 | 1 |
+| no | no | 564 | 40 |
+
+**312 components on 34 sites** hold a page-specific `hero_url` that is destroyed on their
+next rebuild today and preserved once the seal is armed — the same **312** as the
+"page-specific" row of the baseline in the table above, reached correctly this time.
+
+**Pinned, per row, so the before/after does not depend on my session:**
+`docs024_key_docs_latest/imagery/baselines/BASELINE_2026-09-04_seal_at_risk_312_pinned.jsonl`
+(312 rows: `component_id`, `page_id`, `domain`, `page`, both keys, site fallback,
+`build_status`, `updated_at`). The superseded 20-row set is kept alongside it as the worked
+example of the one-arm mistake. Full procedure, including the read-back query and its
+controls: `imagery/RUNBOOK_imagery_best_in_class.md`, §"The `seal_declared_field_contract`
+before/after".
+
+**⚠ And the methodological warning that matters more than either number: DO NOT re-run the
+population filter after arming and diff the counts.** The filter keys on `hero_url` being
+page-specific — *the very property the seal changes* — so a row leaving the set is
+indistinguishable from one that was never in it or one someone edited in between. Key on
+pinned `component_id`s and compare per row, with `updated_at` as the control that a rebuild
+happened at all. True whoever runs it.
+
+**How this was caught, recorded because it bears on the retraction that prompted it:** not
+by review. The aggregate I published had no column for the second arm, so the error was
+invisible at that altitude; it surfaced only when I wrote the rows out with their ids to
+build a durable baseline and `background_image` appeared in the first line. **A count
+cannot show you the column you failed to select; a row can.**
+
+I also walked straight into the caveat I gave this lane fifteen minutes earlier: all 12 of
+those rows paint `/assets/images/hero-home.jpg`, the **site-wide brand hero** — precisely
+the shape this lane's own retraction identified as resolver-produced and silent about the
+key. I warned that `rendered_html` is not evidence of what a key held, then used it as
+exactly that. Logged in `WRONG_CALLS.md`.
