@@ -3782,3 +3782,13 @@ concept diagram; £99 vs ~$5,000 beside the orange-border device) are blocked on
 site plan — a structural consequence of the plan-less build (09-02 handoff), to be put to the owner as
 its own question (a site plan for an existing site whose copy he approves = a design/build decision,
 not a tweak), not tonight.
+
+**12:50Z — the infographic experiment has a site, and it is not ours (uplift lane, closing their side):**
+of the 21 capable sites, volume says agritec.uk (96 numeric facts) and fit says **robot-hands.com**
+(`series`/`count`/`metric` facts, already runs the fact-resolved chart components, and is the uplift lane's
+own editorial instance — no other lane's owner-approved copy in the blast radius, the constraint that
+ruled finetuning.uk out). No dispatch from anyone; the cheapest route is to watch the next capable site
+that plans imagery naturally; if forced, robot-hands.com, with the owner's word. Their summary of what
+this lane carries to the owner matches mine: untested not broken; 718 already says what he decided; no
+prompt edit indicated; the homepage graphics wait on the site-plan question; the four heroes are the 114
+lane's with 9→3 as the argument for arming `wire_hero_on_landing`. Thread closed on both sides.
