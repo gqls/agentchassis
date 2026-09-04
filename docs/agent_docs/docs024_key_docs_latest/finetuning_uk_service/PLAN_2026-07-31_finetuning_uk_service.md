@@ -447,3 +447,16 @@ find someone else's that has a defined character."* Measured basis: `COMPARISONS
   stands and is not touched until the new model's brief.
 - `[NOT DECIDED]` which corpus; `[NOT DECIDED]` whether the £99 offer's own copy needs a line saying
   the public demo is a third party's voice, not a customer's.
+
+### Direction, DECIDED (owner, 2026-09-03, 23:45 BST) — cards, infographics, corpus; and a product idea
+
+- **Cards:** case studies become a swipeable carousel (canary); RULE: any card grid with more than three
+  cards becomes swipeable. Ask before the rule reaches `features` (6, "solid") and `departments-grid` (5).
+- **Infographics: fleet-wide and framework-driven** — the build-site-planner prompt change, routed to the
+  prompts lane as the owner's decision; not hand-authored rows for one page.
+- **Corpus:** the owner finds one; this lane's shortlist is public-domain short-form voices (a living
+  comedian's or journalist's work is copyright and persona-bearing — not without a licence).
+- **PRODUCT IDEA, recorded, not designed: a handwriting model** — trained on the owner's handwriting to
+  READ it (recognition) and to WRITE it (synthesis), on CPU, combined with the tone-of-voice model
+  ("write me a note in my voice, in my hand"). Feasibility answered 2026-09-03; sizing is a Phase of its
+  own if he wants it.

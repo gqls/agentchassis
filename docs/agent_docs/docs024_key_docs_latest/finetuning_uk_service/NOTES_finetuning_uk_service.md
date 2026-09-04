@@ -3644,3 +3644,45 @@ the built mechanism (the 114 lane's), or a declared STOP-GAP on the four that sa
 counts as the second hand-repair of the same nine pages. Their write-up is in the owning lane's dir:
 `bugfix_114_imagery_wiring/CONTRIB_2026-09-03_from_editorial_design_uplift_664_has_decayed_9_to_3_in_eight_days.md`
 (`c816aa28a`). Same disease as the stale 404 rows: a state proven once and never re-checked.
+
+## 2026-09-03 (22:45Z) — OWNER DECISIONS (three) and two asks, verbatim, and where each goes
+
+Owner: *"Decisions. 1: homepage cards, case studies can be swipeable. For any number greater than 3.
+Infographics should be fleetwide and framework driven not narrow for now. 3: I will find the corpus -
+can you find a corpus online, say in youtube or a particular funny comedian or journalist with a
+distinctive style or anyone else for which we can get loads of examples? Would it be feasible to do an
+example of a handwriting model that can be trained on my handwriting that can then read my handwriting
+and another or the same model that can then write my handwriting? And would we be able to run that on a
+CPU. It would be pretty cool tbh. If we combine it with writing tone of voice and style it could be
+popular"*
+
+1. **Cards: case-studies → swipeable carousel (the canary), and a RULE: any card grid with MORE THAN
+   THREE cards becomes swipeable.** On this homepage that also names `departments-grid` (5) and
+   `features` (6, which the critic called "solid") — apply the canary first, then ask before the rule
+   touches those two. Prep measured 22:40Z: the slot holds 5 cards (card1–card5: title, excerpt,
+   client_name, category_label, image_url/alt, link_url) + section_headline/intro/eyebrow + CTA; the
+   critic saw 4 rendered (3+1) — the template shows four? verify at the served page before mapping.
+   `swipeable-insight-carousel` (`cbd81d06`, function `swipeable-insight-carousel`, section_type
+   `insight-carousel`, render_mode agent, 1 live use elsewhere) takes `cards[]{label, headline, body,
+   link_url, link_label, attribution}` + `section_title` + `section_eyebrow`; its llm_guidance caps
+   headline 12 words / body 22 — the excerpts are longer, so a verbatim mapping puts the excerpt in
+   `body` and accepts that the guidance is advisory to the agent render (assert verbatim afterwards).
+   Placement rows: `pages.sections` carries the string `"case-studies-grid"`; `site_plan_sections`
+   (plan_id, page_name, ordering, component_name…) — count before touching.
+2. **Infographics: FLEET-WIDE, framework-driven** — i.e. the build-site-planner prompt change ("Use
+   sparingly in v1 — most plans will have zero section-scope entries" → produce them where they help
+   understanding; rule 16's one-image-per-entry discipline rides in the same edit). Routed as the
+   owner's decision to the prompts lane (owns prompt migrations; 641 precedent) with a copy to the
+   uplift lane (raised it) and the apis.uk lane (640, the last planner edit). Owner reads the bytes
+   (RFC_016). The uplift lane's hand-authored rows for this page are therefore NOT the route.
+3. **Corpus: he finds one; asked this lane to look too** — answered in chat: a living comedian's or
+   journalist's material (YouTube transcripts, columns) is copyright and persona-bearing and cannot be
+   the demo's training set without a licence; the safe class is public domain with a distinctive voice
+   and SHORT pieces (letters, diaries, sketches) — shortlist given (Pepys, Saki, Jerome K. Jerome,
+   Leacock, Runyon, Twain letters; NOT Wodehouse in the UK until 2046). Sizing candidates from
+   Gutenberg is the next session's job if he picks one.
+4. **Handwriting read/write model, on CPU** — answered in chat as feasible in two halves (recognition:
+   a small HTR model fine-tuned on a few hundred of his handwritten lines, CPU inference fine;
+   synthesis: stroke-based or few-shot image models from tablet strokes or word images, CPU generation
+   in seconds), plus a cheap third (a font from his hand). Recorded as a product idea in PLAN; not
+   designed.
