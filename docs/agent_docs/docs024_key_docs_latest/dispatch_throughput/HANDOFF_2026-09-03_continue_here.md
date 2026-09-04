@@ -238,3 +238,9 @@ roll — resubmit from `scratchpad/council_753.json` if its row stops progressin
 - 22:1xZ: 753's round APPROVED (83186fd9); lock-wait property induced A/B (NOTES). 459 stays open
   until the induced-L1 proof writes a real `level-change` note. Decision note written (and fixed
   after a backtick mangled it — SQL bodies via file, never `-c "…"`).
+
+## UPDATE 2026-09-04 ~08:0xZ — roll survived (22:06Z, v1.0.1360, both pods proven); 754's canary in flight (b93ca905); induced-L1 proof next
+- Everything hand-applied survived the release (674 / 752 / 753) — measured. `post_roll_checks.sh`
+  now re-reads the pod list after its 300 s wait (it had probed transient mid-rollout pods).
+- **Order from here:** canary b93ca905 clean (gate OUTPUT, no gate error) → `induced_l1.sh` → close 459
+  on the real `level-change` note → docs → 754's verdict.

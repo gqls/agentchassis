@@ -2058,3 +2058,28 @@ what a broken fail-open looks like.**
 
 **Bug 459 stays OPEN until one REAL level change writes a note** — the induced-L1 proof (held
 behind the owner's roll) is that evidence. This commit carries `Council-Reviewed: 83186fd9`.
+
+### 2026-09-04 07:4x–08:0xZ — the owner's roll (22:06:29Z) SURVIVED by all three hand-applied changes; the post-roll script caught mid-rollout pods; 754's canary submitted
+
+The announced chassis roll landed **22:06:29Z**: the release rewrote **213 agent rows at
+22:06:09Z** (one stamp, ~70 s before the pods), then pods `agent-chassis-ffc9ddff9-*` on
+**v1.0.1360** started 22:06:35/58Z. `[all MEASURED 2026-09-04 07:4xZ]`:
+- **674 wiring** intact (md5 `fcbe8821…`, flags true/true); **752 VERIFY green incl. 5b**
+  (council-gate still enters at `gate_spend_governor`, class maintenance); **753 marker
+  present**; level 0; heartbeat live. Three hand-applied changes, one release, none lost —
+  the release's seeding step preserves hand-applied `default_config` content and re-stamps
+  `updated_at` (now the third time this is measured).
+- **Go halves on BOTH current pods**: present 3/3, absent-control 0 (k866t's absent probe
+  re-run alone — a full-binary scan overruns a 2-minute combined call, as on 09-02/09-03).
+- **⚠ The script's pod probes all read `<exec failed>` — a defect in MY script, not the
+  estate.** It captured `NEW` at first sighting of non-baseline pods, mid-rollout, and the
+  pods it named (`7b7f9777c-*`, `cb4c547bf-*`) were transient and gone by the time the
+  probes ran. Fixed: re-read the pod list after the 300 s wait. Also: the checks ran at
+  **07:43Z**, 9½ h after the roll — the host slept overnight; the DB checks are still valid
+  (read at 07:44), the pod probes are re-done above.
+- No council round ran overnight, so **the FIXED gate (754) has still never been exercised
+  live**. Governor at 07:45Z: level 0, **$634.42 (31.7%)**, council admitted, 0 withheld, no
+  `level-change` notes (correct — nothing crossed).
+- **754's round submitted 07:5xZ, corr `b93ca905`** — the canary: its run must show
+  `collected_data ? 'governor'` = t, `admitted = true`, and NO `__step_error` on
+  `gate_spend_governor`. Watcher armed. The induced-L1 proof follows a clean canary.
