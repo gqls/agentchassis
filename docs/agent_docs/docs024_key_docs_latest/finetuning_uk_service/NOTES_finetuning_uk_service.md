@@ -4040,3 +4040,30 @@ they work (our rows are in their population — the shared-tree hazard); finetun
 DIAGNOSTIC WITNESS ONLY and will not appear as before/after in their council submission (412 §11);
 and when their fix ships, this lane probes the four at the served page, asserting the HTML contains the
 stored value verbatim (their control arm ran 752 of 753 fleet-wide, so it discriminates).
+
+## 2026-09-04 (15:55Z) — this site's four heroes are in the VISIBLE arm of the 114 defect, and the split may be render timing
+
+Relayed candidate mechanism (114 lane's): `save_page_sections` DELETEs a page's agent-writable
+component rows and re-INSERTs from the payload, so **any `content_data` key the payload omits is
+destroyed**; 123 rows across 32 sites have lost a field whose schema declares `use_fallback`, and **86
+of them still render the value the stored row lost**.
+**Measured here `[2026-09-04 15:5xZ]`, and it puts this site in the OTHER arm:** on all four hero rows
+stored image key **FALSE**; rendered_html carries the page's own `content-hero-` **FALSE**; carries the
+`/assets/images/hero.jpg` fallback **FALSE**. Three of four have some image markup somewhere in the
+hero block (approach, contact, use-cases); **case-studies has none at all**. Control, the pricing hero
+on the same site: stored **TRUE**, rendered **TRUE**. **So the four are in the 37, not the 86 — the arm
+where the damage is visible to a visitor, which is why a human reported this page and not one of the 86.**
+**Hypothesis offered to them, untested and labelled as such:** the 86/37 split may be RE-RENDER TIMING
+rather than two kinds of loss. These four hero rows were last written 2026-08-31 / 2026-09-02 and all
+four pages were re-deployed 2026-09-04 04:2xZ, hours later. If a page renders after the key goes, the
+HTML is regenerated without it and the damage surfaces; if it has not rendered since, stale bytes keep
+serving the value. **If that holds, the 86 are not safe, they are pending**, and the visibly-broken
+count grows on its own with no new loss. Not tested here: it needs each row's LOSS timestamp against
+its render history, and `page_components.updated_at` is the row's own write, not the moment the key
+vanished. Their population, not our four.
+**Two consumer notes given (their ruling requires consumers be told, not measured):** this lane's pages
+go through `page-rerender` routinely — two single-page deploys today — so the carry-forward must
+survive that path and not only `page-build-handler`; and their council caught the fallback branch
+filling SILENTLY with no work item, which on this site would have shown the shared `hero.jpg` while the
+page's own generated hero sat unused — indistinguishable from correct at the artefact, and the exact
+shape that kept this invisible for a month.
