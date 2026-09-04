@@ -126,3 +126,33 @@ old at this session's start; nobody has told him they are ready.
   722's born-held trigger only fires on INSERT and farmer predates it.
 - `/contact.html` is the one active page at `build_status='needs_rebuild'` (all 17 others
   `deployed`). It still serves 200 — so this is a build-state row, not a live outage.
+
+### ⚠ THE FLEET'S ANTHROPIC CREDIT RAN OUT AT 11:21Z TODAY — my 090 run was one of the first casualties
+The diagnosis run fired for the directory defect (run corr `c705263c-9b07-40fb-800f-6ebe7e1ce4a8`)
+**FAILED**, and not on its merits. Step `verdict` → `call_diagnoser` → `call_handler` all carry:
+
+> `AI endpoint unavailable: provider=anthropic model=claude-sonnet-5 … status 400:`
+> `{"type":"invalid_request_error","message":"Your credit balance is too low to access the`
+> `Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."}`
+
+`[MEASURED 2026-09-04 11:25Z]` in `llm_call_log`, this is fleet-wide and total, not my run's bad luck:
+
+| window | successes | failures |
+|---|---|---|
+| 11:09:26 → **11:20:50** | 32 | 0 |
+| **11:21:12** → 11:24:43 | **0** | **18** |
+
+Failing agents in that window: `council-gate` (14), `diagnose-agent`, `landmine-verifier`.
+Every LLM call in the estate goes to Anthropic — `llm_call_log` for the last 45 minutes shows
+provider=anthropic on 100% of calls (claude-sonnet-5 38, claude-opus-4-6 9, claude-sonnet-4-6 4),
+so there is no second provider to fall back to. First sighting of the message anywhere in
+`orchestration_states`: **11:21:12Z**, i.e. it began today, minutes before I looked.
+
+Consequence for this lane: the 479 diagnosis must be **re-fired after the account is topped up**,
+and the failure must NOT be read as "the loop looked and found nothing". Consequence for the
+estate: every council verdict, diagnosis, landmine verification, writer and planner run started
+after 11:21Z fails the same way, and the failures look like ordinary step errors.
+
+⚠ When topping up, the known trap (MEMORY): **capped while billing reads 0% used ⇒ WRONG ACCOUNT**
+— the fleet key is not on the default console org; check the keys' `Last used` column to find the
+org that is actually serving these calls.
