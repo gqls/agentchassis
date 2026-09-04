@@ -325,8 +325,14 @@ instrument for the second.
 > ```
 > It reads each site's OWN header colour, fetches the image the SERVED PAGE references, runs the
 > 404/`</html>`/byte-count/magic-byte controls per site, and prints BLIND, NOT-DISPLAYED and
-> baked-background rows rather than passing them. Exit 0 only when every logo was measured and
-> legible. **`--self-test` needs no cluster and no network** — use it to check the check.
+> baked-background rows rather than passing them. ~~Exit 0 only when every logo was measured and
+> legible.~~ **CORRECTED 2026-09-04 by the 462 lane (whose section this is): that is true of a HAND
+> RUN only.** The exit code now answers two different questions — hand-run *"is the estate clean?"*
+> (1 if anything was not measured-and-legible; a BLIND row is not a pass), and `--report`, which the
+> scheduled job uses, *"did the RUN work?"* (0 even with findings; 1 only when the sweep itself is
+> broken — nothing measured, or every row blind). Conflating them made the CronJob red for ever on a
+> finding the owner has RULED PERMANENT, and double-report on retry: `bugs_open/462` §10a.
+> **`--self-test` needs no cluster and no network** — use it to check the check.
 > ⚠ Its verdict covers ALPHA-BACKED marks only (7 of 34 as of 2026-09-04). A logo with a
 > background baked in is 4.5's class, not this one's: the header is not its backdrop.
 
