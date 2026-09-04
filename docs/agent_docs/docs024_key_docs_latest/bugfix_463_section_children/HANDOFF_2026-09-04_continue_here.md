@@ -64,6 +64,29 @@ SELECT spp.name, spp.role, spp.url, spp.parent_section
 
 ## 4. Decisions waiting on the owner
 
+> **OWNER RULINGS 2026-09-04 — three of the four below are now DECIDED. Read these first;
+> the numbered items keep their original wording as the record of what was asked.**
+>
+> 1. **`bugs_open/467` — ruled: a re-plan may add up to TEN new pages.** The cap is to bound
+>    what a re-plan **adds**, not what a site may **contain**. Note for whoever implements it:
+>    `max_pages` is read from step config (`v3_site_actions.go:3834`, defaulting to 20 only
+>    when absent), so it is DB config and live immediately — but the ADD-budget is a code
+>    change, because today `truncatePreservingRealised` derives the net-new budget as
+>    `maxPages - len(keep)` and returns `keep` alone once `len(keep) >= maxPages`. Do not
+>    "implement" this by raising `max_pages`: that raises the site ceiling, which is the
+>    thing the owner did NOT ask for.
+> 2. **463's closing bar — ruled: HOLD IT OPEN** until §3 passes at the artefact, as this
+>    lane recommended. "Fixed AND live" is met and is deliberately not being used here.
+> 3. **Scheduling the gamedesign re-plan — ruled: leave it in the natural queue.** Do not
+>    spend a build cycle expediting `6430726e`. The `gamedesign.uk` lane has been told.
+> 4. **`468`/`460` — NOT decided, and deliberately widened.** The owner's framing is that the
+>    chosen directory paths ("blog, blogs, guides") and the near-identical filenames for
+>    duplicate entries are *"a constant cause of bugs"*, and he asked for it to be looked at
+>    properly rather than patched. See §9 for the census and the correspondence. **Do not fix
+>    468 by threading one more field through one more producer until the vocabulary question
+>    is answered** — that is the shape that produced 58 directories.
+
+
 1. **`bugs_open/467` — the 20-page cap.** `truncatePreservingRealised` discards *every* net-new
    page once a site's preserved set reaches `max_pages` (20), not just the excess. `[MEASURED]`
    **26 of 42 sites are already past it**, largest 151. So on most of the estate a re-plan can
@@ -184,3 +207,56 @@ same fix covers it.
   463 §4 and §9.
 - **`feed lane`** — filed `bugs_open/468`. **`portfolio_positioning`** — watching
   copyonline.co.uk (released 2026-09-03 15:49Z, no plan yet) as a possible live instance.
+
+## 9. The directory-vocabulary question (owner-opened, 2026-09-04) — census + who holds what
+
+The owner widened decision 4 above from "how do we fix 468" to "why do the directory paths keep
+causing bugs". This section is the evidence gathered for it; it is **not** a proposal, and per
+CLAUDE.md a shared directory vocabulary is architecture-scope, so it should end in an RFC.
+
+**`[MEASURED 2026-09-04, live DB]`** — re-run before quoting; a census goes stale by ADDITION:
+
+| what | figure |
+|---|---|
+| distinct first-path-segment directories, estate-wide | **58** |
+| …existing on exactly ONE site | **47** |
+| …containing exactly ONE page | **39** |
+| the head, i.e. the hardcoded role defaults | `tools` 40 sites · `guides` 39 · `blog` 21 |
+| flat/nested twins (`/X.html` + `/X/index.html`, one site) | **7 pages on 3 sites** |
+| tool + companion-guide twins | **38 pages on 10 sites** — 26 under `/guides/`, 12 under `/blog/` |
+
+Near-synonym clusters in the tail: `guides`/`guias`/`buying-guides` · `articles`/`insights`/
+`news`/`noticias` · `directory`/`brands`/`brand-directory`/`uk-studios-directory` · `report`/
+`reports`. `homegarden.uk` additionally carries twelve month-name section indexes at site root.
+
+**The mechanism, read from source (`platform/orchestration/datahelpers/page_canonical.go:129`).**
+`CanonicalisePage` hardcodes a default directory per role — `tool`→`tools`, `guide`→`guides`,
+`game`→`games`, `blog-post`→`blog`, `entity-page`→`entities` — and the **only** override is
+`ParentSection`, which is `normaliseSlug` of arbitrary LLM text with **no allow-list and no
+site-level registry**. `content`, `landing` and the section-index family deliberately refuse
+`ParentSection` altogether. So a page's directory is either a Go literal or unconstrained model
+output, with nothing in between. That is the whole explanation for the 58.
+
+**The flat/nested twin is 463's own collider.** `sectionStemOf` reduces `/news.html` and
+`/news/index.html` to the same stem — which is exactly the comparison that made Pass C delete
+children. Fixing the vocabulary and fixing 463 are the same subject.
+
+**Who holds the pieces** (correspondence sent 2026-09-04; replies not yet in at time of writing):
+- **`bugs_open/241`, owned by the `loancalculator_couk` lane** (`scripts/who-owns.py 241`,
+  ACTIVE, 38 commits/14d) — the flat-vs-nested half. Its own text says the representational
+  half (`FlatURLs`) is committed and **the plumbing half is not**. Asked whether that still
+  holds and whether they formed a view on registry-vs-allow-list.
+- **`feed lane`** — filed `468`; asked whether a per-site registry would close it or whether
+  `create_blog_posts` still needs `ParentSection` threaded regardless, and whether reviving
+  `blog-content-planner` (`460`) is still their preferred route.
+- **`site design planner`** — asked the three planner-side questions: whether `pages.site_area_id`
+  is already a declared-section seam the planner reads or writes; whether the model should be
+  told the site's existing directories or never choose at all; and whether `content`/`landing`
+  refusing `ParentSection` is load-bearing.
+- **`gamedesign.uk`** — told the two rulings; their re-plan is now also the reference case for
+  what correct placement looks like.
+
+**Open question this lane could not answer from source alone:** whether `pages.site_area_id` /
+`site_areas` already constitutes a per-site section registry. If it does, this is much smaller
+than an RFC. `[UNVERIFIED]` — do not assert either way until the planner lane answers or someone
+reads the writers.
