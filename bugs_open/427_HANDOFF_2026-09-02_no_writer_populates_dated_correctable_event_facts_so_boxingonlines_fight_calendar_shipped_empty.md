@@ -1678,5 +1678,41 @@ layers ship — birth-time refusal only stops new fabrication, and at least one 
 (now two, counting the comparator's emptiness as the sibling failure mode) already shipped
 before any checker existed to refuse it.
 
+> **VERIFIED AT THE ARTEFACT, independently, by `boxingonline.com`, 2026-09-04 ~16:2xZ** —
+> the reasoning above is now a measurement, not an inference. Both proposed checker needles
+> run against the live served `tool-fight-countdown` page, cache-busted, control `<body>`=1:
+> **layer 2's ISO-date-string-key pattern: 0 occurrences. Layer 3's `data-fact-id`: 0
+> occurrences.** Confirms both blind spots at once, on the artefact itself, not the stored
+> row: **all three layers as scoped would score this tool clean.**
+>
+> **Sharper than "incomplete": the "0 matches, zero false positives" figure is
+> ANTI-INFORMATIVE for this class of violation.** A checker that cannot represent the
+> offending shape returns the identical clean result whether the defect is present or
+> absent — it reads as coverage while measuring nothing on exactly the case that matters.
+> That distinction (incomplete vs. anti-informative) is the one to carry into any review of
+> §23.2's numbers before they are quoted as a readiness argument.
+>
+> **A concrete, testable post-fix criterion, so the widening can be checked mechanically
+> rather than argued about:** once layer 2 is widened to cover numeric date-component
+> triplets, `grep`-ing the same live artefact for the same needle must turn non-zero on
+> this exact file. Two zeros that must become non-zero is a cheaper acceptance test than
+> re-deriving the whole argument.
+>
+> **And priority, not just detection: the census outranks the layers.** Both violations
+> here predate any checker that could have refused them at birth — birth-time refusal is a
+> control on the FUTURE, not a remedy for what already shipped. On this site the countdown
+> tool is live and serving right now, where §22's twelve fabricated fixtures were caught
+> pre-deploy — that gap is luck, not a control, and it argues for running the census before
+> or alongside building the layers, not after.
+
+**A second, general lesson from the same exchange, worth recording here because it bears
+directly on how much weight this file's own §4 can put on "already filed":**
+`boxingonline.com` independently confirmed that none of the five `filing_mode: record`
+verdict rows named in §4 describe this specific defect — the record-mode backlog **did not
+contain it**, on a site where five seats had already looked. Their own framing, worth
+keeping: *"treat the recorded backlog as an inventory of what the seats looked at, not of
+what is wrong with a site."* Two bugs in two days on this one site where "it is already
+filed" would have been the wrong inference.
+
 Cross-referenced both ways. Not this section's job to re-plan §23 — recorded so the plan is
 built against the fuller picture, not the one available when it was drafted.
