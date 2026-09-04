@@ -3,6 +3,63 @@
 Supersedes `HANDOFF_2026-09-02_continue_here.md` (banner added there). Owner read-out:
 `SUMMARY_2026-09-03_the_brief_that_two_agents_could_not_read.md`. Every count carries its date.
 
+## ⚠ 0-NOW. STATE AS OF 2026-09-04 ~11:45Z — START HERE (supersedes §0, §1w–§1z and §2 below; they stay for the record)
+
+**copyonline.co.uk is PLANNED and BUILDING, from a sighted reading of the owner's brief.** Nothing is
+public (`sites.published_at`/`publish_target` NULL, the domain still serves the old Drupal install).
+Chain this morning: `needs_briefing` (filed by hand 07:47Z, item `479614c9`) → briefing spec 09:02:42Z →
+`needs_site_plan` complete 11:09:35Z → **plan: 115 rows, 34 new pages (44 total, 38 active)**. The
+plan follows the brief: `index` (AI-first hero), `ai-commercial-copy`, `writing-with-ai`,
+`editing-ai-copy`, the four brief tools (`tool-headline-scorer`, `tool-readability-checker`,
+`tool-cta-tester`, `tool-length-counter`), glossary, ASA/CAP guide, copy-length tables, checklists,
+house-view, Copy Clinic (index + 3), every how-to guide, `choose-and-brief-a-copywriter`, `about`,
+`contact`, and the two surviving library tools kept. In flight: `needs_page:triaged ×30`,
+`needs_imagery:triaged ×20` — the pipeline's normal work; do not prod.
+
+**Migration 764 is FULLY PROVEN**: classifier half 21:25Z 09-03 (NOTES (ccc)); planner half at the
+11:09:25Z `plan_site` render — its `## Mission` block carries the brief object (`"audience": {"primary"…`).
+Both consumers read a `text`-less brief. `Council-Reviewed: 888e7319…`.
+
+**TWO PAGES THE OWNER CARES MOST ABOUT ARE NOT IN THE PLAN, deliberately and traceably:**
+- **the lead route (`/get-copy-written/`) and the copywriter DIRECTORY.** The planner's `strategy_notes`:
+  *"converting … via a single lead-route page … The entity-page type from strategy is deferred: the
+  directory compilation has not yet populated individual entity pages, and planning them without
+  entries would create empty pages that rule 3 holds back."* The home page's closing CTA already says
+  *"Ready to have a human write it? One page connects you with UK copywriting companies"* (rev-5
+  wording) — pointing at a page that does not yet exist; the CTA resolver will retarget it until it does.
+- **Why no entries:** the `copywriter-directory-discovery` task (weekly, `directory-researcher`,
+  organisations-only query) fired ONCE, 09-03 15:50:03Z, and **FAILED at `search_web`** (*"search query
+  not found — check 'query', 'topic', or 'query_field'"*) — the researcher's config was then changed at
+  22:05:57Z (no migration in git, no `agent_definitions_backup` snapshot — an unsnapshotted live edit
+  by someone; not chased). `directory_entities` kind `copywriter` = **0**. **Re-fire NUDGED 11:4xZ**
+  (`last_triggered_at`/`last_completed_at` set NULL so the scheduler fires it on its next tick via the
+  real path). Watcher `bk751pk1k`. Check:
+  `SELECT last_triggered_at, last_completed_at FROM scheduled_tasks WHERE name='copywriter-directory-discovery'; SELECT count(*) FROM directory_entities WHERE kind='copywriter';`
+- **Once entries exist, the plan must be re-run to add the two pages**: file `needs_site_plan`
+  (`source='manual-replan'`, key `site_plan_copyonline.co.uk`, handler `build-site-planner`, the fleet
+  has done this 3×) — an OWNER-visible step; say so before firing.
+- **OWNER DECISION:** `classification.content_features.copywriter_directory` was never set as a
+  structured key (the brief's own recipe step 2; live shape on loanandmortgagecalculator:
+  `{"kind":"mortgage-lender","reason":…,"recommended":true,"separate_page":…}`). The classifier rewrites
+  that object on every run, so a hand-set flag is the `design_intent pinned=true does not hold`
+  landmine. The strategy already carries the directory ("entity-page type from strategy"), so entries
+  may suffice; if the planner still omits it after a replan, set the flag AND expect to re-set it.
+
+**Also pending, owner-facing:** `owned_page_review:needs_human_review ×4` — the four brief tools
+(`tool-headline-scorer`, `tool-cta-tester`, …) are *"not_built — needs owner-aware build, not the
+generic builder"*. Whatever the owner-aware build path is, it is waiting on a human.
+
+**Housekeeping to expect:** the two old `tool-*-guide` survivors are NOT in the plan (the plan made
+`guide-insight-injector-guide` / `guide-website-brief-starter-guide` instead) → the orphan check will
+flag them; archiving them then is a tidy, not a bug. 15× `image_source_unsatisfiable` include ARCHIVED
+pages (`bugs_open/266` class). 6 archived rows still carry `deployed_at` (315/359 shape).
+
+**Bugs from this lane, open:** `bugs_open/478` (the strategist's deployed-gate; oxenunity + cookly
+stalled the same way, unowned) · `bugs_open/453` (fixed by 764 for the 4 expressions; lint is theirs).
+**Owner rulings applied:** the negation phrase stays (`wont_fix` + doc_notes ruling).
+**Watchers do not survive a session restart** — every watcher named in this file is dead if you are
+reading it in a new session; re-arm from the checks above.
+
 ## 0. STATE IN ONE PARAGRAPH
 
 Five remakes exist. Four are live from 2026-09-02 (advertise, websitepromotion, seotools,
