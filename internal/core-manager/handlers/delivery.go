@@ -406,7 +406,7 @@ func (h *DeliveryHandler) renderConfirm(c *gin.Context, outcome confirmOutcome) 
 		v = confirmView{
 			Title: "Thank you, that is recorded.",
 			Paragraphs: []string{
-				"We have noted that you have moved everything across. You will not get any more reminders about it.",
+				"We have noted that you have moved everything across.",
 				"Your site files are yours to keep, and so is anything you have bought outright.",
 			},
 		}
@@ -422,10 +422,25 @@ func (h *DeliveryHandler) renderConfirm(c *gin.Context, outcome confirmOutcome) 
 		// No em dashes, no external reference, nothing named. The page says what
 		// pressing does and that nothing has happened yet, because a customer
 		// who thinks the link already did it will not press.
+		//
+		// ⚠ IT SAYS ONLY WHAT PRESSING RECORDS, AND THAT IS A CORRECTION
+		// (bugs_open/477, 2026-09-04). This page and the success page above both
+		// used to end on "You will not get any more reminders about it." Nothing
+		// in the estate sends a reminder: exactly one agent can send mail
+		// (delivery-email-sender), no scheduled task targets it, and
+		// transfer_confirmed_at, the record this button writes, had no reader
+		// outside platform/delivery/handover.go. The sentence was DELETED rather
+		// than reworded, because the button's stated motivation was the false
+		// part and inventing a replacement repeats the defect one wording along.
+		//
+		// RESTORE IT when the follow-up sender exists and this stamp suppresses
+		// it, and delete the test that guards this
+		// (TestNoConfirmPagePromisesRemindersStopWhileNothingSendsThem) in the
+		// same commit. The test is what makes that a deliberate act.
 		v = confirmView{
 			Title: "Confirm you have moved your site",
 			Paragraphs: []string{
-				"Pressing the button below tells us you have moved everything across. You will not get any more reminders about it.",
+				"Pressing the button below tells us you have moved everything across.",
 				"Nothing is recorded until you press it.",
 			},
 			Button: "Yes, I have moved everything",

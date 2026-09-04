@@ -333,6 +333,44 @@ func TestConfirmPageIsSelfContainedAndObeysTheVoiceRules(t *testing.T) {
 	}
 }
 
+// TestNoConfirmPagePromisesRemindersStopWhileNothingSendsThem is a TRIPWIRE for
+// bugs_open/477, and it is meant to be deleted one day.
+//
+// Both confirm pages used to end on "You will not get any more reminders about
+// it." Nothing in the estate sends a reminder, so that sentence asked a customer
+// to take an action and told them what the action prevented, when the thing it
+// prevented did not exist. Measured 2026-09-04: one agent can send mail
+// (delivery-email-sender), ZERO scheduled tasks target it, and
+// sites.transfer_confirmed_at had no reader outside platform/delivery/handover.go.
+//
+// WHAT THIS TEST IS FOR: making the restoration deliberate. When the follow-up
+// sender exists and this stamp suppresses it, the wording SHOULD come back, and
+// this test should be deleted in the same commit as part of doing so.
+//
+// WHAT IT IS NOT: a check that no sender exists, and not a check that the page
+// tells no other lie. It matches this promise's vocabulary only, so a rewording
+// ("we will not chase you") would pass it. That limit is stated rather than
+// papered over: the class of defect — customer-facing copy promising a mechanism
+// the code does not have — is the one bugs_open/475, 476 and 477 all share, and
+// nothing automated in the estate catches it.
+func TestNoConfirmPagePromisesRemindersStopWhileNothingSendsThem(t *testing.T) {
+	for _, p := range []struct {
+		what   string
+		method string
+	}{
+		{"the button page a customer lands on", http.MethodGet},
+		{"the success page after pressing", http.MethodPost},
+	} {
+		// The fake confirms any token, so the POST really does render the
+		// success copy: this reads the page a customer sees, not a failure page.
+		body := serve(t, &fakeDeliveryDeps{}, p.method, "/c/abc123").Body.String()
+		if strings.Contains(strings.ToLower(body), "reminder") {
+			t.Errorf("%s promises something about reminders, and nothing in the estate sends one (bugs_open/477). "+
+				"If the follow-up sender now exists, delete this test in the commit that restores the wording: %q", p.what, body)
+		}
+	}
+}
+
 // ── Speculative-fetch refusal ────────────────────────────────────────────────
 //
 // These follow this file's rule: assert the EFFECT, never that the dependency
