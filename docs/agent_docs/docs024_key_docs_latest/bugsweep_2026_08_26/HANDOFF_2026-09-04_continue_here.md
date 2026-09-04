@@ -341,3 +341,33 @@ nested path.
 
 **Acceptance evidence: still none, and still correctly so.** `meta_description_refused` rows: 0.
 Eligible pages right now: 0. That is §11b's drained queue, not dormancy — read the two together.
+
+### 7c. ⚠ CORRECTION to §5's adjacent list — the 440 RED is FIXED, and HEAD is red for two DIFFERENT reasons now
+
+§5 (and §11e of `bugs_open/442`) says HEAD's `actions` package is red from `83407cd37`. **That is no
+longer true and the note would send the next reader after a closed problem.**
+
+`[VERIFIED 2026-09-04 ~16:2xZ, `scripts/verify-head-builds.sh --test ./platform/orchestration/actions/...`,
+HEAD `26b09b978`]`
+
+```
+ok    …/platform/orchestration/actions            8.174s   <- GREEN, and this lane's tests live here
+FAIL  …/actions/discovery_checks   TestEveryCheckProducedItemTypeIsClassified
+FAIL  …/actions/queryresolve       TestSourceDependenciesMatchTheResolvers
+```
+
+The 440 lane fixed both of theirs in `50046041d` — *"fix the two package tests my `83407cd37` left
+RED — **reported by two other lanes**, and my two pre-commit test commands could not between them
+have caught it"* (plus `3c2f25fb9` restoring `finding_code_registry.json`'s own 1-space indent after
+a `json.dump` reformatted all 76 entries). **The cross-lane report worked**; that is the argument for
+contributing into another lane's bug file rather than filing a duplicate or patching their guard.
+
+**The two failures now are other lanes' too, and neither is ours:**
+`discovery_checks/verifier_coverage_test.go` was last touched by lanes 469 / 436 / 114, and
+`queryresolve/page_image_sources_test.go` by 427 / 384. ⚠ **`discovery_checks` looks like ours and is
+not** — it is where §5's "no verifier for `meta_description_refused`" work would land, so the
+coincidence invites a wrong attribution. Checked rather than assumed: `grep -rn
+'meta_description_refused' platform/orchestration/actions/discovery_checks/` returns **nothing**.
+
+**So: `actions` is green, and whoever picks up §5's verifier item starts from a green parent package
+but a red `discovery_checks` that is not theirs to fix.**
