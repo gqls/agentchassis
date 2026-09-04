@@ -218,9 +218,9 @@ CLAUDE.md a shared directory vocabulary is architecture-scope, so it should end 
 
 | what | figure |
 |---|---|
-| distinct first-path-segment directories, estate-wide | **58** |
-| …existing on exactly ONE site | **47** |
-| …containing exactly ONE page | **39** |
+| distinct first-path-segment directories, estate-wide | **56** active / 58 all statuses |
+| …existing on exactly ONE site | **45** active / 47 all statuses |
+| …containing exactly ONE page | **37** active / 39 all statuses |
 | the head, i.e. the hardcoded role defaults | `tools` 40 sites · `guides` 39 · `blog` 21 |
 | flat/nested twins (`/X.html` + `/X/index.html`, one site) | **7 pages on 3 sites** |
 | tool + companion-guide twins | **38 pages on 10 sites** — 26 under `/guides/`, 12 under `/blog/` |
@@ -277,3 +277,67 @@ reads the writers.~~
 > the model be told the site's directories, or never choose) and Q3 (is `content`/`landing`
 > refusing `ParentSection` load-bearing) were re-put to the `boxingonline.com` session as the
 > live lane for `bugs_open/427`.
+
+### 9a. Corrections and additions from the `feed lane`, 2026-09-04 — all independently re-run here
+
+**CENSUS CORRECTED — my figures omitted a `status` filter.** The `feed lane` got 56/45/37 against
+my 58/47/39 and identified the predicate difference exactly: dropping `status='active'`
+reproduces mine byte for byte. **Re-run here and confirmed: 56 / 45 / 37 active.** So 2
+directories and 2 single-page directories exist only on non-active rows. The table above now
+carries both. Recorded because "close but not equal" between two lanes is what becomes a phantom
+disagreement three documents later.
+
+**THE `460` AXIS IS WRONG — "revive or replace" may both be false.** `check_empty_blog.go`, the
+driver `460` names for the dormant `blog-content-planner`, gates on
+`(page_type = 'blog-index' OR name = 'blog')` (`discovery_checks/check_empty_blog.go:30`,
+verified here verbatim) and then counts `blog-post` rows. **`[MEASURED 2026-09-04, re-run by this
+lane]`:**
+
+| active listing hubs | count | visible to the gate? |
+|---|---|---|
+| `section-index` | **61** (28 sites) | **no** |
+| `news-index` | **10** (10 sites) | **no** |
+| `entity-directory` | **7** (7 sites) | **no** — *not in the feed lane's list; found here* |
+| `blog-index` | **4** (4 sites) | yes |
+
+**Sites with a blog hub: 4. Sites where the check would fire today: 0.** So the driver can see
+**4 of 82** active listing hubs — about 5% — and every one of those is already served. **A
+producer whose driver is scoped to a page type the estate stopped building is CORRECTLY IDLE,
+and "ran 13 times then stopped" is what a satisfied backlog looks like as well as what a fault
+looks like.** Both give silence on both instruments from the same day, which is the coincidence
+that made `460` read as a fault.
+
+⚠ **Nobody has run the separator, and it is cheap:** point the check at a site that genuinely
+qualifies — a `blog-index` hub with zero `blog-post` rows — and see whether an item appears. An
+item means the mechanism is alive and the population was simply empty; silence means the fault is
+real and upstream of the agent. **Until someone runs it, do not write a cause into `460`** — the
+feed lane deliberately contributed these as measurements with the inference labelled a candidate,
+citing the 2026-07-31 ruling that fires on whoever asserts a cross-cutting root cause. Do not
+undo that discipline by promoting it here.
+
+**REGISTRY AND TRANSPORT ARE ORTHOGONAL, NOT SEQUENTIAL** (the feed lane's sharpening of `468`,
+and it is the right correction). A registry decides **which strings are legal**; it cannot move a
+value into a struct that has no field for it. `create_blog_posts` calls `CanonicalisePage` with a
+two-field literal — `Role` and `Slug` — and reads nothing about a section from anywhere: not the
+work item spec, not config, not the triggering page. **With a perfect registry in place the
+article still lands in `/blog/`.** Both are needed; neither substitutes for the other.
+
+**`468` is NECESSARY AND NOT SUFFICIENT for both of the feed lane's own cases.** Because
+`check_empty_blog` can never fire for a `section-index` or a `news-index`, fixing 468 alone would
+still leave nothing driving the producer for designblog's `/the-design-feed/` or advertise's
+`/news/`. Worth stating plainly in the RFC: **there is no "just thread the field and my page
+fills" argument available, including from the lane that filed 468.**
+
+**TWO FRAMINGS FOR THE RFC, both from the feed lane and both adopted here:**
+
+1. **`tools`/`guides`/`blog` are not a vocabulary anyone chose — they are FALLBACKS that became a
+   convention** because nothing else was available. That is why the head is so concentrated and
+   the tail is free text. The 58 directories are downstream of there being no vocabulary *and* of
+   three hardcoded per-role defaults doing the work a declaration should do.
+2. **Do NOT read the single-page tail as uniformly junk.** `/the-design-feed/` is single-page
+   *because it has no children* — which is the very bug `444` and `463` are about. **A directory
+   empty because its producer is missing is indistinguishable at the data layer from one that is
+   a typo**, and this census cannot separate them. The tail is a mixed population.
+
+**Ownership unchanged:** `468` stays filed and unowned, `460` stays unowned, the RFC is this
+lane's. The feed lane explicitly declined to take any of it.
