@@ -799,3 +799,42 @@ logo that carried the clause → build the fence.** The 12 other sites carrying 
 (§ exposure, 13 of 33) have not regenerated since the override shipped; each of those is a further
 test when it comes, and they are where the next evidence will come from — not from the sites that
 carry no licence at all.
+
+---
+
+## 2026-09-04 — the adjudication sample is STILL n=1, and the query that says otherwise is the obvious one
+
+The next evidence for this trigger comes from the other **12** licence-carrying sites when they
+regenerate (nothing schedules it), so the standing question for any session picking this up is
+*"has any of them regenerated since the override shipped?"*.
+
+**Asked and answered this morning: no. And the natural query says yes.** `[MEASURED 2026-09-04
+11:50Z]`
+
+`assets.updated_at` shows **8 of 34** active logo rows touched in the previous 20 hours — six of
+them since midnight, arriving roughly one an hour, which is exactly what a rolling regeneration
+looks like. **Two of the eight (`loanzy.uk`, `cv1.co.uk`) are on this bug's list of 13.** Believing
+that column would have moved this trigger's sample from **n=1 to a claimed n=3**, on two artefacts
+generated *weeks before* the override existed, and the fence decision rests on that number.
+
+**None of the eight was a regeneration.** A regeneration mints a fresh storage key under today's
+date (`bugs_open/462` §6). Every one of those rows still carries its ORIGINAL key date —
+`loanzy` **20260818**, `cv1` **20260825**, `mortgagecalculator` 20260814, `leopardessconsulting`
+20260710. Only the row moved, [INFERRED] by the `mime_type` writer (`bugs_open/433`): 6 of the 8
+now carry `mime_type` where most rows fleet-wide still do not.
+
+**So use the key, not the timestamp:**
+```sql
+SELECT s.domain, substring(a.storage_path from '/([0-9]{8})/') AS key_date,
+       to_char(a.updated_at,'YYYY-MM-DD HH24:MI') AS row_touched
+FROM assets a JOIN sites s ON s.id = a.site_id
+WHERE a.status='active' AND a.purpose='logo' ORDER BY 2 DESC;
+```
+A `key_date` earlier than the override's ship date means that site has **not** exercised the
+override, whatever the row says. Recorded as a LANDMINE (`assets.updated_at` / `storage_path`
+footprint) because the failure is silent and the false positives arrive in a believable cluster.
+
+**Trigger state unchanged: n = 1, and the fence stays UNBUILT.** The terms are unchanged too — any
+lettered logo that carried the clause builds the fence. A session that wants to close this
+deliberately should regenerate one of the 12 on purpose rather than wait, which remains the
+recommendation from 2026-09-03.
