@@ -152,13 +152,28 @@ carries `grok-4.20` (reasoning / non-reasoning), `grok-4.3`, `grok-4.5`, `grok-4
 cheapest non-reasoning one as the cost/latency counterpoint. n=2 each, as pre-registered.
 
 **Instrument note, before the table.** The 08-31 rows quote sonnet at NEG=5 on "six shapes". Re-scoring
-the same stored sonnet section TODAY with the production scanner (`datahelpers.ScanDefineByNegation`
-at HEAD `763c8002f`) gives **8** (2 `x_not_y`, 5 `rather_than`, 1 `instead_of`) — the scanner has
+the same stored sonnet section TODAY with the production scanner (`datahelpers.ScanDefineByNegation`)
+gives **8** (2 `x_not_y`, 5 `rather_than`, 1 `instead_of`) — the scanner has
 gained shapes since 08-31, so the 5 and the 8 are two instruments over one text, not a change in the
 text. Every number below is the production scanner over the model's flattened JSON output with tags
 stripped, sonnet re-scored the same way in the same run; the 08-31 Fable/Gemini rows are NOT on this
 instrument and their outputs were not stored, so they cannot be re-scored (fixed from today:
 `TRIAL_OUTPUTS_2026-09-04_grok_arms_verbatim.md`). `ScanContrastNeighbours` = 0 on every arm.
+
+**⚠ Which scanner revision produced these numbers — checked, because the answer was nearly wrong.**
+This section first cited "HEAD `763c8002f`", which was HEAD when the session started and **not** the
+tree every run saw: the arms were scored between 11:38Z and 13:55Z and `763c8002f` only landed at
+12:30Z, so the earlier batch ran against an older tree. **A `go run` instrument reads the SHARED
+WORKING TREE, which other sessions move under you mid-experiment** — the same hazard as measuring
+across a fleet roll, one level in, and with nothing in the output to say so. Resolved by hashing the
+functions rather than naming a commit: `[MEASURED 2026-09-04]` the only commit to touch
+`negationtells.go` today is `60091e140` at **11:16Z**, before every run here; it edits the JUDGE
+(`AcceptNegationRewrite`, `AcceptNegationHeadingRewrite`) and **neither counting function**, and
+`ScanDefineByNegation` and `ScanContrastNeighbours` are byte-identical either side of it
+(`awk '/^func X/,/^}/' | md5sum` → `c7a95442` and `80df0bd0` before and after). **So every number
+above came from one counting implementation, and that is the claim worth making — it survives the
+tree moving, where a commit id does not.** Prompted by the fleet-roll notice for `v1.0.1361`, which
+carries `60091e140`.
 
 | arm | NEG (prod scanner) | shapes | words | £99 / $5,000 | RAG / LoRA | links (all allowed?) | highlights | wall | xAI cost |
 |---|---|---|---|---|---|---|---|---|---|
