@@ -480,3 +480,46 @@ other two were fair — my write-up had not shown enough of the database change 
 they asked, twice and independently, whether an existing monitoring job already did what my new report
 does. I went and read that job rather than arguing: it does not, and cannot, because it only ever sees
 the number that was actually sent and never where it came from. Resubmitted with all of it evidenced.
+
+---
+
+**2026-09-04 (later) — the is-it-live test came back, and it is a clean yes.**
+
+Both probes fired. The page-writer one: **50 calls, every one at 15999** — the deliberately odd number
+I put where only the new code looks. The control is what makes it worth anything: the same step, the
+same day, before I armed it, **182 calls, every one at 16000**. Nothing else changed in between.
+
+The second one matters more than its two calls suggest. That step's configured limit was 2000 and the
+old hardcoded number in the program was *also* 2000, so the log said 2000 whether the configuration
+was working or being thrown away — there was no question we could ask that would tell them apart. I
+set it to 1999. It read 1999. That hole is closed.
+
+So last week's fix really is running in production, proven by watching it rather than by inference.
+Both probes are now put back, and I checked that two ways — the settings no longer carry them, and the
+new report no longer lists them, which is a different instrument agreeing rather than me re-reading my
+own change.
+
+**And a neighbouring session handed us a real one.** They found that asking these models for a
+"thinking budget" — an older setting that tells the model how much to reason before answering — is now
+rejected outright by the newest models. They hit it four times before working out why. That setting is
+part of the contract I widened this morning, so it is ours.
+
+I checked it before acting, and checking changed what I built. Their rule was right but not uniform:
+the newest models reject it, the middle generation still accepts it, and **the oldest ones require it —
+without it they do no thinking at all**, and thirty-two of our settings point at one of those. A guard
+that simply stopped sending it would have broken the only models where it works.
+
+Nobody is affected today: **not one agent in the whole fleet currently asks for a thinking budget.** I
+confirmed that two different ways, because the obvious way to count it — searching the settings text
+for the word — returns three agents and means none; those three are a reviewer's list of words to look
+for, not settings. So this is a trap rather than a fault: it fires on the first person to switch it on,
+it takes down every call for that step rather than one, and switching it on is a one-word change that
+looks completely safe.
+
+What I have done is make the report catch it before it ever runs, and leave the deeper question — should
+the program refuse, quietly ignore it, or let the error through — open. Quietly ignoring it would be
+exactly the bug we have spent this whole week fixing, so it should not be decided in passing.
+
+One loose end: the review council's second pass has not come back. Its reviewers ran, but no verdict was
+written, and no verdict has been written anywhere in the system since. I have marked it as pending or
+possibly stuck rather than waiting on it, so the next session re-checks rather than assumes.
