@@ -66977,3 +66977,37 @@ its absence since the 08-24 roll is real evidence rather than an artefact of ret
 `bugs_closed/382`'s answer now rests on two independent instruments agreeing. I had
 published a caveat calling my own second instrument worthless. **An over-cautious claim is
 still a false claim**, and it costs the next reader a real piece of evidence.
+
+## 2026-09-04 — I relayed a peer's claim as fact and invented a "self-demonstrating" detail, both because they made my write-up neater (`bugfix_384_page_list_invalidation`)
+
+- **The claims.** Two, in the same contributed section of
+  `architecture_review/PROPOSAL_D9_landmines_as_a_footprinted_corpus.md` §6c, both stated flatly:
+  (1) *"there are at least TWO entries covering the same `name`/`function` resolution seam, and
+  neither lane found either — the corpus was doubly covered and delivered nothing"*; (2) in a
+  message to that peer, *"the entry that would have saved us both grew its `content_components`
+  footprint in an addendum, not its opening bullet"* — which they then asked me to enshrine in §6c
+  as the self-demonstrating case.
+- **What was true.** **(1) There is ONE entry.** The peer cited `LANDMINES.md:19955`; that is a
+  **line inside** the entry whose heading is at **19934**. Parsing every entry mentioning
+  `loadComponentSchemas` or the name-or-function fallback returns exactly one heading. I relayed a
+  line-number-vs-entry confusion without opening the file. **(2) That entry carries exactly ONE
+  footprint bullet**, which names `content_components.name`, `.function`,
+  **`page_components.component_id`** and `page_components.slot_name` — the very column my broken
+  query keyed on, in the first and only bullet. Nothing grew in an addendum.
+- **Why it mattered.** Both were about to become durable in an architecture proposal an owner may
+  rule on, and (2) was requested by the peer specifically because it was such a tidy illustration.
+  It would have justified a design requirement (parse every footprint bullet) with a case that does
+  not exhibit it — leaving the real requirement resting on a false example.
+- **What caught it.** The peer asking me to *add* the sentence. Being asked to write a claim down
+  made me check it; sending it in a message had not. **The asymmetry is the finding: I verified at
+  the moment of enshrining and not at the moment of asserting**, and those should be the same moment.
+- **The cheap check that would have.** One parse each, under a minute. ⚠ **The generalisable
+  trigger: a detail that makes your write-up NEATER is the one to check before writing it.** One
+  made the corpus look doubly protective; the other made a finding self-illustrating. Both were
+  satisfying, neither was measured, and satisfaction is not evidence. Second: **relaying a peer's
+  technical claim is asserting it** — already in this lane's index, and I did it anyway, on a claim
+  whose form (a bare line number) was itself the tell.
+- **Cost.** ~15 minutes, retracted in §6c the same afternoon before any owner read it, and the
+  corrected argument is **stronger**: the single entry names the exact column in its first bullet, so
+  the *simplest conceivable* indexer would have surfaced it to both lanes. Fifth and sixth wrong
+  claims from this lane today.

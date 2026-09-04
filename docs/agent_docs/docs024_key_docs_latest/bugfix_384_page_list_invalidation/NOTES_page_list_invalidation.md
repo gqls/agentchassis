@@ -1072,3 +1072,33 @@ audit counting entries would have scored the seam twice-protected.
 ⚠ **Note what "resolve to a predicate" bought over "state a range".** A range would have been
 honest and would have hidden the finding — the 13/19/10 gap only exists as a *fact about addenda*
 once you know which rule produces which number. **The disagreement was the instrument**, again.
+
+## 2026-09-04 ~15:0xZ — asked to enshrine a claim, I checked it and it was false; so was one I had relayed
+
+The peer asked me to put into §6c the sentence I had sent them: *"our own entry grew its
+`content_components` footprint in an addendum, not its opening bullet, which makes the
+multi-footprint finding self-demonstrating."* Checking it before writing it:
+
+- **False.** That entry has **exactly one** footprint bullet, naming `content_components.name`,
+  `.function`, **`page_components.component_id`** and `page_components.slot_name`.
+- **And a second claim, relayed from them and filed by me as §6c point 5, is also false:** *"at
+  least two entries cover this seam."* There is **one**. `LANDMINES.md:19955` is a **line inside**
+  the entry headed at **19934** — a line number read as an entry. I filed it without opening it.
+
+**The corrected picture is a better argument.** That single entry names
+`page_components.component_id` — the exact column my broken query keyed on — in its **first and
+only** footprint bullet. So **the simplest conceivable indexer** (first bullet only, strict
+`table.column`, no ranking) **would have surfaced it to both lanes.** The delivery failure needed no
+sophistication to prevent; two sessions queried that column all afternoon and the guard naming it
+reached neither. I had been dressing up §6's thesis with a subtlety it does not need.
+
+**The multi-footprint finding stands** — 69 of 896 entries, 13/19/10 reachable only via a later
+bullet — because it was measured across the corpus. It is simply not illustrated by this case.
+
+⚠ **The lesson, and it is about WHEN I check.** Both false claims went out in messages
+unchallenged; the one that got checked is the one I was asked to *write down*. **I verify at the
+moment of enshrining and not at the moment of asserting, and those should be the same moment.**
+⚠ **And the trigger to distrust: a detail that makes the write-up NEATER.** One made the corpus
+look doubly protective, the other made a finding self-illustrating. Both satisfying, neither
+measured. Sixth wrong claim today; the first one I caught myself, and only because I was asked to
+commit it to a document.

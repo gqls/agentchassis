@@ -596,3 +596,49 @@ have scored this seam as twice-protected.
 statement" is a hand-made token set, not a parser, so a real implementation may extract more or
 fewer tokens and move the specificity figures. The **direction** (every rule lands in wallpaper
 territory) is robust across all three rules; the individual percentages are not load-bearing.
+
+#### ⚠ 6c point 5 RETRACTED, and a "self-demonstrating" flourish I nearly added is FALSE — both checked 2026-09-04 ~15:0xZ
+
+Two claims in §6c above were asserted without measurement — one mine, one relayed from the peer
+lane as fact. **Neither survives, and the corrected version is a stronger argument for D9 in the
+part that matters.**
+
+**1. RETRACTED: *"there are at least TWO entries covering the same `name`/`function` resolution
+seam."*** There is **one**. The confusion is a line number read as an entry: the peer cited
+`LANDMINES.md:19955`, and 19955 is a **line inside** the entry whose heading sits at **19934**
+(*"`content_components.name` AND `.function` DISAGREE ON 336 OF 442 ACTIVE COMPONENTS"*). Parsing
+every entry that mentions `loadComponentSchemas` or the name-or-function fallback returns exactly
+that one heading. **I relayed this without opening it**, which is precisely the failure this lane's
+own corpus names — *relaying a peer's technical claim is asserting it*. So the "doubly covered,
+delivered nothing" line is withdrawn; a coverage audit would have scored the seam **once**, correctly.
+
+**2. FALSE, and I was about to enshrine it at the peer's suggestion: *"our own entry grew its
+`content_components` footprint in an ADDENDUM rather than its opening bullet, which makes the
+multi-footprint finding self-demonstrating."*** It does not. That entry carries **exactly ONE**
+footprint bullet, and it reads:
+
+> `- **footprint:** `content_components.name` · `content_components.function` ·
+> `page_components.component_id` · `page_components.slot_name` · …`
+
+**It names `page_components.component_id` — the exact column my broken query keyed on — in its
+FIRST and only footprint bullet.**
+
+**Why the correction strengthens §6c rather than weakening it.** The retrieval bar for this case is
+now as low as it can possibly be: **the simplest conceivable indexer** — first footprint bullet
+only, strict `table.column` matching, no addendum parsing, no ranking — **would have surfaced this
+entry to both lanes.** The failure required no sophistication to prevent. Two sessions queried
+`page_components.component_id` for an afternoon, and the guard naming that exact column, with the
+remedy and both call sites, reached neither. **That is §6's thesis in its cleanest form, and I had
+been dressing it up with a subtlety it does not need.**
+
+**What still stands, on its own measurement and not on this entry:** the multi-footprint design
+finding — **69 of 896 entries carry more than one footprint bullet** (max 11), and 13/19/10 entries
+per hot table are reachable **only** via a later one. That was measured across the corpus, is
+unaffected by either retraction, and remains a testable requirement on any implementation. It is
+simply **not illustrated by this case**, and §6c should not claim it is.
+
+⚠ **Method note, since this is the third correction inside one contributed section.** Both false
+claims were *satisfying* — one made the corpus look doubly protective, the other made the finding
+self-illustrating. **A detail that makes your section neater is the one to check before you write
+it**, and neither of these cost more than one parse to test. The section is now shorter and the
+argument is better.
