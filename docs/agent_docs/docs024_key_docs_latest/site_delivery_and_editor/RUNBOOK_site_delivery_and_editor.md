@@ -524,3 +524,41 @@ doing its job.
 > `stored_url_expires_at` advancing past 2026-09-10 is the proof. If it does not move, the email's
 > 30-day promise is good for 7, and the customer meets a refresh page — which is the honest failure,
 > but still a failure of the thing we told them.
+
+## Vouchers — the owner's trial-run code, and why £30 and not £0 (2026-09-04)
+
+**Minted 2026-09-04 14:36:27Z: `WD-KN3WU-9PZN4`** — 3000p, recipient *"Owner trial run 2026-09-04"*,
+expires **2026-09-18**, unredeemed at time of writing. Owner asked for it to run another site through
+webdesign.uk.
+
+> ⚠ **RECORDED LATE, and that is the point of writing it here.** I created live billing state and did
+> not record it anywhere for ~40 minutes. The `stripe` lane found it in the table, could not tie it to
+> any lane doc, and had to ask whose it was. This is the same shape as the migration I applied and
+> left uncommitted this morning — **an action that changes live state does not schedule its own
+> record** — and I filed a landmine about that three hours before doing it again in a different table.
+> **If you mint, apply, or stamp anything, record it in the same breath.**
+
+**Why £30 and not a free code.** `billing/models.go` rules it, and the reasoning is not arbitrary:
+
+- `ListPricePence` = **14900** (£149 all-in, owner ruling 2026-08-11).
+- `RuledVoucherPences` = **{1000, 3000, 5500}** only. `Service.CreateVoucher` refuses anything else.
+- **£30 exists for exactly this use**: added by owner ruling 2026-08-26, *"his own end-to-end trial
+  runs, collecting the site as a customer would, **priced to exercise the voucher path for real**."*
+
+So a £0 code is wrong twice over: it is not a ruled amount, and it would **skip the payment path the
+trial is meant to test**. `handlers.go`'s `binding:"required"` on an int would reject zero anyway.
+
+**How it was minted, and the honest caveat.** The sanctioned route is
+`POST /api/v1/admin/billing/vouchers`, which is behind `adminGroup` — an admin JWT this session does
+not hold. So it went in by SQL, honouring every guard `Service.CreateVoucher` applies (ruled amount,
+future expiry) and generating the code with the service's own alphabet
+(`23456789ABCDEFGHJKLMNPQRSTUVWXYZ`, `WD-` + 5 + `-` + 5, from a CSPRNG). **Prefer the API if you hold
+a token** — the guards there are enforced rather than honoured.
+
+**Redemption is atomic and single-use**: `UPDATE vouchers SET redeemed_at = now() … WHERE code = $1
+AND redeemed_at IS NULL AND expires_at > now()`. A raced second redemption updates zero rows. So if a
+run aborts *after* redemption, the code is spent — mint another rather than trying to reuse it.
+
+⚠ **PAYMENTS ARE NO LONGER THIS LANE'S** (2026-09-04). The `stripe` session owns vouchers, orders,
+the webhook, Payment Links and checkout. Route payment questions there; this section stays because
+the voucher above is live and someone has to be able to find it.
