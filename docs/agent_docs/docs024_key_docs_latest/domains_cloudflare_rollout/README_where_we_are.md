@@ -90,3 +90,29 @@ about listing needs it — but until it's on, we cannot change any DNS or move a
 Porkbun domain onto Cloudflare. One click covers all 683; there's no need to do
 it per domain. When you flip it, tell any session and it will confirm the door
 is open within seconds.
+
+## 2026-09-04 — closing this session; where things actually stand
+
+Quick status before I hand this off to whichever session picks it up next.
+
+The security worry from yesterday is now explained, by another session working
+alongside this one. Short version: the 50 .co.uk names really are yours (the
+registry confirms it), and most of them really are listed for sale on
+Spaceship right now — genuine listings, a real asking price, a real page. But
+they are not visible through the Spaceship account we hold the API key for.
+That's the "someone else's account details" you were seeing: the listings
+exist under a Spaceship account other than the one this project has access
+to. The full detail is in domain_valuation/LISTING_ACCOUNT_2026-09-03_finding.md,
+but the one thing that needs you specifically: please find whichever Spaceship
+account those listings actually live under, and check who gets paid if one
+sells, before anyone here prices or touches them again.
+
+On the plumbing side, all three registrar keys you were asked for at the start
+of this — Dynadot, Porkbun, Spaceship — are now in and working for reading.
+Spaceship's own domain count has grown fast under your own account (203 on
+Tuesday, 251 today) — all new .com registrations, nothing alarming, but worth
+knowing it's moving on its own.
+
+Nothing has been written to any registrar yet — every nameserver repoint is
+still untried. That's the next real piece of work once the rollout is ready to
+start moving domains onto Cloudflare for real.

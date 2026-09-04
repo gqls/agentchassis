@@ -868,3 +868,47 @@ account these are listed under.
 - Thread cold-start written: `HANDOFF_2026-09-04_porkbun_continue_here.md`
   (this dir). Valuation lane confirmed my three inbound CSVs COMPLETE for its
   purposes on 09-02; nothing further owed to it from Porkbun.
+
+## 2026-09-04 — handoff: Spaceship side of the security flag closes; inventory re-pulled to 251
+
+Closing out this session ("spaceship") with a fresh pull and a tie-off of this
+lane's contribution to the "someone else's account details" investigation,
+which the dynadot/valuation lanes have since RESOLVED
+(`domain_valuation/LISTING_ACCOUNT_2026-09-03_finding.md`, also linked from the
+RUNBOOK's SellerHub subsection now).
+
+- Fresh domains pull `[MEASURED 2026-09-04]`: **251** (was 247 yesterday, 203
+  on 09-02) — +4 more `.com` registrations overnight, same shape as the prior
+  +44 (aged-looking names, e.g. `grafisches.com`, `logical-logistics.com`).
+  Zero dropped across all three days. Registrant contact ID still uniform
+  across all 251, no exceptions — re-checked, not assumed from yesterday.
+  SellerHub re-pulled too: still exactly 831 rows, still byte-identical to
+  09-02 (status/price fields diffed, zero drift).
+- **This lane's (spaceship's) contribution to the resolved flag**: confirmed
+  the SellerHub API has no seller/payee/account field anywhere in the
+  documented surface (checked against the full docs.spaceship.dev section
+  list, not just the endpoints we'd already called), and confirmed the
+  registrant-contact angle was a dead end (uniform, matches the owner's own
+  identity). Both of those were load-bearing negatives for the valuation
+  lane's conclusion — they're what forced the "check which nameservers the
+  flagged domains actually use" approach that found the NamePros/launch-pair
+  delegation and the real Spaceship for-sale landers. Full credit and the
+  actual resolution live in the valuation lane's finding doc; nothing more
+  to add on the security question from here.
+- **RUNBOOK now carries a SellerHub subsection** (previously the SellerHub
+  endpoint wasn't documented in the RUNBOOK at all, only discovered and used
+  ad hoc) — a fresh session reading the RUNBOOK first will now see it, the
+  831-vs-36 inventory trap, and the resolved-finding pointer without having
+  to reconstruct any of this from NOTES.
+- **Still open, unchanged from 09-02**: the write side (`set-ns`, `dns-put`,
+  `dns-delete`) remains completely UNEXERCISED — nobody has attempted a real
+  Spaceship repoint yet. That's the next real step for this lane once the
+  rollout itself is ready to touch Spaceship-registered domains, and it
+  should be tried on ONE low-stakes domain first per this file's existing
+  practice for the other registrars.
+- Dynadot and Porkbun keys were both supplied and clients proven since this
+  session started (see the Dynadot section above and 5af348ef5) — so as of
+  today all three of the lane's original "3 registrar keys owed" are IN.
+  Remaining registrar-side blocker for the rollout itself: none named here;
+  check the PLAN for what's actually gating the first real Cloudflare
+  zone-per-domain run at scale.

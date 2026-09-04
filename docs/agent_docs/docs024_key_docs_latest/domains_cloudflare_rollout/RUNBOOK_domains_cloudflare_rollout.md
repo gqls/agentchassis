@@ -9,7 +9,7 @@
 | Nominet | `~/.config/nominet/credentials` | `TAG=…` and `EPP_PASSWORD=…` lines. PENDING |
 | Dynadot | `~/.config/dynadot/credentials` | `API_KEY=…` (+ `API_SECRET=…`, unused by API3, kept for the RESTful API). **PRESENT 2026-09-02 — `list_domain` PROVEN (451 domains), writes not yet** |
 | Porkbun | `~/.config/porkbun/credentials` | `API_KEY=…` and `SECRET_API_KEY=…`. **PRESENT 2026-09-02 — ping + listAll PROVEN (683 domains); per-domain endpoints refused until the account-level API-access opt-in (see Porkbun section), writes not yet** |
-| Spaceship | `~/.config/spaceship/credentials` | `API_KEY=…` and `API_SECRET=…`. **PRESENT 2026-09-02 — read paths PROVEN, writes not yet** |
+| Spaceship | `~/.config/spaceship/credentials` | `API_KEY=…` and `API_SECRET=…`. **PRESENT 2026-09-02 — read paths PROVEN incl. SellerHub, writes not yet** |
 
 Gotcha: read the token with `tr -d '[:space:]'` — a trailing newline in the file
 becomes an invalid bearer header.
@@ -222,13 +222,61 @@ becomes an invalid bearer header.
   repoints — body `{"provider":"custom","hosts":[…]}`, or `{"provider":"basic"}`
   with hosts **omitted** to revert to Spaceship's own NS. Rate limits: list
   300/300s; NS updates **5 per domain**/300s; most ops 30/30s per user.
-- Inventory `[MEASURED 2026-09-02]`: **203** domains (API `total` agrees), all
-  `registered`. NS: **144** × aftermarket.com, **58** × atom.com, **1** ×
-  cloudflare — near-all parked at marketplaces, and DNS is not hosted at
-  Spaceship (0 records on the sampled zone), so the NS repoint is the only
-  Spaceship-side write the rollout needs. Renewals: 17 expire before 2027-01-01,
-  **all 17 autoRenew=true**; 14 domains have autoRenew=false, none expiring
-  before 2027-06. Snapshot JSON in the 09-02 session scratchpad only.
+- Inventory growing daily, re-pull before trusting any figure below:
+  **203** (09-02) → **247** (09-03, +44) → **251** (09-04, +4). API `total`
+  field agreed with the fetched count every day. All `registered`, all `.com`
+  — **zero `.co.uk` at Spaceship, ever**, across all three pulls; a `.co.uk`
+  question is a Nominet question, not a Spaceship one (see `domain_valuation`
+  lane's registry walk). NS on the original 203: 144 × aftermarket.com, 58 ×
+  atom.com, 1 × cloudflare — near-all parked at marketplaces, and DNS is not
+  hosted at Spaceship (0 records on the sampled zone), so the NS repoint is
+  the only Spaceship-side write the rollout needs. Renewals (09-02 figures):
+  17 expire before 2027-01-01, **all 17 autoRenew=true**; 14 domains have
+  autoRenew=false, none expiring before 2027-06. Snapshot JSONs in each day's
+  session scratchpad only, not committed — the CSVs in
+  `domain_valuation/inbound/spaceship_domains_2026-09-0{2,3}.csv` are the
+  durable record (09-03's adds a `registrant_contact_id` column).
+- **Registrant contact ID is uniform across every domain seen so far** (one
+  value, `FjKBHgOO95MtFO1Q6wMPBzD1Vebp`, resolves via `GET /v1/contacts/{id}`
+  to the account holder's own name/email) — checked 09-02 through 09-04
+  including every new arrival each day, no exceptions found. This is the only
+  identity field the Domains API exposes; see SellerHub below for the field
+  it does NOT expose, which is where the real finding was.
+
+### SellerHub (marketplace listings — separate namespace from `domains`)
+
+- `GET /v1/sellerhub/domains?take=100&skip=N` lists; needs `sellerhub:read`
+  (this account's key has it). Domain object: `name`, `status` (`onSale` /
+  `onSaleStopped` / `verifying` / …), `binPrice`/`binPriceEnabled`,
+  `minPrice`/`minPriceEnabled` — **no seller, payee, bank, or
+  account-linkage field of any kind, checked against the full documented API
+  surface** 2026-09-02/03. This is a hard ceiling on what this endpoint can
+  ever tell you about who a sale would pay.
+- **SellerHub is not an inventory of owned domains.** `[MEASURED
+  2026-09-02→09-04]` **831 listings, byte-identical across all three days**
+  (zero drift, not even the new domain arrivals show up in it) — but only
+  **36 of the 831** names are actually registered at this Spaceship account.
+  The other 795 are listings for names registered elsewhere (or since
+  dropped). Never join on SellerHub rows as if they were owned-domain rows.
+  7 listings are live `onSale` (all one keyword family — robot-hands /
+  mopkits — min-offer $10,000 each, BIN $2,500 present but disabled); the
+  sold-domains report is empty all-time.
+- **⚠ RESOLVED FINDING, 2026-09-03 — read before treating a Spaceship
+  listing as harmless.** The owner reported "someone else's account details
+  in the listing" on 50 flagged `.co.uk` names. Full write-up:
+  `domain_valuation/LISTING_ACCOUNT_2026-09-03_finding.md`. Short version:
+  those domains are genuinely his (Nominet-verified, DESIGNCONSULT tag), and
+  46 of the 50 ARE live for-sale listings on Spaceship (44 on NamePros NS, 2
+  on Spaceship's own `launch1/launch2.spaceship.net`, both serving a real
+  "Listed with spaceship.com" lander) — **but none of the 50 appear in the
+  SellerHub export from the account this estate holds a key for.** Since
+  SellerHub demonstrably CAN list domains registered elsewhere (795/831
+  cases above), that absence means the listings sit under a **different
+  Spaceship account** this estate cannot see — a real payout/transfer risk,
+  not a UI glitch. This closed as far as the API can take it: the
+  seller/payout field is dashboard-only everywhere, confirmed against the
+  full surface, so **only the owner can locate the actual account and check
+  it.** Do not price or re-list any of the 50 until he has.
 
 ## Verification pattern (end of run)
 
