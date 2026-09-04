@@ -2095,6 +2095,36 @@ source document and the entry points at it.
 - > **CORRECTED 2026-08-12 (bug 122 lane) — the line-number citation above is STALE, and the objection is wider than it says.** `verifier_coverage_test.go:171` is today an unrelated entry (`needs_component_regeneration`). The standing objection now lives at **`:199–201`** and there are **three** instances, not one: `image_url_404`, `backend_entry_orphaned` and `asset_reference_404`, each refusing an outbound probe on the completion path. Read the third — it does not merely object, it states the sanctioned alternative: *"the check retracts its own findings through `CheckResult.Resolved` on a positive re-observation … taken on the discovery path where the probe is already precedented."* **The entry's advice ("derive it instead") is unchanged and still right**; only the pointer moved. Cost of the staleness: nearly quoted from the pointer without opening the file, which would have missed both the width and the alternative. **Cite the objection by its entry names, not by line — this file has been renumbered twice since 07-31.**
 - **what this does NOT tell you:** whether the file was actually committed and deployed. A row can derive a perfectly correct path for a file that was never pushed (`gaswholesalers.com` `/assets/images/logo.png`, 404 with a healthy `logo` asset row, live 2026-07-31). That question belongs to `check_undeployed_assets`, and conflating the two is how one check ends up asserting the other's finding.
 - **why it is a landmine:** the natural query — `SELECT url FROM assets WHERE purpose='hero'` — returns a real URL that really works when you paste it in a browser, so the column looks authoritative right up until you compare it with what the page renders. Nothing errors; the answer is simply about a different file in a different place.
+- **ADDED 2026-09-04, `site_delivery_and_editor` + the `475` lane — THE WHOLE QUESTION, composed,
+  after two lanes answered it FOUR different ways in one afternoon and every answer was wrong.** This
+  entry says the served path is derived; the CSS-background entry elsewhere in this file says an
+  `<img>`-based check cannot see a hero. **Neither says how to answer "does this asset actually reach
+  a page" — and each of the four failures was a fix for the one before it:**
+  1. `assets` row counts — measures what was **staged**, never what is served.
+  2. `(src|href)="…\.jpg"` on the served page — cannot see `url('/assets/images/hero-home.jpg')`, and
+     heroes here are CSS backgrounds. **Seven pages agreed, which added no information**, because one
+     blind instrument answered all seven.
+  3. joining `storage_path`'s filename against `content_data` — `storage_path` names the **source**
+     object (a uuid). **This entry's own trap, hit by somebody who had just read it.**
+  4. improvising the mapping as `asset_key` with `_`→`-` — right on every case checked and **wrong in
+     general**: the extension comes from **purpose** (`ImagePurposes`, `hero` → jpg), and the
+     `og_card` entry above records that `og-card.png` is not derivable from `og_card` at all.
+  **The recipe, and it needs all three steps:**
+  ```bash
+  # 1. DERIVE the served path, never guess the mapping:
+  #    storage.DeployedWebPath(asset_key, purpose)   platform/storage/url_helpers.go:345
+  # 2. fetch the page and match BOTH encodings — checking one is checking neither:
+  curl -s "$PAGE" | grep -oE '(src|href)="[^"]*\.(jpg|jpeg|png|webp|svg|avif)"|url\([^)]*\.(jpg|jpeg|png|webp|avif)[^)]*\)'
+  # 3. then fetch the FILE, because referenced is not served — with an invented path as control:
+  curl -s -o /dev/null -w '%{http_code}\n' "$SITE/assets/images/<derived>"
+  ```
+  `[MEASURED 2026-09-04]` run properly on `webdesign.uk`: **14 of 20 assets reach a served page** —
+  against "zero content images" (instrument 2) and "14 of 14 unreferenced" (instrument 3), both from
+  the same afternoon and both stated confidently.
+- **⚠ USEFUL BY-PRODUCT: four assets sharing ONE purpose serve as four DISTINCT files here**
+  (`card-tool-blueprint-compiler.jpg`, `…-css-variables.jpg`, `…-social-card.jpg`,
+  `…-website-brief-starter.jpg`). So `asset_key` disambiguates what the purpose-collision entry warns
+  `purpose` alone does not — evidence at the served bytes, and it retired a planned canary.
 - **source:** 2026-07-31, `bugs_closed/128` (`docs024_key_docs_latest/bugfix_128_image_url_404/`), commit `beff42809`, council `99dca96a-413a-4bcb-b278-9577f920786d`, pinned by `TestImageURL404_SilentOnEveryPathAnAssetActuallyDeploysTo`
 - **added:** 2026-07-31, bugfix_128 lane
 
