@@ -349,3 +349,98 @@ against the keyed ground.**
 handler that can regenerate or replace an image. Naming that handler is part of building this, and
 per the 2026-08-02 ruling on shared vocabularies, a new work-item type needs its producer set and
 `item_key` shape stated in the concept-register entry in the same commit that ships it.
+
+---
+
+## 8. THE SWEEP IS BUILT AND RUN — `scripts/audit-logo-legibility.py` `[MEASURED 2026-09-04 11:42Z]`
+
+§7a's fast path (option (b)) exists, is committed, and has been run over the whole live
+population. **It fires on websitepromotion**, which §7 sets as the test of whether it works.
+
+```
+./scripts/audit-logo-legibility.py                 # the fleet
+./scripts/audit-logo-legibility.py --self-test     # prove the arms fire, offline, no cluster
+```
+
+### 8a. How widespread is it — the answer §7a asked for
+
+**34 active logo assets. Two are illegible by the WCAG non-text floor. But the headline number
+is not the finding count — it is that only 7 of the 34 could be judged at all.**
+
+| bucket | n | what it means |
+|---|---|---|
+| **FINDING** | **2** | measured, alpha-backed, below the floor: `websitepromotion.co.uk`, `mortgagecalculator.co.uk` |
+| measured legible | 5 | designblog 88.1%, relojistas 75.5%, boxingonline 50.0%, seotools 29.3%, gamedesign 26.4% |
+| **not judged — baked background** | **22** | no alpha channel at all. The header is not their backdrop; SITE_DEFECT_CATEGORIES 4.5 owns them |
+| **not displayed** | **3** | the site holds an active logo asset the served page never loads |
+| BLIND | 2 | `noted.co.uk`, `loanandmortgagecalculator.co.uk` — not on the token-based theme |
+
+**22 of 29 fetched logos have a background baked in.** `bugs_closed/424` fixed that for *new*
+generations; the existing estate is almost entirely pre-fix. Those marks are mostly legible —
+verified by eye, not assumed — so this is not 22 hidden copies of this bug. It is the reason the
+answer to "how widespread is 462" cannot yet be given for most of the estate: **the judgeable
+population is 7.**
+
+### 8b. The two findings
+
+- **`websitepromotion.co.uk`** — arm B. 6.7% of the mark's ink clears 3:1; median **1.01:1**;
+  86.3% indistinguishable from the header. `PNG 400x218, 11,637 B, md5 055e34066110`, measured at
+  the served bytes against `--color-header-bg: #ffffff`. The byte count matches §6's record
+  exactly, so this is the same artefact §6 measured. **The owner has ruled this one stays**
+  (§7) — it is here as the detector's proof, not as an open repair.
+- **`mortgagecalculator.co.uk`** — arm A, and **NEW**. *No pixel anywhere in the mark reaches
+  3:1 against its header* (max **2.39:1**, median 2.33:1) — numerically the same shape as
+  **pre**-regeneration websitepromotion. `PNG 385x400, 70,156 B, md5 d10c98153427`, header
+  `#faf8f3`. Cross-checked with 462 §1b's own opaque-only method: max 2.41 vs the header, 2.56 vs
+  white — agrees within rounding.
+  ⚠ **Do not overstate this one.** Opened and looked at: it is a gold house-and-key mark on cream,
+  and a person *can* see it. The true claim is "the whole mark sits below the WCAG 3:1 non-text
+  floor", not "invisible". It is a legibility/accessibility finding, and whether it is worth a
+  regeneration is the owner's call, not the check's.
+  **This is also evidence about the statistic**: mortgagecalculator (max 2.39, dense mark) reads
+  far better than post-regeneration websitepromotion (max 20.75, thin fringe). Contrast ratio
+  alone does not order legibility — **area at contrast** does. Not built on: n=1.
+
+### 8c. ⚠ CORRECTION to §1's control figure
+
+§1 and §4 record seotools' darkest pixel as **7.64:1** and label the column *"vs the white
+header"*. **seotools' header is not white — it is `#faf8f3`** (declared and consumed, read at the
+served CSS 2026-09-04). Against its real backdrop the mark is max **6.98:1**, median 1.90:1. The
+control still passes, and §4's requirement is unaffected; the recorded number was measured against
+the wrong operand. §4's own warning — *"do not generalise that to other sites"* — was right and
+was not applied to its own control.
+
+### 8d. Three things this build learned that change how the check must be written
+
+1. **Measure the URL the PAGE references, not `assets.url`.** `fundamentallyai.com`'s asset row
+   holds a presigned B2 link minted 2026-08-10 with `X-Amz-Expires=604800`; it 401s. The served
+   page references `/assets/images/logo.png`, which is 200 and 157,165 B. The first version of
+   this sweep trusted the row and produced a BLIND row for a site whose logo is fine.
+2. **The first `<header>` in the document is often NOT the site header.** Three sites open with
+   `<header class="info-card-grid__header">` — a content heading — long before the chrome. Taking
+   the first one found no logo, fell back to `assets.url`, and produced a confident verdict about
+   an image those pages never load. Both defects had the same shape: *a measurement of the wrong
+   artefact reads exactly like a measurement of the right one.*
+3. **A CDN flake looks identical to an unmeasurable logo.** Two hosts that had answered 200
+   minutes earlier returned a 404 and a connection error inside one sweep. Retries are load-bearing;
+   without them the BLIND count is noise.
+
+### 8e. What is still open
+
+- **Routing — UNCHANGED and still the blocker to "filing" anything.** The sweep *reports*; nothing
+  files. §7a's warning stands: a logo finding needs a handler that can regenerate an image, not
+  `css-patch-agent`. Per the 2026-08-02 ruling, a new work-item type needs its producer set and
+  `item_key` shape in the concept register in the commit that ships it. **The sweep's `--json`
+  output is shaped for that filer** — one record per site with domain, fetched URL, md5, bytes,
+  header value, provenance, timestamp, arm and reason.
+- **Option (a), the render-audit version, is still the destination**, for the staleness reason in
+  §7a. This check's thresholds live in one constant block so (a) can reuse them rather than
+  inventing a second, silently different rule.
+- **A NAMED BLIND SPOT, new here:** nothing measures whether a *baked-background* mark reads
+  against its own box. This sweep reports that measurement (`baked_bg`, `baked_max`,
+  `baked_legible_frac`) but takes no verdict on it, because there is no known-bad artefact to
+  calibrate against. 22 of 29 logos sit in that bucket.
+- **`not displayed` (3 sites) belongs to someone else** — `ai-agent-orchestration.com`,
+  `cookly.uk` and `webdesign.co.uk` hold an active logo asset the served header never loads
+  (two render `class="logo-text"`). That is the 417 RUNBOOK's "a site has a logo asset but the
+  header still shows TEXT" case, not a 462 finding.
