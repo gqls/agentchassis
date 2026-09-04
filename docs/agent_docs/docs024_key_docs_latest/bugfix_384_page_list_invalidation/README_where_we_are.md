@@ -502,3 +502,60 @@ them.
 **Where that leaves this.** The thing this workstream was built to do is working and proven. What
 is still open is the list you already have: those three owned pages, and a nightly sweep that has
 never run because it is blocked behind a separate bug. Neither is the mechanism itself.
+
+---
+
+**2026-09-04, early afternoon.** Picked this up cold, checked nobody else was holding it, and
+re-ran the two measurements that matter.
+
+**The good news is unchanged and a little stronger.** Since the fix went in, the mechanism has now
+handled **22 out of 22** cases correctly — every time a picture landed on a page that a listing
+points at, the listing picked it up. That is across two different builds and about a day of
+ordinary traffic, with no failures.
+
+One honest caveat I have written next to that number: **nothing has actually happened in the last
+three and a half hours.** The count went from 21 to 22, not from 21 to 40. So it is 22 out of 22
+over a fairly quiet period, and a quiet period is weaker evidence than a busy one. It is not a
+reason to doubt the fix; it is a reason not to call it settled on this reading alone.
+
+**Now the part I got wrong yesterday, and have corrected.**
+
+This morning I reported that the single remaining broken picture — one article card on the
+Leopardess Consulting blog — was caused by that page having lost its internal list of sections,
+and I said the listing "can never be re-resolved". I have gone and read the actual code this time
+rather than the summary the system prints when it finishes, and **both halves of that were wrong.**
+
+What really happens is this. Before the system re-renders a page, it checks that every part of the
+page has the text it needs. On that page it does not: the page's design asks for a heading and an
+introduction under one pair of names, and the stored text was saved years-of-versions ago under a
+different pair of names. So the system quite correctly refuses to re-render — re-rendering would
+wipe the heading off the page. Only *after* refusing does it try to hand the page to the writer to
+have the text regenerated, and *that* is the step the missing section list blocks.
+
+So the missing section list is blocking the **fallback**, not the repair. If someone had read my
+note and gone and restored the section list — the obvious thing to do from what I wrote — the
+picture would still be missing, and the page would have started generating support tickets.
+
+**And it is not stuck at all.** There is a second piece of the system that maintains that blog
+listing, and it does fetch the picture correctly — we made it do that ourselves back on 25 August.
+It just runs on a per-site rotation and has not come round to that site yet. The picture landed
+**93 seconds** after that site's last turn. So it missed the boat by a minute and a half and is
+waiting for the next one.
+
+**I have written down a prediction so this can be checked rather than believed:** the picture will
+appear on its own, with nobody doing anything, the next time that site's rotation comes round. If
+it does not, then I am wrong again and it becomes the clearest example of this bug we have ever
+had.
+
+**One more thing worth telling you, because it affects how we check our own work.** I looked at the
+live page to confirm the fault, and my usual test — searching the page for images with an empty
+address — came back clean. The page is not clean. When a picture is missing, that page's design
+leaves the image out **entirely** rather than leaving an empty one, so the test I was using cannot
+fail. I checked how widespread that is: of the fifteen page designs that show pictures in lists,
+**eight** behave this way. So roughly half of our pages could be missing pictures and pass that
+test. I have recorded the trap and the better test — count the article boxes and count the
+pictures, and require them to match — where the next person will hit it.
+
+**Where that leaves things.** The mechanism is working. The generic side of the estate is at 701
+carded entries with 1 blank, and that 1 is a timing miss that should heal itself. The customer-owned
+pages I told you about yesterday are unchanged and still belong to the other piece of work.

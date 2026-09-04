@@ -1680,3 +1680,145 @@ in 24 hours. This is a single stuck row, not a class — do not raise it as one.
 - **The skipped run still stamped `deployed_at = 2026-09-03 18:18:54`** — a skip that advances the
   publish timestamp is `bugs_open/315`'s shape ("`deployed_at` written without publishing"). Not
   measured further here.
+
+## UPDATE 2026-09-04 12:0xZ — seam holds at **22/22**, and ⚠ **I am CORRECTING this morning's diagnosis of the one generic blank: the sectionless skip is NOT why it is blank, and the entry is NOT unrepairable**
+
+### 1. Census re-measured `[MEASURED 2026-09-04 11:50:57Z]` — era 4 is now 7/7/0
+
+| era | writes over a real deficit | repaired | left blank |
+|---|---|---|---|
+| 1. before `94f81cc60` | **130** | **130** | 0 |
+| 2. DURING 454's regression | 12 | 5 | **7** |
+| 3. post-fix, build `d0252fd4` | **15** | **15** | 0 |
+| 4. post-fix, build `239ab3626` (current) | **7** | **7** | 0 |
+
+**22 of 22 since the fix.** Build unchanged: `239ab3626`, still one commit fleet-wide.
+
+⚠ **Quote era 4 with its DEMAND, not just its zero.** Its `last_write` is **08:12:16** — i.e. in
+the 3.6 hours to this measurement **no qualifying write happened at all**. Era 4 grew by one
+since the 08:1xZ read, not by many. A clean column over a thin denominator is weaker evidence
+than the same column over a busy one, and this instrument cannot tell "nothing failed" from
+"nothing was asked". Re-run it after a busy period before treating 22/22 as settled.
+
+### 2. Residual unchanged `[MEASURED 11:5xZ]` — 1 generic (leopardess `/blog`), 14 owned (the three `tool-cta` pages). Same rows, same timestamps as 08:1xZ.
+
+### 3. ⚠ CORRECTION — what actually blocks leopardess `/blog`, and why this morning's cause would misdirect a fixer
+
+This morning I wrote, of that page: *"**Cause:** `pages.sections` for that page is an **empty
+array** … So the re-render skips the page as sectionless and the listing can never be
+re-resolved."* **Both halves are wrong.** The skip is real and the observation that
+`pages.sections` is empty is real; the causal story joining them is not.
+
+The chain, each link checked against the code and the live rows:
+
+1. **The run never reached the re-resolve.** `rerender_page_sections_action.go:428-459` runs a
+   per-section pre-check BEFORE rendering anything. If a stored section has no `content_data`,
+   **or** is missing a required `source:"llm"` field, it escalates to the writer and
+   `return`s — *"rendering a section with no content would blank it"*.
+2. **This page fails that pre-check on a DIALECT mismatch** `[MEASURED 12:0xZ]`.
+   `blog-listing_pre_037` declares **`section_heading` and `section_intro` as required
+   `source:"llm"`**; the stored `content_data` carries `articles`, **`section_title`**,
+   **`section_subtitle`**, `load_more_text`, `show_load_more`. So `missingRequiredLLMFields`
+   returns `[section_heading section_intro]` and the action returns without rendering.
+3. **Only THEN** does `escalateRerenderToWriter` run, and only there does
+   `pageSectionsSatisfiable` fail (no `site_specs` plan entry, `pages.sections` empty, not a
+   `site_plan_pages` member) → disposition `skipped_sectionless_page`.
+4. **The recorded output shape is that branch's exactly** — `skipped` + `escalation` +
+   `section_count` and **no `rerendered`/`carried`** keys. The other escalation site
+   (`:576`) sets `escalation`/`escalated` but never `skipped`, so the two are distinguishable
+   from the stored JSON alone, and this run is the pre-check one.
+
+**So the empty `pages.sections` suppresses the ESCALATION, not the render.** Refilling it
+repairs nothing directly — it converts a silent skip into a `needs_page` item, and repair then
+depends on that item draining. **Anyone who read my 08:1xZ line and "fixed" `pages.sections`
+would have found the listing still blank and the page now minting work items.**
+
+**And the gate is RIGHT to refuse.** `blog-listing_pre_037`'s `html_template` renders
+`{{.section_heading}}` and `{{.section_intro}}`; it reads **neither** `section_title` nor
+`section_subtitle`. The stored content genuinely lacks what the template needs — this is a
+stale-dialect content row, not a false alarm.
+
+### 4. The entry is NOT unrepairable — `action:rebuild_blog_listing` is its live maintainer and DOES resolve the image
+
+The 08:1xZ note said the listing "can never be re-resolved". It can, by the other writer.
+Since **this lane's own decision 3 (2026-08-25)** that action splices
+`queryresolve.PageImageProjectionSQL`/`PageImageJoinsSQL` and emits `img.WebPath()` — card
+crop first, plan hero second — instead of the `""` it used to hand-write. Its join predicate is
+`entity_type='page' AND entity_id=p.id AND purpose='card' AND status='active'`, which is
+**exactly** the join `residual_by_policy.sql` uses to find the card, so the card it needs is by
+construction the one already proven present (age 18.0 h).
+
+**Why it has not run:** `rebuild_blog_listing` is a step of **`rerender-pages`**, which is
+per-site. `[MEASURED 11:5xZ]` leopardess's last `rerender-pages` was **2026-09-03 17:48:31**,
+and the array was written **17:48:40** — nine seconds later, by that very run. The card landed
+**17:50:13**, **93 seconds after**. Fleet-wide `rerender-pages` ran **65 times over 22 sites** in
+the 25.5 h window; leopardess got 2, other sites as recently as 09:31Z. **Ordinary rotation, not
+starvation** — and specifically NOT a recurrence of the six-day leopardess starvation in `389`.
+
+**So the blank is a RACE plus a WAIT:** the card landed 93 s after its listing's last rebuild,
+the seam that exists to close exactly that race is blocked on this page by §3, and the other
+writer has not had its turn since.
+
+### 5. Verified at the served page `[MEASURED 12:0xZ]`
+
+`https://leopardessconsulting.co.uk/blog.html` → **HTTP 200, 42,584 B, 14 `<article>` blocks,
+13 with an `<img>`, 1 without, and ZERO `src=""`.** The imageless card is
+`/guides/tool-model-approach-selector-guide.html` — the residual entry exactly.
+
+⚠ **Note the shape: a blank image renders NO `<img>` at all**, because the template guards it
+with `{{if .image}}`. **A `src=""` census would score this page CLEAN.** Count article blocks
+against images, never empty `src` attributes.
+
+### 6. The hole, measured — **4 slots / 3 pages / 3 sites**, and only ONE is a 384 consumer
+
+The general shape of §3 is *refused by the render gate AND escalation suppressed* — a page that
+can neither render nor ask for help. Reproducing all three sources `declaredPageSections` reads
+(`site_specs` current `site_plan`, `pages.sections`, `site_plan_pages` membership)
+`[MEASURED 2026-09-04 12:0xZ]`:
+
+| bucket | page-slots | pages | sites |
+|---|---|---|---|
+| refused, but escalation **would be raised** | 64 | 60 | 8 |
+| **HOLE: refused AND escalation suppressed** | **4** | **3** | **3** |
+
+| domain | url | slot | 384 consumer? |
+|---|---|---|---|
+| ai-agent-orchestration.com | `/blog.html` | `hero` | no |
+| ai-agent-orchestration.com | `/blog.html` | `call-to-action` | no |
+| gaswholesalers.com | `/tools/tool-gas-unit-converter.html` | `tool-gas-unit-converter` | no |
+| **leopardessconsulting.co.uk** | **`/blog.html`** | **`blog-listing`** | **YES** |
+
+So this morning's bound — 1 page, 1 site, for **this seam** — **survives on a wider and better
+predicate**, which is the useful outcome: the class it belongs to is 3 pages, and 384 owns one
+of them. The 64 refused-but-escalatable slots are a different question (do those `needs_page`
+items drain?) and this lane has **not** measured it — `bugs_open/187`/`389` territory.
+
+### 7. The PREDICTION, and the check that settles it
+
+**The blank clears on leopardess's next `rerender-pages` run, with no code change and no
+intervention.** Falsifiable: if that run happens and the entry is still blank, §4 is wrong and
+this becomes the sharpest 384 case on the board.
+
+```sql
+SELECT o.created_at::timestamp(0) AS last_rerender_pages
+  FROM orchestration_states o JOIN sites s ON s.id::text = o.collected_data->'input_data'->>'site_id'
+ WHERE o.owner_agent_type='rerender-pages' AND s.domain='leopardessconsulting.co.uk'
+ ORDER BY 1 DESC LIMIT 1;
+-- then re-run scripts/residual_by_policy.sql: the generic row should be GONE.
+```
+
+⚠ **Grade it against the CARD DATE, not the clock** — the lesson this lane learned three times
+on 09-03. And ⚠ **`orchestration_states` holds ~25 h**, so if you read this later than that, the
+run may have happened and aged out; the residual query is the durable half of the check.
+
+### 8. Method note — why no `090` run for this correction
+
+CLAUDE.md's 2026-07-31 ruling asks for the diagnosis loop or a stated substitution. **Stated:**
+this correction **narrows** an existing claim to one page rather than asserting a new
+cross-cutting cause, and every link is verified first-hand at three independent levels — the
+code branch (`:428-459` vs `:576`, distinguishable by the stored output keys), the live rows
+(schema `required`+`source` vs stored `content_data` keys), and the **served artefact** (14
+articles, 13 images). The refuting observation was available at each level and did not appear.
+I also checked the two other `page-rerender` runs on that page (17:23:22, 17:59:19) that show
+**no** sectionless skip — they carry `render_page`/`deploy_page` and **no** `rerender_sections`
+step, i.e. full-page renders, not section re-resolves, so they neither confirm nor refute §3.

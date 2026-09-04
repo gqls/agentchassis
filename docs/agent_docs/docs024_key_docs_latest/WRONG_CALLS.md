@@ -66268,3 +66268,34 @@ then wrong.
   replacement loop. Third instrument error of the session in this shape (a stripped-output scan, a
   loose grep on pod logs, and this): **every watcher needs a control that fails when nothing happened.**
 - **Cost.** One false line in a NOTES entry, corrected the same hour; ~10 minutes.
+
+## 2026-09-04 — I named the SUPPRESSED FALLBACK as the cause, when the primary path had already refused one step earlier (`bugfix_384_page_list_invalidation`)
+
+- **The claim.** Written into `bugs_open/384` at 08:1xZ, of leopardessconsulting.co.uk `/blog`:
+  *"**Cause:** `pages.sections` for that page is an **empty array** … So the re-render skips the
+  page as sectionless and the listing can never be re-resolved."*
+- **What was true.** The re-render never got as far as caring about `pages.sections`. It bailed in
+  a per-section pre-check one step earlier, because the component declares `section_heading` and
+  `section_intro` as required `source:"llm"` fields and the stored `content_data` carries the
+  older dialect (`section_title`, `section_subtitle`). Only the ESCALATION that follows that bail
+  consults `pages.sections`. And "can never be re-resolved" was wrong too — the listing's other
+  writer, `action:rebuild_blog_listing`, resolves the card image correctly (this lane's own
+  decision 3) and simply had not had its per-site turn since the card landed 93 s after the last one.
+- **Why it mattered.** The two halves point a fixer in two wrong directions at once. Refilling
+  `pages.sections` — the obvious action from my sentence — repairs nothing directly; it converts a
+  silent skip into a `needs_page` item. And "can never" invites a bug filing for a blank that is
+  self-healing on the next rotation.
+- **What caught it.** Reading the function instead of the run's output JSON. The disposition string
+  `skipped_sectionless_page` is emitted by a helper called from **two** sites, and I attributed the
+  whole run to the name of the last thing it did. The stored output distinguishes them: the
+  pre-check branch sets `skipped`+`section_count` and returns; the other sets neither.
+- **The cheap check that would have.** **A disposition names the step that RECORDED the outcome,
+  not the step that DECIDED it — read the callers of the string before quoting it as the cause.**
+  Grep the emitted literal (`grep -rn "skipped_sectionless_page" --include=*.go`), count the call
+  sites, and if there is more than one, find the discriminator in the stored record before
+  attributing. One grep, ~2 minutes. The general form is the one this lane wrote down on 09-03 and
+  has now hit a fourth time: *a mechanism claim does not license a consequence claim* — here,
+  "the fallback was suppressed" did not license "the thing is unrepairable", because a different
+  path maintains it.
+- **Cost.** ~35 minutes to re-derive and correct; the claim was one day old, had reached no peer
+  and no handoff, and the correction is `bugs_open/384`'s 12:0xZ update §3–§4.

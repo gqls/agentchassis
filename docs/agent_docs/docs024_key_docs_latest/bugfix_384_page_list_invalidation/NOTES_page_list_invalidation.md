@@ -736,3 +736,95 @@ peer lane's own messages carried 14:05 and 15:14 timestamps I had already read p
 `09e7aa75b` (an unrelated fence-file landmine from another lane) about 30 seconds before my own
 `git commit` on that file, which then found nothing to commit. Nothing lost, forward-only holds —
 but the 384 landmine is not findable by its commit message. Same-file passenger; no hook prevents it.
+
+---
+
+## 2026-09-04 ~11:45–12:1xZ — picked the lane up cold; re-measured; and CORRECTED this morning's cause for the last generic blank
+
+**Ownership check first.** `scripts/who-owns.py 384` names this lane (54 commits/14d). Last commit
+`3ea1552bc` at 08:19:35+01 = **07:19Z**, tree clean for every 384 path, and no live transcript
+holds it — the four sessions mentioning "384" today are other lanes citing it. Took it.
+
+**Re-measurement `[MEASURED 11:50:57Z]`.** Census 4 eras: 130/130/0 · 12/5/7 · 15/15/0 · **7/7/0**.
+So **22 of 22 since the fix**. Residual unchanged: 1 generic + 14 owned, same rows and timestamps
+as 08:1xZ. Build unchanged (`239ab3626`, one commit fleet-wide).
+
+⚠ **But era 4's `last_write` is 08:12:16** — nothing qualifying has been written in the 3.6 h since.
+Era 4 grew by ONE, not by many, and a clean column over a thin denominator is weaker than the same
+column over a busy one. I have written that caveat into the bug file next to the number, because
+the number will be quoted.
+
+### MISSTEP 1 — my first census run was TRUNCATED MID-ROW and I nearly aggregated it
+
+`kubectl exec -i postgres-clients-0 -- psql < census_repair_rate.sql > file` returned **exit 1**
+and an 87-line file whose last data row stops at `2026-08-27 09:58:23 |` with the kubectl error
+text spliced onto the end of it. **81 complete rows, all `pre`/`REPAIRED`** — a perfectly plausible
+census, and my first instinct was to bucket it with awk, which would have read the eras as
+"everything is pre-regression and everything repaired". What caught it was the row count
+disagreeing with yesterday's 163; what should have caught it is the exit code I printed and then
+did not act on.
+
+Already a landmine (`LANDMINES.md`, *"`kubectl exec` truncates a large export mid-stream, and the
+short file looks complete"*, added 2026-07-30 by the oufe lane) — **I did not grep for it before
+running a bulk export, and it cost ~10 minutes.** The fix I used is better than retry-until-it-
+matches for this case: **aggregate SERVER-SIDE** so the result is 4 rows instead of 163. Recipe in
+the RUNBOOK.
+
+### MISSTEP 2 (the real one) — I named the SUPPRESSED FALLBACK as the cause
+
+This morning's own entry said of leopardess `/blog`: *"`pages.sections` … is an empty array … the
+re-render skips the page as sectionless and the listing can never be re-resolved."*
+
+Both halves wrong; full account in `bugs_open/384` 12:0xZ §3–§4 and in `WRONG_CALLS.md`. In short:
+
+1. The run bailed in the **per-section pre-check** (`rerender_page_sections_action.go:428-459`)
+   because the component declares `section_heading`/`section_intro` as required `source:"llm"` and
+   the stored `content_data` carries the older dialect `section_title`/`section_subtitle`. The
+   template renders the FORMER pair and reads neither of the latter — so the gate is right.
+2. `pages.sections` is consulted only by the escalation that follows that bail. It suppresses the
+   **fallback**, not the render.
+3. "Can never be re-resolved" was wrong too: `action:rebuild_blog_listing` resolves the image
+   correctly (this lane's decision 3, 2026-08-25) and had simply not had its per-site turn — the
+   card landed **93 seconds** after that site's last `rerender-pages`.
+
+**What caught it:** reading the function rather than the run's output JSON. `skipped_sectionless_page`
+is emitted from a helper with **two** call sites, and I had attributed the run to the name of the
+last thing it did. The stored record distinguishes them — the pre-check branch sets
+`skipped`+`section_count` and returns; the other sets `escalation`/`escalated` only.
+
+**The transferable check:** *a disposition names the step that RECORDED the outcome, not the step
+that DECIDED it.* Grep the literal, count the call sites, find the discriminator before attributing.
+
+### The check that could have refuted me, and did not
+
+Three `page-rerender` runs hit that page (17:23:22, 17:59:19, 18:18:47) and **only the last shows
+the skip** — which looks like a refutation of "the seam's path refuses this page". It is not: the
+first two carry `render_page`/`deploy_page` and **no `rerender_sections`/`save_sections` step at
+all**, i.e. full-page renders, not section re-resolves. I checked this before writing, not after.
+
+### Scoping — the hole is 4 slots / 3 pages / 3 sites
+
+Reproduced all three sources `declaredPageSections` reads. *Refused by the render gate AND
+escalation suppressed* = **4 page-slots, 3 pages, 3 sites**; only **leopardess `/blog`** is a 384
+consumer, so this morning's "1 page, 1 site" bound **survives on a better predicate**. Separately,
+**64 slots / 60 pages** are refused but WOULD escalate — whether those `needs_page` items drain is
+`bugs_open/187`/`389` territory and **this lane has not measured it**; do not read my 4 as the
+whole cost of the gate.
+
+### Verified at the artefact — and my own success criterion was blind
+
+`https://leopardessconsulting.co.uk/blog.html` → 200, 42,584 B, **14 `<article>` blocks, 13 with an
+`<img>`, 1 with none**, and the imageless one is `/guides/tool-model-approach-selector-guide.html`,
+the residual entry exactly.
+
+⚠ **`grep -c 'src=""'` returned 0 on that page.** The blank renders no element at all —
+`{{if .image}}`. `[MEASURED 2026-09-04]` **8 of the 15** components that render `.image` guard it
+that way, so the check is right on 7 templates and blind on 8. This lane used *"N `<img src>` and
+zero `src=\"\"`"* as its proof on 09-03; the second half of that criterion cannot fail on a guarded
+template. Now a landmine.
+
+### Prediction left on the record
+
+**The blank clears on leopardess's next `rerender-pages` run, with no intervention.** If that run
+lands and the entry is still blank, §4 is wrong and it becomes the sharpest case this lane has had.
+Check is in the bug file §7. Grade it against the card date, not the clock.

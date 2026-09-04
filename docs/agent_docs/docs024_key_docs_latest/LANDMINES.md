@@ -23023,3 +23023,62 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   13 licence-carrying sites had regenerated overnight. The answer looked like "yes, five of
   them" and was "none of them"
 - **added:** 2026-09-04, bugfix_417_logo_text_policy lane
+
+### A missing listing image renders **NO `<img>` at all** on 8 of 15 templates — so a `src=""` census scores the broken page CLEAN
+- **footprint:** any served-page verification of a card/listing image repair; `grep -c 'src=""'`,
+  `grep 'src=\"\"'`; `content_components.html_template`; `bugs_open/384`'s repair proofs;
+  `page_components.content_data->'articles'`/`items` `image` fields
+- **fires when:** you prove a card-image repair (or look for one) **at the served page**, which is
+  the right instrument and the standing rule for this seam. The natural success criterion is the
+  one this lane itself used on 2026-09-03 — *"N card `<img src>` and **zero `src=""`**"* — and
+  the second half of it is the trap
+- **the tell:** none. `curl … | grep -c 'src=""'` returns **0**, which reads as "no broken
+  images", and it returns 0 whether the page is perfect or missing every image it should have.
+  Worked case 2026-09-04: leopardessconsulting.co.uk `/blog.html` served **14 `<article>` blocks,
+  13 with an `<img>`, one with none at all** and **zero `src=""`** — the blank entry rendered no
+  element whatsoever, because `blog-listing_pre_037` writes its image behind `{{if .image}}`
+- **why it is not just that one template:** `[MEASURED 2026-09-04]` of **15** components whose
+  `html_template` renders `.image`, **8 guard it with `{{if .image}}`** and 7 do not. So the
+  population is **MIXED** — the `src=""` check is correct on 7 templates and silently blind on 8,
+  and which one you got depends on the component the page happens to mount. A verifier that
+  passes on one page and is quoted for another is the failure this produces
+- **the check:** count the **containers against the images** — `<article>`/card blocks vs `<img>`
+  tags — and require them to be equal, or extract each card's `href` and assert an `<img>` inside
+  that same block. Then cross-check the count against the stored array
+  (`jsonb_array_length(content_data->'articles')`) so the served page and the row have to agree.
+  `src=""` may stay as a second assertion; it must never be the only one. And when the numbers
+  disagree, the missing one is identified by the block's `href`, not by position
+- **relations:** `LANDMINES.md` *"a content REGENERATION drops every non-llm key…"* (the entry at
+  the `finetuning.uk` five-card case) states the same physics from the other side — a gated field
+  fails more quietly than an ungated one — but fires when you REGENERATE, not when you VERIFY;
+  this entry is the verification moment · `bugs_open/384` update 2026-09-04 12:0xZ §5 ·
+  MEMORY [[a-post-fix-zero-needs-a-demand-control]] — a zero from an instrument that cannot
+  produce a non-zero · [[fixing-a-checker-to-agree-with-a-broken-site]] — a MIXED batch is the trap
+- **source:** 2026-09-04, `bugfix_384_page_list_invalidation`, verifying the last generic residual
+  at the served page. The `src=""` half of my own criterion passed on a page that was visibly
+  missing a card image; the article-vs-image count is what found it
+- **added:** 2026-09-04, bugfix_384_page_list_invalidation lane
+
+### Addendum to "A council-gate run that ends `COMPLETED` at `complete_invalid` may mean EVERY SEAT WAS DOWN" — the PARTIAL outage is worse: it produces a real `council_report` saying **`revise`**, and there is nothing to notice
+
+- **footprint:** `diagnosis_artifacts` `kind='council_report'` · `metadata->>'decision'` / `->>'unreadable'` / `->>'reviewers'` · `097_TRIGGER_council_review_v1.sh` submitters reading a verdict · `098_REPORT_unreviewed_commits_v1.sh` · `llm_call_log` where `agent_type='council-gate'`
+- **the entry above covers the TOTAL outage** — every seat down, no verdict, run ends `complete_invalid`, correlation spent. That failure at least leaves an **absence**: there is no verdict to act on wrongly. **This is the partial case, and it is the one that costs you work.**
+- **fires when:** the estate's LLM access fails for part of a round. Enough seats answer to reach a decision, the rest come back unreadable, and the gate **writes a normal `council_report` with `decision: revise`**. Your run is `COMPLETED`, the artifact exists, `098` can join it, and the verdict says revise. **A submitter then revises a change that every reachable seat approved.**
+- **the worked case, `[MEASURED 2026-09-04]`:** corr `8bf83b59-…` (migration 773) came back `revise` with `unreadable: 6, reviewers: 3, abstained: 8`. The **three readable seats — `guardian`, `debug_historian`, `architecture` — all `approve`, and the round contains not one objection.** The `decision` column alone says revise; only `decided_by` (`"unreadable reviewer(s): review_editquality.result, review_reuse_agent.result, review_guidelines.result, review_constitution.result, review_mission.result, review_prior_art.result"`) discloses it, and that field is easy not to read when the decision looks self-explanatory.
+- **the check, before you act on ANY `revise`:** read the three counts together, never the decision alone —
+  ```sql
+  SELECT metadata->>'decision', metadata->>'unreadable', metadata->>'reviewers', metadata->>'abstained'
+  FROM diagnosis_artifacts WHERE kind='council_report' AND correlation_id='<SUBMISSION_CORR>';
+  ```
+  **`unreadable > 0` means the round is contaminated**; then read the seats that DID answer (`body`, `reviews[].verdict`) before changing a line. If they all approve, the right action is to **re-fire the same plan** once the estate is healthy — not to revise it.
+- **⚠ and the estate-health check is a different query from the gate's own.** `gated_by_truncation` was **`false`** here, which is true and irrelevant — the seats were not truncated, they never ran. The discriminator is in `llm_call_log`, and it is decisive in one line:
+  ```sql
+  SELECT count(*) FILTER (WHERE success) AS ok,
+         count(*) FILTER (WHERE NOT success AND error_message LIKE '%credit balance is too low%') AS credit_400
+  FROM llm_call_log WHERE created_at > now() - interval '90 minutes';
+  ```
+  On 2026-09-04 that read **0 ok / 117 credit_400** across the 11:00 hour, fleet-wide and every agent type — 11:25→11:50 had **zero successful LLM calls of any kind**. Two other lanes' rounds (`3e9e8ce8` 11:22, `5de01fd3` 11:28) took the identical mechanical `revise` in the same window, which is the control: **three unrelated submissions failing the same way at the same time is the estate, not your plan.**
+- **⚠ it takes down the OTHER dispatched things you are waiting on, and they fail the same way.** The same outage killed a `landmine-verify-dispatch.sh` run fired at 11:56 — four attempts, all `CREDIT`. Its verdict simply never arrives, which is indistinguishable from queue latency, so **an armed verifier that never reports is a health question, not a patience question.** Re-fire with `scripts/trigger-landmine-verifier.sh '<slug>'`.
+- **it recurs — this was the FIFTH episode**, and `llm_call_log` retains from 2026-03-25 so that is the whole history, not a window: 04-10 (~3 h, 78 calls), 08-08 (~3 h, 20), **08-25/26 (~10 h, 711)**, 09-02 (~1 h, 8), 09-04 (~35 min, 117). **Do not model it as a one-off**; the 10-hour one is the shape to plan for. `bugs_open/243` is the bug, `bugfix_243_provider_cap_resilience/` the lane.
+- **relations:** the entry it addends (directly above) · `bugs_open/243` · LANDMINES "Read literally … that is an eleven-day, account-wide LLM blackout … **It is also wrong**" (the *other* direction of the same error — over-reading a billing date; here the risk is under-reading a billing outage as a review) · MEMORY [[a-submission-is-not-a-review]] · [[a-plausible-external-cause-is-when-to-doubt-your-instrument]]
+- **added:** 2026-09-04, bug sweep lane (442)

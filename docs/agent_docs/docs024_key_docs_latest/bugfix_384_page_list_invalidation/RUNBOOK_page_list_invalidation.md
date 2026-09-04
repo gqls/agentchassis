@@ -360,3 +360,125 @@ non-terminal rows only, so a `complete` predecessor does not block you).
 refuses a page whose `rebuild_policy='owned'` OR that is a pending tool shell
 (`genericBuildRefusal`, `owned_page_guard.go:175`). Confirm your target's `page_type` and
 `rebuild_policy` first — a refusal and a failed re-resolve look identical at the array.
+
+---
+
+## Running the census WITHOUT getting a truncated answer (added 2026-09-04)
+
+`scripts/census_repair_rate.sql` emits one row per qualifying write — 163 of them on 09-03. Piped
+through `kubectl exec`, that is enough to hit the known truncation trap (`LANDMINES.md`,
+*"`kubectl exec` truncates a large export mid-stream, and the short file looks complete"*): the run
+exits **1**, the file ends **mid-row** with the kubectl error text spliced onto the last data line,
+and the 81 surviving rows are individually perfect. Bucketing that with `awk` yields a plausible,
+wrong census. It happened here on the first attempt.
+
+**Do not retry-until-it-matches for this query — aggregate SERVER-SIDE so the result is 4 rows.**
+Keep the script's CTE chain verbatim (it is the definition of "a write over a real deficit") and
+replace only the final `SELECT`:
+
+```sh
+python3 - <<'PY' > /tmp/census4.sql
+src = open('docs/agent_docs/docs024_key_docs_latest/bugfix_384_page_list_invalidation/scripts/census_repair_rate.sql').read()
+head, sep, _ = src.partition('SELECT s.domain, p.name AS page')
+assert sep, 'anchor not found — the script final SELECT was reworded'
+head += """SELECT CASE
+         WHEN sc.created_at < '2026-09-02 11:27:53+00' THEN '1 pre-regression'
+         WHEN sc.created_at < '2026-09-03 12:05:34+00' THEN '2 DURING 454'
+         WHEN sc.created_at < '2026-09-03 22:06:39+00' THEN '3 post-fix d0252fd4'
+         ELSE '4 post-fix 239ab3626' END AS era,
+       count(*) AS writes_over_deficit,
+       count(*) FILTER (WHERE sc.produced IS NOT NULL AND sc.post_deficit = 0) AS repaired,
+       count(*) FILTER (WHERE sc.produced IS NOT NULL AND sc.post_deficit > 0) AS left_blank,
+       count(*) FILTER (WHERE sc.produced IS NULL) AS unknown,
+       min(sc.created_at)::timestamp(0) AS first_write,
+       max(sc.created_at)::timestamp(0) AS last_write
+  FROM scored sc WHERE sc.pre_deficit > 0 GROUP BY 1 ORDER BY 1;
+"""
+open('/dev/stdout','w').write(head)
+PY
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db < /tmp/census4.sql
+```
+
+⚠ **`assert sep` earns its line.** The anchor is a literal from the script; if someone rewords that
+`SELECT`, a silent `partition` miss would run the CTEs and emit nothing, which reads as "no writes".
+
+⚠ **ALWAYS read `last_write`, not just the ratio.** A clean era over a period with no writes is not
+evidence — on 2026-09-04 era 4 read 7/7/0 with `last_write 08:12:16`, i.e. nothing in the preceding
+3.6 hours. The zero needs a demand control.
+
+⚠ **The era-1 boundary is a rolling 10-day window** (`now() - interval '10 days'`), so its COUNT
+shrinks monotonically for ever (132 → 131 → 130 over three days). The ratio is the claim.
+
+## Is a page in the "cannot render, cannot escalate" hole? (added 2026-09-04)
+
+The conjunction behind `bugs_open/384`'s last generic residual: the render gate refuses the page
+(a component has a required `source:"llm"` field absent from stored `content_data`) **and** the
+escalation that would fix it is suppressed (`pageSectionsSatisfiable` false). Reproduce all three
+sources `declaredPageSections` reads — `site_specs` current `site_plan`, `pages.sections`, and
+`site_plan_pages` membership — or the answer is wrong in the safe-looking direction.
+
+⚠ **Two traps, both hit while writing this.**
+- `site_specs` has a **`data`** column, not `spec_data`.
+- `jsonb_array_length` over `data->'pages'` and `pg->'sections'` **dies with
+  `cannot get array length of a scalar`** unless each is behind its own `jsonb_typeof(...)='array'`
+  CASE. This is the AND-ordering trap already in this runbook, one level deeper: materialising the
+  outer CTE is not enough, because the guard and the length sit in the same expression.
+
+```sql
+WITH req AS MATERIALIZED (             -- required llm fields per component
+  SELECT cc.id AS component_id, f.key AS field
+    FROM content_components cc
+    CROSS JOIN LATERAL jsonb_each(COALESCE(cc.input_schema->'fields','{}'::jsonb)) f
+   WHERE f.value->>'source' = 'llm' AND (f.value->>'required')::boolean IS TRUE),
+refused AS MATERIALIZED (              -- page_components missing at least one of them
+  SELECT DISTINCT pc.page_id, pc.slot_name FROM page_components pc
+    JOIN req ON req.component_id = pc.component_id
+   WHERE pc.build_status <> 'removed' AND COALESCE(pc.content_data->>req.field,'') = ''),
+spec_sections AS MATERIALIZED (
+  SELECT ss.site_id, pg->>'name' AS page_name,
+         jsonb_array_length(CASE WHEN jsonb_typeof(pg->'sections')='array'
+                                 THEN pg->'sections' ELSE '[]'::jsonb END) AS n
+    FROM (SELECT site_id, CASE WHEN jsonb_typeof(data->'pages')='array'
+                               THEN data->'pages' ELSE '[]'::jsonb END AS pages
+            FROM site_specs WHERE aspect='site_plan' AND is_current) ss
+    CROSS JOIN LATERAL jsonb_array_elements(ss.pages) pg),
+plan_member AS MATERIALIZED (
+  SELECT sp.site_id, spp.name AS page_name FROM site_plan_pages spp
+    JOIN site_plans sp ON sp.id = spp.plan_id WHERE sp.is_current)
+SELECT s.domain, p.url, r.slot_name
+  FROM refused r JOIN pages p ON p.id=r.page_id JOIN sites s ON s.id=p.site_id
+ WHERE p.status='active'
+   AND COALESCE((SELECT max(n) FROM spec_sections x
+                  WHERE x.site_id=p.site_id AND x.page_name=p.name),0) = 0
+   AND COALESCE(jsonb_array_length(CASE WHEN jsonb_typeof(p.sections)='array'
+                                        THEN p.sections END),0) = 0
+   AND NOT EXISTS (SELECT 1 FROM plan_member m
+                    WHERE m.site_id=p.site_id AND m.page_name=p.name)
+ ORDER BY 1,2;
+```
+
+`[MEASURED 2026-09-04 12:0xZ]` → **4 slots / 3 pages / 3 sites**, one of them a 384 consumer.
+Drop the last three predicates to get the *refused but escalatable* population (**64 slots /
+60 pages / 8 sites** the same day) — a different question, and not this lane's.
+
+## Verifying a card-image repair AT THE SERVED PAGE (corrected 2026-09-04)
+
+⚠ **`grep -c 'src=""'` IS NOT A SUFFICIENT CHECK and cannot fail on half our templates.** A blank
+image behind `{{if .image}}` renders **no element at all**. `[MEASURED 2026-09-04]` 8 of the 15
+components that render `.image` guard it that way. Count containers against images:
+
+```sh
+curl -s "https://<domain>/<page>.html" > /tmp/p.html
+python3 - <<'PY'
+import re
+h=open('/tmp/p.html').read()
+cards=re.findall(r'<article[\s\S]*?</article>', h)
+bad=[c for c in cards if not re.search(r'<img', c)]
+print('articles:', len(cards), 'without img:', len(bad))
+for c in bad: print('  MISSING:', re.findall(r'href="([^"]*)"', c)[:1])
+PY
+```
+
+Then require the count to agree with the stored row —
+`SELECT jsonb_array_length(content_data->'articles') FROM page_components WHERE …` — so the served
+page and the database have to corroborate each other. Keep `src=""` as a SECOND assertion only.
