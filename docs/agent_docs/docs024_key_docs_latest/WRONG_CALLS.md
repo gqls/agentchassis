@@ -67998,3 +67998,42 @@ a-stale-status-line-prevents-the-thing-it-describes, measurement-discipline-inde
 > me believing my own commit had been reverted, which would have led to a re-commit and more churn on
 > a file three lanes had already spent an afternoon on. **Strip the markers, then unwrap, then grep —
 > and when an assertion contradicts a commit that git says succeeded, doubt the probe first.**
+
+## 2026-09-04 — I judged a filtering pipeline's output before it had filtered, and "corrected" a prediction that was right
+
+- **The claim.** That advertise.co.uk's news page would be thin and WebProNews-dominated:
+  "WebProNews brought in fifteen articles; all five UK searches brought in four between
+  them … once the scoring rejects the American tech stories, the page could be left rather
+  thin." Written to the owner in README as an explicit **correction** of my own morning
+  prediction that the UK searches would carry the page.
+- **The truth.** `[MEASURED 2026-09-04 16:2xZ]`, after triage ran: **4 of 4 UK-search items
+  scored `relevant`; WebProNews scored 0 relevant, 3 review, 8 rejected.** The morning
+  prediction was right in every respect. My "correction" inverted a correct claim.
+- **The error.** I compared **ingestion volume** on a pipeline whose entire purpose is that
+  **scoring** filters that volume. Raw counts favoured WebProNews 15:4; post-scoring the
+  ratio inverts to 0:4 on the only axis that reaches a visitor. I measured a real number at
+  the wrong **stage**.
+- **What makes it worse than a mistimed reading.** The rows were sitting
+  `status='ingested'` with `relevance_score` **NULL** — the pipeline stating in the
+  clearest terms it has that it had not answered the question yet. I had queried that exact
+  column minutes earlier and written it down. I then reported a conclusion from it anyway,
+  and escalated it to the owner as a correction, which gives a wrong claim more weight than
+  an ordinary one.
+- **The cheap check that would have.** `WHERE relevance_score IS NOT NULL` — or simply
+  waiting for the step that answers the question. General form: **before drawing a
+  conclusion from a pipeline's data, ask which stage has actually run.** A NULL in the
+  column that encodes the answer is not a small caveat, it is the whole answer.
+- **Third instance of one family in a single session**, which is the reason this is worth a
+  row rather than a shrug. All three had a real, dated, `[MEASURED]` number attached to the
+  wrong question: the outage window measured *any anthropic failure* and was labelled *the
+  credit outage*; the "correlation is spent" claim measured *one run* and was labelled *the
+  correlation*; this measured *pre-scoring volume* and was labelled *what the page will
+  show*. **The marker discipline was followed every time and caught none of them** — see
+  [[a-count-you-kept-is-not-a-census]]. What they share is that the query was well-formed
+  and pointed one step to the side of the claim.
+- **Cost.** One wrong retraction sent to the owner, briefly replacing a correct prediction
+  with an alarming and false one. Corrected in NOTES and README the same session. The
+  genuinely useful half of the retraction survives and is unaffected: 3 of the 5 UK searches
+  (ASA, CAP Code, AA-WARC) returned nothing, so supply comes from only 2 of 6 sources — a
+  breadth question, still `[n=1]`, re-check 2026-09-08.
+- **2026-09-04, `bugs_open/477` lane — I wrote "verified at HEAD" about my own retirement banner using a probe that returns a FALSE ABSENCE on two of its three key sentences.** After the landmine restore loop, I asserted the banner was in HEAD with `git show HEAD:LANDMINES.md | tr '\n' ' ' | tr -s ' ' | grep -c "<phrase>"` — the unwrapping form two lanes had recommended that afternoon precisely because a line-oriented grep gives false absences on a hard-wrapped file. It returned 1 and I reported it verified. **`tr` unwraps the hard wrap but leaves the `> ` blockquote continuation markers**, and corrections in this corpus are written as `>` blockquotes — so a phrase that wraps *inside* a quoted block unwraps to `…deletion > is indistinguishable…` and the grep misses it. Measured against my own banner: `"a deliberate deletion is indistinguishable from an accidental clobber"` → **0 old / 1 corrected**; `"A strike-through costs one reader one line…"` → **0 old / 1 corrected**. My single passing check was the one sentence short enough not to wrap. **What caught it:** the `infographics` lane hitting the same false zero on their own commit ten minutes later and telling me, not my own re-check. **The corrected form is `sed 's/^> \?//'` FIRST, then `tr`, then grep** — strip the markers, then unwrap. **And the rule that generalises past this file: when an assertion contradicts a commit git says succeeded, doubt the PROBE before you doubt the commit.** Three probes between two lanes produced false absences on this one file in one afternoon (a phrase-grep that could not separate an entry from a cross-reference to it; a line-anchored grep on wrapped text; and this one). Every one returned a plausible number rather than an error — which is the whole family: **an absence-check that cannot distinguish "not present" from "present but my instrument cannot see it".**
