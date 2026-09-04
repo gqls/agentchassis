@@ -66031,3 +66031,25 @@ then wrong.
 - Tally: **a verbatim quotation treated as durable when a count would have been re-measured** ×1 ·
   **a doc quoted in place of the live row it described** ×1 · **an instruction blamed without
   checking whether the behaviour changed when the instruction did** ×1.
+
+## 2026-09-04 — `finetuning_uk_service`: I ran a peer's test on a grouping variable that was empty on both sides, and told two lanes and the owner "B refuted, A survives" on a scoreline that could not have come out otherwise
+
+- **What I claimed.** 12:10Z, to the prompts lane, the uplift lane and the owner: "11 of 12 illustrations
+  since 718 came from the two evidence-backed sites and neither drew an infographic, so 'nothing to
+  resolve through' is not the sole cause; the rule-13 disjunction candidate survives." Grouping variable:
+  a site "has a current `evidence_base` aspect".
+- **Why it mattered.** It pointed the two lanes at a fleet-wide prompt edit (splitting rule 13's
+  disjunction) as the live experiment, on a result that discriminated nothing.
+- **What caught it.** The uplift lane, re-measuring their own supporting figure with a known-positive
+  control: both "evidence-backed" sites (apis.uk, gamedesign.uk) hold an `evidence_base` aspect whose
+  `facts` array is EMPTY. All seven sites in the sample had zero registered facts; only finetuning.uk (the
+  control, outside the sample) has any (10). So the groups were identical on the variable that matters,
+  no site in the sample could have drawn an infographic, and the 12–0 illustration score is a measurement
+  that could not have come out false.
+- **The cheap check that would have.** I had already, the same night, counted this site's facts with
+  `jsonb_array_length(data->'facts')` to refute a different claim. Counting the SAME thing for the seven
+  sites was one more column in the query I ran: `jsonb_array_length(ss.data->'facts')` beside the
+  aspect-presence flag. I took the peer's "has an evidence base" as the variable instead of asking what
+  the variable had to be for the test to discriminate — the "name what the disconfirming result would
+  look like" rule, skipped. A `[MEASURED]` on a query that encoded the wrong variable.
+- **Cost.** Two retractions sent, one to the owner; no edit was made on the strength of it.
