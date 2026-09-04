@@ -145,7 +145,7 @@ func truncationEscalationCeiling(aiServiceConfig map[string]interface{}) (int, b
 // safety refusal above would be silently vacuous rather than enforced.
 // It is reachable, not theoretical — anthropic.go:313-318 and gemini.go:376
 // always write the key on this path (`options` is never nil in
-// ExecuteAIStepAction), but ollama.go:121 writes it ONLY when `num_predict`
+// ExecuteLLMPromptAction), but ollama.go:121 writes it ONLY when `num_predict`
 // is configured, and ollama deliberately omits that key when no budget was
 // chosen (aiservice/max_tokens.go). So an unconfigured ollama step reaches
 // here with no wire number at all. Refusing there is fail-closed: it declines

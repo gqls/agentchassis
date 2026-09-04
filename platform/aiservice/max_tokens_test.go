@@ -151,7 +151,7 @@ func TestAnthropicUnconfiguredClientStillSendsTheFallback(t *testing.T) {
 	}
 }
 
-// The canonical ExecuteAIStepAction path in one assertion: it ALWAYS passes
+// The canonical ExecuteLLMPromptAction path in one assertion: it ALWAYS passes
 // options built from the same config, so it must be unaffected. If per-call
 // options ever stopped winning, 127 live steps would silently re-cap.
 func TestPerCallOptionsStillOverrideTheConfiguredBudget(t *testing.T) {
@@ -431,7 +431,7 @@ func TestOllamaUnconfiguredOmitsNumPredictEntirely(t *testing.T) {
 // which was right to ask and is answered here with tests rather than a sentence.
 //
 // The objection: LANDMINES pairs `.GenerateText(` and `.GenerateWithImages(` as
-// the two shapes that bypass ExecuteAIStepAction, the submission spoke only of
+// the two shapes that bypass ExecuteLLMPromptAction, the submission spoke only of
 // GenerateText, and this platform's most-repeated failure is exactly "one call
 // site of a shared judgement gets the rigorous fix, the sibling stays heuristic"
 // (016b §9; bugs_closed/012, 046, 076 are all silent-truncation cases).

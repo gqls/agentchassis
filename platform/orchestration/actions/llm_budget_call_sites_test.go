@@ -101,7 +101,7 @@ var budgetKeys = map[string]bool{
 }
 
 // canonicalBudgetBuilder is the ONE file allowed to build an options map without
-// calling llmOptionsFromConfig: ExecuteAIStepAction resolves the budget inline
+// calling llmOptionsFromConfig: ExecuteLLMPromptAction resolves the budget inline
 // (ai_actions.go), serving most live steps. It cannot call the helper today —
 // their precedence rules differ at the agent level (see llm_options.go) — and
 // unifying them is bugs_open/257 candidate 2, an open question with an import
@@ -308,7 +308,8 @@ func TestTheCanonicalBuilderStillResolvesFromConfig(t *testing.T) {
 	if canonical == nil {
 		t.Fatalf("%s is not in this package any more — the exemption in "+
 			"TestEveryModelCallResolvesItsBudgetFromConfig now excuses a file that does not "+
-			"exist, so find where ExecuteAIStepAction went and repoint it", canonicalBudgetBuilder)
+			"exist, so find where ExecuteLLMPromptAction went (grep 'func ExecuteLLMPromptAction') "+
+			"and repoint it", canonicalBudgetBuilder)
 	}
 
 	resolvesFromConfig := false

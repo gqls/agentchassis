@@ -313,7 +313,7 @@ func (c *GeminiClient) generate(ctx context.Context, parts []map[string]interfac
 	// thinking model the two are not the same number (see
 	// defaultGeminiThinkingReserve).
 	// The CONFIGURED visible-text budget, not a literal — still overridden by
-	// options["max_tokens"] just below, so the canonical ExecuteAIStepAction
+	// options["max_tokens"] just below, so the canonical ExecuteLLMPromptAction
 	// path is unaffected (bugs_open/257).
 	//
 	// Floored for the reason anthropic.go's generate gives: a struct-literal

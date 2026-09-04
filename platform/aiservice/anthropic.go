@@ -206,7 +206,7 @@ func (c *AnthropicClient) generate(ctx context.Context, content interface{}, opt
 	requestBody := map[string]interface{}{
 		"model": c.model,
 		// The CONFIGURED budget, not a literal. Still overridden by
-		// options["max_tokens"] below, so the canonical ExecuteAIStepAction
+		// options["max_tokens"] below, so the canonical ExecuteLLMPromptAction
 		// path is unaffected; this is what a direct caller inherits instead of
 		// a hardcoded 2048 (bugs_open/257).
 		"max_tokens": budget,

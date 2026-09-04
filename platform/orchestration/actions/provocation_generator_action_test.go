@@ -360,7 +360,7 @@ func TestConfiguredTokenBudgetReachesTheOptionsMap(t *testing.T) {
 }
 
 // The step's own config wins, so a step can raise its budget without editing a
-// shared ai_service block. Same precedence as ExecuteAIStepAction.
+// shared ai_service block. Same precedence as ExecuteLLMPromptAction.
 func TestStepConfigOutranksTheServiceBlockForTheTokenBudget(t *testing.T) {
 	stepCfg := map[string]interface{}{"max_tokens": float64(16000)}
 	aiCfg := map[string]interface{}{"max_tokens": float64(8000)}

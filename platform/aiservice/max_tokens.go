@@ -3,10 +3,10 @@
 // WHERE THE OUTPUT-TOKEN BUDGET IS RESOLVED (bugs_open/257)
 //
 // Until this file existed, the budget was resolved exactly ONE layer up, in
-// `ExecuteAIStepAction` (`platform/orchestration/actions/ai_actions.go:358-364`),
+// `ExecuteLLMPromptAction` (`platform/orchestration/actions/ai_actions.go:358-364`),
 // which translated `ai_service.max_tokens` into the `options` map that the
 // provider clients actually consult. The contract was therefore "call through
-// ExecuteAIStepAction, or your configuration is inert" — and nothing stated it,
+// ExecuteLLMPromptAction, or your configuration is inert" — and nothing stated it,
 // nothing checked it, and the compiler was happy either way, because
 // `GenerateText` accepts a nil options map.
 //

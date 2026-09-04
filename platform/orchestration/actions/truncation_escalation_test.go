@@ -10,7 +10,7 @@ import (
 )
 
 // The decision table for bugs_open/337's escalated retry. The wiring in
-// ExecuteAIStepAction is a few lines around this function; the function holds
+// ExecuteLLMPromptAction is a few lines around this function; the function holds
 // every branch, so the table here is the behaviour.
 
 func truncated(tokens int) error {
