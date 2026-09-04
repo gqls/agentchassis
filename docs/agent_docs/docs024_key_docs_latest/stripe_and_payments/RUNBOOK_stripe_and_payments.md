@@ -12,6 +12,12 @@ Every command that was hard to get right, with its gotcha attached. Change it HE
 - **The amount is computed server-side, always.** Never accept a price from a client.
 - **Read the live row before editing any price that lives in config.** Prices live in an
   agent definition's `body_template` as well as in this lane's tables (§7).
+- **Every negative finding gets two controls** — one phrase that MUST be present and one
+  that MUST be absent, in the same run. This lane's likeliest way to be wrong is a check
+  whose failure looks exactly like a clean result: on 2026-09-04 a `grep -E` errored on
+  every page (*"exceeds complexity limits"*) and the script printed "no match" for four
+  pages it had never searched. Prefer `grep -F`. And never cut a sentence on `.` when the
+  datum is a price — it truncates `£59.99` to `£59`.
 
 ## 1. Is the payment surface actually live?
 

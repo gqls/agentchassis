@@ -208,3 +208,71 @@ owner wants the payouts separated.
 
 **Not implemented yet — the names themselves are the owner's call**, and the account-level
 name is entangled with receipts, so it is not a decision to take by inference.
+
+---
+
+## 2026-09-04 (later still) — the Payment Links question, answered at the CONSUMER
+
+I could not ask Stripe whether the Payment Links exist (classifier refused the probe). But
+I did not need to: **the question is answerable at our end**, and the answer is better
+evidence than the Stripe listing would have been.
+
+`platform/delivery/prepare.go:283-285` shows all three payment links are pure config
+pass-throughs (`DomainRentURL`, `DomainBuyURL`, `StripePortalURL`). So I read the live
+config:
+
+```sql
+SELECT jsonb_path_query_first(default_config,'$.**.domain_rent_url'), … buy_url, … portal_url
+  FROM agent_definitions WHERE type='delivery-email-sender' AND is_active …
+```
+
+**All three are ABSENT.** `[MEASURED 2026-09-04]`
+
+So regardless of what exists in the Stripe dashboard, **nothing carries a payment link into
+the delivery letter.** The struct's own doc comment says an empty field means "this link
+does not exist yet" and that the composer must say something else rather than invent a URL
+— and that design is working: the live letter says *"Reply to this email to arrange
+either."* No broken link, no 404 in a customer's inbox. **The machinery is honest.**
+
+### …but the SITE is not. The gap is in the copy, not the letter
+
+The served FAQ on webdesign.uk says, verbatim:
+
+> "You can rent it for £10 a month, **with the subscription link arriving in your delivery
+> email**, or buy it outright for a one-off £59.99."
+
+**The delivery email contains no such link and cannot.** A customer reads that, pays, gets
+the letter, and is told to reply to an email instead. It is the same promise-vs-machinery
+shape the delivery lane found three times this week by reading our own words — and this one
+is on the shopfront, ahead of the sale rather than after it.
+
+This supersedes what I wrote in `PLAN` §4(b): the item is **not** "do the links exist"
+(unknowable from here and not the point) but **"the site promises a delivery mechanism we
+have not built"**. Two honest fixes: build the link into the letter (config + a real
+Payment Link), or correct the FAQ sentence to match what the letter actually does. **The
+letter is right and the site is wrong**, so the cheap correct fix is the copy — but that is
+the delivery/webdesign lane's copy and the owner's price surface, so it goes to them with
+this measurement attached, not edited from here.
+
+### Two measurement mistakes I made in the same ten minutes — both nearly recorded as findings
+
+**(1) A grep that ERRORED and printed my fallback text as if it were a result.** My first
+sweep used `grep -o -E ".{0,90}payment link.{0,90}"`; ugrep rejected it
+(*"exceeds complexity limits"*) on every page, my `[ -n "$hit" ] && … || echo "(no phrase)"`
+swallowed the failure, and **four pages reported "no 'payment link' phrase" when I had in
+fact searched none of them.** Had I stopped there I would have written "the site makes no
+such promise" — the exact opposite of the truth. Fixed by re-running with `grep -F` **and
+two controls**: a phrase that must be present (`webdesign` → 1) and one that must be absent
+(→ 0). MEMORY already carries `grep-silent-on-non-utf8`; this is the same family — **a grep
+can fail loudly and still leave your script reporting a clean negative.**
+
+**(2) A regex whose delimiter was inside the datum.** I cut sentences on `[^.]*\.` and it
+truncated **"£59.99" to "£59"** — so I briefly believed the live site was quoting a wrong
+price. It is not: `grep -F "59.99"` returns 1. **A price contains the character most
+sentence-splitters end on.** And the six "200"s on that page are all CSS (`1200px`,
+`200px`), not the superseded £200 — checked with context rather than counted.
+
+Both mistakes have the same shape and it is this lane's most likely way to be wrong:
+**a check whose failure mode is indistinguishable from a clean result.** Every negative
+finding in this lane gets a present-control and an absent-control from here on. Added to
+`RUNBOOK` §0.

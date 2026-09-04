@@ -91,7 +91,18 @@ and it is **owed before ordering opens to anyone but the owner**. Must be framew
 (the 2026-08-04 no-hand-built-HTML ruling applies; this is precisely the "however small,
 however temporary" case it was written for).
 
-**(b) The Payment Links do not demonstrably exist.** `[UNMEASURED]` — the £10/month
+**(b) The site promises a payment link the letter cannot contain.** *(Rewritten
+2026-09-04 after measuring at the consumer — the original item asked whether the Payment
+Links exist in Stripe, which is both unanswerable from here and the wrong question.)*
+
+`[MEASURED 2026-09-04]` `domain_rent_url`, `domain_buy_url` and `stripe_portal_url` are all
+**absent** from the live `delivery-email-sender` config, so `Links.DomainRent` is empty by
+construction and the letter correctly says *"Reply to this email to arrange either."* The
+machinery is honest. **The served FAQ is not**: it tells the customer the subscription link
+will arrive *in their delivery email*. Fix by correcting the copy (cheap, and the letter is
+the one that is right) or by building the link — owner's call, delivery lane's copy.
+
+**(b-was) Whether the Payment Links exist in Stripe** stays `[UNMEASURED]`. `[UNMEASURED]` — the £10/month
 rental subscription, the Customer Portal, and the £59.99 buy-out link are named in the
 delivery letter and in the go-live checklist, and I have **not** confirmed any of them
 exists in the Stripe account. My attempt to enumerate them from the auth-service pod was
