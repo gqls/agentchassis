@@ -718,3 +718,77 @@ weaker than a dump.
 satisfied:** *"file the RFC now rather than defer again"*, plus — the sharpest line in the
 round — *"a detector that fires and does not prevent the loss it detects is not a working
 safeguard; it is a log."* `RFC_064` was committed the same session.
+
+---
+
+## 2026-09-04 — lane resumed; the plan I inherited was replaced by its own disconfirming queries
+
+**Ownership, checked by asking rather than only by measuring.** Lane dormant since 09-03
+21:19 BST. Today's two commits to the bug file were the `boxingonline.com` and `calendar`
+lanes contributing, not the lane resuming — exactly the shape `54df41b22`'s landmine warns
+about (a liveness claim decays by REVERSAL, so re-measuring never catches it). Messaged
+`calendar`, `boxingonline.com` and the new `482` session before touching anything. All three
+replied within minutes; none was on it.
+
+**What I found first, and it reframes the whole bug: the calendar works.** Rebuilt 10:36Z,
+two real dated cited fixtures, zero "2025" on the page. §22.6's containment state is stale.
+The bug's originating symptom is fixed and what is left is a different problem.
+
+### The two claims of my own that the blast-radius queries killed
+
+I wrote a plan, listed the disconfirming queries it depended on, and then — unusually for
+this lane's history — actually ran them before submitting. Both load-bearing claims died.
+
+1. **"Provenance is dropped."** It is not. `[MEASURED]` 14 fact-bearing placements: 10
+   `evidence-chart` (0 carried), 3 `evidence-timeseries` (**3 carried**, as
+   `data-series="{{$s.fact_id}}"`), 1 `event-list` (0). One family had already solved it
+   privately, under an attribute with **one emitter and zero readers anywhere in the tree**.
+   So it is a shared-VOCABULARY defect, which is a different fix and a better-founded one.
+2. **"Fact-bearing = a `query.*` resolver property."** `[MEASURED]` the three components
+   declare three different sources — a resolver, a direct `site_specs.evidence_base` read,
+   and an `llm` field with `"required": ["fact_id"]`. Resolver-keyed would have covered
+   **1 of 3**. Fact-bearing has to be a **schema** predicate.
+
+**The transferable bit is not "I was wrong twice".** It is that a plan listing its own
+disconfirming queries and not running them has been reviewed by its author only. The queries
+cost about four minutes and changed the design twice.
+
+### The peer exchange did more than the solo work
+
+Three of the session's best findings came from other lanes, and two of my errors were caught
+by the lane consuming my output rather than by me:
+
+- **`482`**: the fabrication gate `check_tool_fabrication_action.go` **detects these tools and
+  discards its own finding** — `Signals` populated at 20/24/30 entity objects against a
+  threshold of 15, `Fabricated=false` returned anyway because the corroboration arm gates on
+  `dataBacked`, structurally false at birth. The signature is reached; the *conviction* is
+  unreachable. Same shape as my own half of this bug.
+- **`482`**, simulating a birth arm over my calibration census: at `>=15` records, **89% false
+  positives**; largest legitimate dataset **73** records, motivating fabrication **6**. Record
+  count is a bad *axis*, not a mis-tuned threshold. They reported it against their own plan.
+- **`boxingonline.com`**: `fact_id` lives in `content_data` and does **not** reach markup, so a
+  `data-fact-id` checker would find nothing on the page that is doing everything right. Their
+  word for it — **anti-informative**, not merely incomplete — is the standard the design now
+  has to meet.
+
+### My own missteps (full list in WRONG_CALLS.md)
+
+- Census header called one column the "narrower subset" of another. **They are independent
+  predicates** — one requires a human-readable string, the other an identity+attribute key
+  pair. Caught by `482` doing arithmetic on a row reading `ds=18, ea=20`. Worse than a wording
+  slip: the false description pointed them at the predicate that **discards single-word entity
+  names**, which is much of the fabrication class.
+- Quoted "133" from memory while the file I had committed twenty minutes earlier said 134.
+- Put `[MEASURED]` on a peer's figure. **Re-running it out of scruple is what produced the
+  session's most important number**: 287 of 335 active tools (86%) have a NULL `input_schema`,
+  so "declares nothing" is the DEFAULT state — which inverted advice I had given `482` ten
+  minutes earlier about how much weight their birth arm could put on the declaration half.
+  The payoff is the argument for the rule: re-deriving a number you already believe is how you
+  meet its **denominator**, and the denominator is where the finding was.
+
+### One thing that did not work
+
+`Fable` was asked for the plan, as the owner's instruction specified, and **terminated on a
+credit limit** without producing anything (`rate_limit`, HTTP 429, "You've reached your Fable
+limit"). The plan was written on this session's own model instead. Recorded rather than
+quietly substituted, because the owner asked for a specific model and did not get it.
