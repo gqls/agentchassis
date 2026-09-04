@@ -65716,6 +65716,64 @@ all four places with the refutation and the file:line, plus a follow-up to that 
 the next reader would have been sent to "fix" a path that is already correct, and would most likely
 have done it by tuning the shared list — the one change the file's own header warns against.
 
+---
+
+## 2026-09-04 — I diagnosed a fleet-wide outage from a step NAME and a stored string, skipped the field that carries the error, and escalated the wrong mechanism to another lane (`420 425`)
+
+**The claim,** written into `bugs_open/420`, this lane's handoff, commit `a64ea7d98` and a
+cross-session report to the `dispatch_throughput` lane, all within about fifteen minutes: *"Round 2
+was WITHHELD by the spend governor. Six lanes affected. The governor's routing disagrees with its
+own decision — `admitted: true` in the same jsonb as a body saying WITHHELD."*
+
+**Wrong on the mechanism.** The council **ran**; its reviewers returned nothing readable. The real
+cause was the **account**: `"Your credit balance is too low to access the Anthropic API"` (HTTP 400)
+on every LLM call fleet-wide from 11:21:12Z to 11:56:48Z — 91 of 107 reviewer calls in that window,
+hitting `landmine-verifier`, `tool-improver` and `feed-triage` in the same minutes. Nothing to do
+with the governor, which admitted every run.
+
+**Three separate checks would each have caught it, and I ran none of them.**
+
+1. **`__step_error`.** I ran a query that returned `error: (null)` and stopped there. The estate's
+   landmine from `bugs_open/099` — *in my own loaded memory index* — says a failed step shows
+   COMPLETED with `error` NULL and the detail lives in `collected_data->>'__step_error'`. It reads:
+   *"step council_decide failed … no reviewer produced a readable opinion (6 abstained, 11
+   unreadable: review_editquality.result, …)"*. One field, and it names the cause.
+2. **The step's own `description`.** `complete_invalid` says *"failed structural validation, **or a
+   reviewer/decide step errored**"*. I inferred "invalid = the governor rejected it" from the NAME.
+3. **The existence of a separate terminal.** `complete_withheld` exists and says *"D4b terminal: the
+   council did NOT run"*. Listing the `complete*` steps takes one query and would have shown me
+   instantly that `complete_invalid` is not a withhold.
+
+**What made the wrong answer so persuasive, and this is the transferable part.** A real defect in
+the other lane's SQL composed the string `"WITHHELD at shed level 0 (32% of budget spent) — do not
+retry; re-trigger when governor_state.shed_level drops"` **unconditionally, on every run, admitted
+or not**. So the blob contained a decision (`admitted: true`) and a narrative (`WITHHELD`) that
+contradicted each other — and **I believed the narrative over the decision**, then built a case
+around explaining the contradiction rather than asking which of the two was load-bearing. The
+lane's own author was fooled by it for ten minutes too; that is what makes it worth writing down
+rather than filing as carelessness.
+
+**And my corroborating evidence could not discriminate.** I cited the clean onset — last approval
+11:09:35Z, first `complete_invalid` 11:21:58Z, six runs, none since. Every one of those facts is
+equally consistent with a governor withholding and with an API outage. It *felt* like strong
+evidence because it was specific, dated and reproducible; it tested nothing, because both
+hypotheses predict it identically. **A figure that both candidate causes predict is not evidence
+between them**, however well measured.
+
+**What caught it:** the owning lane read the rows I had not. Nothing in my own process would have.
+
+**Cost, and it was not zero:** the throughput lane **disarmed the council gate estate-wide** on the
+strength of my report. That was the right call under a credible report of a gate withholding
+everything, and it was unnecessary in hindsight — their words. So a wrong mechanism, escalated
+confidently, caused a live configuration change to a shared mechanism. The report was still worth
+sending: reviews *were* dead fleet-wide and nobody had been told. **Being right that something is
+broken does not license being confident about why.**
+
+**The cheap check, as a rule rather than a query:** *before naming a mechanism from a terminal
+state, read (a) that state's own description, (b) `__step_error`, and (c) whether a
+differently-named terminal exists for the mechanism you are about to blame.* All three are one
+query each against a row I already had open.
+
 ## 2026-09-04 (c) — my detector for uncommitted migrations was wrong twice out of twice, and I had written the rule against it the night before
 
 **The claim.** *"[MEASURED 2026-09-04] 556 applied migrations, 2 applied-but-untracked — and both are

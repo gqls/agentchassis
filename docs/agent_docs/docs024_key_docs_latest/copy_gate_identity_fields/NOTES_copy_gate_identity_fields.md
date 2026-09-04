@@ -168,6 +168,35 @@ believed is intact — which is the property the ledger exists to protect. **The
 to fire**: nothing downstream can tell a deleted entry from one never written, and "it was mine"
 is only knowable by running the diff.
 
+### 7. I diagnosed a fleet-wide outage from a step name and a stored string, and escalated the wrong mechanism
+
+Round 2 reached `complete_invalid`. I reported to the `dispatch_throughput` lane that the spend
+governor was withholding every council submission and that its routing disagreed with its own
+`admitted: true`. **They disarmed the council gate estate-wide on that report.**
+
+**Wrong.** The council ran; its reviewers returned nothing readable. The cause was the **account** —
+`"Your credit balance is too low to access the Anthropic API"` (400) on every LLM call fleet-wide
+11:21:12Z–11:56:48Z, 91 of 107 reviewer calls. The gate admitted every run.
+
+Three one-query checks would each have caught it and I ran none: `__step_error` (I saw `error:
+NULL` and stopped — `bugs_open/099`'s landmine, *in my own memory index*, says exactly that the
+detail is in `__step_error`); the step's own `description` (*"or a reviewer/decide step errored"*);
+and the existence of `complete_withheld` as a **separate** terminal.
+
+**Why it was persuasive:** the other lane's SQL composed `"WITHHELD at shed level 0 …"`
+**unconditionally on every run**, so the blob held a decision (`admitted: true`) and a narrative
+(`WITHHELD`) that contradicted each other — and I believed the narrative, then built a case
+explaining the contradiction instead of asking which was load-bearing. Their own author was fooled
+for ten minutes too.
+
+**And my best evidence could not discriminate.** The clean onset — last approval 11:09:35Z, six
+runs, none since — is equally predicted by a governor withhold and by an API outage. Specific,
+dated, reproducible, and it tested nothing.
+
+**Cost:** a live config change to a shared mechanism, on my say-so. The report was still right to
+send — reviews were dead and nobody had been told. **Being right that something is broken does not
+license confidence about why.** Full entry in `WRONG_CALLS.md`.
+
 ## DECISIONS AND THEIR REASONS
 
 - **The guard went in the JUDGE, not the walker.** A filter at the enumeration point is bypassable

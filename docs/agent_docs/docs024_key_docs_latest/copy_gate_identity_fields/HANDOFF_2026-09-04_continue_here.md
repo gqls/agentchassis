@@ -35,19 +35,30 @@
    row is latency, not a drop. If APPROVED, nothing to do: `098` credits `60091e140` automatically
    off the `Council-Submitted:` trailer, and **do not** hand-write `Council-Reviewed:`.
 
-   **⚠⚠ ROUND 2 WAS NEVER REVIEWED — IT WAS WITHHELD, AND NOT BECAUSE OF ANYTHING IN THIS LANE.**
-   The run routed to `complete_invalid` with a spend-governor block reading *"WITHHELD at shed
-   level 0 (32% of budget spent) - NOT queued; do not retry; re-trigger when
-   governor_state.shed_level drops"*. **That remedy is unsatisfiable: `shed_level` is already 0,
-   the floor.** And the governor's own decision in the same jsonb says `admitted: true` with
-   `council-gate` mapped to `maintenance`, which sheds at L1 (70%) while spend is at 32% — so it
-   should have run. **Estate-wide, not ours:** six distinct submissions from six lanes withheld
-   between 11:21:58Z and 11:47:23Z, with the last approval at 11:09:35Z and the last revise at
-   11:15:47Z — a clean onset. Reported to the `dispatch_throughput` lane, who own the governor
-   (RFC_065 / migration 752), with the evidence; not filed as a bug to avoid competing with their
-   record. **So: do NOT read the absent verdict as latency, and do NOT resubmit until they say it
-   is fixed** — a resubmit now just mints another withheld run and another unresolvable trailer.
-   Re-trigger `3e9e8ce8` when they confirm.
+   **⚠⚠ ROUND 2 WAS NOT REVIEWED, AND MY FIRST WRITTEN ACCOUNT OF WHY WAS WRONG — corrected
+   2026-09-04 12:2xZ.** The run reached `complete_invalid`; six runs from six lanes did the same
+   between 11:21:58Z and 11:47:23Z (last approval 11:09:35Z). That outage was real.
+   ~~It was withheld by the spend governor, whose routing disagrees with its own `admitted: true`.~~
+   **REFUTED.** The council RAN and its reviewers returned nothing readable —
+   `collected_data->>'__step_error'` says *"no reviewer produced a readable opinion (6 abstained,
+   11 unreadable…)"*. Root cause was the **ACCOUNT**: `"Your credit balance is too low to access
+   the Anthropic API"` (HTTP 400) on every LLM call fleet-wide 11:21:12Z–11:56:48Z, first success
+   11:58:13Z. The gate admitted every run.
+
+   **THE THREE TERMINALS ARE DIFFERENT STATES — do not conflate them as I did:**
+   - **no row at all** → latency. Wait; do not retry.
+   - **`complete_withheld`** → *"D4b terminal: the council did NOT run"*. The governor withheld it.
+   - **`complete_invalid`** → *"failed structural validation, **or a reviewer/decide step errored**"*.
+     The council ran and could not decide. **Read `__step_error` to find out which.**
+
+   ⚠ **`error` being NULL means nothing** — a failed step shows COMPLETED with `error` NULL and the
+   detail in `collected_data->>'__step_error'` (`bugs_open/099`'s landmine). I read the NULL and
+   stopped, which is how I got the mechanism wrong.
+
+   ⚠ **A `"WITHHELD at shed level 0 …"` string may be present on a run that was NOT withheld** —
+   the gate SQL composed it unconditionally on every run until the throughput lane's migration
+   `755`. It sits beside `admitted: true`. **Trust the decision and `__step_error`, not the prose.**
+
 2. **AFTER THE NEXT CHASSIS ROLL, verify at the binary and then re-run the census.** Both commands
    are in `RUNBOOK_copy_gate_identity_fields.md`. The fix is INERT until a roll — `bugs_open/420`
    stays OPEN until then, per the fixed-AND-live bar.

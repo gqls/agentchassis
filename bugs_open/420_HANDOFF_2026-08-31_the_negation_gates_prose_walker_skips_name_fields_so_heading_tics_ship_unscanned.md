@@ -11,16 +11,36 @@
 > never applied. The committed code has the change (`negation_content.go:253`); the plan did not.
 > Round 2 makes it a standalone edit.
 >
-> **⚠ ROUND 2 WAS NEVER REVIEWED. It was WITHHELD by the spend governor at 11:29:56Z** and routed
-> to `complete_invalid`, with a body reading *"WITHHELD at shed level 0 (32% of budget spent) - NOT
-> queued; do not retry; re-trigger when governor_state.shed_level drops"*. **That remedy cannot be
-> satisfied — `shed_level` is already 0, the floor** — and the governor's own decision in the same
-> blob says `admitted: true`, with `council-gate` mapped to `maintenance` (sheds at L1 = 70%) while
-> spend sits at 32%. **Not specific to this submission: six distinct submissions from six lanes were
-> withheld between 11:21:58Z and 11:47:23Z**, the last approval being 11:09:35Z and the last revise
-> 11:15:47Z. Reported to the `dispatch_throughput` lane (RFC_065 / migration 752 are theirs) with
-> the row-level evidence. **Do not resubmit until they confirm a fix** — it would only mint another
-> withheld run and another `Council-Submitted:` trailer that `098` can never resolve.
+> **⚠ ROUND 2 WAS NOT REVIEWED — and ⚠ CORRECTED 2026-09-04 12:2xZ, MY FIRST ACCOUNT OF WHY WAS
+> WRONG.** It reached `complete_invalid` at 11:29:56Z. Six runs from six lanes did the same between
+> 11:21:58Z and 11:47:23Z, with the last approval at 11:09:35Z — a real, estate-wide outage that
+> nobody had been told about.
+>
+> ~~It was WITHHELD by the spend governor … the governor's own decision says `admitted: true` while
+> the body says WITHHELD, so the routing disagrees with the admission.~~ **REFUTED by the
+> `dispatch_throughput` lane and then verified here at the rows.** The council **ran**; its
+> reviewers returned nothing readable. `collected_data->>'__step_error'` on this run says:
+> *"step council_decide failed … no reviewer produced a readable opinion (6 abstained, 11
+> unreadable: review_editquality.result, review_bug_historian.result, …)"*. **Root cause was the
+> ACCOUNT, not the gate:** `"Your credit balance is too low to access the Anthropic API"` (HTTP 400)
+> on every LLM call fleet-wide from 11:21:12Z to 11:56:48Z, first success 11:58:13Z — 91 of 107
+> reviewer calls in that window. The gate ADMITTED every run (`admitted: true` at the TOP level).
+>
+> **Three terminals, and they are different states — I conflated two:**
+> `complete_invalid` = *"the submission failed structural validation, **or a reviewer/decide step
+> errored**"* (its own description) · `complete_withheld` = *"D4b terminal: the council did NOT
+> run"* · **no row at all** = latency. A withhold has its own step name; `complete_invalid` is not
+> one.
+>
+> The `"WITHHELD at shed level 0 …"` sentence I quoted is real, and is a separate defect of the
+> throughput lane's own: the gate SQL composed that body **unconditionally** and stored it on every
+> run, admitted or not. Their migration `755` makes it NULL on the admit path and fixes the
+> unsatisfiable remedy text. **It is why a careful reader lands on the wrong suspect — it sat
+> beside `admitted: true` and I trusted the prose over the decision.**
+>
+> Re-triggered on the same correlation once the API recovered. See `WRONG_CALLS.md` 2026-09-04 for
+> the check I skipped: `error` was NULL and I stopped there, when `__step_error` is the field that
+> carries it — a landmine already in this estate's memory from `bugs_open/099`.
 > Bar for `bugs_closed/` is fixed AND live, so this stays here until a roll ships it and the
 > post-roll check below passes.
 >
