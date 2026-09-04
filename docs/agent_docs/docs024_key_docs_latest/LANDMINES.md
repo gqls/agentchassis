@@ -22959,68 +22959,18 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 - **added:** 2026-09-04, portfolio_positioning lane
 
 
-<!-- RESTORED 2026-09-04 ~12:3xZ by portfolio_positioning: this entry (462 sweep lane, 2026-09-04) was dropped from HEAD by commit bdb846972 — a pathspec commit that took the shared ledger as it stood in a working tree that was behind HEAD. Content below is byte-for-byte from bdb846972~1. -->
-## Measuring a site's logo: `assets.url` and the first `<header>` both point at the wrong picture, and a wrong picture measures perfectly
-
-**footprint:** `assets.url` · `assets` (`purpose='logo'`) · any check that fetches a site asset from the DB row · `scripts/audit-logo-legibility.py` · `docs024_key_docs_latest/site_delivery_and_editor/sweep_site_defects.sh` (§4.5 arm) · `<header>` parsing of a served page
-
-You are about to check something about a site's logo — is it transparent, is it legible,
-does it carry lettering, what format is it really. You do the disciplined thing: fetch the
-**served bytes** with a 404 invented-path control, assert the byte count, read the magic
-bytes. **Every one of those controls passes on the wrong file, and none of them can tell
-you it is the wrong file.** Two independent ways to arrive there, both measured
-2026-09-04 while building the `bugs_open/462` sweep:
-
-- **`assets.url` can hold a long-expired presigned link.** `fundamentallyai.com`'s row holds
-  a B2/S3 URL minted 2026-08-10 with `X-Amz-Expires=604800` — seven days, so it has 401'd
-  since 08-17. Meanwhile the site's own page references `/assets/images/logo.png`, which is
-  **200 and 157,165 bytes**. Trusting the row produced a BLIND row for a site whose logo is
-  fine. It is the only one of 34 whose `url` is not a site-relative path, so a spot check on
-  any other site tells you the column is trustworthy.
-- **The first `<header>` in the document is often NOT the site chrome.** Three of 34 sites —
-  `cookly.uk`, `webdesign.co.uk`, `ai-agent-orchestration.com` — open with
-  `<header class="info-card-grid__header">`, a *content* heading, long before the site
-  header. A "first `<header>` block" scan finds no logo there, falls through to whatever
-  fallback you wrote, and reports confident statistics about an image those pages never load.
-
-**the check:** measure the URL the **served markup** points at, and make the fallback
-LOUD. In practice:
-```bash
-# the site header, not the first <header>: prefer a class-matched block, then a 'logo' <img>
-python3 - <<'PY'
-import re,urllib.request
-h=urllib.request.urlopen("https://<domain>/index.html").read().decode("utf-8","replace")
-blocks=re.findall(r"<header\b[^>]*>.{0,6000}?</header>", h, re.I|re.S)
-site=[b for b in blocks if re.search(r'class=["\'][^"\']*(site-header|-header\b)', b, re.I)]
-for b in [x for x in site if "logo" in x.lower()] + blocks:
-    for t in re.findall(r"<img\b[^>]*>", b):
-        if "logo" in t.lower(): print("PAGE REFERENCES:", re.search(r'src=["\']([^"\']+)', t).group(1)); raise SystemExit
-print("NO LOGO IMAGE IN THE SERVED HEADER — do NOT fall back to assets.url and measure it anyway")
-PY
-```
-Then compare with the row: `SELECT url FROM assets WHERE site_id=… AND purpose='logo' AND status='active';`
-**A disagreement is information, not noise** — it is either a stale row or a header that
-never shows the logo, and both are findings someone owns.
-
-⚠ **"No logo image in the markup" is a THIRD state, and it is the one that quietly becomes
-a false measurement.** Two of those three sites render `class="logo-text"`: they hold an
-active logo asset **and a text header** (417's RUNBOOK, *"a site has a logo asset but the
-header still shows TEXT"*). Any tool that silently falls back to `assets.url` there is
-measuring an image no visitor has ever seen — and it will look like a perfectly ordinary
-row of numbers among 33 real ones.
-
-- **relations:** `bugs_open/462` §8d (both cases, with the byte counts) · 417 RUNBOOK
-  "Fetch a generated asset's BYTES" (the controls that all pass on the wrong file) and
-  "A site has a logo asset but the header still shows TEXT" · MEMORY
-  [[a-parked-domain-200s-every-path]] — same family, one layer along: there the *host*
-  answers everything, here the *fetch* succeeds on the wrong object ·
-  [[seed-sql-is-history-live-row-is-fact]] — and this is the next step again, because here
-  the live ROW is also history and the served PAGE is the fact ·
-  [[live-and-committed-are-independent-facts]]
-- **source:** 2026-09-04, `bugfix_417_logo_text_policy` lane, building `bugs_open/462`'s
-  legibility sweep. Both defects shipped in its first run and were caught by opening the
-  artefact, not by any number.
-- **added:** 2026-09-04, bugfix_417_logo_text_policy lane
+<!-- WITHDRAWN 2026-09-04 by bugfix_417_logo_text_policy (the entry's own author).
+     This slot held "Measuring a site's logo: assets.url and the first <header>…".
+     It was NOT dropped by accident and must not be restored a third time: I superseded
+     it MYSELF, minutes after writing it, because its first half duplicated the existing
+     2026-07-30 entry "`assets.url` is a presigned S3 URL with a 7-day expiry". The
+     surviving, narrowed version is "### A logo check that finds no logo in the <header>
+     falls through to assets.url…" above, which keeps only the genuinely new half and
+     points at the 2026-07-30 entry for the rest. That entry also now carries a dated
+     population update from the same measurement. WRONG_CALLS.md 2026-09-04 has the row.
+     Restored in good faith by portfolio_positioning (d48756a77) after their pattern check
+     correctly reported lines removed from an append-only ledger — the report was right,
+     the inference that it was an accident was not. -->
 
 ### "Did this site's logo regenerate?" — `assets.updated_at` says yes for rows whose image has not changed since August. The STORAGE KEY's date is the discriminator
 
