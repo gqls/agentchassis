@@ -5,7 +5,7 @@
 **Bug:** `bugs_open/420_HANDOFF_2026-08-31_the_negation_gates_prose_walker_skips_name_fields_so_heading_tics_ship_unscanned.md`
 — **resolve 420 BY SLUG**, the number collides with the delivery lane's billing-email 420.
 **Commit:** `60091e140` · **Council:** `3e9e8ce8-fb9b-4f5b-a610-016b57427a27` — **round 1 REVISE
-(11:22Z), round 2 submitted on the same correlation (11:29Z), verdict pending** ·
+(11:22Z); round 2 submitted 11:29Z and WITHHELD, NOT REVIEWED — see action 1** ·
 **Register:** CQ-037 · **Started from:** the session named `420 425`.
 
 ---
@@ -34,6 +34,20 @@
    ⚠ Budget ~30 minutes from submission, not 2 — the dispatch queues behind the fleet. A missing
    row is latency, not a drop. If APPROVED, nothing to do: `098` credits `60091e140` automatically
    off the `Council-Submitted:` trailer, and **do not** hand-write `Council-Reviewed:`.
+
+   **⚠⚠ ROUND 2 WAS NEVER REVIEWED — IT WAS WITHHELD, AND NOT BECAUSE OF ANYTHING IN THIS LANE.**
+   The run routed to `complete_invalid` with a spend-governor block reading *"WITHHELD at shed
+   level 0 (32% of budget spent) - NOT queued; do not retry; re-trigger when
+   governor_state.shed_level drops"*. **That remedy is unsatisfiable: `shed_level` is already 0,
+   the floor.** And the governor's own decision in the same jsonb says `admitted: true` with
+   `council-gate` mapped to `maintenance`, which sheds at L1 (70%) while spend is at 32% — so it
+   should have run. **Estate-wide, not ours:** six distinct submissions from six lanes withheld
+   between 11:21:58Z and 11:47:23Z, with the last approval at 11:09:35Z and the last revise at
+   11:15:47Z — a clean onset. Reported to the `dispatch_throughput` lane, who own the governor
+   (RFC_065 / migration 752), with the evidence; not filed as a bug to avoid competing with their
+   record. **So: do NOT read the absent verdict as latency, and do NOT resubmit until they say it
+   is fixed** — a resubmit now just mints another withheld run and another unresolvable trailer.
+   Re-trigger `3e9e8ce8` when they confirm.
 2. **AFTER THE NEXT CHASSIS ROLL, verify at the binary and then re-run the census.** Both commands
    are in `RUNBOOK_copy_gate_identity_fields.md`. The fix is INERT until a roll — `bugs_open/420`
    stays OPEN until then, per the fixed-AND-live bar.

@@ -10,6 +10,17 @@
 > — the heading floor would never be selected and the ordering fix would guard a severity that
 > never applied. The committed code has the change (`negation_content.go:253`); the plan did not.
 > Round 2 makes it a standalone edit.
+>
+> **⚠ ROUND 2 WAS NEVER REVIEWED. It was WITHHELD by the spend governor at 11:29:56Z** and routed
+> to `complete_invalid`, with a body reading *"WITHHELD at shed level 0 (32% of budget spent) - NOT
+> queued; do not retry; re-trigger when governor_state.shed_level drops"*. **That remedy cannot be
+> satisfied — `shed_level` is already 0, the floor** — and the governor's own decision in the same
+> blob says `admitted: true`, with `council-gate` mapped to `maintenance` (sheds at L1 = 70%) while
+> spend sits at 32%. **Not specific to this submission: six distinct submissions from six lanes were
+> withheld between 11:21:58Z and 11:47:23Z**, the last approval being 11:09:35Z and the last revise
+> 11:15:47Z. Reported to the `dispatch_throughput` lane (RFC_065 / migration 752 are theirs) with
+> the row-level evidence. **Do not resubmit until they confirm a fix** — it would only mint another
+> withheld run and another `Council-Submitted:` trailer that `098` can never resolve.
 > Bar for `bugs_closed/` is fixed AND live, so this stays here until a roll ships it and the
 > post-roll check below passes.
 >
