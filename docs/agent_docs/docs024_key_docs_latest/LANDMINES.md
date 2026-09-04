@@ -23499,3 +23499,58 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 - **⚠ the sibling that hides the whole thing while you debug it:** a buffered `python3` prints **nothing** to `kubectl logs` until it exits, so a five-minute job shows an empty log for its entire life and a working run is indistinguishable from a hung one. Run `python3 -u`. Until you do, the only way to tell them apart is `kubectl exec` into the pod and read `/proc/<pid>/wchan` and its open sockets.
 - **relations:** MEMORY [[detection-works-schedule-and-dispatch-do-not]] (the detector was never the weak half) · [[a-hook-that-writes-to-stderr-reaches-nobody]] (measure a check at the READER — a red job IS a moved channel) · [[a-stale-status-line-prevents-the-thing-it-describes]] · `bugs_open/462` §10a for the worked case
 - **added:** 2026-09-04, bug 462 lane (found on the first in-cluster run of `logo-legibility-check`, not by review)
+
+### Appending a section to a living doc does not update its FIRST SCREEN — and the first screen is the only part a cold reader is guaranteed to read
+
+- **footprint:** `HANDOFF_*_continue_here.md` (any lane) · `bugs_open/NNN_*.md` / `bugs_closed/NNN_*.md`
+  (their `START HERE` and status banners) · `README_where_we_are.md` · `RUNBOOK_*.md` · the standing
+  five generally · `docs/agent_docs/docs026_concept_register/register/*.md` status lines · any commit
+  message asserting deploy state
+- **fires when:** you finish a piece of work and append the account of it — a new section, a dated
+  entry, a `§10` — to a document whose top carries a `START HERE`, a "what is left, ordered" list, a
+  status line or a banner. **You are not editing that top, so you never re-read it.**
+- **the tell: none, and the document looks MORE current than it is.** Its newest dated material is at
+  the bottom and is correct. A reader who opens it sees a live file, reads the first screen, and acts
+  on a pointer your new section already answered. **Nothing about how the stale line was written
+  distinguishes it — it was true when written.** That is the whole difficulty: this is not a wrong
+  claim to be caught by review, it is a correct claim with an expiry nobody stamped.
+- **FOUR instances in ONE afternoon, two lanes, 2026-09-04, none of them anyone's mistake:**
+  1. `bugfix_417_logo_text_policy`'s `HANDOFF_2026-09-04` §3 opened *"⭐ ROUTING — the only thing
+     blocking 462"*. Written ~13:0xZ; **the owner answered it ~13:4xZ.** The lane's own cold-start
+     doc then pointed the next reader at decided work belonging to another lane. Struck `8ae8f2da8`.
+  2. `bugs_open/462` §7a *"Routing is NOT settled either"* and §8e *"Routing — UNCHANGED and still
+     the blocker"*, with a `START HERE` line still naming §3 as "the whole job" — while §9/§10, added
+     the same afternoon, contained the ruling. Struck `d8122a71d`.
+  3. `c0e2900ff`'s commit message: *"deliberately NOT applied"*. **True for about twenty minutes.**
+     A commit message cannot be amended (forward-only), so `git log` still says the check is inert
+     while the CronJob runs. Corrected in `8df99c110`, `462` §10 and register `IMG-080` — three
+     places, because the original cannot be fixed.
+  4. `RUNBOOK_logo_text_policy.md`'s *"Exit 0 only when every logo was measured and legible"*, made a
+     half-truth hours later by the `--report` split. Struck `8df99c110`.
+- **the check, and it is cheap because it is a re-read, not a search:** **before you append, open the
+  document at the top and read the first screen as a stranger.** Then ask the one question: *does my
+  new section decide, answer or supersede anything asserted up there?* If yes, strike it through in
+  place with the date and what replaced it — **keep the original text**, because the reasoning
+  usually still binds even when the status does not. `git diff` will not prompt you: your diff is
+  entirely at the bottom of the file and looks complete.
+- **the durable formulation:** ~~a doc is current if its latest entry is current~~ — **a claim about
+  STATE has to carry where it can be re-checked.** "Applied" is checkable at the cluster, "n=1" at
+  the census, "blocking" only against a decision log. A state claim with no named check is a claim
+  with an invisible expiry, and appending underneath it does not extend its life.
+- **⚠ pairs with the OPPOSITE failure, already in this file:** *"A banner is not a control — it fails
+  for anyone who greps to a line number and never reads the header"* (the `053` seed entry). **So a
+  banner fails in both directions**: the grepper never reads it, and the cold reader reads only it.
+  Neither is a substitute for correcting the line where the stale claim actually sits — which is why
+  the check above says strike it IN PLACE rather than "add a note at the top".
+- **relations:** MEMORY [[a-stale-status-line-prevents-the-thing-it-describes]] (a detector sat off
+  for 9 days after its blocker cleared — the same shape with a bigger bill) ·
+  [[a-handoff-outlives-the-work-it-asked-for]] · [[a-closed-blocker-keeps-being-obeyed]] ·
+  [[prior-art-search-goes-stale]] · the concept-register status-line entry (*"a STATUS line is a
+  snapshot that outlives its truth — and council seats read it as ground truth"*) — that is this
+  trap in one specific file; this entry is the general case · CLAUDE.md's "commit each task the
+  moment it is coherent" (which is why a fast tree produces this so reliably)
+- **source:** 2026-09-04, jointly by `bugfix_417_logo_text_policy` and the `bug 462` lane during a
+  same-day handover of `bugs_open/462`. Each lane caught the other's; each then found one of its
+  own in the file one along. Written by the 417 lane at the 462 lane's request so it is filed once
+  rather than in parallel — which is itself the smaller version of the same lesson.
+- **added:** 2026-09-04, bugfix_417_logo_text_policy lane (with the bug 462 lane)
