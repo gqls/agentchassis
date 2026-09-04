@@ -79,7 +79,15 @@ Three weeks inside 257 and it never started, which is the practical argument. Th
    PACKAGE, and a Go test is package-scoped by nature. Covering `internal/agents/*` and `tools-api`
    needs either one test per package or a check in `scripts/pattern-check.py` — and note that
    `pattern-check.py` is in council scope as of 2026-08-23.
-4. **Tell the two live consumers what changes.** `fleet-step-token-pressure` and
+4. **Read the `CONTRIB` section at the foot of this file before designing the row.** The
+   `copy_quality_two_stage` lane has added a SECOND blindness in the same table, and it is the worse
+   of the two to read: §1 is a call that writes no row, and an absence at least looks like an absence;
+   theirs is a row that exists, written normally, whose `thinking_tokens` column is structurally
+   incapable of holding what it is named after — so it reads as a finding rather than as missing
+   instrumentation. It does not change §2's census and is not folded into it. Their sizing note is
+   worth acting on in the same change: if you populate that column from the API's own `usage`, check
+   whether the same call site can record `stop_reason` verbatim.
+5. **Tell the two live consumers what changes.** `fleet-step-token-pressure` and
    `council-seat-token-pressure` (both enabled, both every 21600s) are queries over `llm_call_log`;
    adding rows changes what they report. Owner ruling 2026-07-29 §3: a shared mechanism's other
    consumers must be told, not merely measured.
