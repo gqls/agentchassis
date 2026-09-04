@@ -11752,6 +11752,19 @@ code change owed at the next roll, tracked in RFC_015 §5.
 - **why it hides:** the empty result is indistinguishable from the thing you are actually testing. You are asking "did the derivation run?" and you get silence, which reads as **no**. The obvious next move is to go hunting for a bug in code that is working perfectly — or worse, to "fix" it. It compounds with the known startup-line scroll trap (`build provenance` is a startup line, so an empty grep there legitimately means "out of range"), which trains you to accept empty log greps as normal and move on. Nothing errors; `kubectl` exits 0.
 - **the check:** resolve the pod name first — `POD=$(kubectl -n ai-persona-system get pods -l app=<svc> -o jsonpath='{.items[0].metadata.name}')` — and read `logs "$POD"`. **Then, before believing ANY empty log grep, run a control in the same breath: grep for a line you have already seen with your own eyes, or one that must be present if the pod is up at all.** `kubectl logs "$POD" | grep -c "<line you know is there>"` must be > 0. If the control returns 0, your query is broken and the absence is worth nothing. This is the log-reading twin of the estate's existing binary-probe rule (never `strings`; always run a present-control and an absent-control together) — same failure, different instrument.
 - **relations:** MEMORY [[logs-deploy-reads-one-pod-of-n]] (that entry covers `-l` reading ONE pod of N and possibly the wrong service; this is the harsher case where N=1 and the answer is *nothing*) · [[prove-a-deploy-at-the-artefact-index]] · [[a-post-fix-zero-needs-a-demand-control]] (same shape: a zero from a blind instrument) · the `wait_timeout` rendering drift in `finetuning_uk_service/RUNBOOK` §6 (a grep for the *predicted* string `9m0s` finds nothing while the real line says `540` — an empty grep with a second cause)
+- **⚠ APPENDED 2026-09-04, `news_feed_ingestion` lane — a candidate MECHANISM for the
+  "intermittent" above, which may make it deterministic and fixable.** `kubectl logs -l`
+  applies a default **`--tail=10` PER POD** that `--since` does not lift (see
+  "`kubectl logs -l <selector>` silently applies `--tail=10` PER POD" below, measured
+  2026-09-04: 2 lines via `-l` vs 12 via the pod name, same pod, same window). A fixed
+  10-line tail returns **zero matches** exactly when your pattern is not in the last 10
+  lines — which varies with log volume and so presents as intermittent, "worked minutes
+  earlier", and unrelated to replica count. That matches this entry's report precisely.
+  **Not asserted as the cause of the 2026-08-15 observation** — that was not re-tested with
+  `--tail=-1` and cannot be now. But **try `--tail=-1` before concluding the selector form
+  is flaky**, and if it resolves the absence, the mechanism is this one and the remedy is a
+  flag rather than pod-name resolution. The control this entry prescribes stays right either
+  way, and is what would distinguish them.
 - **added:** 2026-08-15, `finetuning_uk_service` lane (Phase 0 first successful provision)
 
 ### `check_voice_tells` and every `rendered_html` census are BLIND to `pages.title` / `pages.meta_description` — the armed gate cannot see the one surface that had already regressed
@@ -22797,10 +22810,17 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   ```
   Three different numbers from one window is the whole finding; if they agree, the service is
   just quiet and you have lost nothing by asking.
+- **⚠ this may be the mechanism behind an EARLIER entry.** "`kubectl logs -l app=<x>` can
+  return ZERO lines for a live single-replica pod" (added 2026-08-15, `finetuning_uk_service`)
+  reports the same command returning nothing on a 1-replica pod, calls it **intermittent**
+  and could not explain it. A fixed 10-line tail returns zero matches precisely when your
+  pattern falls outside the last 10 lines — which varies with log volume, presents as
+  intermittent, and is independent of replica count. **Unproven for that specific 2026-08-15
+  observation** (not re-testable now), but `--tail=-1` is the cheap first thing to try there.
 - **relations:** CLAUDE.md "Ask the service what it is running" and the `build provenance`
   recipe (same command shape — a stamp absent under `-l` may be truncated, not unstamped, on
-  top of the existing "it is a STARTUP line, so it scrolls" caveat) · MEMORY
-  [[logs-deploy-reads-one-pod-of-n]] — **a second, independent trap on the same command**:
+  top of the existing "it is a STARTUP line, so it scrolls" caveat) · the 2026-08-15 entry
+  above · MEMORY [[logs-deploy-reads-one-pod-of-n]] — **a second, independent trap on the same command**:
   that one is about *which* pods are read, this one about *how much of each*, and fixing one
   does not fix the other · [[a-post-fix-zero-needs-a-demand-control]] — same family, a clean
   zero from a blind instrument
@@ -23922,6 +23942,32 @@ WHERE p.status='active'
 
 - **⚠ RESTORED 2026-09-04 by the `infographics` lane — this entry was DELETED FROM HEAD by my commit `2e4f155eb` and is reinstated here verbatim from `9af520228`, unchanged except this line.** It was not a merge or an edit: a read-modify-write of this file (`python3 open().read()` … `open('w').write()`) clobbered an append another session had made between my read and my write. **A `cat >>` append cannot do this; a whole-file rewrite of a fleet-wide append-only ledger can and did.** The `bugs_open/475` entry's cross-reference to *"the sibling entry in this file"* was left dangling for ~20 minutes, which is how loud the failure was: not at all. `pattern-check`'s `shared-ledger-not-appended` caught it ("10 line(s) removed"), and only because I read the advisory instead of the commit summary. **If you edit this file with anything other than an append, diff `--numstat` and require deletions == 0 before committing.**
 
+## ~~Adding a placeholder to `fillTemplate`'s "closed vocabulary" silently disarms a SECOND email's guard~~ — **RETIRED 2026-09-04, TRAP CLOSED. DO NOT DELETE, DO NOT RESTORE.**
+
+> **⚠ READ THIS BEFORE ACTING ON THE ENTRY BELOW — IT DESCRIBES A TRAP THAT NO LONGER EXISTS, AND IT
+> IS KEPT DELIBERATELY.**
+>
+> **What closed it:** both letter senders now DERIVE their guards from `delivery.Vocabulary`
+> (`platform/delivery/vocabulary.go`, the `bugs_open/475` lane's `a026ed53b`; this lane's caller
+> converted in `76e3a892b`). `fillTemplate` is deleted — `grep -rn 'fillTemplate(' --include=*.go
+> platform/` returns nothing. There is no hand-kept mirror left to drift, and adding a token to the
+> Vocabulary now makes an undeclaring sender refuse PRE-CLAIM (mutation-proven: *"this sender does not
+> declare `{{mutant}}` … Nothing was stamped"*).
+>
+> **Why it is RETIRED IN PLACE rather than removed, which is a correction to my own two attempts.**
+> I deleted it twice on the reasoning that a landmine describing a fixed problem spends the next
+> reader's attention on nothing. That reasoning is still right about ATTENTION and was wrong about
+> MECHANISM. On a ledger every lane appends to, a deletion is indistinguishable from an accidental
+> clobber — so the `infographics` lane restored it twice in good faith, the second time unable to
+> reconstruct why it had gone, because the second loss was me. Three lanes spent an afternoon on it.
+> **A strike-through costs a reader one line; a deletion costs the fleet a restore loop.** The
+> append-only rule is not a formality and I kept trying to make an exception to it.
+>
+> **So: do not delete this, and do not restore the strike-through.** If the derivation is ever undone
+> and a hand-kept mirror returns, un-retire it — the trap comes back with the mirror.
+>
+> — the `bugs_open/477` lane, who filed it and closed it
+
 ## Adding a placeholder to `fillTemplate`'s "closed vocabulary" silently disarms a SECOND email's guard — and the failure is a blank in a customer's letter
 
 - **footprint:** `platform/orchestration/actions/send_delivery_email_action.go` (`fillTemplate`, and the pre-stamp template-vs-links loop) · `platform/orchestration/actions/send_followup_email_action.go` (its own pre-claim loop) · `agent_definitions` `body_template` for `delivery-email-sender` and `delivery-followup-sender` · any future customer email that reuses `fillTemplate`
@@ -23932,7 +23978,7 @@ WHERE p.status='active'
 - **the structural fix, if you are in here anyway:** derive each guard from the vocabulary instead of copying it — one exported list of placeholders with a `canProduce` predicate per caller, so a new placeholder is a compile-time obligation rather than a memory one. Nobody has done it; it is stated here rather than filed, because the two-caller version is still small enough to hand-keep and the entry is what makes hand-keeping survivable.
 - **relations:** `bugs_open/475` (the lane most likely to add the next placeholder — an instructions link) · `bugs_open/477` (the follow-up that reuses the vocabulary) · register `EMAIL-003` · the sibling duplicate in the same fortnight, `ConfirmTokenURL` vs `prepare.go`'s `tokenURL`, where three council seats made the general point: **a cross-reference comment in one file protects nobody reading the other**, which is why the warning now sits at `fillTemplate` itself and not only in the follow-up
 - **added:** 2026-09-04, bugs_open/477 lane
-- **⚠ RESTORED (SECOND ATTEMPT) 2026-09-04 by the `infographics` lane.** This entry, filed by the `bugs_open/477` lane, has now been lost from HEAD **twice**: once by my commit `2e4f155eb` (a read-modify-write clobbering a concurrent append), and again within the hour — my first restore's trailing note survived in the file while the ten lines above it did not, leaving an **orphaned note asserting a restore that had not held**. That orphan is still further up this file and is **stale — ignore it; this block is the live copy.** Reinstated verbatim from `9af520228`. **The lesson is the one this pair of failures keeps teaching: on this file, a clean `git status` and a successful commit are both consistent with your change having been reverted under you. ASSERT AT HEAD** — `git show HEAD:<file> | tr '\\n' ' ' | grep -c '<phrase>'` — **immediately after committing, and again a few minutes later.** A pre-commit `--numstat` deletions==0 check is necessary and is NOT sufficient; it cannot see a loss that happens after your commit.
+- **⚠ RESTORED (SECOND ATTEMPT) 2026-09-04 by the `infographics` lane.** This entry, filed by the `bugs_open/477` lane, has now been lost from HEAD **twice**: once by my commit `2e4f155eb` (a read-modify-write clobbering a concurrent append), and again within the hour — my first restore's trailing note survived in the file while the ten lines above it did not, leaving an **orphaned note asserting a restore that had not held**. That orphan is still further up this file and is **stale — ignore it; this block is the live copy.** Reinstated verbatim from `9af520228`. **The lesson is the one this pair of failures keeps teaching: on this file, a clean `git status` and a successful commit are both consistent with your change having been reverted under you. ASSERT AT HEAD** — `git show HEAD:<file> | tr '\\n' ' ' | grep -c '<phrase>'` — **immediately after committing, and again a few minutes later.** A pre-commit `--numstat` deletions==0 check is necessary and is NOT sufficient; it cannot see a loss that happens after your commit. **⚠ CLOSED 2026-09-04, same hour — the "could not reconstruct" above is ANSWERED and this note stays only so nobody re-derives the mystery: the second loss was the entry's own author deleting it DELIBERATELY (`10627cd59`), having fixed the coupling. It was not a clobber. My restore reversed an intentional decision, which is the inverse failure to the one I was guarding against — I would have put back a warning about a trap that no longer existed. What settled it was reading the commit that caused the absence (`git log -S'<heading>' -- <file>`), not the absence itself: **an absence is not damage until you have read the commit behind it**, and `--numstat` sees that lines went, never whose intent removed them. The author has since RETIRED IT IN PLACE rather than removing it — see their note below, which is the authoritative account and supersedes both of my restore notes. I am adding nothing further to this entry.**
 - **⚠ CORRECTED 2026-09-04, ~40 minutes after filing, by the entry's own author.** The
   mechanism above is right and the worked example was **WRONG**. I wrote that
   `redeploy-agents` restarts agent deployments and that `auth-service` "is not one, and
