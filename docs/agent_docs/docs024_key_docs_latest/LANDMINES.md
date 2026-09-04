@@ -23800,3 +23800,46 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 - **relations:** MEMORY [[a-shared-tree-commit-can-break-head]] and [[who-owns-is-blind-to-uncommitted-sessions]] (the same one-tree-many-sessions premise, from the ownership side) · [[a-pathspec-commit-still-takes-a-same-file-passenger]] · CLAUDE.md "Git — commit per task", whose pathspec rule is the thing that *does* give you a per-session handle · `measurement-discipline-index.md` ("your measurement answers the question you ENCODED")
 - **source:** 2026-09-04, `client_accounts` lane, answering the `inter thread comms` session's `v1.0.1361` roll notice. Caught before asserting, by noticing that `internal/core-manager/handlers/delivery.go` in the result belonged to the `bugfix_477_delivery_followup` lane and could not possibly have been ours
 - **added:** 2026-09-04, `client_accounts` lane
+
+## `build_status='deployed' AND status='active'` — the pairing the estate tells you to use — returns ZERO ROWS for a page mid-rebuild, and a zero reads as "no such page"
+
+- **footprint:** `pages.build_status` · `pages.status` · `page_components` · any "what is this page made of / which components does it have" census · `needs_rebuild`
+
+**the trap:** the estate has a well-known landmine saying `build_status='deployed'` ALONE resurrects
+retired pages, and the prescribed fix is to pair it with `status='active'`. That fix is correct **for
+the question it was written for** — *"what is the platform still serving?"* — and the pairing has
+been repeated into enough files that it is now the reflex filter for any `pages` query.
+
+⚠ **It is the WRONG filter for "what is this page MADE OF", and it fails silently in the worst
+direction.** A page being rebuilt carries `build_status='needs_rebuild'`, so the pairing excludes it
+entirely and the join to `page_components` returns **zero rows for the whole page** — which reads as
+*"that page does not exist / has no components"*, not as *"that page is mid-rebuild"*. There is no
+error, no partial result, nothing to notice.
+
+**Measured 2026-09-04:** a query for the components of `boxingonline.com/index` — a live page on a
+paying customer's site, with three components — returned **0 rows** under the pairing. The page's
+`build_status` is `needs_rebuild`. Re-run with `status='active'` alone: three rows, and the section
+the owner was asking about was one of them. The zero came within seconds of a request that depended
+on knowing what was on that page.
+
+**the check:** decide which question you are asking, because the two filters answer different ones.
+```sql
+-- "what is being SERVED right now"  -> the pairing is correct
+WHERE p.build_status='deployed' AND p.status='active'
+
+-- "what is this page MADE OF" / "does this page have component X"  -> status alone
+WHERE p.status='active'
+```
+- **A zero from the pairing is a SUSPECT, not an answer.** Before believing it, re-run with
+  `status='active'` alone; if the counts differ, the page is mid-lifecycle and the pairing was
+  hiding it. `SELECT build_status, count(*) FROM pages GROUP BY 1` shows how much of the estate is
+  in a non-`deployed` state at any moment.
+- ⚠ **The reflex is the danger.** This filter is recommended in migration headers, handoffs and
+  landmine entries across the estate, so it arrives pre-justified and gets applied without asking
+  what it excludes. The sibling entry ("`build_status='deployed'` is not 'the platform still wants
+  this page served'") is about the pairing being too LOOSE; this one is about the same pairing being
+  too TIGHT. **Both are true, and which one bites you depends entirely on your question.**
+- **source:** 2026-09-04, vigilant designer + offer/benefit analyser lane, while scoping an owner
+  request against `boxingonline.com/index`. Found because a zero for a page known to exist was not
+  believable — not by any instrument.
+- **added:** 2026-09-04, vigilant designer + offer/benefit analyser lane.
