@@ -65439,3 +65439,38 @@ applied at 11:08 the same morning, minutes before I measured, so it is a live ha
 matched what the runner recorded, which I verified before committing rather than assuming the working
 copy was the applied text. But for thirteen hours the applied SQL was unreviewable, its ROLLBACK
 existed for nobody but me, and a fresh clone could not have reproduced the schema.
+
+## 2026-09-04 — I exported a detection pattern, documented it as detection, told the council it was detection, and never called it (`bugs_open/332`)
+
+- **The claim.** `MDLinkTruncatedRe` was added to `datahelpers/literal_markdown.go` on
+  2026-09-03 with a fifteen-line comment explaining its design, exported so the discovery check
+  and its verifier could share it, and described in my council submission as *"Tier 1 adds
+  exactly ONE new detection name, MDLinkTruncatedRe — detection AND strip single-sourced as the
+  contract requires"*. The council approved on that basis.
+- **What was true.** `LiteralMarkdownPatterns` — the single function every consumer scans
+  through — **never referenced it**. The strip removed truncated links; the scan never looked
+  for them. So a page serving the exact defect `bugs_open/332` exists to fix **scanned clean**,
+  and had done since the change shipped.
+- **Why nothing caught it, which is the part worth carrying.** Every property test in that
+  package routes through `LiteralMarkdownPatterns`, so a declared-but-uncalled pattern is
+  invisible to all of them. Worse, the file's flagship contract test —
+  `TestStripThenScanFindsNothing`, `Scan(Strip(x)) == ∅` — **passed vacuously**: the fixpoint
+  holds trivially when `Scan` cannot see the pattern at all. The test that exists to stop
+  detection and strip drifting apart is exactly the test that cannot see them drift when the
+  drift is *absence*.
+- **What caught it.** A test asserting **detection directly** on a live production string,
+  written for a different purpose (chasing a truncated-image survivor). Had that string
+  happened to be a plain truncated link, it would have passed and I would still not know.
+- **The cheap check that would have.** For any pattern added to a shared registry, assert it is
+  **reachable through the public entry point**, not merely that it matches. One line:
+  `if got := LiteralMarkdownPatterns(<a string only the new pattern matches>, true); len(got) == 0 { t.Error(...) }`.
+  Generally: **a round-trip property cannot detect a missing arm** — it is satisfied by doing
+  nothing on both sides. Pair every round-trip test with a reachability test.
+- **And a second-order lesson about review.** The council could not have caught this: it reviews
+  a plan, and my plan *said* the pattern was wired. Nothing in the diff contradicted the claim
+  either, because adding an unused exported var is legal Go and `go vet` is silent on it. The
+  only instrument that could ever have seen it was a test asserting the behaviour.
+- **Cost.** One day of a detector being blind to the defect it had just been widened for, on
+  five live sites. No wrong repair was dispatched — the strip worked throughout, so the served
+  pages were being fixed even while the check could not confirm it. Fixed 2026-09-04, with
+  Gate A re-run (zero co-firing, control 128).
