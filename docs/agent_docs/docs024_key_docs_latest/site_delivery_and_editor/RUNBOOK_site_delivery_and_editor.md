@@ -461,6 +461,34 @@ PAYLOAD=$(jq -c -n --arg s "$SITE" --arg d "$DOMAIN" --arg e "<an address we con
 > worker**, keyed `hostname + path`, and *"the worker already resolves any hostname prefix it is
 > routed for"* (`b2worker.go:1-7`). So moving a customer from `x.ugg2.com` to their own domain is a
 > routing change, not a migration of files.
+>
+> ### ⚠ THE ACTION DOES NOT CHECK THIS, AND THE OBVIOUS GUARD WOULD BLOCK A GOOD DELIVERY
+>
+> `send_delivery_email_action.go` requires `live_site_url` to be **non-empty** and checks that every
+> token the template names can be filled (the `475` lane's pre-stamp guard) — but it **never parses
+> the URL or compares it to anything**. There is no `url.Parse`, no `publish_project` read. Whatever
+> the dispatcher passes is what the customer is mailed, and this step is **irreversible**.
+>
+> **Do not "fix" that with a guard requiring the host to equal `publish_project`.** It is the first
+> thing that comes to mind and **it would have refused the only successful delivery this estate has
+> ever made**: `idea.uk` has `publish_project` EMPTY and `https://idea.uk` was the correct address,
+> because we own that domain and had pointed it. A guard is not obviously right here — the two
+> legitimate cases (a pointed domain; an opted-in ugg2 host) have no single column in common.
+>
+> **So the control is a PRE-FLIGHT, and it is the one that works whichever column the URL came from —
+> because it tests the thing you actually care about rather than a proxy for it:**
+>
+> ```bash
+> # 1. it serves
+> curl -sS -o /dev/null -w '%{http_code}\n' --max-time 20 "$live"          # expect 200
+> # 2. AND it is not a parked/catch-all domain answering everything (a parked domain 200s EVERY path)
+> curl -sS -o /dev/null -w '%{http_code}\n' --max-time 20 "$live/invented-probe-xyz.html"   # expect 404
+> ```
+>
+> **Both, always.** A bare 200 cannot tell a served site from a registrar's parking page, and this is
+> the exact check that caught `idea.uk` being genuinely ours rather than a catch-all. Run it in the
+> same breath as the dispatch, not from memory of an earlier run — the whole point of the delivery
+> step is that you cannot take it back.
 
 **This step is irreversible.** It stamps the handover once and only once, mints the customer tokens,
 and sends. A second dispatch for the same site is REFUSED by the stamp — that refusal is the
