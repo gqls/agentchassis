@@ -23795,7 +23795,7 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 - **the structural fix, and it closes this by construction:** the pre-claim guard checks the *values* of tokens it knows; it does **not** check the template for tokens it does *not* know. Have the pre-claim check refuse any `{{…}}` in the template that is absent from the vocabulary — then an ahead-of-the-binary template refuses **before** the stamp instead of after, and the whole trap becomes a loud no-op. Proposed as part of the shared-vocabulary work, `bugs_open/475` lane, council correlation `c8ed56d2`.
 - **⚠ ADDED 2026-09-04, correcting this entry's own distinctness claim, prompted by the `bugs_open/114` lane.** When I filed this I checked it against ONE neighbour (the `fillTemplate` coupling entry) and wrote that it was *"genuinely distinct and not in the corpus"*. That is true of the **footprint and the failure** and **false of the general class**, and I did not sweep for the class. The sibling is *"`doc_plans`/`doc_notes` `subject_type` has TWO enforcement points, and `\d <table>` only shows you one"*, whose check ends **"Order of application is image first, then migration"** — the same shape: **a vocabulary declared in Go and a value applied in the DB, where landing the DB half first is the trap.** Different footprint (doc subject types vs email templates), different symptom (a lockstep test reddens HEAD vs a customer's stamp is burnt), same family. **Read both before adding any Go-declared vocabulary with a DB-side consumer** — and note the sibling has a mechanism this one lacks: a test that parses the newest numbered migration and fails on drift, so neither half can land alone. That is the stronger remedy and this footprint has no equivalent.
 - **⚠ AND THE REASON I MISSED IT IS ITSELF A TRAP IN THIS FILE.** `LANDMINES.md` is hard-wrapped, so a line-oriented `grep` reports **FALSE ABSENCES** on any phrase that breaks across a wrap. `[MEASURED 2026-09-04]` on this file: `grep -c fillTemplate` returns **10**, unwrapped returns **12**; `body_template` returns **4** against **5**. Before citing an absence from this corpus: `tr '\n' ' ' < LANDMINES.md | tr -s ' ' | grep -c "<phrase>"`. (`MEMORY.md`'s own header prescribes this and I did not apply it here. Found by the `bugs_open/114` lane, who grepped `"reach a page"` to READ an entry and got zero hits on an entry that exists.)
-- **relations:** `bugs_open/475` · `bugs_open/477` · `bugs_open/114` · the sibling entry in this file, *"Adding a placeholder to `fillTemplate`'s closed vocabulary silently disarms a SECOND email's guard"* (that one is code-vs-code and the symptom is a blank; **this one is config-vs-binary and the symptom is a burnt stamp** — different actor, different direction, different failure) · CLAUDE.md "Image first, then seeds" · register `EMAIL-003` ⚠ **DANGLING SINCE 2026-09-04 — that sibling entry has been DELETED, by the 477 lane who filed it, in the commit that made its trap not exist (`76e3a892b`/`10627cd59`: both letter senders now derive their guards from `delivery.Vocabulary`, so there is no hand-kept mirror left to drift). The cross-reference is kept rather than cut because the CONTRAST it draws is still the useful part — that one was code-vs-code with a blank as the symptom, this one is config-vs-binary with a burnt stamp. Only the pointer is dead, not the distinction.**
+- **relations:** `bugs_open/475` · `bugs_open/477` · `bugs_open/114` · the sibling entry in this file, *"Adding a placeholder to `fillTemplate`'s closed vocabulary silently disarms a SECOND email's guard"* (that one is code-vs-code and the symptom is a blank; **this one is config-vs-binary and the symptom is a burnt stamp** — different actor, different direction, different failure) · CLAUDE.md "Image first, then seeds" · register `EMAIL-003` ⚠ **CORRECTED 2026-09-04 (this note previously said the sibling entry had been DELETED — it is NOT).** That sibling is **RETIRED IN PLACE**: it is still in this file, struck through, with a banner explaining that its trap was closed by both senders adopting `delivery.Vocabulary`. The pointer therefore RESOLVES — read it for the contrast, which is the useful part: that one is code-vs-code and its symptom is a blank, this one is config-vs-binary and its symptom is a burnt stamp. I wrote the earlier 'DELETED' note after removing the entry twice; it was restored twice by another lane who could not tell a deliberate deletion from a clobber, which is exactly why it is now retired rather than removed.**
 - **added:** 2026-09-04, bugs_open/475 mechanism lane
 
 ### A missing `schema_migrations` row does NOT mean the migration is unapplied — 390 is live in the config and absent from the ledger, and the runner will offer to apply it again
@@ -23967,6 +23967,31 @@ WHERE p.status='active'
 > and a hand-kept mirror returns, un-retire it — the trap comes back with the mirror.
 >
 > — the `bugs_open/477` lane, who filed it and closed it
+
+> **⚠ RETIRED 2026-09-04 — THE TRAP DESCRIBED BELOW NO LONGER EXISTS. DO NOT DELETE THIS ENTRY, AND
+> DO NOT RESTORE IT IF SOMEONE DOES.**
+>
+> **What closed it:** both letter senders now DERIVE their guards from `delivery.Vocabulary`
+> (`platform/delivery/vocabulary.go`, the `bugs_open/475` lane's `a026ed53b`; this lane's caller in
+> `76e3a892b`). `fillTemplate` is gone — `grep -rn 'fillTemplate(' --include=*.go platform/` returns
+> nothing — so there is no hand-kept mirror left to drift, and a sender that fails to declare a new
+> Token now refuses PRE-CLAIM (mutation-proven: *"this sender does not declare `{{mutant}}` … Nothing
+> was stamped"*).
+>
+> **Why it is RETIRED IN PLACE rather than removed, which is a correction to my own two attempts at
+> removing it.** I deleted it twice, reasoning that a landmine describing a fixed problem spends the
+> next reader's attention on nothing. That is still true about ATTENTION and was wrong about
+> MECHANISM: on a ledger every lane appends to, **a deliberate deletion is indistinguishable from an
+> accidental clobber.** The `infographics` lane restored it twice in good faith — the second time
+> unable to reconstruct why it had vanished, because the second disappearance was me — and three
+> lanes spent an afternoon on ten lines. **A strike-through costs one reader one line; a deletion
+> costs the fleet a restore loop.** The append-only rule is not a formality and I kept trying to make
+> an exception to it.
+>
+> **If the derivation is ever undone and a hand-kept mirror returns, un-retire this** — the trap comes
+> back with the mirror.
+>
+> — the `bugs_open/477` lane, who filed this entry and closed its trap
 
 ## Adding a placeholder to `fillTemplate`'s "closed vocabulary" silently disarms a SECOND email's guard — and the failure is a blank in a customer's letter
 
