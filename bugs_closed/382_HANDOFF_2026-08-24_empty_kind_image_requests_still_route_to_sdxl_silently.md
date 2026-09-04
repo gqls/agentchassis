@@ -514,3 +514,34 @@ fixed it. Both the claim and its refutation are now in the record.
 Full working, with the missteps: `docs/agent_docs/docs024_key_docs_latest/imagery/RUNNING_NOTES_imagery_best_in_class.md`,
 2026-09-04 (including a **correction to my own demand-control figure** — I first
 published 1,046/37, built by summing display buckets across the boundary; `WRONG_CALLS.md`).
+
+### 11d. CORRECTION to §11b, same day — the `MISSING_IMAGE_KIND` absence IS evidence after all
+
+§11b said the condition-code route *"cannot currently carry an absence claim"* and cited
+retention as *"resolved >14d / unresolved >30d (`sql_for_agents/465`)"*. **That rule is
+the superseded migration text.** Migration **`567`** replaced the arm; the live rule lives
+in `scheduled_tasks`, not in the migration file:
+
+```sql
+SELECT substr(pre_query, position('DELETE FROM agent_error_log' in pre_query), 1400)
+  FROM scheduled_tasks WHERE name='database-cleanup';
+```
+
+`[MEASURED 2026-09-04]` a row is deleted at **30 days ONLY IF `split_part(error_code,':',1)`
+is on a 16-code allow-list**; everything else survives **365 days**. `resolved` plays no
+part (*"it used to halve it to 14 days, which was backwards"* — the sweep's own comment).
+
+**Consequences, both of which matter to this bug:**
+
+1. **`MISSING_IMAGE_KIND` is NOT on the allow-list**, so a row of that code written any
+   time since the 2026-08-24 roll would **still be present**. The zero is therefore real
+   evidence, and §11's conclusion now rests on **two independent instruments agreeing** —
+   the durable `origin_model` census and a condition-code absence that is no longer
+   explained away by retention. §11b was too pessimistic; this note supersedes it.
+2. **`UNROUTED_IMAGE_KIND` IS on the allow-list**, which is why `bugs_closed/011`'s
+   live-fire proof row was reaped at 30 days — **by name**, not by a general sweep.
+
+⚠ **And a trap this creates for anyone dating evidence in this table: the retention window
+is PER-CODE.** Two rows documenting the same mechanism can differ in lifetime by a factor
+of twelve purely because one code was added to the list and its successor was not. "Is my
+evidence expired?" is not answerable from the row's age.

@@ -1202,3 +1202,31 @@ in the technical notes.
 > and the rule does not soften just because the words being edited were my own from an
 > hour earlier. So the wrong figure stands where it was written, and the correction
 > immediately above it is the operative one: **1,025 pictures across 39 sites.**
+
+> **Second correction, same day — and this one changes a conclusion, so it matters more
+> than the arithmetic one above.**
+>
+> I told you above that error records are *"cleared out automatically after fourteen days
+> if they were dealt with, thirty if they were not."* **That is an old rule.** I read it
+> off the database change that introduced it instead of asking the system what it is doing
+> today, which is precisely the mistake the rest of that entry is about.
+>
+> The rule now in force is different in shape. An error record is deleted after thirty days
+> **only if its error code is on a specific list of sixteen**; anything not on that list is
+> kept for a **year**. Whether the error was dealt with no longer affects it at all.
+>
+> **Two things follow, and the second is good news.** The record we lost — the one proving
+> bug 011's fix — carries a code that *is* on that list, so it was deleted by name at
+> thirty days. That part of the story is unchanged and now has its exact cause. But the
+> newer code, the one the August fix writes, is **not** on the list — so if it had ever
+> fired since the 24th of August, the record would still be sitting there. It is not.
+>
+> **So my conclusion is now supported twice over rather than once.** I had said it rested
+> only on the picture-generator evidence and that the error-log silence proved nothing. The
+> silence does prove something, and it agrees. I was too hard on my own finding, which is
+> the better direction to be wrong in, but it was still wrong.
+>
+> There is a trap in here worth your knowing about, because it will bite someone else:
+> **how long an error record survives now depends on which error it is** — two records
+> about the same fault can differ by a factor of twelve in how long they last. "Is the
+> evidence still there?" can no longer be answered by looking at the date.

@@ -66924,3 +66924,56 @@ figure was dated and measured, and it was still assembled by eye.
   in one day.
 - **Cost.** ~20 minutes, corrected in `§6c` the same afternoon before any owner read it. ⚠ Fourth
   wrong number from this lane today; **again caught by a peer, again not by re-reading my own work.**
+
+---
+
+## 2026-09-04 — `imagery` lane, second of the day: I sourced a retention rule from the migration files while writing a landmine ABOUT stale evidence
+
+**The claim.** In a new `LANDMINES.md` entry warning that `agent_error_log` rows expire, I
+stated the rule as *"`database-cleanup` arm 1 (`sql_for_agents/465`) — resolved rows
+deleted after 14 days, unresolved after 30."* It went into that entry, the lane's
+`RUNNING_NOTES`, `HANDOFF` and owner `README`, `bugs_closed/382` §11b, the auto-memory, and
+two commit messages.
+
+**It was the superseded text.** Migration **`567`** replaced the arm. `[MEASURED
+2026-09-04]` the live rule deletes a row at **30 days only if `split_part(error_code,':',1)`
+is on a 16-code allow-list**, and keeps everything else for **365 days**. `resolved` is not
+consulted at all — the live sweep's own comment says *"`resolved` does NOT shorten a row any
+more (it used to halve it to 14 days, which was backwards)."*
+
+**Where it actually lives, and I never opened it:**
+```sql
+SELECT substr(pre_query, position('DELETE FROM agent_error_log' in pre_query), 1400)
+  FROM scheduled_tasks WHERE name='database-cleanup';
+```
+
+**Two stale sources agreed with each other, and I read that as corroboration.** `465` and
+`466` both contain the 14/30 text, so grepping `sql_for_agents/` returned a consistent
+answer twice. Consistency across artefacts of the same vintage is not evidence about the
+present; **two stale sources agree exactly as loudly as two live ones.**
+
+**What caught it.** The landmine-verifier returned `NEEDS_HUMAN_REVIEW` on my own entry,
+flagging a 465-vs-466 numbering discrepancy. The discrepancy was real and **understated the
+problem** — the answer was not "which of the two" but "neither, they are both superseded."
+Worth noting for the verifier's own account: it fired on a small inconsistency and the
+inconsistency was a thread to a larger error, which is the behaviour you want from it.
+
+**Why this one stings, and why it is worth the row.** The entry I was writing exists to
+warn people that **a cited artefact can be stale while reading perfectly**. I demonstrated
+it inside the entry. The lesson is already in my loaded memory index as
+[[seed-sql-is-history-live-row-is-fact]] — *"the seed is not the system; live config
+drifts"* — and having it loaded did not stop me, because I never framed the retention rule
+as a config lookup at all. I framed it as a documentation question, and documentation
+questions do not trigger the live-row instinct.
+
+**The cheap check, one line, and it generalises past this table:** anything that runs on a
+schedule — retention, sweeps, reapers, crons — is **live config**, so read the row that
+executes it (`scheduled_tasks`, `agent_definitions`), never the migration that last edited
+it. If your source for a rule is a file in `sql_for_agents/`, you are quoting history.
+
+**Correction direction, recorded because it cuts against the usual bias.** This one made my
+own finding **stronger**, not weaker: `MISSING_IMAGE_KIND` is *not* on the allow-list, so
+its absence since the 08-24 roll is real evidence rather than an artefact of retention, and
+`bugs_closed/382`'s answer now rests on two independent instruments agreeing. I had
+published a caveat calling my own second instrument worthless. **An over-cautious claim is
+still a false claim**, and it costs the next reader a real piece of evidence.

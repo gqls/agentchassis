@@ -3476,3 +3476,44 @@ never proven. Landmine appended (`LANDMINES.md`), footprint `agent_error_log`.
 > something else.** A bucket boundary is not a rounding error; it silently reassigns
 > everything on the wrong side of the event you are dating.
 > Logged in `WRONG_CALLS.md`.
+
+> **CORRECTED 2026-09-04, second correction this session — §4 above states the retention
+> rule from the MIGRATION FILES, and the live rule is different in kind. I wrote an entry
+> about stale evidence and sourced it from a stale artefact.**
+>
+> §4 says *"resolved > 14 days, unresolved > 30 days (`sql_for_agents/465`)"*. That is the
+> **superseded** text. Migration **`567`** replaced the arm. `[MEASURED 2026-09-04]`, read
+> from the live row — which is where it lives, and I never opened it:
+> ```sql
+> SELECT substr(pre_query, position('DELETE FROM agent_error_log' in pre_query), 1400)
+>   FROM scheduled_tasks WHERE name='database-cleanup';
+> ```
+> **The live rule:** a row is deleted at **30 days ONLY IF `split_part(error_code,':',1)`
+> is on a 16-code allow-list**; everything else survives to **365 days**. **`resolved`
+> plays no part** — the sweep's own comment reads *"`resolved` does NOT shorten a row any
+> more (it used to halve it to 14 days, which was backwards)"*.
+>
+> **This strengthens the finding in two places and I want both on the record:**
+> 1. **`UNROUTED_IMAGE_KIND` IS on the allow-list.** So 011's proof row was not merely
+>    caught by a general sweep — it was reaped **by name** at 30 days. §4's conclusion is
+>    right and now has its exact mechanism.
+> 2. **`MISSING_IMAGE_KIND` is NOT on the list**, so such a row would live **365 days**.
+>    **Therefore §2's caveat was too harsh on itself**: the absence of `MISSING_IMAGE_KIND`
+>    over the 11 days since the roll *is* meaningful, because a row would still be there.
+>    The SDXL census and the condition-code absence are now **two independent instruments
+>    agreeing**, not one instrument and one shrug. The "no positive control" point still
+>    stands narrowly — the only `reported_conditions` row ever written carried the one code
+>    that *is* on the reap list — but it no longer undercuts the absence.
+>
+> **What caught it:** the landmine-verifier returned `NEEDS_HUMAN_REVIEW` on my entry over
+> a 465-vs-466 numbering discrepancy. The discrepancy was real and *understated* the
+> problem — both files are superseded. I had two migration files agreeing with each other
+> and treated that as corroboration; two stale sources agree exactly as loudly as two
+> live ones.
+>
+> **The cheap check: retention, schedules and sweeps live in `scheduled_tasks`, not in the
+> migration that last edited them.** This is [[seed-sql-is-history-live-row-is-fact]],
+> which is in my own loaded memory index, committed while writing about stale evidence.
+> And note what it now costs a reader: **the retention window is PER-CODE**, so "is my
+> evidence still there?" cannot be answered from the row's age — you must check whether
+> its code is on the list.

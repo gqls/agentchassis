@@ -53,8 +53,14 @@ beyond 1 day"* — is **answered**. Full working in `RUNNING_NOTES` 2026-09-04 �
 
 **Two traps this turned up, both now written down:**
 
-1. **`agent_error_log` rows EXPIRE** (resolved >14d, unresolved >30d — `database-cleanup`
-   arm 1, `sql_for_agents/465`). **`bugs_closed/011`'s live-fire proof row of
+1. **`agent_error_log` rows EXPIRE — and the window is PER-CODE** (~~resolved >14d,
+   unresolved >30d, `sql_for_agents/465`~~ — **CORRECTED same day: that is the superseded
+   migration text.** Migration `567` replaced the arm; read the live row, `SELECT pre_query
+   FROM scheduled_tasks WHERE name='database-cleanup'`. A row dies at **30 days only if its
+   `error_code` prefix is on a 16-code allow-list**, else **365 days**; `resolved` plays no
+   part. `UNROUTED_IMAGE_KIND` is on the list — which is why 011's row went, by name.
+   `MISSING_IMAGE_KIND` is NOT, so **its absence since the roll is real evidence**, and the
+   382 answer rests on two agreeing instruments, not one). **`bugs_closed/011`'s live-fire proof row of
    2026-07-24 20:45:57Z is GONE**; the table's oldest survivor is 23:30:20Z the same
    day. The bug file, this lane's `RUNNING_NOTES` and the auto-memory all still cite
    it. Closure sound, evidence unre-runnable. Landmine appended (footprint
