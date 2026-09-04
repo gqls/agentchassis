@@ -23,6 +23,16 @@
 > roll and re-probe. Doing that as the FIRST action changed the answer to the question the
 > rest of this document is written around. **Re-run §1's four checks before believing any
 > status here** — this file has now been stale in both directions inside 48 hours.
+>
+> **ALSO NEW ON 2026-09-04, and it is the biggest finding since the council round: §2a,
+> the layouts assessment.** The owner asked whether the built-but-unused layouts
+> functionality still matters or has been superseded. **It matters, it is not superseded,
+> and it is the soundest part of this whole area** — but `layouts.default_header_component_id`
+> and `default_footer_component_id` were designed in April, are populated on **0 of 19**
+> rows, and are read by **0** Go files. That is the same gap as this lane's chrome no-op,
+> one level up, and it means fixing layout tag-reachability alone would land sites on the
+> right layout with the **generic** header. Filed as `bugs_open/445` §9. **If you read only
+> one new thing here, read §2a.**
 
 ## IF YOU ARE PICKING THIS UP COLD — do these, in this order
 
@@ -280,7 +290,9 @@ first one is asking its author a question only they can answer.
 
 ---
 
-## 5. What was committed today
+## 5. What this lane committed (2026-09-03 and 09-04)
+
+**2026-09-03 — the council rounds, the guard, and the corrections**
 
 | commit | what |
 |---|---|
@@ -300,11 +312,27 @@ first one is asking its author a question only they can answer.
 | `49a8732dc`, `11117a9a3`, `c92e0a396`, `512d5b60a` | handoff/NOTES/register carrying round 3 + the guard, and the RED-at-HEAD attribution |
 | **`d1e51dd38`** | **APPROVED recorded, three of the approval's objections answered, the false "one writer" claim corrected** — first commit legitimately carrying `Council-Reviewed:` |
 
-⚠ **One of this lane's writes is NOT in a commit of its own.** The `WRONG_CALLS.md` entry
-about the false "one writer" claim was **swept into another session's commit
-(`32c776765`, the 449 lane's)** before mine ran — the shared-tree hazard CLAUDE.md
-describes. **Nothing was lost**; the entry is in HEAD, just under someone else's message.
-Do not go looking for it under a theme-kits commit.
+**2026-09-04 — the handoff rebuild and the layouts assessment**
+
+| commit | what |
+|---|---|
+| `d6f2d1416` | this handoff rebuilt as a cold-start doc; §0 records that its own prescribed first action flipped its headline status |
+| **`cbb062229`** | **the layouts assessment (§2a)** — the dead `default_header_component_id`, filed as `bugs_open/445` §9; plus DES-014 corrected and the false six-pins claim corrected in the register AND in `portfolio_positioning`'s CONTRIB |
+| `d770b6949` | §2a into this handoff and the full account into NOTES |
+
+⚠ **TWO of this lane's writes are NOT in commits of its own, both to SHARED
+append-only files, both swept into another session's commit before mine ran** — the
+shared-tree hazard CLAUDE.md describes. **Nothing was lost in either case**; both are in
+HEAD under someone else's message, so do not go looking for them under a theme-kits commit:
+
+| what | swept into | by |
+|---|---|---|
+| `WRONG_CALLS.md` — the false "one writer" claim | `32c776765` | the 449 lane |
+| `LANDMINES.md` — the psql `\echo` apostrophe truncation entry | `d2e1763d8` | the infographics lane |
+
+**Both were verified present and intact in HEAD after the fact**, which is the check worth
+copying: after appending to a shared file, `git show HEAD:<file> | grep -c "<your phrase>"`
+rather than assuming your own commit carried it.
 
 ---
 
@@ -349,6 +377,33 @@ reasons for it keep failing, the conclusion is coming from somewhere other than 
 evidence you are citing — go and find where. And **select both columns; never filter on one
 and conclude about the other.**
 
+### Added 2026-09-04 — a fifth durable claim, and three near-misses the day's own rules caught
+
+**Claim 5 (wrong, corrected): "their CONTRIB is still accurate, I checked it against the
+live data."** I had checked one line of it. Its pins section was wrong. **Reporting a
+document as sound on the strength of the sentence you happened to be reading is the same
+error as the other four, one level up** — it is a claim about a claim.
+
+**The near-misses are the useful part, because each was caught by a rule this lane had
+already written down:**
+
+| near-miss | what caught it |
+|---|---|
+| Ran the component lookup on `name`, got 2 rows, nearly concluded the 025-planned chrome was all ineligible. Re-run on **both** columns: 8 rows, **five eligible** — the opposite conclusion. | the RUNBOOK rule this lane wrote after the same trap fired four times |
+| Nearly read the `_pre_037` suffix as evidence those components were superseded. It is a fleet-wide legacy convention (`blog-listing_pre_037`, `game-list_pre_037`); migration 037 is the Area Sweep Discoverer, unrelated. | "a naming convention is not a measurement" — a suffix is a hypothesis about provenance |
+| An apostrophe in a psql `\echo` (`the column's population`) aborted the script and **silently truncated a result set to 2 of 7 rows**, exit code 0, error printed *above* a table that looked complete. | the 2 rows contradicted a `function`-keyed query run twenty minutes earlier |
+
+**That last one is now a LANDMINE** (swept into `d2e1763d8`, see §5), and it is the
+sharpest of the three: the survivors were real matching rows, and in this case they were
+precisely the two that were NOT eligible — so the truncated output read as a clean,
+confident answer that was the **exact inverse** of the truth.
+
+**What is worth carrying from the pattern across both days: my checks fail more often than
+my claims do.** Four of the seven 09-03 errors were broken *checks* rather than wrong
+beliefs (`gofmt -l` chained with `&&`, a service name passed where a Go package path was
+wanted, a backtick executing in a commit message, and now a truncating `\echo`). **A
+broken check is worse than a wrong belief, because it reports success.**
+
 The one thing that went right is worth copying: having found a client's forked header
 chrome-eligible and alphabetically ahead of the default, I was one step from filing "every
 unpinned site resolves to a client's forked header" as a live fleet defect. **I read
@@ -388,11 +443,22 @@ documented.** Three earlier errors that day came from asserting a mechanism from
 - ~~**The §3 remedy**, as its own council round.~~ **DONE** — built as `b18091066` and
   carried in round 4. What remains is 438's, not this lane's: the ordering itself.
 - **A ping to `portfolio_positioning` and `vetcomparison`** with the chrome experiment's
-  outcome — **not yet due**: that experiment runs at their remake №5, held behind
+  outcome — **still not due**: that experiment runs at their remake №5, held behind
   `bugs_open/444`. Their recipe is §5 of
-  `docs024_key_docs_latest/portfolio_positioning/RUNBOOK_remake_release.md`. **Their CONTRIB
-  is still accurate** — I checked it today against the live data, including its "`site-header`
-  has 2 eligible rows, hardcode the resolved UUID" line, which is right.
+  `docs024_key_docs_latest/portfolio_positioning/RUNBOOK_remake_release.md`.
+  > **⚠ CORRECTED 2026-09-04 — this bullet used to say "their CONTRIB is still accurate,
+  > I checked it today against the live data". It was NOT, and I had checked only the one
+  > line I quoted.** Its pins section was wrong and I have since corrected it in place: the
+  > six pins point at **four distinct** components, not at the default's pick, and five of
+  > six point at components later **deactivated**. The half I did verify (`site-header` has
+  > 2 eligible rows under the PIN predicate; hardcode the resolved UUID) is right. **This
+  > is the day's own lesson arriving one more time — I checked the sentence I was looking
+  > at and reported the document as sound.**
+  > **The correction is already delivered** (appended to their CONTRIB, `cbb062229`), and
+  > it makes their experiment CHEAPER: `leopardessconsulting.co.uk` is a live pin that IS
+  > honoured, so the mechanism no longer needs proving and the real failure mode to guard
+  > is pinning an **inactive** component. **No further ping is owed on that; the outcome
+  > ping still is.**
 
 **Cross-lane state is unchanged** from the 2026-09-02 handoff §6, except that
 `bugs_open/445` shipped migration 736 (a 19th layout, `content-hub-tools`) and committed a
