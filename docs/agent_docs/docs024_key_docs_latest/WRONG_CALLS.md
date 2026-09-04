@@ -66164,3 +66164,39 @@ then wrong.
   is the most greppable symbol there is. Second: read the function that emits the error before reasoning
   about anything upstream of it.
 - **Cost.** ~1 hour; the directory research was delayed by the same hour; nothing wrong shipped.
+
+## 2026-09-04 — I wrote a LANDMINE whose first half was already an entry, and the duplicated entry's own "fires when" names exactly what I was doing (`bugfix_417_logo_text_policy`)
+
+- **What I wrote.** A new landmine, "Measuring a site's logo: `assets.url` and the first `<header>`
+  both point at the wrong picture". Its first half was the discovery that `assets.url` can hold a
+  presigned B2 link that expired weeks ago while the site serves a fine logo from a relative path.
+- **What was true.** `LANDMINES.md` has carried *"`assets.url` is a presigned S3 URL with a 7-day
+  expiry — never store or serve it"* since **2026-07-30**, added by the dartsonline_traffic lane.
+  Its `fires when` line reads: *"wiring a generated image into a page, **or writing a check that
+  fetches an asset to confirm it exists**"* — which is a literal description of the task I was doing
+  when I rediscovered it. It even carries the `X-Amz-Expires=604800` figure I had just measured.
+- **What caught it.** Not me: `scripts/landmines-sync.py --check`, which skipped my entry for an
+  unrelated formatting reason (I used `##` and a non-list `**footprint:**`) and, in the same output,
+  printed the existing entry's slug two lines above mine. **The thing that found the duplicate was a
+  failure at something else.** Had my formatting been right, it would have synced cleanly and the
+  duplicate would have shipped.
+- **The cheap check that would have.** `grep -n 'assets.url' docs/agent_docs/docs024_key_docs_latest/LANDMINES.md`
+  — one command, on the exact table column I was writing an entry about. CLAUDE.md says to grep this
+  file by table/command/symbol before touching anything unfamiliar, and my own memory index carries
+  *"grep LANDMINES for the SYMBOL you are about to trust"*. I did neither, because I was not
+  consuming a landmine, I was writing one — and the rule reads as advice to readers.
+  **Generalising: the moment you are about to WRITE a durable entry is exactly when you owe the
+  grep, because a duplicate is invisible from the inside.** The SessionStart hook cannot help here
+  by construction: it matches entries against dirty *paths*, and `assets.url` is a table column.
+- **What it would have cost.** A second entry saying what an existing one says, aging separately,
+  drifting separately — which is the failure mode the register and this file both exist to prevent,
+  and the LANDMINES header's own instruction to correct an entry rather than fork it.
+- **What I did instead.** Narrowed the entry to the genuinely new half — the site `<header>` trap
+  and its third state (an active logo asset on a page that renders `class="logo-text"`) — pointed at
+  the existing entry for the presigned half, and added a dated measurement to it there: **1 of 34**
+  active logo rows still holds a presigned URL, where that entry recorded "half the rows" on one
+  site in 2026-07. Both are correct on their dates; only the newer one says which.
+- **Cost.** ~10 minutes, and nothing wrong shipped. Second-order: my rewrite was swept into another
+  session's commit (`bdb846972`) between my writing it and my committing it — a working example of
+  CLAUDE.md's "your uncommitted work is not safe", and the reason the rewrite is described here
+  rather than being findable under my own commit message.
