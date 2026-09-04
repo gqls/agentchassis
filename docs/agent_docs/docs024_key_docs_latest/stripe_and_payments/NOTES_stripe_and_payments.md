@@ -276,3 +276,45 @@ Both mistakes have the same shape and it is this lane's most likely way to be wr
 **a check whose failure mode is indistinguishable from a clean result.** Every negative
 finding in this lane gets a present-control and an absent-control from here on. Added to
 `RUNBOOK` §0.
+
+---
+
+## 2026-09-04 — the v1.0.1361 roll: what I checked, and the check I still OWE
+
+Fleet roll announced mid-session by the "inter thread comms" session (cut `06c0b18f2`,
+images built 15:29–15:36Z, then push + `rollout restart`).
+
+**Nothing of mine ships**: `git diff --name-only 239ab3626..06c0b18f2 -- 'internal/auth-service/**'`
+is **empty**, so the billing package rolls identical. `platform/delivery/prepare.go` IS in
+the range, but its change is the 477 lane's `deliveredTo` threading plus a cross-reference
+comment — it does **not** touch `DomainRent` / `DomainBuy` / `StripePortal`, so no payment
+behaviour changes.
+
+**Pre-roll state, both halves green** `[MEASURED 2026-09-04 15:5xZ]`: webhook **400**,
+apex **200** (control), secret carries **10** keys including both Stripe names.
+
+> ⚠ **READ THAT AS PRE-ROLL, NOT POST-ROLL — and this is my own landmine biting my own
+> notes.** At 15:58Z the roll had still not reached the pods: `agent-chassis` and all three
+> `auth-service` pods were still on `startTime 2026-09-03T22:0x`. So the 400 above proves
+> what yesterday's binary is doing with yesterday's env. **It is not evidence that the keys
+> survived this release**, because nothing has restarted to re-read them.
+>
+> **THE POST-ROLL CHECK IS OWED.** Run `RUNBOOK` §1 (webhook 400 + apex control) **and**
+> the secret's key names, once `auth-service` shows a `startTime` after 2026-09-04 15:29Z.
+> I armed a background watch to do exactly this; **it was killed by the host running low on
+> memory**, and I did not re-arm it rather than add load to a box already short. So it is a
+> written debt, not an automated one.
+
+**Landmine filed** (`eb16a3ef8`): the two existing entries both prescribe verifying at the
+consumer rather than the secret listing, which is right and insufficient — env is read once
+at process start, `redeploy-agents` restarts *agent* deployments, and `auth-service` is not
+one. A wiped key would therefore pass today's check and fail at the next unrelated restart,
+with no release nearby to suspect. Both halves are needed: the consumer for now, the
+secret's key **names** for what the next restart gets. ⚠ **Do not gate on key count** — 9,
+then 11 on 08-26, **10** today; non-Stripe keys move for unrelated reasons.
+
+**Owed to the landmine process**: `./scripts/landmines-verify-dispatch.sh` has NOT been run
+for that entry — it dispatches an orchestration, and the roll's own guidance is no dispatch
+within ~300s of a chassis restart, which had not even begun. Run it once the fleet settles.
+Do **not** run `landmines-sync.py --apply` first: it consumes the "new entry" status and the
+verifier then never checks the entry.
