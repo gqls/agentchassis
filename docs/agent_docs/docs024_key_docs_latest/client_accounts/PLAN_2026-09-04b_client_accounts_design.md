@@ -173,7 +173,18 @@ They are different cardinalities, so they cannot be the same row:
 - **the deferred fifth identity stays an insert**, which is the condition RFC_058 attaches to its own
   deferral being safe.
 - **`clients` is not a fifth store.** It is the parties table, already carrying `name`, `email`,
-  `phone`, `external_id` (the Stripe key). Contacts move out of it into rows; it keeps identity.
+  `phone` and `external_id`. Contacts move out of it into rows; it keeps identity.
+
+  > **CORRECTED 2026-09-04, mine, same day:** this line originally read *"`external_id` (the Stripe
+  > key)"*. **False as a statement about data.** PAY-009's register entry describes the *intent* —
+  > Stripe's customer id landing there from the paid event, first writer wins — and I repeated it as
+  > though the join were live. `[MEASURED 2026-09-04]` `clients.external_id` is **empty** on the only
+  > real customer row, `billing_orders.provider_customer_id` is **NULL**, and the one paid order's
+  > webhook event carries `"customer": null` because a one-off `mode=payment` charge with
+  > `customer_creation: "if_required"` makes no Stripe Customer. **The column is unused by Stripe
+  > today.** Caught by querying it in order to answer the `stripe` lane, which had quoted the same
+  > entry the same way — so two of us read a design intent as a live join off one register entry.
+  > The cheap check: **before describing a register entry's mechanism as live, select the column.**
 - **the pre-plan's §6 "do not add `sites.client_id`" survives intact** — and gains a reason. A
   direct site→client column would encode *one* role and silently name it "the owner", which is the
   conflation RFC_058 exists to end.

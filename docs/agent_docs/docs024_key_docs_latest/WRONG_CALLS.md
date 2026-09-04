@@ -67077,3 +67077,36 @@ always-give-the-path-for-any-doc-you-name, and the same-day pair above on proxie
 - **Cost.** ~2 minutes, corrected to the same peer in a follow-up naming the real hash and why the
   wrong one appeared. Nothing downstream consumed it.
 - **2026-09-04, `bugs_open/477` lane — I sized a deadline with a query that could not answer the question, then wrote the figure into six documents including two fleet-wide landmines.** I needed to know how long a row in `orchestration_states` would survive, and asked `now() - min(created_at)` over the whole table: **1 day 02:11**, reported as "about seven hours left". **That measures the oldest SURVIVOR's birthday, and the retention policy does not key on birthdays.** The real predicate is in `sql_for_agents/466` and I had not read it: `DELETE … WHERE status IN ('COMPLETED','FAILED') AND **updated_at** < now() - INTERVAL '24 hours'`. A recently-touched old row keeps `min(created_at)` pinned — measured 14:29Z, the oldest survivor was 1d02:41 by birthday and had been **updated 22:24 ago**, well inside the window. The true margin was **5h31m**, not ~7h, and the true deadline was 19:30:40Z, not the ~20:56Z two lanes were quoting. **What caught it:** the `site_delivery_and_editor` lane re-measuring rather than adopting my figure, getting 1d02:39 against my 1d02:11, and concluding *"retention is elastic"* — which sent me to the DELETE, where it turned out not to be elastic at all. **Neither of us could ever have got a right answer**: we ran the same wrong instrument twice, and the disagreement between two wrong readings was the only signal. **The cheap check, and it is general: before quoting any retention or expiry, read the DELETE and check WHICH COLUMN it keys on** — then ask about the ROW you care about (`SELECT updated_at + interval '24 hours' - now() FROM … WHERE <your row>`), never a table-wide aggregate, because a table-wide number is the wrong SHAPE for a question about one row and it reads perfectly plausible. Also on record: **I wrote "under 24 hours" into five documents BEFORE computing the delta at all**, then measured 1d02:11 later and never went back to fix the earlier claims — so for several hours the corpus carried a figure that contradicted my own measurement. Corrected in both landmine entries, `778`'s header, the bug file, the CONTRIB, the RUNBOOK, NOTES, README and SUMMARY.
+
+## 2026-09-04 — I read a register entry's INTENT as a live join, wrote it into a plan, and a peer had done the same thing off the same entry (`client_accounts`)
+
+- **What I did.** Writing the client-accounts design, I described `clients.external_id` as
+  *"(the Stripe key)"* — presenting it as the live link between a paying person and a client row.
+  Source: register **PAY-009**, which says Stripe's customer id from the paid event links to
+  `clients.external_id`, first writer wins.
+- **What was true.** `[MEASURED 2026-09-04]` the column is **empty** on the only real customer row;
+  `billing_orders.provider_customer_id` is **NULL**; and the one paid order's stored webhook event
+  carries `"customer": null` with `"customer_creation": "if_required"` — a one-off `mode=payment`
+  charge makes no Stripe Customer, so there was never an id to write. **PAY-009 is not wrong.** It
+  describes a design intent, correctly. The intent has fired once, live and successfully, and
+  produced nothing.
+- **Why it is worth a row rather than a shrug.** The `stripe` lane messaged me the same evening
+  asserting the same thing in stronger terms — *"a paid order is currently the only thing that mints
+  a durable link between a real person and a client row"* — and was about to design recurring
+  billing on it. **Two sessions read the same entry the same wrong way independently.** That is not a
+  slip, it is a property of the entry: **a register line describing a mechanism reads identically
+  whether or not the mechanism has ever run.** `status: deployed` refers to the CODE being live, and
+  a reader naturally hears it as the DATA being there.
+- **What caught it.** Querying the column in order to answer the peer — not diligence about my own
+  sentence. If they had not messaged, my line would have stood, and the seam between the two lanes
+  would have been designed backwards: we would both have believed payment MINTS a client row, when
+  in fact `client_id` is resolved before payment and the paid event only confirms it.
+- **The cheap check, and it generalises past this entry.** **Before describing a register entry's
+  mechanism as live, SELECT the column.** One query. And when the answer is "the code is deployed but
+  has never had anything to write", say that in the entry — *deployed* and *exercised* are different
+  facts and only one of them is currently recorded.
+- **Cost.** None downstream — corrected in place in the plan the same hour, and the correction went
+  to the peer in the same message, so it changed their design instead of both of ours.
+- **Family:** the LANDMINES entry on register STATUS lines outliving their truth (a status is a
+  snapshot; council seats read it as ground truth). This is the sibling case: **not a status that has
+  gone stale, but a mechanism that was never exercised — which no status field can express.**
