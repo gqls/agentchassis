@@ -305,3 +305,30 @@ on disk in the tree, so no other session's `git add -A` can sweep it.
 > application record IS the database — the `created_by='617_migration'` spec row plus the
 > `migration_backups` row. Skip step 4; verify those two rows instead. (617 was applied this way
 > 2026-08-26 09:41:16Z against chassis `2fb40a960`, all guards passing; wb md5 `fa0a4710…` verified.)
+
+## R-council — before submitting: confirm every symbol your plan rests on is INDEXED
+
+One query, before the gate reads your submission. The council's `code_checks` consults
+`code_symbols`, and **a Go closure (`name := func(…)`) is not in it** — so a seat asking "does this
+symbol exist?" gets zero rows and can object on a premise that is not actually false.
+
+```sql
+SELECT symbol, path, line_start FROM code_symbols WHERE symbol = '<the symbol your plan names>';
+```
+
+**A zero means "check whether it is a closure" before it means anything else.** Verified with
+controls 2026-09-04: `resolveComponent`'s closure (`rerender_page_sections_action.go:361`) is
+absent while `escalateRerenderToWriter` (:1178) and `isSelfContainedSection` (:1149) — top-level
+funcs in the **same file** — are both present. The file is indexed; the closure form is not. Not
+staleness: the indexed commit is an ancestor of HEAD and the closure is at 361 in that commit.
+
+Round 3 of `458` rested on `buildLegibleInkDefaults` (`palette_specialised_slots.go:703`), which
+**is** indexed — so it drew no such objection. That was luck, not design, and this check is what
+converts it to design. Full trap: `LANDMINES.md`, *"`grep 'func <name>'` CANNOT MATCH A CLOSURE"*.
+
+**And when the landmine-verifier returns `NEEDS_HUMAN_REVIEW`, read the BODY, never the status.**
+It says one of three things: *"I checked and found nothing"* (evidence), *"I cannot see this class"*
+(silence — `LANDMINES.md:7731`, the index is 100% Go and **81% of footprints are not**), or *"I
+found nothing AND here is a property of my instrument that would produce exactly this"* (a lead
+worth more than the verdict). ⚠ **Only the third names a testable hypothesis, and triaging on the
+status column discards it along with the second.**
