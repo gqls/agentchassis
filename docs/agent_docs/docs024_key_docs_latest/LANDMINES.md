@@ -22817,10 +22817,23 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   pattern falls outside the last 10 lines — which varies with log volume, presents as
   intermittent, and is independent of replica count. **Unproven for that specific 2026-08-15
   observation** (not re-testable now), but `--tail=-1` is the cheap first thing to try there.
-- **relations:** CLAUDE.md "Ask the service what it is running" and the `build provenance`
-  recipe (same command shape — a stamp absent under `-l` may be truncated, not unstamped, on
-  top of the existing "it is a STARTUP line, so it scrolls" caveat) · the 2026-08-15 entry
-  above · MEMORY [[logs-deploy-reads-one-pod-of-n]] — **a second, independent trap on the same command**:
+- **⚠ CORRECTED 2026-09-04, same day: this entry first named CLAUDE.md's own `build
+  provenance` recipe as an instance. IT IS NOT — line 658 carries an explicit `--tail=300`**,
+  so it does not inherit the default and the "compounds the startup-line-scrolls caveat"
+  claim does not apply to it. (That caveat is true on its own terms; it is simply not being
+  made worse there.) I asserted it from the command *shape* without reading the line, in an
+  entry whose whole subject is that a command's shape hides its behaviour. Caught by the
+  inter-thread-comms session; verified here. **The general form: a claim that "X is an
+  instance of this trap" is a claim about X, and needs X read.**
+- **⚠ THE COUNT DEPENDS ON THE GREP, so it is quoted with its query.** `[MEASURED 2026-09-04]`
+  `grep -rn "logs -l app=" --include=*.md --include=*.sh docs/ scripts/ | grep -v -- --tail`
+  → **119**; the wider `grep -rnE "kubectl[^|]*logs[^|]*(-l |--selector)"` → **141**; and
+  **490** selector reads DO carry an explicit `--tail`. So the untailed form is a substantial
+  minority — roughly a fifth to a quarter — not the norm, and a bare "120 occurrences" is not
+  reproducible. Re-run with the query written next to the number.
+- **relations:** CLAUDE.md "Ask the service what it is running" (whose recipe is correctly
+  tailed — see the correction above) · the 2026-08-15 entry above · MEMORY
+  [[logs-deploy-reads-one-pod-of-n]] — **a second, independent trap on the same command**:
   that one is about *which* pods are read, this one about *how much of each*, and fixing one
   does not fix the other · [[a-post-fix-zero-needs-a-demand-control]] — same family, a clean
   zero from a blind instrument
