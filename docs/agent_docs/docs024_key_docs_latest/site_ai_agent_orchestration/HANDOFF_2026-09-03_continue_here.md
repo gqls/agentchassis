@@ -222,11 +222,27 @@ safe *only* because they carry their own `pages.sections`. Five more sit on empt
 > |---|---|
 > | `hero` | in the hole — branch (a), `content_data` NULL |
 > | `call-to-action` | in the hole — branch (a), `content_data` NULL |
-> | **`blog-listing`** | **LATENT — content intact, NOT exempt; joins the hole if ever lost** |
+> | `blog-listing` | ~~LATENT — content intact~~ **CORRECTED: in the hole too, branch (b)** |
 >
-> ⚠ **The exemption is per-SECTION, not per-page.** `/blog` mixes exempt and non-exempt slots, so
-> restoring source 3 raises the escalation for the **whole page** and therefore covers the latent
-> slot too. That is `777` doing more than converting a skip, and it is the argument to make.
+> > **⚠ CORRECTED 2026-09-04 — I called `blog-listing` "latent" because its `content_data` was
+> > non-empty. That was wrong: ALL THREE slots are in the hole, and the fleet's latent count is
+> > ZERO.** `blog-listing` resolves to `blog-listing_pre_037`, whose required `source:"llm"` fields
+> > are `section_heading` and `section_intro` — and **neither is stored** `[MEASURED 2026-09-04]`.
+> > It trips branch (b).
+> >
+> > **My error: I checked EMPTINESS where the gate checks each required field.** `content_data`
+> > present is not `content_data` sufficient — the map is populated and still fails. That is the
+> > whole point of branch (b), which fires on a populated map.
+> >
+> > ⚠ **And the stored keys make it worse to eyeball:** the map holds `section_title` and
+> > `section_subtitle` while the schema demands `section_heading` and `section_intro`. A glance says
+> > "it has a heading and an intro". **Compare the schema's keys to the stored keys by name — never
+> > read a populated map as satisfied.**
+>
+> ⚠ **The exemption is per-SECTION, not per-page**, and with all three slots holed this now does more
+> work than either lane first thought: **`/blog` cannot render ANY of its three sections and cannot
+> ask for help.** One escalation, raised for the whole page, covers all three. That is the argument
+> for `777`, and it is measured on this page rather than projected onto others.
 >
 > ⚠ **My own caution to that lane also proved out and is worth keeping:** their "zero" was true but
 > **not structural**. Of **366** tool-level components, **310** carry an empty `input_schema` and
@@ -241,8 +257,17 @@ safe *only* because they carry their own `pages.sections`. Five more sit on empt
 > `schemas[slot_name]`, and `loadComponentSchemas` indexes **by `name` AND by `function`**. Resolved
 > correctly, `blog-listing` is `blog-listing_pre_037` — `component_level='section'`, a 921-byte
 > `input_schema`, **not exempt**. Join on `(name = slot OR function = slot)`, never on
-> `component_id` alone. Already in `LANDMINES.md` from the `384` lane's own 14-of-14 miss; I hit it
-> from the other direction the same day.
+> `component_id` alone. Already in `LANDMINES.md` from an earlier session of that lane (its 14-of-14
+> miss); I hit it from the other direction the same day.
+>
+> ⚠ **TWO DIFFERENT THINGS ARE NAMED `resolveComponent` IN THIS PACKAGE**, which makes a
+> grep-by-symbol ambiguous and sent the peer lane to the wrong one when checking my citation:
+> `rerender_single_page_action.go:1240` is a package-level `func resolveComponent(area, site
+> map[string]string, slot string) string` for **chrome slots**; the one that matters here is a
+> **local closure**, `resolveComponent := func(s storedSection) (componentInfo, bool, bool)` at
+> `rerender_page_sections_action.go:361`. `LANDMINES.md` carries entries about **both** (3587/3764
+> for the package-level one, 19955 for the closure). **Cite the file and line, never the bare
+> symbol.**
 
 ⚠ **`roi-estimator` has ZERO components** and is `status='active'`. Different defect, not chased.
 

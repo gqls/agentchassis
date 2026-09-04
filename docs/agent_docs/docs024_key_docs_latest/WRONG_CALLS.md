@@ -66681,3 +66681,71 @@ write the message to a file and use `-F`, whenever the message contains backtick
 commit rather than in the original. Low damage, but it is a **repeat** of a trap the estate has
 already written down — which is the entry worth having, because the tally is the argument for
 automating the check rather than documenting it a third time.
+
+## 2026-09-04 — I resolved components by `component_id` while the code resolves by id-then-name-or-function, so my scoping query missed 7 refusals and mis-exempted 3 (`bugfix_384_page_list_invalidation`)
+
+- **The claim.** Published twice in `bugs_open/384`, twice in the lane RUNBOOK, and sent to a peer
+  lane: the "cannot render, cannot escalate" hole is **4 slots / 3 pages / 3 sites**, with exactly
+  **1 latent slot** left, and refused-but-escalatable is **73**.
+- **What was true.** `[MEASURED 2026-09-04 13:4xZ]` the hole is **5 slots** (3 branch a / **2**
+  branch b), escalatable is **76**, and the latent population is **ZERO** — every non-exempt slot
+  on an unsatisfiable page is already refused. `ai-agent-orchestration.com /blog.html` holds three
+  of the five, not two.
+- **The defect.** My `refused` CTE keyed branch (b) on `req.component_id = pc.component_id`, and my
+  tool-exemption join on the same column. **The action does not resolve that way**:
+  `rerender_page_sections_action.go:390` falls through to `schemas[s.slotName]`, and
+  `loadComponentSchemas` (`plan_sections_action.go:1981`) **indexes by BOTH `name` AND `function`**
+  — its own comment says so. **16** active rows carry a NULL `component_id` and **14 resolve**
+  anyway; keying on the column hid **7** branch-(b) refusals and wrongly called **3** rows
+  non-exempt. A `NULL` never matches, so the miss is silent in the safe-looking direction.
+- **Why it mattered.** The peer had put my "one latent slot" into their handoff as the argument for
+  a migration awaiting their owner's approval. The corrected picture is *stronger* for them — but
+  it was a fabricated distinction, and an approval resting on it would have rested on nothing.
+- **What caught it.** The peer hitting the same trap from the other side: their own first query
+  joined on `component_id`, their slot came back blank, and they said so. **Third correction to
+  this lane today, and the third to come from someone re-running a query rather than reading a
+  write-up.**
+- **The cheap check that would have.** **Resolve the entity the way the CODE resolves it, not the
+  way the schema suggests.** Before writing a census over `page_components`, read the resolution
+  chain in the action that consumes it and reproduce every fallback — here `component_id` first,
+  then name-or-function. **A foreign key that is nullable is a fallback you have not read yet**;
+  `count(*) FILTER (WHERE component_id IS NULL)` costs one line and would have shown 16 rows the
+  join could not see. ⚠ And the mirror error, made by the peer on the same row: they classified the
+  slot as healthy because `content_data` was **non-empty**. Branch (b) tests each required field
+  individually, so it fires on a **populated** map — **present is not sufficient**.
+- **Cost.** ~30 minutes; corrected in the bug file, the RUNBOOK (a third time), NOTES and to the
+  peer within the hour. **All three of today's wrong numbers travelled outward before they were
+  right; the only thing that made them correctable was sending the QUERY alongside the number.**
+
+**Second row, hours later, same investigation and the same root one level down — "content_data is
+intact".**
+
+Having just retracted a claim for counting a precondition instead of checking a path, I classified
+`/blog`'s `blog-listing` slot as **latent** — safe today, at risk later — because its `content_data`
+was **non-empty**. It is in the hole already. The component requires `section_heading` and
+`section_intro` (`source:"llm"`, `required:true`) and **stores neither**.
+
+**The map is populated and still fails.** That is precisely what the gate's second branch exists to
+catch, and the peer lane had given me the branch split that morning; I had the distinction in hand
+and applied the wrong test anyway — **`IS NULL` where the code does a per-field presence check.**
+
+⚠ **The stored keys are what make it dangerous to eyeball:** the map holds `section_title` and
+`section_subtitle` against a schema demanding `section_heading` and `section_intro`. A glance says
+"it has a heading and an intro". Near-miss names read as satisfied.
+
+**The pair, stated once, because both errors are the same move:**
+
+| I checked | the code checks |
+|---|---|
+| rows matching a **precondition** | whether a **path can reach** them |
+| whether the map is **non-empty** | whether **each required field** is present |
+
+Both times I substituted a cheap proxy for the predicate the code actually evaluates, and both
+times the proxy was *correlated* enough to look right. **Read the branch, then test what the branch
+tests.** Not what is nearby, not what is usually equivalent.
+
+**And both were caught by the peer lane, not by me** — the second within an hour of my writing up
+the first, in the same file. Naming a lesson does not confer it.
+
+Family: cite-the-arm-not-the-function, a-report-is-not-a-measurement,
+measurement-discipline-index.
