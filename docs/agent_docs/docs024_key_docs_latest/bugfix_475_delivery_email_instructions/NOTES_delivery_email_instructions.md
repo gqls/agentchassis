@@ -307,3 +307,87 @@ Cheaper than the canary I was talked into an hour ago, and aimed at what is actu
 - **Four `icon` assets + `og_card` reach no page at all.** That is `bugs_open/114`'s shape — *imagery
   planned, generated, deployed, and then nothing points a page at it*, filed 2026-07-27, still open.
   **Cite 114; do not file new.**
+
+---
+
+## 2026-09-04, evening — council APPROVED round 2, and the code is in
+
+`c8ed56d2` round 2 → **approved**, `decided_by: approved with 2 advisory objection(s) — none
+high-severity`. Committed `a026ed53b` with `Council-Reviewed:`.
+
+### Two advisories were REAL DEFECTS in the sketch, not style notes
+
+**1. editquality, the `{{confirm_link}}` hole.** My sketch had
+`TokenConfirmLink: {Value: mintedLater}` so `Check` would pass pre-claim — **and never showed the
+step that fills it after the claim.** The seat's words: *"Vocabulary.go's own invariant ('Apply
+substitutes from the SAME map Check read') is only preserved if f is mutated in place after Claim —
+that step is unspecified and, if omitted, the literal placeholder or an empty confirm link ships to
+the customer."*
+
+**The exemption that makes delivery work would itself have shipped the defect.** Fixed with
+`FromClaim` + `Fill.Claimed(...)` + `Apply` REFUSING a still-empty claim token — the second half is
+the load-bearing one.
+
+**2. editquality, my ordering test was INERT.** I proposed proving "Check runs before the claim" with
+sqlmock and no expectations. `Fill.Check` **takes no DB handle**, so it cannot touch the database by
+construction and `ExpectationsWereMet()` with zero expectations passes whatever happened — including
+for a caller that claims first. **This is MEMORY's own *"a mock's own bookkeeping cannot assert a
+negative"* trap, and I walked into it while writing the file whose thesis is that guarantees need
+mechanisms.** Ordering is a property of a CALLER; it is asserted at the caller now, and
+`vocabulary_test.go`'s header says why the test is not there.
+
+### Prior art I had not checked, and the seat was right twice
+
+`reuse_agent`: I checked `ActionInputSpec` and missed `content_components.input_schema` +
+`missingRequiredValueFields`/`missingRequiredLLMFields` — a whole discovery-check family already
+auditing *"config/template declares a field the data does not supply"*. Both are now named in
+`vocabulary.go`'s header with an honest differentiation (they ask *does the DATA supply what the
+TEMPLATE declared*; this asks *do the CODE and the CONFIG agree about which tokens exist*, and must
+answer before an irreversible act).
+
+⚠ **Their wider point is recorded, not dismissed: this is the THIRD declared-vocabulary-plus-coverage
+mechanism on the platform.** Generalising the three is a real candidate and genuinely
+architecture-scope — not a rider on a customer-facing bug fix.
+
+### Two tests changed to assert a BETTER contract — flagged because that is the dangerous move
+
+`TestSendDeliveryEmailRefusesASurvivingPlaceholder` asserted that a typo (`{{zip_lnik}}`) is caught by
+the **post-fill** scan — i.e. **after the handover is stamped.** It now refuses pre-claim, so the
+typo costs nothing. I renamed and rewrote it, and **the test carries a block saying what it used to
+assert and why the change is the point**, because "I changed a test until it passed" and "the contract
+improved" look identical in a diff.
+
+**And the post-fill scan is NOT now redundant** — I checked rather than assuming. `Check`'s unknown
+scan looks for a complete `{{…}}`; an **unterminated** `{{` is not a token and passes. So the scan has
+a real remaining case, and it has its own test
+(`TestSendDeliveryEmailStillScansForASurvivingBraceAfterFilling`).
+
+### MUTATION-PROVEN, because a guard test that has never failed proves nothing
+
+Added `TokenMutantProbe` to `Vocabulary`, taught no sender:
+- `TestDeliveryEmailFillCoversTheVocabulary` → **red**, naming `{{mutant_probe}}`;
+- a live dispatch (`TestSendDeliveryEmailSendsTheFilledBody`) → **refused pre-claim**, *"this sender
+  does not declare {{mutant_probe}} … Nothing was stamped"*.
+Restored → green both packages.
+
+⚠ Also: `AssertCoversVocabulary` lived in `vocabulary_test.go` and was therefore **invisible to other
+packages** — a helper with no callers, which looks exactly like a finished refactor. Fixed by
+exporting the pure `Fill.CoverageErrors()` from production code (no `testing` import) so the caller's
+test can assert it for real.
+
+### HEAD was already red, and I proved it was not me
+
+`go test ./platform/orchestration/actions/` failed on two tests naming symbols I never touched. Rather
+than assume, `scripts/verify-head-builds.sh --test ./platform/orchestration/actions/` against
+committed **`cc072ff9c`** reproduced **exactly the same two failures** in a clean extract of HEAD:
+an undeclared finding code `FAIL_WORK_ITEM_MESSAGE_TEMPLATE_FALLBACK` and an undeclared template
+executor `renderFailWorkItemMessage`, both from `fail_work_item_message_template.go`
+(**`83407cd37`, the 440 lane, 2026-09-03 15:01**). `grep -c` in `finding_code_registry.json` = **0**.
+Reported to the fleet-comms lane. **The trap for the next session is that a red HEAD reads as "my
+change broke something"** — which is a debugging detour per session until it is fixed.
+
+### Timing
+
+**`a026ed53b` MISSED the v1.0.1361 cut** (`06c0b18f2`), so it rides the next roll. **Therefore no
+`{{instructions_link}}` migration yet**, and the reason is this lane's own landmine: config is live
+on apply, the vocabulary is compiled in, and naming the token ahead of the binary burns a stamp.
