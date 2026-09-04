@@ -2347,3 +2347,11 @@ provenance trap, again). This lane has applied ZERO migrations. Both the finder 
 landmine entry's attribution) and the author (commit your pair) notified. Their comm check
 (applied filenames vs tracked filenames) adopted as an end-of-session habit for any session that
 hand-applies SQL.
+**767 coda:** not an orphan — the sweep fired inside the honest ~60s apply→commit window; the 414
+lane committed both files with the 5d54f835 trailer (0f1fb2547, HEAD-verified by them). Their
+check refinement relayed to the check's author: age-gate the applied-vs-tracked flag (~15 min) or
+it trains readers to dismiss it, and add the reverse arm (tracked-but-never-recorded + renumber
+orphans — no false-positive window there). Useful census received in the same message, dated:
+all three live evidence_base writers are map-based as of 2026-09-04 (so the typed-struct
+citation-stripping landmine has no live instance TODAY) — re-run the grep before relying on it,
+the writer set grows by addition.
