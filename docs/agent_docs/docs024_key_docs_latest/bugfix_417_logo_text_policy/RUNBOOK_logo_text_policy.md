@@ -394,6 +394,39 @@ WHERE id='<item id>' AND item_key='needs_imagery:site:-:logo';
 ⚠ `item_type` is **`needs_imagery`**, not `needs_logo` — that type exists but is not what these rows
 use. Match on `item_key ILIKE '%site:-:logo%'` or the domain join.
 
+> **Completed 2026-09-04 (measurement contributed by the `bug 462` lane, re-run here before
+> recording): `needs_logo` is SUPERSEDED, not dead, and the live table cannot show you that.**
+> Live: **2** rows, both `cancelled`. Archive: **13**, all `complete`
+> `[MEASURED 2026-09-04 ~13:4xZ]`. So the type did real work and was retired — a live-table-only
+> look says "2 cancelled rows" and invites the conclusion that it never worked, which is the
+> rolling-window trap (`site_work_items` archives closed rows out of the table you queried).
+> `SELECT 'live' src, status, count(*) FROM site_work_items WHERE item_type='needs_logo' GROUP BY 1,2
+>  UNION ALL SELECT 'archive', status, count(*) FROM site_work_items_archive WHERE item_type='needs_logo' GROUP BY 1,2;`
+
+## Replacing a logo with bytes a PERSON supplies — the only REVERSIBLE image remedy
+Added 2026-09-04, contributed by the `bug 462` lane and verified here at the code.
+
+A regeneration is irreversible (`bugs_open/462` §6: UPSERT, fresh key, the old bytes are gone). For
+an **operator-supplied** logo there may be nothing to regenerate *from* at all — `[MEASURED
+2026-09-04]` `mortgagecalculator.co.uk` is `origin_type='uploaded'`, `origin_model='operator-supplied'`,
+`origin_prompt` NULL. **`platform/orchestration/actions/ingest_staged_asset_action.go` is the
+estate's answer**, built for `bugs_open/131` (three sites whose stored "logo" was not a logo, and no
+way for a human to supply a corrected one). Verified at the file 2026-09-04:
+
+- uploads to a **NEW key** (`images/uploads/<site>/<date>/<uuid>.<ext>`) — `:22-23` *"never
+  overwrite; the previous object survives"*;
+- **refuses a locked asset** (`:184`, `:277`) — *"approved assets are never overwritten; clear the
+  lock deliberately first"*. That is the guard that protects an owner-approved mark such as
+  `relojistas.com`, whose own `origin_prompt` records approval on 2026-07-29;
+- records the amendment in **`assets.alterations`** (`:295`), so the previous `url`/`storage_path`
+  are recoverable;
+- bytes travel operator file → base64 → psql → `asset_ingest_staging` (BYTEA) → action → S3, and the
+  work item carries **only the staging row id** — bytes must not ride Kafka (1 MiB writer cap).
+
+**Why this belongs in 417's runbook and not only 462's:** if the fence is ever built and a site is
+found serving a lettered mark, "regenerate it" is a re-roll of a model that already produced the
+wordmark once. This is the path that replaces it with something chosen, reversibly.
+
 **Decide `attempt_count` deliberately.** Reset to 0 for a *fresh* request (the previous run
 succeeded); leave it for a genuine retry of a failed run. The margin is real, measured 2026-09-03:
 seotools needed **2** of 3 attempts, gamedesign **3** of 3, designblog exhausted all 3 and stored
