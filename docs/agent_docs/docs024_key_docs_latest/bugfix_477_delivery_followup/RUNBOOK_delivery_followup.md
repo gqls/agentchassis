@@ -24,8 +24,19 @@ SELECT pod_name, git_commit, started_at FROM service_binary_capabilities
  WHERE kind='build' AND pod_name LIKE 'agent-chassis-%' ORDER BY started_at DESC;
 ```
 ```bash
-git merge-base --is-ancestor f89dfa31d <the git_commit above>   # exit 0 = the action shipped
+git merge-base --is-ancestor 0949244e8 <the git_commit above>   # exit 0 = safe to apply 775
 ```
+> ⚠ **THE COMMIT IN THAT CHECK IS `0949244e8`, NOT `f89dfa31d`, AND THE DIFFERENCE CAN COST A
+> CUSTOMER THEIR ONE FOLLOW-UP.** This line originally named `f89dfa31d`, the commit that added the
+> action — which is necessary and NOT sufficient. `0949244e8` renamed the placeholder to
+> `{{instructions_link}}`, and `775`'s seeded template uses that name. A binary between the two
+> carries `send_followup_email` and would pass a `f89dfa31d` ancestry check, but does not know
+> `{{instructions_link}}` — so the literal survives the fill, trips the post-fill `{{` scan, and that
+> scan fires **after `ClaimFollowup` has already stamped `followup_sent_at`**. Result: the customer's
+> single follow-up consumed, no email sent, recoverable only by the "stamped but never sent" section
+> below. **Config that names a token must never go live ahead of the binary that can fill it.**
+> (Raised by the `bugs_open/475` lane 2026-09-04 as a general rule for their own migration; it
+> applies here more sharply, because my irreversible step precedes the scan.)
 > ⚠ `service_binary_capabilities` is a **two-hour window**, not a history. It answers *what is running
 > now*. If you are dating something older than two hours it will silently answer with today's
 > survivors — corroborate with `kubectl -n ai-persona-system get rs -l app=agent-chassis --sort-by=.metadata.creationTimestamp`.

@@ -75,7 +75,15 @@
 --   3. An image carrying send_followup_email has rolled. Check per SERVICE:
 --      SELECT pod_name, git_commit, started_at FROM service_binary_capabilities
 --       WHERE kind='build' AND pod_name LIKE 'agent-chassis-%' ORDER BY started_at DESC;
---      then: git merge-base --is-ancestor <the commit adding the action> <stamp>
+--      then: git merge-base --is-ancestor 0949244e8 <stamp>
+--      ⚠ 0949244e8 (the {{instructions_link}} RENAME), not f89dfa31d (the commit
+--        that added the action). Necessary-and-sufficient matters here: a binary
+--        between the two carries send_followup_email but does NOT know
+--        {{instructions_link}}, which this file's template uses. The literal then
+--        survives the fill and trips the post-fill {{ scan — which runs AFTER
+--        ClaimFollowup has stamped followup_sent_at, so the customer's single
+--        follow-up is consumed and no email is sent. Config naming a token must
+--        never go live ahead of the binary that can fill it.
 --   Then: UPDATE scheduled_tasks SET enabled = true WHERE name = 'delivery-followup-send';
 --
 -- ⚠ THE LETTER QUOTES NO PRICE, AND THAT IS DELIBERATE — DO NOT "COMPLETE" IT.
