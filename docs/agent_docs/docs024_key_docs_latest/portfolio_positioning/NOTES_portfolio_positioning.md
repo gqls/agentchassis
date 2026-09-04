@@ -5854,3 +5854,30 @@ the phrase *"practical craft notes, not legal or compliance advice"* (an x-not-y
 ASA/CAP guide line); the check's own fix text: *"Human decision, and it is the SITE OWNER's: edit the
 brief so it does not hand the writer a phrase built on define-by-negation."* `instructional_only=31`,
 `word_instructional=2`. Not acted on.
+
+### (fff) 2026-09-04 ~08:05Z — owner asked "how come it didn't have a briefing or plan item?"; ruled the negation phrase fine
+
+**The answer, with the timeline that proves it `[MEASURED]`.** Two paths start in parallel the moment a
+site goes active: the BUILD path (classify → strategy → briefing → plan → pages) and the TOOL path
+(`evaluate_tools` → tool-suggester → tool-deployer, which creates and deploys its own pages —
+`bugs_open/450` §7). The strategist's gate asks "is this site deployed?" by asking whether ANY page
+carries `deployed_at`. **So the gate is decided by whichever path finishes first.**
+
+- designblog.co.uk (09-02): `evaluate_tools` 15:44 → strategy **15:58** → `needs_briefing` 15:59 →
+  `needs_site_plan` 16:02 → first page **16:10**. Strategy beat the first page by 12 minutes; the gate
+  saw no pages; the briefing was filed.
+- copyonline.co.uk (09-03): `evaluate_tools` 15:55 → tools spec 16:01 → first pages **16:15** → …
+  classification 16:57 → strategy **17:44**. The tool path beat strategy by ~90 minutes, because
+  copyonline's classification took an hour (`needs_domain_research` 15:49 → 16:54, with the
+  composition race queuing a second classifier). By the time the strategist asked, five deployed tool
+  pages existed; `is_deployed=true`; `create_next_item` skipped. Same on the 22:31 re-run.
+
+So: not a missing producer, a **race**, and the gate's question is answered by the wrong population —
+page-level stamps standing in for a site-level fact. 090 item `467f0283` is diagnosing the general
+form; bug file after the verdict.
+
+**Owner ruling:** *"That practical craft notes sentence is fine."* Closed `brief_supplies_negation`
+→ `wont_fix` with the ruling in `result`; `doc_notes` decision row `91eb4fda…` on copyonline. The check
+files `ON CONFLICT DO NOTHING` against `idx_swi_dedup`, whose terminal set is complete/failed/verified —
+`wont_fix` is NOT terminal there, so the row blocks a re-file for as long as it stands; if the stale
+reaper archives it, the doc_notes ruling is the record of decision.
