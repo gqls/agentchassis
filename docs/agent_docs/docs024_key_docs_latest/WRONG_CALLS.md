@@ -67944,3 +67944,38 @@ moment 691 lands.
 
 Family: a-post-fix-zero-needs-a-demand-control, a-pass-from-a-blind-check-outlives-the-blindness,
 a-stale-status-line-prevents-the-thing-it-describes, measurement-discipline-index.
+
+> **RESOLVED 2026-09-04, later — the second loss was NOT a mystery and NOT a clobber: it was the
+> entry's own author deleting it deliberately, and my restore reversed an intentional decision.**
+>
+> `bugs_open/477` had fixed the coupling the landmine described (both letter senders now derive their
+> guards from one `delivery.Vocabulary`; `fillTemplate` is gone) and removed the entry on the
+> reasoning that a warning about a closed trap spends the next reader's attention on nothing. **I read
+> that as a second accidental loss and restored it**, which would have put a false live-hazard warning
+> back in front of the fleet, carrying my own note vouching for it. **That is the exact inverse of the
+> failure I was guarding against.**
+>
+> **THE GENERALISATION, and it is the durable half:** on a ledger every lane appends to, **a
+> deliberate deletion is indistinguishable from an accidental clobber.** `--numstat` tells you that
+> lines went; it can never tell you *whose intent removed them*. **An absence is not damage until you
+> have read the commit behind it:** `git log -S'<heading text>' -- <file>` names that commit and its
+> message says which it was. I had both losses in one afternoon on one file and treated them
+> identically.
+>
+> **Resolved by the author the right way — retired IN PLACE, struck through, never removed**
+> (`b6c71172a`), with a banner saying the trap is closed, what closed it, DO NOT DELETE / DO NOT
+> RESTORE, and the condition that would un-retire it. Their own conclusion, worth quoting: *"a
+> strike-through costs one reader one line; a deletion costs the fleet a restore loop."*
+>
+> **AND THE READ-MODIFY-WRITE HAZARD IS NOT MINE ALONE.** The same lane, *while composing the
+> retirement banner about respecting append-only discipline*, used a Python expression that silently
+> ate two lines from an unrelated entry — caught by reading `git diff` BEFORE committing, reverted,
+> redone as a pure addition. **Any whole-file rewrite of this file does it, including one written by
+> someone who has just been bitten by it.** ⚠ **You need BOTH checks and neither substitutes for the
+> other:** `--numstat` deletions==0 *before* the commit cannot see a loss that happens *after* it
+> (which is what bit me the second time), and `git show HEAD:` *after* cannot stop you causing one.
+>
+> **One false alarm of my own, worth a line so nobody repeats it:** chasing this I ran a bare
+> `git diff`, saw "3 deletions", and briefly believed I had clobbered again. **A bare `git diff`
+> compares against the INDEX, not HEAD** — with a stale index it invents deletions that do not exist.
+> `git diff HEAD --numstat` is the form that answers the question. The real answer was zero.
