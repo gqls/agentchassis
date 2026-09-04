@@ -232,6 +232,65 @@ making the helper ignore the active flag.
   `TestFindingCodeScanEveryWriteIsRegistered` and `TestTemplateExecutorsAreDeclared`, both about
   `fail_work_item_message_template.go` (committed `83407cd37`).
 
+### 5a. Council APPROVED (`2ef3a34b`) — and what the objections turned up
+
+`decided_by: "approved with 1 advisory objection(s) — none high-severity"`. 10 seats approve, 1
+objects; 5 objections (2 medium, 3 low). Actioned rather than noted:
+
+**MEDIUM (guardian) — "SavePageSectionsAction has more than one caller; did you check whether any
+OTHER consumer assumes a re-appended interactive section always carries `component_id` NULL?"**
+Checked, and it found something better than a risk. There IS another consumer keying on that
+column, and it is a **WRITER**: `discovery_checks/check_unlinked_components.go`
+(`UnlinkedPageComponentsCheck`), a self-healing sweep that links orphaned `page_components` rows
+automatically. **This bug's entire population is structurally invisible to it**, on two
+independent conditions:
+
+```sql
+AND pc.rendered_html LIKE '%data-component="%'   -- requires a self-describing attribute
+JOIN content_components cc ON ... AND cc.forked_from IS NULL   -- base components only, no forks
+```
+
+`[MEASURED 2026-09-04]` **0 of 15** current orphans carry a `data-component` attribute, and this
+bug's tool components are per-site FORKS. So the estate has had an auto-repair for unlinked
+components all along and it has never been able to see these rows — which is why the population
+accumulates instead of self-healing, and it is a better answer to "why did nobody notice" than
+§3a's narrowing alone. ⚠ **Note also what that check does when it CAN see a row:** an unguarded
+`UPDATE` taking `DISTINCT ON (pc_id) … ORDER BY cc.created_at ASC` — the oldest matching active
+base component wins, arbitrarily among same-function candidates. `forked_from IS NULL` limits the
+damage; it does not make the choice evidenced. My repair script and that check are disjoint in
+practice (it needs `data-component`, mine needs `slot_name LIKE 'tool-%'` and a non-fork-owned
+candidate), but nobody should assume that stays true.
+
+**MEDIUM (debug_historian) — "the name-fallback map has no `ORDER BY`; any other path leaving
+`component_id` NULL still lands on the same non-deterministic fallback. Either add a tie-break or
+scope this explicitly as future work."** **Scoping it explicitly, as invited — and it is no longer
+hypothetical: §4a is an observed instance.** `loadComponentSchemas` builds `result[ci.Function]`
+over a query with no ordering, last write wins. Adding a deterministic tie-break is NOT a small
+change: that map is shared with `plan_sections`, so changing which component wins would change
+composition fleet-wide and needs its own round with its own blast-radius measurement. **Recorded
+as open, in §6, rather than smuggled in here.**
+
+**LOW (guardian) — "a third builder of `layer2PreloadRows` would short-scan silently."**
+Checked and refuted: `grep -n "layer2PreloadRows\|NewRows(\[\]string{\"slot_name\"" *_test.go`
+shows one definition, one preload builder (`layer2PreloadWithFunction`, plus the new
+`layer2PreloadWithInactiveComponent`). Every other `slot_name` fixture in the package is a
+different, 2-column query.
+
+**LOW (editquality) — the edit-2 sketch showed the local scan var but not the struct assignment.**
+Fair; the shipped code does both. No change.
+
+**LOW — "the 17 existing rows are left unrepaired ('truncation casualties never swept', 016b §9
+case 46)."** Correct, and now has a committed remediation path rather than an intention:
+`REPAIR_479_reattach_orphaned_tool_component_ids.sql`, rehearsed against the live DB
+(`UPDATE 5`, both guards passed, bytes untouched, rolled back), held for the owner because it is a
+live write across customer sites. ⚠ **Re-derive the mapping before running it — §4a changed the
+population from 5 to 3.**
+
+**Named in `missing`, and honestly outstanding:** no audit of whether producers OTHER than this arm
+can also write `component_id` NULL. The 12 non-tool orphans (blog listings, `generic-text-block`,
+`faq`, a `game` slot) do NOT match this arm's signature and are very likely a different producer.
+Not chased. §6.
+
 ## 6. STILL OPEN — the repair, and why it is not a one-liner
 
 **The code fix stops new orphans. It does not repair the 17 existing rows**, and they will not
