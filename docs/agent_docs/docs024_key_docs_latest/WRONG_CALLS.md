@@ -66471,3 +66471,58 @@ jars.
 
 Family: cite-the-arm-not-the-function, editing-one-file-is-not-knowing-the-package,
 a-report-is-not-a-measurement, measurement-discipline-index.
+
+## 2026-09-04 — my scoping predicate expressed ONE of the gate's TWO refusal branches, and the count came out right by accident (`bugfix_384_page_list_invalidation`)
+
+- **The claim.** Published in `bugs_open/384` and sent to a peer lane: the "cannot render, cannot
+  escalate" hole is **4 slots / 3 pages / 3 sites**, and the members are pages *"where a component
+  declares a required `source:"llm"` field that the stored `content_data` is missing"*. Also
+  published: **64 slots / 60 pages** are refused but would escalate.
+- **What was true.** The gate refuses **two** ways: **(a)** `len(s.contentData) == 0`,
+  schema-independent, and **(b)** the required-field case I wrote. My predicate expressed only (b),
+  so any slot with empty `content_data` whose component declares no required llm field was
+  invisible to it. **The hole count survived at 4 — by accident**, because empty `content_data`
+  also leaves every required field absent, so those three slots satisfied (b) incidentally. My
+  *description* of them was wrong for 3 of the 4, and the repair differs (author the whole slot vs
+  top up one field). The escalatable figure did NOT survive: **73 slots / 66 pages**.
+- **Why it mattered.** A right number with a wrong mechanism is the worst of both: it survives
+  review, gets quoted, and misdirects the repair. The peer was about to argue a migration partly on
+  my characterisation.
+- **What caught it.** Not me — the `ai-agent-orchestration` lane verified the finding on their own
+  page instead of taking my report, hit branch (a), and said so. **Second time in two days that a
+  correction to this lane came from someone re-running the check rather than reading the write-up.**
+- **The cheap check that would have.** **Count the ARMS before writing the predicate.** The
+  function had two `if`s and a `continue`; I encoded one `if`. Read the whole branch structure —
+  including the exemption at the top of the loop — and give the query a `CASE` column naming which
+  arm each row matched. A predicate with no arm column cannot tell you it only implements one arm,
+  and the accidental agreement between arms is what hides it.
+- **Cost.** ~25 minutes, one peer message correcting a report I had sent them 40 minutes earlier.
+
+## 2026-09-04 — I ran a peer's "latent population" query expecting to confirm it, and published nothing only because I asked whether the population was ELIGIBLE (`bugfix_384_page_list_invalidation`)
+
+- **The claim (not published — caught one step before).** A peer pointed out that keying on the
+  *conjunction* (no content AND no fallback) only finds pages where both have already happened, and
+  that keying on **unsatisfiable alone** would find where the defect lands next. They expected "much
+  larger than 4". The query returned **121 pages across 29 sites** and I had it drafted as the
+  latent exposure for the bug file.
+- **What was true.** **Zero.** Of the 121, **120 carry a single self-contained tool component**
+  (`component_level='tool'` + empty `input_schema`), which the loop skips with `continue` **before
+  it evaluates either refusal branch**. Never tested ⇒ never refused ⇒ can never enter the hole.
+  The 121st carries no components at all. Same at the peer's level: four of their five named
+  at-risk pages are exempt and the fifth has no component row.
+- **Why it nearly went out.** It was a **true** count — those 121 pages really do have no fallback
+  — and it had been through the standard discipline: both conjuncts measured, dated, marked. Two
+  lanes expected a large number and the query produced one.
+- **What caught it.** Asking, before writing it down, *which of these could the mechanism actually
+  reach?* — i.e. joining the **exemption** rather than only the failure conditions.
+- **The cheap check that would have.** **An at-risk population must be ELIGIBLE for the mechanism,
+  not merely lacking its protection.** Before publishing "N are one step from X", join the thing
+  that makes X impossible — the early `continue`, the guard clause, the type exemption — and split
+  on it. ⚠ **An exemption at the top of a loop deletes a population from a risk while appearing in
+  no predicate you would naturally write about that risk**, which is why "measure both conjuncts"
+  (already this lane's rule, and duly followed) produced the 121.
+- **Cost.** Zero published; ~15 minutes, and it turned a confirmation into the more useful negative.
+
+- **2026-09-04, `bugs_open/477` lane — I told another lane what work they were doing, and I was wrong about it, in a message asking them to do that work.** Having found the same false promise in the live `delivery-email-sender` `body_template`, I messaged the `site_delivery_and_editor` lane proposing they *"fold it into the migration you are already writing"* — because their earlier reply had mentioned that 475 candidate 1 includes "a migration for the email's `body_template`". **That migration did not exist and was blocked** on the owner's Netlify run and an unbuilt instructions page. My recommended option was therefore "park the false clause behind work that may not land this week", and I recommended it in bold. They corrected the premise and shipped the fix standalone within the hour (migration `776`, live). **What caught it:** the other lane reading their own state. Nothing on my side could have — I turned a mention of *intent* into a claim about *in-flight work*, and then reasoned from it. **The cheap check:** when a plan depends on what ANOTHER lane is doing, ask them whether it exists, in the same message that proposes it — one sentence, and it costs nothing when the answer is yes. A lane's stated intent is not a lane's queue, and their handoff's NEXT list is evidence about intent, not about progress. Same family as `who-owns.py` reading OWNED off a filing commit, which this lane hit four hours earlier: **both are "a record of intent read as a record of work".**
+- **2026-09-04, `bugs_open/477` lane — I very nearly composed a customer-facing URL out of a column whose name I trusted and whose values I had not looked at.** A `scheduled_tasks.pre_query` derived `live_site_url` from `COALESCE(NULLIF(s.publish_target,''), 'https://' || s.domain)`. `publish_target` holds a **worker name** (`b2worker`); the host is in `publish_project`; and on the one delivered site both are empty. The email would have told a customer their website address was "b2worker". **What caught it:** running `SELECT domain, publish_target, publish_project FROM sites …` while writing a different check — not review, not a test. **The cheap check:** one `SELECT` of the actual values before composing anything outward-facing from a column, because a column NAME is a hypothesis about its content and the COALESCE form fails only on the sites that have been deployed most (it passes on every fresh one you would test with). Filed as a LANDMINE.
+- **2026-09-04, domain valuation lane — I named the wrong domain as the victim of a defect I had just correctly measured, and it was the most quotable name in the lane.** Having found that two premium hold-out guards in `value_domains.py` disarm themselves the moment an appraisal lands, I wrote — in NOTES, in the owner's README, in a LANDMINES entry and in a commit message — that 61 holds had flipped *"including `healthcare.uk`, the £40,000 name that is §4's whole case"*. **`healthcare.uk` was never in the disarmed set.** It is held by `OWNER-FIGURE:acquisition-cost`, which is unconditional, so the conditional guard never had to hold it at all. **What caught it:** the counterfactual run at the end of the same session, which printed `healthcare.uk old=OWNER-FIGURE:acquisition-cost` in both the before and after columns — I was looking for something else. **The cheap check that would have:** look up the domain's actual `sale_status` before naming it as an example — one dict lookup in a file already open in the same script that produced the count. **The shape worth generalising: I had a correctly measured SET and then reached outside it for the illustration**, choosing the name with the most rhetorical force (§4's headline, the £40,000 figure) rather than one the measurement actually contained. The finding was real and, once measured properly, *larger* than I claimed — 137 flipped, 129 names worth $9.4m of automatic asking prices — so the error bought nothing. ⚠ **A measured claim and its worked example are two separate claims, and only the first one gets checked.** The example is the part that travels: it is what a reader quotes, and here it would have propagated a false statement about the estate's most-cited domain into three documents and the fleet-wide landmine corpus.
