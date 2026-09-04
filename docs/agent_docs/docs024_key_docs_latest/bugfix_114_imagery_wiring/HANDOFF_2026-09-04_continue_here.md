@@ -84,6 +84,31 @@ it **locks on edit**, which is why exactly 1 of 123 is locked), `cmd/webdesignpo
 `cmd/content-data-recover/sql.go`. ⚠ **Census classified by SQL FORM, not by traced call path —
 a stated gap, not a proof.**
 
+## ⚠ What the fix acts on — TWO DISJOINT populations, and the acceptance must not conflate them
+
+Established 2026-09-04 with the `imagery` lane, after their first sizing was withdrawn and
+re-derived here:
+
+- **The CARRY half prevents FUTURE loss.** It protects **~312** hero-family components on **34
+  sites** that still hold a page-specific value and would lose it at their next
+  `save_page_sections` rebuild. **None of these is in the 123.**
+- **The FALLBACK half fills the 123 already-lost rows** — with the generic value, which is the
+  correct declared outcome for 105 of them. **A carry-forward has nothing to carry here**: the row
+  being replaced already lacks the value. *The carry does not restore past loss.*
+- **Neither half puts the RIGHT image on the 18 that have their own asset.** That stays the
+  resolver's job (`ensureAssets` routes 1/2/3).
+
+⚠ **AND THE ACCEPTANCE TRAP, which applies whoever runs it:** **do NOT measure before/after by
+re-running the population filter and diffing counts.** The filter is defined by the very property
+the seal changes, so a row leaving the set is indistinguishable from a row that was never in it —
+and from a new arrival. **Pin the member `component_id`s BEFORE arming and compare PER ROW**, with
+both gate keys, the site fallback, `build_status` and `updated_at`. The `imagery` lane is pinning
+the 312 that way with the query in their own RUNBOOK.
+
+⚠ **Also: the 88 must be verified at the STORED ROW, not at the page.** Their pages already look
+acceptable (they paint the site-wide hero), so an artefact-only check reads them as fixed before
+anything changed.
+
 ## Traps this session hit — all four were instruments that could not come out otherwise
 
 1. **A COMPOSED page URL.** `/can-you-trust-ai-with-your-data` → 404; the recorded `pages.url` is
