@@ -3,6 +3,53 @@
 Supersedes `HANDOFF_2026-09-02_continue_here.md` (banner added there). Owner read-out:
 `SUMMARY_2026-09-03_the_brief_that_two_agents_could_not_read.md`. Every count carries its date.
 
+## ⚠ 0-LATEST. ROUTE B (copywriter directory) — STATE AS OF 2026-09-04 ~16:00Z. READ THIS FIRST.
+
+**The owner's instruction (2026-09-04): "Add a copywriter kind to the global register first then
+extend the business directory to a copywriting vertical."** Route B is most of the way done; route A
+has NOT been started.
+
+**LIVE AND WORKING — the register holds real entries:**
+- `765` APPLIED — `copywriter-directory-researcher`, cloned from the live finance researcher's config
+  (only `extract_claims` replaced). `766` APPLIED — the weekly task retargeted to it and re-enabled.
+- `767` APPLIED — the prompt's citation contract. **First run rejected everything**
+  (`citation_invalid: missing url, publisher`): I asked for `source_url`; `datahelpers/citations.go`
+  requires **url + quote + publisher**. Corrected from the working sibling.
+- **13:51:03Z run: 15 candidates → 8 claims across 4 real UK organisations** (stratton-craig,
+  radix-communications, collective-content, contentology), 7 rejected as `citation_lost` (live
+  re-verification working). Organisations-only held. Weekly cadence now runs itself.
+- `768` APPLIED — the two check names enabled on `completeness-discovery-agent` (46 → 48). **This was
+  the council's advisory and it was right:** a check the array does not NAME is silently skipped,
+  never an error, so the checks would have existed in the binary and done nothing for ever.
+
+**SHIPPING IN v1.0.1361 (cut `06c0b18f2`; `48bff098d` is an ancestor — verified, control passes):**
+parameterised `directory:<kind>` / `directory_full:<kind>` query arms + the `copywriter` profile.
+Council `32c75bc5` **APPROVED** (1 advisory, actioned as 768). **Inert on arrival** — no component
+declares the arm, no site carries the opt-in.
+
+**NEXT, IN ORDER:**
+1. **Confirm the roll at the artefact** (it had not landed at 16:00Z; deploy still read v1.0.1360):
+   `SELECT pod_name, git_commit FROM service_binary_capabilities WHERE kind='build' AND pod_name LIKE 'agent-chassis-%' ORDER BY started_at DESC;`
+   then `git merge-base --is-ancestor 48bff098d <that commit>` on EVERY chassis pod.
+   ⚠ that table is a TWO-HOUR window, not a history.
+2. **Apply `769_copywriter_directory_components_HOLD.sql`** — the snippet + listing pair, cloned from
+   the live health-insurer pair, declaring `query.directory:copywriter`. **Only after step 1**: the old
+   binary refuses an unknown base at RENDER time, silently, not at apply time.
+3. **Opt copyonline in**: `classification.content_features.copywriter_directory` — ⚠ the classifier
+   REWRITES that object on every run, so expect to re-set it (the `pinned=true does not hold`
+   landmine). Live shape to copy is on loanandmortgagecalculator (`kind`/`reason`/`recommended`/`separate_page`).
+4. **Replan** copyonline: file `needs_site_plan` (`source='manual-replan'`, key
+   `site_plan_copyonline.co.uk`, handler `build-site-planner`) so the planner re-types
+   `uk-copywriter-directory` and `get-copy-written` from `business_directory` to the register source.
+   Both are currently HELD by BLD-028 with `builder_needed=business_directory_config` — that is the
+   gate working, and it releases when the source resolves.
+5. **THEN route A** (business-intel copywriting vertical) — the owner's second instruction, not begun.
+   Costs and shape: `PLAN_2026-09-03_supplier_and_product_directories.md` §"worked instance".
+
+**Owner decisions still open:** the four brief tools are `owned_page_review: not_built — needs
+owner-aware build, not the generic builder`. And whether the site's lead route ultimately points at
+this register or at a business-intel vertical (route A would change the source again).
+
 ## ⚠ 0-NOW. STATE AS OF 2026-09-04 ~11:45Z — START HERE (supersedes §0, §1w–§1z and §2 below; they stay for the record)
 
 **copyonline.co.uk is PLANNED and BUILDING, from a sighted reading of the owner's brief.** Nothing is
