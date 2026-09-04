@@ -20,17 +20,27 @@ exclusions in PLAN's opening section.
 
 ## 1. ✅ RESOLVED 2026-09-04 — the fleet-wide LLM outage that shaped everything below
 
-> **UPDATE 2026-09-04 ~15:55Z: OVER.** `[MEASURED]` the outage ran **11:17:05Z →
-> 13:31:30Z** (last failure); the first success after it was **11:58:12Z**, so recovery was
-> staggered rather than a clean cutover — expect a mixed band, not a step. Since 13:31:30Z:
-> **0 failures**, ~20 successful calls per 10-minute bucket. **Everything §5 defers to "once
+> **UPDATE 2026-09-04: OVER — and FOUR TIMES SHORTER than this file first said.**
+> `[MEASURED 2026-09-04, corrected]` filtering on the credit error itself
+> (`error_message ILIKE '%credit balance%'`): **11:21:11Z → 11:56:47Z, 117 rows** — ~36
+> minutes, wholly inside the 11:00Z hour. The 12:00Z hour logged **204 successes and 0
+> credit errors**, so recovery was **clean, not staggered**.
+> ~~11:17:05Z → 13:31:30Z, staggered, expect a mixed band~~ was **WRONG IN BOTH BOUNDARIES**,
+> and both errors widened it: the end came from an unfiltered `NOT success` and is actually a
+> `stop_reason=max_tokens` truncation (an unrelated failure); the start came from
+> `orchestration_states.created_at`, which is the **run start**, not the failure time
+> (`min(updated_at)` on the same rows is 11:21:12, matching `llm_call_log` to the second).
+> The "staggered" claim was a compound of the two — a real success at 11:58 plus a fake
+> failure at 13:31 implies a mixed band that never existed. Caught by the inter-thread-comms
+> relay, verified here. Full entry in `WRONG_CALLS.md`. **Everything §5 defers to "once
 > LLM calls succeed" is now unblocked**, subject only to the v1.0.1361 roll settling
 > (see §1a). Re-check before relying on it:
 > `SELECT max(created_at) FILTER (WHERE success) FROM llm_call_log WHERE provider='anthropic';`
 
 Kept in full because it is what caused §3a, the unscored items in §5.1, and the four owed
 landmine verifications — and because the shape recurs. Every Anthropic LLM call failed from
-**2026-09-04 11:17:05Z**:
+**2026-09-04 11:21:11Z** (the run that first hit it had started at 11:17:05Z — a distinction
+that cost this file a wrong number, see above):
 
 ```
 API request failed with status 400: {"type":"invalid_request_error",

@@ -314,3 +314,32 @@ cleaned for display" are different statements, and only one of them was true.
 
 I have corrected the runbook so the next person is not sent to the wrong place, and passed
 both points to the session coordinating today's fleet update.
+
+Two corrections to what I told you earlier, both caught by other sessions rather than by me,
+and both worth you knowing because they are about how I was measuring rather than about the
+news feeds.
+
+First, the outage was much shorter than I said. I reported roughly two and a quarter hours,
+with a messy recovery. It was about thirty-six minutes — from twelve twenty-one to twelve
+fifty-seven our time — and the recovery was clean. I got both ends wrong, and both errors
+pushed in the same direction, which is the part I want to flag. For the end time I asked the
+database "when did the last AI call fail?" rather than "when did the last *credit* failure
+happen", and picked up an unrelated fault two hours later. For the start time I read a column
+that records when a job *began* as though it recorded when it *broke*. Both numbers were
+real, both were dated, and neither could have come out any narrower, because neither question
+was actually about the credit problem. That is the kind of mistake that looks like diligence.
+
+Second, and more serious: I wrote a warning note for the whole fleet saying that when a
+review is killed mid-flight, its reference number is dead and you must start a fresh one.
+That is wrong, and it is wrong in the damaging direction — starting a fresh number is
+precisely what breaks the paper trail linking a change to its review. The right move is to
+re-run under the same number, and the system has always supported that; it is written in our
+own standing instructions, which I had read the same afternoon. I inferred from one failure
+what the mechanism could do, instead of checking. Another session caught it, I verified their
+evidence, and I have corrected the note everywhere it went. I had already acted on my own bad
+advice before it was caught — the advertise review is now running under a new number rather
+than the old one. Nothing is stranded by that in our case, so I have let it run rather than
+spend a third review to tidy it.
+
+I would rather report both of these than let them sit. The first cost nothing but a wrong
+figure in a few documents. The second was travelling to other teams as advice.

@@ -22991,12 +22991,35 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   every seat down with the same message is the estate. On 2026-09-04 that message was
   `provider=anthropic … "Your credit balance is too low"` — i.e. the gate faithfully reported
   a **billing** outage as an **invalid submission**.
-- **⚠ the consequence for the trail:** the correlation is **spent**. It will never produce a
-  `council_report`, so a `Council-Submitted:` trailer naming it can never be resolved by
-  `098` and the commit reads un-reviewed for ever. **Re-fire the submission once the estate
-  is healthy and record the NEW correlation** — do not wait on the old one, and do not read
-  the absence of a verdict as latency (CLAUDE.md's "a missing row is almost always latency"
-  is about a missing *orchestration row*; here the row exists and is finished).
+- **⚠ the consequence for the trail — RESUBMIT ON THE SAME CORRELATION:**
+  `RESUBMIT_CORR=<the old corr> ./097_TRIGGER_council_review_v1.sh <submission.json>`.
+  The run is dead; **the correlation is not**. A correlation accumulates rounds, and `098`
+  joins commit↔verdict on it, so reusing it keeps the trail intact and any
+  `Council-Submitted:` trailer already naming it resolves the moment a later round approves.
+  Mint a new correlation instead and that trailer reads un-reviewed **for ever**, with
+  forward-only forbidding the amend.
+  Do not read the absence of a verdict as latency, though (CLAUDE.md's "a missing row is
+  almost always latency" is about a missing *orchestration row*; here the row exists and is
+  finished) — a dead round will not resurrect itself, so you do have to re-fire.
+
+  > **⚠ CORRECTED 2026-09-04, hours after this entry was written — the original text said
+  > "the correlation is **spent**. It will never produce a `council_report` … record the NEW
+  > correlation." THAT IS FALSE and it is the more damaging half of the entry**, because it
+  > sends you to do the one thing that permanently breaks the trail. **What is spent is the
+  > RUN, not the correlation.** `[MEASURED 2026-09-04]` `diagnosis_artifacts` over three days
+  > holds correlations carrying **5, 4, 4, 4 and 3 `council_report` rows**, each ending
+  > `approved` after earlier `revise` rounds — so multiple rounds per correlation is the
+  > NORMAL case, not an exception. And `RESUBMIT_CORR` is documented in
+  > **CLAUDE.md line 181** ("revise and resubmit with `RESUBMIT_CORR=<corr>` so the trail
+  > accumulates") and implemented at `097_TRIGGER_council_review_v1.sh:95`.
+  > **How the error was made, because it is the reusable part:** I reasoned *no
+  > `council_report` was written → `098` can never resolve it → the correlation is dead*.
+  > Every step is true except the last, which quietly swaps "this round produced no report"
+  > for "this correlation can produce no report". I had read the RESUBMIT_CORR line in
+  > CLAUDE.md the same session. **A mechanism claim needs the mechanism read, not inferred
+  > from one observation of it failing** — the check was one `GROUP BY correlation_id
+  > HAVING count(*) > 1`, or one grep of the trigger I had just run. Caught by the `420`
+  > lane and relayed via the inter-thread-comms session; verified here before correcting.
 - **relations:** CLAUDE.md "Council review of platform changes" · MEMORY
   [[a-submission-is-not-a-review]] — this is the sharper case: not merely "submitted ≠
   reviewed", but *submitted, ran, completed, and still not reviewed* ·
