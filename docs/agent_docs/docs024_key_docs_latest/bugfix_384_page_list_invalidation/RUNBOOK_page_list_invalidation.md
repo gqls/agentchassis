@@ -589,3 +589,54 @@ count **INCREASES** when a field is removed. A guarded field's removal makes the
 nothing increases and nothing is reported. Correct scoping — **do not read a clean run as cover**,
 and do not file it as a defect. A detector for the vanishing case wants a differential on element
 COUNT.
+
+### ⚠ CORRECTED AGAIN 2026-09-04 13:4xZ — resolve the component the way the ACTION does, not by `component_id`
+
+Both corrected versions above still join `content_components` on `pc.component_id`. **That is wrong
+and it undercounts.** `rerender_page_sections_action.go:390` falls through to `schemas[s.slotName]`,
+and `loadComponentSchemas` (`plan_sections_action.go:1981`) **indexes by BOTH `name` AND
+`function`** — so a NULL-`component_id` row still resolves and the gate still judges it.
+`[MEASURED 13:4xZ]` **16** active rows carry a NULL `component_id`, **14 resolve** this way; keying
+on the column alone wrongly called **3** of them non-exempt and hid **7** branch-(b) refusals.
+
+Replace the `eff`/`refused` head with this and keep everything downstream:
+
+```sql
+WITH eff AS MATERIALIZED (              -- component_id FIRST, then the name/function fallback
+  SELECT pc.page_id, pc.slot_name, pc.content_data,
+         COALESCE(cc_id.id, cc_nm.id)                           AS eff_cid,
+         COALESCE(cc_id.component_level, cc_nm.component_level)  AS lvl,
+         COALESCE(cc_id.input_schema,   cc_nm.input_schema)      AS schema
+    FROM page_components pc
+    LEFT JOIN content_components cc_id ON cc_id.id = pc.component_id
+    LEFT JOIN LATERAL (
+      SELECT c.id, c.component_level, c.input_schema FROM content_components c
+       WHERE pc.component_id IS NULL AND (c.name = pc.slot_name OR c.function = pc.slot_name)
+       ORDER BY (c.name = pc.slot_name) DESC LIMIT 1) cc_nm ON true
+   WHERE pc.build_status <> 'removed'),
+refused AS MATERIALIZED (
+  SELECT e.page_id, e.slot_name,
+         CASE WHEN COALESCE(e.content_data,'{}'::jsonb) = '{}'::jsonb
+              THEN 'a: no stored content_data' ELSE 'b: missing required llm field' END AS branch
+    FROM eff e
+   WHERE NOT (COALESCE(e.lvl,'section')='tool' AND COALESCE(e.schema,'{}'::jsonb)='{}'::jsonb)
+     AND ( COALESCE(e.content_data,'{}'::jsonb) = '{}'::jsonb
+        OR EXISTS (SELECT 1 FROM jsonb_each(COALESCE(e.schema->'fields','{}'::jsonb)) f
+                    WHERE f.value->>'source'='llm' AND (f.value->>'required')::boolean IS TRUE
+                      AND COALESCE(e.content_data->>f.key,'') = '') ))
+```
+
+`[MEASURED 13:4xZ]` **hole 5 slots** (3 branch a / 2 branch b) / 3 pages / 3 sites ·
+**refused-but-escalatable 76 slots** · **LATENT ZERO** — every non-exempt slot on an unsatisfiable
+page is already refused. `ai-agent-orchestration.com /blog.html` holds three of the five.
+
+⚠ **`content_data` PRESENT is not `content_data` SUFFICIENT.** Branch (b) fires on a **populated**
+map — it tests each required `source:"llm"` field individually. Classifying a slot as healthy
+because `content_data` is non-empty is the mirror of classifying it by `component_id`; both were
+made today, on the same row, by two lanes.
+
+⚠ **The watch must re-evaluate the JOIN, never cache either side** (the `ai-agent-orchestration`
+lane's point, and their own slot is the worked example): a page can become unsatisfiable — a plan
+superseded, a `sections` array emptied — with **nothing about the component changing**, and a
+component can leave the tool exemption by gaining a schema with nothing about the page changing.
+Both sides move independently, so neither count is a proxy for the intersection.

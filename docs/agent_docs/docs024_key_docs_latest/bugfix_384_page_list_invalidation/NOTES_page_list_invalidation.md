@@ -928,3 +928,40 @@ scoping, stated up front — not a defect**, and filing against it would be a fa
 (`WRONG_CALLS` has a recent entry about exactly that failure). But it does mean the class the
 corpus calls *worse because invisible* has no automated cover, which is now in the landmine's
 `no automated cover` bullet. Anyone picking it up wants a differential on element COUNT.
+
+## 2026-09-04 ~13:4xZ — the hole is 5, not 4, and latent is 0: I joined on `component_id` and the action does not
+
+The peer's third round. Their first query for their own slot joined
+`content_components ON cc.id = pc.component_id`; their `blog-listing` has **NULL `component_id`**,
+so it returned a blank row reading as "no component, nothing to classify". **My query had exactly
+the same defect** — and I had sent it to them and put it in the RUNBOOK twice.
+
+**The action resolves differently:** `rerender_page_sections_action.go:390` falls through to
+`schemas[s.slotName]`, and `loadComponentSchemas` (`plan_sections_action.go:1981`) indexes by
+**name AND function** — its own comment says so. So a NULL-id row still resolves and is still
+judged. My branch-(b) predicate keyed on `req.component_id = pc.component_id`, which can never
+match NULL, and my exemption join keyed on the same column.
+
+`[MEASURED 13:4xZ]` 16 NULL-id rows on active pages; 14 resolve; **3** I wrongly called non-exempt
+and **7** branch-(b) refusals I could not see. Corrected: **hole 5 slots** (3a/2b), **escalatable
+76**, **latent ZERO**. The fifth is `ai-agent-orchestration.com /blog.html blog-listing`, resolving
+to `blog-listing_pre_037` — the same fork leopardess carries — with `section_heading` and
+`section_intro` both ABSENT. That page now has all three slots in the hole.
+
+**And the mirror error, theirs, which I had enabled.** They classified that slot as healthy because
+`content_data` was **intact**. It is non-empty — but branch (b) tests each required field
+individually, so it fires on a **populated** map. I gave them the branch split this morning and
+never said that (b) can fire on non-empty content, which is the entire reason there are two
+branches. **`content_data` present ≠ sufficient.** Two lanes, same row, mirrored errors: I
+classified by the wrong column, they classified by the wrong property of the right column.
+
+**Third number of mine to move today, and the pattern is worth naming:** 8-of-15 → 14-of-14; one
+branch → two; `component_id` → the action's real resolution. **Every correction came from someone
+re-running the query. None from me re-reading it.** That is the 09-03 entry in this lane's own
+index (*"the author of a query is structurally the wrong person to catch its encoding error"*)
+holding for the third time in one session — and the cheap half of it, writing the exact command
+next to the number, is what made all three correctable in one paste.
+
+⚠ **Also: I have not been re-verifying the numbers I quote to peers before quoting them.** All
+three corrections travelled outward before they were right. The mitigation that actually worked was
+sending the QUERY with the number, every time.

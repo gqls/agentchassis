@@ -2022,3 +2022,65 @@ equals your retention window is not a worst case.** Same family as the standing
 `action:rebuild_blog_listing` wrote leopardess `/blog` 7 times between 08-24 and 09-03, so the
 inter-run gaps are recoverable there for as long as the history is kept. Not done here; the
 prediction check in §7 stands as written and the residual query is its durable half.
+
+## UPDATE 2026-09-04 13:4xZ — the hole is **5 slots**, the latent population is **ZERO**, and both of my earlier figures were wrong because I joined on `component_id`
+
+Prompted again by the `ai-agent-orchestration` lane: their first query for their own slot joined
+`content_components ON cc.id = pc.component_id`, `blog-listing` has **`component_id` NULL**, and it
+came back a blank row reading as *"no component, nothing to classify"*. **My query had the same
+defect**, and I had shipped it to them and into the RUNBOOK.
+
+### The resolution the ACTION performs, which my query did not
+
+`rerender_page_sections_action.go:390` falls through to `schemas[s.slotName]`, and
+`loadComponentSchemas` (`plan_sections_action.go:1981`) **indexes by BOTH `name` AND `function`** —
+its own comment says so. So a NULL-`component_id` row still resolves, and the gate still judges it.
+My `refused` CTE keyed branch (b) on `req.component_id = pc.component_id`, which **can never match
+NULL**, and my `selfc` exemption join keyed on the same column.
+
+`[MEASURED 2026-09-04 13:4xZ]` on active pages:
+
+| | |
+|---|---|
+| rows with NULL `component_id` | **16** |
+| of those, resolve by name/function | **14** |
+| unresolvable (the lane's long-known stranded pair) | **2** |
+| rows I wrongly classified **non-exempt** | **3** |
+| rows whose branch-(b) refusal I **could not see** | **7** |
+
+### Corrected figures — and the hole grew
+
+| | published | **corrected 13:4xZ** |
+|---|---|---|
+| THE HOLE | 4 slots / 3 pages / 3 sites | **5 slots / 3 pages / 3 sites** |
+| — branch (a) no stored content_data | 3 | 3 |
+| — branch (b) missing required llm field | 1 | **2** |
+| refused but WOULD escalate | 73 slots / 66 pages | **76 slots** |
+| **LATENT** (unsatisfiable, content intact, non-exempt) | 1 slot | **ZERO** |
+
+**The fifth slot is `ai-agent-orchestration.com` `/blog.html` `blog-listing`**, which resolves to
+`blog-listing_pre_037` — **the same fork leopardess carries** — with `section_heading` and
+`section_intro` both **ABSENT**. So that page now has **all three** of its slots in the hole, and
+there is no latent slot anywhere: every non-exempt slot on an unsatisfiable page is already refused.
+
+### ⚠ The reading error underneath it, and it is the mirror of mine
+
+The peer classified that slot from `content_data` being **intact** — it is non-empty, carrying
+`articles` and more. **Non-empty is not complete.** The gate tests each required field
+individually, so branch (b) fires on a **populated** map. I had handed them the branch split that
+morning without ever saying that (b) can fire on a non-empty `content_data`, which is the whole
+point of there being two branches. **`content_data` present ≠ `content_data` sufficient.**
+
+### What this costs the "watch" from the 12:4xZ addendum
+
+The standing watch is unchanged in SHAPE and its number moves to **5 in the hole / 0 latent**. The
+peer's caution on it stands and is now sharpened by their own case: *"it is small because those 56
+happen not to sit on unsatisfiable pages today. Both sides move independently — a page can become
+unsatisfiable (a plan superseded, a `sections` array emptied) without any component changing. So
+the watch has to re-evaluate the JOIN, not cache either side."* Their slot changed classification
+today with nothing about its component touched, which is that sentence happening.
+
+**Third time this session a number of mine moved, and each time the instrument got better rather
+than the estate getting worse.** 8-of-15 → 14-of-14; one branch → two; `component_id` → the
+action's real resolution. **Every one was caught by someone re-running the query, never by me
+re-reading it.**
