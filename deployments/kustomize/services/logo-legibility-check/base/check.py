@@ -820,6 +820,36 @@ def main():
                        "results": results}, fh, indent=2)
         print("wrote %s" % args.json)
 
+    # EXIT CODE. Two different questions, and conflating them makes a check
+    # nobody reads.
+    #
+    #   hand-run  -> "is the estate clean?"  1 if anything was not measured-and-
+    #                legible. A BLIND row is not a pass.
+    #   --report  -> "did the RUN work?"  The findings are the doc_notes row's
+    #                job, not the exit code's.
+    #
+    # MEASURED 2026-09-04, first in-cluster run: without this split the job exits
+    # 1 on the two standing findings — one of which the owner has RULED PERMANENT
+    # (462 §7, websitepromotion stays) — so the CronJob is red for ever by design,
+    # retries the whole 5-minute sweep on backoffLimit, and writes a SECOND
+    # doc_notes row for one run, breaking the one-row-per-run rule this flag
+    # exists to keep. "A permanently-red job is a job everybody learns to ignore"
+    # is written into component-render-check's own header; this is that mistake.
+    #
+    # What DOES still fail a scheduled run is the sweep being broken rather than
+    # the estate being imperfect: nothing measured at all, or every row blind
+    # (egress gone, theme tokens unreadable). An operational failure — no
+    # password, psql refusing — has already exited 2 long before here.
+    if args.report:
+        if not results:
+            print("FAIL: no logo assets examined — the sweep measured nothing.",
+                  file=sys.stderr)
+            return 1
+        if blind == len(results):
+            print("FAIL: every row is BLIND — the sweep is broken, not the estate.",
+                  file=sys.stderr)
+            return 1
+        return 0
     return 1 if (findings or blind or undisplayed) else 0
 
 

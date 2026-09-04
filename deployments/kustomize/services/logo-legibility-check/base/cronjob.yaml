@@ -60,9 +60,11 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 1
-      # A full fleet sweep measured ~90s by hand (34 assets, two fetches each, with
-      # retries). 900s is a wide margin for a slow CDN that still stops a hung job
-      # blocking tomorrow's.
+      # CORRECTED 2026-09-04 from the first two in-cluster runs: ~90s by hand from a
+      # session, but 5m15s and 4m47s in-cluster — the same 34 assets and the same
+      # verdicts, just slower egress. Call it ~5 minutes; n=2, so 900s is roughly a
+      # 3x margin rather than a precise one. It still stops a hung job blocking
+      # tomorrow's. Do NOT tighten it towards the hand-run figure.
       activeDeadlineSeconds: 900
       template:
         metadata:
@@ -86,10 +88,24 @@ spec:
                   apk add --no-cache python3 py3-pillow >/dev/null
                   # --report writes ONE doc_notes row per run, clean or not, so
                   # "looked and found nothing" stays distinguishable from "stopped
-                  # running". The exit code is deliberately NOT swallowed: 1 means
-                  # a finding, a BLIND row or an undisplayed logo, and a BLIND row
-                  # is not a pass.
-                  python3 /scripts/check.py --report
+                  # running".
+                  #
+                  # In --report mode the exit code answers "did the RUN work", NOT
+                  # "is the estate clean" — the findings are the doc_notes row's
+                  # job. MEASURED on the first in-cluster run: the other way round
+                  # the job exits 1 on two standing findings, one of them RULED
+                  # PERMANENT (462 §7), so it is red for ever, retries the whole
+                  # 5-minute sweep, and writes a SECOND row for one run. It still
+                  # fails when the SWEEP is broken: nothing measured, or every row
+                  # blind.
+                  #
+                  # -u because a buffered python prints NOTHING until it exits, and
+                  # this run takes ~5 minutes: measured 2026-09-04, the first
+                  # in-cluster run showed an empty log for its whole life, which is
+                  # indistinguishable from a hung job. Telling "working" from
+                  # "stopped" is the entire point of this check; its own logs should
+                  # not fail that test.
+                  python3 -u /scripts/check.py --report
               env:
                 - name: PG_CLIENTS_HOST
                   value: postgres-clients
