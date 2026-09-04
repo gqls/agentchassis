@@ -6160,3 +6160,47 @@ component declares `query.directory:<kind>` (none does), and the profile self-ga
 **Replied to the peer** with the ancestry proof, the inertness, 768's ordering, and one thing back:
 `service_binary_capabilities` is a two-hour window, so a lane following their point 6 for anything
 older gets today's survivors, not history.
+
+### (ooo) 2026-09-04 ~16:15Z — peer repair on advertise.co.uk: consented; their side-finding confirmed on better evidence; MY escalation of it retracted within the hour
+
+**The 450 lane** gave notice before writing to `advertise.co.uk` (remake №1): one `page_components`
+row on `/tools/cpm-cpc-benchmark-comparator/` with `component_id` NULL, filling that one column,
+`rendered_html` asserted byte-identical. **Consented.** Their census across my six remakes:
+advertise's row is the ONLY orphan — websitepromotion, seotools, designblog and copyonline are clean.
+
+**Their side-finding (`tool-ad-budget-calculator` re-bound to websitepromotion's fork) is CONFIRMED,
+and by a stronger fact than they had:** advertise's and websitepromotion's stored tool rows are
+**byte-identical, md5 `df3c0f7d3864720a3b5805e17f24546c`, 17,238 B**. `b4d08db0`
+(`…-advertise-co-uk`, `created_from=generated`) has **zero users anywhere**; `95e0fa4a`
+(`…-advertise-co-uk-websitepromotion-co-uk`, `created_from=manual`) serves BOTH pages.
+**Their marker does not reproduce:** `name="industry"` occurs **0** times in either site's rows or
+either template; the word "industry" appears 27× in advertise's own template and 28× in the fork, so
+it is not a websitepromotion-only tell and a census keyed on it would read clean. Told them.
+
+**AND THEN I OVERSTATED IT, AND RETRACTED WITHIN THE HOUR.** I wrote to them: *"two of the owner's
+live sites serving the same rendered tool, which is exactly what this remake programme exists to
+prevent."* Both halves wrong:
+1. **The PAGES differ.** Curled with a control (the two homepages differ, so the probe discriminates):
+   advertise `200/113,199 B` md5 `ea184e92447b`; websitepromotion `200/97,219 B` md5 `b488eb680c54`.
+   The shared thing is ONE COMPONENT'S markup, inside differently-assembled pages with different
+   palettes. No visitor sees a twin.
+2. **The owner had already ruled the other way** — 2026-09-03, verbatim: *"duplicated tools across the
+   cluster can be kept."* I applied a differentiation principle he had explicitly relaxed, on his own
+   sites, and nearly asked him to authorise an urgent repair against his own ruling.
+
+**What actually survives, and it is narrow:** a LINEAGE fault. A site's own generated component with
+zero users while a manual fork of it serves that site's page means a future edit to advertise's
+component changes nothing, silently, and an edit to the fork changes two sites at once. Housekeeping,
+not an incident. Put to the owner as such; not acted on.
+
+**`published_at` is NOT the liveness test for these sites** — it reads NULL for all eleven domains
+checked including advertise.co.uk, which demonstrably serves. Yesterday the same column agreed with
+the served bytes on copyonline and I generalised from that. **The served bytes are the only test that
+has been right both times.**
+
+**The census shape, corrected:** 8 live cross-site pairs share a tool component's markup today
+(finetuning/leopardess, finetuning/fundamentallyai, ai-agent-orchestration/fundamentallyai,
+vonc/webdesign, seotools/webdesign ×2, advertise/websitepromotion ×2). Under the owner's ruling those
+are SANCTIONED — a check on that alone is a duplicate-tool detector, not a defect detector. The defect
+signal is narrower: **a site's own generated component with zero users while a fork of it serves that
+site's page.**
