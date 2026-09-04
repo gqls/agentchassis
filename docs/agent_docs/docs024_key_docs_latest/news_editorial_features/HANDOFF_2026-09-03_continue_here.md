@@ -272,6 +272,25 @@ order → parent keeps its row and lock, template becomes `{{.slots.section}}` �
 and **assert the SERVED page byte-identical**. Any failure at either assertion leaves
 the page untouched.
 
+**⚠⚠ CORRECTED 2026-09-04 by the `infographics` lane — COMPOSITION IS FOR FIGURES
+*INSIDE* PROSE, NOT FOR GRAPHICS *BESIDE* IT, and I had generalised the claim.** My
+framing was: a graphic spliced into `article-body` dies at the next body rewrite,
+therefore composition is needed. True for a figure interleaved WITH paragraphs. **Not
+true for a sibling section.** A comparison-table added at position 3, pushing the CTA
+to 4, touches no body, cannot be destroyed by a rewrite, and needs NOTHING from 035 —
+which is the pattern finetuning.uk ships today. So:
+
+- **The first cut of the owner's imagery/infographic ask is unblocked WITHOUT this
+  lane**, and the migration below stays properly demand-driven rather than becoming a
+  dependency of it.
+- **Composition's true justification is narrower than I have been writing it**, and a
+  narrower true claim is worth more than a broad puncturable one. Say the narrow
+  version in round 4.
+- ⚠ **And my 83% h2 rate is a FLEET average, not a guarantee about any family.** In
+  the dartsonline guide family it is **6 of 10** — four guides carry ZERO h2 and have
+  no boundary to partition at. The sibling-section route works on all ten; the
+  decomposition route works on six.
+
 **⚠ DO NOT BULK-MIGRATE.** A split article renders identically by construction, so
 decomposing 381 rows buys nothing on its own. **Migrate a page when someone wants
 per-section imagery or a graphic on it** — that makes the imagery ask the driver, and
@@ -280,6 +299,14 @@ without one (`layouts`: 18 library, 0 forked). `grip-styles` is the offered cana
 
 **Not solved:** 61 of 360 (17%) have no `<h2>` and stay flat — fine, composition is
 opt-in. And nothing here GENERATES imagery; it makes a durable place for it.
+
+**`generic-text-block` is a MINOR surface, not a second wave — measured 2026-09-04
+after the infographics lane rightly challenged my unmeasured assertion.** 274 rows,
+avg 2,893 B, keys `content` + `heading`. Only **79 (29%)** carry a `<ul>` against
+article-body's 319 (84%), and only **10 (3.6%)** carry an `<h2>` against 83% — so it
+is barely available to the lossless split at all. I had written "probably a second
+surface" without measuring; the other lane guessed it might be comparable. It is
+neither. **Do not plan a second wave around it.**
 
 ## 8. Coordination — five lanes, all answered, nothing owed
 
