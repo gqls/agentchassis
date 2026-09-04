@@ -146,6 +146,18 @@ var directoryCheckProfiles = []directoryCheckProfile{
 		PageItemType:     "missing_health_insurer_directory_page",
 		PageTitle:        "a cited directory of UK health insurers: regulator status, underwriter, and cover types",
 	},
+	{
+		Kind:             "copywriter",
+		SpecKey:          "copywriter_directory",
+		Label:            "copywriter directory",
+		SnippetComponent: "copywriter-directory",
+		ListingComponent: "copywriter-directory-listing",
+		PageType:         "copywriter-directory",
+		PageName:         "copywriter-directory",
+		SectionItemType:  "missing_copywriter_directory_section",
+		PageItemType:     "missing_copywriter_directory_page",
+		PageTitle:        "a cited directory of UK copywriting organisations, with what each specialises in",
+	},
 }
 
 func init() {

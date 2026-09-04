@@ -155,6 +155,37 @@ var queryHandlers = map[string]queryHandler{
 		return resolveDirectoryKind(ctx, db, "health-insurer", limit, 50, logger)
 	},
 
+	// GENERIC register arms: `directory:<kind>` and `directory_full:<kind>`.
+	//
+	// Every literal arm above is the same call with a different string —
+	// resolveDirectoryKind(kind, 12|50) — because queryHandlers is a literal
+	// map while QueryDirectoryEntries has been kind-generic since Phase A.
+	// So a SEVENTH kind needed a Go change for no reason other than the map,
+	// and the owner's standing objection (2026-09-04) is exactly that: a new
+	// directory kind should not be a code change.
+	//
+	// These two bases take the kind as the `:arg` the vocabulary already
+	// supports (`pages_where_type:tool` is the precedent), so a new kind is
+	// now a component declaring `query.directory:<kind>` and nothing else.
+	//
+	// The literal arms are DELIBERATELY LEFT IN PLACE. They are declared by
+	// live components' input_schema on shipped pages; retiring them is a
+	// separate migration of those declarations, not this change's business —
+	// and a rename that silently stopped resolving would empty a served
+	// listing with no error (the bugs_open/453 shape).
+	//
+	// An unknown kind is NOT an error here: QueryDirectoryEntries refuses an
+	// EMPTY kind, and a kind with no rows returns an empty list, which is
+	// what a component's `on_missing` handling already exists for. Refusing
+	// unknown-but-nonempty kinds would mean this map knowing the kind list,
+	// which is the coupling being removed.
+	"directory": func(ctx context.Context, db *sql.DB, _ uuid.UUID, arg string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveDirectoryKind(ctx, db, arg, limit, 12, logger)
+	},
+	"directory_full": func(ctx context.Context, db *sql.DB, _ uuid.UUID, arg string, limit int, logger *zap.Logger) (interface{}, error) {
+		return resolveDirectoryKind(ctx, db, arg, limit, 50, logger)
+	},
+
 	// A site's own verified business_intel directory (bugs_open/206).
 	// No arg: the vertical is looked up from the site's own
 	// directory-export-json config, not a static parameter — see
@@ -274,6 +305,13 @@ var sourceDependencies = map[string]map[SourceDependency][]string{
 	"news_archive": {DepFeedItems: nil},
 
 	// Directories: same reasoning, different store.
+	// Generic register arms — keyed by BASE, so one entry covers every
+	// `directory:<kind>` / `directory_full:<kind>` (SourceReads parses the
+	// base before looking up). Without these two a page fed by the generic
+	// arm would never be told to re-resolve when its register changed —
+	// silently stale, which is bugs_open/384's whole subject.
+	"directory":                       {DepDirectoryEntities: nil},
+	"directory_full":                  {DepDirectoryEntities: nil},
 	"model_directory":                 {DepDirectoryEntities: nil},
 	"model_directory_full":            {DepDirectoryEntities: nil},
 	"adoption_tracker":                {DepDirectoryEntities: nil},
