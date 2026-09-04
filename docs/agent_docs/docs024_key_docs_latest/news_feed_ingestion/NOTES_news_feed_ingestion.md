@@ -1137,3 +1137,41 @@ measurements with the inference explicitly labelled a candidate.
 through a filter narrow enough to return nothing, and I nearly reported "the check no
 longer exists" — which would have been a confident, false structural finding. `ls` the
 directory before concluding a file is gone.
+
+### 2026-09-04 later — I ran the separator, and reading the check corrected my own census
+
+Both lanes had called the test "cheap, unrun, the honest gap" and declined it, with the
+463 lane offering it to me. Ran it **without touching live data**: a unit test driving
+`BlogEmptyCheck.Run` against `sqlmock` (three checks in that package already do this), so
+no synthetic site and no live write. `check_empty_blog_test.go`, 4 tests, green,
+`verify-head-builds` clean, and the **check file byte-identical to HEAD** — a test, not a
+behaviour change. Committed `937e45296`.
+
+**Result: the mechanism fires.** Blog hub + zero posts → exactly one `needs_blog_posts`
+routed at `blog-content-planner`. Mutation-proved: `if postCount > 0` → `>= 0` fails that
+test and only that one. So "the check stopped working" is REFUTED and "correctly idle" is
+the supported reading. Still not written into 460 as its cause — one branch closed, cause
+not established.
+
+**A correction to my OWN figures, caught by reading the check rather than by anyone.** My
+population census used `status='active'`. The check's predicate is
+`build_status IN ('deployed','planned','active')` — **a different column**. Re-ran on the
+guard's own predicate: conclusion unchanged (4 sites, 0 would fire), hub counts shift to
+**section-index 62, news-index 11, entity-directory 8, blog-index 4**. Told the 463 lane to
+use these, since they had already re-run mine. **I nearly published a population figure
+derived from a predicate that was not the guard's** — the same shape as the 427 lane's
+`cc.is_active` wrong call. The habit that saved it was reading the whole function before
+writing the test, not any check I ran.
+
+**A real defect found the same way, now pinned rather than left as folklore:**
+`check_empty_blog.go:35-38` swallows **any** error from the first query, not just
+`sql.ErrNoRows`, so a DB failure is indistinguishable from "no blog page" and the check
+reports success either way. **A check that cannot fail cannot be evidence** — the second,
+independent reason 460's silence was unreadable. Test 4 asserts today's behaviour so it is
+visible, and says whoever narrows the swallow should expect it to fail and rewrite it.
+Not taken.
+
+**What it leaves:** the producer works, its driver works, and the driver's gate is scoped
+to a page type the estate has largely stopped building — 4 `blog-index` against 81 other
+listing hubs. So the live question is about the estate's page vocabulary, not this agent,
+and it belongs in the 463 lane's RFC rather than in 460.
