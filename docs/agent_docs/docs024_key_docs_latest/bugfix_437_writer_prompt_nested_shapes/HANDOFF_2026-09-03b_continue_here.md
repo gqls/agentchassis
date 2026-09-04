@@ -35,8 +35,11 @@ is owed on it.
 > ⛔ ~~**The bug stays OPEN**, and the reason is now a number rather than a caveat: **52 of
 > the 73 affected keys (71%) can never recover on their own.** There is no open technical
 > question in this lane. There is one open DECISION, and it is the owner's.~~
-> **RETRACTED — both sentences were false.** The keys recover on their own and 40 of the 52
-> already have (20 on 2026-09-03, the rest overnight); there is no decision outstanding and
+> **RETRACTED — both sentences were false.** The keys recover on their own: **20 of the 52
+> have already closed** unattended (cv1 + remortgagecalculator, `auto:revalidated`,
+> 2026-09-03 16:08Z). The other **32 are still `unresolved` as of 2026-09-04 11:05Z** — but
+> stale rather than blocked, since both target pages they wait on deployed overnight, so they
+> are due to close at the next daily drain (~16:06Z). There is no decision outstanding and
 > nothing to clear. See the UPDATE box above and `WRONG_CALLS.md`, 2026-09-03.
 
 **The bug stays OPEN for candidates 2 and 3 only** — candidate 2 needing restatement rather
