@@ -78,6 +78,19 @@
 --      then: git merge-base --is-ancestor <the commit adding the action> <stamp>
 --   Then: UPDATE scheduled_tasks SET enabled = true WHERE name = 'delivery-followup-send';
 --
+-- ⚠ THE LETTER QUOTES NO PRICE, AND THAT IS DELIBERATE — DO NOT "COMPLETE" IT.
+-- Its domain paragraph is one sentence: "If you have not decided yet, reply to
+-- this email and we will sort it out." The delivery letter quotes the figures
+-- (10 pounds a month, 59.99 to buy); this one does not repeat them, and the
+-- reason is the same rule that keeps the hosting steps out of it (bugs_open/475):
+-- anything that can go out of date must live somewhere correctable, never in a
+-- second copy the customer already holds. TWO letters quoting one price is two
+-- places to update and nothing joining them — the buy-out has already moved from
+-- 200 to 59.99 once, and a follow-up seeded with the old figure would have been
+-- wrong the day it was written, silently, in a customer's inbox.
+-- Owner of the prices is the `stripe` lane (2026-09-04): if this letter ever
+-- genuinely needs to state a figure, ask them rather than copying one.
+--
 -- ⚠ THE COPY SAYS "A FEW DAYS AGO", NOT "THREE DAYS AGO", DELIBERATELY. The
 -- interval is CONFIG (`followup_after_days`) and prose that restates a config
 -- value is a lie waiting for the config to change — set it to 5 and the letter
