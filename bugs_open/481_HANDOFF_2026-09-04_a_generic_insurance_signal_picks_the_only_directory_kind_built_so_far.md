@@ -124,3 +124,52 @@ survive whatever is decided about §6 if the kind is ever legitimately used.
   `{"insurance beats finance by length", "insurance finance", …, "health-insurer"}`, which
   asserts precisely the outcome this bug is about).
 - Live: re-run the §3 census; a newly classified insurance site must not gain the key.
+
+---
+
+## 8. THE 090 VERDICT: **UNVERIFIABLE** (stopped: iteration-cap) — what it confirmed, what it asked for, and the answers
+
+Run corr `cdcb2981-36ce-4d02-8d37-6ab302aede12`, completed 2026-09-04 16:30:54Z after five
+bundles. **It neither confirmed nor refuted the mechanism**, and this file says so rather than
+quoting the run as support. Under CLAUDE.md's 2026-07-31 ruling this bug therefore rests on the
+filing session's own first-hand verification, which is stated in §2 and itemised below.
+
+**What the run established independently of me, and it is a better fingerprint than anything in
+§2 above:**
+
+> "the site's `content_features.health_insurer_directory` carries **the exact Reason string of the
+> map's generic `'insurance'` entry** (not the differently-worded `'health insurance'` entry), and
+> the site's `identity.industry` is the generic 'Insurance Information & Education' rather than a
+> health-insurance-specific string — consistent with the hypothesis."
+
+That is a stronger tell than the industry string alone. The two map entries produce *different*
+`Reason` text, and the stored spec carries the generic one verbatim. Whatever else is true, the
+row on this site was written by the `"insurance"` branch and not the `"health insurance"` branch.
+
+**Its "still needed" list, and the answers — each read first-hand this session:**
+
+1. *"matchVerticalDirectory's partial-match arm … has not been read"* — it is at
+   `feed_directory_recommendation_action.go`, the `for _, signal := range signals` loop: exact map
+   lookup first, then longest-contained-key with a lexicographic tie-break. **The run's own
+   evidence trail quotes that arm verbatim as citation 2**, so this item was already in hand when
+   the conclusion listed it as outstanding — noted as an observation about the run, not a
+   complaint.
+2. *"EvaluateDirectoryFeaturesAction … has not been read"* — read. It loads the current
+   `classification` spec, takes `industry`/`site_type`/`category`, calls `matchVerticalDirectory`,
+   and on a recommending match deep-merges `content_features.<SpecKey>` and supersedes-then-inserts
+   the spec row. The only intervening logic is the `config == nil || !config.Recommended` guard,
+   which is the no-write path. **No allowlist, no override, no per-kind gate.**
+3. *"directoryCheckProfiles … could contain an intervening check"* — read
+   (`discovery_checks/check_directory.go`). The `health-insurer` profile is a static struct:
+   `SpecKey: "health_insurer_directory"`, `PageType`/`PageName` `health-insurers`, snippet and
+   listing component names. It consumes the flag; it does not re-decide the kind.
+
+So the answer to the question the symptom asked — *does anything other than the substring match
+determine which provider class a site's directory carries?* — is **no**, on a first-hand reading
+of all three bodies. That is an assertion by this lane, corroborated but not confirmed by the run.
+
+**If anyone re-files this**, the run's stop reason says how: it was starved of function BODIES
+while holding their signatures, so a re-file should name fewer symbols and ask a narrower question
+about one of them (the estate's other UNVERIFIABLE today, on the vetcomparison lane, stopped for a
+different reason — `scope-not-narrowing` — with the same underlying shape: the bundle never
+reached the deciding artefact).

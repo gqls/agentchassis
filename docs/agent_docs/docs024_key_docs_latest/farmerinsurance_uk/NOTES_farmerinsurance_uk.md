@@ -397,3 +397,26 @@ elements and 9 elements carrying any icon-ish class. **So nothing 404s and nothi
 icons were generated for this site and never reached it.** That is waste, or a design that quietly
 lost its icons, not visible breakage; recorded as such rather than filed as a defect, because the
 disconfirming check (a 404 on a referenced icon path) was run and came back clean.
+
+### 16:31Z — the 090 came back UNVERIFIABLE, and the honest reading is that it corroborated without confirming
+Run corr `cdcb2981…`, COMPLETED 16:30:54Z, five bundles, **UNVERIFIABLE (stopped: iteration-cap)**.
+Recorded in `bugs_open/481` §8 in full. Three things worth keeping here:
+
+1. **It is not a refutation and it is not support.** 481 now rests on this lane's own first-hand
+   reading of the three function bodies, and says so — which is the escape hatch CLAUDE.md's
+   2026-07-31 ruling names, used explicitly rather than silently.
+2. **It found a better fingerprint than I had.** The two map entries carry *different* `Reason`
+   strings, and farmer's stored spec carries the GENERIC `"insurance"` entry's wording verbatim.
+   I had argued from the industry string; the stored reason text is the stronger tell, and it is
+   the loop's, not mine.
+3. **Its conclusion listed as "not read" an arm its own evidence trail quotes verbatim** —
+   `matchVerticalDirectory`'s partial-match loop appears as citation 2 and in the "still needed"
+   list. Recorded as an observation about the run's summarisation, with the quote to back it, not
+   as a complaint. The estate's other UNVERIFIABLE today (vetcomparison, `scope-not-narrowing`) has
+   the same underlying shape from a different direction: **the bundle never reached the deciding
+   artefact.** Two in one day is worth someone's attention; neither lane is the right owner of that.
+
+**What this changes for the lane:** nothing about the site. 481's mechanism stands on citations
+anyone can re-read in thirty seconds, and its §5 fix ordering is unaffected. The owner's decision
+in §6 — retract the directory or replace it with the agricultural-broker one the growth_path
+specified — was never gated on the verdict.
