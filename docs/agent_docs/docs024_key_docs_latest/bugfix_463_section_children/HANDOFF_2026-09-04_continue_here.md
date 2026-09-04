@@ -84,6 +84,15 @@ SELECT spp.name, spp.role, spp.url, spp.parent_section
 >    `maxPages - len(keep)` and returns `keep` alone once `len(keep) >= maxPages`. Do not
 >    "implement" this by raising `max_pages`: that raises the site ceiling, which is the
 >    thing the owner did NOT ask for.
+>    **FIRST PLANS — ruled 2026-09-04, second question:** *"a brand new site should have as many
+>    pages as is necessary but we can cap it at approximately 20 for now."* So the ten-page
+>    budget is a **RE-PLAN** budget and MUST NOT be applied to a site's first plan, which keeps
+>    its ~20. Note the owner's framing: **20 is an interim pragmatic cap, not a principle** —
+>    "as many as is necessary" is the stated intent, and "approximately" is deliberate, so do
+>    not build a mechanism that treats 20 as exact or as permanent. Today's code already
+>    behaves correctly here by accident: on a first plan `existingPages` is empty, so `keep` is
+>    empty and the budget is the full `maxPages`. **The add-budget change must preserve that
+>    arm** — the discriminator is whether a preserved set exists, not the raw page count.
 > 2. **463's closing bar — ruled: HOLD IT OPEN** until §3 passes at the artefact, as this
 >    lane recommended. "Fixed AND live" is met and is deliberately not being used here.
 > 3. **Scheduling the gamedesign re-plan — ruled: leave it in the natural queue.** Do not
