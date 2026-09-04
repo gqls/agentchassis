@@ -300,3 +300,54 @@ distinguish "declared nothing because it has no data" from "declared nothing bec
 some"**. That second step still needs the `ea` content test. **The rail removes the need for a
 vocabulary; it does not remove the need for a content test.** Any plan that treats the rail as
 sufficient is wrong, and this lane will not write one.
+
+---
+
+## 2026-09-04 — a NULL schema is the DEFAULT, not a signal: the declaration half is near-inert as evidence of guilt
+
+`427` corrected their own message within ten minutes, on two counts. The second is a design
+constraint and this lane has re-derived it independently rather than accepting it
+`[MEASURED 2026-09-04, by this lane]`:
+
+```sql
+SELECT count(*) AS active_tools,
+       count(*) FILTER (WHERE input_schema IS NULL)   AS schema_null,
+       count(*) FILTER (WHERE input_schema::text='{}') AS schema_empty
+FROM content_components WHERE is_active AND component_level='tool';
+--  335 | 287 | 0        → 85.7% NULL
+```
+
+**287 of 335 active tools have no `input_schema` at all.** All three fabricating components
+discussed on this bug are among them — and so are 284 others, most of them entirely fine.
+
+> **⚠ CORRECTION, to the design direction this lane recorded one hour ago.** The NOTES entry above
+> records the rail's `FactBearingFields(schema)` as the thing that lets the birth arm ask a
+> *structural* question instead of a content one. **On today's corpus that predicate is satisfied
+> by 86% of tools, including nearly every innocent one, so as an INCULPATORY signal it is close to
+> inert.** A conjunction that leans on it is the 89%-false-positive shape in a new costume — the
+> same failure this lane already found by simulation, re-entering through a different door.
+>
+> **The asymmetry is the honest statement:**
+> - as an **exculpatory** test the declaration is genuinely useful — a tool that *does* declare a
+>   fact-bearing field and whose ids resolve is clean, cheaply and certainly, and this grows in
+>   value as the rail lands;
+> - as an **inculpatory** test it discriminates almost nothing today, because declaring nothing is
+>   the norm.
+>
+> **So the `ea` content predicate does essentially all the discrimination in the birth arm, and
+> the plan must say so rather than presenting a two-part conjunction as if both parts carried
+> weight.** Credit: `427` caught this on their own mechanism and published it against their own
+> interest, before any seat asked.
+
+**Second count, recorded because it is a practice failure worth the fleet seeing** (`427` is
+logging it in `WRONG_CALLS.md` themselves): they stamped `[MEASURED 2026-09-04]` on the
+`input_schema IS NULL` fact **taken from this lane's message**, not run by them. The figure was
+correct; the marker was not. A `[MEASURED]` marker on a number you did not measure yourself reads
+as first-hand and is not — and the round trip here is a good illustration of the remedy: they
+re-ran it, the figure held, **and re-running it is what surfaced the 86% that inverted the design
+advice.** Re-deriving a correct number was not wasted work; it was the work.
+
+**Consequence they published for their own rail, unprompted:** `FactBearingFields` reads the
+declared schema, so the rail's reach is bounded by schema adoption — **48 of 335 tools**. It works
+where it is aimed (all 14 fact-bearing placements declare one) but it is *not* a general
+tool-provenance mechanism today, and they will not present it as one.
