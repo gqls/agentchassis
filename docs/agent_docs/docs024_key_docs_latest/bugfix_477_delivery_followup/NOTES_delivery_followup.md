@@ -305,3 +305,44 @@ Approved with 3 advisory objections (8 raised across seats, none high-severity).
 > received were manufactured by an ABBREVIATED `sketch` field.** The seats read the plan, not the
 > tree. An omitted half does not read as omitted, it reads as absent — and answering that costs a
 > round when it lands as a REVISE. Cheaper: paste the real hunk.
+
+## 2026-09-04 (late) — two commitments this lane now owes another lane
+
+Recorded because a cold-start reader of this lane would not otherwise know either, and both are
+things that look like tidy-ups a future session might "helpfully" do or skip.
+
+**1. DO NOT delete the `{{instructions_link}}` pre-substitution in `send_followup_email_action.go`
+until the `bugs_open/475` lane says their shared vocabulary landed — or that it did not.** It looks
+like a redundant hand-patch around a shared filler. It is the only thing filling that token today,
+and removing it early leaves a gap where neither lane owns the fill. Their round:
+`c8ed56d2-74ea-4bcc-a0a4-73050c436693` (submitted before writing code, six edits; this lane's action
+is edit 3 and its `{{zip_link}}` never-reason is carried explicitly).
+
+**2. This lane owes the `tokenURL` / `ConfirmTokenURL` collapse, once `778` has settled.** Three
+council seats flagged the duplicate on 2026-09-04. The 475 lane scoped it OUT of their round and
+referred it here, with a better statement of the reason than the one in my own file's comment:
+*"bundling it would have demonstrated the failure it fixes"* — a same-file edit from two lanes is how
+one lane's work gets lost, which is precisely what the duplicate exists to avoid.
+
+**What I gave their round, as a reviewer, and why it was worth reading their plan against my code
+rather than against itself:** two requirements their design did not state, both invisible from their
+side.
+
+- **The same token has different PROVENANCE per caller.** Their edit 5 resolves the instructions URL
+  from `Links.Instructions`, populated inside `Claim` — and my caller never calls `Claim`. It calls
+  `ClaimFollowup` and hand-builds its own `Prepared`. Three tokens already differ this way
+  (`{{live_site}}` input vs cfg, `{{confirm_link}}` minted by me post-claim vs inside `Claim`, and now
+  the instructions link). A `Vocabulary` modelling provenance per TOKEN cannot be satisfied by my
+  caller at all.
+- **"Pre-claim" names a different statement in each caller** — `Claim` at `send_delivery_email_action.go:154`,
+  `ClaimFollowup` at `send_followup_email_action.go:188`. A shared helper documented as "call Check
+  pre-claim" is ambiguous across two callers, and the failure is silent: a Check that runs after MY
+  claim still passes its own assertions while having stamped `followup_sent_at`.
+
+> **The general form, for this lane's own future reviews: read the other lane's plan against YOUR
+> code, not against their plan.** Both findings were invisible from inside their design and obvious
+> from inside mine, and neither would have surfaced by reading the submission carefully.
+
+**And their point 3 found a defect in MY docs** — the enable-check named the commit that added the
+action rather than the one that renamed the placeholder. Fixed in `b92beae38`; the reasoning is in
+the RUNBOOK and in `775`'s own header, because the person applying it reads the migration.
