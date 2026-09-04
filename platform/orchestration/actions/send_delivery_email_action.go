@@ -194,6 +194,24 @@ func SendDeliveryEmailAction(ctx context.Context, params ActionParams) (interfac
 // fillTemplate substitutes the closed placeholder vocabulary. Closed on
 // purpose: a template author cannot invent a placeholder this code silently
 // leaves standing — the {{ scan above catches both typos and inventions.
+//
+// ⚠ THIS VOCABULARY HAS A SECOND CALLER, AND ADDING TO IT SILENTLY BREAKS THAT
+// CALLER'S GUARD. send_followup_email_action.go (bugs_open/477) reuses this
+// function and carries its OWN pre-claim list mirroring the placeholders below,
+// so it can refuse a template naming a link it cannot produce. That list is not
+// derived from this one — it is a hand-kept copy.
+//
+// So: ADD A PLACEHOLDER HERE AND YOU MUST ADD IT THERE. Otherwise the new
+// placeholder reaches a FOLLOW-UP email as an empty string — a customer reading
+// "The instructions are here: " with nothing after it — and it is silent,
+// because the fill succeeded and the post-fill `{{` scan finds nothing. That is
+// precisely the failure the guard in this file exists to prevent, arriving
+// through the door you did not change.
+//
+// This cross-reference is here rather than only in the follow-up file because a
+// comment in the OTHER file protects nobody reading this one — three council
+// seats made that point about a different duplicate on 2026-09-04 and they were
+// right.
 func fillTemplate(tpl string, p delivery.Prepared) string {
 	r := strings.NewReplacer(
 		"{{live_site}}", p.Links.LiveSite,
