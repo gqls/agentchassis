@@ -415,3 +415,52 @@ should have carried a table. **Not done.**
 - Asked `news_editorial_features` one question: whether **webdesign.co.uk** (48 of 48 bodies with a
   `<ul>`, **zero** tables, and the estate's shop window) carries any structural rule at all. A
   deliberate house style and a spec that never got one want opposite responses.
+
+## §12 — 2026-09-04, close: fleet roll + credit outage, this lane's exposure, and one alarm that dissolved
+
+Fleet notice from `inter thread comms`: roll `v1.0.1361` mid-push (cut `06c0b18f2`, pods still on
+`v1.0.1360`), and a verified credit outage **11:21:11–11:56:47 UTC** that killed 92 council-gate runs
+and **20 landmine-verifier runs**.
+
+**This lane's exposure: none.** `[MEASURED 2026-09-04]` 17 commits, **32 `.md`, 1 `.sql`, ZERO `.go`,
+ZERO council submissions.** No code to ride the cut; no verdict to lose.
+
+> **⚠ MISSTEP — I nearly reported another lane's work as my own.** My first scoping used
+> `git log --author=cqls`, which returned **60 Go files and 32 `Council-Submitted` trailers**. **Every
+> session on this machine commits as `cqls`**, so an author filter selects the whole estate's day.
+> The correct filter is this session's own trailer:
+> `git log --since=… --format='%H' --grep='session_01J7hoHuoZc3P36XAdLf6v1E'`.
+> **On a shared tree, "my commits" is not an author question.** Caught only because 60 Go files was
+> implausible for a docs-only day — i.e. by luck of magnitude, not by a check.
+
+Both my verifier dispatches returned verdicts (13:14:08Z, 13:34:19Z), **after** the outage window.
+
+### The alarm that dissolved, recorded in the order it happened
+
+Having edited a file in the migrations directory (`053_build_site_planner.sql`, banner only), I
+checked for a replay hazard. **What I found first looks bad:**
+
+- `053` has **NO `schema_migrations` row at all** — reads as *pending*.
+- It contains `INSERT INTO agent_definitions … ON CONFLICT (type, version) DO UPDATE SET` plus a
+  dozen `UPDATE agent_definitions` against the live planner `f263eaa1-…`.
+- ⇒ an apply would rewrite `default_config`, **restoring *"Use sparingly in v1"* and silently undoing
+  migration 718** — the exact defect this lane spent the morning correcting.
+
+**It cannot happen.** `scripts/migration/run-migrations.sh` sets `BASELINE=124` and filters candidates
+at `n >= base` (line 285), so `053` is excluded **before the probe ever runs**. No ledger row is
+needed because the file is out of scope by number. **Verified at the filter, not inferred from the
+missing row.**
+
+> **The residual, and it is why this is written down rather than dropped:** the only thing between the
+> live planner prompt and a seed that would revert it is **an integer in a shell script**. It bites
+> two ways — lowering `BASELINE`, or copying 053's `ON CONFLICT DO UPDATE` seeding pattern into a file
+> numbered ≥124. And **"no ledger row" reads as *pending* to anyone checking a low-numbered file**, so
+> the reassuring fact is invisible from `schema_migrations` and only visible in the runner's source.
+> Offered to `inter thread comms` for the runner's own landmine rather than filed here — one entry in
+> the right place beats two in the wrong ones.
+
+### A third case for the fleet's "code rides the cut, config does not" rule
+
+The notice adds *"a config row whose effect is to cause a DISPATCH is still roll-sensitive"*. This
+lane met a third: **a config row that is a PROMPT is live immediately, and its failure mode is the
+reverse of roll-sensitivity — a repo artefact outliving the live row it seeded** (§7).
