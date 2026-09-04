@@ -137,3 +137,47 @@ scripts/verify-head-builds.sh                           # after committing
 Never hand-roll `git archive HEAD | tar` — that recipe is why this machine keeps filling up.
 `/tmp` is a 16 GB tmpfs (RAM); a full one presents as
 `link: mapping output file failed: no space left on device`, which reads like a compiler fault.
+
+## Getting content INTO a framework page (the instructions page, phase 3)
+
+The copy lane established there is **no verbatim-content spec field**. Verified here independently
+against the live `page-build-handler` row rather than taken on trust — `grep -o 'spec[a-z_.]*'` over
+`default_config` returns exactly: `spec.mode`, `spec.page_id`, `spec.page_name`, `spec.suggestion`,
+`spec_sections{,.sections,.section_subjects,.section_facts}`.
+
+⚠ **The `{{…}}` interpolations are ESCAPED in the stored JSON, so `grep -oE '\{\{...\}\}'` over the
+row returns ZERO and reads as "nothing is interpolated".** Grep the bare key names instead.
+
+**Three channels reach the writer, not one.** The copy lane named the first; the other two are
+structured and are the better home for exact quotes:
+
+| channel | wired as | reaches the writer as |
+|---|---|---|
+| `spec.suggestion` | `rewrite_guidance?` on the content-writer call | free text, the only prose channel |
+| `spec_sections.section_subjects` | `plan_sections.section_subjects` | `PlanItem.Subject` → `current_section.subject`; the v5 prompt renders it only when non-empty |
+| `spec_sections.section_facts` | `plan_sections.section_facts` | `assigned_fact_ids` → **`AssignedWriterBlock`, composed from ONLY the assigned facts** (`FactsScoped=true`) |
+
+**So for text a customer must see VERBATIM — the Netlify error strings — `section_facts` is the
+designed channel**, because the writer is handed the assigned facts as its evidence block instead of
+the whole-site one, rather than being asked in prose to please quote something exactly.
+
+`[MEASURED 2026-09-04]` `webdesign.uk` already has a live `evidence_base` — **27 facts**, all
+carrying `source`, **none** using `attested_by`. So the register is armed on this site; an attested
+fact would be first-of-kind here.
+
+> ⚠ **DO NOT promise that registering them buys automatic staleness detection. It does not, for
+> these strings.** `refresh_evidence_base` re-runs a fact's own `source.sql`, re-proves an
+> `artifact_check` against a stored artefact, and re-proves a citation against its URL — none of
+> which can re-derive *what a third party's signup screen says today*. `attested_by` (the right shape
+> for the owner's performed run) has no automatic re-check at all. A URL-citation source pointed at
+> Netlify would be worse than nothing: the estate has already rejected a Cloudflare-fronted source
+> for **perpetual false drift** (`maps.org.uk`, 2026-09-02).
+>
+> **What registering them DOES buy is that the writer cannot paraphrase them away.** That is worth
+> it on its own. Staleness stays a human job, which is what `bugs_open/475`'s rot rule already says.
+
+**Also note:** `spec.sections` really is a list of section NAMES (verified by the copy lane against a
+completed item, an 11-element array beginning `hero`), so prose cannot travel that way. But
+`section_subjects` and `section_facts` are PARALLEL arrays aligned to it by index — the alignment is
+enforced (`load_page_sections_from_spec_action.go:624`, `len(specSectionFacts) == len(specSections)`
+or the key is omitted entirely: *"aligned or absent, never guessed"*).
