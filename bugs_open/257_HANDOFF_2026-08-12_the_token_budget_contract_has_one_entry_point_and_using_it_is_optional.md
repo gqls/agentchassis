@@ -808,3 +808,139 @@ hypotheses give different numbers. **It is a live config change to a production 
 owner decision, not a session's.** Recorded here so the next session does not have to re-derive it —
 and note it would also be the first live exercise of the step-level precedence arm, which
 [MEASURED 2026-09-03] nothing on the fleet uses today.
+
+---
+
+## §2026-09-04 — ROUND 3: the owner ruled on all four open decisions, and decision 4 is a real fix
+
+The 2026-09-04 handoff put three decisions to the owner and surfaced a fourth finding. All four came
+back the same day:
+
+| # | question | owner's answer |
+|---|---|---|
+| 1 | run the induced check that would prove round 2 live behaviourally? | **"go ahead with the is-it-live test"** |
+| 2 | merge the last two copies of the precedence rule? | **"leave it"** |
+| 3 | is direct-caller observability part of this bug or its own lane? | **"own piece of work, let me know the bug number"** → **`bugs_open/480`** |
+| 4 | the four `site-adoption-agent` steps declaring a budget where nothing reads it | **"the limits are set in each individuals config, sometimes it has been set in the wrong place and sometimes the agent reads the wrong place, please fix it properly"** |
+
+### DECISION 4 — the defect, measured properly for the first time
+
+The 09-03 handoff had this as "four `site-adoption-agent` steps". A recursive jsonb walk over live
+`agent_definitions` — rather than the fixed-path query every previous census used — found it is two
+failures, not one, and that a fixed-path census could not have seen the second.
+
+**[MEASURED 2026-09-04, 208 active non-snapshot agents] 171 declarations of `max_tokens` in five shapes:**
+
+| shape | decls | agents | read by `ExecuteLLMPromptAction`? |
+|---|---:|---:|---|
+| `workflow.steps.<step>.config.ai_service.max_tokens` | 149 | 74 | yes — canonical |
+| `max_tokens` (agent root, bare) | 10 | 9 | **yes, FIRST** |
+| `workflow.steps.<step>.config.max_tokens` | 7 | 2 | **no — by nobody** |
+| `ai_service.max_tokens` (agent root) | 3 | 3 | yes |
+| `<nested loop step>.config.ai_service.max_tokens` | 2 | 1 | yes, via runtime StepConfig |
+
+**Failure (1), SHADOWED.** The reader took `agentConfig["max_tokens"]` BEFORE the merged `ai_service`
+block — the least specific level first. All ten agents carrying a bare root key declare **8000** on
+their single LLM step, in the canonical place, and were pinned to 500–2000 by a leftover. Nothing
+logged it and the definition reads correctly to inspection.
+⚠ **[MEASURED] none of the ten has ever appeared in `llm_call_log`, all-history.** So this was a latent
+cap on agents nobody is running, NOT live damage — the smaller and the honest claim.
+
+**Failure (2), UNREAD.** Nothing looked at a step's bare key at all. `site-adoption-agent`'s four steps
+each carry an `ai_service` block holding `model` / `provider` / `api_key_env_var` — which ARE read —
+with `max_tokens` as a **sibling** of that block, one brace outside where it was meant to go. They asked
+for 32000 / 6000 / 4000 / 4000 and every one ran at the root 16000. **[MEASURED] 8 live calls in 14 days,
+all at 16000.** `analyze_site` asked for double and got half; the other three asked for less and got
+more, so this is a spend question as well as a capability one.
+
+### What shipped for decision 4 — two halves, deliberately independent
+
+**CODE (`d88afbf84`, `f18704b9c`) — one ladder, most specific first:**
+`step_config.ai_service` → `step_config` → `workflow_step.ai_service` → `workflow_step` →
+`root.ai_service` → `root`. Both intra-level orderings are **unobservable on today's fleet** — no agent
+declares both spellings at any one level, checked — so this fixes both failures without silently
+re-deciding anything an operator already wrote. `budget_tokens` uses the same ladder (zero live
+declarations, so inert today, and there is now no second rule to discover later). The reader accepts
+`int`/`int64`/`float64`/`json.Number`, where `ai_actions.go` was **float64-only** and silently dropped a
+viper-decoded budget that `platform/aiservice` honoured. `getMaxTokens` (`html_actions.go`, the third
+reader) now reads the canonical spelling first.
+
+**The bare spelling is READ, not refused.** Refusing it would turn 17 misplaced declarations into 17
+unconfigured steps at the 2048 floor, which is precisely `bugs_open/205`'s failure. The push towards one
+spelling belongs in a report an operator can act on, not in a reader that goes quiet.
+
+**CONFIG (`763c8002f`, migration `769`, APPLIED 2026-09-04)** — 14 declarations moved into the canonical
+place. Live the moment it applied, so it fixed both failures under the **current** binary too; neither
+half waits for the other. Verified after: **0** bare root declarations (was 10), **13** canonical root
+(was 3), **153** canonical step (was 149), `site-adoption-agent` now sending 32000/6000/4000/4000.
+Headroom stated because two of those four go DOWN: largest observed output per step over 14 days is
+843 / 4167 / 1017 / 1493, zero truncations all-history, so the tightest new ceiling carries 1.4× its
+observed maximum.
+
+**Migration `770` is `_HOLD` because the ordering constraint is real.** `html-developer-chunked`'s three
+steps are the ONE place in the estate where the non-canonical spelling is the only one that works —
+`getMaxTokens` read the bare key and never looked at the `ai_service` block — so moving them before the
+code rolls silently gives all three that function's hardcoded 16000. The apply condition is written into
+the file as a `git merge-base --is-ancestor` command rather than a judgement.
+
+### The detector — `config-key-audit --budget-placement`
+
+`llm_budget_call_sites_test.go`'s own header says this class is invisible to it: *"Config that is
+declared and read by nobody... no Go test can see it."* This is that sentence answered. It calls
+**production's own ladder** (`actions.ResolveStepBudget`, exported for it) and carries no copy of the
+rule. Three kinds: `unconfigured` (fails; one live instance, `provocation-generator-manual.gate`, running
+at the 2048 floor), `ambiguous` (fails; one level declaring both spellings with different numbers — the
+one state where the estate's two readers disagree; zero live instances, and also migration 769's guard 3),
+`non_canonical` (advisory, never fails — the 7 that 769/770 move).
+
+### ⚠ THE DETECTOR'S FIRST RUN FOUND A DEFECT IN THE CHANGE IT WAS WRITTEN FOR
+
+Its first cut called it "shadowed" whenever two levels declared different numbers, and returned **18
+findings, every one healthy**. A root `ai_service` default beaten by a step declaration is the
+**documented overlay design** — `resolveAIServiceConfig`'s own comment says "the root block is the fleet
+default, the current step's block overrides it key-by-key" — and `feed-triage` is a live agent doing it
+on purpose (root 4000, steps 8000 and 8192). The identical over-reporting was already committed as a
+runtime `Warn` in `ai_actions.go`, where it would have fired on every call of 18 live steps. Both removed;
+both non-findings now pinned by name in tests so they cannot come back.
+**The lesson is not "I made a mistake" — it is that a guard whose first run cries on the healthy majority
+is one nobody opens twice, and only running it against the real fleet exposed that.**
+
+### DECISION 2 — "leave it", honoured as option (c)
+
+The two ladders now share only the **walker** (how a number is read out of a map, and which types count
+as configured); the **level lists stay separate**, because a direct caller genuinely has no agent-level
+config to consult, and `TestDirectCallerLadderStaysTwoLevels` pins the difference. This is not the
+`datahelpers` extraction the handoff costed as option (b), and no import cycle is involved — both readers
+are in `package actions`. The contract is written down in `llm_options.go` rather than left as an accident.
+
+### DECISION 3 — spun out as `bugs_open/480`
+
+`llm_call_log` is written from `platform/orchestration/actions` and nowhere else [MEASURED 2026-09-04].
+Six model call sites live outside it and are absent from every truncation instrument the estate has.
+**257 no longer carries this residual.** Lane:
+`docs/agent_docs/docs024_key_docs_latest/direct_caller_llm_observability/`.
+
+### DECISION 1 — the induced check: ARMED, and see the lane NOTES for the reading
+
+Two probes, on the two busiest direct callers (`page-content-writer.rewrite_negations` at 10:57:51Z,
+`offer-analyser.repair_ordering_register` at 11:38:21Z). Both put a number where **only** round-2 code
+looks. `offer-analyser`'s is the interesting one: 2000 is BOTH its configured value and the old Go
+literal, which is exactly why that step could never be checked before (§2c) — 1999 breaks the tie.
+**Both must be REVERTED once read**; the revert SQL is in the lane RUNBOOK.
+
+### Council
+
+`5de01fd3-e683-4425-991c-9cd9fd4d6025`. Round 1 **REVISE**, and read the `decided_by` before reading the
+verdict: **8 of 12 seats returned an unparseable result and 4 abstained**, so the round was carried by
+`"unreadable reviewer(s)"` rather than by any block. Only four verdicts were readable — constitution and
+mission APPROVE, reuse_agent APPROVE with two objections, editquality and prior_art_librarian OBJECT.
+Every objection was answered with a measurement or a real diff and resubmitted on the same trail.
+[MEASURED 2026-09-04] a round decided by unreadable seats is rare — 3 of 225 councils over 7 days — and
+it belongs to `bugs_open/138`'s lane, not to this one.
+
+### What 257 still carries after round 3
+
+Decisions 1 (reading pending), 2 (ruled, documented) and 4 (shipped) are answered; 3 is `480`'s.
+**The bar for closing is "fixed AND live"**: the ladder is committed and inert until the next chassis
+roll, the migration is applied and live. So this stays OPEN until a chassis image containing `d88afbf84`
+is live and migration `770` has been applied against it.
