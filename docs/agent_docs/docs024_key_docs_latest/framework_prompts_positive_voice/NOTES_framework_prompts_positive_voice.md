@@ -283,3 +283,24 @@ without predate the subject block, so they lack BOTH inputs and cannot separate 
 **Not doing either without the owner**, because both spend money and (2) writes a live page. Recommending
 (1) first: it is cheaper, it is reversible, and if it comes back showing the section opening on its own
 subject, the fix is scoped before anyone edits a prompt.
+
+## 2026-09-04 (~16:00Z) — fleet roll v1.0.1361 and this morning's credit outage: this lane is clear, and the roll sets a PRECONDITION on both pending experiments
+
+**Checked, not assumed** (the comms session's numbers, re-run here):
+
+- **Credit outage 11:21:11–11:56:49Z** killed 146 runs fleet-wide, 92 of them council-gate. **Nothing of
+  this lane's**: council `6c92d154` reached `complete_approved` 2026-09-03 19:30:57Z and diagnosis
+  `fae94be1` COMPLETED 2026-09-03 20:04:55Z, both a day before the window. Nothing was submitted today.
+- **641 is intact and unedited since apply**: block present, `sections_for_render` present, template still
+  **14,914 chars** — the same length as at apply, so no other lane has touched the writer row since.
+- **A roll cannot ship or endanger a prompt change.** `make release` replaces binaries; `agent_definitions`
+  is untouched. `service_binary_capabilities` is the wrong instrument for anything this lane changes — the
+  live row is the fact. Worth stating because this lane's whole output is DB config.
+
+> **PRECONDITION, and it binds both pending experiments.** v1.0.1361 carries **aiservice token-budget
+> work** (`max_tokens.go`, `thinking_budget`, the `llm_budget` ladder) among 18 Go-touching commits since
+> the running v1.0.1360. Both experiments this lane owes — the house voice before/after replay, and the
+> model arm — measure **writer output**, which is exactly what a token-budget change can move.
+> **Neither may straddle the restart.** Run both arms on one side of it, after the pods are up and past
+> the ~300s dispatch-drop window, and record the running tag beside the numbers. A before/after taken
+> across a binary change measures the binary as much as the prompt, and nothing in the output would say so.
