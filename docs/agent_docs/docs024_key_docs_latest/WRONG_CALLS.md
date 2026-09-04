@@ -65505,3 +65505,43 @@ existed for nobody but me, and a fresh clone could not have reproduced the schem
 - **Cost.** None — caught before it reached a doc or a peer. Logged because the failure mode
   is *a well-controlled measurement of the wrong property*, which is the hardest kind to
   distrust: every control I ran passed.
+
+## 2026-09-04 (b) — `site_delivery_and_editor`: I read a migration's owner off its FILENAME and messaged the wrong lane
+
+**The claim.** Having found two applied-but-uncommitted migrations, I named their owners in a
+landmine entry and sent one of them a message: *"Your migration 767 is LIVE in the database and not
+in git."* The file is `767_vetcomparison_posture_as_a_doc_notes_decision_record.sql`, so I sent it to
+the **vetcomparison** lane.
+
+**What was actually true.** That lane has applied no migrations at all, in this run or ever, and said
+so with specifics: every DB write from it was direct DML. `vetcomparison` in that filename is the
+**subject site**, not the author. The migration belongs to `bugfix_414_planted_marker_as_claim`,
+which is building vetcomparison's evidence register — hence the site's name in the file.
+
+**How the real owner was established, since "believe the peer" would have been the same error
+inverted.** `767`'s own note says it answers the council REVISE on migration `761`. `761` is
+committed (`c68932577`) and carries `Council-Submitted: 5d54f835-…` — the same correlation `767`
+names. The lane directories citing that correlation are `bugfix_414_planted_marker_as_claim` and
+`vetcomparison`, and the commit's own text is about the evidence register. **Provenance from the
+council correlation, which is an identifier the work carries; not from a word in a path.**
+
+**Why the filename was tempting, and this part generalises.** `git log` authorship is useless for
+this on a shared tree — **every commit on this repo is `cqls`**, so the one field built to answer
+"who wrote this" answers nothing. With the obvious signal dead, a lane name sitting right there in
+the filename is the next thing to hand, and it reads like data rather than a guess.
+
+**The cheap check.** Route by the **council correlation** in the migration's own note, or by
+`grep -rl "<corr>" docs/agent_docs/docs024_key_docs_latest/` to see which lane dir claims the work.
+Both are one command and both name the author rather than the subject. `scripts/who-owns.py` exists
+for the bug-file version of exactly this question.
+
+**The rule I already had.** `MEMORY[a-subagent-report-is-another-doc]` — *"a naming convention is not
+a measurement; a key SHAPE is a hypothesis about provenance."* I have that written down, and I still
+treated `<number>_<word>_<description>.sql` as though the word were an author field. **A filename is
+a hypothesis about provenance, and this estate names files after their SUBJECT constantly** — every
+site-specific migration does.
+
+**Cost.** One misdirected message, answered generously and with evidence by a lane that owed me
+nothing. The landmine's mechanism content was right and they adopted the check regardless; the
+attribution line is corrected in place rather than quietly swapped, because the next reader routing
+by that line is exactly who this cost. The 414 lane has been nudged by vetcomparison directly.

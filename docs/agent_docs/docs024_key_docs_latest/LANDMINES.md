@@ -22310,6 +22310,18 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   `521_tool_deployer_fork_guard_armed.sql` (applied 2026-08-21) and
   `767_vetcomparison_posture_as_a_doc_notes_decision_record.sql` (applied 2026-09-04 11:08Z, minutes
   before this entry was written — this is a live habit, not a historical one).
+  > **CORRECTED 2026-09-04, and the correction is itself an instance of a different trap.** I first
+  > routed `767` to the **vetcomparison** lane and messaged them. Wrong: they applied no migrations
+  > at all, and told me so with evidence. **I read the author off the FILENAME**, where
+  > `vetcomparison` is the SUBJECT SITE, not the author. It belongs to the
+  > **`bugfix_414_planted_marker_as_claim`** lane — proven, not re-guessed: `767`'s own note says it
+  > answers the council REVISE on `761`, and `761`'s commit (`c68932577`) carries
+  > `Council-Submitted: 5d54f835-…`, the same correlation; the lane dirs citing that correlation are
+  > `bugfix_414_planted_marker_as_claim` and `vetcomparison` (as subject).
+  > **⚠ `git log` authorship cannot disambiguate lanes on this tree — every commit is `cqls`** — which
+  > is exactly why a filename looks like the next best thing. It is not. Route by the COUNCIL
+  > CORRELATION or by which lane dir cites the work, never by a name inside the filename.
+  > (`MEMORY[a-subagent-report-is-another-doc]`: a naming convention is not a measurement.)
 - **relations:** `MEMORY[live-and-committed-are-independent-facts]` (the general form; this is its
   migration-shaped instance) · `MIGRATIONS_DIR=… --apply scopes NOTHING if the assignment lands on
   its own line` (the reason everyone hand-applies in the first place) · `WRONG_CALLS.md` 2026-09-04
