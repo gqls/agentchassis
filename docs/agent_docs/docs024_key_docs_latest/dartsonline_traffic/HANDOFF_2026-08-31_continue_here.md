@@ -517,6 +517,40 @@ number, or "yes" about a file that never ran.
 
 **Ask the running agent instead:**
 
+> ### ⚠ AND THE 640 HALF SHIPPED TOO — under a DIFFERENT NUMBER. "Neither is applied" was literally true and materially misleading.
+>
+> I wrote that neither `640` nor `641` was applied and used it to conclude the fix had not shipped.
+> **Both halves had shipped, by two different routes, and the migrations table could not tell me
+> either.** Prompted by `inline_guide_imagery` asking whether my `640` claim rested on a borrowed
+> control — it rested on something weaker: **the absence of a name I had guessed.**
+>
+> | half | file | how it actually landed | in `schema_migrations`? |
+> |---|---|---|---|
+> | planner emits subjects | ~~`640`~~ → **`762_build_site_planner_rule17_subjects_become_opening_lines.sql`** | applied **2026-09-03 19:22:35Z** | **YES** |
+> | writer receives subjects | **`641`** (`_HOLD`) | applied **BY HAND 22:05:57Z** | **no** |
+>
+> **`640` is genuinely unapplied and genuinely superseded.** Its own idempotence predicate —
+> `position('may also carry a "subject"' in t) > 0`, an exact substring with no wildcards — returns
+> **`f`** against the live planner, with controls `t` / `f`. So the file never ran; **762 did the
+> job under a higher number.** The live planner config now carries 762's worked example, two
+> `features` sections with **distinct** subjects:
+> `{"name":"features", ..., "subject":"Here is what the service does day to day."}` /
+> `{"name":"features", ..., "subject":"Here is how a team starts using it."}`
+>
+> **So the ledger failed twice, in opposite directions, on the two halves of one fix**: one
+> superseded by a later number, one applied without a record. **That is the whole argument for the
+> artefact gate in one case** — and note the trap is not only "unrecorded". A file can be *correctly*
+> recorded as unapplied while its content is live under another number.
+>
+> **⚠ ONE THING TO WATCH ON THE RETRY, from 762's own name and verify message: "rule 17 subjects
+> become OPENING LINES."** The planner is now told to emit subjects that read as a section's opening
+> sentence. **The nine subjects this lane hand-wrote in `SEED_2026-09-03` are BRIEFS, not opening
+> lines** — e.g. *"Ring grip: evenly spaced circular grooves cut around the barrel, the most common
+> and most forgiving texture, who it suits and how it feels on release."* Under 641's template they
+> arrive under a `## This section` heading, which reads as a brief and should be fine. **But if the
+> retry produces prose that opens by reciting the subject verbatim, that is the cause** — rewrite
+> them as opening lines rather than as instructions, and do not conclude the mechanism failed.
+
 > ## ✅ 2026-09-04 — THE BLOCKER IS CLEARED. The retry is actionable. And the gate below was BROKEN.
 >
 > **`641` was applied BY HAND at 2026-09-03 22:05:57Z.** `page-content-writer` is now version 2 /
