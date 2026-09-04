@@ -162,3 +162,65 @@ against**, per `component_write_guard.go`'s own doctrine: every threshold there 
 against the full live history first, and **two candidate checks were dropped because the
 simulation caught them misfiring on legitimate rewrites**. Neither column in that file is a
 verdict — its own header says the wide count is mostly legitimate UI vocabulary.
+
+---
+
+## 2026-09-04 — THE SIMULATION KILLS PLAN ITEM B AS DRAFTED (89% false positives)
+
+Ran the threshold simulation I owe under `component_write_guard.go`'s doctrine, over `427`'s
+134-tool calibration set, **before** committing any threshold. The draft plan's item B was
+"give Tier B a birth arm so a computed signature is not discarded". Simulated as the obvious
+version of that — **drop the corroboration requirement at birth, keep `fabLiteralRecordThreshold
+= 15`**:
+
+```
+tools with dataset_records >= 15 : 28
+  of which entity+attribute >= 2 : 3     ← true positives
+  FALSE POSITIVES                : 25    ← 89%
+```
+
+**A gate with an 89% false-positive rate is not a gate.** This estate's own written doctrine is
+that *"a guard that refuses good work gets switched off, and then it protects nothing"*
+(`component_write_guard.go` header), and 25 legitimate tools routed to human review on their
+birth day is precisely how that happens. **This is the "second incident" the review was asked to
+find, and the simulation found it in one command.** Draft item B is withdrawn in its stated form.
+
+**It is worse than a tuning problem — the threshold fails in BOTH directions.** The distribution
+over the 134 (min 2, median 7, p90 23, max 73) puts plenty of legitimate tools above 15, and the
+motivating case sits below it:
+
+| component | dataset_records | entity+attr | verdict |
+|---|---|---|---|
+| `tool-vet-comparison-vetcomparison-uk` | 30 | 30 | **fabrication** |
+| `tool-sfi26-revenue-stacker-agritec-uk` | 25 | 24 | **fabrication** |
+| `tool-budget-kit-builder-garden-tools-uk` | 18 | 20 | **fabrication** |
+| **`tool-fight-countdown-boxingonline-com`** | **6** | **6** | **fabrication — THE BUG, below the threshold** |
+| `tool-loot-table-balancer-gamesdesign-co-uk` | 3 | 3 | probably legitimate game vocabulary |
+| `tool-bee-foraging-calendar-apis-uk` | **73** | 0 | legitimate (flowers, label, shift, stage) |
+| `tool-garden-jobs-finder-homegarden-uk` | 45 | 0 | legitimate |
+| `tool-archetype-clash-calculator-vonc-com` | 37 | 0 | legitimate |
+
+So no threshold on record count separates these populations. The largest dataset in the corpus
+(73 records) is entirely legitimate and the bug that started this lane has 6.
+
+> **⚠ CORRECTION to this lane's own PLAN §3, same day, before it was acted on.** Item B said
+> "calibrate the threshold against the 134-tool set". **The finding is that there is no threshold
+> to calibrate.** Record count is not the discriminator in either direction. **The discriminator is
+> the KEY SET** — does a record identify a real-world entity *and* attribute a checkable property
+> to it (`postcode`, `website`, `rate`, `price`, `venue`, `event_date`) — which is exactly the axis
+> `427` chose for their census and I did not choose for mine. Their `entity_attr_records` column
+> separates 5 from 129 where the record count separates nothing.
+> On `ea >= 2` the same simulation gives **5 convictions, ~4 true** (loot-table-balancer is the
+> likely false positive) — ~20% FP, routed to human review rather than to breakage, which is a
+> defensible gate. **That is the predicate to build, and it is not a widening of Tier B; it is a
+> different question asked of the same corpus.**
+
+⚠ **One inconsistency in the calibration data, flagged to `427` rather than relied on.**
+`tool-budget-kit-builder-garden-tools-uk` reads `dataset_records = 18`, `entity_attr_records = 20`.
+`ea` is documented as *"the narrower subset"* of `ds`, and a subset cannot be larger than its
+superset — so the two columns are counting over different extractions, or one has an off-by-one
+in its record splitting. **It does not change the conclusion** (that row is a true positive on
+either number, and the false-positive count is driven by the `ea = 0` majority), but the
+`ea` column cannot be quoted as a strict subset count until its author says which. Recorded
+because a number I am about to build a predicate on had a visible defect and saying nothing would
+have made it load-bearing by silence.
