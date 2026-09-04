@@ -22061,14 +22061,30 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 - **source:** 2026-09-03, `finetuning_uk_service`, the owner's deploy of PUB-006 — one wasted restart of a service fronting three sites.
 - **added:** 2026-09-03, `finetuning_uk_service` lane.
 
-## A PDF source fetches 200, extracts 296,699 characters, and matches NOTHING — the citation you register against it reads as `citation_lost` drift every day, for ever
+## A PDF source fetches 200, extracts 296,699 characters, and matches NOTHING through `cmd/fcaquotecheck` — and the tell is that YOUR CONTROL FAILS TOO
+
+
+> **⚠ CORRECTED 2026-09-04, and the correction is the point of this entry now.** As first written, this
+> entry claimed the danger was that *"the refresher re-fetches nightly, the quote never matches, and the
+> fact classifies as drift for ever"*. **THAT IS FALSE. Production was never at risk.**
+> `refreshCitationFact` → `verifyCitationLiveForRule` → `fetchCitationDocument`, which REFUSES a
+> non-html/xml/text content type (`evidence_citations.go:143-148`) and classifies it `fetch_error` →
+> outcome **`error`**. That file's own header has always said so: *"fetch failed (network, 403, 5xx,
+> unsupported content type) → UNKNOWN, not drift … Reported as an error, never as loss"*, and *"PDFs and
+> other non-text content are refused rather than half-read"*.
+> **I asserted a production behaviour from an instrument that is not production, and never read the
+> production path.** What caught it: the owner asked me to fix the checker, so I finally opened it.
+> **The trap is real but it lives in the PROBE, not the pipeline** — and as of 2026-09-04
+> `cmd/fcaquotecheck` calls the production fetch, so the blind-probe half is fixed too. The entry is
+> kept, rewritten, because the *reading* skill it teaches — two falses means a blind instrument — is
+> what no gate can give you.
 
 - **footprint:** `cmd/fcaquotecheck` · `platform/orchestration/datahelpers.VisibleTextFromHTML` / `QuoteFoundInText` · `platform/orchestration/actions/refresh_evidence_base_action.go` (the citation re-fetch arm, ~:576) · `site_specs.aspect='evidence_base'` → any fact's `source.citation.url` · `docs/agent_docs/docs024_key_docs_latest/lendzy_co_uk/RUNBOOK_lendzy_co_uk.md` §8 step 4 and §8g
 - **fires when:** you build an evidence register at the CITED bar and your primary source is a PDF — a consultation document, a draft Order, a statutory instrument's own PDF, a regulator's annex. This is the normal shape for CMA, and common for anything published for consultation rather than as a web page.
-- **why the wrong result looks right:** every signal a careful person checks says the source is good. The fetch returns **HTTP 200**. The document really does contain your quote — you can read it with `pdftotext -layout` and paste from it. The extractor returns a **large** non-empty string, so a "did the extraction produce anything?" check passes. `[MEASURED 2026-09-03]`, the CMA draft substantive Order: `HTTP 200 raw=392144 visible=296699` and **every quote false**, including `"Compliance Date"`, which is unquestionably in the document. **The absent control was false too** — so at a PDF the probe discriminates NOTHING, and a run that reports `false, false` for quote-and-control looks exactly like a run where you simply mistyped the quote. The failure is silent and permanent: the refresher re-fetches nightly, the quote never matches, and the fact classifies as drift for ever — a false alarm indistinguishable from a real one, on a register whose entire purpose is that drift means something.
+- **why the wrong result looks right:** every signal a careful person checks says the source is good. The fetch returns **HTTP 200**. The document really does contain your quote — you can read it with `pdftotext -layout` and paste from it. The extractor returns a **large** non-empty string, so a "did the extraction produce anything?" check passes. `[MEASURED 2026-09-03]`, the CMA draft substantive Order: `HTTP 200 raw=392144 visible=296699` and **every quote false**, including `"Compliance Date"`, which is unquestionably in the document. **The absent control was false too** — so at a PDF the probe discriminates NOTHING, and a run that reports `false, false` for quote-and-control looks exactly like a run where you simply mistyped the quote. **That indistinguishability is the whole trap**, and it cost more than a wasted probe: I read those two falses as evidence about the PIPELINE, wrote a false production danger into five documents, and designed a register around avoiding a risk that did not exist.
 - **why §8g's existing three signatures do NOT cover it:** the census records a Cloudflare challenge page, UA-differential serving, and founding-name slugs. All three are defects of the HOST or the URL. **Here the host is fine, the URL is right, the document is right — it is the EXTRACTOR that cannot read the FORMAT.** So a host-acceptance check, however carefully instrumented, admits this class by construction, and so does any check that reasons about status, size, title or redirects.
-- **the check:** run §8 step 4 — the probe THROUGH the production matcher — and **read the control, not just the quote**. `go run ./cmd/fcaquotecheck "<url>" "<a phrase you are certain is in the document>" "zzz deliberately absent control"`. On an HTML source you get `true` then `false`. On a PDF you get `false` then `false`, and **two falses is the tell**: it means the instrument is blind, not that your quote is wrong. Confirm with `curl -sI "<url>" | grep -i content-type` — `application/pdf` settles it.
-- **what to do instead (do NOT just drop the fact):** register it with `source.attested_by` naming who read the primary document, when, and the verbatim extract, plus `source_document` (the URL, for a human) and `no_citation_because` (this measurement, so the absence is legible rather than looking like an omission). Verified at the code, not assumed: the refresher's re-fetch arm is gated on `if _, has := src["citation"]; has`, so an `attested_by` fact is **never fetched** and instead gets a ~180-day staleness nudge. And it costs nothing in scan coverage — `numberSupported` consults `Value`, `ContextTerms`, `Tolerance` and `IsSeries()` and **never `Source`**, so an uncited fact arms `ScanUnregisteredNumbers` exactly as fully as a cited one.
+- **the check (and it now mostly runs itself):** since 2026-09-04 `cmd/fcaquotecheck` calls the PRODUCTION fetch, so an unsupported content type surfaces as `NOT VERIFIABLE UNATTENDED: unsupported content type "application/pdf"` instead of a row of `false`. On any older copy, or any hand-rolled probe, **read the control, not just the quote**. `go run ./cmd/fcaquotecheck "<url>" "<a phrase you are certain is in the document>" "zzz deliberately absent control"`. On an HTML source you get `true` then `false`. On a PDF you get `false` then `false`, and **two falses is the tell**: it means the instrument is blind, not that your quote is wrong. Confirm with `curl -sI "<url>" | grep -i content-type` — `application/pdf` settles it.
+- **what to do instead — and the platform's OWN answer, which I missed:** keep the `citation` (URL + verbatim quote, so the provenance survives) and set **`"reverifiable": false`** plus `staleness_days`. `evidence_citations.go`'s header names this as the intended path for a PDF, and `refreshCitationFact` honours it: such a fact is never fetched and ages by policy, which is strictly better than discarding the URL. `source.attested_by` with no citation also works and is what vetcomparison's first cut used, but it throws away the URL and quote for no gain. Verified at the code, not assumed: the refresher's re-fetch arm is gated on `if _, has := src["citation"]; has`, so an `attested_by` fact is **never fetched** and instead gets a ~180-day staleness nudge. And it costs nothing in scan coverage — `numberSupported` consults `Value`, `ContextTerms`, `Tolerance` and `IsSeries()` and **never `Source`**, so an uncited fact arms `ScanUnregisteredNumbers` exactly as fully as a cited one.
 - **relations:** RUNBOOK_lendzy §8 step 4 (the probe), §8g (the census this is a **fourth signature** for) · `759_vetcomparison_evidence_base_cma_draft_order_and_govuk_pet_travel.sql` (the worked case: 8 of 21 facts attested for this reason) · MEMORY [[a-plausible-external-cause-is-when-to-doubt-your-instrument]] — same family, and the same remedy: when a believable story explains a negative, doubt the instrument · [[a-post-fix-zero-needs-a-demand-control]]
 - **source:** 2026-09-03, `bugfix_414` register-programme lane, building vetcomparison.uk's register under owner ruling D1. Caught before shipping only because §8 step 4 is written as "probe with a control" rather than "probe".
 - **added:** 2026-09-03, `bugfix_414_planted_marker_as_claim` lane
@@ -22542,3 +22558,64 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   confident, useless *"yes, it reaches it"*. The anomaly that prompted it: the sibling archived pages
   on the same site had not rebuilt either, while every active page had.
 - **added:** 2026-09-04, bugfix_469_drift_closer lane
+
+## A bug file's own honest NARROWING is scoped to the symptom that prompted it — and nothing in the document says so, so the next reader inherits the small number and stops looking
+
+- **footprint:** `page_components.component_id` · `platform/orchestration/actions/save_page_sections_action.go` ·
+  `bugs_open/385_HANDOFF_2026-08-24_a_rebuild_appends_an_unlinked_copy_of_the_locked_section_it_just_repositioned.md` ·
+  `bugs_open/479` · `component_versions`
+- **the trap:** `bugs_open/385` did everything this estate asks. It measured a blast radius, found
+  it had overclaimed, and corrected itself in writing: *"A non-zero `byte_twins_on_page` is this
+  bug. A bare `component_id IS NULL` count is not — it over-reports by 10 out of 11, which is the
+  difference between 'a fleet-wide class' and 'one page', and I had written the first before
+  running the second."* Dated, marked, and true. **It is also why nobody re-read those rows for
+  eleven days.** The sentence a later reader carries away is *"the `IS NULL` count is not the
+  bug"*, and that count IS the bug for the other defect living in the same arm — the re-append
+  drops the stored `component_id` whether or not it also duplicates anything. `[MEASURED
+  2026-09-04]` the count had grown 11 → **17 rows / 7 sites**, five of them tool slots serving
+  working tools, **three created after 385's own fix went live** — and **all 17 have
+  `byte_twins_on_page = 0`**, so 385's discriminator excludes every one of them.
+- **the same shape one paragraph along, in the same file:** *"[MEASURED 2026-08-25] the armed set —
+  locked AND `build_status='deployed'` AND interactive — is 1 row fleet-wide."* True, and it is the
+  **LOCKED** subset (0 rows today). The arm that orphans needs no lock; its actual preload is
+  `build_status='deployed' AND <interactiveHTMLSQL>`, which `[MEASURED 2026-09-04]` selects **378
+  rows across 371 pages**. A reader comes away with "1". Nothing is wrong with the sentence.
+- **the check, and it is cheap:** before quoting a narrowed number as the size of a problem, ask
+  **what is this a count OF** — then re-run the WIDE query the narrowing rejected and diff the two
+  populations. If the wide one has grown while the narrow one has not, the narrowing is hiding a
+  second defect, not a false alarm. Concretely, for this arm:
+  ```sql
+  -- the WIDE census the narrowing tells you not to trust. Run it anyway, and date it.
+  SELECT s.domain, p.name, pc.slot_name, length(pc.rendered_html) AS bytes, pc.created_at
+    FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+   WHERE pc.component_id IS NULL AND pc.build_status <> 'removed' ORDER BY pc.created_at DESC;
+  ```
+  A row **younger than the fix** that the narrowing excludes is the tell: the fix closed one door
+  and the population is still growing through another.
+- **when you WRITE a narrowing** (the half you control): name what the number counts, in the
+  sentence. *"1 row fleet-wide"* → *"1 row fleet-wide **that is also locked** — the orphaning arm
+  below has no lock condition and is not bounded by this number."* It costs a clause.
+- **⚠ related trap, same file, different column:** `page_component_history.component_id` is a FK to
+  **`page_components(id)`** — the row INSTANCE — with `ON DELETE SET NULL`. It never held the
+  library reference, and it goes NULL whenever the instance is deleted. So "the history shows every
+  write already had `cid=NULL`" says nothing about `page_components.component_id`, which is the
+  column the damage is in. `\d page_component_history` before reasoning from it.
+- **⚠ and one for the repair:** identifying which component an orphaned row should point at CANNOT
+  be settled by re-rendering candidates and comparing bytes, even though that is the estate's own
+  proof standard (`adoptFragmentSection`). `[MEASURED 2026-09-04]` for
+  `advertise.co.uk/tool-ad-budget-calculator`, versions of **two different components**
+  (`…-advertise-co-uk` and the `…-websitepromotion-co-uk` fork) each render md5-identical to the
+  stored 16,962 bytes, because **a fork is a literal copy of the template**. Bytes prove the
+  template TEXT and are silent about ownership. What names the owner is a second signal — the
+  component is not already bound to a page on a different site — and the two together resolve each
+  row to exactly one candidate while correctly resolving shared components (`generic-text-block`,
+  `faq`) to none.
+- **relations:** `bugs_open/479` (the residual defect and its fix) · `bugs_open/385` §4, §5c
+  (the narrowing, and the joint that named the drop in passing) · `bugs_open/182` (the slot-name
+  silent substitution a NULL id falls through to) · `bugs_open/450` · MEMORY
+  [[a-closer-census-cannot-see-what-it-succeeded-at]] and
+  [[prior-art-search-goes-stale]] — same family: a record that was true when written
+- **source:** 2026-09-04, `bugfix_450_tool_page_shells` lane, while scoping 450's §1 repair
+  fleet-wide. Found by re-running the census the handoff quoted rather than carrying its number
+  forward — which is the whole of the method here.
+- **added:** 2026-09-04, bugfix_450_tool_page_shells lane

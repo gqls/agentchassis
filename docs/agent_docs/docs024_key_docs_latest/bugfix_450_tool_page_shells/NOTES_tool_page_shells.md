@@ -712,3 +712,164 @@ claim that travels, and when you adopt someone else's finding, adopt its status 
 **Also closed:** all eight tools verified serving at 14:32:42Z by instance-scoped id. The instance
 work is done on their side; §1's outstanding repair is the two remaining orphans
 (`idea.uk/tool-funding-fit`, `loanzy.uk/tool-loan-vs-savings`), not seotools.
+
+## (x) 2026-09-04 — the orphan class has a WRITER, it is still firing, and it is the arm `bugs_open/385` already diagnosed
+
+Picked up §5 item 1 of the handoff (repair the orphans, scope the class, read the re-insert
+branch). All three are done and the answer to the third is bigger than the first two.
+
+**First, the census, because the handoff's is 19 hours old.** `[MEASURED 2026-09-04 ~09:30Z]`
+17 rows fleet-wide with `component_id IS NULL AND build_status <> 'removed'` across 7 sites. The
+seotools six are gone (the portfolio lane repaired them at 14:01:10Z). But **three NEW tool
+orphans have appeared since the handoff was written**:
+
+```
+advertise.co.uk  tool-ad-budget-calculator          2026-09-03 16:23:18Z
+advertise.co.uk  tool-cpm-cpc-benchmark-comparator  2026-09-03 16:57:03Z
+finetuning.uk    tool-playground                    2026-09-04 04:12:34Z   <- five hours before I looked
+```
+
+So this is **a live producer, not a backlog**, and any repair done without fixing the writer is a
+treadmill. That reframed the whole job.
+
+**The writer, and the prediction that could have failed.** `save_page_sections_action.go`'s Layer 2
+has two carry arms. The re-append arm ("slot dropped entirely") builds a section wholly out of the
+stored row and takes its component id from `carriedIdentity`, which returns `""` unless the
+`adopt_unidentified_fragments` flag is armed AND the stored component's function is exactly
+`adopted-fragment`. A tool's function never is — **so arming the flag would not have fixed this**,
+which is the opposite of what I assumed for about ten minutes on first reading the flag's comment.
+`enrichSectionsWithComponentIDs` runs ~190 lines earlier and never sees the appended entry.
+
+The arm sets `Position: len(sections)+1` and the insert loop numbers from `i+1`, so if this is the
+writer, **every orphan must be at its page's LAST position and be the LAST row of its write
+burst.** It is, 5 of 5, in bursts milliseconds wide. That is a prediction that could have come out
+otherwise — an orphan at position 3 of 5 would have refuted it.
+
+**Then I found 385 had already been here.** `bugs_open/385` §5c joint 5, dated 2026-08-25, names
+the exact line: *"ComponentID:'' because the RFC_046 `carryStoredIdentity` opt-in is OFF
+(default). The enricher at :397 had already run, so nothing ever resolves the appended entry."*
+Right first time. It was read as incidental, because 385's symptom was a byte-identical DUPLICATE
+and the identity drop was one column of it.
+
+## (y) 2026-09-04 — a correct narrowing is what hid the class, and this is the transferable part
+
+385 §4 narrowed its blast radius honestly and well: *"A non-zero `byte_twins_on_page` is this bug.
+A bare `component_id IS NULL` count is not — it over-reports by 10 out of 11, which is the
+difference between 'a fleet-wide class' and 'one page', and I had written the first before running
+the second."* That is a session catching its own overclaim, which is exactly what we ask for.
+
+**And it is why nobody looked at the orphans again for eleven days.** The sentence a later reader
+carries away is *"the IS NULL count is not the bug"* — true of the duplication, false of the
+orphaning that lives in the same arm. `[MEASURED 2026-09-04]` all 17 current orphans have
+`byte_twins_on_page = 0` and `locked_same_slot = 0`: 385's own discriminator excludes every single
+one of them.
+
+Same shape one paragraph along. 385 §5c ends *"[MEASURED 2026-08-25] the armed set — locked AND
+`build_status='deployed'` AND interactive — is 1 row fleet-wide."* True, and it is the LOCKED
+subset (0 rows today). The orphaning arm needs no lock. The preload's actual predicate is
+`build_status='deployed' AND <interactiveHTMLSQL>`, which `[MEASURED 2026-09-04]` selects **378
+rows across 371 pages**. A reader of 385 comes away with "1"; the real exposed population is three
+orders of magnitude larger.
+
+**The lesson is not "385 was wrong" — it measured what it claimed and marked it.** It is that **a
+narrowing is scoped to the symptom that motivated it, and nothing in the document says so.** Both
+sentences are dated, both are marked `[MEASURED]`, both are true. What is missing is the clause
+naming what the number is a count OF. Written up as a LANDMINE.
+
+**Method note, for the census itself:** I took the interactive predicate by printing
+`interactiveHTMLSQL("pc.rendered_html")` from a throwaway test in the package, not by transcribing
+the marker lists. RUNBOOK §1 says copy the predicate rather than paraphrase it; four of this
+lane's measurement errors came from paraphrasing one, and this is the version of that rule that
+works when the predicate is assembled in Go rather than written out.
+
+## (z) 2026-09-04 — the harm is NOT what the handoff and I both said, and the correction matters for the repair
+
+HANDOFF §1(3) says these pages are *"one rerender away from losing their tools for real"*. I
+carried that into my own first reading. **It is wrong in both directions**, and I only found out
+by reading the re-render path instead of reasoning about it.
+
+`resolveComponent` (`rerender_page_sections_action.go`) tries `component_id` first and then falls
+through to the slot-NAME map. It does not fail. What happens next has two shapes:
+
+1. **Silent substitution — the real risk.** `loadComponentSchemas` builds that map as
+   `result[ci.Function] = ci` over a query with **no `ORDER BY`**: last row wins. `[MEASURED
+   2026-09-04]` three of the five orphaned tool slots have 2–3 ACTIVE components sharing their
+   function, because tools are forked across sites under compounded names
+   (`tool-cpm-cpc-benchmark-comparator-advertise-co-uk-seotools-co-uk`). **Which tool renders is
+   decided by row order.** That is `bugs_open/182`'s silent substitution arriving one field along.
+2. **A stuck page.** Where the name resolves to something that is not a self-contained tool, the
+   orphan's NULL `content_data` trips the re-render content pre-check, which escalates the whole
+   page to the writer and returns without rendering. Bytes safe, page never re-renderable — 385
+   §3's outcome by a different route.
+
+So: nothing blanks. The urgency is real but it is a *wrong tool* risk, not a *no tool* risk, and
+that changes what a good repair has to be careful about — binding the wrong fork IS the damage.
+
+**All five serve correctly today** `[MEASURED 2026-09-04, at the body]`, via
+`scripts/probe-page-url.sh` for the recorded-URL half plus a control probe: advertise ×2 (2 forms,
+22/11 inputs, 7 scripts each), finetuning/playground (1 form, 8 scripts), idea/funding-fit (2
+forms, 40 inputs), loanzy/loan-vs-savings (0 forms, 7 inputs, 1 select, 6 scripts — §5a's fixture,
+confirmed again).
+
+## (aa) 2026-09-04 — identifying the right component: the byte proof WORKS and still cannot name the owner
+
+The handoff proposes repairing by matching `slot_name` to `cc.function` and requiring one active
+match. `[MEASURED 2026-09-04]` **that is not unique for 3 of the 5 tool rows** (2, 3 and 2 active
+candidates). Run unguarded it binds an arbitrary fork, which is the damage in (z)(1).
+
+**What the rows themselves carry: nothing.** No `data-component`, no `data-tool`, no
+`component_version_id`, `content_data` NULL, on all five. And `page_component_history` cannot
+help — its `component_id` is a FK to **`page_components(id)`**, the INSTANCE, with
+`ON DELETE SET NULL`. It goes NULL when the instance row is deleted and never held the library
+reference at all. (Worth knowing before quoting HANDOFF §1's "six writes, every one already
+`cid=NULL`" as evidence about the library id — that is a different column.)
+
+**So I went to the proof standard the codebase uses.** `adoptFragmentSection` binds a fragment only
+after RENDERING the candidate template and checking the output is byte-identical. Applied here:
+take each `component_versions` row, substitute `{{.InstanceID}}` → `c-` || slot_name, compare md5
+to the stored bytes. For `advertise.co.uk/tool-ad-budget-calculator` it lands **exactly** — same
+length, same md5, no diff, no leftover placeholders.
+
+**And it does not settle anything, because it matches TWO components at once.** Versions
+`ae5b412f` (the advertise component) and `205cc5a8` / `bc53c2b2` (the websitepromotion fork) all
+reproduce the same 16,962 bytes, because **a fork is a literal copy of the template**. The proof
+establishes the template TEXT and is silent about which component the page holds. Recorded rather
+than deleted: it is a sound method that answers a different question than the one I needed, which
+is this lane's recurring shape.
+
+**A wrong turn on the way, worth keeping.** My first byte comparison scored candidate templates by
+how many of their substantial lines appear verbatim in the stored HTML, skipping lines containing
+`{{`. The fork scored 92/92 and the advertise component 92/95 — apparently favouring the fork. It
+is an artefact: the two templates differ in exactly three lines, and **all three of the fork's
+differing lines contain `{{.InstanceID}}`, so my filter removed them from its own denominator.**
+The measurement answered the question I encoded. The fix was to stop scoring and ask the bytes a
+direct question — *how does the stored HTML spell the industry select?* — which took one grep.
+
+**What actually names the owner is a second, independent signal:** the component is not already
+bound to a page on a DIFFERENT site. Combined with the function match it yields **exactly one**
+candidate for each of the 5 tool rows, and correctly yields **zero** for the shared generic
+components (`generic-text-block`, `faq`, `blog-listing`) — which is the right answer, because
+those are library-wide and the rule cannot know. The two advertise rows are corroborated by the
+byte proof on top.
+
+## (ab) 2026-09-04 — what is done, and the one thing deliberately NOT done
+
+**Done and committed** (`2fae8baa4`): the writer fix. Layer 2's two carry arms are split on the
+identity axis — the splice arm keeps the narrowed opt-in `carriedIdentity` three council seats
+required, the re-append arm keeps the stored row's own component while that component is still
+active. Four tests, both mutations run red. `bugs_open/479` filed with the full chain; a forward
+pointer added to 385 §4 (`0aafbe8cc`). Council `Council-Submitted: 567954f2-1b40-407a-b7b1-d3b299a0af9a`.
+
+**Prepared, rehearsed, and NOT applied:**
+`REPAIR_479_reattach_orphaned_tool_component_ids.sql` in this directory. Rehearsed against the
+live DB with a `ROLLBACK` at 2026-09-04: `UPDATE 5`, guard 1 resolved 5 rows each to exactly one
+candidate, guard 2 confirmed byte-identical rendered_html on every touched row, and the mapping
+printed is the one in (aa). Both guards are `DO`/`RAISE` — a verify block of bare `SELECT`s cannot
+stop a `COMMIT`. It compares the rows it TOUCHES before against after, never a population digest
+(the `IS DISTINCT FROM` trap the portfolio lane paid for on 09-03).
+
+**Why it was not applied.** It is a live production write across five customer sites, and this
+lane already has the precedent: applying migration 729 was refused by the session permission
+classifier, and the handoff left it for the owner rather than working around it. A lane document
+asking for a repair is not the owner asking for it. **So it is an owner decision, and it is
+one line to run.** The pages serve correctly meanwhile, so nothing is degrading while it waits.

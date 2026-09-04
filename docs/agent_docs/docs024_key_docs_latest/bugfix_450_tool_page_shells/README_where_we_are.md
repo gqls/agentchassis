@@ -150,3 +150,74 @@ check is the most valuable next thing to build here, and it is named as such.
 be refused with a receipt — not by observing that no new bad pages appeared, which would prove
 nothing unless something had tried. Then apply the database change. The seven seotools pages are
 being fixed on the other lane's track and are queued to publish.
+
+---
+
+## 2026-09-04 — the thing that was quietly still happening
+
+I picked this up to do the first job on the handoff list: reattach the missing links on the
+handful of tool pages that had lost them, then work out how wide the problem was.
+
+**It is wider than the list, and it had not stopped.** When I recounted, there were seventeen
+affected rows across seven sites — and three of them were new since the handoff was written the
+previous evening. One had been created five hours before I looked. So this was not a pile of old
+damage waiting to be tidied; something was still creating it, roughly one every few hours.
+
+**What is actually going wrong.** When we rebuild a page, the planner writes a fresh list of what
+should be on it. That list is built from the page's design spec, and a tool — a calculator, a
+comparator — is not in the spec, because tools are bespoke and arrive separately. So there is a
+safety net: before the rebuild throws the old page away, it looks for anything interactive on it
+and carries it across. That net works. The tools survive; every one of the five affected tool
+pages is serving a working calculator right now, and I checked all five at the live site.
+
+What the net drops is the *label*. It carries the tool's markup, its data, its slot and its
+provenance stamp, and loses the one field that says which component the tool came from. The page
+still looks perfect. It just no longer knows what it is made of.
+
+**Why that matters later rather than now.** Nothing a visitor sees is wrong. The risk is the next
+time we re-render that page: with no label, the system falls back to matching by name — and
+because we fork tools between sites, three of these five names match two or three different
+components. Which one gets used is decided by nothing more principled than the order rows come
+back from the database. So the realistic failure is not a blank page; it is **advertise.co.uk
+quietly rendering websitepromotion.co.uk's version of the same calculator.** The handoff (and my
+own first reading) said these pages were "one re-render away from losing their tools". That was
+too pessimistic in one direction and not worried enough in another, and I have corrected it in
+the notes.
+
+**We had already found this once.** Back on 25 August another lane diagnosed the same piece of
+code, fixed the half that was causing the symptom it cared about, and — in a single sentence in
+the middle of its write-up — correctly named the half that is still biting us. It then narrowed
+its own blast-radius estimate, honestly and correctly, from "eleven rows, fleet-wide class" down
+to "one page". That narrowing was true of the bug it was describing. It is also, I think, the
+reason nobody looked at these rows again for eleven days: the sentence a later reader carries away
+is "this count is not the bug", and the count *is* the bug for the other half. I have written a
+pointer into that file so the next reader gets both halves, and logged the general shape as a
+trap: **a narrowing is always scoped to the symptom that prompted it, and nothing in the document
+usually says so.**
+
+**What I have done.** The code fix is written, tested and committed: the two halves of that safety
+net are now treated as the different cases they are. Where the plan *did* name the slot, nothing
+changes — a previous review specifically objected to changing that, and it was right. Where the
+plan named the slot nothing at all, the carried-across tool now keeps its own label, because there
+is no competing intention to override and the label is simply a fact we already held. It is in
+front of the review council now.
+
+**What I have deliberately not done, and it needs your call.** I have written and rehearsed the
+repair for the five affected tool pages. Rehearsed means I ran it against the live database inside
+a transaction and then threw the result away: it matched exactly five rows, resolved each to
+exactly one component, confirmed it had not altered a single byte of any page, and rolled back. It
+is ready to run for real and it is one word's difference.
+
+I stopped there because it is a live write across five customer sites, and this lane already has
+the precedent — the database change from the last session was refused for the same reason and left
+for you. Nothing is degrading while it waits; the pages serve correctly today.
+
+Working out *which* component each page should point at was the fiddly part, and worth a sentence
+because the obvious answer is wrong. Matching on the name alone is ambiguous for three of the five,
+thanks to the forks. I tried proving it from the bytes instead — re-rendering each candidate and
+checking it reproduces the stored page exactly — and it does, perfectly, **for two different
+components at once**, because a fork is a literal copy. What finally settles it is a second
+question: is that component already in use on somebody else's site? That, plus the name, gives
+exactly one answer per page, and gives *no* answer for the shared building blocks like text
+blocks — which is correct, because for those we genuinely cannot tell, and the repair refuses
+rather than guessing.

@@ -278,3 +278,58 @@ the candidate-name list is wrong, and is the failure mode to watch for.
 **The control that makes the above mean something:** a site whose tools DO exist must plan its tool
 pages normally and file NO gap. Without that in the same window, zero gaps is indistinguishable
 from the gate never running.
+
+## §11 — the orphaned-`component_id` census, and the repair (bugs_open/479)
+
+**The census. Do NOT join `content_components` on `component_id` to find these** — that is the
+whole point: with the id NULL the join drops the row, so a page serving a 20 KB tool reads as
+having no tool component at all. Match on `slot_name`.
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT s.domain, p.name AS page, pc.slot_name, length(pc.rendered_html) AS bytes, pc.created_at
+  FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+ WHERE pc.component_id IS NULL AND pc.build_status <> 'removed'
+ ORDER BY pc.created_at DESC;"
+```
+
+`[MEASURED 2026-09-04]` 17 rows / 7 sites. **Date every quote of this number** — it grows by
+addition and it grew 11 → 17 in eleven days.
+
+**The exposure population (what Layer 2 would preload), and how to get the predicate RIGHT.**
+`interactiveHTMLSQL` assembles its SQL in Go from two marker slices; transcribing it by hand is
+how §1's rule gets broken. Print it from the function instead:
+
+```bash
+cat > platform/orchestration/actions/zz_tmp_print_test.go <<'GO'
+package actions
+import ("fmt";"testing")
+func TestZZTmpPrint(t *testing.T){ fmt.Println(interactiveHTMLSQL("pc.rendered_html")) }
+GO
+go test ./platform/orchestration/actions/ -run TestZZTmpPrint -v | sed -n '/ILIKE/p'
+rm -f platform/orchestration/actions/zz_tmp_print_test.go   # ⚠ shared tree — delete it, or another session commits it
+```
+
+Then `WHERE pc.build_status='deployed' AND <that boolean>` → `[MEASURED 2026-09-04]` **378 rows /
+371 pages**. That is an UPPER BOUND on exposure, not a prediction: the slot must also fail to
+match the incoming section set.
+
+**The repair:** `REPAIR_479_reattach_orphaned_tool_component_ids.sql` in this directory. It ships
+with `ROLLBACK` on the last line — **rehearse, read the NOTICEs, then change that one word to
+`COMMIT`.** Rehearsed 2026-09-04: `UPDATE 5`, both guards passed, bytes untouched.
+
+Three things about it that were each paid for:
+
+- **it refuses rather than guesses.** A row resolving to more than one free candidate aborts the
+  whole transaction. `[MEASURED 2026-09-04]` 3 of the 5 tool rows have 2–3 active same-function
+  components (tools are forked across sites under compounded names), so the "one active match on
+  `cc.function`" recipe in the 450 handoff is NOT safe as written.
+- **it compares the rows it TOUCHES, before against after** — never a population digest. The
+  portfolio lane's first verify used `rendered_html_digest IS DISTINCT FROM md5(rendered_html)`
+  and falsely refused: `IS DISTINCT FROM` convicts a NULL digest, and a NULL digest is normal
+  (206 of 3,220 rows fleet-wide).
+- **every check is `DO`/`RAISE`.** A verify block of bare `SELECT`s cannot stop a `COMMIT` —
+  `ON_ERROR_STOP` ignores a non-empty result set.
+
+**No re-render afterwards** (§8b). The served bytes are already correct; the repair touches
+`component_id` only, and a re-render is the thing these rows are being protected FROM.
