@@ -269,3 +269,48 @@ so a customer can press the confirm button in good faith with a site nobody can 
 
 **Still open:** the schedule stays **disabled**, because the interval being settled is not the same as
 somebody deciding to email a real person today — and the first real run emails the owner.
+
+## 8. CLOSURE ASSESSMENT 2026-09-04 — one half is fixed AND LIVE, the other is still literally true
+
+The bar is **fixed AND live** (CLAUDE.md; owner ruling 2026-08-12). Measured against it, this bug
+**stays OPEN**, and the reason is checkable rather than a judgement call.
+
+### Half 1 — "promises to stop reminders that nothing sends": FIXED AND LIVE, all three surfaces
+
+| surface | state | evidence |
+|---|---|---|
+| confirm button page + success page (Go) | **LIVE** | probed the RUNNING `core-manager` binary 2026-09-04 16:5xZ: `"You will not get any more reminders about it"` → **0 hits**, with three controls — two surviving strings from the same page at 1 hit each (so the probe reads the right binary and can find copy) and a nonsense string at 0 (so a zero is reachable). Pods started 15:59:48Z / 16:00:11Z, inside the v1.0.1361 roll. |
+| the delivery email (config) | **LIVE** | migration `776`, applied 12:05:25Z; `ILIKE '%stop reminding you%'` over live agent rows → 0 |
+| — | | |
+
+### Half 2 — "the record it writes is read by nobody": STILL TRUE IN PRODUCTION
+
+`sites.transfer_confirmed_at` now has a reader — `ClaimFollowup`'s suppression predicate, in the
+shipped binary since v1.0.1361. **But nothing invokes it.** `774`/`775` are unapplied: no
+`followup_sent_at` column, no agent row, no schedule row. So the sentence in this bug's own title is
+still, today, an accurate description of production.
+
+> **The honest counter-argument, stated rather than buried:** `/bugs_open/` answers *"what is biting
+> prod right now"*, and an unread column bites nothing — 0 of 60 sites have ever pressed the button.
+> Someone could reasonably say the harmful half is fixed and the rest is feature work. **I am not
+> taking that reading**, for one reason that is not mine: **this bug file's own "How to verify a fix"
+> section defines closure as *deliver → wait the interval → confirm a second email arrives → press
+> confirm on another site → confirm the follow-up does NOT arrive.*** Neither half of that can be
+> performed today. A bug does not close on a verification its own file says cannot yet be run.
+
+### What is left, in order
+
+1. **Apply `774` then `775`** — safe now (`775` refuses without `774`; the schedule ships disabled and
+   its verify ABORTS if it is not). Enable-condition 3 is satisfied: `0949244e8` is serving.
+2. **The owner switches it on**, having been told the first real run emails him (idea.uk's delivery
+   address is his).
+3. **The two gaps must close before it reaches anyone**, and `775` prints both on every apply:
+   `GAP 1` no recorded recipient (`1 of 1`), `GAP 2` no serving host (`1 of 1`).
+4. **Then step C** — restore the stronger wording on the page AND in the email (`776`'s header says
+   the same), deleting the tripwire test in the same commit. That test exists precisely so this is a
+   deliberate act.
+5. **Owed if anyone widens the `publish_project` filter**: the live URL probe (200 + invented-path
+   404). Not owed while the narrowing holds.
+
+**Everything that could be done without the owner's hand on a switch has been done and reviewed** —
+four council rounds, all APPROVED (`b9fc0004`, `3555a7a1`, `62a99103`, `ac9eb6b4`).
