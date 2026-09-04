@@ -385,6 +385,24 @@ carries, per page: `name`, `title`, `sections`, `meta_description`, `nav_label`,
 `in_header`, `in_footer`, `page_type`. There is **no `url`, no `role`, no `parent_section`** —
 `url` is literally `null` on all nine pages.
 
+> **⚠ THIS FINDING IS DATED, AND ITS SUBJECT IS LIVE-MUTABLE CONFIG — re-check before quoting.**
+> "The planner does not emit a URL" is a statement about `build-site-planner`'s prompt and
+> output shape, which live in `agent_definitions` (DB, live the moment a migration applies —
+> **no roll required**, so a build stamp tells you NOTHING about it). The disconfirming check is
+> one query and takes seconds: read
+> `collected_data->'plan_site'->'result'->'pages'` on any run newer than this one and see whether
+> `url` is still `null`. `[CHECKED 2026-09-04]` no pending migration under
+> `docs/agent_docs/sql_for_agents/` touches the planner prompt or `parent_section` — the only
+> hits are `108` (the table's own schema), `053` (the original seed) and `726` (a designblog
+> page). **Do not carry this claim forward on the strength of that check alone; re-run it.**
+>
+> **Roll v1.0.1361 (cut `06c0b18f2`, 2026-09-04 ~15:44Z) does NOT affect this diagnosis.**
+> Verified: `git merge-base --is-ancestor 9b540c2e6 06c0b18f2` passes, so **half A still ships**;
+> and `git log 239ab3626..06c0b18f2` over `page_role_validator.go`, `page_canonical.go`,
+> `page_identity.go` and `v3_site_actions.go` is **empty** — none of the four files this section
+> reasons about changed between the two builds. Half B stays inert for the same reason it was
+> inert before: the defect is a missing channel, which no roll can supply.
+
 So: URL empty → `ParentSectionFromURL` returns `""` → `parent_section` stays empty →
 `CanonicalisePage` falls through to `blog-post`'s hardcoded default `dir = "blog"` → `/blog/`.
 **Every line works as written. The fix reads a field production never populates.**
