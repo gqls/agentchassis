@@ -41,6 +41,15 @@ git merge-base --is-ancestor 0949244e8 <the git_commit above>   # exit 0 = safe 
 > now*. If you are dating something older than two hours it will silently answer with today's
 > survivors — corroborate with `kubectl -n ai-persona-system get rs -l app=agent-chassis --sort-by=.metadata.creationTimestamp`.
 
+> **`[2026-09-04 ~15:40Z]` The v1.0.1361 roll's cut (`06c0b18f2`) CONTAINS `0949244e8`** — verified
+> by `git merge-base --is-ancestor`, along with `76ec663d3`, `f89dfa31d`, `698b144fa` and
+> `b92beae38`. So once that image is actually running, condition 3 becomes **satisfiable**.
+> **It is not satisfied by the cut containing the commit** — at the time of writing the chassis pods
+> were still on v1.0.1360 (started 2026-09-03T22:06Z) and the push was mid-flight. Run the
+> `service_binary_capabilities` query above against the RUNNING pods and check the ancestry of what
+> it returns. A roll that was started is not a roll that landed, and "the commit is in the cut" is
+> not "the commit is serving traffic".
+
 Then, and only then:
 ```sql
 UPDATE scheduled_tasks SET enabled = true WHERE name = 'delivery-followup-send';
