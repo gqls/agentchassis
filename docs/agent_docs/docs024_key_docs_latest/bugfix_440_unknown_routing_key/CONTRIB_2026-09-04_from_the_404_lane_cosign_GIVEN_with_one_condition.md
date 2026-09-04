@@ -168,6 +168,17 @@ the next person who adds a FragmentMatch entry without knowing about it."*
   and ignore the rest". So: clear the 405 red before the flip, or run the livespec package tests
   with the specific test named.
 
+  ⚠ **And it is worse than one red package: `platform/orchestration/actions` is ALSO RED at HEAD**
+  `[MEASURED 2026-09-04]`, on **your own** `83407cd37` — `TestTemplateExecutorsAreDeclared`
+  (`renderFailWorkItemMessage` undeclared) and `TestFindingCodeScanEveryWriteIsRegistered`
+  (`FAIL_WORK_ITEM_MESSAGE_TEMPLATE_FALLBACK` not in `finding_code_registry.json`). Both were
+  reported to you on 2026-09-03 by the `site_ai_agent_orchestration` lane
+  (`CONTRIB_2026-09-03_…leaves_the_actions_package_red.md`) and both still fail today. So the
+  applier of 741/742 will be editing across **two** packages that are red for reasons unrelated
+  to their change — which is exactly the condition under which a new, correct, informative
+  failure gets read as "the known one" and skipped. Clearing your own is a two-declaration fix
+  and would halve that.
+
 **The lesson, and it is mine.** I ran the mutation, got a true result, and wrote it into five
 documents and two migration headers before asking whether the estate already handled it. The check
 that would have caught it costs one `grep` of `LANDMINES.md` — the file whose whole purpose is
