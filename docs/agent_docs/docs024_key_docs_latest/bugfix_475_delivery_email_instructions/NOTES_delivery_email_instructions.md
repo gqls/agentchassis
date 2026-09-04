@@ -132,3 +132,94 @@ second same-purpose asset on a site silently deploys as the first. There are **t
 they will share a purpose. Supply `spec.s3_uri` explicitly from the asset's **`storage_path`**, never
 its `url` column (`bugs_open/152`), and **verify with `sha256sum` that the ten deployed files
 differ.** Ten identical images all reporting `success: true` is exactly what the bug looks like.
+
+---
+
+## 2026-09-04, later — the round is in flight and the peer review beat it to two defects
+
+Council round dispatched, `SUBMISSION_CORR=c8ed56d2-74ea-4bcc-a0a4-73050c436693`, submission at
+`26cc92d6e`. Six edits, thirteen evidence quotes. Sent to the 477 lane and the copy lane before
+committing any code, as promised.
+
+### MISSTEP 4 — my submission contained TWO PROVENANCES FOR ONE TOKEN, and I wrote both myself
+
+Found by the 477 lane reviewing the round, not by a seat and not by me.
+
+- **Edit 2**'s sketch resolves the instructions URL from step config:
+  `{Value: stringOr(config, "instructions_url")}`.
+- **Edit 5** adds `Links.Instructions` + `LinkConfig.InstructionsURL`, populated in `Claim`'s links
+  literal.
+
+**Those are two different answers to "where does this token come from", written ten minutes apart in
+one document, and I did not notice.** The 477 lane's caller is what made it visible — their action
+never calls `Claim` at all, it calls `ClaimFollowup` and hand-builds its own `Prepared` — but the
+inconsistency was there before their caller was considered.
+
+**The correction is a simplification:** `Links.Instructions` and `LinkConfig.InstructionsURL` are
+**deleted from the design**. `{{instructions_link}}` is a durable environment-supplied URL like
+`domain_rent_url`; both callers read it from their own step config into their own `Fill`. One fewer
+struct field, one fewer `LinkConfig` field, and *"values come from the caller"* becomes true rather
+than aspirational.
+
+**The invariant, in their words because they are better than mine:** `Vocabulary` owns only the token
+set, the availability rule and the never-reason; **the `Fill` carries values, and values come from the
+caller.** Three tokens already resolve differently across the two callers — `{{live_site}}` (config
+vs input), `{{confirm_link}}` (`Claim`'s mint vs their own post-claim mint), `{{instructions_link}}` —
+so **any per-token provenance column breaks on all three.**
+
+**Cheap check that would have caught it:** for each token, write down the resolution site *for every
+caller* before writing the sketch. I had the right type (`Token`, not `Link`) and the wrong sketch —
+the failure mode where a design review is worth more than a code review.
+
+### Requirement 2, accepted, and it is a better test than mine
+
+*"Pre-claim" names a DIFFERENT irreversible statement in each caller* — `Claim` at
+`send_delivery_email_action.go:154`, `ClaimFollowup` at `send_followup_email_action.go:188`. My edit 4
+asserted **coverage**; theirs asserts **order**, per caller, with sqlmock given no expectations so the
+refusal is proved to happen with the database untouched. A `Check` that ran after *their* claim would
+have passed every assertion I wrote while having burnt `followup_sent_at`.
+
+### A fix that fell out of writing the landmine
+
+The pre-claim guard validates the **values of tokens it knows** and never looks for **tokens it does
+not know**. If `Fill.Check` also refuses any `{{…}}` in the template that is absent from the
+`Vocabulary`, then a template that runs ahead of its binary refuses **before** the stamp instead of
+after — and the config-vs-binary ordering landmine becomes a loud no-op. ~4 lines. Put to the 477
+lane; going into the resubmission.
+
+### MISSTEP 5 (caught before I asserted it, which is the only reason it is not in WRONG_CALLS)
+
+Asked whether the ten screenshots can go on a framework page, I queried `assets` for webdesign.uk:
+**20 rows, 14 with `storage_path`, and five already sharing the `hero` purpose.** I read that as
+*"multiple same-purpose assets already coexist here, so the collision landmine has been navigated on
+this very site"* and was about to report **no wall**.
+
+**Then I checked the served bytes.** `[MEASURED 2026-09-04]` seven pages — `/`, `/how-it-works.html`,
+`/what-you-get.html`, `/faq.html`, `/contact.html`, `/guides/tool-css-variables-guide.html`,
+`/tools/website-brief-starter/index.html` — return **exactly two images each: `favicon.png` and
+`logo.png`. Zero content images, on all seven.**
+
+`content_hero` rows have real and **distinct** `s3://` keys (so those are not collided); `card` rows
+have `storage_path` **NULL**. So the assets are **staged and not served**.
+
+**The row count measured what was STAGED. The landmine's entire warning is that the failure looks like
+success — so a count of rows is the one instrument that cannot come out false.** The served page could
+have come out either way, and it came out the other way.
+
+**Consequence for the decision, which is why this mattered rather than being a tidy lesson:** the copy
+lane was about to decline the owner's offer of a hand-built page, with "the screenshots genuinely
+cannot go through `deploy_image_asset`" as their stated condition for taking it. I would have handed
+them a green light built on staging counts. Instead: **nobody has ever demonstrated an image reaching
+a served webdesign.uk page**, so the screenshots are first-of-kind, and I have proposed **one canary
+image end to end** — deploy with an explicit `s3_uri`, then fetch the page and match `sha256sum` —
+before either lane commits to a route.
+
+### Housekeeping
+
+- Config-vs-binary ordering landmine filed and dispatched to the verifier
+  (`03969129-f6b8-4b35-83fd-e86de5175a97`). Credits the 477 lane's `b92beae38` for the sharpest half:
+  **the ancestor you must prove is the commit that taught the binary the TOKEN, not the one that added
+  the ACTION.**
+- `prepare.go:170-171` is CLAIMED by this lane (council edit 5, carrying the stripe lane's verbatim
+  wording). The copy lane offered to fix it; told them not to, because three lanes wanting one doc
+  comment is how a same-file passenger happens.
