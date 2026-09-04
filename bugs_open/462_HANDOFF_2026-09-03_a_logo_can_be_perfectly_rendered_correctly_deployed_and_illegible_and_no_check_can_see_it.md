@@ -213,6 +213,21 @@ unrelated commit about prose composition. Resolve by **slug**, per CLAUDE.md, no
 **So: this paragraph is the ownership record.** The 417 lane owns 462. Do not conclude from
 `who-owns.py` that it is unowned and available to route work at.
 
+> **OWNERSHIP TRANSFERRED 2026-09-04 ~13:0xZ — 462 now has its OWN lane and session.** The owner
+> put 462 on a dedicated session (`bug 462`); `bugfix_417_logo_text_policy` keeps 417 and has
+> **stopped** editing `bugs_open/462_*`, `scripts/audit-logo-legibility.py` and the 462 sections of
+> its own RUNBOOK/NOTES. The handover was explicit and is recorded in both directions: the request
+> and the acceptance were a cross-session message, and the 417 lane committed its residual
+> measurement as a CONTRIB rather than leaving it in chat —
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_417_logo_text_policy/CONTRIB_2026-09-04_to_the_462_lane_two_of_the_seven_judgeable_logos_are_operator_uploads_not_generated.md`
+> (commit `8067da4dc`). The 417 lane confirmed **nothing uncommitted** and **routing not started**.
+> The new lane's own working docs are
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_462_logo_legibility/`.
+>
+> ⚠ The structural point above is unchanged and now applies twice over: **this transfer also left no
+> artefact `who-owns.py` reads**, because it too happened in a cross-session message. The paragraph
+> you are reading is still the only ownership record.
+
 ---
 
 ## 6. A LIVE REPRODUCTION, hours after filing — and the regeneration made it WORSE `[MEASURED 2026-09-03 13:10Z]`
@@ -401,6 +416,21 @@ population is 7.**
   far better than post-regeneration websitepromotion (max 20.75, thin fringe). Contrast ratio
   alone does not order legibility — **area at contrast** does. Not built on: n=1.
 
+> **CORRECTED 2026-09-04, and it changes what can be DONE about this one.** `[MEASURED 2026-09-04 ~13:05Z]`
+> `mortgagecalculator.co.uk`'s logo is **not a pipeline output**: `origin_type='uploaded'`,
+> `origin_model='operator-supplied'`, and **`origin_prompt` is NULL** — there is nothing to
+> regenerate *from*. Two consequences:
+> - The 09-04 SUMMARY and README of the 417 lane say *"whether that is worth regenerating is your
+>   call"*. That sentence quietly assumes regeneration is an available remedy. **For this artefact
+>   it may not be one at all** — see §9c.
+> - **"2 of 7 judgeable logos fail" is not a statement about the image model.** Of the judgeable
+>   population, 5 are generated and 2 are human uploads, so the pipeline's own score is **1 of 6**,
+>   and that one is websitepromotion — already known, already ruled on. Nothing here is new evidence
+>   against the generator.
+>
+> Found by the 417 lane after it had handed 462 over, and committed as a CONTRIB rather than left in
+> a message (`8067da4dc`). Caught by asking `assets.origin_type` — which the sweep never reads.
+
 ### 8c. ⚠ CORRECTION to §1's control figure
 
 §1 and §4 record seotools' darkest pixel as **7.64:1** and label the column *"vs the white
@@ -444,3 +474,170 @@ was not applied to its own control.
   `cookly.uk` and `webdesign.co.uk` hold an active logo asset the served header never loads
   (two render `class="logo-text"`). That is the 417 RUNBOOK's "a site has a logo asset but the
   header still shows TEXT" case, not a 462 finding.
+
+---
+
+## 9. ROUTING — §8e's blocker, worked. **Every destination the estate offers is destructive, dead, or manual — and the filer has no legitimate target today** `[MEASURED 2026-09-04]`
+
+§8e left one thing between the sweep and a fix: *"the sweep reports; nothing files."* This section is
+that work. It does **not** decide the routing — it establishes what the candidate destinations
+actually are, and reports two measurements that change the question being asked.
+
+**In plain terms first.** A "work item" here is a row the platform files when a check finds
+something wrong; the row names a `handler_agent`, and a dispatch loop hands the row to that agent to
+fix. So "routing a finding" means choosing which agent gets handed the illegible logo. §2 established
+that the existing contrast pipeline routes at `css-patch-agent`, which repaints a CSS class and
+cannot fix a pale PNG. The question is what to route at instead.
+
+### 9a. The live logo-repair unit is `needs_imagery`, not `needs_logo`
+
+`[MEASURED 2026-09-04, live `site_work_items` + `site_work_items_archive`]`
+
+| type | handler | live rows | archive |
+|---|---|---|---|
+| `needs_imagery`, key `needs_imagery:site:-:logo` | `image-build-handler` | 386 complete · 58 unresolved · 40 triaged · 15 deferred · 63 cancelled (all keys) | — |
+| `needs_logo`, key `needs_logo` | `image-build-handler` | **2, both `cancelled`** | **13 `complete`** |
+
+Both types exist and both have worked. **The rows in live use are `needs_imagery`** — the 417
+RUNBOOK already says so ("Regenerate one site's logo"), and the archive confirms `needs_logo` is a
+path that ran historically and is no longer the one producers write.
+
+Its **producer set today** is `build-site-planner` (source `planner`) and `design-discovery-agent`
+(source `discovery`), plus operator-filed rows. That matters because of the **owner ruling of
+2026-08-02**: converging a new producer onto an existing `item_type`/`item_key` does **not** need an
+architecture round, *provided the producer set and the `item_key` shape are stated in the
+concept-register entry in the shipping commit*. A legibility filer converging onto
+`needs_imagery:site:-:logo` is exactly that shape — so the cheap, in-doctrine option is available.
+
+**Whether it should be taken is a different question, and §9b–9d are why.**
+
+### 9b. The three destinations, and what each one is measured to be worth
+
+**(i) `image-build-handler` — a real fixer, but the repair is a blind, irreversible re-roll.**
+
+- There is **no legibility control anywhere in generation.** The only fail-closed statistic in the
+  adapter is the keyed-ground one — `stats.BorderKeyed < keyGroundMinBorderKeyed` (`= 0.95`),
+  `internal/adapters/imagegenerator/dynamic_adapter.go:683`, constant at `:708`. A grep of
+  `internal/adapters/imagegenerator/` for contrast / luminance / legibility returns only provider-
+  routing comments about which model *renders legible text*. Fix candidate 1 — the store-time
+  contrast statistic — is the thing the owner ruled **against** (§7). So routing here asks a
+  generator with no legibility criterion to have another go.
+- **§6 measured that going.** websitepromotion's authorised regeneration improved every measured
+  property and made the mark *less* visible. A re-roll is not a repair; it is a fresh draw from the
+  same distribution.
+- **And it is irreversible and instant.** The regeneration UPSERTs the asset row and mints a fresh
+  storage key, and the deployed path (`/assets/images/logo.png`) is stable, so the new bytes reach
+  every served page with **no re-render, no staging step and no rollback** (417 RUNBOOK, verified
+  either side of the 09-03 regeneration: 41,062 → 11,637 bytes, `logo-img=3 / logo-text=0` unchanged
+  on three pages). The previous artefact is gone.
+
+**(ii) `needs_human_review` — the estate's documented dead queue, and it has QUADRUPLED.**
+
+This is where a finding goes when it is filed with no handler for a person to work. It is the
+obvious home for "tell someone, don't act", and it is the wrong one:
+
+- `platform/orchestration/actions/revalidate_review_queue_action.go:3-5`, at the deciding arm:
+  *"370 items sit at needs_human_review (2026-07-25); not one has ever been actioned through the
+  admin surface, and the surface has been visible and reachable since 2026-07-20."*
+- `[MEASURED 2026-09-04]` it now holds **1,439** rows, oldest `2026-03-15`, newest **today**. The
+  auto-drain built for `bugs_open/033` has closed **390** (`resolution_path='auto:revalidated'`,
+  archive) — and the backlog still grew ~4× in six weeks.
+
+**Filing 462's findings there would reproduce 462.** This bug is about a defect that produces
+silence; a queue nobody works is silence with a row number.
+
+**(iii) `ingest_staged_asset` — the non-destructive remedy, and it needs a person with a file.**
+
+The estate *does* have a way to replace an image without a generator:
+`platform/orchestration/actions/ingest_staged_asset_action.go` — the operator amend path built for
+`bugs_open/131` (three sites whose stored "logo" was not a logo, and no way for a human to supply a
+corrected one). Bytes travel operator file → base64 → `asset_ingest_staging` → S3 **at a new key,
+never overwriting**, honouring `locked_at`, recording the previous url/storage_path in
+`assets.alterations`. It runs in `asset-deployer`, mode `ingest_upload`.
+
+It is the only remedy in the estate that is reversible. It is also **not automatable**: it requires a
+human to supply the replacement bytes.
+
+### 9c. The constraint nobody had: routing must branch on PROVENANCE, not on the verdict
+
+`[MEASURED 2026-09-04 ~13:05Z by the 417 lane, CONTRIB `8067da4dc`]`
+
+Fleet-wide there are **34 active logo assets: 31 generated, 3 `origin_type='uploaded'`.** But inside
+the **7** the sweep can actually judge, **2 are human uploads** — and one of them is a finding:
+
+- **`mortgagecalculator.co.uk`** (arm A finding) — `origin_model='operator-supplied'`,
+  `origin_type='uploaded'`, **`origin_prompt` NULL**. There is nothing to regenerate from. Routing
+  it at a generator would not repair a pipeline output; it would **discard a person's deliberate
+  choice** and replace it with a model's guess, irreversibly (9b(i)).
+- **`relojistas.com`** (passes, 75.5%) — also `uploaded`, and its `origin_prompt` reads
+  *"Owner-approved 2026-07-29: light-variant wordmark cropped from…"*. An **owner-approved** asset,
+  and a **wordmark** — precisely what `bugs_open/417` exists to prevent in *generated* marks. A check
+  that cannot tell owner-approved from pipeline output will eventually fight a ruling.
+
+**So the routing decision is not "which handler".** It is: *a legibility verdict on a generated mark
+and a legibility verdict on a human's uploaded mark are different findings with different remedies,
+and the item must carry `origin_type` / `origin_model` so the two can part company.* Nothing in
+§7a or §8e anticipated this, because the sweep never reads `assets.origin_*`.
+
+### 9d. The measurement that changes the question: **the filer's live workload is zero**
+
+Put §8b, §7 and §9c together and count what an automatic filer would legitimately act on **today**:
+
+| | |
+|---|---|
+| findings from the fleet sweep | **2** |
+| — `websitepromotion.co.uk` | **owner ruled it stays** (§7). Must not be actioned. |
+| — `mortgagecalculator.co.uk` | operator upload, no prompt to regenerate from (§9c); and §8b's own honest reading is that *a person can see it* — it fails the WCAG floor, it is not invisible. |
+| **legitimately actionable today** | **0** |
+
+And restated as evidence about the pipeline rather than about the estate: **1 of 6
+generated-and-judgeable logos fails, and it is the one the owner has ruled hands-off.**
+
+This is not an argument that the check was not worth building — the check is what produced these
+numbers, and 22 of 34 logos are still unjudgeable, so the population that *can* fail will grow as
+pre-`424` logos are replaced. **It is an argument about sequencing**: building a work-item type, a
+dedup key, a handler contract and a concept-register entry, whose entire current output is zero
+items, and whose only automatic remedy is a destructive re-roll that §6 measured making things
+worse, is spending the risk before the need.
+
+### 9e. Recommendation, and the one decision that is the owner's
+
+**Recommended:** make the sweep **standing** (a scheduled check in the check-fleet pattern, reporting
+one `doc_notes` row per run, clean or not) and **defer the work-item filer** until there is a finding
+it may legitimately act on. That delivers the owner's 2026-09-03 ruling — *report it afterwards* —
+in full, because the ruling's substance is visibility, and adds no destructive dispatch path.
+
+**The owner's decision, stated as a fork so it is not rediscovered:**
+
+- **(A) Standing report only.** The sweep runs daily and reports; a human reads the row and decides.
+  No new item type, no dedup key, no handler. Cost: a person must look.
+- **(B) File, with provenance routing.** Converge onto `needs_imagery:site:-:logo` at
+  `image-build-handler` for **generated** marks only (the 2026-08-02 ruling makes this cheap,
+  provided the producer set and key shape go in the register entry in the same commit); file
+  `origin_type='uploaded'` marks somewhere a human sees them **other than `needs_human_review`**,
+  which 9b(ii) measures as dead. Cost: an automatic, irreversible re-roll with no legibility
+  criterion behind it, on a population where it has today no legitimate target.
+- **(C) Neither yet** — leave the sweep as a hand-run tool.
+
+**(C) is the status quo and it decays**: a hand-run check gets run while someone remembers it.
+
+⚠ Whatever is chosen, §7a's staleness point is untouched: this sweep reads the header colour from a
+**declared theme token**, which is a snapshot, and `bugs_open/396` rewrites theme rows. Option (a) —
+measuring the backdrop from the render — remains the version that stays correct, and remains unbuilt.
+
+### 9f. Being built meanwhile, because it does not depend on the fork
+
+Making the sweep standing is common to (A) and (B) and is the part of the owner's ruling that needs
+no further decision. What it requires, stated so the next reader can pick it up:
+
+- **A direct Postgres connection.** The script shells out to `kubectl -n ai-persona-system exec -i
+  postgres-clients-0 -- psql` (`scripts/audit-logo-legibility.py:131`). In-cluster that is not
+  available: `ai-persona-app` has **no `pods/exec` RBAC** in this namespace — the constraint
+  `single-owner-carriers-check` and `bugs-open-staleness-sweep` both hit. The fleet's convention is
+  `PG_CLIENTS_HOST` being set switches the script off the kubectl path
+  (`deployments/kustomize/services/component-render-check/base/cronjob.yaml`).
+- **An image, not a ConfigMap script.** The sweep needs Pillow and outbound HTTPS to the live sites.
+  The public `postgres:16-alpine` used by the ConfigMap-style checks has neither.
+- **One `doc_notes` row per run, on clean results too** — the fleet's rule, and the reason is
+  written into the same cronjob: it keeps *"looked and found nothing"* distinguishable from
+  *"stopped running"*.
