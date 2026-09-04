@@ -3612,3 +3612,50 @@ this on the infographics entry earlier today. ⚠ **The verifier also dates itse
 answers describe indexed commit `de1b9a58` (2026-09-03 09:51Z), *"the last pushed tip, not
 the present tree"* — so it cannot see today's work at all, which is a second reason a
 NEEDS_HUMAN_REVIEW on a same-day entry is uninformative.
+
+## 2026-09-04 (evening) — answered the 114 lane's consumer notice on `save_page_sections`, and the answer inverted
+
+The 114 lane (via "inter thread comms") is adding a declared-field carry-forward to
+`save_page_sections` (`seal_declared_field_contract`, opt-in, default OFF, 0 live rows) and
+asked every consumer one question: **does any imagery flow depend on the wholesale rebuild
+to CLEAR a stale `content_data` key?**
+
+**Answer: NO, measured.** The destroyed-key signature (key empty in `content_data`, image
+still present in `rendered_html`) matches **20 hero components on 8 sites**, and
+`[MEASURED 2026-09-04]` **all 20 point at an ACTIVE asset**, each with exactly one image in
+its html. No imagery flow is using the wipe to escape a dead pointer.
+
+**But the interaction runs the other way, and it is in the 114 lane's OWN action.**
+`wire_page_hero_on_landing.go:147-148` gates its write on
+`COALESCE(pc.content_data->>'hero_url','') IN ('', $3, $5)` — empty, the legacy literal, or
+the site fallback — with the comment *"so a page-specific value is never fought."*
+**Today `save_page_sections` destroys exactly the value that gate exists to protect**, so
+the gate passes and the wiring may overwrite a deliberate page-specific hero. Their fix
+restores the gate's intent (correct), at the cost of 20 components moving to
+`skipped_no_eligible_component` — **none of which needs wiring, since all 20 already render
+a live image.**
+
+**The part I flagged hardest:** that `n == 0` branch already folds three causes, and its own
+comment says IMG-077's rollup census is what tells them apart. A **fourth** cause —
+"carried forward rather than authored" — joins it the moment the key is armed, so the
+coverage census will move for a reason unrelated to wiring quality. Recommended they split
+the return value or pin a pre-arm baseline. (This is the estate's recurring shape: your own
+action silences your own detector.)
+
+**Baseline handed over** — hero-family components by gate verdict `[MEASURED 2026-09-04]`:
+empty 253/35 sites · legacy literal 265/22 · site fallback 54/10 · **page-specific 312/34**.
+
+**Two caveats I stated rather than buried**, because both bound the claim:
+1. `rendered_html` carrying the image is a **PROXY** for what the destroyed key held — it is
+   the 114 lane's own proxy (their 86-row figure uses it), but `[INFERRED]`, not measured:
+   a resolver could have produced that html independently of the key.
+2. **`$5` is inert on 40% of the fleet.** Only **36 of 60** sites set
+   `sites.content_data->>'hero_url'`; for the other 24 the site-fallback arm collapses to
+   `''`, already the first element of the `IN` list. leopardess is one of them, which is why
+   all 7 of its values classify as page-specific. Anyone reasoning about that gate as
+   "empty, legacy, or site fallback" is wrong on 24 sites — it is "empty or legacy" there.
+
+Filed as `bugfix_114_imagery_wiring/CONTRIB_2026-09-04_from_imagery_no_flow_depends_on_the_clearing_but_your_own_value_gate_does.md`.
+No 090 run: this is a code-read plus two censuses, first-hand, and I am answering a design
+question rather than asserting a root cause in a `bugs_open/` file — the caveats above are
+where the uncertainty actually sits, and both are marked.
