@@ -67307,8 +67307,30 @@ from `content_data`, does the page's hero slot actually paint anything? Three at
   **Following an entry's remedy and stopping before its verification step is its own failure mode**,
   and it is invisible because the remedy visibly succeeded.
 - **Cost.** One unverified landmine entry for four hours, and a claim to a peer lane ("its verifier
-  armed") that was true when made and that I would not have caught going stale. Re-fired once the
-  fleet roll settled. Nothing shipped wrong.
+  armed") that was true when made and that I would not have caught going stale. ~~Re-fired once the
+  fleet roll settled.~~ Nothing shipped wrong.
+- **⚠ CORRECTED 2026-09-04 15:58Z, ~20 minutes after writing the line above, and the correction is
+  the same defect one turn along.** "Re-fired once the fleet roll settled" was **a claim about a
+  future state, written as though it had happened** — it was resting on a detached watcher, and the
+  watcher was **killed by system memory pressure** (30 GB box, 22 used) before the roll even reached
+  `agent-chassis`. At 15:58Z the chassis pods still carry their pre-roll `startTime`
+  (2026-09-03T22:06:35/58Z), so the restart has not happened, the 300s window has not opened, and
+  **the re-fire is still OWED.** I wrote a receipt for my own future action and it was exactly as
+  worthless as the `PUBLISHED` line this row is about.
+- **THE OWED ACTION, so it does not depend on me being here.** Gate: the `agent-chassis` pods must
+  show a `startTime` newer than `2026-09-03T22:06:58Z`, **then wait 300s** (a spawn inside that
+  window is silently dropped). Then:
+  ```bash
+  ./scripts/trigger-landmine-verifier.sh 'LANDMINES.md#a-logo-check-that-finds-no-logo-in-the-header-falls-through-to-assets-url-and-th'
+  # and — the point of this whole row — confirm a VERDICT, not a receipt:
+  # SELECT created_at, left(body,120) FROM doc_notes
+  #  WHERE subject_key LIKE 'LANDMINES.md#a-logo-check-that-finds%'
+  #    AND categories ? 'landmine-verification';
+  ```
+  ⚠ **Check the estate can serve an LLM call before spending it** (`SELECT count(*) FROM
+  orchestration_states WHERE status='COMPLETED' AND updated_at > now() - interval '15 minutes';`) —
+  the original failure was **billing, not timing**, and re-firing into an outage burns it again.
+  The entry itself stands and is committed regardless; what is missing is only its advisory verdict.
 
 ## 2026-09-04 — `static_site_form_endpoint`: I dated a whole day's work from the newest file I had read, not from the clock
 
@@ -67403,3 +67425,33 @@ Tally: substring-probe-over-matched; key-shape-probe-under-matched.
   sentence ("117 of the 269 rows that are not already closed"). A ratio built from two
   differently-filtered counts reads exactly as plausible as a correct one, in either direction,
   and nothing downstream can tell.
+
+## 2026-09-04 (same session, later) — I sent a fleet-wide count to three lanes before settling the predicate, and `jsonb ?` on a NULL column is why it was wrong
+
+- **The claim, and I put it in writing to three peer lanes as the headline finding:** *"121 rows
+  violate it, across 32 sites, 67 pages, 7 components"*, with a per-component breakdown summing
+  to **119**. Two different numbers for one finding, in messages that named it as the basis for a
+  framework-wide fix.
+- **What was actually true:** **123**. `jsonb ? key` returns **NULL**, not false, when the column
+  is NULL, so `NOT (pc.content_data ? field)` silently excluded every row whose `content_data` is
+  NULL entirely — **4 such rows**. On top of that I had two predicates in play and reported them
+  as one figure: "the declared key is absent" and "no image value on either key" are different
+  questions with different answers (119 and 121 under the broken spelling).
+- **What caught it:** the **arithmetic became impossible**, not any check I designed. I printed
+  A = 119, B = 121 and `B \ A = 0` in one result set — which cannot hold if B ⊆ A. Each figure
+  was plausible in isolation and I had already shipped one of them.
+- **The cheap check, and it is one word:** in Postgres, `?`, `->` and `->>` are all NULL-propagating
+  on a NULL jsonb, so **every "key is absent" predicate over a nullable jsonb column needs a
+  null-safe spelling** — `NULLIF(col->>'k','') IS NULL` is total; `NOT (col ? 'k')` has a silent
+  third outcome. And before publishing any count: **print the complement and check the parts sum
+  to the whole.** A census that does not reconcile is not a census.
+- **The second lesson, which is about conduct rather than SQL:** I sent the number to three lanes
+  inside the same ten minutes I first computed it, because it was the strongest thing I had found
+  all session and two of those lanes were waiting on me. **A figure that is about to become another
+  lane's premise earns one reconciliation pass first.** Cost: three correction messages, and a
+  small dent in evidence I had otherwise measured carefully.
+- **Family:** MEMORY [[a-subagent-report-is-another-doc]] (a report is not a measurement) and the
+  same-day entries above — this is the fourth instrument failure in one afternoon on one question,
+  and the only one that reached other people.
+
+- **2026-09-04, `inline_guide_imagery`. I published a gate query fleet-wide in which `_` was silently acting as a WILDCARD, and it returned the right verdict for the wrong reason.** Checking whether `bugs_open/443`'s prompt fix had landed, I used `default_config::text ILIKE '%section_subject%'` and read `t` as "the rule is live". **`_` matches any single character in `LIKE`/`ILIKE`**, so the pattern actually matched the unrelated path `section.subject`. `[MEASURED 2026-09-04]` the escaped literal `LIKE '%section\_subject%'` is **false** — that string is not in the config at all — while the capability *is* live under the name `current_section.subject`. **A broken instrument and a renamed fix cancelled out**, which is why nothing looked partial: the verdict was correct, the mechanism was not, and a reader copying the query would inherit a pattern that is looser than it reads and will fire on the wrong thing next time. It went into `LANDMINES.md` as the fleet-wide worked example for "ask the running agent for the capability", so the blast radius was every lane, not just mine. **What caught it:** the peer lane that had originally passed me the pattern re-tested their own gate — not me, and not any of the three times I re-ran it. **The cheap checks I skipped, both one line:** escape the `_` (`LIKE '%section\_subject%'`), or better, **test the interpolation the template actually performs rather than a key name you expect it to contain** — I had separately enumerated `current_section.*` with `regexp_matches` and seen `current_section.subject`, so the correct name was already in my own output while I kept asserting the other one. ⚠ **Second-order:** the same query against `build-site-planner` returns `f` for the capability AND `f` for its control, because that agent has no `current_section` at all — **a control borrowed from a different agent cannot fire, so its `f` is inapplicable rather than informative**, and I had read it as evidence that 640 did not land. That conclusion happens to be true, established elsewhere. Corrected in `LANDMINES.md`, the lane HANDOFF §2a, and NOTES §23.
