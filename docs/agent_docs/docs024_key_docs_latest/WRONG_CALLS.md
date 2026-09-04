@@ -65710,6 +65710,26 @@ phrased as a finding.** Every other durable figure in this session was measured,
 controlled; this one travelled from a summary into three permanent records unchecked, and the
 markers rule did nothing to stop it because the sentence *looked* like a result.
 
+**Sharpened the same day by the `copy_quality_two_stage` lane, who hit the identical failure from
+the other side and put it better than I had — their words, kept verbatim because the phrasing is
+the point:**
+
+> **"Marking is not measuring."** The marker made the uncertainty visible and did nothing to make
+> the figure safe.
+
+That is the exact gap. They had marked their claim UNVERIFIED — correctly — and still put a number
+in it that a reader would act on. I had the caveat too, and the *number* travelled regardless. A
+marker is a statement about my confidence; it does nothing to the figure a reader will use, and the
+figure is what gets acted on.
+
+**And their second line, which reframes the cost of both incidents:** *"the cost was not the error,
+it was the ask."* A false mechanism produces a false REQUEST — "three live rows set this" sends
+someone hunting deployed config for a setting that is not there; "zero set it, the arm fires on the
+first declaration" is a guard at a known point. Same defect, one actionable version. Mine has the
+same shape: "a fourth member of this class whose consumer DELETEs" would have sent the components
+lane to fix a path that is already correct, most likely by tuning the very list its own header
+warns against. **Judge a wrong claim by the action it would have caused, not by how wrong it was.**
+
 **Cost:** three records carried a false, alarming claim for about ninety minutes, and I had also
 relayed it to the components lane as something they might want to pick up. Corrected in place in
 all four places with the refutation and the file:line, plus a follow-up to that lane. Had it stood,
