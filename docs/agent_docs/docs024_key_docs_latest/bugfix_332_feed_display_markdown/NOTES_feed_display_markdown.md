@@ -343,3 +343,68 @@ that the reviewers found no objection in what you showed them. It is not a secon
 the system. My round-1 risks block even named the wrong risk — I flagged "a typo in a class
 name would silently unstyle the list" as the thing needing a reviewer, the class names were
 clean, and the defect was elsewhere entirely.
+
+## 2026-09-04 ~11:00Z — post-roll verification, and it found two things
+
+The chassis rolled 2026-09-03 22:06:58Z. Verified rather than assumed, and the verification
+earned its cost twice.
+
+**First, a trap I nearly walked into.** The live image tag is `v1.0.1360` — and that tag appears
+in commit messages from *before* this lane started (`257 round 2 is LIVE on v1.0.1360`). That is
+the same-tag-stale-cache shape exactly. I could not settle it from the tag, and my binary probe
+(40 candidate shas in one exec) was **Terminated** by the timeout — so its empty output is *not*
+evidence of anything, and I labelled it that way rather than reading it as "no match".
+
+**What settled it was the capability, not the commit** — the memory-index rule *probe the
+CAPABILITY, not the commit*, which is cheaper and stronger here:
+
+| site | column (7d) | re-rendered | page |
+|---|---|---|---|
+| **dartsonline.com** | **dirty**, 2 tail-links | **10:40Z**, post-roll | **CLEAN** |
+| gaswholesalers / relojistas / webdesign | clean | post-roll | clean — *proves nothing* |
+
+Dirty column + post-roll re-render + clean page. **The fix is live and works.** And the three
+clean-over-clean sites are precisely the third row of my own three-way table — I would have
+called them a pass yesterday.
+
+**Second: idea.uk re-rendered at 10:49Z and was STILL DIRTY.** That is the falsifier this lane
+wrote into the bug file firing exactly as designed. The survivor, verbatim:
+
+```
+![Two young men in casual attire standing with their backs against a city skyline.](https://www.siliconrepublic.com/wp-con...
+```
+
+A truncated **image**: alt closed, URL severed. It falls through every rule —
+`mdImageStripRe` needs the closing paren, `mdLinkTruncatedStripRe`'s left boundary `(^|[\s(])`
+**rejects the preceding `!`** (the image marker), `mdFeedImageTailRe` requires no `]`. Proven by
+running the live string through the shipped code: passed through **untouched**.
+
+## 2026-09-04 ~11:20Z — and then the much worse one, which the gap fix only exposed by accident
+
+Writing the test for the gap, I added an assertion that **detection** sees the shape. It failed.
+So I read `LiteralMarkdownPatterns` — and `MDLinkTruncatedRe` **is not in it**.
+
+It never was. Declared 2026-09-03, exported "so the discovery check and its verifier match
+EXACTLY what the stripper removes", documented across fifteen lines, and stated to the council
+as *"detection AND strip single-sourced as the contract requires"*. The function every consumer
+scans through never referenced it.
+
+**So the detector has been blind to truncated links** — the defect this whole bug is about —
+since the change shipped. A page serving one scanned clean.
+
+**Why nothing could have caught it, which is the part I want the next person to have:**
+
+- Every property test in the package routes through `LiteralMarkdownPatterns`, so a
+  declared-but-uncalled pattern is invisible to all of them.
+- **`TestStripThenScanFindsNothing` passed VACUOUSLY.** `Scan(Strip(x)) == ∅` holds trivially
+  when `Scan` cannot see the pattern at all. The test whose entire purpose is to stop detection
+  and strip drifting apart **cannot see the drift when the drift is absence**.
+- `go vet` is silent on an unused exported var. The diff looked right. The council reviews a
+  plan, and my plan said it was wired.
+
+**A round-trip property cannot detect a missing arm** — it is satisfied by doing nothing on both
+sides. Pair every round-trip with a reachability assertion through the public entry point. That
+is now the check in WRONG_CALLS, and it is one line.
+
+Both fixed in `adef5d481`, Gate A re-run (zero co-firing, control 128). **Neither is live** —
+they need another chassis build, which is the one thing still owed on this lane.
