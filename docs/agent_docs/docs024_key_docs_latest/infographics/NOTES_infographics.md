@@ -152,3 +152,92 @@ a form that forbids the wording a number would need.**
   route-B instances sit on `blog-post` pages. **These are plausibly different populations** — a
   `blog-post` page need not carry `article-body`. Check before quoting either figure against the
   other; I have not.
+
+## §7 — 2026-09-04, later: the "use sparingly" line, and why three lanes kept quoting a dead sentence
+
+Owner relayed the finetuning lane's account: *infographics don't get planned so they don't exist; a
+line says "use sparingly" and it seems to have been read as none.*
+
+**The first half is right and I said so.** Route-A infographics planned since 718: **0**. And under
+the old wording the estate produced exactly **1** in all history — so as an account of how we got
+here, it fits the record precisely.
+
+**The second half expired on 2026-09-02.** I ran the check wider than anyone had — *deliberately, to
+test whether they might be reading a DIFFERENT live prompt, which would have made them right and the
+prompts lane wrong*:
+
+```sql
+SELECT type, id, is_active, COALESCE(is_snapshot,false) FROM agent_definitions
+ WHERE default_config::text ~* 'sparingly' AND deleted_at IS NULL;   -- → 0 rows
+```
+
+**Zero, fleet-wide**, across active/inactive/snapshot/undeleted. There is no such prompt.
+
+**THE MECHANISM, which is the finding.** `docs/agent_docs/sql_for_agents/053_build_site_planner.sql`
+— the seed named after the planner — still carries the superseded sentence at lines **1347, 1652,
+2058**. Migration 718 edited the **live row, not the seed**. So grepping the repo for the planner's
+imagery rules, the obvious first move, returns dead text in triplicate under the canonical filename
+with nothing marking it stale. `[MEASURED 2026-09-04]` that one sentence has been quoted as live
+evidence **three times in two days by three lanes** and reached the owner **twice**. Banner added to
+053 (pure addition, prompt text untouched); landmine filed.
+
+**THE SECOND DOOR, and it is why it reached the owner.** The finetuning lane's NOTES took the
+correction on 09-04. Their `README_where_we_are.md` did not — line ~1531 still stated it in plain
+prose, with **no correction in the following 74 lines**, and that is the file the owner reads.
+**A correction in NOTES does not discharge a claim made in README: different files, different
+readers, and the README's reader is the one who acts.** Dated attributed correction appended there;
+that lane has since confirmed they want it kept as placed.
+
+> **⚠ MY OWN COUNT WAS THE STALE ONE IN THIS EXCHANGE.** I reported `comparison-table` 7 / route B 45;
+> they measured **8 / 46** and were right — a new instance landed at **13:08:47Z**, after my reading.
+> Route B moved twice inside one working session. **Any route-B figure in this lane's docs is a
+> snapshot with a shelf life measured in hours, not days** — re-run RUNBOOK §1 before quoting one.
+
+## §8 — first real exercise of the selection rule, and it changed a peer's component choice
+
+Owner decision relayed via the finetuning lane, verbatim: *"I still want infographics, we can use them
+on the pages and in the cards - maybe simple ones for the cards."* plus *"Three-steps section: a
+dedicated section and diagram on the homepage please."* Three asks, all on finetuning.uk/index.html.
+
+**Ask 1 — three steps → `mechanism-flow`. Endorsed as proposed.** Right for the reason it is safe:
+VIZ-006 records it has **no numeric field by design** — on an evidence-gated site the absence of the
+slot is the control. New section, no approved copy at risk.
+
+**Ask 2 — £99 vs ~$5,000. They proposed `comparison-table`; I recommended `evidence-chart` instead.**
+Read both schemas first-hand rather than reasoning from names:
+
+| | `comparison-table` | `evidence-chart` |
+|---|---|---|
+| where the figure comes from | `rows` are `source: "llm"` **free text** | `facts` ← `site_specs.evidence_base.facts`, points resolve by `fact_id` |
+| if the register is missing | renders anyway | `on_missing: skip_section` — *"a chart with no audited series must not be drawn"* |
+| what the LLM may write | cells, incl. figures given in-prompt | *"NEVER state, round, summarise or preview a number"* |
+
+comparison-table's own guidance concedes it: *"a figure typed into a text cell publishes a false
+claim on a live site just as surely as one in a numeric field"*, and VIZ-017 says the claims risk
+there is **"STATED, NOT SOLVED"**. So the two registered figures would have been model-retyped text
+that merely matched the register. **This is the selection rule doing the one job the lane exists
+for**, and it fired on the first case.
+
+**Three data gaps found, all on their evidence_base, none needing code** `[MEASURED 2026-09-04]`:
+
+1. `facts: 10` but **no `charts` key at all** (`charts: 0`). `evidence-chart` requires it → mounting
+   it today **skips the whole section silently**. No error; the section simply is not there.
+2. Neither fact carries a **`display`** key (keys: id, kind, claim, value, source, tolerance,
+   verified_at, writer_line, context_terms). The template renders `{{if $f.display}}{{$f.display}}`.
+3. **`tolerance` is stored and the template NEVER READS IT** — grepped the live template for
+   tolerance/approx/circa/band: **zero matches**.
+
+⇒ The owner's *"the approximate side must read as approximate"* is satisfiable in exactly one place:
+`ft-market-anchor.display = "~$5,000"`. **The approximation then lives in the register, not in
+anyone's memory** — which is the same structural move as VIZ-006's missing numeric field.
+
+**Ask 3 — cards. No fact-resolved card-scale component exists.** `stat-band` (3 placements) is
+nearest and its `stats` array is `source: "llm"`; its *"must be a REAL, EVIDENCED number; NEVER
+invent"* is a prompt instruction, not a control. **Recommended instead: cards carry NON-NUMERIC
+graphics** — and route A is legitimate there, because IMG-046 forbids a generated image *real
+numbers*, not decoration. So the two routes divide cleanly by content, not by prestige: **figures go
+to the fact-resolved component; a picture with no figures in it may be a picture.** Filling the
+card-scale gap properly is `brochure_component_library`'s call; specification offered, not built.
+
+`[UNMEASURED]` Whether `evidence-chart` renders acceptably with only **two** points — every live
+instance I sampled has more. Flagged to them, not tested.
