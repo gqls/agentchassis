@@ -282,6 +282,19 @@ score, from an empty output, on the arm that would look most attractive in a tab
 finished. **Any future arm must assert `stop_reason == "end_turn"` and a non-zero word count before
 a single count is read** (the RUNBOOK now says so, and the scorer prints stop and words first).
 
+> **FOLLOW-UP 2026-09-04, prompted by the `bugs_open/257` lane: it is a SHAPE, not a size, and I had
+> filed it as a size.** They pushed back on my calling result 2 a sizing question before anyone
+> checked whether it reproduces below `max`. It does. `[MEASURED, n=8 at `effort: "xhigh"`,
+> `max_tokens` 16,000]` **1 of 8 unusable**, and that one returned **3,488 characters of real text
+> cut mid-JSON** rather than nothing — the more dangerous shape, because a lenient consumer can
+> repair-and-persist a fragment. The seven that completed ran 5,636–15,057 output tokens, the best
+> of them at **94% of the ceiling**. Production's default (`high`) was **0 of 6**, never above 23%
+> of the same ceiling. ⚠ n=6 cannot license "high is safe" — it would miss a ~5% rate — so the
+> claim is "no evidence at high", and what IS established is that headroom differs by an order of
+> magnitude between two adjacent effort settings on one prompt. **Effort is not a quality dial that
+> can be raised independently of `max_tokens`.** Landmine corrected the same day; the correction
+> made it worse, which is the right direction for a correction to run.
+
 **What this leaves for the owner's model question.** Within sonnet there is no config that fixes the
 register: off, default and max all land at 6–9 or produce nothing. The lever is the model. grok-4.6
 scored 0 twice with the facts kept and the length UP; Fable scored 0 twice but density-failed his
