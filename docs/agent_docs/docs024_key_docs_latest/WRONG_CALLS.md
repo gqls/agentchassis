@@ -68222,3 +68222,24 @@ a-closer-census-cannot-see-what-it-succeeded-at, the-claim-that-makes-your-argum
 **every one of these was caught by someone consuming the output rather than by the person producing
 it** — twice by a peer lane, twice by my own disconfirming queries, once by re-reading a sent
 message. None was caught by re-checking the claim in the place I wrote it.
+
+- **2026-09-04 — bugfix_451_457_433_unowned_queue — I warned a peer lane that THEIR fix would arm my
+  trap, having read the version I would have written rather than the one they had chosen.**
+  Investigating `bugs_open/457`'s ordering trap, I told the `parked_findings_release` lane that their
+  fix to `detected-item-promoter`'s door 5 "is itself a trigger for this trap unless the chassis has
+  rolled first", and recorded that in the bug file as a third instance of "the remediation arms it".
+  It is true of the **obvious** fix — widen the door, rows flow — and false of theirs. Their design
+  is an opt-in stamp (`spec ? 'released_by'`) whose absent-stamp default is HELD, so widening the
+  door releases nothing by itself and every affected row stays inert. **There was no dependency in
+  that direction at all**, and had they deferred a safe migration on my say-so the cost would have
+  been mine. *The cheap check:* **before characterising another lane's unshipped change, ask them
+  what it does, or read the migration — a design you have not read is not a design you can
+  describe.** The pattern I had found was real three times over and that is exactly what made a
+  fourth instance feel like recognition rather than a guess. *Second-order note, in their favour and
+  worth copying:* they answered by naming a residual I had not asked about — a `content-gap-planner`
+  plan can create a `needs_content_page` row a day later and arm the trap by a route that **appears
+  in no query either of us would run today** — and then declined my own four-row precision as not
+  worth the second-order risk.
+
+Family: a-citation-you-did-not-open-is-a-claim, a-report-is-not-a-measurement,
+the-claim-that-makes-your-argument-neater-is-the-one-to-check-first.

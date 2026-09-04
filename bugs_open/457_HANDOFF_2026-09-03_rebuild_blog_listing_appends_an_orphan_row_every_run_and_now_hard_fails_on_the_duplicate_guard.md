@@ -694,3 +694,61 @@ not be treated as the mitigation. Told them so; they had already said as much th
 **The ordering that closes all of it:** roll the chassis carrying `828b22c7c`, *then* release. After
 that roll a guessed slot refuses whatever the occupancy, so the trap stops depending on a count
 staying above 1.
+
+### BOTH `[UNVERIFIED]` GAPS CLOSED — one handler arms AND fires, and a plan can arm it a day later (2026-09-04)
+
+The `parked_findings_release` lane checked the two things I marked unverified above. **I then
+re-checked the load-bearing one at the live config rather than relaying it**, because this lane's
+own MISSTEP 3 is relaying citations it had not opened:
+
+`[MEASURED 2026-09-04 ~18:0xZ]` `page-build-handler`'s live workflow steps
+(`agent_definitions.default_config->'workflow'->'steps'`, which is an OBJECT keyed by step name,
+not an array — an `jsonb_array_length` query on it errors) include **both halves**:
+
+    save_sections         ->  save_page_sections      ← ARMS  (the :938 DELETE-then-reinsert)
+    spawn_rerender_agent  ->  spawn_agent             ← FIRES
+
+**So arming and firing are not separate events on this path.** One page build does both, in one run.
+All four parked rows on `/articles/index.html` route to this handler. The hold is not over-cautious
+and my earlier "arming needs a later `rerender-pages` run" understated it.
+
+**Their handler survey (theirs, not re-run here), which closes the `page_id` gap in our favour:**
+
+| handler | saves sections | rerenders |
+|---|---|---|
+| **page-build-handler** | **yes** | **yes** |
+| component-template-fixer | no | **yes** |
+| content-gap-planner | no | no |
+| webdesign-agent | no | no |
+| copy-editor | no | no |
+| css-patch-agent | no | no |
+
+So the site-level parked rows cannot arm it directly, and the 5 `capability_gap` rows have no
+handler at all. **But two residuals, both theirs and both real:**
+
+1. **A plan can manufacture an arming event later.** `content-gap-planner` produces plans, and a plan
+   that adds a section to `/articles/index.html` becomes a *new* `needs_content_page` row routed to
+   `page-build-handler`. **That route appears in no query either lane would run today** — it is a
+   second-order path through a row that does not exist yet. They chose to hold boxingonline entirely
+   rather than run a four-row exclusion, which is the right call: the precision was not worth the
+   second-order risk on one site out of 39.
+2. **`component-template-fixer` is a live firing path** — harmless while occupancy is 7, live the
+   moment anything arms.
+
+> **⚠ CORRECTION, mine, same day: I told that lane "your fix to the promoter is itself a trigger for
+> this trap". That is FALSE of their actual design and I had not read it.** I generalised from the
+> obvious implementation — widen door 5, rows flow — to the one they had chosen. Theirs is an
+> **opt-in release stamp**:
+> ```sql
+> origin_ok = (spec->>'origin' <> 'model_opinion' OR spec ? 'released_by')
+> ```
+> Widening the door releases **nothing** by itself; it admits only rows somebody has explicitly
+> stamped, one at a time, per site, with the owner approving each site's batch. All four rows here
+> are unstamped, so the migration going live is inert with respect to them. **The unsafe side is the
+> default — absent stamp = held**, which is exactly the shape the owner ruling of 2026-08-02 §2
+> prescribes for new authority on a shared seam.
+>
+> The practical consequence is the opposite of what I said: **there is no dependency in that
+> direction at all.** Their migration can go through the council gate while we wait; the only
+> ordering that matters is *our roll → their stamp*. Had they taken my word they might have delayed
+> a safe change for no reason. → `WRONG_CALLS.md`.
