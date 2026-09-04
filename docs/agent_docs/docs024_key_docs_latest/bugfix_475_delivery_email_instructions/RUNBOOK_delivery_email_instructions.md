@@ -220,3 +220,50 @@ key of that name reaches nothing (`page-build-handler` interpolates only `spec.m
 `spec.page_id`, `spec.page_name`, `spec.suggestion`, `spec_sections`). **`page_type` is not settable
 from the spec at all: you set it when you create the row**, so a wrong one is not a re-file away —
 it is baked in, and it determines the URL.
+
+### The page is FILED, and the URL is now fixed
+
+`[VERIFIED 2026-09-04 at the row, not from a message]` page `a17b7220-ca5c-4a4e-9ac6-01f9fed94b55`,
+`name=putting-your-site-online`, `url=/putting-your-site-online.html`, `page_type=content`,
+`noindex=false`, `build_status=planned`, `in_header=false`, `in_footer=false`. Work item
+`3b8405f7-8165-418a-9036-286d72bfff5e` (`triaged`, `page-build-handler`). Filed by the copy lane,
+row and item in one transaction with a guard on duplicate name/URL.
+
+**So `{{instructions_link}}` = `https://webdesign.uk/putting-your-site-online.html`.** Fixed. After
+the migration lands it costs a migration to change; after a ZIP ships it cannot be changed at all.
+
+**`in_header=false, in_footer=false` does NOT strand the page, and this was measured rather than
+assumed.** `[MEASURED 2026-09-04]` `https://webdesign.uk/sitemap.xml` serves **200** and lists pages
+whose nav flags are BOTH false — all five deployed tool guides are in it and every one is
+`in_header=f, in_footer=f`. So an unlinked page here still has a crawler path, `noindex=false` is
+effective rather than aspirational, and no footer link (which would change the chrome on all 18
+pages) is needed.
+
+⚠ **A sitemap that EXISTS is not a sitemap that CONTAINS your page.** After the build deploys:
+
+```bash
+curl -s https://webdesign.uk/sitemap.xml | grep -c 'putting-your-site-online'   # 0 = genuinely unreachable
+```
+
+A zero reopens the footer decision. Run it in the same pass as the verbatim-strings check below.
+
+### The verbatim-strings test (the copy lane's, armed 2026-09-04)
+
+The page must reproduce four Netlify strings EXACTLY, because a customer matches what is on their
+screen against what is on the page. Fired with the writer given them as prose guidance
+(`spec.suggestion`) rather than as registered facts — deliberately, as the cheaper experiment.
+
+```bash
+# grep the SERVED page, not the stored row, and check ALL FOUR
+for s in "Please complete the security check and try again" \
+         "Password is too easy to guess" \
+         "This site is private" \
+         "Your project is public"; do
+  printf '%-52s %s\n' "$s" "$(curl -s https://webdesign.uk/putting-your-site-online.html | grep -c "$s")"
+done
+```
+
+**A PARTIAL result is the informative one** — three exact and one paraphrased is exactly what a
+spot-check of a single string would miss. Any paraphrase is the measured case for moving these into
+`section_facts` as registered evidence (see the channels table above); all four exact means the
+register write was not needed and we have saved a first-of-kind write on a live site.
