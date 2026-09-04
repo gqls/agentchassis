@@ -57,15 +57,21 @@ pricing, sales + leads, verification + NS state.**
 - **P1 — research + scaffold: DONE 2026-09-02.** Route decided by owner;
   `afternic-csv.py` live, 13-case `--self-test` PASS and the cell-count
   guard proven by mutation (disabling it fails the test).
-- **P2 — owner supplies the two files: BLOCKED on owner** (RUNBOOK §1–§2):
-  portfolio export → `inbound/`, bulk template v3 → lane dir. Optional
-  third: whatever the dashboard offers as a sales/leads export.
-- **P3 — first real ingest.** Lock `ALIASES` against the real headers
-  (record any additions in NOTES), set `--control` from a value the owner
-  quotes off his dashboard, cross-check `--known` against the estate
-  (`sites` table; later the registrar enumerations — Dynadot listed 451
-  domains 2026-09-02). Snapshot becomes the baseline; every later ingest
-  diffs against it.
+- **P2 — owner supplies the two files: HALF DONE.** Portfolio export
+  landed 2026-09-03 (`inbound/domains-1788424049.csv`). **Still BLOCKED on
+  owner: the bulk template v3** (RUNBOOK §2) — needed before P4 can start.
+  Optional third (sales/leads export) still unasked.
+- **P3 — first real ingest: DONE 2026-09-03.** 1,634 domains parsed;
+  `ALIASES` locked against the real header set (one addition —
+  `dateaddedutc`; NOTES 2026-09-03); 3/3 owner-quoted `--control` values
+  PASS (all landed in Min Offer, not Buy Now/Floor); `--known` cross-check
+  against `sites` found 26/41 estate domains present. Real data taught one
+  thing no doc stated: Afternic writes `0` in a price column to mean "not
+  set" — parser corrected, self-test 18/18. Snapshot
+  `portfolio_2026-09-03.json` is the baseline; **now KNOWN STALE on 6 rows**
+  (the owner removed those listings + registered `enables.uk` directly in
+  the dashboard, after this snapshot was taken — NOTES 2026-09-03). Next
+  export will confirm.
 - **P3a — valuation hand-off (added 2026-09-02, same day).** After every
   successful ingest, `valuation-csv` writes the domain_valuation lane's
   feed (`domain_valuation/inbound/afternic_listings_<date>.csv`,
