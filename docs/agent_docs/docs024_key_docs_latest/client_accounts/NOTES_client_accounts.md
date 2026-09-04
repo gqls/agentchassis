@@ -215,3 +215,27 @@ real card payment cleared on a live key on 2026-08-27.
 ⚠ **PII note for anyone re-running this:** the `billing_events.payload` for that event contains the
 payer's real name, email, country and postcode. Read it in place; do not copy `customer_details` into
 docs, commit messages or chat. This file names only the mechanism.
+
+## 2026-09-04 (evening, later) — contract sent: `ResolveOrderingParty`
+
+`CONTRACT_2026-09-04_resolving_the_ordering_party.md` written and sent to the `stripe` lane, who had
+asked for rule (1) settled before drafting the order-side half. Proposed, not built, not yet
+council-reviewed.
+
+**Their corroborating measurement, adopted:** the `Boxing Online` client row was created
+2026-08-27 **14:29:10Z** and its order paid **14:40:22Z** — **the client row predates its own payment
+by eleven minutes.** Stronger than my framing: it is not merely that payment does not mint a party,
+it is that on the only order in the estate's history the party was minted by the *ordering intake*
+and the money arrived afterwards.
+
+**Division agreed:** money theirs, identity ours; they take the resolver implementation, this lane
+owns the contract and reviews. Offered them either split for the migration half.
+
+⚠ **The one ordering constraint stated as non-negotiable in the message, and worth repeating here:**
+the partial unique index on the canonical email **must land before or with the first automated
+caller, never after.** After means reconciling duplicate parties that *both* inserted correctly —
+and under 5a's no-merge rule, reconciliation is a human decision per pair.
+
+**Confirmed to them re Phase 0:** `EnsureSiteRecordAction` gains an OPTIONAL network parameter,
+opt-in, unsafe side default OFF (owner ruling 2026-08-02 §2), council-scope, register entry in the
+same commit, and they get told before it ships.

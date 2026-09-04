@@ -141,3 +141,47 @@ I have added it as a fourth line in the hosting costing you asked for, so it get
 rather than argued about. And I have sent it back to the scale review, which is where you parked the
 cluster question yourself until after the first working site — I did not want to quietly un-park it
 on your behalf.
+
+---
+
+## 2026-09-04, evening — the payments thread and this one have agreed where the line is, and I have written the rule
+
+The session doing Stripe work asked to own the money — vouchers, orders, the webhook, checkout, any
+page where a customer pays — and to leave identity to us. That is the right line and I took it.
+
+Before agreeing I checked one thing they had asserted, and it turned out to be wrong in a way that
+mattered to both of us. **They believed a payment is what creates a customer record. It isn't.** The
+one real payment we have ever taken went through perfectly on 27 August, and created nothing: for a
+one-off card payment Stripe doesn't bother making a customer, so there was no customer to record.
+They then found the sharper version of it — **the customer record already existed eleven minutes
+before the payment cleared.** It was made when the order was taken, not when the money arrived.
+
+**I had made the same mistake in our own plan an hour earlier**, so I have corrected it where it sits
+and logged it. It is worth knowing why two of us got it wrong independently: we both read the same
+line in the register, which describes how the mechanism is *designed* to work. Nothing in that line
+can tell you whether it has ever actually happened. Both of us heard "this is built" as "this is
+working". One query separated them.
+
+They then asked for the one thing that was blocking them: a settled rule for **"which customer does
+this order belong to?"** — and they named the trap themselves. There are two ways to write that
+question and only one is safe. Asking *"who is the customer for this site?"* sounds natural and is
+the trap: **today it would answer "Default Client" for every site we have, including the one somebody
+paid for**, and it would look completely correct doing it.
+
+So the rule is keyed on the person, never on the site, and I have written it up properly. The short
+version: **a customer is somebody who exists; the roles you settled last week — who ordered it, who
+runs it, what it shows the public, who it is about — are jobs that person holds on a particular
+site.** An order belongs to whoever ordered it. A site gets its owner from the order, never the other
+way round.
+
+Four things make it safe and they are all small: match email addresses in a plain way and no cleverer
+than that (because wrongly merging two customers cannot be undone, while wrongly splitting them can);
+add a database rule preventing two customer records sharing an address, which is missing today; make
+the create-if-missing step atomic so two orders arriving together cannot make two records; and **if
+there is no email at all, stop and ask a human — never quietly file it under the default customer**.
+That last one is the same mistake that put your own email address on thirteen public pages in August,
+wearing different clothes.
+
+The useful part is that this makes the two threads' worry go away entirely. They were asking how our
+two record-creating paths could be kept in step. The answer is that there is only one: theirs. Ours
+reads the decision rather than making its own.
