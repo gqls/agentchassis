@@ -222,3 +222,182 @@ competing with it.
   `DESIGN_2026-09-03_examples_catalogue_shape.md` §3 says outright *"The estate does not have a
   customer account system today for framework sites … So this is the first real one, and it is the
   largest piece here."* **Not yet told.** They should be, before they build a second one.
+
+---
+
+# OWNER RULINGS 2026-09-04 — four answers, and two of them close §5's biggest fork
+
+Put to the owner directly by this lane on the day it took the lead. Quoted where the option text is
+quoted; the consequences below are this lane's reading and are marked as such.
+
+## Ruling 1 — scope: **an account WITH US.** Not third-party hosting accounts.
+
+`OPTIONS_2026-09-04_what_it_would_take_to_set_up_hosting_accounts_for_customers.md` (the delivery
+lane's Netlify question) is **not** this lane's subject. Its Option D — make the handoff good — is
+already shipping there and stays theirs.
+
+## Ruling 2 — paid hosting: **cost it first, do not build.**
+
+So pre-plan Phase 2 becomes a costing deliverable, not a build. §2e already splits it and the split
+is the finding: **keeping a paying site up costs nothing to build** (nothing enforces
+`live_link_expires_at`, so it is the current behaviour by omission), and **the entire cost is the
+stop-serving half** — once-only discipline, a grace period, and the risk of unpublishing a business
+over a billing hiccup.
+
+The costing must therefore price three things separately and not blend them:
+(a) the money — marginal storage and delivery per site, which is **`[UNMEASURED]`** today and has no
+figure anywhere in the tree; (b) the **obligation** — uptime and someone to answer, which the OPTIONS
+doc already named as the real cost; (c) the **stop-serving subsystem**, which is the only real
+engineering. Note before costing (b): detection partly exists —
+`[MEASURED 2026-09-04]` `scheduled_tasks.site-discovery-rotation-availability` runs every 5 minutes
+and probes the least-recently-checked deployed site for `site_unreachable` (`bugs_open/236`).
+
+## Ruling 3 — **token page now, login later.** Login is a stated destination, not a maybe.
+
+> *"Token page now, login later … so the token page is built as the fallback for people who never
+> log in, not as a throwaway."*
+
+**This is not the same answer as "token page only", and the difference is a design constraint, not a
+mood.** Because a login is coming, the token page must be built so that **what the token grants and
+what a password would later grant are the same thing.** Concretely, this lane's reading:
+
+- the redemption step yields a **scoped read of an account**, and the token is one way to obtain it;
+- a password later becomes a *second* way to obtain the same scope, not a second surface with its own
+  notion of what a customer may see;
+- so **the scope is the thing to get right now** — what an account can read — and authentication is
+  deliberately left as the swappable half.
+
+⚠ **The trap this ruling creates, recorded before anyone hits it:** "login later" invites building
+the page against a token and *then* discovering the login needs a different shape. The guard is to
+name the scope explicitly in the register entry when Phase 1 ships, so the Phase 3 session inherits a
+contract rather than a page.
+
+Phase 3's price is unchanged and stands: §2c — there is no public route into the cluster, so a login
+is a new public surface on the box with password resets, verification and support attached.
+
+## Ruling 4 — **one account per PERSON**, not per site.
+
+> *"The account is the customer. Someone with three sites is one customer with three sites, not three
+> customers."*
+
+This confirms §3's party-vs-role reading from the owner's side, and it **settles §2b's token fork**.
+
+**What it resolves, and how.** The account page is client-scoped; the existing links
+(`zip_download`, `confirm_transfer`) are genuinely about a site and stay per-site. So the token table
+must carry both shapes. Of §2b's three options:
+
+- **(i) one page per site is now ruled out** — it contradicts this ruling directly.
+- **(iii) a second token table is rejected by the pre-plan's own §6** — two paths to the same fact is
+  the divergence that later costs a census, and migration 511's header says outright that the table
+  exists *because* two customer links were the same mechanism and a third was coming. A second table
+  would undo the convergence it was written to achieve.
+- **(ii) is the shape:** `site_id` becomes nullable, `client_id` is added, and a **purpose-aware
+  CHECK** requires exactly the right one per purpose — `zip_download` / `confirm_transfer` require
+  `site_id`; the new account purpose requires `client_id`. One hashing rule, one expiry rule, one
+  redemption path, one ledger.
+
+⚠ **Do NOT make `site_id` plainly nullable and stop there.** That would silently weaken a NOT NULL
+guarantee the two live purposes rely on, and nothing would fail — a `zip_download` row with a NULL
+site would be accepted and only break at redemption. The CHECK is the load-bearing half of this
+migration, and it should be **induced** in the migration's verify block the way 511 induced its own
+two, not merely asserted to exist.
+
+## What these four rulings unblock, in order
+
+1. **Phase 0, producer half** — `EnsureSiteRecordAction` learns to take a network from the order.
+   Ruling 4 makes this unambiguous: the network being attributed is the **customer's**, one per
+   party. Blocked on nothing.
+2. **Phase 0, backfill** — after (1), never before (§2a).
+3. **Phase 1 migration** — the purpose-aware token widening above, plus the new account purpose.
+   Blocked on nothing; council-scope (a migration IS the running system).
+4. **Phase 1 page** — the scope contract first, the page second (ruling 3).
+5. **Phase 2 costing** — independent of all the above; can run in parallel.
+
+**Still owed by the owner, and not urgent:** what hosting expiry actually DOES (stop serving / holding
+page / domain only). The costing in (5) will price all three rather than wait for it.
+
+---
+
+# OWNER SUGGESTION 2026-09-04 — *"we could have a separate cluster for them altogether"*
+
+Recorded, not adopted, and **not a decision** — the owner raised it mid-plan. It has real prior art
+in this estate, so the useful reply is to say which of three different things it would isolate,
+because they have three different answers.
+
+## The three things a "separate cluster" could isolate
+
+**1. Where customer sites are SERVED. A separate cluster changes nothing here.** Sites do not serve
+from the cluster at all — they serve from B2 `portfolio-sites` through one Cloudflare Worker across
+38 zones plus the `*.ugg2.com` wildcard. The shared-fate risk at this layer is **one Cloudflare
+account**: `PLAN_2026-08-17_delivery_architecture_decisions.md` §4.2 names it plainly — *"one
+phishing page can flag the shared account"* — and §4.4 already costs the fix as an **A → B → C**
+trajectory (zone-per-domain now → own authoritative DNS + CF for SaaS near ~500–1,000 domains →
+account sharding / CF Tenants only if partner status earns its keep). **That is the isolation
+question that actually bites first, and it is not a compute question.**
+
+**2. Where customer BUILDS run. This is the real prior proposal, and it is closer than it looks.**
+Register **SAAS-001** — the *"Y-copy"* isolated-satellite architecture: a cut-down copy of the whole
+chassis on a separate cluster, decomposing *"don't let customer work interfere with core"* into
+three threats (load, hack, bug) across a one-directional, egress-from-core-only boundary. Its own
+escalation argument is exactly this lane's subject: *"an anonymous, internet-triggered,
+token-spending build pipeline must not run on core."* **Status: aspirational; nothing stood up.**
+
+But the plumbing is further along than the status suggests, and this is checkable:
+
+- `[MEASURED 2026-09-04]` **`remote-job-spawner` is LIVE in the production cluster right now** —
+  1/1, 187 days old, `cluster_id: uk_001`, consuming `system.dispatch.requests`, **and idle.**
+- `dispatch_agent` is a registered action (`platform/orchestration/actions/dispatch_actions.go`),
+  publishing to that topic with `target_cluster` in the message headers.
+- `[MEASURED 2026-09-04]` `kubectl config get-contexts` shows **one** cluster,
+  `uk001-prod-agent-chassis-cluster`. MCL-002's `va001` second cluster is not in this kubeconfig.
+
+**So the receiving half of multi-cluster dispatch is deployed and has nothing to do. What is missing
+is a second cluster and a reason — not the mechanism.** Known gaps before it could be trusted are
+already enumerated: MCL-003 (the cluster filter logs at `Debug`, which does not appear in our logs,
+so you cannot verify the filter works), MCL-004 (no consumer for `system.dispatch.responses` — a
+failed dispatch is silent until timeout), MCL-008 (Kafka has **no** `spec.kafka.authorization`, so
+everything connects as `User:ANONYMOUS` with full access — an authenticated cross-cluster user would
+be unrestricted). **MCL-008 is the one that matters for a customer-facing satellite** and it is a
+bigger change than the satellite itself.
+
+**3. Where customer DATA lives. Here it cuts against today's finding.** §2d: a customer already
+lives in four unjoined stores and nothing joins them — and the fourth was created *this week*
+because a reader trusted the third. **Splitting the database across clusters before the join exists
+adds a fifth store, not isolation.**
+
+## The sequencing argument, which is the actual answer
+
+**You cannot shard a relationship you have not recorded.** *"Which customer's data moves to the other
+cluster?"* is precisely the question the estate cannot answer today: `[MEASURED 2026-09-04]` one
+network, 42 of 60 sites funnelling through it, and the one real customer row reachable from no site.
+
+So this suggestion **does not reorder the plan — it raises the value of Phase 0**, which is the same
+work under every isolation story and is a prerequisite for all of them.
+
+And the estate's own recorded caution points the same way. **BIZ-014**: the unit of blast-radius
+isolation (the satellite/cluster) is *distinct* from the unit of separability-for-sale (the domain),
+and **"operating thousands of domains does not require thousands of clusters."** That is not an
+argument against a satellite; it is an argument against reaching for a cluster when the thing you
+want is a boundary.
+
+## What it would buy, and what it would cost
+
+**Buy:** the strongest available answer to §4.2's abuse/shared-fate problem; the shape that makes
+"sell the whole thing to a buyer" cheap later (BIZ-014's vendor-optional half); and SAAS-001's
+stated goal of keeping anonymous internet-triggered spend off core.
+
+**Cost, stated honestly:** a second cluster is a second everything to operate — and
+`webdesign_uk_build_service/PLAN_2026-08-21_todo_from_here.md` records that the owner has already
+**parked** the *"whole-architecture scale review incl. own cluster(s)"* until **after** the working
+site. Adopting this now would be reversing his own parking decision, which is his to do but should
+be done knowingly.
+
+## This lane's recommendation
+
+1. **Do not reorder the plan.** Phase 0 is unchanged and is the prerequisite either way.
+2. **Fold it into the Phase 2 costing** (ruling 2), as a fourth line beside money / obligation /
+   stop-serving: *what isolation would cost and buy*. It belongs there because it is an answer to
+   the same operational-obligation question, and the costing is already the deliverable.
+3. **Route the compute half to the scale review**, where the owner already put it — not into this
+   lane. **Tell the `multicluster` lane** that a customer-facing satellite is being considered
+   again, because MCL-003/004/008 are theirs and MCL-008 gates it.

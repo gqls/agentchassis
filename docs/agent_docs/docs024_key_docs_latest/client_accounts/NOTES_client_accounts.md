@@ -122,3 +122,42 @@ by date. Six sites were built in between.
   `bugs_open/236`, probes least-recently-checked deployed sites for `site_unreachable`).
   **There IS an availability probe** — worth knowing before costing "someone to answer when it
   breaks", because part of the detection already exists.
+
+## 2026-09-04 (later still) — owner rulings 3 and 4, and the separate-cluster suggestion
+
+**Rulings** (full text and consequences in `PLAN_2026-09-04b_…md`): scope = an account WITH US ·
+paid hosting COSTED not built · **token page now, login later** (a stated destination, so the token
+page is the fallback, not a throwaway — the scope of what an account can read is the durable half and
+authentication is the swappable one) · **one account per PERSON**.
+
+Ruling 4 settles the §2b token fork on option (ii): `customer_access_tokens.site_id` becomes
+nullable, `client_id` is added, and a **purpose-aware** CHECK requires the right one per purpose.
+⚠ Recorded in the plan and repeated here because it is the trap: making `site_id` plainly nullable
+would silently weaken a NOT NULL guarantee the two live purposes rely on, and **nothing would fail** —
+a `zip_download` row with a NULL site would insert cleanly and only break at redemption. The CHECK is
+the load-bearing half and should be **induced** in the verify block, as 511 induced its own two.
+
+### Separate-cluster suggestion — measurements taken before answering
+
+- `[MEASURED 2026-09-04]` `kubectl config get-contexts` → **one** cluster,
+  `uk001-prod-agent-chassis-cluster`. MCL-002's `va001` is not in this kubeconfig.
+- `[MEASURED 2026-09-04]` **`remote-job-spawner` is live and idle**: 1/1, 187d,
+  startup line `cluster_id: uk_001`, `consumer_group: remote-job-spawner-uk_001`,
+  `dispatch_topic: system.dispatch.requests`, provenance `239ab3626`. So the *receiving* half of
+  multi-cluster dispatch is deployed with nothing to do.
+- Register: **SAAS-001** (Y-copy satellite) `aspirational`, nothing stood up; **MCL-001** `partial`;
+  gaps **MCL-003** (cluster filter logs at `Debug` — invisible in our logs, so the filter cannot be
+  verified), **MCL-004** (no consumer for `system.dispatch.responses` — a failed dispatch is silent
+  until timeout), **MCL-008** (Kafka has no `spec.kafka.authorization`; everything is
+  `User:ANONYMOUS` with full access). **MCL-008 gates any customer-facing satellite and is bigger
+  than the satellite.**
+- **BIZ-014**, quoted rather than paraphrased because it is the counterweight: the unit of
+  blast-radius isolation is distinct from the unit of separability-for-sale, and *"operating
+  thousands of domains does not require thousands of clusters."*
+
+**The reply's spine, so it is not re-derived:** a separate cluster isolates one of three things
+(serving / builds / data); serving does not run on the cluster at all so it isolates nothing there;
+builds are the real prior proposal and the plumbing is live-and-idle; and for data it currently makes
+things worse, because §2d's four unjoined stores would become five. **You cannot shard a relationship
+you have not recorded** — which is why the suggestion raises the value of Phase 0 rather than
+reordering anything.

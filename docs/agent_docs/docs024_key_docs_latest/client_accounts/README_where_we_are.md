@@ -98,3 +98,46 @@ build a second. They should be told before that happens.
 
 **Four questions are yours, and they are in the plan.** The one that decides the most is the first:
 do customers log in at all, or is a secret link to a read-only page enough?
+
+---
+
+## 2026-09-04, later still — your two answers, and the separate-cluster idea
+
+**You settled the two questions that were holding things up.** Customers get a page at a secret link
+now, with a real login as a stated destination later — which is different from "no login ever", and
+it changes what I build: the page has to be built so that what the link opens and what a password
+would later open are *the same thing*, with the password just being a second key to the same door.
+And an account is one per **person**, not one per site — so someone with three sites is one customer,
+which is what most of the rest of the design hangs off.
+
+**On a separate cluster for customers.** It is a real idea with real history here, and the useful
+thing I can tell you is that it means three different things and they have three different answers.
+
+*Serving their sites:* a separate cluster would change nothing, because their sites do not run on our
+cluster at all — they are files in Backblaze served through Cloudflare. The genuine shared-fate risk
+at that layer is that every customer sits in **one Cloudflare account**, so one bad page could get
+the whole account flagged and take everybody down. That risk is already written up and costed,
+with a staged answer that kicks in somewhere around five hundred to a thousand domains.
+
+*Running their builds:* this is the one that was actually proposed before, and it is further along
+than anyone would guess. There is a service running in our cluster **right now**, and has been for
+187 days, whose only job is to accept work sent from another cluster. It is idle. The mechanism for
+"run this on a different cluster" is built and deployed; what is missing is a second cluster and a
+reason. The honest caveat is that our message bus currently has **no access control at all** —
+everything connects anonymously with full rights — so a customer-facing satellite would need that
+fixed first, and that is a bigger job than the satellite.
+
+*Keeping their data separate:* here it works against us right now. Today a customer's details are
+already scattered across four different places that nothing joins up — and the fourth of those was
+created this week precisely because something trusted the third. Splitting the database before we
+have joined it up would add a fifth.
+
+**So my recommendation is that it does not change the plan — it makes the first step more valuable.**
+You cannot split customers onto their own cluster until you can answer "which things are this
+customer's?", and that is exactly what we cannot answer today. That first step is the same work
+whichever way the isolation question goes.
+
+I have added it as a fourth line in the hosting costing you asked for, so it gets priced properly
+rather than argued about. And I have sent it back to the scale review, which is where you parked the
+cluster question yourself until after the first working site — I did not want to quietly un-park it
+on your behalf.
