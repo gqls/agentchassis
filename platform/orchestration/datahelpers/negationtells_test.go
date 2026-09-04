@@ -10,6 +10,10 @@
 //   - delete negXNotYRe from negationShapes      -> TestOwnersOwnSentencesTrip fails
 //   - delete the neighbour comparison in AcceptNegationRewrite -> TestRewriteRejectsDisplacement fails
 //   - make NegationExempt take the whole prompt   -> TestExemptionIsSentenceScoped fails
+//   - delete the dropped_name loop                -> TestRewriteRejectsDroppedName fails
+//   - key dropped_name on the whole `from` instead of from[:protectFrom]
+//                                                 -> TestRewriteRejectsDroppedName fails
+//   - set headingMinWords to sentenceMinWords     -> TestHeadingFloorIsSeparateFromTheSentenceFloor fails
 
 package datahelpers
 
@@ -281,6 +285,66 @@ func TestRewriteFactRules(t *testing.T) {
 		"<p>It shows what is possible, not what survives production today.</p>",
 		"<p><strong>It</strong> <em>shows</em>.</p>", 26); ok || why != "gutted" {
 		t.Errorf("a markup-padded stub must still be gutted, got %v/%q", ok, why)
+	}
+}
+
+// DROPPED_NAME — the LOSE half of the proper-name rule (bugs_open/420).
+// Until this existed the guards were asymmetric: figures were protected both
+// ways but names only against INVENTION, so a rewrite that DELETED an identifier
+// passed everything. That was survivable only while the never-prose field list
+// kept identity-bearing fields away from the model; 420 removed bare `name` from
+// it, so the protection had to become a control in the judge — reachable by both
+// mutating call sites and by any future caller that walks fields itself.
+//
+// Reasons are asserted, not just the bool: a later edit must not be able to
+// satisfy this by tightening `gutted` instead.
+func TestRewriteRejectsDroppedName(t *testing.T) {
+	from := "We deploy on Kubernetes with Argo, not on bare metal."
+	protect := ScanDefineByNegation(from)[0].MatchInSent
+
+	// A name in the PROTECTED half is part of the claim and must survive.
+	if ok, why := AcceptNegationRewrite(from, "We deploy with Argo for every service.", protect); ok || why != "dropped_name" {
+		t.Errorf("losing the protected proper noun must be refused as dropped_name, got %v/%q", ok, why)
+	}
+	// The ruled truncation keeps from[:protectFrom] verbatim, so it is inert here.
+	if ok, why := AcceptNegationRewrite(from, "We deploy on Kubernetes with Argo.", protect); !ok {
+		t.Errorf("the ruled truncation must still be accepted, got %q", why)
+	}
+	// A name AFTER the construction is the contrasted alternative and may go —
+	// this is the half that keying on protectFrom buys, exactly as dropped_figure.
+	after := "We deploy on Kubernetes with Argo, not on Heroku."
+	if ok, why := AcceptNegationRewrite(after, "We deploy on Kubernetes with Argo.",
+		ScanDefineByNegation(after)[0].MatchInSent); !ok {
+		t.Errorf("dropping the CONTRASTED name should be allowed, got %q", why)
+	}
+	// A sentence-initial capital is not a name, on this side as on the other.
+	if ok, why := AcceptNegationRewrite("We ship weekly to production, not monthly.",
+		"Releases go out weekly to production.", 28); !ok {
+		t.Errorf("losing a sentence-initial capital is not losing a name, got %q", why)
+	}
+}
+
+// The heading floor is a SEPARATE constant, and this test is the control that it
+// is separate: the same rewrite must be refused by the sentence judge and
+// accepted by the heading judge. Owner ruling 2026-09-03 — the 5-word floor was
+// calibrated on body sentences and would have refused 25 of the 36 live heading
+// repairs bugs_open/420 exposed, making them visible and then declining to fix
+// them.
+func TestHeadingFloorIsSeparateFromTheSentenceFloor(t *testing.T) {
+	from := "Exact math, not simulation"
+	protect := ScanDefineByNegation(from)[0].MatchInSent
+
+	if ok, why := AcceptNegationRewrite(from, "Exact math.", protect); ok || why != "gutted" {
+		t.Errorf("the SENTENCE floor must still refuse a 2-word survivor, got %v/%q — if this passes, the sentence floor has been loosened and that is the owner's ruling from 2026-09-03 being undone", ok, why)
+	}
+	if ok, why := AcceptNegationHeadingRewrite(from, "Exact math.", protect); !ok {
+		t.Errorf("a heading is complete at two words; the heading judge must accept it, got %q", why)
+	}
+	// The proportional backstop still applies to BOTH arms, so the heading floor
+	// is not a way round every size check.
+	long := "A catalog with the figures behind it and the method stated in full, not just names"
+	if ok, why := AcceptNegationHeadingRewrite(long, "A catalog.", ScanDefineByNegation(long)[0].MatchInSent); ok {
+		t.Errorf("the 25%% backstop must still refuse a long original reduced to a stub, got %v/%q", ok, why)
 	}
 }
 

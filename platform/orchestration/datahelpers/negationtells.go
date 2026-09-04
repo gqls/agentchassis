@@ -567,7 +567,41 @@ func wordCount(s string) int {
 // only reason a rule like "preserve every number" can coexist with "delete the
 // contrast": "We run 1,600 orchestrations a day, not 12" must keep 1,600 and may
 // lose the 12.
+//
+// TWO ENTRY POINTS, ONE JUDGE, DIFFERING ONLY IN THE WORD FLOOR (2026-09-04).
+// Every other guard is identical and shared; do not add a rule to one arm only.
 func AcceptNegationRewrite(from, to string, protectFrom int) (bool, string) {
+	return acceptNegationRewrite(from, to, protectFrom, sentenceMinWords)
+}
+
+// AcceptNegationHeadingRewrite is the same judge with the heading floor. Use it
+// only for a headline-class target (IsHeadlineField); lead_with points and body
+// sentences stay on AcceptNegationRewrite.
+func AcceptNegationHeadingRewrite(from, to string, protectFrom int) (bool, string) {
+	return acceptNegationRewrite(from, to, protectFrom, headingMinWords)
+}
+
+const (
+	// sentenceMinWords — the owner's ruling of 2026-09-03 (commit 7cc16a5d0),
+	// calibrated on 17 real body-sentence rewrites. Do not lower it: the case it
+	// exists to stop is a stranded transitive verb ("It shows."), and 5 sits in a
+	// measured gap with the nearest points either side at 2 words and 6 words.
+	sentenceMinWords = 5
+
+	// headingMinWords — OWNER RULING 2026-09-03, taken when bugs_open/420's fix
+	// made card headings visible to the gate for the first time. The 5-word floor
+	// had never seen a heading, and headings are much shorter than sentences:
+	// truncating the 36 live `x_not_y` headings at the construction leaves 1 word
+	// x1, 2 x10, 3 x6, 4 x8, 5 x6, 6 x3, 7 x2 — so the sentence floor would have
+	// REFUSED 25 of 36 as `gutted`, i.e. the fix would have made them visible and
+	// then declined to repair them. A heading is complete at two words ("A fixed
+	// margin"); the stranded-verb case the 5 guards against is a sentence shape
+	// that does not arise on a heading surface. The 25% proportional backstop at
+	// the same line still applies to both arms.
+	headingMinWords = 2
+)
+
+func acceptNegationRewrite(from, to string, protectFrom, minWords int) (bool, string) {
 	to = strings.TrimSpace(to)
 	if to == "" {
 		return false, "empty"
@@ -611,7 +645,7 @@ func AcceptNegationRewrite(from, to string, protectFrom int) (bool, string) {
 	// `dropped_figure` is keyed on protectFrom, so every number in the surviving
 	// clause must still be there whatever the length. Loosening the size floor
 	// does not loosen those.
-	if wordCount(to) < 5 || len(to) < len(from)/4 {
+	if wordCount(to) < minWords || len(to) < len(from)/4 {
 		return false, "gutted"
 	}
 	if len(to) > len(from)*22/10 {
@@ -653,6 +687,43 @@ func AcceptNegationRewrite(from, to string, protectFrom int) (bool, string) {
 	for _, w := range superlativeRe.FindAllString(to, -1) {
 		if !strings.Contains(strings.ToLower(from), strings.ToLower(w)) {
 			return false, "invented_superlative"
+		}
+	}
+	// DROPPED_NAME — the LOSE half of the proper-name rule (bugs_open/420,
+	// 2026-09-04). Until this existed the guards were ASYMMETRIC in a way nothing
+	// declared: figures were protected both ways (dropped_figure + invented_figure)
+	// but names only against INVENTION, so a rewrite that DELETED an identifier
+	// passed every check above — not empty, not unchanged, not gutted if it kept
+	// enough words, inventing nothing.
+	//
+	// That asymmetry was survivable only while the never-prose field list kept
+	// identity-bearing fields away from the model altogether. bugs_open/420 removed
+	// bare `name` from that list, so the protection had to become a CONTROL here
+	// rather than a filter at the walker: a filter is bypassable by any future
+	// caller that enumerates fields itself, a rejection reason is not. Both
+	// mutating call sites (the page copy repair and judgeRegisterRewrite) get it.
+	//
+	// Keyed on protectFrom exactly as dropped_figure is, for the same reason: a
+	// capitalised token BEFORE the construction is part of the claim and must
+	// survive; one AFTER it is the contrasted alternative and may go. So
+	// "Built on Postgres, not on Mongo" -> "Built on Postgres." is accepted and
+	// losing "Postgres" is not. Tags are stripped first so "<p>Kubernetes …" reads
+	// as sentence-initial, matching the exemption invented_name grants below.
+	//
+	// This makes the judge enforce what the repair prompt already instructs
+	// ("Keep, exactly as they are: every number, every name"), so it is inert on
+	// the ruled truncation form — a truncation retains from[:protectFrom] verbatim,
+	// which is why all 14 accepted rewrites of 2026-09-03 still pass. Known and
+	// deliberate strictness: mid-sentence "AI"/"UK"/"I" are protected tokens, so a
+	// rewrite that spells one out is refused.
+	protected := htmlTagRe.ReplaceAllString(from[:protectFrom], " ")
+	toLower := strings.ToLower(to)
+	for i, tok := range capTokenRe.FindAllString(protected, -1) {
+		if i == 0 && strings.HasPrefix(strings.TrimSpace(protected), tok) {
+			continue // sentence-initial capital is not a name
+		}
+		if !strings.Contains(toLower, strings.ToLower(tok)) {
+			return false, "dropped_name"
 		}
 	}
 	fromLower := strings.ToLower(from)

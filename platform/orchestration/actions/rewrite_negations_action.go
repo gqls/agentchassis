@@ -248,6 +248,23 @@ func planNegationRepairs(content map[string]interface{}, supplied []string, budg
 				plan.exemptReasons[why]++
 				continue
 			}
+			// IDENTITY — a value the walker deliberately yields but no writer may
+			// be asked to rewrite (a listing item's `name` is its page slug and the
+			// stem of its own url). Recorded as an EXEMPTION, not filtered out, so
+			// total = exempt + withinBudget + targets still reconciles with the
+			// annotation's count over the same walk.
+			//
+			// ⚠ THIS MUST STAY ABOVE THE HEADLINE BRANCH, and the ordering is the
+			// whole of the protection. `name` is headline-class as of 2026-09-04,
+			// and a headline hit is never forgiven by the budget — so if this ran
+			// after, an identity field would be FORCED to the model rather than
+			// merely allowed there. A test pins this; nothing about the two field
+			// regexes on their own would show it.
+			if field.Identity != "" {
+				plan.exemptCount++
+				plan.exemptReasons[field.Identity]++
+				continue
+			}
 			plan.pageHits++
 			headline := datahelpers.IsHeadlineField(field.Path)
 			key := field.Path + "\x00" + h.Sentence
@@ -476,6 +493,9 @@ stand on its own may you rewrite the whole sentence to say directly what it
 says. There is no hidden competition to argue against: the site offers what it
 offers, straight up.
 
+For a heading or title, what remains may be very short. Two or three words that
+name the thing are a complete heading; do not pad one back up to sentence length.
+
 Keep, exactly as they are: every number, every name, every link or URL, and any
 markup (tags like <p> or <a>) the sentence already contains. Keep any statement
 of something we do not do, cannot promise, or cannot guarantee — those are there
@@ -697,7 +717,16 @@ func runNegationRepair(ctx context.Context, params ActionParams, config map[stri
 				"to":   datahelpers.TruncateString(r.To, 160)})
 			continue
 		}
-		if ok, why := datahelpers.AcceptNegationRewrite(t.Sentence, r.To, t.MatchAt); !ok {
+		// A HEADING IS JUDGED BY THE HEADING FLOOR (owner ruling 2026-09-03).
+		// Only the word floor differs; every other guard is the same code. The
+		// sentence floor of 5 was calibrated on body sentences and would refuse
+		// 25 of the 36 live heading repairs bugs_open/420 exposed — making them
+		// visible and then declining to fix them.
+		judge := datahelpers.AcceptNegationRewrite
+		if t.Headline {
+			judge = datahelpers.AcceptNegationHeadingRewrite
+		}
+		if ok, why := judge(t.Sentence, r.To, t.MatchAt); !ok {
 			rejected = append(rejected, map[string]interface{}{
 				"field": t.Field, "reason": why, "shape": t.Shape,
 				"from": datahelpers.TruncateString(t.Sentence, 160),

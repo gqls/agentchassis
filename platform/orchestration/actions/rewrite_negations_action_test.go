@@ -10,6 +10,9 @@
 //   - make headline hits obey the budget      -> TestHeadlineHitIsAlwaysATarget fails
 //   - key matchTarget on the FIELD name       -> TestMatchTargetIgnoresRenamedField fails
 //   - drop the per-page carry in CollectedData -> TestBudgetIsPerPageNotPerSection fails
+//   - put bare `name` back in neverProseFieldRe -> TestCardNameIsAHeadlineTarget fails
+//   - move the Identity check BELOW the headline branch, or delete it
+//                                             -> TestIdentityNameIsNeverATarget fails
 
 package actions
 
@@ -48,6 +51,71 @@ func TestPlanClassifiesEveryHitOnce(t *testing.T) {
 		if tg.Field == "cta_url" {
 			t.Error("a URL field must never be walked, let alone repaired")
 		}
+	}
+}
+
+// bugs_open/420's motivating shape: a feature card whose `name` IS the heading
+// the card renders. Before the fix the walker skipped every `*.name` by field
+// name, so two of these shipped on a live page while the sibling `description`
+// fields in the same array were repaired in the same run.
+func TestCardNameIsAHeadlineTarget(t *testing.T) {
+	content := map[string]interface{}{
+		"features": []interface{}{
+			map[string]interface{}{
+				"name":        "Exact math, not simulation",
+				"description": "Every figure is computed and the method is stated.",
+				"icon":        "calculator",
+			},
+		},
+	}
+	plan := planNegationRepairs(content, nil, 5, 0, 0)
+	var found *negationTarget
+	for i := range plan.targets {
+		if plan.targets[i].Field == "features[0].name" {
+			found = &plan.targets[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("a card name carrying a shape must become a repair target; got targets %+v", plan.targets)
+	}
+	if !found.Headline {
+		t.Error("a card's name IS its heading, so the target must carry headline severity — that is what makes it repaired regardless of budget, and what selects the heading floor at the judge")
+	}
+}
+
+// THE ORDERING TEST. `name` is headline-class as of 2026-09-04, and a headline
+// hit is never forgiven by the budget — so if the identity check ran AFTER the
+// headline branch, a listing item's page slug would be FORCED to the model
+// rather than merely allowed there. Nothing about the two field regexes on their
+// own shows that; only this ordering does, so only this test protects it.
+//
+// It also pins the accounting: an identity hit is an EXEMPTION, not a filtered-out
+// row, so the repair's total still reconciles with the annotation's count over
+// the same walk.
+func TestIdentityNameIsNeverATarget(t *testing.T) {
+	content := map[string]interface{}{
+		"items": []interface{}{
+			map[string]interface{}{
+				"name":        "Routes work, not requests",
+				"url":         "/agents/orchestrator.html",
+				"description": "Builds the section plan a page is rendered from.",
+			},
+		},
+	}
+	plan := planNegationRepairs(content, nil, 0, 0, 0)
+	for _, tg := range plan.targets {
+		if tg.Field == "items[0].name" {
+			t.Fatal("a listing item's name is its page slug and the stem of its own url — rewriting it desynchronises the item from pages.name AND from that url, on a page that still renders")
+		}
+	}
+	if plan.total != 1 {
+		t.Errorf("the hit must still be COUNTED so the repair reconciles with the annotation, got total=%d", plan.total)
+	}
+	if plan.exemptReasons[datahelpers.IdentityNameWithURLSibling] != 1 {
+		t.Errorf("the refusal must say WHICH rule fired, got exemptReasons=%v", plan.exemptReasons)
+	}
+	if plan.pageHits != 0 {
+		t.Errorf("an identity hit is not the writer's doing, so it must not count toward the page budget; got pageHits=%d", plan.pageHits)
 	}
 }
 

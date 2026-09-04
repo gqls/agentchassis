@@ -578,9 +578,15 @@ func runRegisterRepair(
 //  1. AcceptNegationRewrite — the shared structural judge. Rejects an empty,
 //     unchanged, gutted or ballooned candidate, one that still carries a shape,
 //     one that DISPLACED into a neighbouring construction, one that dropped a
-//     figure or link protected by ProtectFrom, and one that invented a figure,
-//     superlative or name. Shared with the page copy gate deliberately: two
-//     judges would drift.
+//     figure, link or NAME protected by ProtectFrom, and one that invented a
+//     figure, superlative or name. Shared with the page copy gate deliberately:
+//     two judges would drift. `dropped_name` joined on 2026-09-04 (bugs_open/420)
+//     and this call site inherits it — a rewrite that deletes a proper noun from
+//     the protected half of a lead_with point is now refused here too.
+//
+//     ⚠ This lane stays on the SENTENCE entry point. A heading variant
+//     (AcceptNegationHeadingRewrite) exists with a 2-word floor; lead_with points
+//     are sentences, so do not switch to it.
 //
 //  2. The FULL register re-scan. ⚠ Layer 1 is blind to the word arm — it
 //     re-scans with ScanDefineByNegation only — so a rewrite that drops
@@ -588,8 +594,13 @@ func runRegisterRepair(
 //     layer the two arms displace into each other and the gate teaches the
 //     word.
 //
-//  3. The differentiated floor. AcceptNegationRewrite's "gutted" floor is 40%
-//     of the original length. `[MEASURED 2026-08-31]` on this artefact the 667
+//  3. The differentiated floor. ⚠ CORRECTED 2026-09-04: this used to say the
+//     shared "gutted" floor is 40% of the original length. It has not been a bare
+//     proportion since commit 7cc16a5d0 (2026-09-03) — it is now
+//     `wordCount(to) < 5 || len(to) < len(from)/4`, i.e. a 5-word absolute with a
+//     25% proportional backstop. The argument below is unaffected (60% is still
+//     stricter than either arm), only the number it names was stale.
+//     `[MEASURED 2026-08-31]` on this artefact the 667
 //     wash's repairs averaged −28.7% on differentiated points — inside that
 //     floor — and ten of fifty-one still had the distinguishing clause removed,
 //     because in an `X, not Y` construction the differentiation lives in the Y.
