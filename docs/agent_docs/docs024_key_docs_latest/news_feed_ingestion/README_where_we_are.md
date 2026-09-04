@@ -343,3 +343,42 @@ spend a third review to tidy it.
 
 I would rather report both of these than let them sit. The first cost nothing but a wrong
 figure in a few documents. The second was travelling to other teams as advice.
+
+Good news to end on, and one more correction — this time of my own correction.
+
+The review council approved the advertise.co.uk change. I checked it properly rather than
+just reading the word "approved": all sixteen reviewers actually answered, none came back
+unreadable. That matters because another team found today that when the AI layer is
+partly down, the council can return a normal-looking "needs revision" verdict that is
+really just the reviewers having never run — so a verdict is only worth acting on once
+you have checked that the reviewers were actually there. Ours were.
+
+And the scoring has now run on advertise's articles. This is the part I got wrong twice
+and want to set straight, because the final answer is the one I gave you first thing this
+morning.
+
+Of the four articles from the UK searches, all four scored as relevant. Of the fifteen
+from WebProNews, none scored relevant — eight were rejected outright and three are held
+for review. So the UK searches are carrying the page exactly as I originally said, and
+the American tech feed is being filtered out exactly as intended.
+
+My correction to you a couple of hours ago — that WebProNews would dominate and the page
+would be thin — was wrong, and wrong for an avoidable reason. I counted the articles as
+they arrived, before the scoring step had run. Counting raw arrivals on a system whose
+whole job is to filter arrivals tells you almost nothing, and the database was plainly
+telling me it had not finished: every one of those rows had an empty score. I read it
+anyway and brought you an alarming conclusion. That is three times today I have attached
+a real, carefully measured number to a question one step away from the one I was actually
+asking. I have written all three up so the pattern is on record rather than just the
+incidents.
+
+What does survive from that correction is worth keeping: three of the five UK searches —
+the ASA, the CAP Code and the Advertising Association spend report — still returned
+nothing at all. So the good articles are coming from only two of the six sources. That is
+a question about breadth rather than about the page being swamped, it is still one day's
+evidence, and Monday is when it can be answered.
+
+Last thing: the credit outage was not a one-off. It is a known, tracked fault with a team
+already on it, and today was the fifth time — the worst was ten hours in late August. So
+the answer to "will this happen again" is yes, and it is already someone's job. I have
+noted that so this lane stops treating it as news.

@@ -1364,3 +1364,52 @@ re-insert, **not** an UPDATE of the spec — `(site_id, name)` is the dedup key,
 `vertical_keywords` alone changes nothing for existing rows (the seeder's early-return).
 Do NOT judge the 0s before the triage backlog clears; an unscored batch tells you nothing
 about query quality.
+
+### 2026-09-04 late — 746 council APPROVED, triage ran, and my own afternoon "correction" was itself wrong
+
+**Council: APPROVED**, corr `2c349dd2-0bb8-48fd-abae-6bb0ccb0f620`, 16:21:44Z. **And it is a
+clean round, checked the way the `bugfix_243` addendum prescribes rather than by reading the
+decision alone:** `unreadable: 0`, `reviewers: 16`, `abstained: 1`. A `decision` with
+`unreadable > 0` would have been contaminated and worth re-firing rather than acting on;
+this one is not. So `Council-Reviewed:` is now legitimate for migration 746.
+
+**Triage scored 15 of 19.** And the split by source settles the owner's question:
+
+| source | relevant | review | rejected | unscored |
+|---|---|---|---|---|
+| News Search: UK advertising industry news | **3** | — | — | — |
+| News Search: IAB UK digital advertising spend | **1** | — | — | — |
+| WebProNews (rss) | **0** | 3 | **8** | 4 |
+
+**4 of 4 UK-search items are `relevant`; WebProNews produced ZERO relevant and 8 rejected.**
+The scoring works exactly as designed — the site's own spec rejects American tech on a UK
+advertising site, and the UK searches supply all the qualifying content.
+
+> **⚠ WHICH MEANS MY 15:5xZ "CORRECTION" ABOVE WAS ITSELF WRONG, and the morning claim it
+> retracted was right.** This morning I told the owner "I expect most of WebProNews to be
+> rejected and the UK searches to carry the page". This afternoon I retracted that on the
+> raw counts (rss 15 items vs 4 from all five searches) and told him the page would be thin
+> and WebProNews-dominated. **Both the retraction and the alarm were artefacts of measuring
+> the wrong STAGE:** I compared *ingestion volume* on a pipeline whose entire purpose is that
+> scoring filters it. Post-scoring, the ratio inverts completely — 4:0 in favour of the UK
+> searches on the only axis that reaches a visitor.
+> **The check I skipped is embarrassingly cheap: wait for the pipeline to finish before
+> judging its output.** The 19 rows were sitting `status='ingested'` with `relevance_score`
+> NULL, which is the pipeline saying *"I have not answered your question yet"* in the
+> clearest terms available, and I read it as a result anyway. Third error of the day in one
+> family — [[a-count-you-kept-is-not-a-census]] / "your measurement answers the question you
+> ENCODED": the outage window measured *any failure*, the "spent" claim measured *one run*,
+> and this measured *pre-scoring volume*. In all three the number was real and the stage was
+> wrong. Logged in `WRONG_CALLS.md`.
+> **What SURVIVES from the retraction, and it is the useful half:** 3 of the 5 UK searches
+> (ASA, CAP Code, AA-WARC) still returned nothing at all, so the relevant items come from
+> only 2 of 6 sources. That remains `[n=1]` and the 2026-09-08 re-check still stands — but
+> it is now a question about *breadth of supply*, not about the page being swamped.
+
+**The outage is `bugs_open/243`, owned by `bugfix_243_provider_cap_resilience`, and
+2026-09-04 was the FIFTH episode** — 04-10 (~3 h), 08-08 (~3 h), **08-25/26 (~10 h, 711
+calls)**, 09-02 (~1 h), 09-04 (~35 min, 117). `llm_call_log` retains from 2026-03-25, so that
+is the whole history, not a window. **Not this lane's to own, and not a novel event** — I had
+been treating it as one all afternoon. Their independent figure for today (~35 min, 117
+calls) matches my corrected window (11:21:11→11:56:47, 117 rows) exactly, from a different
+query, which is the best kind of agreement.
