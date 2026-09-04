@@ -1,0 +1,118 @@
+# deployments/kustomize/services/logo-legibility-check/base/cronjob.yaml
+#
+# bugs_open/462 — a logo can be generated, matted, guard-checked, stored, deployed,
+# referenced and rendered, pass every one of those gates, and be invisible on the header
+# it sits on. Nothing else in the estate measures the one property that matters: whether
+# the mark contrasts with what is behind it. This job is the owner's 2026-09-03 ruling —
+# "report it afterwards" (fix candidate 2) — made standing.
+#
+# IT REPORTS. IT DOES NOT FILE, AND THAT IS A DECISION, NOT AN OMISSION (462 §9).
+# Every automatic destination the estate offers is destructive, dead or manual:
+# image-build-handler re-rolls the logo irreversibly with no legibility criterion
+# anywhere in generation (462 §6 measured a regeneration making a mark WORSE);
+# needs_human_review is the documented dead queue and has grown 370 -> 1,439 since
+# 2026-07-25; ingest_staged_asset is reversible and needs a human with a file. And
+# measured 2026-09-04 the filer would have ZERO legitimate targets — one finding the
+# owner ruled stays, one an operator UPLOAD with no prompt to regenerate from. When
+# that changes, 462 §9e has the fork.
+#
+# WHY postgres:16-alpine AND NOT A PRIVATE IMAGE. Unlike the Go checks in this fleet
+# this one is Python and needs exactly two things the base image does not ship: Pillow,
+# and outbound HTTPS. Both are one apk line — PROVEN, not assumed: the recipe below was
+# run in this exact image (alpine 3.24.1, python 3.14.7, pillow 12.2.0) with the repo
+# mounted, and the sweep's --self-test passed 6/6 inside it, including on the two
+# PRESERVED websitepromotion artefacts. No image to build, push, tag or roll.
+#
+# THE SCRIPT IS A SYMLINK, not a copy — see base/kustomization.yaml. The hand-run tool
+# and the scheduled check are one file; there is no second copy to forget.
+#
+# CONNECTS TO POSTGRES DIRECTLY, never kubectl exec. ai-persona-app has no pods/exec
+# RBAC in this namespace (the constraint single-owner-carriers-check and
+# bugs-open-staleness-sweep both hit). The script detects this itself: PG_CLIENTS_HOST
+# being set switches it off the kubectl path, the fleet's own convention. With the host
+# set and the password missing it REFUSES rather than falling back — in-cluster the
+# fallback cannot work, and a permission error would read like a broken query.
+#
+# ⚠ IT REACHES THE PUBLIC INTERNET, which no other check in this fleet does. It fetches
+# each site's served page and its served logo bytes, because the whole finding of 462 is
+# that the stored artefact and the served one are different questions (one asset row
+# holds a presigned link that expired on 2026-08-17 while the page it belongs to serves a
+# perfectly good logo). A CDN flake therefore looks exactly like an unmeasurable logo:
+# the script retries, and anything it still cannot read is reported BLIND and counted,
+# never silently passed.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: logo-legibility-check
+  labels:
+    app: logo-legibility-check
+    component: brand-integrity
+spec:
+  # Daily, 08:15 UTC. Deliberately OUTSIDE the 06:00-07:55 window where fourteen
+  # DB-only checks are packed: this one holds a connection while it fetches ~30 sites
+  # over the network, so it should not contend with them for the pool. Clear of
+  # database-backup (02:00) and of both 08:00 jobs.
+  schedule: "15 8 * * *"
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      # A full fleet sweep measured ~90s by hand (34 assets, two fetches each, with
+      # retries). 900s is a wide margin for a slow CDN that still stops a hung job
+      # blocking tomorrow's.
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels:
+            app: logo-legibility-check
+            component: brand-integrity
+        spec:
+          restartPolicy: Never
+          # No imagePullSecrets: postgres:16-alpine is PUBLIC. Adding one here by
+          # copying a job that pulls from aqls/ would be harmless; omitting one on a
+          # job that DOES pull from aqls/ is not — it sits in ImagePullBackOff, which
+          # reports as "Running" and never as a failure.
+          containers:
+            - name: check
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  apk add --no-cache python3 py3-pillow >/dev/null
+                  # --report writes ONE doc_notes row per run, clean or not, so
+                  # "looked and found nothing" stays distinguishable from "stopped
+                  # running". The exit code is deliberately NOT swallowed: 1 means
+                  # a finding, a BLIND row or an undisplayed logo, and a BLIND row
+                  # is not a pass.
+                  python3 /scripts/check.py --report
+              env:
+                - name: PG_CLIENTS_HOST
+                  value: postgres-clients
+                - name: CLIENTS_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: personae-platform-secrets
+                      key: CLIENTS_DB_PASSWORD
+              resources:
+                requests:
+                  cpu: 100m
+                  # Pillow decodes each logo into an RGBA buffer; the largest in the
+                  # population is 385x400. 256Mi is roomy for that plus the apk add.
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              volumeMounts:
+                - name: check-script
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: check-script
+              configMap:
+                name: logo-legibility-check-script
+                defaultMode: 365

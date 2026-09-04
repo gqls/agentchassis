@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - cronjob.yaml
+configMapGenerator:
+  - name: logo-legibility-check-script
+    files:
+      # check.py IS the hand-run sweep. `scripts/audit-logo-legibility.py` is a
+      # SYMLINK to this file, not a copy, so the scheduled check and the tool
+      # sessions run cannot drift apart. Every other ConfigMap check in this fleet
+      # keeps a private second copy of its logic; that is the two-hand-maintained-
+      # things class CLAUDE.md keeps warning about, and there is nothing to gain
+      # from it here.
+      #
+      # It has to live on THIS side of the symlink. kustomize's load restrictor
+      # refuses a generator file that resolves outside the kustomization root —
+      # "security; file ... is not in or below ..." — so a symlink pointing OUT of
+      # this directory does not build. Tested, not assumed.
+      #
+      # ⚠ Editing it still requires re-applying this overlay, as for any ConfigMap.
+      # What you do NOT have to remember is a second file: configMapGenerator
+      # name-suffix-hashing means an edited script mints a new ConfigMap name and
+      # rewrites the CronJob's reference, so `apply -k` cannot silently keep
+      # serving the old literal.
+      - check.py
