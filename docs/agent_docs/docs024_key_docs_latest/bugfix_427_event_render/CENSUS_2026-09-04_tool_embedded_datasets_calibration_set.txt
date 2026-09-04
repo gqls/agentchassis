@@ -5,8 +5,32 @@
 # dataset_records = count of object literals inside <script> with >=2 keys and at least one
 #   human-readable string value (>=8 chars containing a space). This is the FALSE-POSITIVE
 #   DENOMINATOR: a fabrication control must not fire on most of these.
-# entity_attr_records = the narrower subset whose keys IDENTIFY a real-world entity AND
-#   ATTRIBUTE a checkable property to it. This is the candidate-harm signal.
+# entity_attr_records = records whose keys IDENTIFY a real-world entity AND ATTRIBUTE a
+#   checkable property to it. This is the candidate-harm signal.
+#
+# ⚠ CORRECTED 2026-09-04, after the 482 lane spotted it and BEFORE they built a predicate
+#   on it. This header originally called ea "the narrower SUBSET" of ds. IT IS NOT A
+#   SUBSET, and one row proves it: tool-budget-kit-builder-garden-tools-uk reads ds=18,
+#   ea=20. A subset cannot exceed its superset.
+#
+#   THE CAUSE, diagnosed rather than guessed. The two columns are independent predicates
+#   over the SAME extracted object set, and each requires something the other does not:
+#     ds requires a HUMAN-READABLE STRING VALUE (>=8 chars containing a space);
+#     ea requires an IDENT key AND an ATTR key, and says nothing about string content.
+#   So a record like { name: 'Secateurs', tier: 1, low: 20, high: 45 } passes ea and FAILS
+#   ds -- 'Secateurs' is 9 characters with no space. Three such records in that component.
+#   Conversely a record with prose and no ident/attr key pair passes ds and fails ea.
+#   Neither column contains the other.
+#
+#   WHICH EXTRACTION TO PORT: the ea predicate, and it has no off-by-one and does not
+#   double-count nested objects. Both columns use the identical object regex, which matches
+#   INNERMOST brace pairs only ([^{}]), so a nested structure is counted at its leaves --
+#   a shared property of both columns, not a defect in one. For a fabrication gate the ea
+#   predicate is also the RIGHT permissiveness on string content: an invented product or
+#   practice name is very often a single word, and the ds human-string test would drop it.
+#
+#   NOTHING ELSE IN THIS FILE CHANGES. The 134 count is a ds figure and is unaffected, and
+#   the row in question is a true positive on either number.
 #
 # NEITHER COLUMN IS A VERDICT. A high dataset_records count is usually legitimate UI
 # vocabulary (glossary terms, option labels, advice prose). Triage by reading, not by rank.
