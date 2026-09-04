@@ -87,6 +87,35 @@ the divergence that later costs a census.
 Deliverable: every existing site attributed, or explicitly marked as ours. **18 sites carry no
 network at all**, so this is partly an archaeology exercise and should be scoped as one.
 
+> ### ⚠ CORRECTION 2026-09-04, from the `stripe` lane — and it changes what Phase 0 has to answer
+>
+> **A paid order does NOT create the customer.** For a one-off `mode=payment` charge Stripe creates
+> no Customer object, so there is no durable person-level identity coming back from a payment.
+> Verified here rather than taken:
+>
+> | field | value |
+> |---|---|
+> | `billing_orders.provider_customer_id` | **empty** |
+> | `clients.external_id` | **empty** |
+> | client row created | `2026-08-27 14:29:10Z` |
+> | order paid | `2026-08-27 14:40:22Z` |
+>
+> **The client row predates its own payment by eleven minutes.** So payment *confirms* a client; it
+> does not *mint* one. On the only real order in the estate's history, the identity was established
+> by something upstream of the money.
+>
+> **What this means for Phase 0, which was silent on it:** "give a site an owner" assumed a customer
+> record exists to point at. It does — but only because the intake created it. So the plan must name
+> **where a client row comes from** before it can say what owns a site, and the honest answer today is
+> *the ordering intake*, not billing.
+>
+> **And the trap it leaves for anyone building on this:** if any delivery or accounts logic assumes a
+> payment established who the customer is, it is assuming something that **has never happened once**.
+> `provider_customer_id` will keep being empty for as long as we sell one-off builds, so a recurring
+> hosting tier (Phase 2) is the first thing that would create a real Stripe Customer — which makes it
+> the first point at which billing could carry identity, and a reason to design Phase 2 knowing that
+> rather than discovering it.
+
 ### Phase 1 — a customer-facing page with NO login
 
 **We already ship customers a token-addressed page.** `/c/<token>` and `/d/<token>` are live, the
