@@ -3806,3 +3806,18 @@ activity in general** — 111 imagery entries from seven fact-less sites cannot 
 registered facts, so the control passed while counting the wrong population. To the owner they put one
 thing: change nothing; one planner run on one of the 21 where a plan already exists; not finetuning.uk.
 The site-plan question for finetuning.uk is this lane's to put, as a decision about the site.
+
+## 2026-09-04 (11:57Z) — the canary's rerender was stuck 45 min behind an idle queue; fired the documented single-page bypass — and the FIRST shot went to the WRONG PAGE
+
+Queue state `[MEASURED 11:56Z]`: last page_rerender claim 11:11:11Z, 0 in progress, 3 triaged (2 ahead of
+the canary's `25e2f3d1`), the dispatcher alive on other item types (last claim 11:25). The estate's
+answer for this: `cta_link_integrity/scripts/049b_deploy_single_page.sh <page_id> <site_id> <domain>
+[reason]` — a direct page-rerender orchestrate; WITH a reason it takes the `rerender_sections` branch
+and carries `spec.page_name` (without it `save_page_sections` skips silently — the script's own header).
+**Misfire, mine:** the first call used `4234fe60…` — the PLAYGROUND page's id, carried in my head from
+last night — instead of the homepage's `a716cacc…` (corr `276082ec`). Effect: a section rerender +
+deploy of `/playground.html` from its stored content_data, i.e. the same render it had at 21:32 last
+night; harmless, but an unintended deploy of a live page. The cheap check I skipped: SELECT the id by
+url in the same command as the dispatch (the canary SQL had the right id in `v_page`; I did not copy it).
+Second call, correct page, corr below. The queued item `25e2f3d1` stays until the bypass lands, then gets
+cancelled as a duplicate.
