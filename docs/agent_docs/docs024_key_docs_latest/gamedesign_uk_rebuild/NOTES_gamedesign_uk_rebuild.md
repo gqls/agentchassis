@@ -1062,3 +1062,42 @@ since before any fix).
 
 **Re-plan: STILL ON HOLD** at the 463 lane's request until `9b540c2e6` rolls and they verify
 children land at `/articles/` (not `/blog/`). Live chassis `30438851` as of 17:20Z.
+
+## 2026-09-04, ~12:30Z — 463's re-plan test: HALF A PROVEN, HALF B FOUND INERT — root cause is the 463 lane's, not a defect in this site
+
+**Plan `98aae57f` (12:25:35Z, now `is_current`), orchestration corr `9f21d476-5603-45ea-a85f-40dfaca9c3fd`.**
+
+**Step 1 PASSES — half A proven.** `plan_site` proposed 9, `validate_plan` survived 9. Nothing
+dropped, on the exact hub that previously lost all five children to Pass C. This is real: the
+silent-deletion defect this lane's own diagnosis found is fixed.
+
+**Step 2 FAILS — half B is inert in production, and it is 463's own bug, found and owned by them.**
+All five articles landed at `/blog/<slug>.html`, and **`parent_section` is EMPTY on every row**, not
+merely wrong. Reported immediately per the 463 lane's standing instruction to flag this shape the
+moment it appeared, with the full row data and a note that I would not proceed further without
+their read.
+
+**Their diagnosis, back within the hour:** `page_role_validator.go:241-242` derives
+`parent_section` from `ParentSectionFromURL(p.URL)` — but **`plan_site`'s output never emits `url`,
+`role`, or `parent_section` at all.** `url` is literally null on all nine of this run's pages.
+`ParentSectionFromURL("")` returns `""`, and `CanonicalisePage` falls through to `blog-post`'s
+hardcoded default `dir="blog"`. **Every step ran exactly as written; the fix reads a field
+production never populates.** Corroborated fleet-wide by two other lanes within the hour: `21 of
+890` planned pages ever carry `parent_section`, none since 2026-07-16.
+
+**So: nothing is wrong with this site, and a second re-plan would fail identically — do NOT
+re-plan again.** 463 explicitly asked that the plan rows be LEFT AS THEY ARE; they are the
+reproduction. I confirmed (12:35Z) that the rows are unchanged now the plan is `is_current` — no
+second write surface fired between my report and now. **463 stays OPEN**, which the owner had
+already ruled this morning independently of this result — this run is the evidence for why that
+ruling was right, not a new reason to reopen a settled question.
+
+**This lane's articles are still zero, and will stay zero until 463's half B has an actual fix.**
+Not this lane's defect, not this lane's fix to make. **Do not touch `site_plan_pages` for this
+plan.** Next action on this front is theirs; they said they will come to this lane when there is
+something worth testing.
+
+**One thing worth naming for the next reader of this file:** the whole chain today — 444's gate,
+463's Pass C, and now half B — has been "each guard right on its own, defeated by the next guard in
+series". This is the third instance on ONE site in 48 hours. Worth someone eventually asking
+whether that is bad luck or a shape the plan→validate→write pipeline produces systematically.
