@@ -108,3 +108,43 @@ So the thing I was telling you is still true — the per-section research path h
 anything into a page — but the evidence I gave you for it was not. I have logged the mistake and
 the check that would have caught it: ask a table how far back it goes before reading an empty
 result as history.
+
+---
+
+## 2026-09-04 — it is live, and proving it nearly went wrong
+
+The new chassis went out overnight and the prompt fix is running in production. I checked that
+properly rather than assuming it, and I am glad I did, because the first check said the opposite
+of the truth.
+
+I looked in the running system's logs for the new messages my change writes. Nothing. So I
+looked for the *old* message that my change removes — also nothing. Two blanks like that read
+as "the fix did not ship". But a check that comes back empty for everything is not a check, so
+I asked a third question: is the system writing *any* prompts right now? Also nothing — while
+the database showed 526 model calls over the same hours. The log command only reads one of the
+two running copies. I had been looking through a keyhole.
+
+The two checks that did work: I asked the running program directly what text it contains — my
+new wording is in there, the old wording is gone — and I compared the database before and after.
+Before the deploy, about a third of prompts contained the fake "no value" token. After it,
+**none of 447**. Six slipped through in the thirteen minutes after the new version started,
+which is the old copy finishing work it had already picked up.
+
+## The uncomfortable part, which I want you to see clearly
+
+**My fix has made the problem harder to measure.** The database stores the prompt *after* my
+change has cleaned it, so the token no longer appears there. That means the "65% of prompts"
+figure the other team measured can never be reproduced — I removed the evidence while removing
+the symptom.
+
+The holes themselves have not gone away. They were never going to: the fix stops the fake token
+reaching the model, it does not fill in the missing data. Measuring it a different way, **267 of
+448 prompts since the deploy still have the blank line, inside the block that tells the model
+"use only these, do not invent"**. Each of those is now writing an error into a log that nothing
+keeps and nobody reads.
+
+The reviewers had already told me this would happen — that turning a quiet warning into a loud
+one changes little if nobody is listening. The deploy turned their argument into a number. I
+would still not undo the fix, because a fake value inside a "do not invent" instruction is worse
+than a lost statistic. But the missing piece is now overdue rather than optional, and it is the
+first thing on the handoff.

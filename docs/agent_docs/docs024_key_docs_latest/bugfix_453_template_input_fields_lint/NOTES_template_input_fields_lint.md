@@ -402,3 +402,48 @@ does mean shipping this makes ~90% of writer calls log at Error, which is loud e
 other Errors — so the template gate (`{{if .reviewed_brief.headquarters}}`) is not a nicety, it
 is what makes the severity survive contact with production. Raised on `bugs_open/453` §7a as an
 owner decision rather than shipped quietly.
+
+---
+
+## 2026-09-04 — the roll landed: PRC-003 LIVE and PROVEN, and the proof nearly went the wrong way
+
+`v1.0.1360`, pods up 22:06Z. **Proven at the artefact, twice, because the first route failed
+in a way that looks exactly like a failed fix.**
+
+### The near-miss, and why the demand control saved it
+
+I grepped the chassis logs for my two new messages: **0 and 0**. Then the OLD message as a
+control: **also 0**. A control that matches nothing is not a control — so I asked whether the
+chassis was rendering prompts at all in that window. `MASTER EXTRACTOR START`: **0** over
+1,232 returned lines, and again **0** over a 6-hour window — while `llm_call_log` showed
+**526** calls in the same period. `kubectl logs -l app=` reads one pod of N. **The probe was
+blind, not negative.**
+
+### The two proofs that did work
+
+1. **Binary probe**, four controls through ONE `tr '\0' '\n' | grep -Fc` pipeline over
+   `/proc/1/exe`: both new literals **present**; the OLD literal
+   `TEMPLATE RENDERED WITH MISSING DATA` **absent** (the discriminating one); must-be-present
+   control present; must-be-absent control absent.
+2. **Behaviour at the durable record**: token-carrying prompts **50 of 153 (32.7%) before** →
+   **0 of 447 after**. The six survivors 22:09–22:19:13Z are old pods finishing in-flight work
+   — worth knowing, because for thirteen minutes after the pods report Ready the old behaviour
+   is still on the wire.
+
+### ⚠ AND THE FIX REMOVED THE DURABLE TRAIL — the sharpest finding of the day
+
+`PromptRendered: renderedPrompt`, and `renderedPrompt` is what `RenderPromptTemplate` returns,
+i.e. **post-strip**. So the token is gone from `llm_call_log` and **the 437 lane's 65% figure
+can no longer be reproduced by anyone**. Whether a hole happened is now visible only in
+ephemeral pod logs.
+
+The council's HIGH objection said logging is not a surface here. The roll turned that from an
+argument into a measurement: `[MEASURED 2026-09-04]` of **448** post-roll writer calls, **267**
+carry an empty `Location:` line inside the DO-NOT-INVENT block — ~267 Error-level events with
+no durable record of one. Upper bound, because an empty line is also what a present-but-empty
+string renders; before the roll the token was the *exact* measure, and that exactness is what
+the fix spent.
+
+**I would not undo the fix for it** — a stand-in inside a DO-NOT-INVENT block is worse than a
+lost metric — but the durable surface is now owed, not optional, and it is §5.1(a) of the
+handoff.
