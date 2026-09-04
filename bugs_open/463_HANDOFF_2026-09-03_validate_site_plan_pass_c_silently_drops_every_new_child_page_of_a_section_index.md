@@ -6,13 +6,22 @@
 >
 > - **Code:** commit `9b540c2e6` (both halves) + `244651c03` (phantom-hub tests).
 > - **Live:** chassis ReplicaSet `agent-chassis-ffc9ddff9` rolled `2026-09-03T22:07:19Z`.
->   Proven by CAPABILITY probe on the running binary, with a working present-control —
->   `grep -aq "dropped flat page colliding with realised section index" /proc/1/exe` PRESENT
->   (the pre-existing literal, so the probe can see) and
->   `grep -aq "path collides with realised section index" /proc/1/exe` PRESENT (the literal this
->   fix adds). ⚠ **Do NOT try to confirm this by commit sha**: the image tag did not change
->   (`v1.0.1360` before and after) and every sha probe — including the previously reported stamp
->   `3043885191b…` — comes back ABSENT. The startup `build provenance` line has long scrolled.
+>   Live. **How to check liveness — CORRECTED 2026-09-04.** The authoritative route is the
+>   `service_binary_capabilities` table, which carries the stamp **per POD**:
+>   ```sql
+>   SELECT pod_name, git_commit, started_at FROM service_binary_capabilities
+>    WHERE kind='build' AND pod_name LIKE 'agent-chassis-%' ORDER BY started_at DESC;
+>   ```
+>   Both live chassis pods report `239ab3626fc7fb9cd4b121c82480bedafe2f555c`, and
+>   `git merge-base --is-ancestor 9b540c2e6 239ab3626f` says **YES**. ⚠ Filter by `pod_name`,
+>   not by `service` — that column also carries rows for other pods running the same image
+>   (e.g. `agent-landmine-verifier-*`), which may have started at a different time.
+> - **Confirmed a second way**, by CAPABILITY probe on the running binary with a present-control:
+>   `grep -aq "dropped flat page colliding with realised section index" /proc/1/exe` PRESENT (the
+>   pre-existing literal, proving the probe can see) and `grep -aq "path collides with realised
+>   section index" /proc/1/exe` PRESENT (the literal this fix adds). Two independent methods agree.
+> - ⚠ **The image tag is NOT evidence** — it did not change (`v1.0.1360` either side), and the
+>   `build provenance` startup line had long scrolled out of the log.
 > - **Council:** APPROVED round 2, `2026-09-03 17:26:38Z`, correlation
 >   `9f6c6374-1b76-4094-9b4c-e04808d8428c`. Round 1 was REVISE on a fair objection about the
 >   submission (a helper's semantics asserted rather than shown), not about the code.

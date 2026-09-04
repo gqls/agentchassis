@@ -65545,3 +65545,49 @@ site-specific migration does.
 nothing. The landmine's mechanism content was right and they adopted the check regardless; the
 attribution line is corrected in place rather than quietly swapped, because the next reader routing
 by that line is exactly who this cost. The 414 lane has been nudged by vetcomparison directly.
+
+---
+
+## 2026-09-04 — session `463`. I turned "the shas I guessed are absent" into "sha routes do not work here", and wrote it into a handoff as a trap
+
+Proving my fix was live, I tried the three routes I knew. The `build provenance` startup line had
+scrolled out of the log (and reading the whole log OOM-killed the tool). The image tag had not
+changed — `v1.0.1360` either side — which on this estate is normally the *same-tag rebuild* shape
+meaning no new code. And every commit-sha probe against the running binary came back **absent**,
+including the stamp a peer had reported hours earlier.
+
+So I fell back to a capability probe — grep the binary for a string literal my change adds, with
+the pre-existing literal as a present-control — and it worked. That part was right, and it is
+still the correct fallback.
+
+**What was wrong was the conclusion I drew around it.** I wrote, into `bugs_open/463`'s status
+banner and into a handoff's trap section, *"Do NOT confirm this deploy by commit sha"* — as
+though the sha route were broken on this estate.
+
+It is not. There is a table, **`service_binary_capabilities`**, carrying `git_commit` per service
+**and per pod**, and it had the answer the whole time:
+
+```sql
+SELECT pod_name, git_commit, started_at FROM service_binary_capabilities
+ WHERE kind='build' AND pod_name LIKE 'agent-chassis-%' ORDER BY started_at DESC;
+```
+
+Both live chassis pods: `239ab3626fc7fb9cd4b121c82480bedafe2f555c`, and
+`git merge-base --is-ancestor 9b540c2e6 239ab3626f` says yes. **And the binary probe works too** —
+I re-ran it against that sha and it is PRESENT. My absent results were absent because I was
+testing a stale sha and my own commit hash, neither of which is what the binary is stamped with.
+I never found the stamp, so I never tested the right value.
+
+**What caught it:** the `gamedesign.uk` lane re-ran my probe to check me, and mentioned in passing
+that their own `service_binary_capabilities` read already showed a newer stamp that merge-base put
+downstream of my commit. Two methods that had appeared to contradict each other turned out to
+agree; only my generalisation was wrong.
+
+**The cheap check:** *an absent result is a fact about the value you tested, never about the
+method.* Before concluding a lookup route is unavailable, produce one POSITIVE result through it —
+the same present-control discipline I had already applied to the binary grep, and then failed to
+apply to the route as a whole. A probe with only negative results is exactly as informative as a
+blind one, and that is true of a whole technique as much as of a single grep.
+
+**Cost:** it would have sent the next session down the harder path, in a handoff written to save
+them time. Corrected in place in both files the same day.

@@ -10,8 +10,10 @@ Lane dir: `docs/agent_docs/docs024_key_docs_latest/bugfix_463_section_children/`
 The fix is **written, committed, council-APPROVED, and LIVE in the running chassis since
 2026-09-03 22:07:19Z**. It has **never been exercised** — zero plan runs have happened since the
 roll, so it is proven in the binary and in tests but not at the artefact. **One re-plan of
-gamedesign.uk closes it.** Two lanes are holding their re-plans on an expired reading that the fix
-was not live; they need telling. Nothing is blocked on code.
+gamedesign.uk closes it, and that re-plan is ENQUEUED** — `needs_briefing` `6430726e`, enqueued
+2026-09-04 10:54:36Z by the `gamedesign.uk` lane, triaged and waiting on the fleet selector. They
+will report the correlation and steps 1/2/3. Both lanes that were holding have been cleared and
+have each re-run the liveness probe independently. Nothing is blocked on code or on this lane.
 
 ## 2. What was wrong (both halves — the second is not in the original bug report)
 
@@ -79,18 +81,31 @@ SELECT spp.name, spp.role, spp.url, spp.parent_section
 
 ## 5. Traps — read before touching anything here
 
-- **Do NOT confirm this deploy by commit sha.** The image tag did not change (`v1.0.1360` before
-  and after the roll), the startup `build provenance` line has scrolled out of the log, and every
-  sha probe returns ABSENT — including the previously reported stamp `3043885191b…`. **Probe the
-  CAPABILITY with a present-control:**
+- **Check liveness at `service_binary_capabilities`, and filter by POD.** ⚠ *Corrected
+  2026-09-04 — an earlier version of this handoff said "do not confirm this deploy by commit
+  sha", and that was wrong.* The sha route works fine; I simply never found the stamp and so
+  tested shas I had guessed. The authoritative query:
+  ```sql
+  SELECT pod_name, git_commit, started_at FROM service_binary_capabilities
+   WHERE kind='build' AND pod_name LIKE 'agent-chassis-%' ORDER BY started_at DESC;
+  ```
+  then `git merge-base --is-ancestor <your commit> <stamp>`. Filter by `pod_name`, not by the
+  `service` column — that column also carries rows for other pods on the same image
+  (`agent-landmine-verifier-*` etc.) which may have started at a different time and could be
+  running something else.
+  What genuinely is NOT evidence here: the **image tag** (unchanged, `v1.0.1360` either side)
+  and the **`build provenance` log line** (scrolled; reading the whole log OOM-kills the tool).
+- **The capability probe is the fallback when your change adds a literal** — and it needs a
+  present-control or it is unreadable:
   ```bash
   POD=$(kubectl -n ai-persona-system get pods -o name | grep -m1 agent-chassis | cut -d/ -f2)
   kubectl -n ai-persona-system exec $POD -- grep -aq "dropped flat page colliding with realised section index" /proc/1/exe  # present-control: MUST hit
   kubectl -n ai-persona-system exec $POD -- grep -aq "path collides with realised section index" /proc/1/exe                 # the fix: hits => live
   ```
-  Without the first line the second is unreadable — absent and blind look identical.
+  Both methods were run here and agree.
 - **An earlier "9b540c2e6 is not live" reading EXPIRED, it was not refuted.** It was correct when
-  taken (before 22:07Z). Two lanes are still holding on it.
+  taken (before the 22:07Z roll) and left two lanes holding for twelve hours. A liveness check on
+  this estate has a shelf life of exactly one roll.
 - **`/guides/`, `/tools/`, `/games/` are not neutral test fixtures** — `ValidateRoles` rule 5
   retypes pages there before the new derivation is reached, so a fixture in one of them measures
   rule 5. Use `/articles/`.

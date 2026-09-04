@@ -132,4 +132,36 @@ they are the same class in series: **463 stops a new child reaching the plan on 
 467 stops any new page reaching the plan on a site of 20+.** So on 26 of 42 sites, 463's
 fix alone will not fill an empty hub — 467 will eat the children immediately afterwards.
 Whoever verifies 463 at the artefact must pick a site under the cap, or fix this first.
-gamedesign.uk (9 pages) is under it, which is why 463's own case is verifiable today.
+gamedesign.uk is under it — 9 pages, of which 4 are in the preservation set, so headroom 16 — which is why 463's own case is verifiable today.
+
+## 8. RULE 20 × 467 — the demand side just went up (added 2026-09-04, found by the `designblog.co.uk` lane)
+
+Migrations **730/731**, live since 2026-09-02, make `build-site-planner` plan **3–6 launch posts
+whenever an articles hub is in the architecture**. That is rule 20 working as designed — and it is
+a demand-side change this cap was never sized against.
+
+The two compose badly, and `bugs_open/463`'s fix is what makes the composition visible:
+
+- 463 opened the door: a planned child of a section index is no longer deleted by Pass C.
+- Rule 20 now pushes 3–6 children through that door on any site with such a hub.
+- **467 discards them at the next step on any site at or over 20 built pages.**
+
+So the honest statement of what 463 bought is: **it fills hubs only where 467 leaves room.** On
+the sites over the cap, rule 20's output is now discarded page by page at exactly the door 463
+just opened, and the observable is the same silent shrink as before.
+
+`[MEASURED 2026-09-04]`, headroom under the cap across the 42 sites with pages:
+
+| | sites |
+|---|---|
+| **at or over 20 — no new page can be added at all** | **26** |
+| 14–19 — a single rule-20 wave (3–6 posts) can reach the cap | 5 |
+| under 14 | 11 |
+
+Worked pair: **designblog.co.uk sits at 18 built, headroom 2** — its feed children are possible
+today, but one rule-20 wave exhausts the margin. **gamedesign.uk is at 4, headroom 16**, which is
+why it is the clean site to verify 463 on.
+
+**This raises the priority of §5 candidate 1** (cap what a re-plan ADDS, not what a site may
+CONTAIN). Before rule 20, the cap mostly bit sites nobody was adding pages to; now a live prompt
+rule generates demand for exactly the pages the cap discards.
