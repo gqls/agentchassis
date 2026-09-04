@@ -67348,3 +67348,44 @@ from `content_data`, does the page's hero slot actually paint anything? Three at
   was taken today and correctly describes today's system; only the label was wrong. Eight commit
   messages remain wrong for ever, which is the residual: a reader reconciling this lane should
   trust `git log`'s timestamps over the dates written inside the messages.
+
+## 2026-09-04 — `news_editorial_features`: a `%table%` substring matched "accep-table" six times, and a `?` key test called a live field absent — two probes, two false answers, opposite directions
+
+**Near-miss, caught before it shipped.** Asked by the `infographics` lane whether
+webdesign.co.uk's `content_direction` carries a structural writing rule, I ran
+`ILIKE '%table%'` and got **3 rows on webdesign against 2 on gamesdesign** — the site
+that demonstrably instructs tables and gets them on 13 of 13 bodies. I was one step
+from reporting *"webdesign mentions tables MORE, so the spec rule is not the
+discriminator"*, which would have been exactly backwards and would have cost that lane
+its finding.
+
+Word-boundary matched, the truth inverts:
+
+| site | `table` as a WORD | naive `%table%` |
+|---|---|---|
+| gamesdesign.co.uk | **10** | 10 |
+| webdesign.co.uk | **0** | 6 |
+
+**All six webdesign hits are the word "acceptable".** On prose corpora `%table%` also
+matches *suitable, comfortable, notable, inevitable*. The answer is that webdesign has
+**no** table guidance at all.
+
+**Second probe, same session, opposite direction.** I tested
+`data ? 'list_usage'` and got **0 for gamesdesign** — a site whose `list_usage` field
+the other lane had just quoted to me. **`?` tests TOP-LEVEL keys only**, and theirs is
+nested; a full-text search finds it. So I had a live field reading as absent.
+
+**The two errors are one error.** A substring probe over-matches and a key-shape probe
+under-matches, and BOTH return a confident number that reads as an answer about
+PRESENCE when it is an answer about SHAPE. The other lane had flagged the same trap
+about their own census an hour earlier ("8 of 40 sites have `list_usage`" is
+sites-with-that-KEY, not sites-with-that-GUIDANCE) — so this class was named to me,
+in writing, and I walked into both halves of it anyway.
+
+**The cheap checks, and they are one line each.** For a word in prose, use a boundary
+pattern — `v ~* '(^|[^a-z])tables?([^a-z]|$)'` — and **never Postgres `\b`, which is
+BACKSPACE** (LANDMINES). For a JSON key, `?` answers top-level only: pair it with
+`data::text ILIKE '%key%'` as a control, and if the two disagree the field is nested,
+not missing. **A probe whose over- and under-matching are both invisible needs a
+control on the opposite side.**
+Tally: substring-probe-over-matched; key-shape-probe-under-matched.
