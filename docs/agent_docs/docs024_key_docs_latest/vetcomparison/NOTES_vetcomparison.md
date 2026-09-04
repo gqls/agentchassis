@@ -2380,3 +2380,14 @@ restraint matching this week's standard); and one closing lesson from their side
 `notes` column had documented the renumber for three weeks — the sweep compared filenames and
 never read `schema_migrations.notes`, where sessions explain themselves. Read the NOTE of
 anything a sweep flags before believing the flag.** Thread closed on all sides.
+
+## 2026-09-04 — the two standing owner decisions are DECIDED, in another lane (owner's word)
+
+The owner states both open decisions this lane was carrying — (1) the August header hand-patch
+restore-or-drop (chrome_divergence_overwritten items d678ff10 + 9295c8b8) and (2) the £21/£12.50
+caps wording repair — **have been made in another lane.** This lane STOPS surfacing them.
+Queue state at time of writing, recorded so nobody misreads it: the two header items still show
+needs_human_review (updated 08-11) and no caps content_rewrite item exists yet on this site — so
+execution had not yet reached this site's queue when checked; that is the deciding lane's flight,
+not an un-made decision. Do not re-escalate; if either item is still open at a much later
+check-in, ask the OWNER which lane holds the ruling rather than re-raising the question.
