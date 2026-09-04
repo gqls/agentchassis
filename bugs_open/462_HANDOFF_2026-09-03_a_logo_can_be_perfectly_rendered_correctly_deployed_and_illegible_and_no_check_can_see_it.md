@@ -8,7 +8,15 @@ the artefact is delivered, every gate passes, and a visitor cannot see the logo.
 **Class** missing check / gap between two sound decisions. **Not a failure of the contrast pipeline
 — an absence of any image-luminance check at all.**
 
-**START HERE:** §3 is the whole job. §1 is the measurement, §2 is the proof nothing catches it, and
+> **STATE, 2026-09-04 — read this before §1–§8, all of which predate it.** A standing check is
+> **LIVE** (daily 08:15 UTC) and the owner has ruled the fix shape twice. **§10 is the current
+> state; §9 is the routing work; §7 holds the two rulings.** §1–§8 are the diagnosis and the build,
+> correct as history and **stale as status** — in particular §7a and §8e still call routing "not
+> settled" and "the blocker", which §9 and §10 answered. They are struck through in place rather
+> than deleted, because the reasoning is what a later reader needs when the deferred filer comes
+> back on the table.
+
+~~**START HERE:** §3 is the whole job.~~ **(Superseded — see the box above.)** §3 is the whole job. §1 is the measurement, §2 is the proof nothing catches it, and
 §2a is the part that matters most — the exclusion that leaves this uncovered is a *correct* decision
 whose stated reason does not apply to this case.
 
@@ -359,7 +367,7 @@ tell "this passed against a palette that no longer exists" from "this passed".
 Whichever is built, §6's constraint is binding: **measure after matting, against the header, never
 against the keyed ground.**
 
-⚠ **Routing is NOT settled either.** §2's existing path files `contrast_failure` at
+⚠ ~~**Routing is NOT settled either.**~~ **ANSWERED 2026-09-04 — see §9 (the work) and §10 (the ruling: standing report, filer deferred). The paragraph below is kept for its reasoning, which still binds whoever builds the filer.** Routing is not settled either. §2's existing path files `contrast_failure` at
 `css-patch-agent`, which repaints a CSS class and **cannot fix a pale PNG**. A logo finding needs a
 handler that can regenerate or replace an image. Naming that handler is part of building this, and
 per the 2026-08-02 ruling on shared vocabularies, a new work-item type needs its producer set and
@@ -457,7 +465,7 @@ was not applied to its own control.
 
 ### 8e. What is still open
 
-- **Routing — UNCHANGED and still the blocker to "filing" anything.** The sweep *reports*; nothing
+- ~~**Routing — UNCHANGED and still the blocker to "filing" anything.**~~ **SUPERSEDED THE SAME DAY by §9 and §10** — worked, ruled, and the sweep is now a standing CronJob. What survives from this bullet is the constraint, and §9c adds one it did not know: any filer must branch on `assets.origin_type`. Original text follows. Routing — the blocker to "filing" anything. The sweep *reports*; nothing
   files. §7a's warning stands: a logo finding needs a handler that can regenerate an image, not
   `css-patch-agent`. Per the 2026-08-02 ruling, a new work-item type needs its producer set and
   `item_key` shape in the concept register in the commit that ships it. **The sweep's `--json`
