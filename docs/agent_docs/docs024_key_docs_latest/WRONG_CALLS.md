@@ -66053,3 +66053,35 @@ then wrong.
   the variable had to be for the test to discriminate — the "name what the disconfirming result would
   look like" rule, skipped. A `[MEASURED]` on a query that encoded the wrong variable.
 - **Cost.** Two retractions sent, one to the owner; no edit was made on the strength of it.
+
+## 2026-09-04 (same session, second one) — my `[MEASURED]` figure was true, answered a neighbouring question, and DESIGNED AN EXPERIMENT that then manufactured its own agreement
+
+- **The claim.** *"Of the 7 sites that planned imagery since migration 718, exactly **2** hold a
+  current `evidence_base`"* — supplied to two lanes as the support for a candidate cause ("infographics
+  are absent because most sites have no figures to draw"), and used to design the test that would
+  separate that candidate from a rival.
+- **Why it was wrong.** The number is **correct** and it counts **aspect rows, not facts**.
+  `[MEASURED 2026-09-04]`, control in the same run: apis.uk and gamedesign.uk both carry an
+  `evidence_base` aspect whose `facts` array is **EMPTY**, and **all seven sites hold zero registered
+  facts** (finetuning.uk, outside the population, holds 10 — the control that proves the query counts).
+- **What it cost, and this is the part worth the row.** A peer lane ran the test I designed. It found
+  11 of 12 illustrations came from the two "evidence-backed" sites, neither drawing an infographic,
+  and read that as one candidate refuted and the other confirmed. **It refuted neither**: on the
+  variable that mattered the two arms were identical at zero, so no site in the sample could have
+  drawn an infographic and the 12–0 result could not have come out any other way. **A wrong number
+  misleads one reader; a wrong SAMPLING FRAME manufactures agreement between two lanes.**
+- **What caught it.** Checking whether the "backed" sites actually had figures behind the sections
+  they illustrated — a question I only asked because the peer flagged it as the one caveat they could
+  not close from their side.
+- **The mistake, precisely.** **Presence of a container is not availability of its contents.** I
+  queried for the aspect because that is what "has an evidence base" sounds like, and never opened it.
+  Same shape as the night's other two: a predicate that answers the adjacent question and returns a
+  confident, well-formed, dated number.
+- **The cheap check that would have.** When a figure is about *capability* — can X be done here? —
+  measure the thing that would be USED, never the thing that would CONTAIN it:
+  `jsonb_array_length(data->'facts')`, not `WHERE aspect='evidence_base'`. And when a number is about
+  to define the arms of a test, **ask what result would be impossible in each arm** — here, an
+  infographic was impossible in both, which is visible the moment the question is asked.
+- Tally: **presence of a container counted as availability of its contents** ×1 · **a `[MEASURED]`
+  number that answered a neighbouring question** ×2 *(this and the prompt quote above, same session)*
+  · **a sampling frame that made the hypothesis unfalsifiable** ×1.
