@@ -27,18 +27,20 @@ Both consumers read a `text`-less brief. `Council-Reviewed: 888e7319…`.
   entries would create empty pages that rule 3 holds back."* The home page's closing CTA already says
   *"Ready to have a human write it? One page connects you with UK copywriting companies"* (rev-5
   wording) — pointing at a page that does not yet exist; the CTA resolver will retarget it until it does.
-- **Why no entries — CAUSE FOUND 12:1xZ:** `web_search`'s `extractSearchQuery` drops any resolved query
-  of **≥200 chars** as a "likely LLM error message" (LANDMINES entry titled with the error text; my
-  addendum names the scheduled tasks as a second footprint). The copywriter query was **444** chars;
-  every working kind is under 200. **Shortened to 165 and re-fired ~12:12Z** (old text kept under
-  `input_data.research_query_previous_over_200`). Watcher `b0am5q9c1`. The 22:05Z researcher config
-  change was NOT the cause (its `search_web` step is byte-identical to July).
-  **Run #2 (11:55:43Z DB) PASSED search_web** — the cap fix is proven — and died at `extract_claims`
-  on a FLEET-WIDE credit cap (11:17–11:57Z, 49 failures / 9 agent types; lifted; copyonline's page
-  builds untouched). Re-fire loop `bthn77u18` fires when 10 min show no credit error and follows only
-  runs after its own fire time (an earlier loop of mine misread psql's `UPDATE 0` tag as a returned
-  row — test for the RETURNING literal, never for non-empty output). Check:
-  `SELECT last_triggered_at, last_completed_at FROM scheduled_tasks WHERE name='copywriter-directory-discovery'; SELECT count(*) FROM directory_entities WHERE kind='copywriter';`
+- **Why no entries — SETTLED 12:2xZ (NOTES (jjj)):** the 200-char cap was real and is fixed, but the
+  deeper cause is that **`directory-researcher` is the AI-models pipeline** (its prompt is hardcoded to
+  AI models; `finance-directory-researcher` to UK financial providers) — there is NO kind-generic
+  researcher, and the recipe in the brief saying otherwise was this lane's error (corrected in brief
+  rev 6). Task `copywriter-directory-discovery` is **DISABLED** (it can only return 0). Do not re-enable
+  it until a copywriter-capable producer exists and it targets that.
+- **The planner actually wants a `business_directory` (per-site business-intel, vetcomparison's), not
+  the register**: BLD-028 held both `uk-copywriter-directory` and `get-copy-written` with
+  `builder_needed=business_directory_config`. That chain is vet-specific in code and its orchestrator
+  is disabled since March. **DECISION FOR THE OWNER — two costed routes in
+  `PLAN_2026-09-03_supplier_and_product_directories.md` §"worked instance: copywriter"**: (A) a
+  copywriting business-intel vertical (Go + prompts + roll; pages need no change); (B) a `copywriter`
+  register kind (researcher seed config; two `queryresolve` arms + profile entry in Go + roll;
+  components seed; site opt-in; **replan** the two pages to `query.copywriter_directory`).
 - **Once entries exist, the plan must be re-run to add the two pages**: file `needs_site_plan`
   (`source='manual-replan'`, key `site_plan_copyonline.co.uk`, handler `build-site-planner`, the fleet
   has done this 3×) — an OWNER-visible step; say so before firing.

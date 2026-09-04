@@ -143,3 +143,53 @@ producer-absence family) · `RFC_010` (opt-in default-OFF on a shared seam) · `
 accumulation) · `RFC_037` (the classifier reading the register) ·
 `portfolio_positioning/RUNBOOK_remake_release.md` §6 (pre-enablement) · migration 423 (the
 named-firm rule) · `DIR-001` in the concept register.
+
+---
+
+## Worked instance, 2026-09-04: the copywriter directory for copyonline.co.uk — what it ACTUALLY takes
+
+Yesterday's plan said the platform "already builds directories" and that enabling a kind was a recipe.
+Measured today `[NOTES (jjj)]`: the recipe is wrong for any kind that is not AI models, financial
+providers, or (via the adoption researcher) companies/protocols. Each existing kind has its OWN
+prompt-hardcoded producer. Two routes exist and neither is configuration-only.
+
+### Route A — a copywriting vertical in the per-site business-intel directory (what the planner chose)
+- **Pages:** none needed — `directory-listing` + `query.business_directory` exist; BLD-028 will release
+  `uk-copywriter-directory` and `get-copy-written` the moment copyonline has a `directory-export-json`
+  scheduled task (vetcomparison's row is the template: domain, vertical, outputs, `business_type_ilike`).
+- **Data:** a `business_intel.business_verticals` row (`copywriting`) and a COLLECTION chain. Today's
+  chain (`process_area_vet_sweep.go` → `scan_discovery_candidates.go` → Companies House match/review →
+  `vet-practice-verifier`) is vet-specific in code and its orchestrator `vet-pipeline-orchestrator` has
+  been disabled since 2026-03-17; `collection_config` is `{}` on all three verticals, so the intended
+  generalisation was never built. **Cost:** generalise or clone the sweep + verifier (Go, prompts,
+  Companies House SIC filter for copywriting agencies), a roll, then a supervised first sweep. Weeks-shaped.
+- **Gives:** verified businesses with addresses, Companies House numbers, `publication_optout` (the
+  owner's removal question answered by a column), claimable listings. The right long-term shape for
+  "directories of suppliers and their products".
+
+### Route B — a `copywriter` kind in the global verified-claim register (this lane's Phase-B shape)
+- **Producer (config only):** a researcher seed cloned from
+  `finance_directory_pipeline/SEED_finance_directory_researcher_agent.sql` (same six steps) with an
+  extraction prompt for UK copywriting ORGANISATIONS emitting `entity_kind: "copywriter"` and a stated
+  field vocabulary (specialisms, sectors, supplier_type marketplace|direct, website, established_year,
+  location). Registration accepts unknown kinds with an open vocabulary (`directory_claims.go`:
+  "Kinds absent from this map … are unaffected") — **no Go for the data**.
+- **Task:** retarget `copywriter-directory-discovery` to the new agent; keep the query **under 200
+  characters** (the `web_search` cap — LANDMINES).
+- **Pages (Go, roll):** two `queryresolve` arms (`copywriter_directory`, `_full`) — the map is
+  hardcoded per kind — and a `directoryCheckProfiles` entry so BLD-028 and the opt-in checker know the
+  kind; a components seed (snippet + listing pair, the finance generator's shape); the site's
+  `classification.content_features.copywriter_directory` opt-in (which the classifier rewrites — set it
+  and expect to re-set it, or make the planner read it from strategy).
+- **Replan:** the two held pages are typed for `business_directory`; a `needs_site_plan`
+  (`manual-replan`) after the kind exists lets the planner type them to the register source.
+- **Cost:** ~a day: three seeds + one small Go change + council + roll + a supervised first run.
+- **Gives:** cited, re-verified facts per organisation (the model/finance shape); randomised listing is a
+  render option; no addresses/Companies House unless the prompt asks.
+
+### Recommendation
+**B first**, because it unblocks the two pages within a day using three worked precedents, and it is
+the shape the owner described ("a directory… randomised listing… point leads to listed companies"). A
+is the better destination for the wider "suppliers and their products" programme and should be planned
+as its own lane once the vet chain's generalisation is scoped. **Neither is to be started without the
+owner's word** — both add a shared producer and one adds Go.

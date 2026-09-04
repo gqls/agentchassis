@@ -5998,3 +5998,43 @@ directory entries; the classification flag and the owned-aware tool builds are t
 > uncommitted in the shared tree when I committed the file by pathspec. Additions only; nothing lost;
 > their entry is at HEAD under my message. The `git diff --numstat` I now run before ledger commits
 > showed **46** additions for a ~24-line paste — the surplus is the tell, and I read it after, not before.
+
+### (jjj) 2026-09-04 ~12:20Z (DB) — the directory: run #3 anatomy, two hardcoded researchers, the planner's real mechanism, and a decision for the owner
+
+**Run #3** (12:08:16Z, guard passed for real — the RETURNING literal seen): `search_web` **10 results** →
+`prepare_urls` 3 → `scrape_pages` 3 ok → **`extract_claims` returned `[]`** → `verify_and_register`
+candidates 0. Why: the researcher's extraction prompt opens *"You are extracting ATOMIC, CITABLE claims
+about AI MODELS for a public model directory"*. **`directory-researcher` IS the AI-models pipeline**; the
+only other one, `finance-directory-researcher` (this lane's Phase B, 2026-08-15), opens *"…about UK
+FINANCIAL SERVICES PROVIDERS"* with `entity_kind: EXACTLY ONE OF mortgage-lender, savings-provider,
+health-insurer`. `entity_kind` is emitted by the prompt (`directory_claims.go:177`, default "model").
+**There is no kind-generic researcher.** The recipe I wrote into the owner's brief in rev 3 — "a
+scheduled_tasks row targeting directory-researcher" — was wrong; **rev 6 (12:14:13Z) corrects that
+sentence and nothing else** (guard: everything outside `directory_opportunity` byte-identical). Task
+`copywriter-directory-discovery` **disabled** (description says why); it could only ever return 0.
+
+**But the planner did not want the register at all.** BLD-028's listing gate held BOTH missing pages:
+`capability_gap:entity-directory:uk-copywriter-directory` and `capability_gap:landing:get-copy-written`,
+each `gap_kind=producer_missing`, `builder_needed=business_directory_config` — i.e. the planner typed
+the directory AND the lead route as `query.business_directory` listings (the per-SITE business-intel
+directory vetcomparison uses: `business_intel.businesses`, 3,471 verified vets; a `directory-export-json`
+scheduled task per domain is the "config"; the `businesses` table carries `publication_optout` — the
+owner's removal question already has a column). The gate is right: copyonline has no such config.
+
+**Can that mechanism be pointed at copywriting? Not by config.** `business_intel.business_verticals` has
+three rows (veterinary 3,471 businesses; online-pharmacy 0; seaweed-farming 0 — the empty two created
+2026-02-04 and never collected), `collection_config` is `{}` on all three, and the collection chain is
+**vet-specific in code** (`process_area_vet_sweep.go`, `scan_discovery_candidates.go` with `vetKeywords`,
+agent `vet-practice-verifier`, orchestrator `vet-pipeline-orchestrator` **disabled since 2026-03-17**).
+
+**Two routes, both real builds — the owner's call (worked up in `PLAN_2026-09-03_supplier_and_product_directories.md`):**
+- **A. Business-intel vertical for copywriting** (what the planner expects; pages need no Go): a
+  vertical row + a collection agent for copywriting organisations (generalise or clone the vet chain —
+  Go + prompts + a roll) + a `directory-export-json` task for copyonline. Highest cost; richest data
+  (verified businesses, opt-out).
+- **B. Global register kind `copywriter`** (this lane's Phase-B shape): a researcher seed (config,
+  no Go — registration accepts unknown kinds with an open vocabulary), a task (query <200 chars), two
+  `queryresolve` arms + a `directoryCheckProfiles` entry (Go, roll), a components seed, the site's
+  `content_features` opt-in; **and the two plan pages re-typed** to `query.copywriter_directory`
+  (a replan). Lower cost; three worked precedents.
+Nothing fired unattended. The lead route stays held with the directory until one is built.

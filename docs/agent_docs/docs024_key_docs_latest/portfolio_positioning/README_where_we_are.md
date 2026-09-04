@@ -1839,3 +1839,27 @@ tail of the outage was still inside the window, which is the guard working.
 One more slip of mine, in the tooling rather than the site: my watcher misread a "nothing updated"
 message as a success and reported the old failed run as new. Replaced with one that tests for the
 actual returned value and only looks at runs after the moment it fired.
+
+**Twenty past twelve — the directory needs a decision from you, and I owe you one more correction.**
+
+The research run finally got through its search and scrape steps and then extracted nothing, and the
+reason is embarrassing but simple: the researcher I pointed it at is the one built for the AI-models
+directory. Its instructions literally begin "extracting claims about AI models". The only other
+researcher is the one this lane built in August for financial providers. There is no general-purpose
+one, and the sentence in your brief that said enabling a new directory kind was a known recipe was mine
+and was wrong. I have corrected that sentence in the brief, nothing else, and switched the weekly task
+off, since it could only ever return nothing.
+
+The more useful discovery is what the planner actually asked for. It held both the directory page and
+the "get copy written" page for the same reason: no per-site business directory. That is the mechanism
+vetcomparison uses, with three and a half thousand verified vet practices, and it already has an
+opt-out field, which is the "how does someone get removed" answer. But the collection side of it is
+written for vets and its orchestrator has been off since March, so pointing it at copywriting agencies
+is a build, not a setting.
+
+So there are two ways to get your directory, and both are real work: extend the business directory
+to a copywriting vertical, which is what the planner expects and gives the richer data; or add a
+copywriter kind to the global register, which is the cheaper shape with three precedents but needs the
+two pages re-planned. I have written both up with costs in the supplier-directories plan you asked
+for yesterday. The lead route waits with the directory. Nothing else on the site is affected, and
+nothing was fired without you.
