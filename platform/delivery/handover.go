@@ -60,6 +60,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -348,6 +350,149 @@ func ConfirmTransfer(ctx context.Context, db *sql.DB, plaintext string, now time
 		return uuid.Nil, fmt.Errorf("delivery: stamp transfer confirmation: %w", err)
 	}
 	return siteID, nil
+}
+
+// ── The follow-up claim ──────────────────────────────────────────────────────
+//
+// ClaimFollowup is the follow-up email's once-only gate, and it exists because
+// the delivery email's gate CANNOT be reused for it. SendDeliveryEmailAction
+// goes through Claim, which calls StampHandover and refuses anything already
+// stamped (ErrAlreadyDelivered). Every site a follow-up targets is by definition
+// already handed over, so the existing path refuses, by design, exactly the
+// population the follow-up exists for. (bugs_open/477 recorded the opposite —
+// that a follow-up would be "mostly seeding rather than Go" — and that is
+// corrected in this lane's PLAN.)
+//
+// WHAT MAKES IT AT-MOST-ONCE is `followup_sent_at IS NULL` in the WHERE clause,
+// exactly as StampHandover is claimed by `handed_over_at IS NULL`: the row can
+// be claimed by at most ONE statement, a concurrent second caller blocks on the
+// row lock, re-evaluates after commit (READ COMMITTED), matches nothing, and is
+// refused. Read StampHandover's own comment before changing this: its first
+// version decided the winner by comparing timestamps, and two callers with the
+// same `now` both read themselves as the winner.
+//
+// ⚠ THE TWO TIMESTAMP PREDICATES ARE NOT PART OF THE CLAIM. `handed_over_at <=
+// $3` is DUE-ness and `live_link_expires_at > $2` is the far end of the same
+// window; neither decides ownership. Deleting the first sends follow-ups too
+// early; deleting the second emails a customer a confirm link that is already
+// dead; deleting `followup_sent_at IS NULL` sends one every time the scheduler
+// ticks. They fail differently and only the last is unbounded.
+//
+// The window check is IN THE CLAIM rather than after it on purpose: a site past
+// its window is then never stamped, so it cannot be silently consumed by a run
+// that was never going to send anything.
+//
+// AND THE SUPPRESSION IS IN THIS STATEMENT, NOT IN THE CALLER'S SELECT. That is
+// the whole point of the bug this closes: `transfer_confirmed_at IS NULL` here
+// gives that column its first reader, in the only position that is race-free. A
+// scheduler selects candidates and then dispatches, and a customer who presses
+// the confirm button in the gap between the two must not be emailed. A pre-query
+// filter cannot promise that; this can.
+var (
+	// ErrFollowupSuppressed is the SUCCESS case of the confirm button: the
+	// customer told us they have moved, so we do not chase them.
+	ErrFollowupSuppressed = errors.New("delivery: transfer already confirmed, follow-up suppressed")
+
+	// ErrFollowupAlreadySent is the at-most-once gate refusing a second send.
+	ErrFollowupAlreadySent = errors.New("delivery: follow-up already sent for this site")
+
+	// ErrFollowupNotDue covers both "never handed over" and "handed over too
+	// recently". One error: no caller can act differently on the two, and both
+	// mean the same thing to an operator reading a log.
+	ErrFollowupNotDue = errors.New("delivery: site is not due a follow-up")
+
+	// ErrFollowupWindowClosed is the OTHER end of the interval, and it is a
+	// separate error because it is permanent where ErrFollowupNotDue is
+	// temporary. Past live_link_expires_at every customer link this email would
+	// carry is dead, so chasing a confirmation is worse than silence: it invites
+	// a click on a link that will refuse.
+	ErrFollowupWindowClosed = errors.New("delivery: live-link window has closed, follow-up would carry a dead link")
+)
+
+// ClaimFollowup claims the right to send ONE follow-up email for one site, and
+// stamps followup_sent_at as it does so. It sends nothing: the caller sends only
+// if this returns nil, and the stamp standing after a failed send is deliberate
+// — for a chase email, not sending beats sending twice.
+//
+// handedOverBefore is the DUE cutoff, supplied by the caller because the
+// interval is config (the owner has not yet ruled on it) and must not be
+// compiled in.
+func ClaimFollowup(ctx context.Context, db *sql.DB, siteID uuid.UUID,
+	handedOverBefore, now time.Time) (Handover, error) {
+
+	h := Handover{SiteID: siteID}
+	err := db.QueryRowContext(ctx, `
+		UPDATE sites
+		   SET followup_sent_at = $2
+		 WHERE id = $1
+		   AND handed_over_at IS NOT NULL
+		   AND handed_over_at <= $3
+		   AND live_link_expires_at > $2
+		   AND transfer_confirmed_at IS NULL
+		   AND followup_sent_at IS NULL
+		RETURNING handed_over_at, live_link_expires_at
+	`, siteID, now.UTC(), handedOverBefore.UTC()).
+		Scan(&h.HandedOverAt, &h.LiveLinkExpiresAt)
+	if err == nil {
+		return h, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return Handover{}, fmt.Errorf("delivery: claim follow-up: %w", err)
+	}
+
+	// Nothing was claimed. Say WHY, because unlike the customer-facing token
+	// errors there is no oracle to protect here: the reader is an operator or a
+	// log, and "refused" without a reason is what makes a silent scheduler
+	// impossible to diagnose.
+	var handed, expires, confirmed, sent sql.NullTime
+	if qErr := db.QueryRowContext(ctx, `
+		SELECT handed_over_at, live_link_expires_at, transfer_confirmed_at, followup_sent_at
+		  FROM sites WHERE id = $1
+	`, siteID).Scan(&handed, &expires, &confirmed, &sent); qErr != nil {
+		if errors.Is(qErr, sql.ErrNoRows) {
+			return Handover{}, fmt.Errorf("delivery: no site %s", siteID)
+		}
+		return Handover{}, fmt.Errorf("delivery: diagnose follow-up refusal: %w", qErr)
+	}
+	// ORDER MATTERS, and it is "why we are not sending", most meaningful first.
+	// A confirmed site that is also past its window is reported as confirmed,
+	// because that is the outcome the button exists to produce and it is what an
+	// operator wants to see.
+	switch {
+	case confirmed.Valid:
+		return Handover{}, ErrFollowupSuppressed
+	case sent.Valid:
+		return Handover{}, ErrFollowupAlreadySent
+	case handed.Valid && (!expires.Valid || !expires.Time.After(now.UTC())):
+		return Handover{}, ErrFollowupWindowClosed
+	default:
+		return Handover{}, ErrFollowupNotDue
+	}
+}
+
+// ConfirmTokenURL builds the customer-facing confirm link for a token, and
+// VALIDATES the host rather than producing a plausible-looking broken URL: an
+// empty host yields "https:///c/<token>", which is a well-formed string, a dead
+// link, and invisible until a customer clicks it.
+//
+// ⚠ DUPLICATION, DELIBERATE AND TEMPORARY. prepare.go has an unexported
+// tokenURL doing the same construction for the delivery email, and its host
+// validation lives in LinkConfig.validate. They should be ONE function. They are
+// not yet only because the bugs_open/475 lane is editing prepare.go's Links and
+// LinkConfig right now, and a same-file edit from two lanes is how one lane's
+// work rides into the other's commit. Collapse tokenURL into this once that
+// lane is done — the two must not be allowed to drift, because the failure mode
+// is a customer link that goes somewhere else.
+func ConfirmTokenURL(host, token string) (string, error) {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return "", fmt.Errorf("delivery: links host is required (the confirm link would have nowhere to point)")
+	}
+	if strings.Contains(host, "/") {
+		return "", fmt.Errorf("delivery: links host %q must be a bare host, not a URL", host)
+	}
+	u := url.URL{Scheme: "https", Host: host, Path: "/c/" + token}
+	return u.String(), nil
 }
 
 // PresignWindowFor clamps a requested download window to what the signing

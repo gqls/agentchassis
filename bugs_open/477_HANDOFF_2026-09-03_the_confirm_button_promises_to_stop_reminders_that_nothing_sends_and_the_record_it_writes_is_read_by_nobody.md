@@ -87,3 +87,100 @@ that pressing the button changes nothing at all.
 - `bugs_open/476` — the instructions promising a local double-click that does not work.
 - `platform/delivery/handover.go:340` — `ConfirmTransfer`, the write with no reader.
 - `internal/core-manager/handlers/delivery.go:409,428` — the two places the promise is made.
+
+---
+
+# CONTRIB 2026-09-04 — taken up, half fixed, and three things this file got wrong
+
+Added by the session that picked this up (`bugs_open/477` lane,
+`docs/agent_docs/docs024_key_docs_latest/bugfix_477_delivery_followup/`). The filing lane
+(`site_delivery_and_editor`) confirmed it was unclaimed before I started and has recorded the claim
+in their own `HANDOFF_2026-09-03b_continue_here.md` §6b.
+
+**Every figure in the original was re-measured `[MEASURED 2026-09-04 11:43Z]` and all four held**:
+6 grep hits for `transfer_confirmed_at`, all in `handover.go`; 1 mail-capable agent; 0 scheduled
+tasks targeting it; 60 sites / 1 handed over / 0 confirmed.
+
+## 1. THERE WAS A THIRD SURFACE, and it is the only one a customer has actually read
+
+This file measured two surfaces, both Go. The same false promise was also in the **delivery email
+itself**, read at the live row rather than from the seed:
+
+> `agent_definitions`, `delivery-email-sender`, `…->'send_email'->'config'->>'body_template'`:
+> *"Once your site is off our hosting, press the button here **so we stop reminding you**"*
+
+That one is **config**, so it was fixable the same day with no roll — and it is the one that reached
+a human, because the idea.uk rehearsal email carried it. **FIXED AND LIVE**: the
+`site_delivery_and_editor` lane took it on being told and shipped migration **`776`**, anchored on
+the verbatim line and aborting if it had moved; `ILIKE '%stop reminding you%'` over live agent rows
+now returns **0**. The paragraph was kept and only the promise replaced (*"press the button here to
+tell us you have moved"*), because unlike the two pages that sentence had no other reason to press.
+
+## 2. TWO OF THE FIX CANDIDATES WERE WRONG ABOUT THEIR OWN COST
+
+> **Candidate 2 is NOT "one migration, no new machinery".** `renderConfirm`'s copy is hardcoded Go
+> string literals (`internal/core-manager/handlers/delivery.go:405-432`). There is no DB row and no
+> config key, so it needs an image and a **core-manager roll**, and `make release` is the owner's.
+> The delivery *email's* copy IS config; the confirm *page's* is not. Two surfaces, two mechanisms.
+
+> **Candidate 1 is NOT "mostly seeding rather than Go".** `SendDeliveryEmailAction` calls
+> `delivery.Claim` → `StampHandover`, which claims `WHERE handed_over_at IS NULL` and returns
+> `ErrAlreadyDelivered` otherwise (`platform/delivery/prepare.go:261-267`). Every site a follow-up
+> targets is already handed over, so **the existing action refuses, by design, exactly the population
+> the follow-up exists for.** A follow-up needs its own action and its own claim.
+
+## 3. WHAT IS DONE
+
+**Step A — the copy is honest.** Committed `76ec663d3`. The sentence deleted from both pages, not
+reworded: the button's stated motivation was the false part, and a replacement motivation is the same
+defect one wording along. Guarded by a tripwire test proven by mutation on **both arms separately**.
+⚠ **INERT until a core-manager roll.**
+
+**Step B — the follow-up sender, BUILT AND SEEDED DISABLED.** `delivery.ClaimFollowup` +
+`send_followup_email` action + migrations `774` (the `sites.followup_sent_at` claim column) and `775`
+(agent + schedule, `enabled = false`). The at-most-once property is the `UPDATE … WHERE
+followup_sent_at IS NULL` claim, and **`transfer_confirmed_at IS NULL` is re-checked inside that same
+statement** — which is where this bug actually closes: a customer who presses the button between the
+scheduler's SELECT and the dispatch landing is not emailed, and only the UPDATE can promise that.
+Proven against real Postgres in a rolled-back transaction, five cases plus a second-claim test, **with
+a negative control** (drop the suppression predicate and the confirmed site claims — so the refusals
+are the predicate's doing and not a broken fixture).
+
+## 4. ⚠ AND IT CANNOT SEND TO ANYONE YET — a gap this bug uncovered rather than caused
+
+`[MEASURED 2026-09-04]` **`build_queue` has ZERO rows for idea.uk**, the only site ever handed over.
+It was our own rehearsal site, delivered to an address typed into the dispatch by hand, so it never
+went through the order pipeline that writes `build_queue` — which 651's header (corrected
+2026-08-31, `bugs_open/420`) names as the ONLY permitted recipient source, `sites.email` being
+explicitly forbidden.
+
+Found by running the pre_query with a **demand control** — the same query at `interval '0 days'`,
+which *had* to return idea.uk and returned nothing. Without that control the zero reads as "nothing
+due", which is what this failure would have looked like for ever.
+
+**The obvious fallback fails too, and that was measured rather than assumed.** The delivery run does
+record the address it used (`orchestration_states.collected_data->'input_data'->>'customer_email'` =
+the address idea.uk went to) — but the **oldest row in that whole table is under 24 hours old**
+(6,662 rows, oldest 2026-09-03 11:47Z; `stale-orchestration-reaper` runs every 180s). A follow-up
+due in seven days would look for it six days after it was reaped.
+
+> **THE REAL GAP: the estate has no durable record of who a delivered site was delivered to.**
+> `build_queue` holds it only for order-originated sites; `orchestration_states` holds it for about a
+> day. **The structural fix is to stamp the recipient onto the site row in the same statement that
+> stamps `handed_over_at`** — a change to `platform/delivery/prepare.go`, which is the
+> `site_delivery_and_editor` lane's surface, so it is routed to them and NOT made here.
+> `775`'s verify block reports the gap on every apply (`1 of 1` today) so it cannot go quiet.
+
+## 5. STILL OPEN — three, all needing the owner
+
+1. **The interval.** "a week or so" is not a number. The action REFUSES to run without one rather
+   than defaulting, so his answer cannot be quietly inherited from the placeholder in `775`.
+2. **⚠ The first working run emails HIM.** idea.uk's delivery address is `aaa@designconsultancy.co.uk`.
+   He must be told before, not after.
+3. **The durable recipient record** (§4), which blocks the sender for every site delivered outside
+   the order pipeline.
+
+**Step C — restoring the stronger wording on the confirm page — is deliberately NOT done**, and the
+tripwire test is what makes doing it a conscious act. It should happen when the sender is live, and
+the same is true of the email's *"so we stop reminding you"*, which `776`'s header and rollback both
+say should come back then.

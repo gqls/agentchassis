@@ -650,6 +650,16 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Claim a site's delivery (owner review gate + once-only handover stamp + customer links) and send the delivery email through platform/mailer",
 		IsLocal:     true,
 	},
+	// The SECOND customer email, and the only other one. It cannot be a config
+	// variant of send_delivery_email: that action claims through the handover
+	// stamp, which refuses every site already handed over — i.e. exactly the
+	// population a follow-up targets (bugs_open/477).
+	"send_followup_email": {
+		Handler:     SendFollowupEmailAction,
+		Category:    "site",
+		Description: "Claim a site's once-only post-delivery follow-up (suppressed by transfer_confirmed_at) and send it through platform/mailer, repeating where the hosting instructions live",
+		IsLocal:     true,
+	},
 	// Documented in checkpoint_for_review_action.go since its creation but never
 	// registered — any workflow referencing it failed validation with "requires a
 	// topic" (found 2026-07-17 when the claims-auditor tried to use it).

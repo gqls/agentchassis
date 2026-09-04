@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -196,5 +197,132 @@ func TestIsHandedOverDistinguishesMissingSiteFromNotHandedOver(t *testing.T) {
 	}
 	if ok {
 		t.Fatal("an un-handed-over site reported true")
+	}
+}
+
+// ── ClaimFollowup (bugs_open/477) ─────────────────────────────────────────────
+//
+// ⚠ WHAT THESE CAN AND CANNOT PROVE, per this file's opening rule. sqlmock
+// asserts the SQL this package SENDS; it cannot tell you what Postgres DOES with
+// it. The properties that actually protect a customer here are SQL-level — that
+// `followup_sent_at IS NULL` makes the claim at-most-once, and that
+// `transfer_confirmed_at IS NULL` suppresses a customer who has already
+// confirmed — and they were verified against a real Postgres inside a
+// rolled-back transaction, WITH a negative control proving the suppression
+// predicate is what refuses (drop it and the confirmed site claims). That run
+// and its output are recorded in the lane's NOTES for 2026-09-04.
+//
+// What is left for a mock is the Go half: which error a caller gets, which is
+// what decides whether a scheduled run logs "nothing to do" or fails a work item.
+
+func TestClaimFollowupClassifiesEveryRefusal(t *testing.T) {
+	now := time.Now().UTC()
+	for _, tc := range []struct {
+		name                    string
+		confirmed, sent, handed interface{}
+		expires                 interface{}
+		want                    error
+	}{
+		// BOTH stamps set, and the window closed too: this is the case that
+		// actually tests the switch's ORDER. With only transfer_confirmed_at set
+		// it would pass whatever order the arms were in, and the name would be a
+		// claim the fixture never made.
+		{"confirmed wins over everything", now, now, now.Add(-60 * 24 * time.Hour), now.Add(-2 * 24 * time.Hour), ErrFollowupSuppressed},
+		{"already sent", nil, now, now.Add(-8 * 24 * time.Hour), now.Add(30 * 24 * time.Hour), ErrFollowupAlreadySent},
+		{"window closed", nil, nil, now.Add(-60 * 24 * time.Hour), now.Add(-2 * 24 * time.Hour), ErrFollowupWindowClosed},
+		{"never handed over", nil, nil, nil, nil, ErrFollowupNotDue},
+		{"handed over too recently", nil, nil, now.Add(-1 * time.Hour), now.Add(30 * 24 * time.Hour), ErrFollowupNotDue},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			site := uuid.New()
+
+			mock.ExpectQuery(`(?s)UPDATE sites.*followup_sent_at IS NULL`).
+				WillReturnError(sql.ErrNoRows)
+			mock.ExpectQuery(`(?s)SELECT handed_over_at, live_link_expires_at`).
+				WillReturnRows(sqlmock.NewRows([]string{"handed", "expires", "confirmed", "sent"}).
+					AddRow(tc.handed, tc.expires, tc.confirmed, tc.sent))
+
+			_, err = ClaimFollowup(context.Background(), db, site, now.Add(-7*24*time.Hour), now)
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("got %v, want %v — a caller cannot tell why nothing was sent", err, tc.want)
+			}
+		})
+	}
+}
+
+// A site row that does not exist is NOT one of the four refusals: it is a
+// caller error, and flattening it into "not due" would hide a bad site_id in a
+// scheduled run for ever.
+func TestClaimFollowupDistinguishesAMissingSiteFromARefusal(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	site := uuid.New()
+
+	mock.ExpectQuery(`(?s)UPDATE sites.*followup_sent_at IS NULL`).WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(`(?s)SELECT handed_over_at, live_link_expires_at`).WillReturnError(sql.ErrNoRows)
+
+	_, err = ClaimFollowup(context.Background(), db, site, time.Now().Add(-7*24*time.Hour), time.Now())
+	if err == nil || !strings.Contains(err.Error(), "no site") {
+		t.Fatalf("got %v, want a missing-site error", err)
+	}
+	for _, refusal := range []error{ErrFollowupSuppressed, ErrFollowupAlreadySent, ErrFollowupNotDue, ErrFollowupWindowClosed} {
+		if errors.Is(err, refusal) {
+			t.Fatalf("a missing site was reported as %v, which reads as correct behaviour", refusal)
+		}
+	}
+}
+
+// The claim's own success path returns the window the caller needs to mint a
+// token that cannot outlive the site.
+func TestClaimFollowupReturnsTheLiveLinkWindow(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	site := uuid.New()
+	now := time.Now().UTC()
+	expires := now.Add(30 * 24 * time.Hour)
+
+	mock.ExpectQuery(`(?s)UPDATE sites.*transfer_confirmed_at IS NULL.*followup_sent_at IS NULL`).
+		WillReturnRows(sqlmock.NewRows([]string{"handed", "expires"}).
+			AddRow(now.Add(-8*24*time.Hour), expires))
+
+	h, err := ClaimFollowup(context.Background(), db, site, now.Add(-7*24*time.Hour), now)
+	if err != nil {
+		t.Fatalf("ClaimFollowup: %v", err)
+	}
+	if !h.LiveLinkExpiresAt.Equal(expires) {
+		t.Errorf("LiveLinkExpiresAt = %v, want %v — the confirm token would be minted against the wrong window", h.LiveLinkExpiresAt, expires)
+	}
+	if h.SiteID != site {
+		t.Errorf("SiteID = %v, want %v", h.SiteID, site)
+	}
+}
+
+// ConfirmTokenURL must refuse a host that would build a plausible dead link
+// rather than producing one. "https:///c/<token>" is well formed, resolves
+// nowhere, and is invisible until a customer clicks it.
+func TestConfirmTokenURLRefusesAHostThatWouldBuildADeadLink(t *testing.T) {
+	if _, err := ConfirmTokenURL("", "tok"); err == nil {
+		t.Error("an empty host built a URL; it must refuse")
+	}
+	if _, err := ConfirmTokenURL("links.webdesign.uk/c", "tok"); err == nil {
+		t.Error("a host containing a path built a URL; it must refuse")
+	}
+	got, err := ConfirmTokenURL("links.webdesign.uk", "tok")
+	if err != nil {
+		t.Fatalf("a good host was refused: %v", err)
+	}
+	if got != "https://links.webdesign.uk/c/tok" {
+		t.Errorf("built %q", got)
 	}
 }
