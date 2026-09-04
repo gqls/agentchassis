@@ -22299,29 +22299,45 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   comm -23 /tmp/applied.txt /tmp/tracked.txt      # non-empty = live SQL that is in no commit
   ```
   Run it after any hand-apply, and before ending a session in which you applied anything.
-- **[MEASURED 2026-09-04] the rate is low and the leak is entirely in the hand path.** 556 applied
-  migrations, 1,350 tracked files. **2 applied-but-untracked, and 0 of the 213 applied by any means
-  other than `record-only`** — so it is `record-only` (343 rows) that leaks, at 2/343. Both orphans
-  were never in git history under their name at all, so this is "never committed", not "committed
-  then deleted". A third, mine, was caught and committed the morning after (`87b48afe2`).
-  **`--apply` cannot produce this** by construction: it applies files that are already in the
-  directory. Only the hand path can.
-- **⚠ the two live orphans as of 2026-09-04, for their owners:**
-  `521_tool_deployer_fork_guard_armed.sql` (applied 2026-08-21) and
-  `767_vetcomparison_posture_as_a_doc_notes_decision_record.sql` (applied 2026-09-04 11:08Z, minutes
-  before this entry was written — this is a live habit, not a historical one).
-  > **CORRECTED 2026-09-04, and the correction is itself an instance of a different trap.** I first
-  > routed `767` to the **vetcomparison** lane and messaged them. Wrong: they applied no migrations
-  > at all, and told me so with evidence. **I read the author off the FILENAME**, where
-  > `vetcomparison` is the SUBJECT SITE, not the author. It belongs to the
-  > **`bugfix_414_planted_marker_as_claim`** lane — proven, not re-guessed: `767`'s own note says it
-  > answers the council REVISE on `761`, and `761`'s commit (`c68932577`) carries
-  > `Council-Submitted: 5d54f835-…`, the same correlation; the lane dirs citing that correlation are
-  > `bugfix_414_planted_marker_as_claim` and `vetcomparison` (as subject).
-  > **⚠ `git log` authorship cannot disambiguate lanes on this tree — every commit is `cqls`** — which
-  > is exactly why a filename looks like the next best thing. It is not. Route by the COUNCIL
-  > CORRELATION or by which lane dir cites the work, never by a name inside the filename.
-  > (`MEMORY[a-subagent-report-is-another-doc]`: a naming convention is not a measurement.)
+- **⚠ THE CHECK ABOVE, AS FIRST WRITTEN, PRODUCED TWO FALSE POSITIVES OUT OF TWO — and both were
+  structural, not bad luck. Use the version below.** The refinements are the `bugfix_414` register
+  lane's, carried by `vetcomparison`; the errors were mine.
+  1. **NO AGE GATE.** Applying and committing are two acts separated by seconds to minutes **by
+     design**, so an applied-vs-tracked comparison has a false-positive window built into it: every
+     honest in-flight migration looks abandoned while its author is still typing the commit. I fired
+     on `767` inside a **~60-second** gap between its apply (11:08:39Z) and its commit (11:09:30Z,
+     `0f1fb2547`) — and messaged a lane about it.
+  2. **FILENAME EQUALITY, where renumbering is routine.** Sessions race for the next free number and
+     renumber when they collide, so a migration can be recorded under one number and committed under
+     another. `521_tool_deployer_fork_guard_armed.sql` looked like an orphan; the same SQL is tracked
+     as **`530_…`**, recorded as `530` 56 seconds later, and self-guards with `RAISE EXCEPTION '530:
+     already applied'`. Nothing was ever lost; the `521` row is a stale duplicate from the renumber.
+- **[MEASURED 2026-09-04, corrected] the estate-wide rate is ZERO.** 556 applied migrations, 1,352
+  tracked files, and after the age gate and stem-matching, **no true orphan exists**. The only real
+  instance was mine (`752`, uncommitted 13 hours, fixed in `87b48afe2`). **So this is a trap that
+  catches an individual, not a habit the estate has** — which is a better reason to keep the entry
+  than the false one I first gave it, because it means the check has to be trustworthy to be worth
+  running at all.
+- **the check, corrected — both gates, or it cries wolf:**
+  ```bash
+  # 1. AGE-GATE: in-flight work is not an orphan.
+  psql -At -c "SELECT filename FROM schema_migrations
+               WHERE applied_at < now() - interval '15 minutes' ORDER BY 1" | sort -u > /tmp/applied.txt
+  git ls-files docs/agent_docs/sql_for_agents/ | xargs -n1 basename | sort -u > /tmp/tracked.txt
+  # 2. STEM-MATCH the survivors: a renumber is not a loss.
+  comm -23 /tmp/applied.txt /tmp/tracked.txt | while read -r f; do
+    stem=${f#*_}; stem=${stem%.sql}
+    git ls-files docs/agent_docs/sql_for_agents/ | grep -qF "$stem" \
+      || echo "TRUE ORPHAN: $f"        # same stem tracked elsewhere = renumbered, safe
+  done
+  ```
+  **A detector that fires on correct work trains its readers to dismiss it**, and is then ignored on
+  the day it is right — the same shape as a monitor that miscounts on every run (`WRONG_CALLS`
+  2026-09-04). An ungated version of this check would have cried wolf twice on its first outing.
+- **the REVERSE arm is the one with no window, and is always worth flagging:** *tracked but never
+  recorded*, and especially the **renumber orphan** — a `schema_migrations` row naming a filename
+  that no longer exists, which is minted whenever a session records BEFORE renaming. `521` above is
+  exactly that, harmless here only because the file was also recorded under its new number.
 - **relations:** `MEMORY[live-and-committed-are-independent-facts]` (the general form; this is its
   migration-shaped instance) · `MIGRATIONS_DIR=… --apply scopes NOTHING if the assignment lands on
   its own line` (the reason everyone hand-applies in the first place) · `WRONG_CALLS.md` 2026-09-04

@@ -65591,3 +65591,47 @@ blind one, and that is true of a whole technique as much as of a single grep.
 
 **Cost:** it would have sent the next session down the harder path, in a handoff written to save
 them time. Corrected in place in both files the same day.
+
+## 2026-09-04 (c) — my detector for uncommitted migrations was wrong twice out of twice, and I had written the rule against it the night before
+
+**The claim.** *"[MEASURED 2026-09-04] 556 applied migrations, 2 applied-but-untracked — and both are
+`record-only`, so the leak is entirely in the hand-applied path. One was applied at 11:08 this
+morning, so it is a live habit, not a historical one."* Written into `LANDMINES.md`, and one of the
+two turned into a message to another lane.
+
+**What was actually true: there are ZERO true orphans in 556 migrations.** Both hits were false, for
+two different structural reasons, and both were found by the lanes I pointed at rather than by me.
+
+- **`767` was in flight.** My sweep ran inside the **~60-second** gap between its apply (11:08:39Z)
+  and its commit (11:09:30Z). Applying and committing are two acts separated by seconds to minutes
+  **by design**, so applied-vs-tracked has a false-positive window built into it. Every honest
+  migration looks abandoned while its author is typing the commit message.
+- **`521` was renumbered.** Sessions race for the next free migration number and renumber on
+  collision. The same SQL is tracked as `530_…`, recorded as `530` 56 seconds after `521`, and
+  self-guards with `RAISE EXCEPTION '530: already applied'`. My check compared FILENAMES in a place
+  where filenames legitimately change.
+
+**The one real instance was my own**, and I had already fixed it before I went looking for company.
+
+**The rule I had written the night before, about somebody else's instrument.** From `NOTES`,
+2026-09-04 morning: *"A check that is wrong in a fixed direction is worse than one that is flaky,
+because it trains its reader to discount it, and then it is ignored on the day it is right."* I wrote
+that about a monitor miscounting `cta-subtitle`, and then shipped a check that fired on correct work
+twice on its first outing — and acted on one of the two by messaging a lane.
+
+**Why the framing made it worse.** Two hits felt like a class. I wrote "this is a live habit, not a
+historical one" on the strength of one timestamp being recent — when *recent* was precisely the
+evidence that it was still in progress. **The freshness I read as proof of an ongoing problem was the
+actual explanation of the false positive.**
+
+**The corrected check needs two gates**, both from the `bugfix_414` lane via `vetcomparison`: age-gate
+at ~15 minutes, and match by STEM rather than filename. Their reverse arm is the better half and has
+no window at all — *tracked but never recorded*, especially a `schema_migrations` row naming a file
+that no longer exists, which is minted whenever a session records before renaming.
+
+**Cost.** One misdirected message, then a second one repeating a false finding to the same lane; two
+peer sessions spent time correcting me, generously and with evidence both times. The landmine now
+carries the gated check and states the true rate as zero. **The mechanism it describes is still real
+— I did leave a live migration uncommitted for 13 hours — but it is a trap that catches an
+individual, not a habit the estate has**, and saying otherwise on two false positives is the kind of
+claim that makes a trap file less believed rather than more.
