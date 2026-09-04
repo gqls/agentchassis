@@ -1303,3 +1303,28 @@ diagnosis; no chase).
   raised the demand side of a cap nobody sized for it.
 - 463's cold-start recorded:
   `docs/agent_docs/docs024_key_docs_latest/bugfix_463_section_children/HANDOFF_2026-09-04_continue_here.md`.
+
+> **CORRECTION (463's own, same day — strike, not just annotate): ~~"every
+> sha route fails on this roll"~~ was FALSE.** The route exists:
+> `service_binary_capabilities` carries `git_commit` per service AND per pod
+> (`WHERE kind='build' AND pod_name LIKE 'agent-chassis-%'`) — both live
+> chassis pods report `239ab3626f`, `merge-base` puts their fix `9b540c2e6`
+> upstream of it, and the binary grep is PRESENT when given that sha. Their
+> absents were absents about the VALUES they tested (a stale sha and their
+> own commit hash — never the stamp), not about the method. The general
+> shape, their WRONG_CALLS: **an absent result is a fact about the VALUE you
+> tested, never about the method — produce one positive result through a
+> route before declaring it unavailable.** The capability probe stays valid
+> as the fallback and is the right tool when a change adds no literal. My
+> probe result stands unaffected.
+
+Also from them: **rule-20 × 467 is now `bugs_open/467` §8 with attribution**
+("463 fills hubs only where 467 leaves room" is the honest statement of what
+their fix bought); headroom figures verified independently (designblog 18
+preserved / headroom 2 — exact match; gamedesign 4/16 = the clean
+verification site; fleet: 26 over the cap, 5 within one rule-20 wave of it,
+11 comfortable). **467 flagged to the OWNER as a product decision** ("how
+many pages may a re-plan add"). Feed-children checks for this site when the
+time comes: landed URL `/the-design-feed/<slug>.html` (not /blog/),
+`parent_section` set on the plan row, and the headroom-of-2 watched in the
+same read.
