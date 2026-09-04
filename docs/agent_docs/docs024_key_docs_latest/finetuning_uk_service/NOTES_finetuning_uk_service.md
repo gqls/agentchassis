@@ -3792,3 +3792,9 @@ that plans imagery naturally; if forced, robot-hands.com, with the owner's word.
 this lane carries to the owner matches mine: untested not broken; 718 already says what he decided; no
 prompt edit indicated; the homepage graphics wait on the site-plan question; the four heroes are the 114
 lane's with 9→3 as the argument for arming `wire_hero_on_landing`. Thread closed on both sides.
+
+**11:55Z — TIMESTAMP CORRECTION for the five entries above marked 12:00Z–12:50Z:** those times were
+written from my own estimate, not read from the clock; `date -u` after the last of them read
+**11:54:43Z**. Treat them as ORDER only (11:50Z ≈ right; the rest are ~50 minutes early). The commit
+times on the corresponding commits are the true record. The rule this breaks is the one this lane keeps
+filing against others: read the instrument, do not type the number you expect.
