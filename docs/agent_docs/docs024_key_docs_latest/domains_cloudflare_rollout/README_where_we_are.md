@@ -76,3 +76,17 @@ domains with auto-renew off all run until at least June 2027.
 Of the three registrar keys you owed the rollout, Spaceship is now in. Dynadot and
 Porkbun are still outstanding — same shape when you get a moment: create the key,
 drop it in the credentials file named in the runbook, in a separate terminal.
+
+Update, 4 September: all three registrar keys are now in — the paragraph above is
+out of date. Spaceship and Dynadot went in on the 2nd, and you created the Porkbun
+key the same day. Porkbun is connected and working: we listed all 683 domains
+there, none of them are on Porkbun's own sale marketplace, and the valuation work
+got three data files out of it (your domain list, UK asking-price comparables,
+and .com comparables for your category keywords).
+
+One switch left, and it's in your hands: in your Porkbun account settings there
+is an "enable API access for all domains" toggle, still off as of today. Nothing
+about listing needs it — but until it's on, we cannot change any DNS or move any
+Porkbun domain onto Cloudflare. One click covers all 683; there's no need to do
+it per domain. When you flip it, tell any session and it will confirm the door
+is open within seconds.

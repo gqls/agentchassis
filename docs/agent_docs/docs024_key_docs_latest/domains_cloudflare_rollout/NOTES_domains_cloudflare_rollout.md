@@ -858,3 +858,13 @@ and that Dynadot's listing API carries no seller/payee field at all —
 ruling out this registrar cleanly rather than leaving it open. Nothing
 further owed here; the resolution now needs the owner to open the Spaceship
 account these are listed under.
+
+## 2026-09-04 — Porkbun status re-check + handoff written
+
+- `ping` re-verified (keys valid; egress a different IPv6 than 09-02 — the
+  rotate-both-families ruling keeps proving itself). Global API-access opt-in
+  STILL OFF: `getNs` refuses with the same explicit error. Owner reminded via
+  the README.
+- Thread cold-start written: `HANDOFF_2026-09-04_porkbun_continue_here.md`
+  (this dir). Valuation lane confirmed my three inbound CSVs COMPLETE for its
+  purposes on 09-02; nothing further owed to it from Porkbun.
