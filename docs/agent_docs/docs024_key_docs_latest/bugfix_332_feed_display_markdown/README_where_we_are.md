@@ -200,3 +200,34 @@ automated checks can see what a browser sees. And the ESPN-menu problem, where a
 navigation gets scraped in as if it were an article summary, is filed and its owning team has
 decided not to take it yet. **The news pages will still read oddly in places until that one is
 done**, and no amount of markdown cleaning will change it.
+
+## 2026-09-04, 16:05 — everything is live now, and one of my explanations was wrong
+
+Two updates, and the second is a correction to something I told you this morning.
+
+**Everything is live.** A build went out at 16:00 today carrying this morning's two fixes — the
+chopped-off-image case and the detector that had never been connected. So the answer to "do we
+need another build?" is **no, it already happened**, on a roll another team was running anyway.
+Nothing is waiting on a build.
+
+What is still waiting is simply time: the pages have not rebuilt themselves since that roll yet,
+so the newest fix is running but has not had a chance to show itself. That is hours, not days,
+and it needs no decision from you.
+
+**The correction.** This morning I told you I could not tell which version was running from the
+version tag, and had to prove it another way. That reason was wrong. I compared a timestamp from
+one tool against a timestamp from another without noticing they were in **different time zones**
+— British summer time against UTC — so a commit that was actually half an hour *before* the
+software started looked like it came half an hour *after*. The version tag would have told me
+straight away.
+
+The answer I gave you was still right — the fix is live, and I had proved that a second,
+independent way, which is why the mistake did not reach your pages. But I published the wrong
+reasoning, and if I had left it there it would have taught the next person to distrust a check
+that works perfectly well. It is corrected everywhere I wrote it, and another team spotted it,
+having made the opposite version of the same mistake themselves.
+
+**So the two things still needing a person are unchanged**, and both are yours to call: applying
+the small database change for the script security issue, with someone then looking at a news
+page in a browser; and whether to prioritise the ESPN-menu problem, which is filed and which
+nobody has picked up yet.
