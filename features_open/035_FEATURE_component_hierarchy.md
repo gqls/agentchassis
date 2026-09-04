@@ -807,6 +807,50 @@ The division:
 > rewrite — its six h3s are exactly the ring/razor/shark split the owner named.
 > Wanted at **P2**, not now.
 >
+> ---
+>
+> **⚠⚠ CORRECTED AND NARROWED 2026-09-04 — THIS FEATURE'S DURABILITY ARGUMENT DOES
+> NOT COVER STRUCTURE, ONLY ASSETS.** Found with the `infographics` lane; the
+> evidence is theirs, the bound is mine, and it is recorded here because it is the
+> claim P1 should make at council instead of the broader one.
+>
+> **What this document has been arguing:** anything placed inside `article-body`
+> dies at the next wholesale rewrite, because one llm-owned field holds it —
+> therefore composition is required to give it a durable home.
+>
+> **THE HALF THAT IS FALSE.** A graphic does not have to go *inside* the prose. A
+> comparison-table added as a SIBLING SECTION (position 3, pushing the CTA to 4)
+> touches no body, cannot be destroyed by a rewrite, and **needs nothing from this
+> feature**. `finetuning.uk` ships exactly that today.
+>
+> **AND THE HALF THAT IS WORSE FOR US — a "ROUTE C" nobody had named.**
+> `gamesdesign.co.uk` carries a table on **13 of 13** article bodies, against **3
+> across the other 368 on the fleet** `[MEASURED 2026-09-04]`. The mechanism is not a
+> component and not a plan row: its `content_direction` spec carries a structural
+> writing rule (*"never describe a sequence of steps purely in prose when a table
+> would make it scannable"*), so **the WRITER emits the structure**. That inverts our
+> premise — the artefact is not durable, **the RULE is, and the next rewrite
+> RE-DERIVES the table from the same spec.** Durability by regeneration, with nothing
+> built.
+>
+> **THE BOUND, which is what keeps this feature justified:**
+>
+> > **If the thing is made of the page's own words, a rule re-derives it. If it is an
+> > ASSET, something must own its persistence.**
+>
+> A `content_direction` rule can *ask* for an image; it cannot produce one, because a
+> writer emits prose and not a JPEG. So:
+>
+> | inside prose | durable by | needs 035? |
+> |---|---|---|
+> | **structure** (table, checklist, flow) | the RULE re-deriving it | **NO — route C is better and exists** |
+> | **an asset** (figure, chart image) | someone owning its persistence | **YES — nothing re-derives an asset** |
+>
+> **So P1's honest claim is the narrow one:** composition's justification is REMOVED
+> for structure-inside-prose and SURVIVES for imagery-inside-prose. State that at
+> council. **The broad version does not survive contact with the gamesdesign data,
+> and a reviewer who found route C would take the whole justification down with it.**
+>
 > **ANSWERED 2026-08-31 by that lane, and it NARROWS P2's consumer set: the guides
 > are NOT a P2 consumer.** Figure-BETWEEN-sections is sufficient for them; nesting
 > is not needed. Their structure is `h2` → `h3 Ring Grip` (2 paragraphs) →
