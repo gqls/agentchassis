@@ -67675,3 +67675,117 @@ reports 0 delta. The 477 lane lost nothing and was told directly.
 would have vanished from the corpus council seats and agents read, not just from the file — a
 silent, wider loss than the git one. It did not, but that was luck rather than a control, and it is
 the reason this entry is here rather than only in a lane note.
+
+## 2026-09-04 — I reported a 36-minute outage as 2h14m, because I measured "any failure" and called it "the credit outage"
+
+- **The claim.** "The fleet-wide Anthropic credit outage ran **11:17:05Z → 13:31:30Z**, with
+  recovery **staggered** (first success 11:58:12Z), so expect a mixed band rather than a
+  step." Written into this lane's NOTES, README, HANDOFF, two commit messages, and sent to
+  the inter-thread-comms session, which relayed it fleet-wide.
+- **The truth.** `[MEASURED 2026-09-04]` filtering on the credit error itself
+  (`error_message ILIKE '%credit balance%'`): **11:21:11 → 11:56:47, 117 rows** — about
+  **36 minutes**, contained entirely within the 11:00Z hour. The 12:00Z hour logged
+  **204 successes and 0 credit errors**. Recovery was **clean, not staggered**.
+- **Two independent errors, both widening the window in the same direction.**
+  1. **The end** — my `13:31:30` came from `llm_call_log WHERE NOT success`, unfiltered by
+     cause. That row is `response truncated: stop_reason=max_tokens (output_tokens=300
+     reached)` — a *truncation*, an unrelated failure that this estate documents separately.
+     I asked "when did anthropic last fail?" and reported the answer to "when did the credit
+     outage end?".
+  2. **The start** — my `11:17:05` came from `min(created_at)` on `orchestration_states`.
+     **`created_at` is when the RUN STARTED, not when it failed**; the same rows'
+     `min(updated_at)` is `11:21:12`, matching `llm_call_log` to the second. I read a
+     run-start column as a failure time.
+  The "staggered recovery" claim was a **compound** of the two: a real success at 11:58 plus
+  a fake failure at 13:31 implies a mixed band that never existed.
+- **What caught it.** The inter-thread-comms session, relaying the `420` lane; verified here
+  before correcting. **Nothing in my own process would have** — both numbers were dated,
+  marked `[MEASURED]`, and produced by real queries against live tables. This is the
+  `[MEASURED]`-marker failure the fleet index already warns about: *dated and marked is not
+  the same as disconfirmable*. Neither query could have returned a narrower window, because
+  neither one was asking about credit errors.
+- **The cheap check that would have.** Filter on the cause you are naming, and read the
+  column meaning before using it as a clock: `\d orchestration_states` distinguishes
+  `created_at` from `updated_at` in one line. General form: **when you name a specific
+  failure in a claim, the WHERE clause must name it too** — otherwise you have measured the
+  superset and labelled it with the subset. Related: [[a-count-you-kept-is-not-a-census]].
+- **Cost.** A 4×-overstated outage window in five documents and a fleet-wide relay, plus a
+  "staggered recovery, expect a mixed band" caution that would have made the next reader
+  distrust a healthy fleet for two hours. Corrected in place everywhere, and the relay
+  session told.
+
+## 2026-09-04 — I wrote a LANDMINE saying a council correlation is "spent", having read the mechanism that says otherwise the same session
+
+- **The claim.** That a council-gate run dying at `complete_invalid` leaves the correlation
+  **spent**: "It will never produce a `council_report`, so `098` can never resolve it …
+  re-fire and record the **NEW** correlation." Written into `LANDMINES.md` (hence synced to
+  `doc_notes`, where council seats read it), the memory entry
+  `a-submission-is-not-a-review`, this lane's NOTES/RUNBOOK/HANDOFF, and two commit
+  messages — then relayed by the inter-thread-comms session to ~16 lanes.
+- **The truth.** The **RUN** is spent; the **CORRELATION** is not. `[MEASURED 2026-09-04]`
+  `diagnosis_artifacts` over three days holds correlations carrying **5, 4, 4, 4 and 3**
+  `council_report` rows, each ending `approved` after earlier `revise` rounds — so multiple
+  rounds on one correlation is the **normal** case. `RESUBMIT_CORR` is documented at
+  **CLAUDE.md line 181** and implemented at `097_TRIGGER_council_review_v1.sh:95`.
+- **Why it is worse than a wrong fact.** It prescribed the one action that *causes* the harm
+  it warned about: minting a new correlation is what strands a `Council-Submitted:` trailer
+  un-reviewed for ever, since forward-only forbids the amend. A landmine that recommends the
+  damage is worse than no landmine. One lane is reportedly already stuck that way.
+- **How the error was made.** I reasoned: *no `council_report` was written → `098` can never
+  resolve it → the correlation is dead.* Every step holds except the last, which swaps
+  "this ROUND produced no report" for "this CORRELATION can produce none". I had read the
+  `RESUBMIT_CORR` line in CLAUDE.md **in this same session** while checking council
+  procedure, and still inferred rather than checked. Confidence came from the surrounding
+  work being genuinely well measured — the `__step_errors` diagnosis in the same entry is
+  correct and useful, which is exactly what made the untested clause beside it look equally
+  solid.
+- **The cheap check that would have.** `SELECT correlation_id, count(*) FROM
+  diagnosis_artifacts WHERE kind='council_report' GROUP BY 1 HAVING count(*) > 1;` — one
+  query, or one `grep RESUBMIT_CORR` of the trigger I had just run. General form: **a claim
+  about what a MECHANISM can do requires reading the mechanism; one observation of it
+  failing is not a bound on what it can do.** Cousin of
+  [[a-doc-comment-is-not-an-enforcement-mechanism]] inverted — there the doc was right and I
+  did not read it; here the doc was right, I *had* read it, and I did not connect it.
+- **What caught it.** The `420` lane, with evidence, via the relay session. **I also acted on
+  the false claim before it was caught** — re-firing migration 746 under a fresh correlation
+  (`2c349dd2`) instead of `RESUBMIT_CORR=70f500ff`. Left to run rather than fired a third
+  time: a duplicate round costs credits and the split trail harms nothing here, because no
+  in-scope commit names `70f500ff` (the only commit that does is a `docs/` script the
+  council does not review — itself the subject of the entry above).
+
+## 2026-09-04 — I put a peer's unchecked claim inside a section whose banner says "checked here rather than taken on trust" (session theme kits)
+
+- **The claim.** In this lane's handoff §0a, relaying a fleet notice: *"The correlation is
+  then SPENT — resubmit and record the NEW one."*
+- **Why it was false.** A council correlation killed by the credit outage is **reusable**.
+  `[VERIFIED 2026-09-04]` correlation `3e9e8ce8` carries **three** `council_report` rows on
+  ONE correlation, spanning the outage and ending in approval: `revise` 11:22, `revise`
+  12:19 (after the 11:29 `complete_invalid` casualty), `approved` 12:29. And minting a new
+  correlation is the actively damaging move: `098` joins commit↔verdict on the correlation,
+  so a fresh id splits the trail and strands the `Council-Submitted:` trailer on
+  already-pushed commits, pointing at a correlation that will never produce a verdict —
+  **un-reviewed for ever, with forward-only forbidding the amend.**
+- **What caught it.** The peer who sent it corrected themselves and supplied the
+  counter-evidence. I then verified it independently rather than flipping the claim on
+  their say-so, which is the only part of this I got right.
+- **The mistake, precisely, and it is NOT simply "I relayed a claim".** I relayed it into a
+  block whose own opening line reads *"Relayed by the `inter thread comms` session
+  2026-09-04 **and checked here rather than taken on trust**"*. I had checked the two
+  claims that touched my lane — the roll's ancestry and the outage's window — and not that
+  sentence. **A "verified" banner over a section makes every claim inside it read as
+  verified.** The banner was true of the parts I wrote it for and did work I had not done
+  for the rest. That is worse than an unmarked relay, because it manufactures confidence
+  rather than merely failing to add it.
+- **The cheap check that would have.** Mark provenance **per claim**, not per section:
+  anything I did not run gets `[RELAYED, unverified]` inline. And when a section header
+  makes a verification claim, it has to be true of **every** sentence under it — otherwise
+  scope the header ("the two facts about this lane are checked; the rest is relayed").
+- **Cost.** Low in the event: the wrong line stood about two hours, in a handoff nobody had
+  read yet, and the peer caught their own error. **The cost it was aiming at was not low** —
+  a session following it after a killed round would have minted a new correlation and
+  permanently stranded the trailers on its own commits.
+- **The tally is the point.** This is the eighth claim in two days where the conclusion or
+  the framing outran the evidence, and the second where I **borrowed authority I had not
+  earned** — first a retraction (which reads as "someone checked"), now a verification
+  banner (which reads the same way over a whole section). **Both times the error was not
+  the fact but the confidence marker attached to it.**

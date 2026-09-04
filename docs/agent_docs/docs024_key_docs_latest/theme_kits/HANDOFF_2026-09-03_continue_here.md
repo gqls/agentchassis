@@ -54,6 +54,22 @@
 > roll".** Check any lane against BOTH refs —
 > `git merge-base --is-ancestor <commit> <ref>`.
 >
+> ⚠ **But ancestry alone is NOT sufficient, and this cut is the worst case for it:** all 14
+> images carry the SAME commit `06c0b18f2`, so **any** stamp satisfies an ancestry test.
+> The check has to name the deployable your code actually builds into. (Caveat from the
+> feed lane via `inter thread comms`.)
+>
+> **ROLL LANDED 16:01Z, and the guard is RE-PROBED ON THE NEW BINARY** — because the roll
+> replaced the very binary the §0 claim rested on. `[VERIFIED 2026-09-04 after
+> `rollout status` reported settled, on EVERY live pod, with both controls]`
+> ReplicaSet `6f699988d5`, pods `-kzklg` and `-s4gg9`: `classifierDesignIntentState`
+> **PRESENT** on both, `apply_theme_kit` PRESENT (positive control), nonsense needle absent
+> (negative control). **Two probe traps that session flagged and I avoided by waiting:**
+> mid-roll, one new pod was not ready while two old ones still served, so a probe then
+> reads v1.0.1360 and reports a clean pass **about the wrong binary**; and
+> `service_binary_capabilities` returned FOUR rows for TWO live pods, so a row there is not
+> evidence its pod is alive.
+>
 > **And the roll cannot touch the kits themselves: CODE RIDES THE CUT, DB CONFIG DOES
 > NOT.** `theme_kits`, `page_archetypes` and the seeded rows are database state, so a roll
 > neither ships nor endangers them. (The converse caveat, if a kit is ever applied: a
@@ -74,8 +90,32 @@
 > SELECT left((collected_data->'__step_errors')::text,2000) FROM orchestration_states
 >  WHERE collected_data->'input_data'->>'fix_correlation_id' = '<CORR>';
 > ```
-> **The correlation is then SPENT — resubmit and record the NEW one.** That is a second way
-> a verdict query can mislead, alongside §4's `LIMIT 1`-across-a-resubmission trap.
+> ~~**The correlation is then SPENT — resubmit and record the NEW one.**~~
+> **⚠ FALSE — CORRECTED 2026-09-04, and it is the one line here that would have caused
+> real damage. A killed correlation is NOT spent. REUSE it with `RESUBMIT_CORR=<corr>`.**
+> `[VERIFIED 2026-09-04 by querying an unrelated lane's correlation, not by taking the
+> correction on trust]` correlation `3e9e8ce8` carries **three** `council_report` rows on
+> ONE correlation, spanning the outage and ending in approval:
+> ```
+> 2026-09-04 11:22:23 | revise      <- before the outage
+> 2026-09-04 12:19:35 | revise      <- after the 11:29 complete_invalid casualty
+> 2026-09-04 12:29:55 | approved
+> ```
+> **Why minting a new one is the damaging move:** `098` joins commit↔verdict on the
+> correlation, so a fresh id splits the trail and leaves the `Council-Submitted:` trailer
+> on your already-pushed commits pointing at a correlation that will never produce a
+> verdict — **un-reviewed for ever, with forward-only forbidding the amend.**
+> **This dovetails with §4's `LIMIT 1` trap rather than competing with it:** reuse is the
+> NORM, which is exactly why reading the latest row is unsafe and why counting report rows
+> against rounds submitted is the right check. Read the two together.
+>
+> **HOW I GOT IT WRONG, because the shape is worth more than the fact.** I relayed a peer's
+> claim verbatim into a section whose own banner says *"checked here rather than taken on
+> trust"*. I had checked the parts about THIS lane and not that sentence. **A "verified"
+> banner over a section makes every claim inside it read as verified** — the banner is
+> doing work I did not do. This is [[a-subagent-report-is-another-doc]] arriving within
+> hours of my writing about that exact class. **Attribute a relayed claim inline, or check
+> it; do not let a section header vouch for it.**
 
 ## IF YOU ARE PICKING THIS UP COLD — do these, in this order
 
