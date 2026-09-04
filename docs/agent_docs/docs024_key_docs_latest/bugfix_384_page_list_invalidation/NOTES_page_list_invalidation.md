@@ -885,3 +885,11 @@ your PATH before it is a claim about the data.**
 than reading my report — the 09-03 sessions' lesson holding again. Note the direction of this one:
 I sent a finding, they found a gap in it, and the repair to that gap then refuted *their* follow-up
 hypothesis. Neither of us could have got here alone, and neither of us was the one who was right.
+
+**Same-file passenger again — second time in two days on `WRONG_CALLS.md`.** Both of today's entries
+were swept into `d6077796a` (another lane's healthcare.uk correction) between my write and my
+`git commit`, which then found nothing to commit — exactly what happened to this lane's
+`LANDMINES.md` append on 09-03 (`09e7aa75b`). Nothing is lost and forward-only holds; the entries
+are in HEAD. **But neither is findable by its commit message**, so search these ledgers by content
+(`git log -S'<phrase>' -- <file>`), never by subject. Two instances in two days on the fleet's two
+append-only ledgers is a rate worth knowing when D10 is decided.
