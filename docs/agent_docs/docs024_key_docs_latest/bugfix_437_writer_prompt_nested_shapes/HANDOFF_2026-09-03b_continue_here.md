@@ -1,6 +1,7 @@
 # HANDOFF 2026-09-03b — bugs_open/437, writer prompt nested item shapes
 
-**COLD-START: read this file, then `bugs_open/437` (§CANDIDATE 1 and §THE 52 BLOCKED KEYS),
+**COLD-START: read the UPDATE box below FIRST, then `bugs_open/437` (§CANDIDATE 1 and
+§2026-09-04),
 then `NOTES_writer_prompt_nested_shapes.md` from the bottom up.**
 Supersedes `HANDOFF_2026-09-03_continue_here.md`, which is kept for its account of the
 wrong-pod wrong turn.
@@ -29,11 +30,18 @@ exists and works. **Candidate 3 is the valuable one** and is untouched.
 ## The one-line state
 
 **✅ CANDIDATE 1 IS FIXED, LIVE, COUNCIL-APPROVED AND PROVEN AT THE SERVED ARTEFACT.** Nothing
-is owed on it. **The bug stays OPEN**, and the reason is now a number rather than a caveat:
-**52 of the 73 affected keys (71%) can never recover on their own.**
+is owed on it.
 
-**There is no open technical question in this lane. There is one open DECISION, and it is
-the owner's** — see §The one thing to decide.
+> ⛔ ~~**The bug stays OPEN**, and the reason is now a number rather than a caveat: **52 of
+> the 73 affected keys (71%) can never recover on their own.** There is no open technical
+> question in this lane. There is one open DECISION, and it is the owner's.~~
+> **RETRACTED — both sentences were false.** The keys recover on their own and 40 of the 52
+> already have (20 on 2026-09-03, the rest overnight); there is no decision outstanding and
+> nothing to clear. See the UPDATE box above and `WRONG_CALLS.md`, 2026-09-03.
+
+**The bug stays OPEN for candidates 2 and 3 only** — candidate 2 needing restatement rather
+than building, candidate 3 untouched and the valuable one. **Nothing in this lane is waiting
+on anybody.**
 
 ## What is settled, with its evidence — do not re-derive any of this
 
