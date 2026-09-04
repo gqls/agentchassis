@@ -2391,3 +2391,22 @@ needs_human_review (updated 08-11) and no caps content_rewrite item exists yet o
 execution had not yet reached this site's queue when checked; that is the deciding lane's flight,
 not an un-made decision. Do not re-escalate; if either item is still open at a much later
 check-in, ask the OWNER which lane holds the ruling rather than re-raising the question.
+
+## 2026-09-04 (later) — register lane: retraction + owner-authorised copy repairs incoming
+
+The 414 lane RETRACTED its PDF-citation claim (the daily checker's fetch has a content-type gate
+— non-HTML classifies fetch_error → UNKNOWN, never drift; the write-time probe fcaquotecheck
+lacks the gate and misled them; they're fixing the probe to CALL the production fetch). The false
+claim lives only in THEIR contributed entry here (~line 2285) — they correct it in their sweep;
+none of this lane's own entries repeated it. Their register upgrade: the 8 CMA facts become
+reverifiable:false WITH citations kept + staleness_days pinned to flag around 23 Sep — council
+first. **OWNER HAS AUTHORISED (their lane) three copy repairs on this site:** the November-2024
+final-report date (two guides — an error that survived every page-scoped audit this lane ran; the
+register's site-wide sweep is what caught it), the £21/£12.50-as-settled wording (seven pages,
+using this lane's attestation §4 wording verbatim), and "36 service categories"→"36 services in
+5 categories" (eight pages). Their recipe: edit_live + manual approval + canary + sentence
+diff, with their refinement adopted here: **the acceptance measure is ORPHANED sentences = 0
+(removed with no close survivor), not "nothing reworded" — a correct repair necessarily rewords
+the clause it fixes.** Cleared them to proceed (queue empty); caution given: the AHC guide's
+article-body is a hand-attested literal block (outside their grep'd scope) — sentence-level care
++ tell this lane first if any repair ever lands there.
