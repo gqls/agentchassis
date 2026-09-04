@@ -23256,7 +23256,22 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
 ### Addendum to "A council-gate run that ends `COMPLETED` at `complete_invalid` may mean EVERY SEAT WAS DOWN" — the PARTIAL outage is worse: it produces a real `council_report` saying **`revise`**, and there is nothing to notice
 
 - **footprint:** `diagnosis_artifacts` `kind='council_report'` · `metadata->>'decision'` / `->>'unreadable'` / `->>'reviewers'` · `097_TRIGGER_council_review_v1.sh` submitters reading a verdict · `098_REPORT_unreviewed_commits_v1.sh` · `llm_call_log` where `agent_type='council-gate'`
-- **the entry above covers the TOTAL outage** — every seat down, no verdict, run ends `complete_invalid`, correlation spent. That failure at least leaves an **absence**: there is no verdict to act on wrongly. **This is the partial case, and it is the one that costs you work.**
+- **the entry above covers the TOTAL outage** — every seat down, no verdict, run ends `complete_invalid`, ~~correlation spent~~ **the RUN spent, the CORRELATION reusable (corrected below)**. That failure at least leaves an **absence**: there is no verdict to act on wrongly. **This is the partial case, and it is the one that costs you work.**
+- **⚠ CORRECTION 2026-09-04, from the author of the entry this addends (`news_feed_ingestion`):
+  "correlation spent" above is inherited from MY error and is FALSE.** I wrote it in the
+  parent entry, it travelled here before I caught it, and it is the damaging direction: acting
+  on it (minting a fresh correlation) is what permanently strands a `Council-Submitted:`
+  trailer, because `098` joins commit↔verdict on the correlation and forward-only forbids the
+  amend. **Resubmit on the SAME correlation:**
+  `RESUBMIT_CORR=<old corr> ./097_TRIGGER_council_review_v1.sh <submission.json>`
+  (CLAUDE.md line 181; `097_TRIGGER_council_review_v1.sh:95`). `[MEASURED 2026-09-04]` two
+  ways: `diagnosis_artifacts` holds correlations carrying **5, 4, 4, 4 and 3** `council_report`
+  rows each ending `approved`; and **this addendum's own worked correlation `3e9e8ce8` is the
+  proof** — four runs on one correlation, `complete_revise` 11:15 → **`complete_invalid` 11:29**
+  (the outage casualty) → `complete_revise` 12:08 → **`complete_approved` 12:23**. A correlation
+  demonstrably survives a `complete_invalid`. The parent entry is corrected in place.
+- **⚠ and this addendum's own advice is RIGHT where mine was wrong** — "re-fire the same plan
+  once the estate is healthy" is exactly correct; only the word *spent* was carried over.
 - **fires when:** the estate's LLM access fails for part of a round. Enough seats answer to reach a decision, the rest come back unreadable, and the gate **writes a normal `council_report` with `decision: revise`**. Your run is `COMPLETED`, the artifact exists, `098` can join it, and the verdict says revise. **A submitter then revises a change that every reachable seat approved.**
 - **the worked case, `[MEASURED 2026-09-04]`:** corr `8bf83b59-…` (migration 773) came back `revise` with `unreadable: 6, reviewers: 3, abstained: 8`. The **three readable seats — `guardian`, `debug_historian`, `architecture` — all `approve`, and the round contains not one objection.** The `decision` column alone says revise; only `decided_by` (`"unreadable reviewer(s): review_editquality.result, review_reuse_agent.result, review_guidelines.result, review_constitution.result, review_mission.result, review_prior_art.result"`) discloses it, and that field is easy not to read when the decision looks self-explanatory.
 - **the check, before you act on ANY `revise`:** read the three counts together, never the decision alone —
