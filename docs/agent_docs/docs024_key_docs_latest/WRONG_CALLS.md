@@ -65406,3 +65406,36 @@ against a test that replaced a seven-day wait — the owner's idea, and a good o
   Tally: **set-returning-function-expands-before-LIMIT** ×1,
   **a-zero-accusing-my-own-fix-audited-last-not-first** ×1,
   **malformed-query-returns-a-plausible-number-with-no-error** ×2 (2026-09-03, 2026-09-04).
+
+## 2026-09-04 — `site_delivery_and_editor`: I left a live migration uncommitted overnight, the day after quoting the rule it breaks
+
+**What happened.** I applied migration `752` to the live database at 22:03Z, recorded it with
+`--record-only`, verified it with an independent re-read, and committed the concept-register entry
+the council required. I did not commit the SQL. It sat live in the database and absent from git for
+thirteen hours.
+
+**Why nothing caught it.** Every signal I had said finished. `psql` printed `COMMIT`, my own
+`DO/RAISE` verify printed its NOTICE, `--record-only` printed "recorded", the register commit
+succeeded, and the independent re-read confirmed the config was correct. **The migration was live, so
+everything I checked afterwards agreed with me.** The only thing that would have told me is
+`git status`, which I ran the next morning for an unrelated reason.
+
+**The rule I had quoted the previous day.** `MEMORY[live-and-committed-are-independent-facts]` — a
+tool that ships from a FILE cannot see it is uncommitted; sweep file-vs-live before you finish. I
+applied that rule to the estate's tooling and not to my own hands.
+
+**The cheap check, and it is two commands.** `SELECT filename FROM schema_migrations` against
+`git ls-files docs/agent_docs/sql_for_agents/`, `comm -23`. Now in `LANDMINES.md` with the exact
+recipe. Run it after any hand-apply, and before ending a session in which anything was applied.
+
+**What the measurement showed, which is why this is an entry and not a shrug.** `[MEASURED
+2026-09-04]` of 556 applied migrations, 2 are untracked — and **both are `record-only`, while 0 of
+the 213 applied by any other means leak**. So it is specifically the hand-applied path, which is the
+path this estate uses *correctly and constantly* because `--apply` would take every other session's
+pending file. **The safe practice and the leak are the same action.** One of the two orphans was
+applied at 11:08 the same morning, minutes before I measured, so it is a live habit.
+
+**Cost.** Nothing broken and nothing lost — the file was still on my disk and its checksum still
+matched what the runner recorded, which I verified before committing rather than assuming the working
+copy was the applied text. But for thirteen hours the applied SQL was unreviewable, its ROLLBACK
+existed for nobody but me, and a fresh clone could not have reproduced the schema.

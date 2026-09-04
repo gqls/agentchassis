@@ -22273,3 +22273,48 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   `474`'s frontend fixes. I first told the owner the dashboard was NOT in the release, on the
   strength of `RELEASE_IMAGES`, and had to correct it a message later.
 - **added:** 2026-09-03, `site_delivery_and_editor` lane
+
+## Applying a migration by hand and RECORDING it are two acts — nothing checks that the file is also COMMITTED, so a live schema change can exist only in the database and on your disk
+
+- **footprint:** `scripts/migration/run-migrations.sh --record-only` · `schema_migrations` ·
+  `docs/agent_docs/sql_for_agents/` · any hand-applied `psql -f` migration
+- **fires when:** you apply a migration by hand — which this estate does constantly and correctly,
+  because `--apply` takes EVERY pending file in the directory including other sessions' — then record
+  it with `--record-only`, and move on to the thing the migration was for. The commit is a separate
+  act that nothing prompts, nothing checks, and nothing fails without.
+- **why the wrong result looks exactly right — every signal you have says done:** the `psql` run
+  prints `COMMIT` and your `DO/RAISE` verify prints its NOTICE. `--record-only` prints "recorded".
+  A follow-up commit of the register entry or the bug file succeeds. `git status` is the only thing
+  that would have told you, and by then you are three tasks away. **The migration is LIVE, so
+  everything you check afterwards agrees with you.**
+- **what it costs, and it is not tidiness:** the applied SQL exists in no reviewable place. Nobody
+  else can read what actually ran, the ROLLBACK you wrote is on your disk alone, a fresh clone cannot
+  reproduce the schema, and `098`-style coverage cannot see it. For a *config* migration the live
+  row is the system, so the repo is the only record of intent there will ever be.
+- **the check — two commands, and it is the whole fix:**
+  ```bash
+  # everything applied, against everything tracked
+  psql -At -c "SELECT filename FROM schema_migrations ORDER BY 1" | sort -u > /tmp/applied.txt
+  git ls-files docs/agent_docs/sql_for_agents/ | xargs -n1 basename | sort -u > /tmp/tracked.txt
+  comm -23 /tmp/applied.txt /tmp/tracked.txt      # non-empty = live SQL that is in no commit
+  ```
+  Run it after any hand-apply, and before ending a session in which you applied anything.
+- **[MEASURED 2026-09-04] the rate is low and the leak is entirely in the hand path.** 556 applied
+  migrations, 1,350 tracked files. **2 applied-but-untracked, and 0 of the 213 applied by any means
+  other than `record-only`** — so it is `record-only` (343 rows) that leaks, at 2/343. Both orphans
+  were never in git history under their name at all, so this is "never committed", not "committed
+  then deleted". A third, mine, was caught and committed the morning after (`87b48afe2`).
+  **`--apply` cannot produce this** by construction: it applies files that are already in the
+  directory. Only the hand path can.
+- **⚠ the two live orphans as of 2026-09-04, for their owners:**
+  `521_tool_deployer_fork_guard_armed.sql` (applied 2026-08-21) and
+  `767_vetcomparison_posture_as_a_doc_notes_decision_record.sql` (applied 2026-09-04 11:08Z, minutes
+  before this entry was written — this is a live habit, not a historical one).
+- **relations:** `MEMORY[live-and-committed-are-independent-facts]` (the general form; this is its
+  migration-shaped instance) · `MIGRATIONS_DIR=… --apply scopes NOTHING if the assignment lands on
+  its own line` (the reason everyone hand-applies in the first place) · `WRONG_CALLS.md` 2026-09-04
+- **source:** 2026-09-04, `site_delivery_and_editor`. I applied `752` at 22:03Z, recorded it,
+  committed the concept-register entry it required, and never committed the SQL — the day after
+  quoting the live-vs-committed rule at the estate. Found by a plain `git status` on re-orientation
+  the next morning, not by any check.
+- **added:** 2026-09-04, `site_delivery_and_editor` lane
