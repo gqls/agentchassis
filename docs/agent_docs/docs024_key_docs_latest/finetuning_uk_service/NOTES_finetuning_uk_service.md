@@ -3883,3 +3883,39 @@ anything that does is an assertion needing HTML text over a registered fact**; c
 tokens, `--color-border` usually fails WCAG non-text contrast) and DECLINES the taste half; this lane
 briefs component-creator with the critic's report as input. ⚠ Read `plan_sections_action.go:1625-1722`
 for the hand-filed `needs_new_component` field shape before writing that item — nobody has confirmed it.
+
+## 2026-09-04 (13:33Z) — guide link SERVED; and the owner's next four items, one of which is a bug we already found
+
+**Guide link live `[MEASURED 13:34Z]`:** `/playground.html` 62,125 B carries "a longer guide" ×1 and the
+`/guides/playground-guide.html` href ×2 (the link plus the page's own nav/footer reference), with the
+before/after pair and the chat box intact. Path: add_tool replace (`18026ed9`, complete 13:32) →
+component + slot both carried the link at 13:31 → the queued `page_rerender` idled again → fired 049b
+**assemble-only** (corr `d499480c`, NO reason: the stored `rendered_html` already held the link, so
+string-concatenation is the correct and safest deploy — a reasoned run would have re-rendered sections
+for nothing). Deployed 13:33:11.
+
+**Owner, 2026-09-04, verbatim:** *"we can also offer them their model to buy outright. The pricing page
+can have a price list on it and it needs to be rewritten e.g. 'What actually drives the cost is scope,
+not buzzwords.' Case studies page is missing a hero. All pages and sections need more imagery and
+graphics."*
+
+1. **Buy the model outright** — a new commercial option (today the £99 fine-tune already hands over the
+   GGUF; "buy outright" presumably means the hosted/booked-hours models, and possibly perpetual rights
+   rather than a booked hour). **Needs his definition before it reaches copy** — what is being bought
+   that the £99 does not already include. Recorded, not written.
+2. **Pricing page rewritten, with a price list.** `[MEASURED 13:35Z]` `/pricing.html` today: hero (has an
+   image), one generic-text-block, features, faq, call-to-action — **no price list of any kind**. His
+   example line gives the register exactly: *"What actually drives the cost is scope, not buzzwords."*
+   This lane owns it; brief to be written and shown to him first (he asked to see the playground text
+   before it ran, same courtesy here).
+3. **"Case studies page is missing a hero" — IT IS THE IMG-077 BUG, confirmed `[MEASURED 13:35Z]`.** The
+   page HAS a `hero-case-studies` slot (component `case-studies-hero`, 1,575 B) and it renders **no image
+   at all** — no `<img>`, no `background-image` — while the site holds a deployed
+   `/assets/images/content-hero-case-studies.jpg` that nothing displays. That is item `6db67bde`'s
+   "unwired" state, one of its four named pages, and the owner has just reported its symptom from the
+   outside without knowing the diagnosis. **This is the witness the 114 lane needs**: the fix is arming
+   `wire_hero_on_landing`, which he has already chosen over a stop-gap. Told them.
+4. **"All pages and sections need more imagery and graphics"** — the general form of everything the
+   infographics and uplift lanes are working on. Routed as his standing direction, not as a new task:
+   route B for anything carrying a number, decorative-only inside cards, and the hero wiring for the
+   ten pages already holding unused images.
