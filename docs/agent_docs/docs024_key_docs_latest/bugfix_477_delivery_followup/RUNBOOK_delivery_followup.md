@@ -128,6 +128,76 @@ SELECT domain, followup_sent_at FROM sites WHERE followup_sent_at IS NOT NULL OR
 (`UPDATE sites SET followup_sent_at = NULL WHERE id = '<site>'`) only after establishing the customer
 did NOT receive it, then re-dispatch. Clearing it blind re-emails whoever did get one.
 
+## What is APPLIED and what is not — check this before believing anything else here
+
+`[MEASURED 2026-09-04 15:0xZ]`
+
+| migration | what it is | applied? |
+|---|---|---|
+| `778` | `site_deliveries` — who a site was delivered to | **YES, live.** 1 row, backfilled |
+| `774` | `sites.followup_sent_at` — the follow-up's claim column | **NO** |
+| `775` | the follow-up agent + its disabled schedule | **NO** |
+
+```sql
+SELECT (SELECT count(*) FROM information_schema.columns
+         WHERE table_name='sites' AND column_name='followup_sent_at')      AS mig_774,
+       (SELECT count(*) FROM scheduled_tasks WHERE name='delivery-followup-send') AS mig_775,
+       (SELECT count(*) FROM information_schema.tables
+         WHERE table_name='site_deliveries')                              AS mig_778;
+```
+
+> **Why `774`/`775` being unapplied is safe, and why it also means the file may still be edited in
+> place.** Nothing calls `delivery.ClaimFollowup` until `775` seeds the agent, so the Go referencing a
+> column that does not exist is inert. And because `775` has never run, correcting its text — as was
+> done for the owner's three-day ruling — genuinely changes what will be applied. **That stops being
+> true the moment it is applied:** rewriting an applied migration changes the FILE and not the LIVE
+> ROW, and the estate has landmines about exactly that. After `775` is applied, any further change to
+> the interval or the letter is a NEW numbered migration that `UPDATE`s the live
+> `agent_definitions` row. (Raised as an objection by the council's editquality seat on the
+> assumption `775` was already live; it was not, and the query above is how you check rather than
+> assume.)
+
+## ⚠ The ordering hazard, and how to check it at the POD rather than by reasoning
+
+`StampHandover` writes `site_deliveries` inside the claim. **Without the table, every delivery fails
+at the claim.** The reasoning "migrations are live-on-apply, Go is inert until a roll" is correct and
+is not evidence — a roll can lag or partially complete, and this estate has had real incidents from
+trusting that shape. So check the binary, not the argument (council advisory, debug_historian).
+
+```sql
+-- Which commit is each chassis pod actually running? Filter by pod_name, NOT the
+-- service column: that column also carries rows for other pods sharing the image.
+SELECT pod_name, git_commit, started_at FROM service_binary_capabilities
+ WHERE kind='build' AND pod_name LIKE 'agent-chassis-%' ORDER BY started_at DESC;
+```
+```bash
+# Does the running binary carry the recipient write? ANCESTRY, not a literal grep.
+git merge-base --is-ancestor 698b144fa <the git_commit above>   # exit 0 = yes
+```
+Then the ordering is safe iff **`site_deliveries` exists** (query above) **or no running pod is a
+descendant of `698b144fa`**. Both true is fine; the dangerous state is a descendant pod with no
+table, which today cannot happen because `778` is applied — and which is exactly what a rollback of
+`778` would recreate. That is why `778`'s ROLLBACK refuses while the table holds rows.
+
+> ⚠ `service_binary_capabilities` is a **two-hour window**, not a history: it answers *what is
+> running now*. Corroborate anything older with
+> `kubectl -n ai-persona-system get rs -l app=agent-chassis --sort-by=.metadata.creationTimestamp`.
+
+## Why a new table rather than `customer_access_tokens`
+
+Asked by the council's prior-art seat, and answered by looking rather than by reasoning from the
+name. `customer_access_tokens` has thirteen columns and **not one of them is a recipient**:
+
+```
+id, site_id, purpose, token_hash, issued_at, expires_at, single_use, used_at,
+use_count, revoked_at, created_by, stored_url, stored_url_expires_at
+```
+
+`created_by` is the ISSUER (`'delivery-email'`), not the customer. The table tracks a token's
+lifecycle, not an identity, so extending it would have meant giving an access-token row a second,
+unrelated meaning. `SELECT string_agg(column_name, ', ') FROM information_schema.columns WHERE
+table_name='customer_access_tokens'` is the whole check.
+
 ## Applying the migrations
 
 ```bash

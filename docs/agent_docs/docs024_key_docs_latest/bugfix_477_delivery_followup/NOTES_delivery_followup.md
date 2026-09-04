@@ -262,3 +262,29 @@ nothing else can observe it.
 (`62a99103-3097-4aeb-9aeb-be0d190c534e`) has the architecture seat in its footprint, and if it rules
 otherwise the RFC gets written. That is the mechanism the estate has for exactly this question, and
 using it is cheaper than being confident.
+
+### Round 3 verdict: APPROVED (`62a99103-3097-4aeb-9aeb-be0d190c534e`), and the architecture seat ruled the scope question
+
+**`ARCHITECTURE_SIGNAL: point_fix | DEFLECTIONS: 0`** — so the pre-commit hook's RFC trigger is
+answered by the seat rather than by my own reading, which is what I said I would do rather than
+settle it myself. The guardian seat's note is worth keeping too: *"Contained: new table, one narrow
+package, one production caller, no changes to orchestrator/messaging/dispatch core or shared wire
+formats. The migration-before-roll ordering hazard is stated plainly in the plan itself rather than
+glossed over, which is the right way to carry a risk."*
+
+Approved with 3 advisory objections (8 raised across seats, none high-severity). Dispositions:
+
+| seat | objection | disposition |
+|---|---|---|
+| editquality | *editing `775` in place changes the FILE, not the LIVE ROW, if it was already applied* | **The RULE is right; the PREMISE is false, and I checked rather than argued.** `775` has never been applied — `SELECT count(*) FROM scheduled_tasks WHERE name='delivery-followup-send'` → **0**, and `sites.followup_sent_at` does not exist either. So the in-place edit genuinely changes what will be applied. **Added to the RUNBOOK as a state table plus the query**, with the explicit note that this stops being true the moment `775` is applied, after which the interval or the letter needs a NEW numbered migration. A good objection that would have been right on a different day. |
+| prior_art_librarian | *`customer_access_tokens` may already carry a recipient — the DORMANT-MACHINERY shape* | **Answered by looking.** Thirteen columns, none of them a recipient: `id, site_id, purpose, token_hash, issued_at, expires_at, single_use, used_at, use_count, revoked_at, created_by, stored_url, stored_url_expires_at`. `created_by` is the ISSUER (`'delivery-email'`), not the customer — it tracks a token's lifecycle, not an identity. **The objection was fair even though the answer is no**: I asserted a new table without ruling out the existing one, and a peer lane telling me it had no recipient column is not the same as my having looked. Recorded in the RUNBOOK with the one-line check. |
+| debug_historian | *the ordering hazard is named but no POD-LEVEL verification is described; "migrations are live, Go is inert" is correct reasoning and has still caused real incidents* | **ACTED ON, and it is the best objection of the round.** The RUNBOOK gains an ordering section that checks the running binary by ANCESTRY (`service_binary_capabilities` → `git merge-base --is-ancestor 698b144fa`) rather than by argument, states the dangerous combination explicitly (a descendant pod with no table), and notes that a `778` rollback is the only thing that could recreate it — which is why that rollback refuses while the table holds rows. |
+| guardian | *confirm no other config carries the `followup_after_days` placeholder* | **Checked: 0 and 0** across `agent_definitions` and `scheduled_tasks`. No second copy to diverge from the ruling. |
+| debug_historian | *no rollback artifact named for `778`* | **Mistaken, and it is my sketch's fault again** — `778_..._ROLLBACK.sql` exists, refuses while the table holds rows, and refuses while the schedule is enabled. It was not in the edit list. **Third round running that an elided sketch manufactured an objection**; I keep paying the same small tax. |
+| guardian · prior_art_librarian | *the "one production caller" claim needs an attached symbol search, not an assertion* | **Fair on process even though the count is right.** `grep -rn 'StampHandover('` → one caller; `delivery.Claim(` → one production caller plus six test sites. Attaching the output, not the number, next time. |
+| debug_historian | *`DISTINCT ON` needs a deterministic ORDER BY* | Already deterministic in the file — `ORDER BY 1, created_at DESC` (newest run per site wins). Elided by the sketch, same tax. |
+
+> **THE PATTERN ACROSS ALL THREE ROUNDS, and it is mine to fix: four of the objections I have
+> received were manufactured by an ABBREVIATED `sketch` field.** The seats read the plan, not the
+> tree. An omitted half does not read as omitted, it reads as absent — and answering that costs a
+> round when it lands as a REVISE. Cheaper: paste the real hunk.
