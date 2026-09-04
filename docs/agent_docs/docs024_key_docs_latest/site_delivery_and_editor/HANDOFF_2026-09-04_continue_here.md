@@ -85,6 +85,58 @@ when the product moved.
 **Whoever ships the rental link owns this line.** It is one sentence on `webdesign.uk/faq.html`, and the
 cheap check is `grep -i subscription` on the served page at ship time.
 
+### 1.3b ⚠ A NEW BUILD WILL DETECT ITS OWN DEFECTS AND PARK THEM — read this before running the voucher
+
+Raised by the `boxingonline.com` lane, **verified here first-hand at the code, the rows and the RFC**.
+The owner complained about three things on boxingonline this hour. **All three were already filed, by
+our own seats, in his own words, and parked undispatched:**
+
+| row | his complaint |
+|---|---|
+| `48c0f927` | the "last night's result" blog post is a general essay on upsets, naming no fighter and no result |
+| `2c38eec5` | the fighter comparator has **0 `<option>`, 0 `<select>`** — not populated at all |
+| `3acce370` (+3 more) | the fight-night countdown's only date is **two days past**, matchups are generic archetypes |
+
+All three: `status='deferred'`, empty `handler_agent`, `spec.filing_mode='record'`.
+
+**This is deliberate, and the code says so in its own words** (`write_audit_findings_action.go`,
+`recordOnlyFinding()`): *"a verdict row — the seat's finding is recorded, the repair it would have
+dispatched is not"*, and *"nothing promotes this row"*. **Seven seats run in record mode, all
+`is_active`**: `brief-fidelity-auditor`, `content-quality-auditor`, `improvement-loop`,
+`offer-analyser`, `reader-experience-auditor`, `site-review-agent`, `visual-design-auditor`.
+
+**Why it is deliberate rather than broken:** RFC_056 §3 records that every model finding used to
+dispatch through two doors, and **`bugs_open/238` is what one such rewrite did to a page that was
+fine.** Parking opinions is the remedy for auto-rewrites damaging good pages.
+
+> ### The part that bears on the voucher run
+>
+> `[MEASURED 2026-09-04 ~16:1xZ]` **3,184 parked verdicts across 39 sites**; 58 on boxingonline;
+> **newest filed minutes before this was written**, so it is live and accumulating.
+>
+> **And it is not confined to old sites.** Of **12** sites created since record mode went live
+> (2026-08-25), **11 carry parked verdicts** — the newest site, `copyonline.co.uk` (created
+> 2026-09-03), already has **29**. The single exception, `seotools.co.uk`, has 316 work items of
+> other kinds and is unexplained.
+>
+> **So a site built on the voucher this week will be audited, its defects written down, and none of
+> them repaired.** The build works and delivery works; the loop that would fix what the seats find is
+> off by design. If the point of the run is a *better* site than boxingonline, the lever is the
+> release decision, not the build.
+
+**RFC_056 has no phase that releases them, and that is not an omission.** Phase 3 — already executed
+as migration `624` on 2026-08-25 — was what *put* the seats into record mode. The RFC states the exit
+explicitly and repeatedly: a record row is *"undispatchable by construction until **a person or a
+deliberate migration releases it**"*, and is *"designed for **a person to release**"*. **Nobody has.**
+
+**Do NOT hand-promote.** The `boxingonline` lane holds 46 content rewrites behind the owner's word and
+is right to — that is 46 simultaneous rewrites on the estate's first paid site, by the same machinery
+that produced `bugs_open/238`. Each row carries its own `spec.release_recipe` for when the decision is
+made. **The decision is the owner's and it is not this lane's to take.**
+
+Also flagged by that lane and still open: **`5edadfbe` sits `failed` representing work that is DONE**
+(the owner's two approved copy edits, applied and verified live). It will misreport until reconciled.
+
 ### 1.4 Captions for the instructions page — MINE, blocked on placement
 
 The owner's ten screenshots (`/home/ant/Downloads/idea_uk_netlify/`) are the right ones, and the
