@@ -370,12 +370,29 @@ top, so the one row the question was about was the first casualty. Retracted wit
 is in `WRONG_CALLS.md` and `LANDMINES.md` (footprint `site_specs`, `tail`, `evidence_base`). **Count
 first, then list — a count cannot be truncated by a pipe.**
 
-**Blocked on two things, neither of them technical:** the owner has not yet chosen between the narrow
-route (hand-author this one page's `site_plan_imagery` rows at `kind='infographic'`) and the
-fleet-wide planner-prompt change (§2 of the CONTRIB — planner owners' call, 18 remakes behind it);
-and **this session does not have its user's authorisation to make live writes on finetuning.uk**. A
-peer accepting a split is not that authorisation. Both are named to the peer, who is relaying the
-route choice to the owner.
+~~**Blocked on two things**~~ **CLOSED 2026-09-03 evening — the owner chose, and he chose the route
+this lane said was not its own to take.** Verbatim: *"Infographics should be fleetwide and framework
+driven not narrow for now."* So the hand-authored `site_plan_imagery` rows are **NOT** the route; the
+`build-site-planner` prompt change is, and it went to the `framework_prompts_positive_voice` lane
+carrying this lane's §2 evidence and the three VIZ constraints. **This lane writes nothing on
+finetuning.uk** — so the authorisation question is moot rather than pending, and slots 2 and 3 are
+now a statement of what that site needs first, not work in this lane's queue.
+
+⚠ **ONE CAVEAT HAD TO BE SENT AFTER THE DECISION, because it did not travel with the evidence**
+(`4fb9b526f`, into the prompts lane's directory). A planner prompt places an image where there is a
+SECTION to hold one, and on article-shaped pages there is not one. `[MEASURED 2026-09-03]` over all
+**360** pages carrying `article-body`: non-chrome sections per page max **2**; only **2 of 360** have
+more than one; **0 of 360** have a non-chrome section able to hold an inline `<img>`/`<figure>`; and
+`article-body`'s own template carries neither (1,378 B, one schema field). **So the fleet-wide change
+improves landing pages and puts ZERO infographics inside article or guide prose.** Both true, only
+one delivered — and reporting the first as the second is this lane's own 09-02 "TWO ASKS, NOT ONE"
+error. The CONTRIB also fences off the rider "then make `article-body` image-capable": that is
+migration **686**, applied and rolled back, and it must not attach itself to this edit.
+
+⚠ **Two blind predicates died getting that table right, both named in the CONTRIB:** "has an
+image-capable section" returns **351 of 360** because it matches the HERO (chrome, not where a
+concept diagram goes); and a `UNION ALL` whose last arm ends in `LIMIT 1` applies the limit to the
+**whole union**, silently returning one row of three.
 
 **THE CRITIQUE LANDED (21:38Z) and its two imagery findings are MEASURED, not accepted:**
 
