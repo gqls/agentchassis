@@ -3,7 +3,13 @@
 > ## STATUS 2026-09-04 — FIXED IN CODE, INERT UNTIL THE NEXT ROLL. STAYS OPEN.
 >
 > Commit **`60091e140`** (7 files, `platform/orchestration/{datahelpers,actions}`), council
-> correlation **`3e9e8ce8-fb9b-4f5b-a610-016b57427a27`**, verdict pending at time of writing.
+> correlation **`3e9e8ce8-fb9b-4f5b-a610-016b57427a27`** — **round 1 REVISE (2026-09-04 11:22Z),
+> round 2 submitted on the same correlation.** The objection was about the SUBMISSION, not the
+> code, and it was right: the plan claimed "add `name` to `headlineFieldRe`" and contained no edit
+> showing that regex change, so as written `t.Headline` would never become true for a `name` field
+> — the heading floor would never be selected and the ordering fix would guard a severity that
+> never applied. The committed code has the change (`negation_content.go:253`); the plan did not.
+> Round 2 makes it a standalone edit.
 > Bar for `bugs_closed/` is fixed AND live, so this stays here until a roll ships it and the
 > post-roll check below passes.
 >

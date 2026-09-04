@@ -87,6 +87,36 @@ forward-only tree. `git merge-base --is-ancestor 848a98e16 HEAD` says YES — it
 HEAD moved forward normally and other sessions had simply committed in between. **Ask git about
 git** rather than inferring from two readings taken at different times.
 
+### 5. The council's round-1 REVISE found a real defect in my submission, and it was not cosmetic
+
+Round 1 came back **REVISE**, gating objection from `editquality`:
+
+> "The summary and rationale explicitly claim 'Add `name` to headlineFieldRe (a card name is a
+> heading)' as part of closing the IsHeadlineField dual-purpose defect, **but no edit modifies
+> headlineFieldRe/IsHeadlineField's regex** — only the ORDER of the identity check relative to the
+> headline branch is changed. Without that regex change, `t.Headline` will not become true for
+> `name` fields…"
+
+**Correct, and I checked before accepting it.** The change *is* in the committed code
+(`negation_content.go:253`) and mutation M5 caught its removal. What was missing was the **edit in
+the plan**. I had eight edit slots, used them on the pieces that felt substantial, and let a
+one-token regex change ride inside a neighbouring edit's prose.
+
+**Why that is not a paperwork complaint.** Implemented from the plan exactly as submitted,
+`t.Headline` never becomes true for a `name` field — so the heading floor is never selected and the
+ordering fix guards a severity that never applies. **A fix that silently does two thirds of
+nothing**, which is this bug's own failure shape one level along. The reviewer reached that
+conclusion from the plan alone, without the tree.
+
+Round 2 (same correlation, `RESUBMIT_CORR`) makes it edit 3, standalone, with its own mutation
+check. To stay inside the 8-edit cap I first merged the two *test* edits — **refused server-side:
+one edit = one file.** Merged the two same-file predicate edits instead, which also keeps the
+headline edit prominent rather than folded away again.
+
+**The lesson:** the plan is the artefact under review, not the tree. A change I could see in my
+editor was invisible to the only reader who mattered, and "it is in the commit" would have been a
+worse answer than fixing the plan.
+
 ## DECISIONS AND THEIR REASONS
 
 - **The guard went in the JUDGE, not the walker.** A filter at the enumeration point is bypassable
