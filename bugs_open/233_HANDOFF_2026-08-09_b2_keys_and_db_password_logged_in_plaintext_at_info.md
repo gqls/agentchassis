@@ -275,3 +275,84 @@ OPEN deliberately**, because moving this file is exactly how the outstanding rem
 forgotten, and the remediation is the part that actually ends the exposure: **the keys were emitted
 in plaintext and should be treated as compromised until rotated.** Close it when the owner confirms
 the rotation, or rules that it is not needed.
+
+---
+
+# UPDATE 2026-09-04 — the `zap.Any` residual this file explicitly did NOT claim is now swept and CLEAN
+
+The original fix bounded its class by grep and said so honestly:
+
+> *"Not swept: secrets reaching logs via struct dumps (`zap.Any` of a config object) … a fleet-wide
+> `zap.Any` audit is a bigger job than this fix and is NOT claimed here."*
+
+Swept 2026-09-04. **Nothing found — and every step below carries the control that stops its zero
+being vacuous.**
+
+## 1. Do any live structs HOLD a secret value, and are they logged?
+
+Structs with a `string` field named `*Password|Secret|Token|Credential|ApiKey|AccessKey|SecretKey`
+(excluding `*EnvVar`, which holds a NAME), non-test, live code only:
+
+- `internal/tools-api/config/config.go:17` — `AnthropicAPIKey string`
+- `internal/auth-service/…` — `NewPassword`, `CurrentPassword`, `AccessToken`, `RefreshToken`
+  (request/response DTOs)
+
+**Neither family is ever logged.** `zap.Any(<cfg|conf|Config>)` and `%+v` of a config: **0 hits** in
+`internal/tools-api/`; request-struct logging: **0 hits** in `internal/auth-service/`.
+
+⚠ **CONTROL, because a zero from a broken pattern reads identically:** the same expression run
+repo-wide returns **15** hits and correctly finds the known `zap.Any("config", params.StepConfig)`
+dumps at `spawn_actions.go:624/630/638`. The pattern can find a positive; these are real absences.
+(Matches under `docs/` — the `noted-engine` and `idea.uk` bundles — are documentation copies, not
+built code, and are excluded rather than silently folded into the zero.)
+
+## 2. The 15 sites that DO dump a config — can a step config carry a secret VALUE?
+
+Those sites dump `params.StepConfig`, i.e. `agent_definitions.default_config`. So the question is
+whether any live agent config holds an inline credential.
+
+First pass, text regex over every active agent's config for a secret-shaped key with a ≥12-char
+string value: **81 agents** `[MEASURED 2026-09-04]`, against a control of **67** agents carrying a
+`prompt_template` — so the mechanism works and 81 is not a pattern failure.
+
+⚠ **81 is entirely FALSE POSITIVES, and the count alone would have been alarming and wrong.**
+Extracting the matching **key names** (never the values — owner ruling 2026-08-23) gives, exhaustively:
+
+| key | occurrences |
+|---|---|
+| `api_key_env_var` | 160 |
+| `secret_key_env_var` | 2 |
+| `access_key_env_var` | 2 |
+
+**Every match is an `*_env_var` key holding an environment variable NAME.** That is precisely the
+convention this bug's own fix converged on ("values → presence booleans", env var *names* logged).
+**Zero inline secret values in live agent configs**, so the config-dumping sites cannot leak one.
+
+⚠ This is the same false-positive class the original sweep already hit once
+(`thunder_ssh_exec_dispatch.go:315`, where `token` was a command-template token NAME). Two sightings
+now: **a credential-shaped KEY NAME is not a credential**, and the discriminator is to extract names
+rather than count matches.
+
+## 3. So what remains before this file can close
+
+**Nothing technical. One owner decision.**
+
+- **Code: FIXED AND LIVE**, re-verified at the binary on **`v1.0.1360`** 2026-09-04 on both
+  `render-audit-adapter` and `agent-chassis` — control PRESENT / fix `access_key_present` PRESENT /
+  leak `B2_APPLICATION_KEY from env` ABSENT. Fleet: **36 images, min tag = max tag = v1.0.1360**, zero
+  pre-fix.
+- **Class: BOUNDED.** The grep spellings in the original file, plus §1–§2 above. The one stated gap is
+  now closed.
+- **⛔ REMAINING — ROTATION, and it is the whole of it.** `git log -S` dates the leak to `9260b86ed`,
+  **2025-10-28**. The B2 application key pair and `CLIENTS_DB_PASSWORD` have therefore been landing in
+  pod logs for **over ten months** and must be presumed disclosed to anyone with `kubectl logs` access
+  in that window. The original file deferred this to the owner deliberately; the ordering constraint
+  that later blocked it is **discharged** (see the 2026-09-03 update). B2 rotation touches
+  `personae-default-secrets` and the GitHub-secrets copy used by the B2 CLI; DB rotation touches every
+  service's DB wiring.
+  **[UNVERIFIED] whether either has been rotated, and this session cannot check it** — the secret's
+  `creationTimestamp` survives in-place updates, and reading a key value is forbidden.
+
+**Close this file when the owner confirms the rotation, or rules it unnecessary. Not before, and not
+on the strength of the code fix alone** — the code stopped the emission; it did not un-emit ten
+months of it.
