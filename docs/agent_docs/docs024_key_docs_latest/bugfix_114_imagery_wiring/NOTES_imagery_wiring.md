@@ -1329,3 +1329,87 @@ They also closed their own dynamic-SQL worry properly — enumeration keyed on t
 (that is how `page_admin_handlers.go` was caught); only a writer building the TABLE NAME itself
 would escape, and none does. `rerender_pages_actions.go` is a **false positive** (reads
 `sites.content_data`, writes no `page_components`).
+
+### Council verdict 2026-09-04: APPROVED (corr `74ffbb5b-609c-4949-a4ba-5142140a71d3`) — and eight medium objections that CHANGE the design
+
+**The verdict is trustworthy, checked before being quoted:** **15 reviewers**, **`unreadable`: 0**,
+**`gated_by_truncation`: false**, 2 abstained. So no seat's objection was lost to truncation and
+no seat was unreadable — the failure mode where an APPROVED is carried by seats nobody could read
+does not apply here. `approve` from 11 seats; `object` (non-blocking, low/medium) from
+**bug_historian, reuse_agent, tooling_provenance, guardian**; and the **architecture** seat
+approved *with* a medium.
+
+**Approval is not permission to skip the objections.** Adjudicated below, in the estate's usual
+form. **Seven are accepted and change the plan**; two were answered by query on the spot; none is
+rejected outright.
+
+#### ACCEPTED — these change the design before any code is written
+
+1. **bug_historian [medium, edit 1] — the fix is itself a SILENT FILL. This is the most valuable
+   objection in the round and it is right.** On the fallback branch my guard writes the generic
+   value with no work item, no durable flag, nothing distinguishing *"resolved cleanly"* from
+   *"papered over with the site-wide default"* — only a log line and a `collected_data` key
+   nothing reads. Their citation is exact (016b §9: *"a silent fallback deploys a hollow section
+   as success"*, *"a recorded outcome with no enforcement point is decorative"*). **This estate's
+   whole 114 history is fills that nobody could see.** Accepted: the fallback branch must emit
+   something a detector or work item can act on for the **105 of 123** rows landing on the
+   generic value. Without it I would have converted a visible defect into an invisible one and
+   called it a fix.
+2. **reuse_agent [medium, edit 1] — two mechanisms for one policy.** `carryStored` in
+   `plan_sections_action.go` already implements the same three-tier precedence (live > prior
+   stored > declared fallback). I wrote *"reuses carryStored's precedence"* as a **rule** and
+   then wrote an independent function, which is precisely the two-paths-for-one-problem shape
+   this seat exists for. Accepted: **extract the precedence into one shared helper both stages
+   call**, rather than a second implementation at a second stage.
+3. **reuse_agent [medium, edit 2] — a THIRD read on the destructive path.** My own rationale says
+   the row is already read twice there (the history snapshot and
+   `classifyPageComponentArtefacts`) and I used that as evidence the read is *safe*, without
+   checking whether either already carries per-slot `content_data`. Accepted as a task: **read
+   those two first; add a third only if neither can supply it.**
+4. **guardian [medium, edit 2] — read-then-destructive-write under concurrency.** A new read
+   before a page-wide DELETE+INSERT, on a file this estate's own history flags as concurrently
+   edited, with no transactional guard against another writer to the same `page_id`: a stale
+   *prior* value could be carried forward. **Subtler than the bug being fixed**, which is the
+   right bar. Accepted: the read and the write belong in one transaction, or the carry must
+   re-validate.
+5. **architecture [medium] — the seal is KNOWN-NARROW and must say so.** It covers only
+   `on_missing: use_fallback` non-llm fields; the same DELETE+INSERT still destroys **any other**
+   `content_data` key (envelope markers, fields another writer set) that a schema-driven seal
+   does not recognise. Accepted, and it goes in the code header, not just here: **a green 114
+   must not read as "the writer is safe now".**
+6. **tooling_provenance [medium] — the phase split lives only in the submission JSON.** The
+   writer census, the Phase 2/3 boundary and the architecture-scope deferral are exactly what
+   `doc_plans`/`doc_notes` (`subject_type`/`subject_key`) exists to carry, and no edit writes
+   one. Accepted: the phase record travels in the DB, not only in this lane's markdown.
+7. **editquality [low ×2]** — `loadPriorComponentContentData` was named but never sketched (so
+   its per-slot keying cannot be verified from the submission), and I never stated the
+   **empty-string-set-on-purpose vs omitted** distinction, which `valueIsEmpty` would conflate.
+   Both accepted; the second needs a stated answer even if the answer is "these fields are never
+   user-cleared".
+
+#### ANSWERED BY QUERY, on the spot — because asserting these was the objection
+
+8. **guardian [medium, edit 1] — "name the consumers, do not assert the blast radius."**
+   `[MEASURED 2026-09-04]` **three** live pipelines invoke `save_page_sections`:
+   **`page-build-handler`**, **`page-rerender`** and **`tool-recreation-handler`** (one step
+   each). That includes `page-rerender`, the fleet's highest-volume page path — so the
+   default-OFF gate is doing real work, and per the 2026-07-29 §3 ruling those three consumers
+   must be **told**, not merely counted.
+9. **guardian [low, edit 6] — could declaring the key retroactively arm the unknown-key detector
+   against a key already in live use?** No. `seal_declared_field_contract` appears in
+   **0** live `agent_definitions` rows, and the 21 config keys those three steps already set
+   contain nothing of that shape — no collision.
+
+#### NOTED, no action, because the plan already says it
+
+10. **bug_historian [low, edit 3] — partial-coverage fixes have burned this platform before.**
+    Agreed and already in the submission's own risks (~10 wholesale writers, ~25 migrations, class
+    not closed). Recording their framing because it is sharper than mine: *"a fix applied to one
+    branch of a two-branch router reads as done — and the other branch keeps the bug."* That is
+    the reason Phase 3 exists and why the narrowness flag (5) is not optional.
+
+**Net effect: the design that ships is not the design that was approved, and it is better.** The
+silent-fill objection alone would have turned this fix into the next entry in
+`A PASS FROM A BLIND CHECK OUTLIVES THE BLINDNESS`. **This is the fourth round on this lane where
+an objection found a real defect** — consistent with the standing lesson that a review round is
+cheaper than the defect it finds.
