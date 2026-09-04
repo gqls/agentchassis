@@ -1,6 +1,5 @@
 priority,domain,category,subcategory,reason
 1,appleby.cv,names-places,personal,untested TLD .cv -- probe before queueing
-2,flights.vin,travel,general,untested TLD .vin -- probe before queueing
-3,littlehelpers.ai,ai-tech,ai,untested TLD .ai -- probe before queueing
-4,qlp.us,brandable-short,3-char,untested TLD .us -- probe before queueing
-5,voicecontrol.io,ai-tech,ai,untested TLD .io -- probe before queueing
+2,littlehelpers.ai,ai-tech,ai,untested TLD .ai -- probe before queueing
+3,qlp.us,brandable-short,3-char,untested TLD .us -- probe before queueing
+4,voicecontrol.io,ai-tech,ai,untested TLD .io -- probe before queueing

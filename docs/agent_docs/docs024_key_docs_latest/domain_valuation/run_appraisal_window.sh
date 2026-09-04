@@ -15,7 +15,13 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/../../../.." && pwd)"
-OUT="$HERE/inbound/dynadot_valuations_2026-09-02.csv"   # cumulative, resume-by-skip
+# Cumulative estate valuations, resume-by-skip. APPRAISAL_OUT overrides it for
+# a PROBE — a run whose subjects are deliberately not estate domains (e.g. the
+# .com twin of a .uk we own, to test whether the appraiser is TLD-aware). Those
+# must never land in the estate file: build_working_table.py joins it on domain,
+# so a stray twin is inert today and indistinguishable from a real appraisal the
+# day somebody buys that name.
+OUT="${APPRAISAL_OUT:-$HERE/inbound/dynadot_valuations_2026-09-02.csv}"
 LOCK="$HERE/.appraisal_window.lock"
 WALKER="$REPO/scripts/domains/dynadot-appraise-all.sh"
 
@@ -30,6 +36,7 @@ if ! flock -n 9; then
 fi
 echo $$ >&9
 
+[[ -f "$OUT" ]] || echo "domain,valuation,currency,source" > "$OUT"
 before=$(( $(wc -l < "$OUT") - 1 ))
 for q in "$@"; do
   echo "=== $(date -Is) queue: $q"

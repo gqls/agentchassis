@@ -30,11 +30,17 @@ The citable case for why, if anyone ever reopens it: this model gave
 nominet 1,621 · porkbun 683 · dynadot 472 · spaceship 247.
 All categorised into 32 categories / ~170 sub-categories, **zero uncategorised**.
 
-**Sale status:** 2,435 sellable · 401 KEEP · 180 PREMIUM-REVIEW ·
+**Sale status:** 2,429 sellable · 403 KEEP · 184 PREMIUM-REVIEW ·
 7 OWNER-FIGURE · 6 NOT-OWNED.
 
-**Appraisal coverage: 588 of 3,023 (19%).** This is the binding constraint —
-see §5.
+**Appraisal coverage: 872 of 3,023 (28.8%)** after the 2026-09-04 window
+(299 of 300 calls, ended on a real 429). Still the binding constraint — see §5.
+**Every PREMIUM name is now appraised and every one is still held**; both
+premium queues rebuild to zero rows.
+
+Anchor confidence across the 2,429 sellable rows: high 551 · medium 1,392 ·
+low 438 · very-low 48. **158 calls close all 99 under-covered blocks and
+re-anchor 555 domains** — one part-window, and the highest-leverage work left.
 
 ⚠ **The estate grew 78 domains in one day (2026-09-03).** Re-pull every registrar
 list the day the pricing sheet finalises: a count here is stale by ADDITION,
@@ -62,7 +68,7 @@ never by loss.
 1. `relojistas.com` ($12,000) and `free.me.uk` ($50,000) carry owner-set Afternic
    floors and go on Sedo **blank**. He was asked directly and chose the gap.
    Noted against both rows in `OWNER_FIGURES.csv`.
-2. Sellable here (2,435) is deliberately **lower** than the sedo sheet (2,942):
+2. Sellable here (2,429) is deliberately **lower** than the sedo sheet (2,940):
    mine are *pricing* holds, theirs are *listing* holds. They should differ.
 
 ---
@@ -83,6 +89,15 @@ from a median. Six measured cases:
 | `cartoon.co.uk` | $2,934 | **£5,000+ paid** | ~2× |
 | `2w.uk`/`4l.uk`/`5s.uk` | $200 | realised `.uk` shorts **£2,500–£5,200** | ~15× |
 
+> **NARROWED 2026-09-04 — it is the FALLBACK that cannot see a premium name,
+> not the appraiser.** Asked directly, Dynappraisal put `healthcare.uk` at
+> **$18,193** against the $149 the category median gave it: ~2.8× under the
+> £40,000 paid rather than ~340×. That is an argument FOR coverage, and it does
+> not soften the refusal below — 2.8× low is still far too low for a price
+> field, and it is the same instrument that offers **$4,190,000** for
+> `ant.co.uk`. The class is not under-valued by a correctable factor; it is
+> *unpriceable* by this instrument, in both directions.
+
 **The response is refusal, not a better multiplier.** No multiplier can help: in
 one block the model gave `healthcare.uk` and `healthcarecareers.uk` the *same*
 number. Four guards now hold names out of the algorithmic tail:
@@ -97,6 +112,18 @@ written hours before they caught an unrelated, worse case. Keep them broad:
 holding an ordinary name back for a week costs nothing; selling a £40,000 asset
 for £160 does not.
 
+**⚠⚠ AND THEY MUST NEVER BE CONDITIONED ON MISSING DATA — this was live and
+firing.** Until 2026-09-04 two of the four read `… and not r['dynappraisal']`,
+so the premium appraisal queues in §5a — the job this handoff tells you to do
+FIRST — **switched the guards off name by name as they succeeded.** 150 of the
+180 holds carried that conditional, 137 flipped inside one window, and the
+pre-fix code run against that day's data puts **129 premium names into the sale
+list carrying $9,447,275 of automatic asking prices**. It had already been
+firing silently on four names for days: `effectiveness.uk`, an ordinary English
+word appraised at $3,576, sat in the sell list at **$350**. All four guards are
+now unconditional. **Nothing about this was visible in the output** — coverage
+went up while protection went down. Full entry in `LANDMINES.md`.
+
 **MOST VALUABLE THING TO ASK HIM FOR: more real figures.** Four surfaced by
 accident on 09-03 and every one overturned a model number by 2× to 340×. One
 realised price is worth more than 300 machine appraisals.
@@ -106,18 +133,27 @@ realised price is worth more than 300 machine appraisals.
 ## 5. What to do next
 
 **5a. Run the daily appraisal window** (300/day, shared account — **announce in
-the dynadot lane's channel before starting**). Sequence and gotchas:
-`RUNBOOK_domain_valuation.md` §"Dynappraisal daily window".
+the dynadot lane's channel before starting**). Gotchas and what the appraiser
+actually measures: `RUNBOOK_domain_valuation.md` §"Dynappraisal daily window".
 
-Order: **premium queues first** (they are why coverage matters), then the bulk.
 ```
-inbound/appraisal_queue_PREMIUM_direct_2026-09-03.csv   68 rows
-inbound/appraisal_queue_PREMIUM_proxy_2026-09-03.csv    72 rows
-inbound/appraisal_queue_direct_2026-09-03.csv        1,482 rows
-inbound/appraisal_queue_proxy_2026-09-03.csv           875 rows
+./run_appraisal_window.sh inbound/appraisal_queue_direct_2026-09-04.csv \
+                          inbound/appraisal_queue_proxy_2026-09-04.csv
 ```
-Rebuild the queues after each window — they derive from `WORKING_table.csv`.
-~8 windows to full coverage.
+**Use that wrapper, not the walker directly** — it holds an exclusive `flock`,
+and two concurrent walkers double-spend the quota with no visible symptom but an
+early 429. Premium queues are empty; the bulk queues hold 1,208 direct + 670
+proxy, ordered so the first 158 calls close every under-covered block.
+`appraisal_queue_LOW_held_*.csv` (271) is held stock — never a sale price, so it
+queues last. ~7 windows to full coverage.
+
+**Then rebuild all three, every time** — `build_working_table.py`,
+`value_domains.py`, `build_appraisal_queues.py`. The last one is new on
+2026-09-04 and exists because "rebuild the queues after each window" had been
+written down since 09-03 with nothing to run: the standing queue that morning
+led with 95 rows of the financial category the owner had ruled a whole-category
+KEEP **nine hours after that queue was built**, and carried all 23
+owner-withdrawn domains.
 
 **5b. Re-run the pipeline after any new data.** Deterministic, re-runnable:
 ```
@@ -130,10 +166,12 @@ python3 value_domains.py         # values + tiers -> VALUATION_<date>_draft.csv
 on 19% real appraisals, so the ORDER of its families is not yet trustworthy.
 
 **5d. Open questions with the owner:**
-- `mieleonline.com` and `webuyanycarandvan.com` — trademark-adjacent, still in
-  the sale. He withdrew `rolex-submariners.com` (the third flag) without stating
-  a reason, so the omission may not be deliberate. `webuyanycarandvan.com` is
-  the sharper: a brand-extension construction of a major UK company.
+- ~~`mieleonline.com` and `webuyanycarandvan.com` — trademark-adjacent, still in
+  the sale.~~ **ANSWERED 2026-09-04: he withdrew both** (relayed via the sedo
+  lane), joining `rolex-submariners.com`. Both are in `WITHDRAWN_owner.txt` and
+  the sedo lane has consolidated all three into one exclusion file. For the
+  record, sedo since confirmed a live US trademark on "We Buy Any Car" (USPTO
+  6011054, 2020) covering online vehicle resale — the exact category.
 - Any other **network category**? financial is held; home-garden (357),
   web-digital (318) and automotive are each large enough to be one.
 - Is any built site actually **a third party's**? Nothing in the data marks one,
@@ -159,6 +197,24 @@ on 19% real appraisals, so the ORDER of its families is not yet trustworthy.
 - **Dynappraisal values ANY domain string**, owned or not — which is what makes
   the `.com`-proxy route work for `.co.uk`. A proxy value must stay visibly
   distinct end-to-end (`appraisal_kind=proxy`) and never read as a direct one.
+- **A guard conditioned on MISSING DATA is disarmed by the job that fetches it.**
+  The premium queues switched off the guards they exist to serve — see §4. The
+  general form, and the check, are in `LANDMINES.md`. When you write any
+  hold-out, ask whether the next obvious task satisfies its condition.
+- **The appraiser is TLD-AWARE — never discount a direct appraisal by TLD again.**
+  `ant.uk` $23,144 vs `ant.com` $8,208,882 (`PROBE_tld_results_2026-09-04.csv`).
+  A direct `.uk` appraisal is already a UK-market number; only a `.com`-basis
+  anchor (a median, or a proxy) takes the TLD factor. This was a live ~5× double
+  discount until 2026-09-04.
+- **A block median must be built from SELLABLE stock only.** Held-out names are
+  held because this appraiser cannot price their class, so letting them into the
+  pool propagates the error sideways: pets-vet's median was set by proxies of
+  `felines.co.uk` ($169,614) and `veterinary.co.uk` ($48,517) and priced an
+  invented brandable at $6,250. **§4's finding runs in both directions** — with
+  premium names out of the pool it drags the best names down; with them in, it
+  drags ordinary names up.
+- **Do not edit a shell script while it is running** — bash re-reads it at a
+  shifted offset and dies with a syntax error the file does not have.
 - **A rule in prose is not a control.** Caught twice in one day here: the
   quote-as-a-pair ruling and the owner figures were both documented but
   unenforced, and `holidaytime.com` ($12,000 realised) sat in the sell cut at
@@ -190,7 +246,13 @@ on 19% real appraisals, so the ORDER of its families is not yet trustworthy.
 | `PRIOR_ART_2026-09-02_*.md` | the earlier valuation talk is NOT on this machine |
 
 Scripts: `build_working_table.py` · `value_domains.py` · `categorise_domains.py` ·
-`check_registration.py` (register **OPP-017**).
+`check_registration.py` (register **OPP-017**) · **`build_appraisal_queues.py`**
+(rebuilds every queue from the current estate — run it after every window) ·
+**`run_appraisal_window.sh`** (the flock'd wrapper; `APPRAISAL_OUT=` for probes).
+
+⚠ `VALUATION_2026-09-03_draft.csv` is **regenerated in place** and its name is
+the series start, not its production date — it is the one file here that breaks
+the lane's own file-date convention. Check `git log` on it, not the filename.
 
 ---
 

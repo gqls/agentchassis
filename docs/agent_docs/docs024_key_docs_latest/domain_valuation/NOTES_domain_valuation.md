@@ -469,7 +469,29 @@ holds were written as `is_single_word(d) and not r['dynappraisal']` and
 appraise exactly those names, so covering them strips the hold and drops them
 into the algorithmic tail. `[MEASURED]` **150 of the 180 premium holds carried
 that conditional**, and **61 had already flipped part-way through the first
-window** — including `healthcare.uk`, the £40,000 name that is §4's whole case.
+window** — ~~including `healthcare.uk`, the £40,000 name that is §4's whole
+case.~~
+
+> **CORRECTED 2026-09-04, same session, before any of this left the lane:**
+> **`healthcare.uk` was NEVER in the disarmed set.** It is held by
+> `OWNER-FIGURE:acquisition-cost`, which is unconditional, so the single-word
+> guard never had to hold it. I reached for §4's headline name instead of one
+> from the set I had just measured — the rhetorically strongest example rather
+> than a true one. Caught by the counterfactual run at the end of the session,
+> which printed `healthcare.uk old=OWNER-FIGURE:acquisition-cost` in both
+> columns. **The check that would have cost nothing: look up the domain's actual
+> `sale_status` before naming it as an example — one dict lookup in the file I
+> already had open.** Logged in `WRONG_CALLS.md`.
+>
+> The finding itself stands and is larger than stated: the **final** count of
+> guards disarmed by today's window is **137**, and the counterfactual — the
+> pre-fix code run against today's data — puts **129 premium names into the sale
+> list with automatic prices, $9,447,275 of them, mean $73,235**. The true
+> worked examples are `free.uk` (would have asked **$8,750**, against the
+> ~£160,000 its sibling `free.co.uk` realised) and `effectiveness.uk` (**$350**).
+> Top of the counterfactual list: `ant.co.uk` at **$4,190,000** and
+> `design.co.uk` at **$1,595,000** — which are absurd in the other direction,
+> and are the same evidence that this class must not be priced automatically.
 
 It was **already happening before today, silently, on four names**, which is the
 part that could have come out otherwise and did not: 145 single dictionary words
@@ -496,3 +518,91 @@ against the $149 the median gave it — within ~2.8× of the £40,000 paid rathe
 than ~340× out. That is an argument for coverage, not against the appraiser, and
 it does not soften the refusal to auto-price: 2.8× low is still far too low to
 put in a price field, and the ×0.21 TLD step then takes it to 4%.
+
+## 2026-09-04 (afternoon) — the window spent, and a THIRD defect the fix itself exposed
+
+**Window fully spent: 299 of 300 calls** (284 into the estate file, 15 into the
+probe file), ending on a real 429. Coverage **588 → 872 of 3,023 (19% → 28.8%)**.
+**Every premium name is now appraised — both PREMIUM queues rebuild to ZERO
+rows** — and every one is still held, which is the whole point of the morning's
+guard fix. Anchor confidence across the estate: high 588 → 796, very-low 100 → 49.
+
+### The appraiser is TLD-AWARE, so the .uk multiplier was being applied twice
+
+`inbound/PROBE_tld_results_2026-09-04.csv`, 15 calls appraising the same SLD in
+both TLDs. It is not close:
+
+| name | `.uk` | `.com` | ratio |
+|---|---|---|---|
+| ant | 23,144 | **8,208,882** | 0.003 |
+| design | 23,558 | **3,121,760** | 0.008 |
+| healthcare | 18,193 | 516,065 | 0.035 |
+| crackers | 7,111 | 62,068 | 0.115 |
+| free | 67,926 | 487,785 | 0.139 |
+| calculation | 6,689 | 39,135 | 0.171 |
+| catered | 3,309 | 17,839 | 0.185 |
+
+If Dynappraisal were keyword-driven those pairs would be equal. **It prices the
+actual domain in its actual TLD** — so a direct `.uk` appraisal is ALREADY a
+UK-market number, and `value_domains.py` was multiplying it by 0.21 again.
+A ~5× double discount, live until today. `effectiveness.uk`, appraised $3,576,
+carried a **$350** keen price: 3,576 × 0.21 × 0.45. Fixed — the TLD factor is
+now applied to a `.com`-basis anchor (a median, or a proxy appraisal) and NOT to
+a direct appraisal of the domain itself. `deep-dive.uk` $800 → $4,250.
+
+**The same probe corroborates the 0.21 multiplier by an independent route, which
+was not what it was fired to do.** Across the 11 ORDINARY names the appraiser's
+own `.uk`/`.com` ratio is **0.115–0.185, median 0.165**, against the **0.21**
+derived on 09-03 from realised UK sales. Two methods sharing no inputs land in
+the same place, so 0.21 is sound and mildly generous. The ratio **collapses on
+premium and short names** — exactly the class the guards hold out — so the
+multiplier's failure mode is confined to names the model already refuses to price.
+
+### ⚠ And the fix exposed a THIRD defect, in the opposite direction
+
+Fixing the double discount made `vetzy.co.uk` — an invented brandable — jump
+**$325 → $6,250, a 19× rise**, and 962 rows moved up. That looked like a win and
+was not. Traced it: its block median is built on a `.com` basis, and the
+pets-vet pool was dominated by **proxy appraisals of single dictionary words the
+model refuses to price at all** — `felines.co.uk` $169,614, `veterinary.co.uk`
+$48,517, `bunnies.co.uk` $40,714. **This is HANDOFF §4's finding running
+backwards.** Median anchoring cannot tell premium from ordinary; with premium
+names absent from the pool it drags the best names DOWN, and with them present
+it drags ordinary names UP. Same defect, same cause, opposite sign.
+
+Fix: **the median pool is now built from SELLABLE stock only.** A median exists
+to price the ordinary names in a block, so it must be made of ordinary names —
+and a name held out because this appraiser cannot price its class must not be
+allowed to set its neighbours' price either. `vetzy.co.uk` returned to $325 and
+the movement fell to 410 up / 147 down / 1,874 unchanged.
+
+**The honest cost of that restriction, stated because it is a real loss:** the
+pool shrank, so 400 rows dropped from a sub-category median to a category or
+portfolio one. Sellable rows now read high 551 · medium 1,392 · low 438 ·
+very-low 48. That is not new ignorance, it is **disclosed** ignorance — those
+blocks never had three ordinary appraisals; they had three appraisals of names
+we would never sell. Re-anchoring them is what the remaining queue is for:
+**158 calls close all 99 under-covered blocks and re-anchor 555 domains.**
+
+While collapsing the pool rule and the pricing rule onto ONE definition
+(`hold_reason()`, so the two can never drift), the per-row chain lost its
+duplicate copy of the guards. That duplication was how the two guards came to
+carry a conditional the 4-letter-`.com` rule never had.
+
+### Smaller things
+
+- **All four untested TLDs are covered** (one probe call each): `.cv` 68,
+  `.ai` 2,093, `.us` 3,615, `.io` 1,309. Added to `DIRECT_TLDS`.
+- **My queue builder had the same class of bug it was written to prevent**: the
+  untested-TLD probe branch ran BEFORE the withdrawal check, so it spent a call
+  appraising `appleby.cv` — an owner-withdrawn family name. Status checks now
+  run first. A queue builder that can emit a withdrawn domain is exactly the
+  defect it exists to fix.
+- **`mieleonline.com` and `webuyanycarandvan.com` withdrawn by the owner**
+  (relayed by the sedo lane), closing open question 1 of §5d. This lane flagged
+  both as trademark-adjacent on 09-02; sedo has since confirmed a live US
+  trademark (USPTO 6011054) on "We Buy Any Car" covering online vehicle resale.
+- **Do not edit a running shell script.** Patching `run_appraisal_window.sh`
+  mid-window made bash resume at a shifted byte offset and die with a syntax
+  error the file does not have (`bash -n` passes). The queues had finished; only
+  the run's own duplicate check was lost, and I ran it by hand.

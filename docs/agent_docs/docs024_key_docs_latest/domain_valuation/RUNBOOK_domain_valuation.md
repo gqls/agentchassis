@@ -50,43 +50,85 @@ porkbun, nominet, spaceship, afternic). Replies arrive as
 
 ## Dynappraisal daily window (quota 300/day, 429 at the cap; any session may run)
 
-Sequence for each day until the estate is appraised (dynadot lane's script,
-their `956708e70` — reads the "domain" column BY HEADER NAME, so both files
-below feed it unchanged; a file with no domain column is refused):
+**Announce in the dynadot lane's channel before starting** — three lanes share
+one 300/day account and a collision is only ever discovered as a 429. Then:
 
-1. One non-Dynadot test call (answers whether Dynappraisal takes foreign
-   domains — unanswered as of 2026-09-02; 429-on-exhausted-quota is
-   inconclusive, only a fresh window answers it).
-2. `scripts/domains/dynadot-appraise-all.sh docs/agent_docs/docs024_key_docs_latest/domain_valuation/inbound/dynadot_domains_2026-09-02.csv docs/agent_docs/docs024_key_docs_latest/domain_valuation/inbound/dynadot_valuations_2026-09-02.csv`
-   (finishes the 151 Dynadot stragglers; idempotent — skips rows already present).
-3. If the test passed: same command with
-   `inbound/appraisal_priority_2026-09-03.csv` as input and the SAME output
-   file — appends, skips duplicates, financial/home-garden land top-down until
-   the day's 429. Reset timezone unstated; the first successful call dates the
-   window.
+    ./run_appraisal_window.sh <queue.csv> [more_queues.csv ...]
 
-## The appraisal queues (as of 2026-09-03 — 8 windows of work left)
+It takes an exclusive `flock` and refuses a second window, appends every queue in
+order to the cumulative `inbound/dynadot_valuations_2026-09-02.csv` (resume by
+skip, so a 429 is a clean stop), and prints a duplicate check at the end.
+`APPRAISAL_OUT=<path>` sends results elsewhere — use it for a PROBE whose
+subjects are not estate domains, which must never land in the estate file.
 
-588 of 2,945 owned domains appraised. Two queues, in this order, one 300/day
-window each. **Say in the dynadot lane's channel before starting a window** —
-three lanes share one 300/day account and a collision is only discovered as a
-429.
+⚠ **Do not call `dynadot-appraise-all.sh` directly and do not launch it with
+`nohup … &`.** Its resume is a `grep` of the output file immediately before the
+API call, so two copies double-spend the quota; that happened on 2026-09-04 when
+a shell retry started a second walker. ⚠ **And never `pkill -f` its name** — the
+pattern matches your own command line and kills the shell you typed it in. Use
+`pgrep -af "dynadot-apprais[e]-all"`. Both traps are in `LANDMINES.md`.
 
-1. `inbound/appraisal_queue_direct_2026-09-03.csv` — **1,482 rows**, appraise
-   the domain itself (.com/.net/.uk). Ordered financial → home-garden → … →
-   generic-word/misc, so a part-window still finishes whole high-value blocks.
-2. `inbound/appraisal_queue_proxy_2026-09-03.csv` — **875 rows** of
-   .co.uk/.org.uk/.me.uk, which Dynappraisal refuses. Appraise the
-   `proxy_domain` column (the .com string equivalent) and record the value
-   **against `domain`, marked as a proxy** — it measures the keyword in the
-   .com market, not the UK market, and must never be presented as a direct
-   appraisal.
+⚠ **Do not edit a shell script while it is running** (also 2026-09-04): bash
+reads the file incrementally, so the running copy resumes at a shifted byte
+offset and dies with a syntax error the file does not have. The queues had
+finished; only the run's own summary was lost.
 
-⚠ 12 domains on other TLDs (org, cv, vin, biz, ai, io) are untested — try one
-of each before queueing them.
+### Rebuilding the queues — a script now, and it matters
 
-Rebuild both queues after any window: they are derived from
-`WORKING_table.csv`, so they shrink as coverage grows.
+    python3 build_working_table.py      # joins every inbound source
+    python3 value_domains.py            # values + tiers + sale_status
+    python3 build_appraisal_queues.py   # queues, derived from those two
+
+**Run all three after every window.** `build_appraisal_queues.py` reads
+`sale_status` off the valuation rather than re-implementing the premium/keep
+rules, so an owner ruling reaches the queue the moment the valuation reflects it.
+Before it existed the instruction "rebuild the queues after each window" meant
+doing it by hand, so it did not happen, and on 2026-09-04 the standing queue led
+with 95 rows of a category the owner had ruled a whole-category KEEP nine hours
+after that queue was built, plus all 23 owner-withdrawn domains.
+
+Queue order is by **block leverage**, not category rank: `value_domains.py` needs
+3 appraisals in a sub-category block before it anchors on that block's median, so
+the first three calls in a block re-anchor every domain in it and the fourth
+changes almost nothing. `[MEASURED 2026-09-04]` 182 calls bring all 107
+under-covered sellable blocks to the threshold and re-anchor 694 domains.
+`appraisal_queue_LOW_held_*.csv` is held stock (network-keep, live sites) — real
+estate value, but it can never move a sale price, so it queues last and in its
+own file so the deprioritisation is visible rather than buried in a sort.
+
+### What the appraiser covers, and what it is actually measuring
+
+- ~~One non-Dynadot test call, to learn whether Dynappraisal takes foreign
+  domains.~~ **ANSWERED 2026-09-04 from data already on disk — do not spend a
+  call.** Of the 588 appraisals held that morning, **136 were for
+  Porkbun-registered (108) and Spaceship-registered (28) domains**. It appraises
+  any domain string, owned or not, at any registrar.
+- **TLDs PROVEN covered**, each by a real number returned: `.com` `.uk` `.net`
+  `.org` `.biz` `.club` `.info` `.shop`. **Proven NOT covered:** `.co.uk`
+  `.org.uk` `.me.uk` — HTTP 200 with `"$--"`, a real outcome rather than an
+  error, which is why those go through the `.com` proxy route. Untested as of
+  2026-09-04: `.cv` `.vin` `.ai` `.io` (4 domains; one probe call each, and
+  `build_appraisal_queues.py` emits them as their own file).
+- ⚠ **IT IS TLD-AWARE — it prices the actual domain in its actual TLD, NOT the
+  keyword.** `[MEASURED 2026-09-04]`, `inbound/PROBE_tld_results_2026-09-04.csv`,
+  15 calls appraising the same SLD in both TLDs: `ant.uk` $23,144 vs `ant.com`
+  **$8,208,882**; `design.uk` $23,558 vs `design.com` **$3,121,760**;
+  `healthcare.uk` $18,193 vs `healthcare.com` **$516,065**. If it were
+  keyword-driven those pairs would be equal.
+  **So a direct `.uk` appraisal is ALREADY a UK-market number and must not be
+  multiplied by the `.uk` TLD factor again** — that double discount was live in
+  `value_domains.py` until 2026-09-04 and cost ~5x (`effectiveness.uk`,
+  appraised $3,576, carried a $350 keen price). A PROXY appraisal is the opposite
+  case: it IS a `.com` value, so it does need the factor.
+- **The same probe corroborates the 0.21 `.uk` multiplier by a second,
+  independent route.** Across 11 ordinary names the appraiser's own `.uk`/`.com`
+  ratio is **0.115-0.185, median 0.165**, against the **0.21** derived from
+  realised UK sales in `COMPARABLES_2026-09-03_realised_sales.md` §1.3(c). Two
+  methods sharing no inputs agree, so 0.21 is sound and mildly generous. The
+  ratio **collapses on premium and short names** (`ant` 0.003, `design` 0.008,
+  `healthcare` 0.035) — exactly the class the `PREMIUM-REVIEW` guards hold out of
+  automatic pricing, so the multiplier's failure mode is confined to names the
+  model already refuses to price.
 
 ## Prior-conversation mining
 

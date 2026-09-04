@@ -112,6 +112,47 @@ def is_single_word(domain):
             and sld in _DICT)
 
 
+# TLD: .com is the liquid one; UK TLDs sell to a UK buyer only, and .uk trails
+# .co.uk in the UK market despite being shorter.
+# ⚠ .uk was 0.70 until 2026-09-03 — a GUESS, and wrong by 3-4x.
+# `[MEASURED]` COMPARABLES_2026-09-03_realised_sales.md §1.3(c), from realised
+# sales (domainlore.uk / domainsaleshistory.uk): a one-word commercial generic
+# realises £2,000-£5,000 in standalone .uk against £6,000-£35,000 for the .co.uk
+# equivalent — roughly a THIRD TO A FIFTH, tight across 2024 and 2025, on a
+# market ~20x thinner by volume. So .uk = 0.85 (co.uk) x 0.25 (midpoint) = 0.21.
+#
+# `[MEASURED 2026-09-04]` CORROBORATED by a second, independent method —
+# PROBE_tld_results_2026-09-04.csv, 15 calls appraising the same SLD in both
+# TLDs. Across 11 ORDINARY names the appraiser's own .uk/.com ratio lands in
+# 0.115-0.185, median 0.165, against the 0.21 these comps produced. Two methods
+# that share no inputs agree, so 0.21 is sound and mildly generous.
+# The ratio COLLAPSES on premium and short names (ant 0.003, design 0.008,
+# healthcare 0.035, refueller 0.094) — exactly the class the PREMIUM-REVIEW
+# guards below hold out of automatic pricing, so the multiplier's failure mode
+# is confined to names this model already refuses to price.
+TLD_MULT = {'com': 1.0, 'co.uk': 0.85, 'uk': 0.21, 'org.uk': 0.20,
+            'me.uk': 0.12, 'net': 0.55, 'org': 0.55, 'biz': 0.30,
+            'info': 0.30, 'io': 1.0, 'ai': 1.0, 'shop': 0.35,
+            'club': 0.30, 'cv': 0.25, 'vin': 0.25, 'us': 0.40}
+
+
+def tld_multiplier(tld):
+    return TLD_MULT.get(tld, 0.40)
+
+
+def com_basis(value, row):
+    """An appraisal re-expressed on a .com basis, so appraisals of different
+    TLDs can be pooled into one median. A PROXY appraisal already IS a .com
+    string's value; a DIRECT one is a value in its own TLD, so divide the TLD
+    factor back out. Validated on the same probe: dividing the .uk appraisal by
+    0.21 predicts the real .com appraisal within ~10-35% on ordinary names
+    (financial-adviser 3,014 vs 4,475; bacteriology 3,376 vs 4,327;
+    calculation 31,852 vs 39,135; catered 15,757 vs 17,839)."""
+    if row.get('appraisal_kind') == 'proxy':
+        return value
+    return value / tld_multiplier(row['tld'])
+
+
 def quality(row):
     """Return (multiplier, [reasons]). Multiplicative, each stated."""
     d = row['domain']
@@ -134,24 +175,6 @@ def quality(row):
     if re.search(r'\d', sld):
         m *= 0.80; why.append('digits -20%')
 
-    # TLD: .com is the liquid one; UK TLDs sell to a UK buyer only, and .uk
-    # trails .co.uk in the UK market despite being shorter.
-    # ⚠ .uk was 0.70 until 2026-09-03 — a GUESS, and wrong by 3-4x.
-    # `[MEASURED]` COMPARABLES_2026-09-03_realised_sales.md §1.3(c), from
-    # realised sales (domainlore.uk / domainsaleshistory.uk): a one-word
-    # commercial generic realises £2,000-£5,000 in standalone .uk against
-    # £6,000-£35,000 for the .co.uk equivalent — roughly a THIRD TO A FIFTH,
-    # tight across 2024 and 2025, on a market ~20x thinner by volume.
-    # So .uk = 0.85 (co.uk) x 0.25 (midpoint) = 0.21.
-    # The RATIO is evidence-based; the absolute .co.uk-to-.com level is still
-    # a judgement, so treat 0.85 as the softer of the two numbers.
-    tld_mult = {'com': 1.0, 'co.uk': 0.85, 'uk': 0.21, 'org.uk': 0.20,
-                'me.uk': 0.12, 'net': 0.55, 'org': 0.55, 'biz': 0.30,
-                'info': 0.30, 'io': 1.0, 'ai': 1.0, 'shop': 0.35,
-                'club': 0.30, 'cv': 0.25, 'vin': 0.25, 'us': 0.40}.get(tld, 0.40)
-    if tld_mult != 1.0:
-        m *= tld_mult; why.append(f'{tld} x{tld_mult}')
-
     if row['category'] in THIN_EVIDENCE:
         m *= 0.75; why.append('thin-demand category -25%')
 
@@ -159,6 +182,59 @@ def quality(row):
         m *= 0.50; why.append('trademark risk -50%')
 
     return m, '; '.join(why)
+
+
+def hold_reason(r):
+    """The reason this domain may never carry an automatic price, or None.
+
+    Hoisted out of the pricing loop on 2026-09-04 so that ONE definition serves
+    both the per-row decision and the median POOL below. Nothing here depends on
+    a value, so it can be evaluated before anchoring.
+    """
+    d = r['domain']
+    if r['registrar'].startswith('NOT-OWNED'):
+        return r['registrar']
+    if d in OWNER_FIGURES:
+        return 'OWNER-FIGURE:' + OWNER_FIGURES[d]['kind']
+    # ⚠ NOT conditional on lacking an appraisal -- that condition was on the
+    # single-word and short-name rules until 2026-09-04 and it made the guards
+    # DISARM THEMSELVES. The premium queues exist to appraise exactly these
+    # names, so the act of covering them stripped the hold and dropped the
+    # estate's best names into the algorithmic tail: 137 flipped inside one
+    # window, and the pre-fix code run against that day's data puts 129 of them
+    # into the sale list carrying $9,447,275 of automatic asking prices.
+    # The premise (an appraisal makes a premium name safe to price) is refuted
+    # by that same window. WITH a direct appraisal, free.uk prices at ~$8,600
+    # against the ~£160,000 its sibling free.co.uk realised -- ~4% of a known
+    # real figure -- while at the other extreme the model would ask $4,190,000
+    # for ant.co.uk. An appraisal moves this class from unpriceable to
+    # CONFIDENTLY wrong, in either direction. Held regardless.
+    if is_single_word(d):
+        return 'PREMIUM-REVIEW:single-word'
+    # OWNER RULE 2026-09-03: "4 letters with vowels or vaguely pronounceable
+    # with e.g. y's are worth good money." A scarcity class the model cannot
+    # see -- it priced ipry.com at $1,650 keen while the owner rejected a €150
+    # offer on it as far too low. This rule was ALREADY unconditional, and the
+    # other two were brought into line with it.
+    if (r['tld'] == 'com' and int(r['sld_length']) == 4
+            and d.split('.')[0].isalpha()
+            and set('aeiouy') & set(d.split('.')[0])):
+        return 'PREMIUM-REVIEW:4-letter-com'
+    # Short names, same scarcity argument: the model priced 2w.uk / 4l.uk /
+    # 5s.uk at the $200 floor against realised .uk sales of tp.uk £5,200,
+    # fpp.uk £3,500, va.uk £3,300, egg.uk £2,000 (COMPARABLES §1.3c).
+    if int(r['sld_length']) <= 3:
+        return 'PREMIUM-REVIEW:short-name'
+    if r['category'] in NETWORK_KEEP:
+        return 'KEEP:network-' + r['category']
+    # Owner-ruled quote-together group: a standalone price for one of these is
+    # the exact mistake the ruling exists to prevent, so the model refuses to
+    # produce one rather than producing one with a caveat a consumer may skip.
+    if r.get('quote_with'):
+        return 'QUOTE-AS-PAIR:' + r['quote_with']
+    if r.get('keep_override'):
+        return 'KEEP:' + r['keep_override']
+    return None
 
 
 def main():
@@ -169,12 +245,32 @@ def main():
     def med(vals):
         return statistics.median(vals) if vals else None
 
+    # Medians are pooled on a .com BASIS. Before 2026-09-04 they pooled raw
+    # appraisals, which mixed .com values with .uk values ~6x smaller and then
+    # applied a TLD discount to whatever inherited the median — so a block's
+    # anchor moved with the TLD MIX of the few names that happened to be
+    # appraised, not with the block.
     sub_med, cat_med = {}, {}
     by_sub, by_cat = collections.defaultdict(list), collections.defaultdict(list)
+    # ⚠ POOL = SELLABLE STOCK ONLY (added 2026-09-04). A median exists to price
+    # the ordinary names in a block, so it must be built from ordinary names.
+    # Held-out names are held precisely because this appraiser cannot price
+    # their class, and their appraisals are outliers in BOTH directions — so
+    # letting them set a block's anchor propagates the error sideways onto the
+    # neighbours instead of containing it.
+    # The worked case: pets-vet/general's .com-basis median came out at $11,978,
+    # set by proxy appraisals of felines.co.uk ($169,614), bunnies.co.uk
+    # ($40,714) and veterinary.co.uk ($48,517) — three single dictionary words
+    # the model refuses to price at all. That median priced vetzy.co.uk, an
+    # invented brandable, at a $6,250 keen price. It is the mirror image of the
+    # failure in HANDOFF §4: median anchoring cannot tell premium from ordinary,
+    # so it drags premium names DOWN and, once premium names are in the pool,
+    # ordinary ones UP.
     for r in rows:
-        if r['domain'] in appr:
-            by_sub[(r['category'], r['subcategory'])].append(appr[r['domain']])
-            by_cat[r['category']].append(appr[r['domain']])
+        if r['domain'] in appr and hold_reason(r) is None:
+            v = com_basis(appr[r['domain']], r)
+            by_sub[(r['category'], r['subcategory'])].append(v)
+            by_cat[r['category']].append(v)
     for k, v in by_sub.items():
         if len(v) >= 3: sub_med[k] = med(v)
     for k, v in by_cat.items():
@@ -184,79 +280,54 @@ def main():
     out = []
     for r in rows:
         d = r['domain']
+        # `apply_tld` says whether the anchor still needs converting into this
+        # domain's TLD. Every anchor is on a .com basis EXCEPT a direct
+        # appraisal of this very domain, which the appraiser already priced in
+        # its own TLD.
         if d in appr and r.get('appraisal_kind') == 'proxy':
             # The .com equivalent's value, applied to a UK name. The TLD
-            # multiplier below already discounts it to the UK market, but the
-            # keyword itself may be worth more or less here than in .com, so
-            # this never counts as a direct measurement.
+            # multiplier discounts it to the UK market, but the keyword itself
+            # may be worth more or less here than in .com, so this never counts
+            # as a direct measurement.
             anchor, src, conf = appr[d], f'proxy-via-{r.get("appraisal_proxy_domain","?")}', 'medium'
+            apply_tld = True
         elif d in appr:
+            # ⚠ NO TLD MULTIPLIER HERE, and that is the fix of 2026-09-04.
+            # Dynappraisal is TLD-AWARE: it prices the actual domain in its
+            # actual TLD, so a .uk appraisal is ALREADY a .uk-market number and
+            # discounting it again by 0.21 was a ~5x double discount.
+            # `[MEASURED]` PROBE_tld_results_2026-09-04.csv — the same SLD in
+            # both TLDs: ant.uk 23,144 vs ant.com 8,208,882; design.uk 23,558 vs
+            # design.com 3,121,760; healthcare.uk 18,193 vs healthcare.com
+            # 516,065. If it were keyword-driven those pairs would be equal.
+            # What this cost: effectiveness.uk, appraised 3,576, carried a $350
+            # keen price — 3,576 x 0.21 x 0.45.
             anchor, src, conf = appr[d], 'own-appraisal', 'high'
+            apply_tld = False
         elif (r['category'], r['subcategory']) in sub_med:
             anchor, src, conf = sub_med[(r['category'], r['subcategory'])], 'subcategory-median', 'medium'
+            apply_tld = True
         elif r['category'] in cat_med:
             anchor, src, conf = cat_med[r['category']], 'category-median', 'low'
+            apply_tld = True
         else:
             anchor, src, conf = global_med, 'portfolio-median', 'very-low'
+            apply_tld = True
 
         mult, why = quality(r)
+        if apply_tld:
+            tm = tld_multiplier(r['tld'])
+            if tm != 1.0:
+                mult *= tm
+                why = (why + '; ' if why else '') + f'{r["tld"]} x{tm}'
+        else:
+            why = (why + '; ' if why else '') + 'direct appraisal in own TLD (no TLD factor)'
         value = anchor * mult
         # A withdrawn or live-site name still gets a value (the owner may want
         # to know what he is holding) but can never be priced for sale.
-        # A domain we do not own can never be priced, listed or counted as
-        # stock — checked FIRST, because it outranks every other reason.
-        if r['registrar'].startswith('NOT-OWNED'):
-            keen_out, sell = '', r['registrar']
-        elif d in OWNER_FIGURES:
-            f = OWNER_FIGURES[d]
-            keen_out, sell = '', 'OWNER-FIGURE:' + f['kind']
-        elif is_single_word(d):
-            # ⚠ NOT conditional on lacking an appraisal -- that condition was
-            # here until 2026-09-04 and it made the guard DISARM ITSELF.
-            # The premium queues exist to appraise exactly these names, so the
-            # act of covering them stripped the hold and dropped them into the
-            # algorithmic tail: measured that day, 61 of the 150 conditional
-            # holds had already flipped part-way through one window.
-            # The premise (an appraisal makes a premium name safe to price)
-            # is refuted by the same window's data. WITH a direct appraisal:
-            #   healthcare.uk  $18,193 x 0.21 (.uk) = $3,820 -> keen ~$1,925,
-            #                  against the £40,000 (~$50,800) the owner PAID;
-            #   free.uk        $67,926 x 0.21       = $14,264 -> keen ~$8,600,
-            #                  against ~£160,000 (~$203,000) realised by its
-            #                  sibling free.co.uk.
-            # Both land near 4% of a known real figure, so an appraisal moves
-            # this class from unpriceable to confidently wrong. Held either way.
-            keen_out, sell = '', 'PREMIUM-REVIEW:single-word'
-        elif (r['tld'] == 'com' and int(r['sld_length']) == 4
-              and d.split('.')[0].isalpha()
-              and set('aeiouy') & set(d.split('.')[0])):
-            # OWNER RULE 2026-09-03: "4 letters with vowels or vaguely
-            # pronounceable with e.g. y's are worth good money." A recognised
-            # scarcity class the model cannot see — it was pricing ipry.com at
-            # $1,650 keen while the owner rejected a €150 offer on it as far
-            # too low. Held out whether or not an appraisal exists, because the
-            # appraiser is measurably low on this class too.
-            keen_out, sell = '', 'PREMIUM-REVIEW:4-letter-com'
-        elif int(r['sld_length']) <= 3:
-            # Short names are a SCARCITY class the model cannot see: it was
-            # pricing 2w.uk / 4l.uk / 5s.uk at the $200 floor, against realised
-            # .uk sales of tp.uk £5,200, fpp.uk £3,500, va.uk £3,300, egg.uk
-            # £2,000 (COMPARABLES §1.3c). Held out like the dictionary words --
-            # and, since 2026-09-04, held whether or not an appraisal exists,
-            # for the reason given on the single-word branch above.
-            keen_out, sell = '', 'PREMIUM-REVIEW:short-name'
-        elif r['category'] in NETWORK_KEEP:
-            keen_out, sell = '', 'KEEP:network-' + r['category']
-        elif r.get('quote_with'):
-            # Owner-ruled quote-together group: a standalone price for one of
-            # these is the exact mistake the ruling exists to prevent, so the
-            # model refuses to produce one rather than producing one with a
-            # caveat attached that a consumer may not read.
-            keen_out, sell = '', 'QUOTE-AS-PAIR:' + r['quote_with']
-        elif r.get('keep_override'):
-            keen_out, sell = '', 'KEEP:' + r['keep_override']
-        else:
-            keen_out, sell = None, 'tbd'
+        # ONE definition, in hold_reason() above, shared with the median pool.
+        held = hold_reason(r)
+        keen_out, sell = ('', held) if held else (None, 'tbd')
         for tier, floor, keen_frac in TIERS:
             if value >= floor:
                 break

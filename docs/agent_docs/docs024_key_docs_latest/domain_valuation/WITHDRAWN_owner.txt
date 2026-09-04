@@ -55,3 +55,13 @@ leopardessconsulting.co.uk
 # 2026-09-03 — owner withdrawal, no reason stated; this lane had already flagged
 # it as trademark-adjacent (Rolex Submariner) on 2026-09-02.
 rolex-submariners.com
+
+# 2026-09-04 — owner withdrew both, relayed via the sedo lane. This lane had
+# flagged both as trademark-adjacent on 2026-09-02 and raised them as open
+# question 1 in HANDOFF_2026-09-04 §5d; that question is now answered.
+# webuyanycarandvan.com was the sharper of the two — a brand-extension
+# construction of a major UK company — and the sedo lane has since confirmed a
+# live US trademark (USPTO 6011054, 2020, plus an earlier 2013 registration)
+# covering online vehicle resale, i.e. the exact category.
+mieleonline.com
+webuyanycarandvan.com

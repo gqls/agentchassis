@@ -46,7 +46,10 @@ TODAY = datetime.date.today().isoformat()
 # (2026-09-04: com 577, uk 4, net 2, org/biz/club/info/shop 1 each -- every one
 # returned a real number). .co.uk/.org.uk/.me.uk are proven NOT covered: they
 # answer HTTP 200 with "$--", which is a real outcome, not an error.
-DIRECT_TLDS = {'com', 'net', 'uk', 'org', 'biz', 'club', 'info', 'shop'}
+DIRECT_TLDS = {'com', 'net', 'uk', 'org', 'biz', 'club', 'info', 'shop',
+               # added 2026-09-04, each proved by a probe call returning a real
+               # number: cv 68, ai 2,093, us 3,615, io 1,309.
+               'cv', 'ai', 'us', 'io'}
 PROXY_TLDS = {'co.uk', 'org.uk', 'me.uk'}
 # Everything else is untested -- one probe call each before it may be queued.
 
@@ -102,6 +105,22 @@ def main():
         tld = r['tld']
         rec = dict(domain=r['domain'], category=r['category'],
                    subcategory=r['subcategory'])
+        # ⚠ Status FIRST, TLD routing second. These were the other way round in
+        # the first cut on 2026-09-04 and it spent a call appraising
+        # `appleby.cv` -- an owner-WITHDRAWN family name -- because the probe
+        # branch ran before the withdrawal check. A queue builder that can emit
+        # a withdrawn domain is the exact defect this script exists to fix.
+        if st.startswith('NOT-OWNED') or st.startswith('OWNER-FIGURE'):
+            continue                          # not ours / already has a real number
+        if st == 'KEEP:owner-withdrawn':
+            # An owner withdrawal is not a pricing hold, it is "this is not
+            # stock". There is nothing to learn from valuing it and the quota is
+            # shared and scarce, so it never enters ANY queue -- not even the
+            # held-stock one, which exists for names he still owns AS stock.
+            # Several are family names; spending his own shared quota appraising
+            # them would be wrong quite apart from the waste.
+            continue
+
         if tld in PROXY_TLDS:
             rec['proxy_domain'] = r['domain'].split('.')[0] + '.com'
             proxyish = True
@@ -114,8 +133,6 @@ def main():
                 probe.append(rec)
             continue
 
-        if st.startswith('NOT-OWNED') or st.startswith('OWNER-FIGURE'):
-            continue                          # not ours / already has a real number
         if st.startswith('KEEP'):
             rec['reason'] = st                # network-keep or live site
             low.append(rec)
