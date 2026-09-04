@@ -44,6 +44,16 @@ BEGIN
   SELECT default_config->'workflow'->'steps'->'send_email'->'config'->>'body_template'
     INTO tpl FROM agent_definitions WHERE type='delivery-email-sender' AND is_active
      AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+  -- ⚠ ASSERT THE VALUE EXISTS BEFORE COMPARING IT. `position(x in NULL)` is NULL,
+  -- and `NULL = 0` is NULL, not TRUE — so every check below is INERT against the
+  -- one disaster they exist to catch: a write that leaves the template NULL. The
+  -- verify would pass and the migration would commit, reporting success over a
+  -- destroyed customer-facing email. Proven by mutation 2026-09-04 against this
+  -- exact predicate; and this is the second time in two days the estate has hit
+  -- it (the 761 lane, c68932577, whose verify read `NULL <> 21`).
+  IF tpl IS NULL THEN
+    RAISE EXCEPTION '776 ROLLBACK VERIFY: body_template is NULL — the restore DESTROYED it';
+  END IF;
   IF position('so we stop reminding you' in tpl) = 0 THEN
     RAISE EXCEPTION '776 ROLLBACK VERIFY: the original clause was not restored';
   END IF;
