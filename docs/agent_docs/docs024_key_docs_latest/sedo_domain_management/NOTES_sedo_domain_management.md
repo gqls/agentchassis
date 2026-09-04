@@ -1014,3 +1014,35 @@ the new path leaves the old one duplicated forever).
 **Draft11 = 2,942 − 2 = 2,940**. Verified: 2,941 `<row` = header + 2,940;
 both domains confirmed absent by direct grep; whole-file diff against
 draft10 shows exactly those two rows removed, nothing else changed.
+
+## 2026-09-04 (later) — informational only: domain_valuation's pricing model had 3 defects, all fixed today, no action needed here
+
+No sheet impact — every domain in every draft this lane has built stays
+blank on price/minimum regardless of the valuation lane's own numbers
+(RUNBOOK §9: Sedo floors come only from the owner directly or an agreed
+conversation, never a derived figure — the reason this lane is immune to
+this class of bug by construction). Recorded anyway because it matters
+to the "still waiting on `OUTPUT_prices`" item in the HANDOFF, and
+because the near-miss is worth knowing about before trusting whatever
+that file eventually contains.
+
+Three defects in `value_domains.py`, all found and fixed same day:
+1. Two of four "premium name" guards were written to hold a name back
+   only WHILE it had no appraisal — so running the appraisal queue
+   switched them off, one name at a time (137 flipped in one window).
+   Undetected, this would have put 129 premium names on the sale list
+   carrying **$9,447,275** of automatic asking prices. Guards are now
+   unconditional.
+2. Dynappraisal prices the domain in its ACTUAL TLD already — the model
+   was additionally applying a `.uk` discount factor on top of an
+   appraisal that already had it baked in, a ~5× double discount.
+3. Fixing (2) exposed a second bug: block medians were being built
+   from proxy appraisals of premium names the model refuses to price,
+   inflating ordinary-name medians. Medians now come from sellable
+   stock only.
+
+Net effect on their model: 410 rows repriced up, 147 down, 1,874
+unchanged. Their own explicit statement, worth repeating verbatim
+since it's the operative line for this lane: **"Nothing here touches
+Sedo minimums — those stay blank under his ruling, and none of this is
+a reason to revisit that."**

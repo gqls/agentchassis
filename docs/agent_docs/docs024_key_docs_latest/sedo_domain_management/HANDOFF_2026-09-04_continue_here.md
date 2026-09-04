@@ -110,14 +110,28 @@ remove the owner as the transport for every future change.
 
 **Pricing for the ORDINARY portfolio** (not the live-sites tier, which
 has its own settled policy above): still waiting on the domain_valuation
-lane's `OUTPUT_prices_<date>.csv`. Two live constraints on that work,
-both already relayed to them, no action needed from this lane: (1)
+lane's `OUTPUT_prices_<date>.csv`. Live constraints on that work, all
+already relayed to them, no action needed from this lane: (1)
 `cartoon.co.uk` has a real owner-stated floor (paid over £5,000 — "don't
 underprice that one") that must be honoured; (2) the valuation lane
 discovered NO domain in this estate has its acquisition cost recorded
 anywhere, so the "keen bottom-500" pricing plan has an unbounded
 underpricing risk for anything bought at real cost, not just
-cartoon.co.uk — they're addressing this with the owner directly.
+cartoon.co.uk — they're addressing this with the owner directly; (3)
+their own pricing model (`value_domains.py`) carried three real defects,
+fixed 2026-09-04 — worth knowing before trusting whatever `OUTPUT_prices`
+eventually contains, since the near-miss was real: two "hold back
+premium names with no appraisal" guards silently switched OFF once an
+appraisal existed, which would have put 129 premium names on a sale list
+at **$9,447,275** of bad automatic asking prices had it shipped
+undetected; a TLD-double-discount bug was under-pricing `.uk` names
+~5×; and block medians were being inflated by proxy appraisals of names
+the model refuses to price. All fixed same day, 410 rows repriced up,
+147 down. **None of this touches Sedo — minimums stay blank under the
+owner's ruling regardless of what their model says** (this lane is
+immune to this whole bug class by construction, RUNBOOK §9), but it's
+the reason to actually read their next price file rather than trust it
+blind the first time it lands.
 
 ## Mechanics reference (don't re-derive, just use)
 
