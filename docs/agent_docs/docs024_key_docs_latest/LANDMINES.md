@@ -23295,6 +23295,30 @@ and footprinted on `build provenance`, so a session grepping the chassis logs fo
   ```
   If the second returns nothing, the row has pruned and the answer is not in the system. **Do not
   fall back to `sites.email`** — that is the trap, not the fallback.
+> ## ✅ FIXED 2026-09-04 14:50Z — the recipient now has a durable home. THE `sites.email` TRAP BELOW STILL STANDS.
+>
+> The `bugs_open/477` lane built it the same afternoon: migration **`778`** adds **`site_deliveries`**
+> (`site_id`, `delivered_to`, `delivered_at`, `recorded_by`), written in the **same statement** that
+> claims the handover — a CTE on `StampHandover`'s claim, selecting from the rows the claim won — so
+> the record cannot exist without the delivery and no follow-on write can be lost. `StampHandover`
+> now **refuses an empty recipient outright** (`handover.go:173`), making a handover with no known
+> customer unrepresentable rather than discouraged. Council-approved `62a99103`; the architecture
+> seat ruled `point_fix`, so no RFC.
+>
+> **`idea.uk`'s address was captured with hours to spare** and verified here independently:
+> `aaa@designconsultancy.co.uk`, delivered `2026-09-03 19:30:31Z`, `recorded_by =
+> backfill-orchestration-states-778`. The source orchestration row had **not** pruned at 15:0xZ, so
+> the backfill won the race rather than reconstructing from documentation.
+>
+> **WHAT THIS ENTRY IS STILL FOR, and why it is corrected rather than deleted:** `sites.email` is
+> unchanged and still answers the wrong question. It remains the PUBLISHED contact — for `idea.uk`,
+> still `idea.uk@contactforsales.com` — so a reader who reaches for the obvious column still gets a
+> populated, well-formed, wrong address with no NULL to warn them. **The right column is now
+> `site_deliveries.delivered_to`.** The trap did not go away; it acquired a correct answer to point at.
+>
+> ⚠ **Retention is elastic, not a constant.** This entry said "~25 hours" from one measurement; a
+> second reading gave **1 day 02:39**. Treat it as "about a day, and do not plan around the tail".
+
 - **the known recipients, recorded here because the rows expire:** `idea.uk` (handed over
   2026-09-03 19:30:31Z) was delivered to the owner's own address, `aaa@designconsultancy.co.uk`, in
   an owner-authorised rehearsal. It is the only delivery in the estate's history as of 2026-09-04.
