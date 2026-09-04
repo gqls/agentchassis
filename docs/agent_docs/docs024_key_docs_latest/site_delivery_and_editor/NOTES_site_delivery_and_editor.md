@@ -1671,3 +1671,40 @@ the hour. Needs the code fix + rebuild; no re-render clears it.
    that is correct. **The defect shape is a trailing SITE/CATEGORY name after a separator**, so
    anchor it: `\s[|\-–—:]\s*(boxing online|fight calendar|news|guides|…)\s*$`. Logged to LANDMINES —
    the seven checks are a procedure other sessions will re-run, and this fires on a correct page.
+
+## 2026-09-04 (morning) — the edits survived an overnight republish, and three monitors lied in three different ways
+
+**Re-verified at the artefact, 07:41:20Z.** The page republished overnight (lm `Fri, 04 Sep 2026
+03:46:12 GMT`, was 17:32:30Z) and the owner's two approved copy edits survived it: his line present,
+`calendar below` 0, rendered `cta-subtitle` elements 0 with no empty `<p>`, excerpts 6, suffix 0,
+both liveness controls non-zero. **A republish is exactly when a source-regenerated fix quietly
+reverts**, so this is worth having as a dated second observation rather than resting on last night's.
+
+### Three monitor signals, three failure modes, none of them findings
+
+Every one looked like a result. None survived a check at the artefact. Recording them together
+because the shapes are different and the remedy is the same.
+
+1. **My `zip-link-refresher` detector: a race between a START signal and a FINISH signal.** It
+   compared `last_triggered_at` (written when work begins) against the URL fingerprint (changes when
+   work ends) at one instant, and reported "FIRED AND DID NOTHING" during a 38-second run that was
+   working. Already in `WRONG_CALLS.md` 2026-09-03(c). **A detector with two inputs needs its inputs
+   to be about the same moment.**
+2. **The older served-page monitor, 22:07:24Z: all zeros, and every one a lie.** `edit2=DBERR`,
+   `served lm=ERR`, `your line=0`, `decks=0`. Read as a finding it says the page collapsed. Read
+   properly it says the instrument failed: **both controls were ERR, and a check whose controls fail
+   is BLIND, never clean.** `decks=0` is the tell — that value has no business being 0 whatever the
+   page says, so a zero there is a statement about the fetch, not the site. It reported normally
+   again at 07:41.
+3. **The same monitor's `cta-subtitle els=1`, on every single publish, for ever.** Not transient and
+   not blind — just counting the wrong thing. The page carries that string twice: the rendered
+   `<p class="cta-subtitle">` and the CSS rule `.cta-subtitle{}` that styles it. The rule survives
+   the edit, so a bare count reads 1 permanently. The correct needle is `class="cta-subtitle"`, with
+   the bare count kept as the liveness control. **A check that is wrong in a fixed direction is worse
+   than one that is flaky**, because it trains its reader to discount it, and then it is ignored on
+   the day it is right.
+
+**What caught all three: not trusting a monitor's headline.** Each time the next action was to fetch
+the artefact or read the orchestration state before repeating the signal. That habit is the entire
+reason none of these reached the owner as a finding — and (1) was mine, so the habit is not optional
+for one's own instruments either.

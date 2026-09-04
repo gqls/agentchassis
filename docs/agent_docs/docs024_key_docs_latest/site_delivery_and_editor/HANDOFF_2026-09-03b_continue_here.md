@@ -93,7 +93,7 @@ fixed and `475` has the owner's ruling and draft copy. Fleet on **v1.0.1359**.
 
 | item | evidence |
 |---|---|
-| **the owner's two approved copy edits** | served `/index.html` lm **17:32:30Z**: his verbatim line present ×1, old subtitle gone, `calendar below` = 0, **rendered `cta-subtitle` elements = 0** with no empty `<p>`, excerpts = 6, `\| Boxing Online` = 0 |
+| **the owner's two approved copy edits** | ✅ **re-verified 2026-09-04 07:41Z after an overnight republish** (lm `04 Sep 03:46:12Z`) — all seven checks still pass, so they survived a regeneration. Originally: served `/index.html` lm **17:32:30Z**: his verbatim line present ×1, old subtitle gone, `calendar below` = 0, **rendered `cta-subtitle` elements = 0** with no empty `<p>`, excerpts = 6, `\| Boxing Online` = 0 |
 | **`bugs_open/466`** | fixed, 9 tests, **10 mutations across 4 council rounds all killed**, APPROVED `d04c1bc1`. ⚠ **committed, NOT live** |
 | **`bugs_open/474`** | filed AND fixed same hour; migration `751` applied by hand, verified by independent re-read |
 | **the `651` dispatch recipe** | corrected; the envelope that actually lands is proven (§5) |
