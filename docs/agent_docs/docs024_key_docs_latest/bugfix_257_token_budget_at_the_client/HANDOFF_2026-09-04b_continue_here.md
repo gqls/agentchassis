@@ -69,7 +69,26 @@ Both are in `LANDMINES.md`, with two more from this round.
 
 ## 4. WHAT IS OUTSTANDING
 
-### 4a. TWO LIVE CONFIG PROBES ARE ARMED AND MUST BE REVERTED ⚠
+### 4a. ~~TWO LIVE CONFIG PROBES ARE ARMED AND MUST BE REVERTED~~ ✅ DONE — both fired, both reverted
+
+> **RESOLVED 2026-09-04, same session.** Both probes fired and both are disarmed. Nothing outstanding here.
+>
+> | probe | post-arm calls | sent | control (same step, same day, pre-arm) |
+> |---|---|---|---|
+> | `page-content-writer` `…rewrite_negations` | **50** across 6 loop iterations | **all 15999** | **182 calls, all 16000** |
+> | `offer-analyser` `repair_ordering_register` | **2** | **all 1999** | configured 2000 |
+>
+> **Round 2 is live on `v1.0.1360`, proven first-hand rather than by ancestry.** The `offer-analyser`
+> probe closes §2c's hole: 2000 was both its configured value and the old Go literal, so that call site
+> could never be checked before; 1999 broke the tie and it read 1999.
+>
+> Reverted and verified TWICE — the config no longer carries the key, and
+> `scripts/audit-budget-placement.sh` no longer reports the two `ambiguous` findings the probes created,
+> which is an independent instrument confirming the disarm rather than a re-read of my own write.
+>
+> The original text is kept below because the METHOD is reusable — read it if you need to re-arm.
+
+#### The method, kept for re-use
 
 They are harmless (one token of difference each) but they are live production config and they will sit
 there until someone acts.
@@ -107,7 +126,10 @@ discriminating.**
 **Round 1 came back REVISE and no seat objected to the change.** `decided_by` read
 `"unreadable reviewer(s): …"` — **8 of 12 seats returned unparseable output, 4 abstained**, leaving four
 readable verdicts of which **two were APPROVE** (constitution, mission). Round 2 was resubmitted on the
-same trail at 11:34Z with every readable objection answered.
+same trail at 11:34Z with every readable objection answered. ⚠ **As of ~14:40Z its report had NOT
+landed** — the seats ran (46 `council-gate` calls after dispatch) but no `council_report` row exists,
+and no council report has been written fleet-wide since 11:28Z. Treat round 2 as PENDING or possibly
+STALLED; re-run the query below before assuming either.
 
 ```sql
 SELECT metadata->>'decision', body::jsonb->>'decided_by', body::jsonb->>'unreadable'
@@ -136,6 +158,24 @@ no amend. If it revised again: the objections are in the same row.
    `scripts/audit-budget-placement.sh` and expect the **3** `non_canonical` findings to become **0**.
 
 **Then `bugs_open/257` can close**: its bar is *fixed AND live*, and at that point both halves are.
+
+## 4d. One open question a peer handed us — the client-side half of the `budget_tokens` 400
+
+`anthropic.go` emits `thinking:{type:enabled,budget_tokens:N}` on the presence of a positive value, and
+round 3 wired that key to the full six-level ladder. That shape is a **400 on `claude-sonnet-5` and
+`claude-opus-4-8`** — 88 of 176 model declarations across 22 agents.
+
+**Guarded, not fixed** (`22ba668dd`): `aiservice.AcceptsThinkingBudget` + a parity test + a
+`thinking_unsupported` arm in the report. **Live exposure is ZERO** (two independent encodings), so
+nothing is broken today — this is a trap armed for the first operator to declare the key.
+
+⚠ **The rule is NOT blanket, and that is why the reader was not changed**: `claude-sonnet-4-6` /
+`claude-opus-4-6` still accept it (deprecated), and **`claude-haiku-4-5` REQUIRES it** — 32 model
+declarations across 24 live agents. A guard that simply dropped the key would break those.
+
+**The open question:** should the client refuse, drop-with-warning, or keep returning the 400? Dropping
+silently would be this bug's own defect class — a configured key nothing reads. Not decided; the
+predicate is in place so it can be, without a second model list. Council `47ea9498`.
 
 ## 5. What is deliberately NOT done, and should stay that way unless the owner says otherwise
 
